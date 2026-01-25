@@ -1,1 +1,16 @@
 *.html
+# pkgdown
+docs
+
+# RStudio files
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# Mac files
+.DS_Store
+
+# R check
+*.Rcheck/

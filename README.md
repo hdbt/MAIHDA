@@ -1,4 +1,5 @@
-# MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy
+# MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy  <img src="man/figures/logo.png" align="right" height="139" alt="" />
+
 [![R-CMD-check](https://github.com/hdbt/MAIHDA/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/hdbt/MAIHDA/actions/workflows/R-CMD-check.yaml)
 [![R](https://img.shields.io/badge/R-%3E%3D3.5.0-blue)](https://www.r-project.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -172,7 +173,7 @@ print(pvc_result)
 pvc_boot <- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 1000)
 print(pvc_boot)
 
-# Interpretation: A PVC of 0.25 means that model2 explains 25% of the 
+# Interpretation: A PVC of 0.25 means that model2 explains 25% of the
 # between-stratum variance that was present in model1
 ```
 
