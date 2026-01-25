@@ -12,10 +12,10 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 ## Key Features
 
 - **Create Intersectional Strata**: Automatically generate strata from multiple categorical variables
-- **Flexible Model Fitting**: Support for both lme4 and brms (Bayesian) engines
-- **Comprehensive Summaries**: Variance partition coefficients (VPC/ICC) and stratum-specific estimates
+- **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
+- **Summaries**: Variance partition coefficients (VPC/ICC) and stratum-specific estimates
 - **Multiple Prediction Types**: Individual-level and stratum-level predictions
-- **Rich Visualizations**: Caterpillar plots, VPC visualizations, Prediction plots and observed vs. shrunken estimates
+- **Visualizations**: Caterpillar plots, VPC visualizations, Prediction plots and observed vs. shrunken estimates
 - **Model Comparison**: Compare models with bootstrap confidence intervals for VPC/ICC
 - **Proportional Change in Variance (PVC)**: Quantify how much between-stratum variance is explained by additional predictors
 
