@@ -31,5 +31,5 @@ Suggests:
     boot (>= 1.3-20)
 RoxygenNote: 7.3.3
 VignetteBuilder: knitr
-URL: https://github.com/hdbt/MAIHDA
+URL: https://github.com/hdbt/MAIHDA, https://hdbt.github.io/MAIHDA/
 BugReports: https://github.com/hdbt/MAIHDA/issues
