@@ -1,11 +1,14 @@
 ## Test environments
-* local R installation, R 4.3.3
-* ubuntu 22.04 (on GitHub Actions), R 4.3.3
-* win-builder (devel and release)
+
+* local: R 4.3.3
+* GitHub Actions (ubuntu-latest): R-devel, R-release, R-oldrel-1
+* GitHub Actions (windows-latest): R-release
+* GitHub Actions (macos-latest): R-release
+* win-builder: R-devel, R-release
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes
+0 errors | 0 warnings | 3 notes
 
 * This is a new release.
 
