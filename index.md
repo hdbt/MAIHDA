@@ -244,9 +244,7 @@ This project is licensed under the MIT License - see the
 
 If you use this package in your research, please cite:
 
-      Bulut (2025). MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy
-    R package version 0.1.3
-      https://github.com/hdbt/MAIHDA
+    Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.0, https://github.com/hdbt/MAIHDA
 
     A BibTeX entry for LaTeX users is:
 
@@ -254,6 +252,6 @@ If you use this package in your research, please cite:
       title  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},
       author = {Hamid Bulut},
       year   = {2025},
-      note   = {R package version 0.1.3},
+      note   = {R package version 0.1.0},
       url    = {https://github.com/hdbt/MAIHDA}
     }
