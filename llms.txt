@@ -198,7 +198,7 @@ print(pvc_result)
 pvc_boot <- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 1000)
 print(pvc_boot)
 
-# Interpretation: A PVC of 0.25 means that model2 explains 25% of the 
+# Interpretation: A PVC of 0.25 means that model2 explains 25% of the
 # between-stratum variance that was present in model1
 ```
 
