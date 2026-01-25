@@ -1,0 +1,185 @@
+---
+title: "Introduction to MAIHDA"
+author: "MAIHDA Package Authors"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to MAIHDA}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+The MAIHDA package provides tools for conducting Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy (MAIHDA). This approach is particularly useful for examining intersectional inequalities in health and other outcomes by considering the joint effects of multiple social categories.
+
+## Installation
+
+You can install the development version of MAIHDA from GitHub:
+
+```{r eval=FALSE}
+# install.packages("devtools")
+devtools::install_github("hdbt/MAIHDA")
+```
+
+## Basic Workflow
+
+The typical MAIHDA workflow consists of the following steps:
+
+1. Create intersectional strata from multiple categorical variables
+2. Fit a multilevel model with stratum as a random effect
+3. Summarize the model with variance partitioning
+4. Make predictions at individual or stratum level
+5. Visualize the results
+
+## Example Analysis
+
+### Step 1: Create Strata
+
+First, we create intersectional strata from multiple social categories:
+
+```{r eval=FALSE}
+library(MAIHDA)
+
+# Example dataset
+data <- data.frame(
+  gender = sample(c("Male", "Female"), 1000, replace = TRUE),
+  race = sample(c("White", "Black", "Hispanic"), 1000, replace = TRUE),
+  age = rnorm(1000, 50, 10),
+  health_outcome = rnorm(1000, 100, 15)
+)
+
+# Create strata
+strata_result <- make_strata(data, vars = c("gender", "race"))
+
+# View stratum information
+print(strata_result)
+```
+
+### Step 2: Fit MAIHDA Model
+
+Next, we fit a multilevel model using the created strata:
+
+```{r eval=FALSE}
+# Fit model with lme4 (default)
+model <- fit_maihda(
+  health_outcome ~ age + (1 | stratum),
+  data = strata_result$data,
+  engine = "lme4"
+)
+
+# View model
+print(model)
+```
+
+### Step 3: Summarize Results
+
+The summary provides variance partition coefficients and stratum-specific estimates:
+
+```{r eval=FALSE}
+# Basic summary
+summary_result <- summary_maihda(model)
+print(summary_result)
+
+# Summary with bootstrap confidence intervals
+summary_boot <- summary_maihda(model, bootstrap = TRUE, n_boot = 500)
+print(summary_boot)
+```
+
+### Step 4: Make Predictions
+
+You can make predictions at both individual and stratum levels:
+
+```{r eval=FALSE}
+# Individual-level predictions
+pred_ind <- predict_maihda(model, type = "individual")
+
+# Stratum-level predictions
+pred_strata <- predict_maihda(model, type = "strata")
+head(pred_strata)
+```
+
+### Step 5: Visualize Results
+
+The package provides several visualization options:
+
+```{r eval=FALSE}
+# Caterpillar plot of stratum random effects
+plot_maihda(model, type = "caterpillar")
+
+# Variance partition visualization
+plot_maihda(model, type = "vpc")
+
+# Observed vs. shrunken estimates
+plot_maihda(model, type = "obs_vs_shrunken")
+```
+
+## Comparing Models
+
+You can compare multiple models with bootstrap confidence intervals:
+
+```{r eval=FALSE}
+# Fit multiple models
+model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), 
+                    data = strata_result$data)
+model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum),
+                    data = strata_result$data)
+
+# Compare models
+comparison <- compare_maihda(
+  model1, model2,
+  model_names = c("Base Model", "With Gender"),
+  bootstrap = TRUE,
+  n_boot = 500
+)
+
+print(comparison)
+
+# Plot comparison
+plot_comparison(comparison)
+```
+
+## Using brms Engine
+
+For Bayesian inference, you can use the brms engine (requires brms package):
+
+```{r eval=FALSE}
+# Fit model with brms
+model_brms <- fit_maihda(
+  health_outcome ~ age + (1 | stratum),
+  data = strata_result$data,
+  engine = "brms",
+  chains = 2,
+  iter = 2000
+)
+
+# Summary works the same way
+summary_brms <- summary_maihda(model_brms)
+```
+
+## Interpreting Results
+
+### Variance Partition Coefficient (VPC/ICC)
+
+The VPC indicates the proportion of variance in the outcome that is attributable to differences between strata (intersectional categories). A higher VPC suggests greater heterogeneity between strata.
+
+- VPC close to 0: Most variation is within strata
+- VPC close to 1: Most variation is between strata
+- Typical values: 0.05 - 0.20 for health outcomes
+
+### Stratum-Specific Random Effects
+
+The random effects represent deviations from the overall mean for each stratum, after adjusting for fixed effects. Positive values indicate higher outcomes in that stratum; negative values indicate lower outcomes.
+
+## References
+
+- Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V. (2018). A multilevel approach to modeling health inequalities at the intersection of multiple social identities. Social Science & Medicine, 203, 64-73.
+
+- Merlo, J. (2018). Multilevel analysis of individual heterogeneity and discriminatory accuracy (MAIHDA) within an intersectional framework. Social Science & Medicine, 203, 74-80.
