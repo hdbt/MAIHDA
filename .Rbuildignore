@@ -10,3 +10,4 @@
 ^\.gitignore$
 ^MAIHDA\.Rproj$
 ^man/figures$
+^CRAN-SUBMISSION$
