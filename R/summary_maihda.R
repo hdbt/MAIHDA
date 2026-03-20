@@ -234,7 +234,7 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
         boot_model <- lme4::lmer(formula, data = boot_data)
       } else {
         boot_model <- lme4::glmer(formula, data = boot_data, 
-                                  family = family(model))
+                family = stats::family(model))
       }
       
       # Calculate VPC
@@ -252,7 +252,7 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
   
   # Calculate confidence interval
   alpha <- 1 - conf_level
-  ci <- quantile(vpc_boot, probs = c(alpha/2, 1 - alpha/2))
+  ci <- stats::quantile(vpc_boot, probs = c(alpha/2, 1 - alpha/2))
   
   return(ci)
 }
@@ -285,7 +285,7 @@ print.maihda_summary <- function(x, ...) {
   
   if (!is.null(x$stratum_estimates) && nrow(x$stratum_estimates) > 0) {
     cat("Stratum Estimates (first 10):\n")
-    print(head(x$stratum_estimates, 10), row.names = FALSE, digits = 4)
+    print(utils::head(x$stratum_estimates, 10), row.names = FALSE, digits = 4)
     if (nrow(x$stratum_estimates) > 10) {
       cat(sprintf("  ... and %d more strata\n", nrow(x$stratum_estimates) - 10))
     }

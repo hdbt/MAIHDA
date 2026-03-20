@@ -82,7 +82,7 @@ plot_caterpillar <- function(summary_obj, n_strata) {
   }
 
   # Sort by random effect
-  stratum_est <- dplyr::arrange(stratum_est, random_effect)
+  stratum_est <- dplyr::arrange(stratum_est, .data$random_effect)
 
   # Limit number of strata if requested
   if (!is.null(n_strata) && nrow(stratum_est) > n_strata) {
@@ -94,9 +94,9 @@ plot_caterpillar <- function(summary_obj, n_strata) {
   stratum_est$rank <- 1:nrow(stratum_est)
 
   # Create plot
-  p <- ggplot(stratum_est, aes(x = rank, y = random_effect)) +
+  p <- ggplot(stratum_est, aes(x = .data$rank, y = .data$random_effect)) +
     geom_point(size = 2) +
-    geom_errorbar(aes(ymin = lower_95, ymax = upper_95), width = 0.2, alpha = 0.5) +
+    geom_errorbar(aes(ymin = .data$lower_95, ymax = .data$upper_95), width = 0.2, alpha = 0.5) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
     labs(
       title = "Caterpillar Plot of Stratum Random Effects",
@@ -122,7 +122,7 @@ plot_vpc <- function(summary_obj) {
   vpc_data <- summary_obj$variance_components[1:2, ]
 
   # Create plot
-  p <- ggplot(vpc_data, aes(x = "", y = proportion, fill = component)) +
+  p <- ggplot(vpc_data, aes(x = "", y = .data$proportion, fill = .data$component)) +
     geom_bar(stat = "identity", width = 1, color = "white") +
     coord_flip() +
     scale_fill_manual(values = c("Between-stratum (random)" = "#E69F00",
@@ -141,7 +141,7 @@ plot_vpc <- function(summary_obj) {
       axis.ticks.y = element_blank(),
       panel.grid = element_blank()
     ) +
-    geom_text(aes(label = sprintf("%.1f%%", proportion * 100)),
+    geom_text(aes(label = sprintf("%.1f%%", .data$proportion * 100)),
               position = position_stack(vjust = 0.5),
               color = "white", fontface = "bold", size = 5)
 
@@ -174,7 +174,7 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
 
   # Calculate observed stratum means
   obs_means <- data |>
-    dplyr::group_by(stratum) |>
+    dplyr::group_by(.data$stratum) |>
     dplyr::summarise(
       observed = mean(.data[[outcome_var]], na.rm = TRUE),
       n = dplyr::n(),
@@ -194,8 +194,8 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
     plot_data$shrunken <- fixed_intercept + plot_data$random_effect
 
     # Create plot
-    p <- ggplot(plot_data, aes(x = observed, y = shrunken)) +
-      geom_point(aes(size = n), alpha = 0.6, color = "#0072B2") +
+    p <- ggplot(plot_data, aes(x = .data$observed, y = .data$shrunken)) +
+      geom_point(aes(size = .data$n), alpha = 0.6, color = "#0072B2") +
       geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
       labs(
         title = "Observed vs. Shrunken Stratum Estimates",
@@ -270,9 +270,9 @@ plot_predicted_strata <- function(object, summary_obj, n_strata) {
   stratum_est$display_label <- factor(stratum_est$display_label, levels = stratum_est$display_label)
   
   # Create plot
-  p <- ggplot(stratum_est, aes(x = display_label, y = predicted)) +
+  p <- ggplot(stratum_est, aes(x = .data$display_label, y = .data$predicted)) +
     geom_point(size = 2, color = "#0072B2") +
-    geom_errorbar(aes(ymin = lower, ymax = upper), 
+    geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper), 
                   width = 0.2, alpha = 0.5, color = "#0072B2") +
     geom_hline(yintercept = fixed_intercept, linetype = "dashed", color = "red", alpha = 0.7) +
     labs(

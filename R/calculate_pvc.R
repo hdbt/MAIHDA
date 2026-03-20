@@ -242,7 +242,7 @@ bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
   
   # Calculate confidence interval
   alpha <- 1 - conf_level
-  ci <- quantile(pvc_boot, probs = c(alpha/2, 1 - alpha/2))
+  ci <- stats::quantile(pvc_boot, probs = c(alpha/2, 1 - alpha/2))
   
   return(ci)
 }

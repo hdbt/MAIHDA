@@ -3,7 +3,7 @@ Type: Package
 Title: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy
 Version: 0.1.0
 Authors@R: c(
-    person("Hamid", "Bulut", email = "hamid.bulut@uni.lu", role = c("aut", "cre"))
+    person("Hamid", "Bulut", email = "hamid.bulut@ymail.com", role = c("aut", "cre"))
     )
 Description: Provides functions for conducting Multilevel Analysis of Individual
     Heterogeneity and Discriminatory Accuracy (MAIHDA). This package includes tools
@@ -20,8 +20,6 @@ Imports:
     dplyr (>= 1.0.0),
     tidyr (>= 1.1.0),
     stats,
-    methods,
-    tibble (>= 3.0.0),
     rlang (>= 0.4.0)
 Suggests:
     brms (>= 2.15.0),

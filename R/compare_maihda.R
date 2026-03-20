@@ -103,7 +103,7 @@ plot_comparison <- function(comparison_df) {
   
   has_ci <- all(c("ci_lower", "ci_upper") %in% names(comparison_df))
   
-  p <- ggplot(comparison_df, aes(x = model, y = vpc)) +
+  p <- ggplot(comparison_df, aes(x = .data$model, y = .data$vpc)) +
     geom_point(size = 4, color = "#0072B2") +
     labs(
       title = "Comparison of Variance Partition Coefficients",
@@ -118,7 +118,7 @@ plot_comparison <- function(comparison_df) {
     ylim(0, 1)
   
   if (has_ci) {
-    p <- p + geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), 
+    p <- p + geom_errorbar(aes(ymin = .data$ci_lower, ymax = .data$ci_upper), 
                           width = 0.2, color = "#0072B2")
   }
   
