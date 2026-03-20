@@ -180,7 +180,7 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
       n = dplyr::n(),
       .groups = "drop"
     )
-  
+
   # Convert stratum to character for merging (to match stratum_estimates)
   obs_means$stratum <- as.character(obs_means$stratum)
 
@@ -237,26 +237,26 @@ plot_predicted_strata <- function(object, summary_obj, n_strata) {
   } else {
     stop("Unsupported engine: ", object$engine)
   }
-  
+
   # Get stratum estimates
   stratum_est <- summary_obj$stratum_estimates
-  
+
   if (is.null(stratum_est) || nrow(stratum_est) == 0) {
     stop("No stratum estimates available for plotting")
   }
-  
+
   # Calculate predicted values (fixed effect + random effect)
   stratum_est$predicted <- fixed_intercept + stratum_est$random_effect
   stratum_est$lower <- fixed_intercept + stratum_est$lower_95
   stratum_est$upper <- fixed_intercept + stratum_est$upper_95
-  
+
   # Keep original order (no sorting)
   # Limit number of strata if requested
   if (!is.null(n_strata) && nrow(stratum_est) > n_strata) {
     indices <- as.integer(seq(1, nrow(stratum_est), length.out = n_strata))
     stratum_est <- dplyr::slice(stratum_est, indices)
   }
-  
+
   # Use labels if available, otherwise use numeric stratum IDs
   if ("label" %in% names(stratum_est) && !all(is.na(stratum_est$label))) {
     # Use the meaningful labels for the x-axis
@@ -265,14 +265,14 @@ plot_predicted_strata <- function(object, summary_obj, n_strata) {
     # Fall back to stratum IDs
     stratum_est$display_label <- stratum_est$stratum
   }
-  
+
   # Create factor to preserve order for plotting
   stratum_est$display_label <- factor(stratum_est$display_label, levels = stratum_est$display_label)
-  
+
   # Create plot
   p <- ggplot(stratum_est, aes(x = .data$display_label, y = .data$predicted)) +
     geom_point(size = 2, color = "#0072B2") +
-    geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper), 
+    geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper),
                   width = 0.2, alpha = 0.5, color = "#0072B2") +
     geom_hline(yintercept = fixed_intercept, linetype = "dashed", color = "red", alpha = 0.7) +
     labs(
@@ -288,6 +288,6 @@ plot_predicted_strata <- function(object, summary_obj, n_strata) {
       panel.grid.minor = element_blank(),
       axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
     )
-  
+
   return(p)
 }

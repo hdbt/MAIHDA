@@ -16,11 +16,11 @@
 #' \dontrun{
 #' model1 <- fit_maihda(outcome ~ age + (1 | stratum), data = data1)
 #' model2 <- fit_maihda(outcome ~ age + gender + (1 | stratum), data = data2)
-#' 
+#'
 #' # Compare without bootstrap
-#' comparison <- compare_maihda(model1, model2, 
+#' comparison <- compare_maihda(model1, model2,
 #'                             model_names = c("Base", "With Gender"))
-#' 
+#'
 #' # Compare with bootstrap CI
 #' comparison_boot <- compare_maihda(model1, model2,
 #'                                  model_names = c("Base", "With Gender"),
@@ -28,21 +28,21 @@
 #' }
 #'
 #' @export
-compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE, 
+compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
                           n_boot = 1000, conf_level = 0.95) {
   models <- list(...)
-  
+
   # Validate inputs
   if (length(models) == 0) {
     stop("At least one model must be provided")
   }
-  
+
   for (i in seq_along(models)) {
     if (!inherits(models[[i]], "maihda_model")) {
       stop("All arguments must be maihda_model objects")
     }
   }
-  
+
   # Create model names if not provided
   if (is.null(model_names)) {
     model_names <- paste0("Model", seq_along(models))
@@ -51,12 +51,12 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
       stop("Length of model_names must match number of models")
     }
   }
-  
+
   # Calculate VPC for each model
   comparison_list <- lapply(seq_along(models), function(i) {
-    summary_obj <- summary_maihda(models[[i]], bootstrap = bootstrap, 
+    summary_obj <- summary_maihda(models[[i]], bootstrap = bootstrap,
                                  n_boot = n_boot, conf_level = conf_level)
-    
+
     if (bootstrap && summary_obj$vpc$bootstrap) {
       data.frame(
         model = model_names[i],
@@ -73,10 +73,10 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
       )
     }
   })
-  
+
   # Combine results
   comparison_df <- do.call(rbind, comparison_list)
-  
+
   return(comparison_df)
 }
 
@@ -100,9 +100,9 @@ plot_comparison <- function(comparison_df) {
   if (!is.data.frame(comparison_df) || !"vpc" %in% names(comparison_df)) {
     stop("comparison_df must be a data frame with a 'vpc' column")
   }
-  
+
   has_ci <- all(c("ci_lower", "ci_upper") %in% names(comparison_df))
-  
+
   p <- ggplot(comparison_df, aes(x = .data$model, y = .data$vpc)) +
     geom_point(size = 4, color = "#0072B2") +
     labs(
@@ -116,11 +116,11 @@ plot_comparison <- function(comparison_df) {
       axis.text.x = element_text(angle = 45, hjust = 1)
     ) +
     ylim(0, 1)
-  
+
   if (has_ci) {
-    p <- p + geom_errorbar(aes(ymin = .data$ci_lower, ymax = .data$ci_upper), 
+    p <- p + geom_errorbar(aes(ymin = .data$ci_lower, ymax = .data$ci_upper),
                           width = 0.2, color = "#0072B2")
   }
-  
+
   return(p)
 }
