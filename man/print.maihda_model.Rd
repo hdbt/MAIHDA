@@ -2,15 +2,18 @@
 % Please edit documentation in R/fit_maihda.R
 \name{print.maihda_model}
 \alias{print.maihda_model}
-\title{Print method for maihda_model objects}
+\title{Print method for maihda_model}
 \usage{
 \method{print}{maihda_model}(x, ...)
 }
 \arguments{
 \item{x}{A maihda_model object}
 
-\item{...}{Additional arguments passed to print method of underlying model}
+\item{...}{Additional arguments}
+}
+\value{
+No return value, called for side effects.
 }
 \description{
-Print method for maihda_model objects
+Print method for maihda_model
 }

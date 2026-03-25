@@ -21,7 +21,12 @@
 #' @return A ggplot2 object.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
+#' data <- data.frame(
+#'   stratum = rep(1:5, each = 10),
+#'   age = rnorm(50),
+#'   outcome = rnorm(50)
+#' )
 #' model <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
 #'
 #' # Caterpillar plot

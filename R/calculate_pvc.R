@@ -34,7 +34,13 @@
 #' for the PVC estimate.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
+#' data <- data.frame(
+#'   stratum = rep(1:5, each = 10),
+#'   age = rnorm(50),
+#'   gender = sample(c(0, 1), 50, replace = TRUE),
+#'   outcome = rnorm(50)
+#' )
 #' # Fit two models
 #' model1 <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
 #' model2 <- fit_maihda(outcome ~ age + gender + (1 | stratum), data = data)
@@ -247,10 +253,11 @@ bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
   return(ci)
 }
 
-#' Print method for pvc_result objects
-#'
+#' Print method for PVC results
+#' 
 #' @param x A pvc_result object
-#' @param ... Additional arguments (not used)
+#' @param ... Additional arguments
+#' @return No return value, called for side effects.
 #' @export
 print.pvc_result <- function(x, ...) {
   cat("Proportional Change in Variance (PVC)\n")

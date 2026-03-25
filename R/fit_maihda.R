@@ -22,7 +22,14 @@
 #'   \item{strata_info}{The strata information from make_strata() if available, NULL otherwise}
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
+#' data <- data.frame(
+#'   stratum = rep(1:5, each = 10),
+#'   age = rnorm(50),
+#'   outcome = rnorm(50)
+#' )
+#' model <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
+#' }
 #' # Create strata
 #' strata_result <- make_strata(data, vars = c("gender", "race"))
 #' 
@@ -35,7 +42,6 @@
 #' model_brms <- fit_maihda(outcome ~ age + (1 | stratum),
 #'                          data = strata_result$data,
 #'                          engine = "brms")
-#' }
 #'
 #' @export
 #' @importFrom lme4 lmer glmer
@@ -97,10 +103,11 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
   return(result)
 }
 
-#' Print method for maihda_model objects
-#'
+#' Print method for maihda_model
+#' 
 #' @param x A maihda_model object
-#' @param ... Additional arguments passed to print method of underlying model
+#' @param ... Additional arguments
+#' @return No return value, called for side effects.
 #' @export
 print.maihda_model <- function(x, ...) {
   cat("MAIHDA Model\n")

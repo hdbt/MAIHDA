@@ -5,10 +5,12 @@ Version: 0.1.0
 Authors@R: c(
     person("Hamid", "Bulut", email = "hamid.bulut@ymail.com", role = c("aut", "cre"))
     )
-Description: Provides functions for conducting Multilevel Analysis of Individual
-    Heterogeneity and Discriminatory Accuracy (MAIHDA). This package includes tools
-    for creating strata, fitting multilevel models, summarizing results with variance
-    partitioning, making predictions, and visualizing outcomes through various plot types.
+Description: Provides a comprehensive toolkit for conducting Multilevel Analysis 
+    of Individual Heterogeneity and Discriminatory Accuracy (MAIHDA). Methods 
+    are described in Merlo (2018) <doi:10.1016/j.socscimed.2017.12.018> and 
+    Evans et al. (2018) <doi:10.1016/j.socscimed.2017.11.011>. Automatically 
+    generates intersectional strata, fits analytical models, extracts statistics, 
+    and produces visualizations.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

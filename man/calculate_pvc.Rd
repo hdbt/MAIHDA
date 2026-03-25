@@ -13,10 +13,10 @@ calculate_pvc(
 )
 }
 \arguments{
-\item{model1}{A maihda_model object from \code{fit_maihda()}. This is the 
+\item{model1}{A maihda_model object from \code{fit_maihda()}. This is the
 reference model (typically a simpler or baseline model).}
 
-\item{model2}{A maihda_model object from \code{fit_maihda()}. This is the 
+\item{model2}{A maihda_model object from \code{fit_maihda()}. This is the
 comparison model (typically a more complex model with additional predictors).}
 
 \item{bootstrap}{Logical indicating whether to compute bootstrap confidence
@@ -36,24 +36,30 @@ A list containing:
   \item{bootstrap}{Logical indicating if bootstrap was used}
 }
 \description{
-Calculates the proportional change in between-stratum variance (PVC) between 
-two MAIHDA models. The PVC measures how much the between-stratum variance 
+Calculates the proportional change in between-stratum variance (PVC) between
+two MAIHDA models. The PVC measures how much the between-stratum variance
 changes when moving from one model to another, and is calculated as:
 PVC = (Var_model1 - Var_model2) / Var_model1
 }
 \details{
-The PVC is interpreted as the proportional reduction (or increase if negative) 
-in between-stratum variance when moving from model1 to model2. A positive PVC 
-indicates that model2 explains some of the between-stratum variance present in 
-model1, while a negative PVC suggests that model2 has more unexplained 
+The PVC is interpreted as the proportional reduction (or increase if negative)
+in between-stratum variance when moving from model1 to model2. A positive PVC
+indicates that model2 explains some of the between-stratum variance present in
+model1, while a negative PVC suggests that model2 has more unexplained
 between-stratum variance.
 
-When bootstrap = TRUE, the function resamples the data with replacement and 
-refits both models for each bootstrap sample to obtain confidence intervals 
+When bootstrap = TRUE, the function resamples the data with replacement and
+refits both models for each bootstrap sample to obtain confidence intervals
 for the PVC estimate.
 }
 \examples{
-\dontrun{
+\donttest{
+data <- data.frame(
+  stratum = rep(1:5, each = 10),
+  age = rnorm(50),
+  gender = sample(c(0, 1), 50, replace = TRUE),
+  outcome = rnorm(50)
+)
 # Fit two models
 model1 <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
 model2 <- fit_maihda(outcome ~ age + gender + (1 | stratum), data = data)
