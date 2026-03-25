@@ -1,6 +1,6 @@
-# Print method for maihda_model objects
+# Print method for maihda_model
 
-Print method for maihda_model objects
+Print method for maihda_model
 
 ## Usage
 
@@ -17,4 +17,8 @@ print(x, ...)
 
 - ...:
 
-  Additional arguments passed to print method of underlying model
+  Additional arguments
+
+## Value
+
+No return value, called for side effects.

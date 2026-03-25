@@ -1,6 +1,6 @@
-# Print method for pvc_result objects
+# Print method for PVC results
 
-Print method for pvc_result objects
+Print method for PVC results
 
 ## Usage
 
@@ -17,4 +17,8 @@ print(x, ...)
 
 - ...:
 
-  Additional arguments (not used)
+  Additional arguments
+
+## Value
+
+No return value, called for side effects.

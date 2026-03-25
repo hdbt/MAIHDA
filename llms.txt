@@ -280,13 +280,13 @@ If you use this package in your research, please cite:
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
   : Predict from MAIHDA Model
 - [`print(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_model.md)
-  : Print method for maihda_model objects
+  : Print method for maihda_model
 - [`print(`*`<maihda_strata>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_strata.md)
   : Print method for maihda_strata objects
 - [`print(`*`<maihda_summary>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_summary.md)
   : Print method for maihda_summary objects
 - [`print(`*`<pvc_result>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.pvc_result.md)
-  : Print method for pvc_result objects
+  : Print method for PVC results
 - [`summary_maihda()`](https://hdbt.github.io/MAIHDA/reference/summary_maihda.md)
   : Summarize MAIHDA Model
 
