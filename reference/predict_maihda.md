@@ -23,9 +23,11 @@ predict_maihda(object, newdata = NULL, type = c("individual", "strata"), ...)
 
 - type:
 
-  Character string specifying prediction type: "individual" for
-  individual-level predictions including random effects, or "strata" for
-  stratum-level predictions (random effects only).
+  Character string specifying prediction type:
+
+  - "individual": Individual-level predictions including random effects
+
+  - "strata": Stratum-level predictions (random effects only)
 
 - ...:
 
@@ -42,13 +44,14 @@ Depending on type:
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-model <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
+# \donttest{
+strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
 
 # Individual predictions
 pred_ind <- predict_maihda(model, type = "individual")
 
 # Stratum predictions
 pred_strata <- predict_maihda(model, type = "strata")
-} # }
+# }
 ```

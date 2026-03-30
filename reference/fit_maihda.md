@@ -58,21 +58,25 @@ A maihda_model object containing:
 
   The family used
 
+- strata_info:
+
+  The strata information from make_strata() if available, NULL otherwise
+
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Create strata
-strata_result <- make_strata(data, vars = c("gender", "race"))
+strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
 
 # Fit model with lme4
-model <- fit_maihda(outcome ~ age + (1 | stratum),
+model <- fit_maihda(health_outcome ~ age + (1 | stratum),
                     data = strata_result$data,
                     engine = "lme4")
 
-# Fit model with brms (if installed)
-model_brms <- fit_maihda(outcome ~ age + (1 | stratum),
-                         data = strata_result$data,
-                         engine = "brms")
-} # }
+# Fit model with brms (if brms is available)
+# model_brms <- fit_maihda(health_outcome ~ age + (1 | stratum),
+#                          data = strata_result$data,
+#                          engine = "brms")
+# }
 ```

@@ -8,8 +8,13 @@ intervals.
 ## Usage
 
 ``` r
-plot_maihda(object, type = c("caterpillar", "vpc", "obs_vs_shrunken", "predicted"),
-            summary_obj = NULL, n_strata = 50, ...)
+plot_maihda(
+  object,
+  type = c("caterpillar", "vpc", "obs_vs_shrunken", "predicted"),
+  summary_obj = NULL,
+  n_strata = 50,
+  ...
+)
 ```
 
 ## Arguments
@@ -21,11 +26,16 @@ plot_maihda(object, type = c("caterpillar", "vpc", "obs_vs_shrunken", "predicted
 
 - type:
 
-  Character string specifying plot type: "caterpillar" for caterpillar
-  plot of stratum random effects, "vpc" for variance partition
-  coefficient visualization, "obs_vs_shrunken" for observed vs. shrunken
-  stratum means, or "predicted" for predicted values for each stratum
-  with confidence intervals.
+  Character string specifying plot type:
+
+  - "caterpillar": Caterpillar plot of stratum random effects
+
+  - "vpc": Variance partition coefficient visualization
+
+  - "obs_vs_shrunken": Observed vs. shrunken stratum means
+
+  - "predicted": Predicted values for each stratum with confidence
+    intervals
 
 - summary_obj:
 
@@ -49,19 +59,24 @@ A ggplot2 object.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-model <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
+# \donttest{
+strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
 
 # Caterpillar plot
 plot_maihda(model, type = "caterpillar")
 
+
 # VPC plot
 plot_maihda(model, type = "vpc")
+
 
 # Observed vs shrunken plot
 plot_maihda(model, type = "obs_vs_shrunken")
 
+
 # Predicted values with confidence intervals
 plot_maihda(model, type = "predicted")
-} # }
+
+# }
 ```

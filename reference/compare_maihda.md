@@ -6,8 +6,13 @@ MAIHDA models, with optional bootstrap confidence intervals.
 ## Usage
 
 ``` r
-compare_maihda(..., model_names = NULL, bootstrap = FALSE, 
-               n_boot = 1000, conf_level = 0.95)
+compare_maihda(
+  ...,
+  model_names = NULL,
+  bootstrap = FALSE,
+  n_boot = 1000,
+  conf_level = 0.95
+)
 ```
 
 ## Arguments
@@ -41,17 +46,21 @@ intervals.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-model1 <- fit_maihda(outcome ~ age + (1 | stratum), data = data1)
-model2 <- fit_maihda(outcome ~ age + gender + (1 | stratum), data = data2)
+# \donttest{
+# Create strata and models using simulated data
+strata_1 <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+strata_2 <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
+
+model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_1$data)
+model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_2$data)
 
 # Compare without bootstrap
-comparison <- compare_maihda(model1, model2, 
+comparison <- compare_maihda(model1, model2,
                             model_names = c("Base", "With Gender"))
 
 # Compare with bootstrap CI
 comparison_boot <- compare_maihda(model1, model2,
                                  model_names = c("Base", "With Gender"),
                                  bootstrap = TRUE, n_boot = 500)
-} # }
+# }
 ```

@@ -89,7 +89,7 @@ summary(maihda_sim_data)
 #>  3rd Qu.:53.00   3rd Qu.: 84.42  
 #>  Max.   :80.00   Max.   :109.70  
 
-if (FALSE) { # \dontrun{
+# \donttest{
 # Example MAIHDA analysis
 library(MAIHDA)
 
@@ -102,8 +102,36 @@ model <- fit_maihda(health_outcome ~ age + (1 | stratum),
 
 # Summarize
 summary_maihda(model)
+#> MAIHDA Model Summary
+#> ====================
+#> 
+#> Variance Partition Coefficient (VPC/ICC):
+#>   Estimate: 0.1907
+#> 
+#> Variance Components:
+#>                  component variance     sd proportion
+#>   Between-stratum (random)    26.27  5.125     0.1907
+#>  Within-stratum (residual)   111.49 10.559     0.8093
+#>                      Total   137.76 11.737     1.0000
+#> 
+#> Fixed Effects:
+#>         term estimate
+#>  (Intercept)  84.9021
+#>          age  -0.2647
+#> 
+#> Stratum Estimates (first 10):
+#>  stratum stratum_id           label random_effect     se lower_95 upper_95
+#>        1          1    Female_Asian        -1.310 3.1488   -7.482   4.8613
+#>        2          2    Female_Black        -6.536 1.4336   -9.346  -3.7263
+#>        3          3 Female_Hispanic         1.357 1.7539   -2.081   4.7944
+#>        4          4    Female_White         7.942 0.8502    6.275   9.6080
+#>        5          5      Male_Asian        -2.978 2.5427   -7.961   2.0059
+#>        6          6      Male_Black        -3.114 1.5202   -6.094  -0.1345
+#>        7          7   Male_Hispanic        -0.916 1.4079   -3.676   1.8435
+#>        8          8      Male_White         5.556 0.8447    3.901   7.2119
 
 # Visualize
 plot_maihda(model, type = "caterpillar")
-} # }
+
+# }
 ```

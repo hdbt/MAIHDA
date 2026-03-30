@@ -2,10 +2,6 @@
 
 ## All functions
 
-- [`MAIHDA-package`](https://hdbt.github.io/MAIHDA/reference/MAIHDA-package.md)
-  [`MAIHDA`](https://hdbt.github.io/MAIHDA/reference/MAIHDA-package.md)
-  : Multilevel Analysis of Individual Heterogeneity and Discriminatory
-  Accuracy
 - [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
   : Calculate Proportional Change in Between-Stratum Variance (PVC)
 - [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)

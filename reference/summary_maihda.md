@@ -6,8 +6,13 @@ coefficients (VPC/ICC) and stratum-specific estimates.
 ## Usage
 
 ``` r
-summary_maihda(object, bootstrap = FALSE, n_boot = 1000, 
-               conf_level = 0.95, ...)
+summary_maihda(
+  object,
+  bootstrap = FALSE,
+  n_boot = 1000,
+  conf_level = 0.95,
+  ...
+)
 ```
 
 ## Arguments
@@ -48,7 +53,7 @@ A maihda_summary object containing:
 
 - stratum_estimates:
 
-  Data frame of stratum-specific random effects
+  Data frame of stratum-specific random effects with labels if available
 
 - fixed_effects:
 
@@ -61,11 +66,12 @@ A maihda_summary object containing:
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-model <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
+# \donttest{
+strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
 summary_result <- summary_maihda(model)
 
 # With bootstrap CI
-summary_boot <- summary_maihda(model, bootstrap = TRUE, n_boot = 500)
-} # }
+# summary_boot <- summary_maihda(model, bootstrap = TRUE, n_boot = 50)
+# }
 ```

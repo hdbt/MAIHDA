@@ -34,7 +34,7 @@ categorical variables in a dataset."><meta property="og:image" content="https://
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Create Strata from Multiple Variables</h1>
-
+      <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/R/make_strata.R" class="external-link"><code>R/make_strata.R</code></a></small>
       <div class="d-none name"><code>make_strata.Rd</code></div>
     </div>
 
@@ -50,43 +50,63 @@ categorical variables in a dataset.</p>
 
     <div class="section level2">
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
-    <p></p>
+
+
 <dl><dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
 <dd><p>A data frame containing the variables to create strata from.</p></dd>
 
-  <dt id="arg-vars">vars<a class="anchor" aria-label="anchor" href="#arg-vars"></a></dt>
+
+<dt id="arg-vars">vars<a class="anchor" aria-label="anchor" href="#arg-vars"></a></dt>
 <dd><p>Character vector of variable names to use for creating strata.</p></dd>
 
-  <dt id="arg-sep">sep<a class="anchor" aria-label="anchor" href="#arg-sep"></a></dt>
-<dd><p>Separator to use between variable values when creating stratum labels. Default is "_".</p></dd>
 
-  <dt id="arg-min-n">min_n<a class="anchor" aria-label="anchor" href="#arg-min-n"></a></dt>
-<dd><p>Minimum number of observations required for a stratum to be included. Strata with fewer observations will be coded as NA. Default is 1.</p></dd>
+<dt id="arg-sep">sep<a class="anchor" aria-label="anchor" href="#arg-sep"></a></dt>
+<dd><p>Separator to use between variable values when creating stratum labels.
+Default is "_".</p></dd>
+
+
+<dt id="arg-min-n">min_n<a class="anchor" aria-label="anchor" href="#arg-min-n"></a></dt>
+<dd><p>Minimum number of observations required for a stratum to be included.
+Strata with fewer observations will be coded as NA. Default is 1.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with two elements:</p><dl><dt>data</dt>
-<dd><p>The original data frame with an added 'stratum' column</p></dd>
+    <p>A list with two elements:</p>
+<dl><dt>data</dt>
+<dd><p>The original data frame with an added 'stratum' column. The
+    strata_info is also attached as an attribute for use by fit_maihda()</p></dd>
 
   <dt>strata_info</dt>
-<dd><p>A data frame with information about each stratum including counts and the combination of variable values</p></dd>
-
+<dd><p>A data frame with information about each stratum including
+    counts and the combination of variable values</p></dd>
 
 </dl></div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>If any of the specified variables has a missing value (NA) for a given observation,
+that observation will be assigned to the NA stratum (stratum = NA), rather than
+creating a stratum that includes the missing value.</p>
+<p>The strata_info data frame is also attached as an attribute to the data, which
+allows fit_maihda() to automatically capture stratum labels for use in plots
+and summaries.</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Create strata from gender and race variables</span></span></span>
-<span class="r-in"><span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  gender <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"M"</span>, <span class="st">"F"</span>, <span class="st">"M"</span>, <span class="st">"F"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  race <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"White"</span>, <span class="st">"Black"</span>, <span class="st">"White"</span>, <span class="st">"Black"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  outcome <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">make_strata</span><span class="op">(</span><span class="va">data</span>, vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span><span class="op">)</span><span class="op">)</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Create strata from gender and race variables</span></span></span>
+<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">make_strata</span><span class="op">(</span><span class="va">maihda_sim_data</span>, vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">strata_info</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   stratum           label   n gender     race</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1       1    Female_Asian   7 Female    Asian</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2       2    Female_Black  50 Female    Black</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3       3 Female_Hispanic  32 Female Hispanic</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4       4    Female_White 150 Female    White</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5       5      Male_Asian  13   Male    Asian</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6       6      Male_Black  44   Male    Black</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7       7   Male_Hispanic  52   Male Hispanic</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8       8      Male_White 152   Male    White</span>
+<span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
