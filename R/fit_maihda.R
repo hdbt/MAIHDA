@@ -23,25 +23,19 @@
 #'
 #' @examples
 #' \donttest{
-#' data <- data.frame(
-#'   stratum = rep(1:5, each = 10),
-#'   age = rnorm(50),
-#'   outcome = rnorm(50)
-#' )
-#' model <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
-#' }
 #' # Create strata
-#' strata_result <- make_strata(data, vars = c("gender", "race"))
+#' strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
 #' 
 #' # Fit model with lme4
-#' model <- fit_maihda(outcome ~ age + (1 | stratum),
+#' model <- fit_maihda(health_outcome ~ age + (1 | stratum),
 #'                     data = strata_result$data,
 #'                     engine = "lme4")
 #' 
-#' # Fit model with brms (if installed)
-#' model_brms <- fit_maihda(outcome ~ age + (1 | stratum),
-#'                          data = strata_result$data,
-#'                          engine = "brms")
+#' # Fit model with brms (if brms is available)
+#' # model_brms <- fit_maihda(health_outcome ~ age + (1 | stratum),
+#' #                          data = strata_result$data,
+#' #                          engine = "brms")
+#' }
 #'
 #' @export
 #' @importFrom lme4 lmer glmer

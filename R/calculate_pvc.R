@@ -35,23 +35,18 @@
 #'
 #' @examples
 #' \donttest{
-#' data <- data.frame(
-#'   stratum = rep(1:5, each = 10),
-#'   age = rnorm(50),
-#'   gender = sample(c(0, 1), 50, replace = TRUE),
-#'   outcome = rnorm(50)
-#' )
-#' # Fit two models
-#' model1 <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
-#' model2 <- fit_maihda(outcome ~ age + gender + (1 | stratum), data = data)
+#' # Create strata and fit two models
+#' strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
+#' model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
+#' model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_result$data)
 #'
 #' # Calculate PVC without bootstrap
 #' pvc_result <- calculate_pvc(model1, model2)
 #' print(pvc_result$pvc)
 #'
 #' # Calculate PVC with bootstrap CI
-#' pvc_boot <- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 500)
-#' print(pvc_boot)
+#' # pvc_boot <- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 500)
+#' # print(pvc_boot)
 #' }
 #'
 #' @export

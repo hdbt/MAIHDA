@@ -22,12 +22,8 @@
 #'
 #' @examples
 #' \donttest{
-#' data <- data.frame(
-#'   stratum = rep(1:5, each = 10),
-#'   age = rnorm(50),
-#'   outcome = rnorm(50)
-#' )
-#' model <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
+#' strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+#' model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
 #'
 #' # Caterpillar plot
 #' plot_maihda(model, type = "caterpillar")
