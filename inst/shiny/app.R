@@ -60,7 +60,7 @@ server <- function(input, output, session) {
       }
     }
   })
-  
+
   observe({
     req(reactive_data())
     cols <- names(reactive_data())
@@ -83,7 +83,7 @@ server <- function(input, output, session) {
 
     grouping_vars <- input$group_vars
     req(length(grouping_vars) > 0)
-    
+
     outcome_var <- input$outcome
     eng <- input$engine
     fam <- input$family
@@ -131,7 +131,7 @@ server <- function(input, output, session) {
   output$model_summary_ui <- renderUI({
     req(summary_results())
     res <- summary_results()
-    
+
     tagList(
       card(
         card_header("Variance Partition Coefficient (VPC) / ICC"),
@@ -140,30 +140,33 @@ server <- function(input, output, session) {
       layout_columns(
         card(
           card_header("Variance Components"),
-          DT::renderDT(datatable(res$variance_components, options = list(dom = 't', paging = FALSE)))
+          DTOutput("dt_var_comp")
         ),
         card(
           card_header("Fixed Effects"),
-          DT::renderDT(datatable(as.data.frame(res$fixed_effects), options = list(dom = 't', paging = FALSE)))
+          DTOutput("dt_fix_eff")
         )
       ),
       card(
         card_header("Stratum Estimates (top 10)"),
-        DT::renderDT(datatable(head(res$stratum_estimates, 10), options = list(dom = 't', paging = FALSE)))
+        DTOutput("dt_stratum")
       )
     )
   })
-
-  output$pvc_summary_ui <- renderUI({
-    req(pvc_results())
-    pvc <- pvc_results()
-    
-    card(
-      card_header("Proportional Change in Variance (PVC)"),
-      card_body(
-        div(class = "d-flex justify-content-around text-center mb-4",
-          div(
-            h5("Null Model (Model 1) Variance"),
+  
+  output$dt_var_comp <- renderDT({
+    req(summary_results())
+    datatable(summary_results()$variance_components, options = list(dom = 't', paging = FALSE))
+  })
+  
+  output$dt_fix_eff <- renderDT({
+    req(summary_results())
+    datatable(as.data.frame(summary_results()$fixed_effects), options = list(dom = 't', paging = FALSE))
+  })
+  
+  output$dt_stratum <- renderDT({
+    req(summary_results())
+    datatable(head(summary_results()$stratum_estimates, 10), options = list(dom = 't', paging = FALSE))
             h4(sprintf("%.4f", pvc$var_model1))
           ),
           div(
