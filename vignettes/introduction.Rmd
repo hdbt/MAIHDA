@@ -1,6 +1,6 @@
 ---
 title: "Introduction to MAIHDA"
-author: "MAIHDA Package Authors"
+author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -31,8 +31,10 @@ By utilizing multilevel mixed-effects models (via `lme4` or `brms`), MAIHDA allo
 You can install the development version of MAIHDA from GitHub:
 
 ```{r eval=FALSE}
-# install.packages("devtools")
-devtools::install_github("hdbt/MAIHDA")
+install.packages("MAIHDA")
+# Or for the latest development version:
+# install.packages("remotes")
+# remotes::install_github("hamidbulut/MAIHDA")
 ```
 
 ## Real-World Example Analysis
@@ -95,7 +97,7 @@ print(pcv_result)
 
 ### Step 4: Stepwise PCV Decomposition
 
-Often, researchers want to know exactly *which* variable explained the variance. Use the `stepwise_pcv()` function to add covariates one-by-one and track the variance dynamically!
+Often, researchers want to know exactly *which* variable explained the variance. Use the `stepwise_pcv()` function to add covariates one-by-one and track the variance dynamically.
 
 ```{r eval=FALSE}
 # Run a stepwise variance decomposition
@@ -108,7 +110,7 @@ stepwise_results <- stepwise_pcv(
 print(stepwise_results)
 ```
 
-Negative step PCVs in this table highlight "unmasking" or suppression effects: adding a variable caused the intersectional groups to push further apart mathematically, revealing hidden structural inequalities!
+Negative step PCVs in this table highlight "unmasking" or suppression effects: adding a variable caused the intersectional groups to push further apart mathematically, revealing hidden structural inequalities.
 
 ### Step 5: Visualizations
 
@@ -124,9 +126,9 @@ plot_maihda(model_adj, type = "vpc")
 
 ## Interactive Shiny App
 
-Not a fan of writing code? The MAIHDA package ships with a fully-featured, interactive Shiny Dashboard.
+The MAIHDA package ships with a fully-featured, interactive Shiny Dashboard.
 
-You can upload your own data (CSV, SPSS `.sav`, Stata `.dta`), dynamically select variables, and compute Stepwise PCV tables and caterpillar plots with the click of a button!
+You can upload your own data (CSV, SPSS `.sav`, Stata `.dta`), dynamically select variables, and compute Stepwise PCV tables and prediction plots.
 
 ```{r eval=FALSE}
 # Launch the interactive interface
