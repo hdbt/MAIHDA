@@ -176,10 +176,19 @@ server <- function(input, output, session) {
     stepwise_vars <- c(grouping_vars, additional_covars)
 
     future_promise({
-      # Step 1: Make strata
-      strata_dat <- make_strata(dat, vars = grouping_vars)
+      # Step 1: Handle Missing Data to ensure identical sample sizes across all models.
+      # If models have different Ns, variance comparisons (PCV) and parametric bootstraps are invalid.
+      all_required_cols <- unique(c(outcome_var, grouping_vars, additional_covars))
+      complete_dat <- dat[complete.cases(dat[, all_required_cols, drop = FALSE]), ]
 
-      # Step 2: Fit model
+      if (nrow(complete_dat) == 0) {
+          stop("Error: No complete cases remaining after omitting missing values (NAs). Please select different variables.")
+      }
+
+      # Step 2: Make strata
+      strata_dat <- make_strata(complete_dat, vars = grouping_vars)
+
+      # Step 3: Fit model
       fmla_null <- as.formula(paste(outcome_var, "~ 1 + (1 | stratum)"))
       mod1 <- fit_maihda(formula = fmla_null, data = strata_dat$data, engine = eng, family = fam)
       mod2 <- fit_maihda(formula = fmla, data = strata_dat$data, engine = eng, family = fam)
