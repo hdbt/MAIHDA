@@ -25,9 +25,6 @@ ui <- page_sidebar(
     selectInput("engine", "Engine", choices = c("lme4", "brms"), selected = "lme4"),
     selectInput("family", "Family", choices = c("gaussian", "binomial", "poisson"), selected = "gaussian"),
 
-    # Plot settings
-    sliderInput("n_strata", "Strata count for plots", min = 5, max = 50, value = 20),
-
     # Action button to trigger fitting
     actionButton("fit_btn", "Fit MAIHDA Model", class = "btn-primary")
   ),
@@ -36,9 +33,9 @@ ui <- page_sidebar(
     nav_panel("Data View",
               DTOutput("data_table")),
     nav_panel("Model Summary",
-              verbatimTextOutput("model_summary")),
+              uiOutput("model_summary_ui")),
     nav_panel("PVC Results",
-              verbatimTextOutput("pvc_summary")),
+              uiOutput("pvc_summary_ui")),
     nav_panel("Visualizations",
               selectInput("plot_type", "Select Plot Type",
                           choices = c("caterpillar", "vpc", "obs_vs_shrunken", "predicted")),
@@ -63,6 +60,13 @@ server <- function(input, output, session) {
       }
     }
   })
+  
+  observe({
+    req(reactive_data())
+    cols <- names(reactive_data())
+    updateSelectizeInput(session, "outcome", choices = cols, selected = ifelse("health_outcome" %in% cols, "health_outcome", cols[1]), server = TRUE)
+    updateSelectizeInput(session, "group_vars", choices = cols, selected = intersect(c("gender", "race"), cols), server = TRUE)
+  })
 
   output$data_table <- renderDT({
     datatable(reactive_data(), options = list(pageLength = 10, scrollX = TRUE))
@@ -77,7 +81,9 @@ server <- function(input, output, session) {
     dat <- reactive_data()
     req(dat)
 
-    grouping_vars <- trimws(unlist(strsplit(input$group_vars, ",")))
+    grouping_vars <- input$group_vars
+    req(length(grouping_vars) > 0)
+    
     outcome_var <- input$outcome
     eng <- input$engine
     fam <- input$family
@@ -122,14 +128,56 @@ server <- function(input, output, session) {
 
   })
 
-  output$model_summary <- renderPrint({
+  output$model_summary_ui <- renderUI({
     req(summary_results())
-    print(summary_results())
+    res <- summary_results()
+    
+    tagList(
+      card(
+        card_header("Variance Partition Coefficient (VPC) / ICC"),
+        h3(HTML(sprintf("<span class='text-primary'>%.2f%%</span>", res$vpc * 100)))
+      ),
+      layout_columns(
+        card(
+          card_header("Variance Components"),
+          DT::renderDT(datatable(res$variance_components, options = list(dom = 't', paging = FALSE)))
+        ),
+        card(
+          card_header("Fixed Effects"),
+          DT::renderDT(datatable(as.data.frame(res$fixed_effects), options = list(dom = 't', paging = FALSE)))
+        )
+      ),
+      card(
+        card_header("Stratum Estimates (top 10)"),
+        DT::renderDT(datatable(head(res$stratum_estimates, 10), options = list(dom = 't', paging = FALSE)))
+      )
+    )
   })
 
-  output$pvc_summary <- renderPrint({
+  output$pvc_summary_ui <- renderUI({
     req(pvc_results())
-    print(pvc_results())
+    pvc <- pvc_results()
+    
+    card(
+      card_header("Proportional Change in Variance (PVC)"),
+      card_body(
+        div(class = "d-flex justify-content-around text-center mb-4",
+          div(
+            h5("Null Model (Model 1) Variance"),
+            h4(sprintf("%.4f", pvc$var_model1))
+          ),
+          div(
+            h5("Adjusted Model (Model 2) Variance"),
+            h4(sprintf("%.4f", pvc$var_model2))
+          )
+        ),
+        hr(),
+        div(class = "text-center",
+          h3("Estimated PVC"),
+          h2(class = "text-success", sprintf("%.2f%%", pvc$pvc * 100))
+        )
+      )
+    )
   })
 
   output$maihda_plot <- renderPlot({
@@ -137,7 +185,7 @@ server <- function(input, output, session) {
     req(input$plot_type)
 
     if (input$plot_type %in% c("caterpillar", "predicted")) {
-      plot_maihda(model_results(), type = input$plot_type, n_strata = input$n_strata)
+      plot_maihda(model_results(), type = input$plot_type, n_strata = 20)
     } else {
       plot_maihda(model_results(), type = input$plot_type)
     }
