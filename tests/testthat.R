@@ -1,4 +1,1 @@
-library(testthat)
-library(MAIHDA)
-
-test_check("MAIHDA")
+shinytest2::test_app()

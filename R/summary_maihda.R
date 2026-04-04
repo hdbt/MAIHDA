@@ -124,7 +124,7 @@ summary_maihda <- function(object, bootstrap = FALSE, n_boot = 1000,
 
       stratum_estimates <- data.frame(
         stratum = rownames(stratum_re),
-        stratum_id = as.integer(rownames(stratum_re)),
+        stratum_id = suppressWarnings(as.integer(rownames(stratum_re))),
         random_effect = stratum_re[, 1],
         se = stratum_se,
         lower_95 = stratum_re[, 1] - 1.96 * stratum_se,
@@ -177,7 +177,7 @@ summary_maihda <- function(object, bootstrap = FALSE, n_boot = 1000,
     # Transform brms ranef output to match lme4 structure
     stratum_estimates <- data.frame(
       stratum = rownames(ranef_result),
-      stratum_id = as.integer(rownames(ranef_result)),
+      stratum_id = suppressWarnings(as.integer(rownames(ranef_result))),
       random_effect = ranef_result[, "Estimate"],
       se = ranef_result[, "Est.Error"],
       lower_95 = ranef_result[, "Q2.5"],

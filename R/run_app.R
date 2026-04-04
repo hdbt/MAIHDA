@@ -14,6 +14,19 @@
 #' run_maihda_app()
 #' }
 run_maihda_app <- function() {
+  required_pkgs <- c("shiny", "bslib", "DT", "future", "promises", "haven", "shinyjs")
+  missing_pkgs <- required_pkgs[!vapply(required_pkgs, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]
+
+  if (length(missing_pkgs) > 0) {
+    stop(
+      "The following packages are required to run the MAIHDA Shiny app:\n",
+      paste("  -", missing_pkgs, collapse = "\n"),
+      "\n\nPlease install them by running:\n",
+      "install.packages(c('", paste(missing_pkgs, collapse = "', '"), "'))",
+      call. = FALSE
+    )
+  }
+
   app_dir <- system.file("shiny", package = "MAIHDA")
   if (app_dir == "") {
     stop("Could not find shiny app directory. Try re-installing `MAIHDA`.", call. = FALSE)

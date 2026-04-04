@@ -10,19 +10,33 @@ library(promises)
 future::plan(multisession)
 
 ui <- page_sidebar(
+  shinyjs::useShinyjs(),
   title = "MAIHDA Analysis Dashboard",
   theme = bs_theme(version = 5, primary = "#2C3E50", success = "#6BCF7F", info = "#4D9DE0"),
 
   sidebar = sidebar(
     title = "Controls",
-    fileInput("upload", "Upload Data (CSV/RDS/DTA/SAV)", accept = c(".csv", ".rds", ".dta", ".sav")),
+    selectInput("dataset", "1. Select Dataset:",
+                choices = c("Built-in: Simulated Data" = "sim",
+                            "Built-in: NHANES Health Data" = "health",
+                            "Upload Custom Data" = "upload")),
+    conditionalPanel(
+      condition = "input.dataset == 'upload'",
+      fileInput("upload", "Upload Data (CSV/RDS/DTA/SAV)", accept = c(".csv", ".rds", ".dta", ".sav"))
+    ),
 
     # Model specification
     selectizeInput("outcome", "Outcome Variable", choices = NULL),
-    selectizeInput("group_vars", "Grouping Variables", choices = NULL, multiple = TRUE),
+    selectizeInput("group_vars", "Strata Grouping Variables", choices = NULL, multiple = TRUE),
+    selectizeInput("covariates", "Additional Covariates (Fixed Effects)", choices = NULL, multiple = TRUE),
 
-    # Model family settings
+    # Model settings
     selectInput("family", "Family", choices = c("gaussian", "binomial", "poisson"), selected = "gaussian"),
+    checkboxInput("use_boot", "Compute Bootstrap CIs (Slower)", value = FALSE),
+    conditionalPanel(
+      condition = "input.use_boot == true",
+      numericInput("n_boot", "Bootstrap Samples", value = 100, min = 10, step = 10)
+    ),
 
     # Action button to trigger fitting
     actionButton("fit_btn", "Fit MAIHDA Model", class = "btn-primary")
@@ -54,31 +68,65 @@ server <- function(input, output, session) {
 
   # Load data: if no file, use maihda_sim_data
   reactive_data <- reactive({
-    if (is.null(input$upload)) {
+    if (input$dataset == "sim") {
       return(MAIHDA::maihda_sim_data)
-      } else {
+    } else if (input$dataset == "health") {
+      # Use the new real-world health dataset
+      return(MAIHDA::maihda_health_data)
+    } else if (input$dataset == "upload" && !is.null(input$upload)) {
       ext <- tolower(tools::file_ext(input$upload$name))
-      if (ext == "csv") {
-        return(read.csv(input$upload$datapath))
-      } else if (ext == "rds") {
-        return(readRDS(input$upload$datapath))
-      } else if (ext == "dta") {
-        if (!requireNamespace("haven", quietly = TRUE)) stop("haven package required for DTA files")
-        return(haven::read_dta(input$upload$datapath))
-      } else if (ext == "sav") {
-        if (!requireNamespace("haven", quietly = TRUE)) stop("haven package required for SAV files")
-        return(haven::read_sav(input$upload$datapath))
-      } else {
-        stop("Invalid file format")
-      }
+      dat <- tryCatch({
+        if (ext == "csv") {
+          read.csv(input$upload$datapath)
+        } else if (ext == "rds") {
+          readRDS(input$upload$datapath)
+        } else if (ext == "dta") {
+          if (!requireNamespace('haven', quietly = TRUE)) stop("haven package required for DTA files")
+          haven::as_factor(haven::read_dta(input$upload$datapath))
+        } else if (ext == "sav") {
+          if (!requireNamespace('haven', quietly = TRUE)) stop("haven package required for SAV files")
+          haven::as_factor(haven::read_sav(input$upload$datapath))
+        } else {
+          stop("Unsupported format")
+        }
+      }, error = function(e) {
+        showNotification(paste("Error loading file:", e$message), type = "error")
+        NULL
+      })
+      return(dat)
+    } else {
+      # Fallback while waiting for upload
+      return(NULL)
     }
   })
 
   observe({
     req(reactive_data())
     cols <- names(reactive_data())
-    updateSelectizeInput(session, "outcome", choices = cols, selected = ifelse("health_outcome" %in% cols, "health_outcome", cols[1]), server = TRUE)
-    updateSelectizeInput(session, "group_vars", choices = cols, selected = intersect(c("gender", "race"), cols), server = TRUE)
+
+    # Preserve selections if still valid
+    curr_outcome <- isolate(input$outcome)
+    curr_group <- isolate(input$group_vars)
+    curr_covars <- isolate(input$covariates)
+
+    new_outcome <- ifelse(!is.null(curr_outcome) && curr_outcome %in% cols, curr_outcome, ifelse("health_outcome" %in% cols, "health_outcome", cols[1]))
+    new_group <- if(!is.null(curr_group) && all(curr_group %in% cols)) curr_group else intersect(c("gender", "race"), cols)
+
+    # Calculate available covariates by excluding outcome and strata variables
+    used_vars <- c(new_outcome, new_group)
+    avail_covars <- setdiff(cols, used_vars)
+
+    # Filter current covariates that might have been pushed out
+    new_covars <- intersect(curr_covars, avail_covars)
+
+    updateSelectizeInput(session, "outcome", choices = cols, selected = new_outcome, server = TRUE)
+    updateSelectizeInput(session, "group_vars", choices = cols, selected = new_group, server = TRUE)
+    updateSelectizeInput(session, "covariates", choices = avail_covars, selected = new_covars, server = TRUE)
+  })
+
+  observe({
+    # Grey out fit button if no grouping vars are selected
+    shinyjs::toggleState("fit_btn", condition = length(input$group_vars) > 0)
   })
 
   output$data_table <- renderDT({
@@ -97,19 +145,27 @@ server <- function(input, output, session) {
     grouping_vars <- input$group_vars
     req(length(grouping_vars) > 0)
 
+    additional_covars <- input$covariates
     outcome_var <- input$outcome
     eng <- "lme4"
     fam <- input$family
+
+    use_boot <- input$use_boot
+    n_boot <- input$n_boot
 
     # Reset old results
     model_results(NULL)
     summary_results(NULL)
     pvc_results(NULL)
 
-    id <- showNotification("Creating strata...", duration = NULL, type = "message")
+    id <- showNotification("Creating strata & Fitting Models (May take a moment)...", duration = NULL, type = "message")
 
     # Formula construction
-    fmla_str <- paste(outcome_var, "~", paste(grouping_vars, collapse = " + "), "+ (1 | stratum)")
+    if (length(additional_covars) > 0) {
+        fmla_str <- paste(outcome_var, "~", paste(c(grouping_vars, additional_covars), collapse = " + "), "+ (1 | stratum)")
+    } else {
+        fmla_str <- paste(outcome_var, "~", paste(grouping_vars, collapse = " + "), "+ (1 | stratum)")
+    }
     fmla <- as.formula(fmla_str)
 
     future_promise({
@@ -122,7 +178,7 @@ server <- function(input, output, session) {
       mod2 <- fit_maihda(formula = fmla, data = strata_dat$data, engine = eng, family = fam)
 
       summ <- summary_maihda(mod2)
-      pvc <- calculate_pvc(mod1, mod2)
+      pvc <- calculate_pvc(mod1, mod2, bootstrap = use_boot, n_boot = n_boot)
 
       list(model = mod2, summary = summ, pvc = pvc)
     }, seed = TRUE) %...>% (function(res) {
@@ -186,6 +242,15 @@ server <- function(input, output, session) {
     outcome_var <- all.vars(mod$formula)[1]
     null_formula <- paste(outcome_var, "~ 1 + (1 | stratum)")
 
+    bootstrap_ui <- if (isTRUE(pvc$bootstrap) && !is.null(pvc$ci_lower) && !is.null(pvc$ci_upper)) {
+        div(class = "mt-4 text-center text-muted",
+            h5("Bootstrap 95% Confidence Interval"),
+            tags$p(sprintf("[%.4f, %.4f]", pvc$ci_lower, pvc$ci_upper))
+        )
+    } else {
+        NULL
+    }
+
     card(
       card_header("Proportional Change in Variance (PVC)"),
       card_body(
@@ -195,14 +260,14 @@ server <- function(input, output, session) {
             tags$code(null_formula),
             br(),br(),
             h5("Variance:"),
-            h4(sprintf("%.4f", pvc$var_model1))
+            h4(if (!is.null(pvc$var_model1)) sprintf("%.4f", pvc$var_model1) else "N/A")
           ),
           div(
             h5("Adjusted Model (Model 2)"),
             tags$code(paste(adjusted_formula, collapse = "")),
             br(),br(),
             h5("Variance:"),
-            h4(sprintf("%.4f", pvc$var_model2))
+            h4(if (!is.null(pvc$var_model2)) sprintf("%.4f", pvc$var_model2) else "N/A")
           )
         ),
         hr(),
@@ -215,7 +280,8 @@ server <- function(input, output, session) {
             )
           ),
           h2(class = "text-success", sprintf("%.2f%%", pvc$pvc * 100))
-        )
+        ),
+        bootstrap_ui
       )
     )
   })
