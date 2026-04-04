@@ -1,0 +1,55 @@
+# Stepwise Proportional Change in Variance (PCV)
+
+Estimates the proportional change in variance (PCV) sequentially by
+fitting intermediate (partially-adjusted) models. It adds each predictor
+variable one-by-one to gauge its unique contribution in explaining
+between-stratum inequalities.
+
+## Usage
+
+``` r
+stepwise_pcv(data, outcome, vars, engine = "lme4", family = "gaussian")
+```
+
+## Arguments
+
+- data:
+
+  Data frame with observations. Ensure \`make_strata()\` was run first
+  so the \`stratum\` variable exists.
+
+- outcome:
+
+  Character string; the dependent variable.
+
+- vars:
+
+  Character vector; predictors (strata groupings & covariates) to add
+  sequentially to the model.
+
+- engine:
+
+  Modeling engine ("lme4" or "brms"). Default is "lme4".
+
+- family:
+
+  Error distribution and link function. Default is "gaussian".
+
+## Value
+
+A data.frame showing the sequential models, the between-stratum variance
+at each step, and both the step-specific and total PCV.
+
+## Examples
+
+``` r
+# \donttest{
+strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
+stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
+#>   Step      Model        Added_Variable  Variance   Step_PCV  Total_PCV
+#> 1    0 Null Model None (Intercept only) 26.714703  0.0000000  0.0000000
+#> 2    1    Model 1                gender 30.862925 -0.1552786 -0.1552786
+#> 3    2    Model 2                  race  2.346242  0.9239786  0.9121741
+#> 4    3    Model 3                   age  3.031707 -0.2921546  0.8865154
+# }
+```

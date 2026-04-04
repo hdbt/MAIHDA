@@ -8,6 +8,8 @@
   : Compare MAIHDA Models
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   : Fit MAIHDA Model
+- [`maihda_health_data`](https://hdbt.github.io/MAIHDA/reference/maihda_health_data.md)
+  : NHANES Health Data Subset for MAIHDA Use
 - [`maihda_sim_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.md)
   : Simulated Health Data for MAIHDA Examples
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
@@ -28,5 +30,7 @@
   : Print method for PVC results
 - [`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md)
   : Run MAIHDA Shiny Application
+- [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  : Stepwise Proportional Change in Variance (PCV)
 - [`summary_maihda()`](https://hdbt.github.io/MAIHDA/reference/summary_maihda.md)
   : Summarize MAIHDA Model

@@ -10,13 +10,13 @@ Source:
 [`DESCRIPTION`](https://github.com/hdbt/MAIHDA/blob/main/DESCRIPTION)
 
 Bulut H (2026). *MAIHDA: Multilevel Analysis of Individual Heterogeneity
-and Discriminatory Accuracy*. R package version 0.1.0,
+and Discriminatory Accuracy*. R package version 0.1.7,
 <https://github.com/hdbt/MAIHDA>.
 
     @Manual{,
       title = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},
       author = {Hamid Bulut},
       year = {2026},
-      note = {R package version 0.1.0},
+      note = {R package version 0.1.7},
       url = {https://github.com/hdbt/MAIHDA},
     }
