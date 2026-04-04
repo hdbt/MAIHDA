@@ -103,14 +103,14 @@ server <- function(input, output, session) {
     future_promise({
       # Step 1: Make strata
       strata_dat <- make_strata(dat, vars = grouping_vars)
-      
+
       # Step 2: Fit model
       mod <- fit_maihda(formula = fmla, data = strata_dat, engine = eng, family = fam)
-      
+
       # Step 3: Summarize and PVC
       summ <- summary(mod)
       pvc <- calculate_pvc(mod)
-      
+
       list(model = mod, summary = summ, pvc = pvc)
     }, seed = TRUE) %...>% (function(res) {
       removeNotification(id)
