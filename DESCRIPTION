@@ -27,7 +27,8 @@ Imports:
     bslib,
     DT,
     future,
-    promises
+    promises,
+    haven
 Suggests:
     brms (>= 2.15.0),
     testthat (>= 3.0.0),
