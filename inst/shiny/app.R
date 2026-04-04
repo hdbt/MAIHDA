@@ -18,8 +18,8 @@ ui <- page_sidebar(
     fileInput("upload", "Upload Data (CSV/RDS)", accept = c(".csv", ".rds")),
 
     # Model specification
-    textInput("outcome", "Outcome Variable", value = "outcome"),
-    textInput("group_vars", "Grouping Variables (comma-separated)", value = "sex, age_group"),
+    selectizeInput("outcome", "Outcome Variable", choices = NULL),
+    selectizeInput("group_vars", "Grouping Variables", choices = NULL, multiple = TRUE),
 
     # Engine settings
     selectInput("engine", "Engine", choices = c("lme4", "brms"), selected = "lme4"),
@@ -105,13 +105,14 @@ server <- function(input, output, session) {
       strata_dat <- make_strata(dat, vars = grouping_vars)
 
       # Step 2: Fit model
-      mod <- fit_maihda(formula = fmla, data = strata_dat, engine = eng, family = fam)
+      fmla_null <- as.formula(paste(outcome_var, "~ 1 + (1 | stratum)"))
+      mod1 <- fit_maihda(formula = fmla_null, data = strata_dat$data, engine = eng, family = fam)
+      mod2 <- fit_maihda(formula = fmla, data = strata_dat$data, engine = eng, family = fam)
 
-      # Step 3: Summarize and PVC
-      summ <- summary(mod)
-      pvc <- calculate_pvc(mod)
+      summ <- summary_maihda(mod2)
+      pvc <- calculate_pvc(mod1, mod2)
 
-      list(model = mod, summary = summ, pvc = pvc)
+      list(model = mod2, summary = summ, pvc = pvc)
     }, seed = TRUE) %...>% (function(res) {
       removeNotification(id)
       model_results(res$model)
@@ -136,9 +137,9 @@ server <- function(input, output, session) {
     req(input$plot_type)
 
     if (input$plot_type %in% c("caterpillar", "predicted")) {
-      plot(model_results(), type = input$plot_type, n_strata = input$n_strata)
+      plot_maihda(model_results(), type = input$plot_type, n_strata = input$n_strata)
     } else {
-      plot(model_results(), type = input$plot_type)
+      plot_maihda(model_results(), type = input$plot_type)
     }
   })
 }
