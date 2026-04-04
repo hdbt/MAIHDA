@@ -21,4 +21,4 @@ Useful links:
 
 ## Author
 
-**Maintainer**: Hamid Bulut <hamid.bulut@ymail.com>
+**Maintainer**: Hamid Bulut <me@hamidbulut.com>

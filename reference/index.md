@@ -26,5 +26,7 @@
   : Print method for maihda_summary objects
 - [`print(`*`<pvc_result>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.pvc_result.md)
   : Print method for PVC results
+- [`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md)
+  : Run MAIHDA Shiny Application
 - [`summary_maihda()`](https://hdbt.github.io/MAIHDA/reference/summary_maihda.md)
   : Summarize MAIHDA Model
