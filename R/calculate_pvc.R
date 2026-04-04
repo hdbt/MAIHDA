@@ -161,73 +161,33 @@ extract_between_variance <- function(model) {
 #' @keywords internal
 #' @importFrom lme4 lmer glmer VarCorr
 bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
-  pvc_boot <- numeric(n_boot)
-
-  # Use the larger dataset for bootstrap (in case they differ)
-  data1 <- model1$data
-  data2 <- model2$data
-  n1 <- nrow(data1)
-  n2 <- nrow(data2)
-
-  # Check if data frames are compatible for bootstrap
-  # We need to ensure we can resample indices that work for both
-  if (n1 != n2) {
-    warning("Models fitted on different sized datasets. Using model1's data size for bootstrap.")
-    n <- n1
-    # Only use model1's data for bootstrap
-    use_data2 <- FALSE
-  } else {
-    n <- n1
-    use_data2 <- TRUE
+  engine <- model1$engine
+  if (engine != "lme4") {
+    stop("Bootstrap is currently only supported for lme4 models.")
   }
 
-  formula1 <- model1$formula
-  formula2 <- model2$formula
-  engine <- model1$engine
+  pvc_boot <- numeric(n_boot)
+
+  # Parametric Bootstrap: Simulate new responses from the adjusted model (model2)
+  # This mathematically preserves the hierarchical structure (random effects)
+  # and the fixed-effects distributions, unlike naive row-resampling.
+  sim_data <- stats::simulate(model2$model, nsim = n_boot)
 
   for (i in 1:n_boot) {
-    # Resample with replacement
-    boot_indices <- sample(1:n, n, replace = TRUE)
-    boot_data1 <- data1[boot_indices, ]
-
-    if (use_data2) {
-      boot_data2 <- data2[boot_indices, ]
-    } else {
-      boot_data2 <- boot_data1  # Fallback if different sizes
-    }
-
-    # Fit both models on bootstrap sample
     tryCatch({
-      if (engine == "lme4") {
-        if (inherits(model1$model, "lmerMod")) {
-          boot_model1 <- lme4::lmer(formula1, data = boot_data1)
-        } else {
-          boot_model1 <- lme4::glmer(formula1, data = boot_data1,
-                                     family = model1$family)
-        }
+      # Fast parametric refitting with the newly simulated response vector
+      boot_model1 <- lme4::refit(model1$model, newresp = sim_data[[i]])
+      boot_model2 <- lme4::refit(model2$model, newresp = sim_data[[i]])
 
-        if (inherits(model2$model, "lmerMod")) {
-          boot_model2 <- lme4::lmer(formula2, data = boot_data2)
-        } else {
-          boot_model2 <- lme4::glmer(formula2, data = boot_data2,
-                                     family = model2$family)
-        }
+      # Extract variances
+      vc1 <- lme4::VarCorr(boot_model1)
+      var1 <- as.numeric(vc1[[1]][1])
 
-        # Extract variances
-        vc1 <- lme4::VarCorr(boot_model1)
-        var1 <- as.numeric(vc1[[1]][1])
+      vc2 <- lme4::VarCorr(boot_model2)
+      var2 <- as.numeric(vc2[[1]][1])
 
-        vc2 <- lme4::VarCorr(boot_model2)
-        var2 <- as.numeric(vc2[[1]][1])
-
-        # Calculate PVC
-        pvc_boot[i] <- (var1 - var2) / var1
-
-      } else if (engine == "brms") {
-        # For brms, this would require refitting which is computationally expensive
-        # Not implementing bootstrap for brms in this version
-        stop("Bootstrap is not yet implemented for brms models")
-      }
+      # Calculate PVC
+      pvc_boot[i] <- (var1 - var2) / var1
     }, error = function(e) {
       pvc_boot[i] <- NA
     })
@@ -249,7 +209,7 @@ bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
 }
 
 #' Print method for PVC results
-#' 
+#'
 #' @param x A pvc_result object
 #' @param ... Additional arguments
 #' @return No return value, called for side effects.
@@ -286,4 +246,93 @@ print.pvc_result <- function(x, ...) {
   }
 
   invisible(x)
+}
+
+#' Stepwise Proportional Change in Variance (PCV)
+#'
+#' @description
+#' Estimates the proportional change in variance (PCV) sequentially by fitting
+#' intermediate (partially-adjusted) models. It adds each predictor variable
+#' one-by-one to gauge its unique contribution in explaining between-stratum
+#' inequalities.
+#'
+#' @param data Data frame with observations. Ensure `make_strata()` was run first
+#'   so the `stratum` variable exists.
+#' @param outcome Character string; the dependent variable.
+#' @param vars Character vector; predictors (strata groupings & covariates) to
+#'   add sequentially to the model.
+#' @param engine Modeling engine ("lme4" or "brms"). Default is "lme4".
+#' @param family Error distribution and link function. Default is "gaussian".
+#'
+#' @return A data.frame showing the sequential models, the between-stratum
+#'   variance at each step, and both the step-specific and total PCV.
+#'
+#' @examples
+#' \donttest{
+#' strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
+#' stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
+#' }
+#'
+#' @export
+stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussian") {
+
+  if (!"stratum" %in% names(data)) {
+    stop("Variable 'stratum' not found in data. Please run make_strata() first.")
+  }
+
+  results <- data.frame(
+    Step = integer(length(vars) + 1),
+    Model = character(length(vars) + 1),
+    Added_Variable = character(length(vars) + 1),
+    Variance = numeric(length(vars) + 1),
+    Step_PCV = numeric(length(vars) + 1),
+    Total_PCV = numeric(length(vars) + 1),
+    stringsAsFactors = FALSE
+  )
+
+  # Model 0: Null Model
+  null_fmla <- as.formula(paste(outcome, "~ 1 + (1 | stratum)"))
+  null_mod <- fit_maihda(null_fmla, data, engine = engine, family = family)
+  null_var <- extract_between_variance(null_mod)
+
+  results[1, ] <- list(
+    Step = 0,
+    Model = "Null Model",
+    Added_Variable = "None (Intercept only)",
+    Variance = null_var,
+    Step_PCV = 0,
+    Total_PCV = 0
+  )
+
+  prev_var <- null_var
+
+  # Sequentially add variables
+  current_vars <- c()
+
+  for (i in seq_along(vars)) {
+    var <- vars[i]
+    current_vars <- c(current_vars, var)
+
+    fmla_str <- paste(outcome, "~", paste(current_vars, collapse = " + "), "+ (1 | stratum)")
+    mod <- fit_maihda(as.formula(fmla_str), data, engine = engine, family = family)
+
+    curr_var <- extract_between_variance(mod)
+
+    step_pcv <- if (prev_var > 0) (prev_var - curr_var) / prev_var else NA
+    total_pcv <- if (null_var > 0) (null_var - curr_var) / null_var else NA
+
+    results[i + 1, ] <- list(
+      Step = i,
+      Model = sprintf("Model %d", i),
+      Added_Variable = var,
+      Variance = curr_var,
+      Step_PCV = step_pcv,
+      Total_PCV = total_pcv
+    )
+
+    prev_var <- curr_var
+  }
+
+  class(results) <- c("maihda_stepwise", "data.frame")
+  return(results)
 }

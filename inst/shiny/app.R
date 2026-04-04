@@ -49,6 +49,8 @@ ui <- page_sidebar(
               uiOutput("model_summary_ui")),
     nav_panel("PVC Results",
               uiOutput("pvc_summary_ui")),
+    nav_panel("Stepwise PCV",
+              uiOutput("stepwise_pcv_ui")),
     nav_panel("Visualizations",
               div(class = "d-flex justify-content-between align-items-center align-items-md-end mb-3",
                 div(class = "flex-grow-1 me-3",
@@ -137,6 +139,7 @@ server <- function(input, output, session) {
   model_results <- reactiveVal(NULL)
   summary_results <- reactiveVal(NULL)
   pvc_results <- reactiveVal(NULL)
+  stepwise_results <- reactiveVal(NULL)
 
   observeEvent(input$fit_btn, {
     dat <- reactive_data()
@@ -157,6 +160,7 @@ server <- function(input, output, session) {
     model_results(NULL)
     summary_results(NULL)
     pvc_results(NULL)
+    stepwise_results(NULL)
 
     id <- showNotification("Creating strata & Fitting Models (May take a moment)...", duration = NULL, type = "message")
 
@@ -167,6 +171,9 @@ server <- function(input, output, session) {
         fmla_str <- paste(outcome_var, "~", paste(grouping_vars, collapse = " + "), "+ (1 | stratum)")
     }
     fmla <- as.formula(fmla_str)
+    
+    # Variables for stepwise PCV
+    stepwise_vars <- c(grouping_vars, additional_covars)
 
     future_promise({
       # Step 1: Make strata
@@ -179,13 +186,16 @@ server <- function(input, output, session) {
 
       summ <- summary_maihda(mod2)
       pvc <- calculate_pvc(mod1, mod2, bootstrap = use_boot, n_boot = n_boot)
+      
+      stepwise <- stepwise_pcv(strata_dat$data, outcome = outcome_var, vars = stepwise_vars, engine = eng, family = fam)
 
-      list(model = mod2, summary = summ, pvc = pvc)
+      list(model = mod2, summary = summ, pvc = pvc, stepwise = stepwise)
     }, seed = TRUE) %...>% (function(res) {
       removeNotification(id)
       model_results(res$model)
       summary_results(res$summary)
       pvc_results(res$pvc)
+      stepwise_results(res$stepwise)
     })
 
   })
@@ -245,7 +255,7 @@ server <- function(input, output, session) {
     bootstrap_ui <- if (isTRUE(pvc$bootstrap) && !is.null(pvc$ci_lower) && !is.null(pvc$ci_upper)) {
         div(class = "mt-4 text-center text-muted",
             h5("Bootstrap 95% Confidence Interval"),
-            tags$p(sprintf("[%.4f, %.4f]", pvc$ci_lower, pvc$ci_upper))
+            tags$p(sprintf("[%.2f%%, %.2f%%]", pvc$ci_lower * 100, pvc$ci_upper * 100))
         )
     } else {
         NULL
@@ -284,6 +294,37 @@ server <- function(input, output, session) {
         bootstrap_ui
       )
     )
+  })
+
+  output$stepwise_pcv_ui <- renderUI({
+    req(stepwise_results())
+    
+    card(
+      card_header("Stepwise Proportional Change in Variance Decomposition"),
+      card_body(
+        markdown("
+        This table displays how much between-stratum inequality is explained incrementally.
+        
+        *   **Step_PCV**: Percentage of variance explained compared to the *previous* model step.
+        *   **Total_PCV**: Percentage of variance explained compared to the *null* model (Step 0).
+        "),
+        hr(),
+        DTOutput("stepwise_pcv_dt")
+      )
+    )
+  })
+
+  output$stepwise_pcv_dt <- renderDT({
+    req(stepwise_results())
+    res <- stepwise_results()
+    
+    # Format the table for the viewer
+    df <- res
+    df$Variance <- sprintf("%.4f", df$Variance)
+    df$Step_PCV <- ifelse(!is.na(df$Step_PCV), sprintf("%.2f%%", df$Step_PCV * 100), "0.00%")
+    df$Total_PCV <- ifelse(!is.na(df$Total_PCV), sprintf("%.2f%%", df$Total_PCV * 100), "0.00%")
+    
+    datatable(df, options = list(dom = 't', paging = FALSE, ordering = FALSE), rownames = FALSE, escape = FALSE)
   })
 
   current_plot <- reactive({
