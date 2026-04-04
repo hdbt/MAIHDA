@@ -272,6 +272,7 @@ print.pvc_result <- function(x, ...) {
 #' strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
 #' stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
 #' }
+#' @importFrom stats as.formula
 #'
 #' @export
 stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussian") {
