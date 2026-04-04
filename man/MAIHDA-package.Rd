@@ -20,7 +20,7 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Hamid Bulut \email{hamid.bulut@ymail.com}
+\strong{Maintainer}: Hamid Bulut \email{me@hamidbulut.com}
 
 }
 \keyword{internal}

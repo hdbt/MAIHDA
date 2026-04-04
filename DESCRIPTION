@@ -3,13 +3,13 @@ Type: Package
 Title: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy
 Version: 0.1.0
 Authors@R: c(
-    person("Hamid", "Bulut", email = "hamid.bulut@ymail.com", role = c("aut", "cre"))
+    person("Hamid", "Bulut", email = "me@hamidbulut.com", role = c("aut", "cre"))
     )
-Description: Provides a comprehensive toolkit for conducting Multilevel Analysis 
-    of Individual Heterogeneity and Discriminatory Accuracy (MAIHDA). Methods 
-    are described in Merlo (2018) <doi:10.1016/j.socscimed.2017.12.018> and 
-    Evans et al. (2018) <doi:10.1016/j.socscimed.2017.11.011>. Automatically 
-    generates intersectional strata, fits analytical models, extracts statistics, 
+Description: Provides a comprehensive toolkit for conducting Multilevel Analysis
+    of Individual Heterogeneity and Discriminatory Accuracy (MAIHDA). Methods
+    are described in Merlo (2018) <doi:10.1016/j.socscimed.2017.12.018> and
+    Evans et al. (2018) <doi:10.1016/j.socscimed.2017.11.011>. Automatically
+    generates intersectional strata, fits analytical models, extracts statistics,
     and produces visualizations.
 License: MIT + file LICENSE
 Encoding: UTF-8
@@ -22,7 +22,12 @@ Imports:
     dplyr (>= 1.0.0),
     tidyr (>= 1.1.0),
     stats,
-    rlang (>= 0.4.0)
+    rlang (>= 0.4.0),
+    shiny,
+    bslib,
+    DT,
+    future,
+    promises
 Suggests:
     brms (>= 2.15.0),
     testthat (>= 3.0.0),
