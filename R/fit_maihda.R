@@ -22,19 +22,19 @@
 #'   \item{strata_info}{The strata information from make_strata() if available, NULL otherwise}
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Create strata
-#' strata_result <- make_strata(data, vars = c("gender", "race"))
+#' strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
 #' 
 #' # Fit model with lme4
-#' model <- fit_maihda(outcome ~ age + (1 | stratum),
+#' model <- fit_maihda(health_outcome ~ age + (1 | stratum),
 #'                     data = strata_result$data,
 #'                     engine = "lme4")
 #' 
-#' # Fit model with brms (if installed)
-#' model_brms <- fit_maihda(outcome ~ age + (1 | stratum),
-#'                          data = strata_result$data,
-#'                          engine = "brms")
+#' # Fit model with brms (if brms is available)
+#' # model_brms <- fit_maihda(health_outcome ~ age + (1 | stratum),
+#' #                          data = strata_result$data,
+#' #                          engine = "brms")
 #' }
 #'
 #' @export
@@ -97,10 +97,11 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
   return(result)
 }
 
-#' Print method for maihda_model objects
-#'
+#' Print method for maihda_model
+#' 
 #' @param x A maihda_model object
-#' @param ... Additional arguments passed to print method of underlying model
+#' @param ... Additional arguments
+#' @return No return value, called for side effects.
 #' @export
 print.maihda_model <- function(x, ...) {
   cat("MAIHDA Model\n")

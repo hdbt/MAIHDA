@@ -2,15 +2,18 @@
 % Please edit documentation in R/calculate_pvc.R
 \name{print.pvc_result}
 \alias{print.pvc_result}
-\title{Print method for pvc_result objects}
+\title{Print method for PVC results}
 \usage{
 \method{print}{pvc_result}(x, ...)
 }
 \arguments{
 \item{x}{A pvc_result object}
 
-\item{...}{Additional arguments (not used)}
+\item{...}{Additional arguments}
+}
+\value{
+No return value, called for side effects.
 }
 \description{
-Print method for pvc_result objects
+Print method for PVC results
 }

@@ -42,7 +42,7 @@ str(maihda_sim_data)
 # Summary statistics
 summary(maihda_sim_data)
 
-\dontrun{
+\donttest{
 # Example MAIHDA analysis
 library(MAIHDA)
 

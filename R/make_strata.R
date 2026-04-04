@@ -26,16 +26,9 @@
 #' and summaries.
 #'
 #' @examples
-#' \dontrun{
 #' # Create strata from gender and race variables
-#' data <- data.frame(
-#'   gender = c("M", "F", "M", "F"),
-#'   race = c("White", "Black", "White", "Black"),
-#'   outcome = c(1, 2, 3, 4)
-#' )
-#' result <- make_strata(data, vars = c("gender", "race"))
+#' result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
 #' print(result$strata_info)
-#' }
 #'
 #' @export
 #' @importFrom dplyr mutate group_by summarise n ungroup
@@ -124,6 +117,7 @@ make_strata <- function(data, vars, sep = "_", min_n = 1) {
 #'
 #' @param x A maihda_strata object
 #' @param ... Additional arguments (not used)
+#' @return No return value, called for side effects.
 #' @export
 print.maihda_strata <- function(x, ...) {
   cat("MAIHDA Strata Object\n")

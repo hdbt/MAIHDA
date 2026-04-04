@@ -11,6 +11,9 @@
 
 \item{...}{Additional arguments (not used)}
 }
+\value{
+No return value, called for side effects.
+}
 \description{
 Print method for maihda_summary objects
 }

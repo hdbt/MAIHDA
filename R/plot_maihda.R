@@ -21,8 +21,9 @@
 #' @return A ggplot2 object.
 #'
 #' @examples
-#' \dontrun{
-#' model <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
+#' \donttest{
+#' strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+#' model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
 #'
 #' # Caterpillar plot
 #' plot_maihda(model, type = "caterpillar")

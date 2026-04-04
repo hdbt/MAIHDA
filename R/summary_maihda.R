@@ -46,12 +46,13 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'   \item{model_summary}{Original model summary}
 #'
 #' @examples
-#' \dontrun{
-#' model <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
+#' \donttest{
+#' strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+#' model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
 #' summary_result <- summary_maihda(model)
 #'
 #' # With bootstrap CI
-#' summary_boot <- summary_maihda(model, bootstrap = TRUE, n_boot = 500)
+#' # summary_boot <- summary_maihda(model, bootstrap = TRUE, n_boot = 50)
 #' }
 #'
 #' @export
@@ -261,6 +262,7 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
 #'
 #' @param x A maihda_summary object
 #' @param ... Additional arguments (not used)
+#' @return No return value, called for side effects.
 #' @export
 print.maihda_summary <- function(x, ...) {
   cat("MAIHDA Model Summary\n")
