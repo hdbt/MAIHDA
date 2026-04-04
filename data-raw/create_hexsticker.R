@@ -39,7 +39,7 @@ p <- ggplot(circle_data, aes(x = x, y = y, group = group, fill = group)) +
 
 sticker(p,
         package = "MAIHDA",
-        p_size = 22,
+        p_size = 30,
         p_color = "#FFFFFF",            # White text
         p_family = "montserrat",
         p_fontface = "bold",
