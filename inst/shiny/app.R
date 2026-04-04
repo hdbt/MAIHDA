@@ -171,7 +171,7 @@ server <- function(input, output, session) {
         fmla_str <- paste(outcome_var, "~", paste(grouping_vars, collapse = " + "), "+ (1 | stratum)")
     }
     fmla <- as.formula(fmla_str)
-    
+
     # Variables for stepwise PCV
     stepwise_vars <- c(grouping_vars, additional_covars)
 
@@ -186,7 +186,7 @@ server <- function(input, output, session) {
 
       summ <- summary_maihda(mod2)
       pvc <- calculate_pvc(mod1, mod2, bootstrap = use_boot, n_boot = n_boot)
-      
+
       stepwise <- stepwise_pcv(strata_dat$data, outcome = outcome_var, vars = stepwise_vars, engine = eng, family = fam)
 
       list(model = mod2, summary = summ, pvc = pvc, stepwise = stepwise)
@@ -298,13 +298,13 @@ server <- function(input, output, session) {
 
   output$stepwise_pcv_ui <- renderUI({
     req(stepwise_results())
-    
+
     card(
       card_header("Stepwise Proportional Change in Variance Decomposition"),
       card_body(
         markdown("
         This table displays how much between-stratum inequality is explained incrementally.
-        
+
         *   **Step_PCV**: Percentage of variance explained compared to the *previous* model step.
         *   **Total_PCV**: Percentage of variance explained compared to the *null* model (Step 0).
         "),
@@ -317,13 +317,13 @@ server <- function(input, output, session) {
   output$stepwise_pcv_dt <- renderDT({
     req(stepwise_results())
     res <- stepwise_results()
-    
+
     # Format the table for the viewer
     df <- res
     df$Variance <- sprintf("%.4f", df$Variance)
     df$Step_PCV <- ifelse(!is.na(df$Step_PCV), sprintf("%.2f%%", df$Step_PCV * 100), "0.00%")
     df$Total_PCV <- ifelse(!is.na(df$Total_PCV), sprintf("%.2f%%", df$Total_PCV * 100), "0.00%")
-    
+
     datatable(df, options = list(dom = 't', paging = FALSE, ordering = FALSE), rownames = FALSE, escape = FALSE)
   })
 
