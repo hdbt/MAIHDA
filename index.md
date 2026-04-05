@@ -1,4 +1,4 @@
-# MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy ![](reference/figures/logo.png)
+# MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy
 
 [![R-CMD-check](https://github.com/hdbt/MAIHDA/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/hdbt/MAIHDA/actions/workflows/R-CMD-check.yaml)
 [![R](https://img.shields.io/badge/R-%3E%3D4.1.0-blue)](https://www.r-project.org/)
