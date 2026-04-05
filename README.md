@@ -76,6 +76,7 @@ Fits multilevel models using either lme4 (default) or brms engine. Supports vari
 
 ### `summary_maihda()`
 Provides comprehensive model summaries including:
+
 - Variance Partition Coefficient (VPC/ICC)
 - Variance components decomposition
 - Stratum-specific random effects
@@ -83,11 +84,13 @@ Provides comprehensive model summaries including:
 
 ### `predict_maihda()`
 Makes predictions at two levels:
+
 - **Individual**: Full predictions including random effects
 - **Strata**: Stratum-specific random effects with uncertainty
 
 ### `plot_maihda()`
 Creates various visualizations:
+
 - **Caterpillar plots**: Displays stratum random effects with confidence intervals
 - **VPC plots**: Visualizes variance partitioning
 - **Observed vs. Shrunken**: Shows shrinkage of stratum estimates
@@ -96,8 +99,7 @@ Creates various visualizations:
 Compares VPC/ICC across multiple models with optional bootstrap confidence intervals.
 
 ### `calculate_pvc()`
-Calculates the proportional change in between-stratum variance (PVC) between two models. This measures how much of the between-stratum variance from a baseline model is explained (or changed) by adding additional predictors in a second model:
-- Formula: PVC = (Var_model1 - Var_model2) / Var_model1
+Calculates the proportional change in between-stratum variance (PVC) between two models. This measures how much of the between-stratum variance from a baseline model is explained (or changed) by adding additional predictors in a second model:- Formula: PVC = (Var_model1 - Var_model2) / Var_model1
 - Supports bootstrap confidence intervals
 - Works with both lme4 and brms engines
 
@@ -198,8 +200,13 @@ print(stepwise_results)
 
 ## Interactive Shiny App
 
+You can access a live, cloud-hosted version of the MAIHDA interactive dashboard directly in your browser without installing R:
+**[https://hdbt.shinyapps.io/shiny/](https://hdbt.shinyapps.io/shiny/)**
+
+Alternatively, you can run all analyses described above in the browser locally by typing:
+
 ```r
-# Alternatively, you can run all analyses described above in the browser simply by typing:
+library(MAIHDA)
 run_maihda_app()
 ```
 
@@ -214,6 +221,7 @@ vignette("introduction", package = "MAIHDA")
 ## Dependencies
 
 **Required:**
+
 - R (>= 3.5.0)
 - lme4 (>= 1.1-27)
 - ggplot2 (>= 3.3.0)
@@ -222,6 +230,7 @@ vignette("introduction", package = "MAIHDA")
 - stats, methods, tibble, rlang
 
 **Optional:**
+
 - brms (>= 2.15.0) - for Bayesian models
 - boot (>= 1.3-20) - for bootstrap confidence intervals
 
@@ -243,11 +252,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you use this package in your research, please cite:
 
-```
+```text
 Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.7, https://github.com/hdbt/MAIHDA
+```
 
 A BibTeX entry for LaTeX users is:
 
+```bibtex
 @Manual{Bulut2025MAIHDA,
   title  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},
   author = {Hamid Bulut},
@@ -255,5 +266,4 @@ A BibTeX entry for LaTeX users is:
   note   = {R package version 0.1.7},
   url    = {https://github.com/hdbt/MAIHDA}
 }
-
 ```
