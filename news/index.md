@@ -1,5 +1,28 @@
 # Changelog
 
+## MAIHDA 0.1.7
+
+### General Updates & New Features
+
+- Added
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  function to sequentially estimate proportional change in variance
+  (PCV) by adding predictors one-by-one.
+- Added a fully-featured interactive Shiny Dashboard (via
+  [`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
+  for visual data exploration, model fitting, and performance
+  visualization.
+- Improved bootstrap methods for more efficient confidence interval
+  estimation.
+- Added missing documentation block for the `maihda_sim_data` dataset to
+  resolve `R CMD check` warnings.
+- Updated test suite setup: `tests/testthat.R` was modified to correctly
+  use `test_check("MAIHDA")` instead of `shinytest2`.
+- Added `importFrom(stats, as.formula)` for the `stepwise_pcv` function
+  to prevent undefined warnings.
+- Updated `introduction.Rmd` vignette: added standard CRAN installation
+  instructions, and improved text clarity.
+
 ## MAIHDA 0.1.0
 
 CRAN release: 2026-04-03

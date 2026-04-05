@@ -37,6 +37,19 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.7" id="maihda-017">MAIHDA 0.1.7<a class="anchor" aria-label="anchor" href="#maihda-017"></a></h2>
+<div class="section level3">
+<h3 id="general-updates--new-features-0-1-7">General Updates &amp; New Features<a class="anchor" aria-label="anchor" href="#general-updates--new-features-0-1-7"></a></h3>
+<ul><li>Added <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code> function to sequentially estimate proportional change in variance (PCV) by adding predictors one-by-one.</li>
+<li>Added a fully-featured interactive Shiny Dashboard (via <code><a href="../reference/run_maihda_app.html">run_maihda_app()</a></code>) for visual data exploration, model fitting, and performance visualization.</li>
+<li>Improved bootstrap methods for more efficient confidence interval estimation.</li>
+<li>Added missing documentation block for the <code>maihda_sim_data</code> dataset to resolve <code>R CMD check</code> warnings.</li>
+<li>Updated test suite setup: <code>tests/testthat.R</code> was modified to correctly use <code>test_check("MAIHDA")</code> instead of <code>shinytest2</code>.</li>
+<li>Added <code>importFrom(stats, as.formula)</code> for the <code>stepwise_pcv</code> function to prevent undefined warnings.</li>
+<li>Updated <code>introduction.Rmd</code> vignette: added standard CRAN installation instructions, and improved text clarity.</li>
+</ul></div>
+</div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="maihda-010">MAIHDA 0.1.0<a class="anchor" aria-label="anchor" href="#maihda-010"></a></h2><p class="text-muted">CRAN release: 2026-04-03</p>
 <div class="section level3">
 <h3 id="initial-release-0-1-0">Initial Release<a class="anchor" aria-label="anchor" href="#initial-release-0-1-0"></a></h3>
