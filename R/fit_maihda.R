@@ -25,12 +25,12 @@
 #' \donttest{
 #' # Create strata
 #' strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
-#' 
+#'
 #' # Fit model with lme4
 #' model <- fit_maihda(health_outcome ~ age + (1 | stratum),
 #'                     data = strata_result$data,
 #'                     engine = "lme4")
-#' 
+#'
 #' # Fit model with brms (if brms is available)
 #' # model_brms <- fit_maihda(health_outcome ~ age + (1 | stratum),
 #' #                          data = strata_result$data,
@@ -45,13 +45,13 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a formula object")
   }
-  
+
   if (!is.data.frame(data)) {
     stop("'data' must be a data frame")
   }
-  
+
   engine <- match.arg(engine, c("lme4", "brms"))
-  
+
   # Convert family to family object if it's a string
   if (is.character(family)) {
     family <- switch(family,
@@ -60,7 +60,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
                      poisson = poisson(),
                      stop("Unsupported family: ", family))
   }
-  
+
   # Fit model based on engine
   if (engine == "lme4") {
     # Check if it's a Gaussian family (use lmer) or other (use glmer)
@@ -74,14 +74,14 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("Package 'brms' is required but not installed. Please install it with: install.packages('brms')")
     }
-    
+
     model <- brms::brm(formula, data = data, family = family, ...)
   }
-  
+
   # Create maihda_model object
   # Capture strata_info if it exists as an attribute on the data
   strata_info <- attr(data, "strata_info")
-  
+
   result <- structure(
     list(
       model = model,
@@ -93,12 +93,12 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
     ),
     class = "maihda_model"
   )
-  
+
   return(result)
 }
 
 #' Print method for maihda_model
-#' 
+#'
 #' @param x A maihda_model object
 #' @param ... Additional arguments
 #' @return No return value, called for side effects.
