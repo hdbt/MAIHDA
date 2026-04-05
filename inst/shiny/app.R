@@ -43,6 +43,7 @@ ui <- page_sidebar(
   ),
 
   navset_card_tab(
+    id = "main_tabs",
     nav_panel("Data View",
               DTOutput("data_table")),
     nav_panel("Model Summary",
@@ -205,7 +206,9 @@ server <- function(input, output, session) {
       summary_results(res$summary)
       pvc_results(res$pvc)
       stepwise_results(res$stepwise)
-    })
+      nav_select("main_tabs", "PVC Results")    }) %...!% (function(err) {
+      removeNotification(id)
+      showNotification(paste("Error fitting model:", err$message), type = "error", duration = 15)    })
 
   })
 
