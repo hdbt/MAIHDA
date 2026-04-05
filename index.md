@@ -307,7 +307,7 @@ This project is licensed under the MIT License - see the
 If you use this package in your research, please cite:
 
 ``` text
-Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.7, https://github.com/hdbt/MAIHDA
+Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.7, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
 ```
 
 A BibTeX entry for LaTeX users is:
@@ -318,6 +318,7 @@ A BibTeX entry for LaTeX users is:
   author = {Hamid Bulut},
   year   = {2025},
   note   = {R package version 0.1.7},
-  url    = {https://github.com/hdbt/MAIHDA}
+  url    = {https://github.com/hdbt/MAIHDA},
+  doi    = {10.32614/CRAN.package.MAIHDA}
 }
 ```
