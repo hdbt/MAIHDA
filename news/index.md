@@ -2,6 +2,8 @@
 
 ## MAIHDA 0.1.7
 
+CRAN release: 2026-04-05
+
 ### General Updates & New Features
 
 - Added

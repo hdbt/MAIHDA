@@ -9,6 +9,14 @@ inequality. This is particularly useful for rapid exploration.
 
 ## Launching the Application
 
+### Online Version
+
+You can access a live, cloud-hosted version of the MAIHDA interactive
+dashboard directly in your browser without installing R:
+**<https://hdbt.shinyapps.io/shiny/>**
+
+### Local Version
+
 You can start the interactive dashboard locally by running a single
 command:
 
