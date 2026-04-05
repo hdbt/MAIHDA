@@ -13,11 +13,12 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 ## Key Features
 
 - **Create Intersectional Strata**: Automatically generate strata from multiple categorical variables
+- **Interactive Dashboard**: A fully-featured Shiny application (`run_maihda_app()`) for no-code exploratory data analysis and model fitting
 - **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
-- **Summaries**: Variance partition coefficients (VPC/ICC) and stratum-specific estimates
+- **Summaries & Decompositions**: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)
 - **Multiple Prediction Types**: Individual-level and stratum-level predictions
 - **Visualizations**: Caterpillar plots, VPC visualizations, Prediction plots and observed vs. shrunken estimates
-- **Model Comparison**: Compare models with bootstrap confidence intervals for VPC/ICC
+- **Model Comparison**: Compare models with robust bootstrap confidence intervals for VPC/ICC
 - **Proportional Change in Variance (PVC)**: Quantify how much between-stratum variance is explained by additional predictors
 
 ## Installation
@@ -100,6 +101,12 @@ Calculates the proportional change in between-stratum variance (PVC) between two
 - Supports bootstrap confidence intervals
 - Works with both lme4 and brms engines
 
+### `stepwise_pcv()`
+Evaluates multiple sequential models by iteratively adding covariates step-by-step to quantify precisely which variables explain the structural inequalities.
+
+### `run_maihda_app()`
+Launches a locally-hosted, interactive Shiny Dashboard that exposes the core functionalities for data modeling, visualization, and summarization visually.
+
 ## Example: Intersectional Health Inequalities
 
 ```r
@@ -175,6 +182,25 @@ print(pvc_boot)
 
 # Interpretation: A PVC of 0.25 means that model2 explains 25% of the
 # between-stratum variance that was present in model1
+```
+
+## Stepwise Proportional Change in Variance (PCV)
+
+```r
+# Incrementally track the explained variables interactively
+stepwise_results <- stepwise_pcv(
+  data = data,
+  outcome = "health_outcome",
+  vars = c("gender", "race", "age")
+)
+print(stepwise_results)
+```
+
+## Interactive Shiny App
+
+```r
+# Alternatively, you can run all analyses described above in the browser simply by typing:
+run_maihda_app()
 ```
 
 ## Documentation
