@@ -1,4 +1,5 @@
 url: https://hdbt.github.io/MAIHDA/
 template:
   bootstrap: 5
-
+  bootswatch: flatly
+  default_assets: true
