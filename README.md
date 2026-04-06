@@ -13,7 +13,7 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 ## Key Features
 
 - **Create Intersectional Strata**: Automatically generate strata from multiple categorical variables
-- [**Interactive Dashboard**](https://hdbt.shinyapps.io/shiny/)**
+- **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**
 : A fully-featured Shiny application (`run_maihda_app()`) for no-code exploratory data analysis and model fitting
 - **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
 - **Summaries & Decompositions**: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)
