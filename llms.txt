@@ -23,7 +23,7 @@ socioeconomic status).
 - **Create Intersectional Strata**: Automatically generate strata from
   multiple categorical variables
 
-- - [**Interactive Dashboard**](https://hdbt.shinyapps.io/shiny/)\*\*:
+- - **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**:
 
     A fully-featured Shiny application
     ([`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
