@@ -6,9 +6,9 @@ n <- 500
 
 # Generate categorical variables
 gender <- sample(c("Male", "Female"), n, replace = TRUE)
-race <- sample(c("White", "Black", "Hispanic", "Asian"), n, replace = TRUE, 
+race <- sample(c("White", "Black", "Hispanic", "Asian"), n, replace = TRUE,
                prob = c(0.6, 0.2, 0.15, 0.05))
-education <- sample(c("High School", "Some College", "College", "Graduate"), n, 
+education <- sample(c("High School", "Some College", "College", "Graduate"), n,
                    replace = TRUE, prob = c(0.3, 0.25, 0.3, 0.15))
 
 # Generate continuous variables
@@ -46,23 +46,26 @@ intersect_effect[race == "Hispanic" & education %in% c("College", "Graduate")] <
 random_noise <- rnorm(n, mean = 0, sd = 10)
 
 # Combine effects
-health_outcome <- base_health + gender_effect + race_effect + education_effect + 
+health_outcome <- base_health + gender_effect + race_effect + education_effect +
                  age_effect + intersect_effect + random_noise
 
 # Round to 1 decimal place
 health_outcome <- round(health_outcome, 1)
 
+# Create a binary outcome for testing binomial models
+binary_outcome <- as.factor(ifelse(health_outcome > median(health_outcome), "Yes", "No"))
+
 # Create the dataset
 maihda_sim_data <- data.frame(
   id = 1:n,
-  gender = gender,
-  race = race,
-  education = education,
+  gender = factor(gender),
+  race = factor(race),
+  education = factor(education),
   age = age,
   health_outcome = health_outcome,
-  stringsAsFactors = FALSE
+  binary_outcome = binary_outcome,
+  stringsAsFactors = TRUE
 )
 
-# Save the dataset (would use usethis::use_data in actual development)
-# For now, save as RData file manually
-save(maihda_sim_data, file = "data/maihda_sim_data.rda", compress = "xz")
+# Save the dataset
+usethis::use_data(maihda_sim_data, overwrite = TRUE)

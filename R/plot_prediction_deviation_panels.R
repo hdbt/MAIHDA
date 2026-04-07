@@ -164,14 +164,15 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
         abs_res_dev = resids
       )
 
-    if ("stratum" %in% names(df)) {
+is_aggregated <- "stratum" %in% names(df)
+    
+    if (is_aggregated) {
       df <- df |>
         dplyr::group_by(stratum) |>
         dplyr::summarize(
           fitted = mean(.data$fitted, na.rm = TRUE),
           se = mean(.data$se, na.rm = TRUE),
           abs_res_dev = mean(.data$abs_res_dev, na.rm = TRUE),
-          obs_outcome = head(.data$obs_outcome, 1), # Modal or first outcome in stratum could be misleading, using first
           .groups = "drop"
         )
 
@@ -192,11 +193,18 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
         ci_upper = pmin(1, fitted + 1.96 * se),
         mean_fitted = mean(fitted, na.rm = TRUE),
         deviation = fitted - mean_fitted,
-        direction = ifelse(deviation > 0, "Above Mean", "Below Mean"),
+        direction = ifelse(deviation > 0, "Above Mean", "Below Mean")
+      )
+      
+    if (!is_aggregated) {
+      df <- df |> dplyr::mutate(
         wrong = factor(ifelse((fitted > 0.5 & as.numeric(as.character(obs_outcome)) == 0) |
                                 (fitted < 0.5 & as.numeric(as.character(obs_outcome)) == 1),
                               "Wrong", "Correct"))
-      ) |>
+      )
+    }
+    
+    df <- df |>
       dplyr::arrange(.data$fitted) |>
       dplyr::mutate(rank = dplyr::row_number())
 
@@ -205,24 +213,32 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
     p1 <- ggplot2::ggplot(df, ggplot2::aes(x = .data$fitted)) +
       ggplot2::geom_density(fill = "gray80", alpha = 0.5) +
       ggplot2::geom_vline(ggplot2::aes(xintercept = .data$mean_fitted[1]), linetype = "dashed", color = "black") +
-      ggplot2::geom_rug(data = label_df, color = "red", linewidth = 1) +
+      ggplot2::geom_rug(data = label_df, color = "red", linewidth = 1) +        
       ggplot2::labs(title = "Distribution of Predicted Probabilities", x = NULL, y = "Density") +
       ggplot2::theme_minimal()
 
-    p2 <- ggplot2::ggplot(df, ggplot2::aes(x = .data$rank, y = .data$fitted)) +
+    p2 <- ggplot2::ggplot(df, ggplot2::aes(x = .data$rank, y = .data$fitted)) + 
       ggplot2::geom_segment(ggplot2::aes(xend = .data$rank, yend = .data$mean_fitted), color = "gray60", alpha = 0.5) +
-      ggplot2::geom_errorbar(ggplot2::aes(ymin = .data$ci_lower, ymax = .data$ci_upper), width = 0, color = "gray70", alpha = 0.3) +
-      ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_res_dev, shape = .data$obs_outcome), alpha = 0.8)
-
-    if (any(df$wrong == "Wrong", na.rm = TRUE)) {
-      p2 <- p2 + ggplot2::geom_point(data = dplyr::filter(df, .data$wrong == "Wrong"), shape = 1, color = "red", ggplot2::aes(size = .data$abs_res_dev + 0.5))
+      ggplot2::geom_errorbar(ggplot2::aes(ymin = .data$ci_lower, ymax = .data$ci_upper), width = 0, color = "gray70", alpha = 0.3)
+      
+    if (is_aggregated) {
+      p2 <- p2 + 
+        ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_res_dev), alpha = 0.8) +
+        ggplot2::labs(x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|")
+    } else {
+      p2 <- p2 + 
+        ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_res_dev, shape = .data$obs_outcome), alpha = 0.8)
+        
+      if (any(df$wrong == "Wrong", na.rm = TRUE)) {
+        p2 <- p2 + ggplot2::geom_point(data = dplyr::filter(df, .data$wrong == "Wrong"), shape = 1, color = "red", ggplot2::aes(size = .data$abs_res_dev + 0.5))  
+      }
+      p2 <- p2 + ggplot2::labs(x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|", shape = "Observed")
     }
 
     p2 <- p2 +
       ggplot2::geom_hline(ggplot2::aes(yintercept = .data$mean_fitted[1]), linetype = "dashed") +
       ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = id), size = 3, min.segment.length = 0) +
       ggplot2::scale_color_manual(values = c("Above Mean" = "#0072B2", "Below Mean" = "#D55E00")) +
-      ggplot2::labs(x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|", shape = "Observed") +
       ggplot2::theme_minimal()
 
     return(patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 2)))
