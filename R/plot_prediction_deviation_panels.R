@@ -165,7 +165,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       )
 
 is_aggregated <- "stratum" %in% names(df)
-    
+
     if (is_aggregated) {
       df <- df |>
         dplyr::group_by(stratum) |>
@@ -195,7 +195,7 @@ is_aggregated <- "stratum" %in% names(df)
         deviation = fitted - mean_fitted,
         direction = ifelse(deviation > 0, "Above Mean", "Below Mean")
       )
-      
+
     if (!is_aggregated) {
       df <- df |> dplyr::mutate(
         wrong = factor(ifelse((fitted > 0.5 & as.numeric(as.character(obs_outcome)) == 0) |
@@ -203,7 +203,7 @@ is_aggregated <- "stratum" %in% names(df)
                               "Wrong", "Correct"))
       )
     }
-    
+
     df <- df |>
       dplyr::arrange(.data$fitted) |>
       dplyr::mutate(rank = dplyr::row_number())
@@ -213,24 +213,24 @@ is_aggregated <- "stratum" %in% names(df)
     p1 <- ggplot2::ggplot(df, ggplot2::aes(x = .data$fitted)) +
       ggplot2::geom_density(fill = "gray80", alpha = 0.5) +
       ggplot2::geom_vline(ggplot2::aes(xintercept = .data$mean_fitted[1]), linetype = "dashed", color = "black") +
-      ggplot2::geom_rug(data = label_df, color = "red", linewidth = 1) +        
+      ggplot2::geom_rug(data = label_df, color = "red", linewidth = 1) +
       ggplot2::labs(title = "Distribution of Predicted Probabilities", x = NULL, y = "Density") +
       ggplot2::theme_minimal()
 
-    p2 <- ggplot2::ggplot(df, ggplot2::aes(x = .data$rank, y = .data$fitted)) + 
+    p2 <- ggplot2::ggplot(df, ggplot2::aes(x = .data$rank, y = .data$fitted)) +
       ggplot2::geom_segment(ggplot2::aes(xend = .data$rank, yend = .data$mean_fitted), color = "gray60", alpha = 0.5) +
       ggplot2::geom_errorbar(ggplot2::aes(ymin = .data$ci_lower, ymax = .data$ci_upper), width = 0, color = "gray70", alpha = 0.3)
-      
+
     if (is_aggregated) {
-      p2 <- p2 + 
+      p2 <- p2 +
         ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_res_dev), alpha = 0.8) +
         ggplot2::labs(x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|")
     } else {
-      p2 <- p2 + 
+      p2 <- p2 +
         ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_res_dev, shape = .data$obs_outcome), alpha = 0.8)
-        
+
       if (any(df$wrong == "Wrong", na.rm = TRUE)) {
-        p2 <- p2 + ggplot2::geom_point(data = dplyr::filter(df, .data$wrong == "Wrong"), shape = 1, color = "red", ggplot2::aes(size = .data$abs_res_dev + 0.5))  
+        p2 <- p2 + ggplot2::geom_point(data = dplyr::filter(df, .data$wrong == "Wrong"), shape = 1, color = "red", ggplot2::aes(size = .data$abs_res_dev + 0.5))
       }
       p2 <- p2 + ggplot2::labs(x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|", shape = "Observed")
     }
