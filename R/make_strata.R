@@ -9,6 +9,8 @@
 #'   Default is "_".
 #' @param min_n Minimum number of observations required for a stratum to be included.
 #'   Strata with fewer observations will be coded as NA. Default is 1.
+#' @param autobin Logical indicating whether to automatically bin numeric grouping variables
+#'   with more than 10 unique values into 3 categories (tertiles). Default is TRUE.
 #'
 #' @return A list with two elements:
 #'   \item{data}{The original data frame with an added 'stratum' column. The
@@ -34,7 +36,8 @@
 #' @importFrom dplyr mutate group_by summarise n ungroup
 #' @importFrom tidyr unite
 #' @importFrom rlang .data
-make_strata <- function(data, vars, sep = "_", min_n = 1) {
+#' @importFrom stats quantile na.omit
+make_strata <- function(data, vars, sep = "_", min_n = 1, autobin = TRUE) {
   # Input validation
   if (!is.data.frame(data)) {
     stop("'data' must be a data frame")
@@ -51,6 +54,23 @@ make_strata <- function(data, vars, sep = "_", min_n = 1) {
 
   # Create a copy of the data to avoid modifying the original
   result_data <- data
+
+  # Auto-bin numeric variables with >10 unique values into 3 categories
+  if (autobin) {
+    for (v in vars) {
+      val <- result_data[[v]]
+      if (is.numeric(val) && length(unique(stats::na.omit(val))) > 10) {
+        q <- stats::quantile(val, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)
+        if (length(unique(q)) == 4) {
+          result_data[[v]] <- cut(val, breaks = q, include.lowest = TRUE,
+                                  labels = c(paste0(v, "_Low"), paste0(v, "_Mid"), paste0(v, "_High")))
+        } else {
+          result_data[[v]] <- cut(val, breaks = 3, include.lowest = TRUE,
+                                  labels = c(paste0(v, "_Low"), paste0(v, "_Mid"), paste0(v, "_High")))
+        }
+      }
+    }
+  }
 
   # Identify rows with any missing values in the specified variables
   has_missing <- apply(result_data[, vars, drop = FALSE], 1, function(x) any(is.na(x)))

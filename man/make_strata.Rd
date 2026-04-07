@@ -4,7 +4,7 @@
 \alias{make_strata}
 \title{Create Strata from Multiple Variables}
 \usage{
-make_strata(data, vars, sep = "_", min_n = 1)
+make_strata(data, vars, sep = "_", min_n = 1, autobin = TRUE)
 }
 \arguments{
 \item{data}{A data frame containing the variables to create strata from.}
@@ -16,6 +16,9 @@ Default is "_".}
 
 \item{min_n}{Minimum number of observations required for a stratum to be included.
 Strata with fewer observations will be coded as NA. Default is 1.}
+
+\item{autobin}{Logical indicating whether to automatically bin numeric grouping variables
+with more than 10 unique values into 3 categories (tertiles). Default is TRUE.}
 }
 \value{
 A list with two elements:

@@ -6,7 +6,7 @@
 \usage{
 plot_maihda(
   object,
-  type = c("caterpillar", "vpc", "obs_vs_shrunken", "predicted"),
+  type = c("vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp"),
   summary_obj = NULL,
   n_strata = 50,
   ...
@@ -17,7 +17,6 @@ plot_maihda(
 
 \item{type}{Character string specifying plot type:
 \itemize{
-  \item "caterpillar": Caterpillar plot of stratum random effects
   \item "vpc": Variance partition coefficient visualization
   \item "obs_vs_shrunken": Observed vs. shrunken stratum means
   \item "predicted": Predicted values for each stratum with confidence intervals
@@ -26,7 +25,7 @@ plot_maihda(
 \item{summary_obj}{Optional maihda_summary object from \code{summary_maihda()}.
 If NULL, will be computed.}
 
-\item{n_strata}{Maximum number of strata to display in caterpillar plot or predicted plot.
+\item{n_strata}{Maximum number of strata to display in predicted plot.
 Default is 50. Use NULL for all strata.}
 
 \item{...}{Additional arguments (not currently used).}
@@ -35,17 +34,14 @@ Default is 50. Use NULL for all strata.}
 A ggplot2 object.
 }
 \description{
-Creates various plots for visualizing MAIHDA model results including caterpillar
-plots, variance partition coefficient comparisons, observed vs. shrunken estimates,
+Creates various plots for visualizing MAIHDA model results including
+variance partition coefficient comparisons, observed vs. shrunken estimates,
 and predicted subgroup values with confidence intervals.
 }
 \examples{
 \donttest{
 strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
 model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
-
-# Caterpillar plot
-plot_maihda(model, type = "caterpillar")
 
 # VPC plot
 plot_maihda(model, type = "vpc")

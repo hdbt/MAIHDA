@@ -28,6 +28,7 @@ ui <- page_sidebar(
     # Model specification
     selectizeInput("outcome", "Outcome Variable", choices = NULL),
     selectizeInput("group_vars", "Strata Grouping Variables", choices = NULL, multiple = TRUE),
+    checkboxInput("autobin", "Auto-bin continuous strata vars (>10 unique values) into 3 groups", value = TRUE),
     selectizeInput("covariates", "Additional Covariates (Fixed Effects)", choices = NULL, multiple = TRUE),
 
     # Model settings
@@ -56,7 +57,11 @@ ui <- page_sidebar(
               div(class = "d-flex justify-content-between align-items-center align-items-md-end mb-3",
                 div(class = "flex-grow-1 me-3",
                   selectInput("plot_type", "Select Plot Type:",
-                              choices = c("caterpillar", "vpc", "obs_vs_shrunken", "predicted"),
+                              choices = c(
+                                          "Prediction Deviation Panels" = "pred_dev",
+                                          "Risk vs. Intersectional Effect (Quadrant)" = "risk_vs_effect",
+                                          "Effect Decomposition" = "effect_decomp","VPC"="vpc", "Observed VS Shrunken" = "obs_vs_shrunken",
+                                          "Predicted Values" =  "predicted"),
                               width = "100%")
                 ),
                 div(class = "mb-3",
@@ -156,6 +161,7 @@ server <- function(input, output, session) {
 
     use_boot <- input$use_boot
     n_boot <- input$n_boot
+    autobin_opt <- input$autobin
 
     # Reset old results
     model_results(NULL)
@@ -187,7 +193,7 @@ server <- function(input, output, session) {
       }
 
       # Step 2: Make strata
-      strata_dat <- make_strata(complete_dat, vars = grouping_vars)
+      strata_dat <- make_strata(complete_dat, vars = grouping_vars, autobin = autobin_opt)
 
       # Step 3: Fit model
       fmla_null <- as.formula(paste(outcome_var, "~ 1 + (1 | stratum)"))
@@ -343,7 +349,9 @@ server <- function(input, output, session) {
     req(model_results())
     req(input$plot_type)
 
-    if (input$plot_type %in% c("caterpillar", "predicted")) {
+    if (input$plot_type == "pred_dev") {
+      plot_prediction_deviation_panels(model_results(), data = NULL, type = "auto")
+    } else if (input$plot_type %in% c("predicted")) {
       plot_maihda(model_results(), type = input$plot_type, n_strata = 20)
     } else {
       plot_maihda(model_results(), type = input$plot_type)

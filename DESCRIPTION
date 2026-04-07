@@ -22,7 +22,10 @@ Imports:
     dplyr (>= 1.0.0),
     tidyr (>= 1.1.0),
     stats,
-    rlang (>= 0.4.0)
+    rlang (>= 0.4.0),
+    patchwork,
+    ggrepel,
+    tidyselect
 Suggests:
     shiny,
     bslib,

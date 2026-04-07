@@ -6,6 +6,8 @@
 \alias{MAIHDA-package}
 \title{MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy}
 \description{
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+
 Provides a comprehensive toolkit for conducting Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy (MAIHDA). Methods are described in Merlo (2018) \doi{10.1016/j.socscimed.2017.12.018} and Evans et al. (2018) \doi{10.1016/j.socscimed.2017.11.011}. Automatically generates intersectional strata, fits analytical models, extracts statistics, and produces visualizations.
 }
 \seealso{
