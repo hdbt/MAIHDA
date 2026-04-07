@@ -1,3 +1,14 @@
+# MAIHDA 0.1.8
+
+## General Updates & New Features
+
+* Added `plot_prediction_deviation_panels()` function for visualizing predicted values and identifying deviant cases.
+* Added `plot_risk_vs_effect()` function to create a quadrant scatterplot comparing overall marginal predicted risk against pure intersectional effects.
+* Added `plot_effect_decomposition()` function to visually decompose the total deviation from the overall mean into additive and intersectional components.
+* Replaced the redundant "caterpillar" plot with the "predicted" plot in `plot_maihda()` and the interactive dashboard.
+* Added automatic tertile binning (via an `autobin` parameter) for numeric grouping variables with more than 10 unique values in `make_strata()`.
+* Updated the interactive Shiny Dashboard (`run_maihda_app()`) to include the new visualizations and a toggle for auto-binning continuous strata variables.
+
 # MAIHDA 0.1.7
 
 ## General Updates & New Features
