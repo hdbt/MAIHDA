@@ -1,16 +1,15 @@
 # Plot MAIHDA Model Results
 
 Creates various plots for visualizing MAIHDA model results including
-caterpillar plots, variance partition coefficient comparisons, observed
-vs. shrunken estimates, and predicted subgroup values with confidence
-intervals.
+variance partition coefficient comparisons, observed vs. shrunken
+estimates, and predicted subgroup values with confidence intervals.
 
 ## Usage
 
 ``` r
 plot_maihda(
   object,
-  type = c("caterpillar", "vpc", "obs_vs_shrunken", "predicted"),
+  type = c("vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp"),
   summary_obj = NULL,
   n_strata = 50,
   ...
@@ -28,8 +27,6 @@ plot_maihda(
 
   Character string specifying plot type:
 
-  - "caterpillar": Caterpillar plot of stratum random effects
-
   - "vpc": Variance partition coefficient visualization
 
   - "obs_vs_shrunken": Observed vs. shrunken stratum means
@@ -45,8 +42,8 @@ plot_maihda(
 
 - n_strata:
 
-  Maximum number of strata to display in caterpillar plot or predicted
-  plot. Default is 50. Use NULL for all strata.
+  Maximum number of strata to display in predicted plot. Default is 50.
+  Use NULL for all strata.
 
 - ...:
 
@@ -63,17 +60,16 @@ A ggplot2 object.
 strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
 model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
 
-# Caterpillar plot
-plot_maihda(model, type = "caterpillar")
-
-
 # VPC plot
 plot_maihda(model, type = "vpc")
 
 
 # Observed vs shrunken plot
 plot_maihda(model, type = "obs_vs_shrunken")
-
+#> function (x, y, ...) 
+#> UseMethod("plot")
+#> <bytecode: 0x55f1408013d0>
+#> <environment: namespace:base>
 
 # Predicted values with confidence intervals
 plot_maihda(model, type = "predicted")

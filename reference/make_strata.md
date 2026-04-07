@@ -6,7 +6,7 @@ categorical variables in a dataset.
 ## Usage
 
 ``` r
-make_strata(data, vars, sep = "_", min_n = 1)
+make_strata(data, vars, sep = "_", min_n = 1, autobin = TRUE)
 ```
 
 ## Arguments
@@ -28,6 +28,12 @@ make_strata(data, vars, sep = "_", min_n = 1)
 
   Minimum number of observations required for a stratum to be included.
   Strata with fewer observations will be coded as NA. Default is 1.
+
+- autobin:
+
+  Logical indicating whether to automatically bin numeric grouping
+  variables with more than 10 unique values into 3 categories
+  (tertiles). Default is TRUE.
 
 ## Value
 

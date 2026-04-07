@@ -343,6 +343,8 @@ A BibTeX entry for LaTeX users is:
   : Plot Model Comparison
 - [`plot_maihda()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda.md)
   : Plot MAIHDA Model Results
+- [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
+  : Plot Prediction Deviation Panels
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
   : Predict from MAIHDA Model
 - [`print(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_model.md)

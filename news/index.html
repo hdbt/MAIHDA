@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,18 @@
       <small>Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.8" id="maihda-018">MAIHDA 0.1.8<a class="anchor" aria-label="anchor" href="#maihda-018"></a></h2>
+<div class="section level3">
+<h3 id="general-updates--new-features-0-1-8">General Updates &amp; New Features<a class="anchor" aria-label="anchor" href="#general-updates--new-features-0-1-8"></a></h3>
+<ul><li>Added <code><a href="../reference/plot_prediction_deviation_panels.html">plot_prediction_deviation_panels()</a></code> function for visualizing predicted values and identifying deviant cases.</li>
+<li>Added <code><a href="../reference/plot_risk_vs_effect.html">plot_risk_vs_effect()</a></code> function to create a quadrant scatterplot comparing overall marginal predicted risk against pure intersectional effects.</li>
+<li>Added <code><a href="../reference/plot_effect_decomposition.html">plot_effect_decomposition()</a></code> function to visually decompose the total deviation from the overall mean into additive and intersectional components.</li>
+<li>Replaced the redundant “caterpillar” plot with the “predicted” plot in <code><a href="../reference/plot_maihda.html">plot_maihda()</a></code> and the interactive dashboard.</li>
+<li>Added automatic tertile binning (via an <code>autobin</code> parameter) for numeric grouping variables with more than 10 unique values in <code><a href="../reference/make_strata.html">make_strata()</a></code>.</li>
+<li>Updated the interactive Shiny Dashboard (<code><a href="../reference/run_maihda_app.html">run_maihda_app()</a></code>) to include the new visualizations and a toggle for auto-binning continuous strata variables.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.7" id="maihda-017">MAIHDA 0.1.7<a class="anchor" aria-label="anchor" href="#maihda-017"></a></h2><p class="text-muted">CRAN release: 2026-04-05</p>
 <div class="section level3">

@@ -19,11 +19,13 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_health_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/make_strata.html</loc></url>
-<url><loc>https://hdbt.github.io/MAIHDA/reference/plot_caterpillar.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_comparison.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/plot_effect_decomposition.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_maihda.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_obs_vs_shrunken.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_predicted_strata.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/plot_risk_vs_effect.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_vpc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/predict_maihda.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_model.html</loc></url>
