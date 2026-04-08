@@ -5,9 +5,10 @@
 \alias{maihda_health_data}
 \title{NHANES Health Data Subset for MAIHDA Use}
 \format{
-A data frame with 3,000 rows and 6 variables:
+A data frame with 3,000 rows and 7 variables:
 \describe{
   \item{BMI}{Body Mass Index (kg/m^2), a continuous outcome variable.}
+  \item{Obese}{Factor indicating obesity status (No/Yes).}
   \item{Age}{Age in years at screening, a continuous covariate.}
   \item{Gender}{Gender of the participant (male/female).}
   \item{Race}{Self-reported race/ethnicity.}

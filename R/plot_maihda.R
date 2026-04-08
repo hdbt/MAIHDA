@@ -364,7 +364,7 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
 #' @import ggplot2
 #' @importFrom dplyr group_by summarise n arrange desc mutate row_number
 #' @importFrom utils head
-#' @importFrom stats predict setNames
+#' @importFrom stats predict setNames fitted
 plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
   data <- object$data
 

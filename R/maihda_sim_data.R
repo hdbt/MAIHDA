@@ -3,7 +3,7 @@
 #' A simulated dataset for demonstrating Multilevel Analysis of Individual
 #' Heterogeneity and Discriminatory Accuracy (MAIHDA).
 #'
-#' @format A data frame with 500 rows and 6 variables:
+#' @format A data frame with 500 rows and 7 variables:
 #' \describe{
 #'   \item{id}{Unique participant identifier.}
 #'   \item{gender}{Gender of the participant.}
@@ -11,6 +11,7 @@
 #'   \item{education}{Educational attainment level.}
 #'   \item{age}{Age in years, a continuous covariate.}
 #'   \item{health_outcome}{A continuous simulated health outcome.}
+#'   \item{binary_outcome}{A binary version of the health outcome.}
 #' }
 #'
 #' @source Simulated for the purpose of the MAIHDA package.

@@ -83,7 +83,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
 
     if ("stratum" %in% names(df)) {
       df <- df |>
-        dplyr::group_by(stratum) |>
+        dplyr::group_by(.data$stratum) |>
         dplyr::summarize(
           fitted = mean(.data$fitted, na.rm = TRUE),
           se = mean(.data$se, na.rm = TRUE),
@@ -103,12 +103,12 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
 
     df <- df |>
       dplyr::mutate(
-        ci_lower = fitted - 1.96 * se,
-        ci_upper = fitted + 1.96 * se,
-        mean_fitted = mean(fitted, na.rm = TRUE),
-        deviation = fitted - mean_fitted,
-        abs_deviation = abs(deviation),
-        direction = ifelse(deviation > 0, "Above Mean", "Below Mean")
+        ci_lower = .data$fitted - 1.96 * .data$se,
+        ci_upper = .data$fitted + 1.96 * .data$se,
+        mean_fitted = mean(.data$fitted, na.rm = TRUE),
+        deviation = .data$fitted - .data$mean_fitted,
+        abs_deviation = abs(.data$deviation),
+        direction = ifelse(.data$deviation > 0, "Above Mean", "Below Mean")
       ) |>
       dplyr::arrange(.data$fitted) |>
       dplyr::mutate(rank = dplyr::row_number())
@@ -127,7 +127,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       ggplot2::geom_errorbar(ggplot2::aes(ymin = .data$ci_lower, ymax = .data$ci_upper), width = 0, color = "gray50", alpha = 0.5) +
       ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_deviation)) +
       ggplot2::geom_hline(ggplot2::aes(yintercept = .data$mean_fitted[1]), linetype = "dashed") +
-      ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = id), size = 3, min.segment.length = 0) +
+      ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = .data$id), size = 3, min.segment.length = 0) +
       ggplot2::scale_color_manual(values = c("Above Mean" = "#0072B2", "Below Mean" = "#D55E00")) +
       ggplot2::labs(x = x_label, y = "Fitted Value", color = "Direction", size = "Deviation\nMagnitude") +
       ggplot2::theme_minimal()
@@ -168,7 +168,7 @@ is_aggregated <- "stratum" %in% names(df)
 
     if (is_aggregated) {
       df <- df |>
-        dplyr::group_by(stratum) |>
+        dplyr::group_by(.data$stratum) |>
         dplyr::summarize(
           fitted = mean(.data$fitted, na.rm = TRUE),
           se = mean(.data$se, na.rm = TRUE),
@@ -189,17 +189,17 @@ is_aggregated <- "stratum" %in% names(df)
 
     df <- df |>
       dplyr::mutate(
-        ci_lower = pmax(0, fitted - 1.96 * se),
-        ci_upper = pmin(1, fitted + 1.96 * se),
-        mean_fitted = mean(fitted, na.rm = TRUE),
-        deviation = fitted - mean_fitted,
-        direction = ifelse(deviation > 0, "Above Mean", "Below Mean")
+        ci_lower = pmax(0, .data$fitted - 1.96 * .data$se),
+        ci_upper = pmin(1, .data$fitted + 1.96 * .data$se),
+        mean_fitted = mean(.data$fitted, na.rm = TRUE),
+        deviation = .data$fitted - .data$mean_fitted,
+        direction = ifelse(.data$deviation > 0, "Above Mean", "Below Mean")
       )
 
     if (!is_aggregated) {
       df <- df |> dplyr::mutate(
-        wrong = factor(ifelse((fitted > 0.5 & as.numeric(as.character(obs_outcome)) == 0) |
-                                (fitted < 0.5 & as.numeric(as.character(obs_outcome)) == 1),
+        wrong = factor(ifelse((.data$fitted > 0.5 & as.numeric(as.character(.data$obs_outcome)) == 0) |
+                                (.data$fitted < 0.5 & as.numeric(as.character(.data$obs_outcome)) == 1),
                               "Wrong", "Correct"))
       )
     }
@@ -237,7 +237,7 @@ is_aggregated <- "stratum" %in% names(df)
 
     p2 <- p2 +
       ggplot2::geom_hline(ggplot2::aes(yintercept = .data$mean_fitted[1]), linetype = "dashed") +
-      ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = id), size = 3, min.segment.length = 0) +
+        ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = .data$id), size = 3, min.segment.length = 0) +
       ggplot2::scale_color_manual(values = c("Above Mean" = "#0072B2", "Below Mean" = "#D55E00")) +
       ggplot2::theme_minimal()
 
@@ -277,7 +277,7 @@ is_aggregated <- "stratum" %in% names(df)
       if ("stratum" %in% names(data)) {
         df$stratum <- data$stratum
         df <- df |>
-          dplyr::group_by(stratum) |>
+          dplyr::group_by(.data$stratum) |>
           dplyr::summarize(
             dplyr::across(tidyselect::all_of(colnames(probs)), \(x) mean(x, na.rm = TRUE)),
             expected_score = mean(.data$expected_score, na.rm = TRUE),
@@ -319,7 +319,7 @@ is_aggregated <- "stratum" %in% names(df)
         ggplot2::geom_segment(ggplot2::aes(xend = .data$rank, yend = 0), color = "gray50") +
         ggplot2::geom_point(ggplot2::aes(color = .data$surprise, size = .data$surprise)) +
         ggplot2::scale_color_viridis_c(option = "inferno") +
-        ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = id), size = 3) +
+        ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = .data$id), size = 3) +
         ggplot2::labs(x = x_label, y = "Surprise\n(-log(P(Observed)))", color = "Surprise", size = "Surprise") +
         ggplot2::theme_minimal()
 
@@ -338,7 +338,7 @@ is_aggregated <- "stratum" %in% names(df)
 
       if ("stratum" %in% names(df)) {
         df <- df |>
-          dplyr::group_by(stratum) |>
+          dplyr::group_by(.data$stratum) |>
           dplyr::summarize(
             fitted = mean(.data$fitted, na.rm = TRUE),
             .groups = "drop"
@@ -357,10 +357,10 @@ is_aggregated <- "stratum" %in% names(df)
 
       df <- df |>
         dplyr::mutate(
-          mean_fitted = mean(fitted, na.rm = TRUE),
-          deviation = fitted - mean_fitted,
-          abs_deviation = abs(deviation),
-          direction = ifelse(deviation > 0, "Above Mean", "Below Mean")
+          mean_fitted = mean(.data$fitted, na.rm = TRUE),
+          deviation = .data$fitted - .data$mean_fitted,
+          abs_deviation = abs(.data$deviation),
+          direction = ifelse(.data$deviation > 0, "Above Mean", "Below Mean")
         ) |>
         dplyr::arrange(.data$fitted) |>
         dplyr::mutate(rank = dplyr::row_number())
@@ -378,7 +378,7 @@ is_aggregated <- "stratum" %in% names(df)
         ggplot2::geom_segment(ggplot2::aes(xend = .data$rank, yend = .data$mean_fitted), color = "gray60") +
         ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_deviation)) +
         ggplot2::geom_hline(ggplot2::aes(yintercept = .data$mean_fitted[1]), linetype = "dashed") +
-        ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = id), size = 3, min.segment.length = 0) +
+        ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = .data$id), size = 3, min.segment.length = 0) +
         ggplot2::scale_color_manual(values = c("Above Mean" = "#0072B2", "Below Mean" = "#D55E00")) +
         ggplot2::labs(x = x_label, y = "Expected Score", color = "Direction", size = "Deviation\nMagnitude") +
         ggplot2::theme_minimal()
