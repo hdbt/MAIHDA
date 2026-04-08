@@ -1,8 +1,8 @@
 test_that("maihda_health_data loads and is formatted correctly", {
   expect_true("maihda_health_data" %in% data(package = "MAIHDA")$results[, "Item"])
   expect_s3_class(maihda_health_data, "data.frame")
-  expect_equal(ncol(maihda_health_data), 6)
-  expect_true(all(c("BMI", "Age", "Gender", "Race", "Education", "Poverty") %in% names(maihda_health_data)))
+  expect_equal(ncol(maihda_health_data), 7)
+  expect_true(all(c("BMI", "Obese", "Age", "Gender", "Race", "Education", "Poverty") %in% names(maihda_health_data)))
 })
 
 test_that("make_strata works on maihda_health_data", {

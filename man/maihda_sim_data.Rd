@@ -5,7 +5,7 @@
 \alias{maihda_sim_data}
 \title{Simulated Health Data for MAIHDA Use}
 \format{
-A data frame with 500 rows and 6 variables:
+A data frame with 500 rows and 7 variables:
 \describe{
   \item{id}{Unique participant identifier.}
   \item{gender}{Gender of the participant.}
@@ -13,6 +13,7 @@ A data frame with 500 rows and 6 variables:
   \item{education}{Educational attainment level.}
   \item{age}{Age in years, a continuous covariate.}
   \item{health_outcome}{A continuous simulated health outcome.}
+  \item{binary_outcome}{A binary version of the health outcome.}
 }
 }
 \source{

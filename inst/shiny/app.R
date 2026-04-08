@@ -2,6 +2,7 @@ library(shiny)
 library(bslib)
 library(DT)
 library(ggplot2)
+library(plotly)
 library(MAIHDA)
 library(future)
 library(promises)
@@ -68,7 +69,9 @@ ui <- page_sidebar(
                   downloadButton("download_plot", "Download Plot", class = "btn-secondary")
                 )
               ),
-              plotOutput("maihda_plot", height = "500px"))
+              plotOutput("maihda_plot", height = "500px")),
+    nav_panel("Interactive Explorer",
+              uiOutput("interactive_explorer_ui"))
   )
 )
 
@@ -368,6 +371,188 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       ggsave(file, plot = current_plot(), width = 10, height = 8, dpi = 300)
+    }
+  )
+
+  output$interactive_explorer_ui <- renderUI({
+    req(model_results(), summary_results(), pvc_results())
+    res <- summary_results()
+    pvc <- pvc_results()
+
+    # Extract metrics for HUD
+    vpc_val <- round(res$vpc$estimate * 100, 2)
+    pvc_val <- round(pvc$pvc * 100, 2)
+
+    layout_columns(
+      col_widths = c(12, 12),
+      card(
+        card_header("HUD: Key MAIHDA Metrics"),
+        div(class = "d-flex justify-content-around text-center",
+            div(h4("VPC (Null)"), h3(paste0(vpc_val, "%")), p(class="text-muted", "Total Variance b/w Strata")),
+            div(h4("PVC (Adjusted)"), h3(paste0(pvc_val, "%")), p(class="text-muted", "Variance Explained by Main Effects")),
+            div(h4("Intersectionality"), h3(paste0(100 - pvc_val, "%")), p(class="text-muted", "Unexplained Variance (Interaction Effects)"))
+        ),
+        markdown("
+        **Interpretation Guide**:
+        - **VPC** (Variance Partition Coefficient) measures how much of the total outcome variance is due to the strata definitions.
+        - **PVC** (Proportional Change in Variance) shows how much of that strata variation is explained by simple additive effects.
+        - The remaining percentage represents the true **intersectional effect**, revealing disparities unique to specific strata combinations.
+        ")
+      ),
+      card(
+        card_header("Interactive Strata Deviations (Residuals with CIs)"),
+        layout_columns(
+          col_widths = c(4, 4, 4),
+          selectInput("hud_color_var", "Color Points By:",
+                      choices = c("Significance (Tolerance)" = "deviant", isolate(input$group_vars))),
+          selectInput("hud_sort_var", "Sort Y-Axis By:",
+                      choices = c("Effect Size (Magnitude)" = "effect", "Sample Size (N)" = "n", "Alphabetical" = "alpha")),
+          sliderInput("hud_top_n", "Show Top Deviant Strata (by Magnitude):",
+                      min = 5, max = max(5, nrow(res$stratum_estimates)),
+                      value = min(25, nrow(res$stratum_estimates)), step = 1)
+        ),
+        plotlyOutput("interactive_plot", height = "600px"),
+        markdown("
+        *Hover over the points to see individual stratum details.*
+        - Points far from the zero-line (red) represent **deviant strata**: groups whose outcome significantly departs from what simple additive effects would predict.
+        - Error bars represent 95% Confidence Intervals (simulated/bootstrap). If the bar does not cross zero, the intersectional effect is statistically significant.
+        - **Point size** represents the total number of individuals (N) within that stratum configuration.
+        ")
+      ),
+      card(
+        card_header("Filtered Strata Data Export"),
+        div(class = "mb-3", downloadButton("download_hud_data", "Download Highlighted Data (CSV)", class = "btn-secondary")),
+        DTOutput("interactive_table")
+      )
+    )
+  })
+
+  # Reactive containing exactly the dataframe filtered for HUD exploring
+  hud_plot_data <- reactive({
+    req(summary_results(), model_results())
+
+    # Build a simple data frame for plotting
+    stratum_df <- as.data.frame(summary_results()$stratum_estimates)
+
+    # Merge with strata_info to get specific variables (N, gender, race, etc.)
+    strata_info <- model_results()$strata_info
+    if (!is.null(strata_info)) {
+      # resolve duplicate column names gracefully
+      cols_to_merge <- setdiff(names(strata_info), setdiff(names(stratum_df), "stratum"))
+      stratum_df <- merge(stratum_df, strata_info[, c("stratum", cols_to_merge)], by = "stratum", all.x = TRUE)
+    }
+
+    # Add Absolute Predicted Values via margin average
+    mod <- model_results()
+    if (!is.null(mod$data)) {
+        pred_vals <- tryCatch({
+            pred <- predict_maihda(mod)
+            agg <- aggregate(pred ~ stratum, data = mod$data, FUN = mean)
+            names(agg)[2] <- "abs_pred"
+            agg
+        }, error = function(e) NULL)
+        if (!is.null(pred_vals)) stratum_df <- merge(stratum_df, pred_vals, by = "stratum", all.x = TRUE)
+    }
+
+    # Use stratum labels if generated, otherwise default to IDs
+    if ("label" %in% names(stratum_df) && !all(is.na(stratum_df$label))) {
+      stratum_df$display_label <- paste0(stratum_df$stratum, ": ", stratum_df$label)
+    } else {
+      stratum_df$display_label <- paste0("Stratum ", stratum_df$stratum)
+    }
+
+    # Add a flag for 'deviant' (significant at 95%)
+    if (!"lower_95" %in% names(stratum_df)) stratum_df$lower_95 <- stratum_df$random_effect - 1.96 * stratum_df$se
+    if (!"upper_95" %in% names(stratum_df)) stratum_df$upper_95 <- stratum_df$random_effect + 1.96 * stratum_df$se
+
+    stratum_df$deviant <- ifelse(stratum_df$lower_95 > 0 | stratum_df$upper_95 < 0, "Significant", "Not Significant")
+
+    # Filter the Top N Deviant strata (by highest absolute effect, retaining original signs)
+    if (!is.null(input$hud_top_n)) {
+      stratum_df <- stratum_df[order(abs(stratum_df$random_effect), decreasing = TRUE), ]
+      stratum_df <- head(stratum_df, input$hud_top_n)
+    }
+
+    stratum_df
+  })
+
+  output$interactive_plot <- renderPlotly({
+    req(hud_plot_data())
+    stratum_df <- hud_plot_data()
+
+    # Y-axis Sorting Control
+    sort_by <- if (!is.null(input$hud_sort_var)) input$hud_sort_var else "effect"
+    if (sort_by == "n" && "n" %in% names(stratum_df)) {
+        stratum_df$display_label <- factor(stratum_df$display_label, levels = stratum_df$display_label[order(stratum_df$n)])
+    } else if (sort_by == "alpha") {
+        stratum_df$display_label <- factor(stratum_df$display_label, levels = rev(stratum_df$display_label[order(as.character(stratum_df$display_label))]))
+    } else {
+        stratum_df$display_label <- factor(stratum_df$display_label, levels = stratum_df$display_label[order(stratum_df$random_effect)])
+    }
+
+    # Create tooltip format
+    n_text <- if ("n" %in% names(stratum_df)) paste("<br>Sample Size (N):", stratum_df$n) else ""
+    abs_text <- if ("abs_pred" %in% names(stratum_df)) paste("<br>Absolute Pred. Outcome:", round(stratum_df$abs_pred, 3)) else ""
+    stratum_df$tooltip <- paste0("<b>", stratum_df$display_label, "</b>",
+                                  n_text,
+                                  abs_text,
+                                  "<br>Effect:", round(stratum_df$random_effect, 3),
+                                  "<br>95% CI:", round(stratum_df$lower_95, 3), " to ", round(stratum_df$upper_95, 3))
+
+    # Choose mapping variables
+    color_var <- if(!is.null(input$hud_color_var)) input$hud_color_var else "deviant"
+    size_mapped <- "n" %in% names(stratum_df)
+
+    p <- ggplot(stratum_df, aes(x = random_effect, y = display_label,
+                                color = .data[[color_var]],
+                                text = tooltip)) +
+      geom_vline(xintercept = 0, linetype = "dashed", color = "grey50")
+
+    if (size_mapped) {
+       p <- p + geom_point(aes(size = n), alpha = 0.8) + scale_size_continuous(range = c(2, 6))
+    } else {
+       p <- p + geom_point(size = 3)
+    }
+
+    p <- p + geom_errorbarh(aes(xmin = lower_95, xmax = upper_95), height = 0.2) +
+      theme_minimal() +
+      labs(x = "Intersectional Intercept / Effect (Deviation)",
+           y = "Stratum", color = tools::toTitleCase(color_var), size = "Sample Size (N)") +
+      theme(axis.text.y = element_text(size = 8))
+
+    # If using standard deviant coloring, retain manual scale
+    if (color_var == "deviant") {
+        p <- p + scale_color_manual(values = c("Significant" = "#E74C3C", "Not Significant" = "#34495E"))
+    }
+
+    # Disable tooltip for size parameter so it doesn't double-up and break Plotly's rendering gracefully
+    ggplotly(p, tooltip = "text") %>% layout(hoverinfo = "text")
+  })
+
+  output$interactive_table <- renderDT({
+    req(hud_plot_data())
+    df <- hud_plot_data()
+
+    # Drop tooltip and internal parsing columns before showing table
+    cols_to_drop <- c("tooltip", "display_label")
+    df <- df[, !names(df) %in% cols_to_drop]
+
+    # Round numerics
+    num_cols <- vapply(df, is.numeric, logical(1))
+    df[num_cols] <- lapply(df[num_cols], round, 3)
+
+    datatable(df, options = list(pageLength = 10, scrollX = TRUE), rownames = FALSE)
+  })
+
+  output$download_hud_data <- downloadHandler(
+    filename = function() {
+      paste0("maihda_highlighted_strata_", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      df <- hud_plot_data()
+      cols_to_drop <- c("tooltip", "display_label")
+      df <- df[, !names(df) %in% cols_to_drop]
+      write.csv(df, file, row.names = FALSE)
     }
   )
 }
