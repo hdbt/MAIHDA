@@ -11,7 +11,7 @@ maihda_sim_data
 
 ## Format
 
-A data frame with 500 rows and 6 variables:
+A data frame with 500 rows and 7 variables:
 
 - id:
 
@@ -36,6 +36,10 @@ A data frame with 500 rows and 6 variables:
 - health_outcome:
 
   A continuous simulated health outcome.
+
+- binary_outcome:
+
+  A binary version of the health outcome.
 
 ## Source
 

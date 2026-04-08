@@ -14,11 +14,15 @@ maihda_health_data
 
 ## Format
 
-A data frame with 3,000 rows and 6 variables:
+A data frame with 3,000 rows and 7 variables:
 
 - BMI:
 
   Body Mass Index (kg/m^2), a continuous outcome variable.
+
+- Obese:
+
+  Factor indicating obesity status (No/Yes).
 
 - Age:
 
