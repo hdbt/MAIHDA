@@ -35,7 +35,7 @@
 #'                     engine = "lme4")
 #'
 #' # Simplified approach: specify stratifying variables directly in the grouping structure
-#' # The function internally calls make_strata() to create intersectionals 
+#' # The function internally calls make_strata() to create intersectionals
 #' model2 <- fit_maihda(health_outcome ~ age + (1 | gender + race + education),
 #'                      data = maihda_sim_data,
 #'                      engine = "lme4")
@@ -63,17 +63,17 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
   if (!is.null(re_terms)) {
     # Extract the names of all grouping variables
     grouping_vars <- unique(unlist(lapply(re_terms, function(x) all.vars(x[[3]]))))
-    
+
     # If the grouping variables are not just "stratum", create strata
     if (length(grouping_vars) > 0 && !all(grouping_vars == "stratum")) {
       # Keep variables that exist in the data
       valid_vars <- intersect(grouping_vars, names(data))
-      
+
       if (length(valid_vars) > 0) {
         strata_result <- make_strata(data, vars = valid_vars)
         data <- strata_result$data
         attr(data, "strata_info") <- strata_result$strata_info
-        
+
         # Rewrite the formula to use (1 | stratum) instead of the original random effects
         # We need to drop all the original random effects and add (1 | stratum)
         fixed_formula <- lme4::nobars(formula)
