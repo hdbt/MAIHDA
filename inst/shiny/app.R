@@ -329,10 +329,46 @@ server <- function(input, output, session) {
         *   **Step_PCV**: Percentage of variance explained compared to the *previous* model step.
         *   **Total_PCV**: Percentage of variance explained compared to the *null* model (Step 0).
         "),
+        plotlyOutput("stepwise_pcv_plot", height = "400px"),
         hr(),
         DTOutput("stepwise_pcv_dt")
       )
     )
+  })
+
+  output$stepwise_pcv_plot <- renderPlotly({
+    req(stepwise_results())
+    res <- stepwise_results()
+
+    # Ensure Model column is an ordered factor to maintain step sequence
+    res$Model <- factor(res$Model, levels = res$Model)
+
+    # Calculate step variance drop
+    res$Step_Variance <- c(0, -diff(res$Variance))
+
+    # Format tooltip text
+    hover_text <- paste(
+      "<b>Model:</b>", res$Model, "<br>",
+      "<b>Added:</b>", ifelse(is.na(res$Added), "None", res$Added), "<br>",
+      "<b>Step Variance Drop:</b>", round(res$Step_Variance, 4), "<br>",
+      "<b>Step PCV:</b>", ifelse(!is.na(res$Step_PCV), paste0(round(res$Step_PCV * 100, 2), "%"), "0%"), "<br>",
+      "<b>Total PCV:</b>", ifelse(!is.na(res$Total_PCV), paste0(round(res$Total_PCV * 100, 2), "%"), "0%")
+    )
+
+    plot_ly(
+      data = res,
+      x = ~Model,
+      y = ~Total_PCV,
+      type = "bar",
+      text = hover_text,
+      hoverinfo = "text",
+      marker = list(color = "#4D9DE0")
+    ) %>%
+      layout(
+        title = "Cumulative Intersectional Variance Explained",
+        xaxis = list(title = "Sequential Model Step", tickangle = -45),
+        yaxis = list(title = "Total PCV (Proportional Change in Variance)", tickformat = ".1%")
+      )
   })
 
   output$stepwise_pcv_dt <- renderDT({
@@ -397,7 +433,8 @@ server <- function(input, output, session) {
         - **VPC** (Variance Partition Coefficient) measures how much of the total outcome variance is due to the strata definitions.
         - **PVC** (Proportional Change in Variance) shows how much of that strata variation is explained by simple additive effects.
         - The remaining percentage represents the true **intersectional effect**, revealing disparities unique to specific strata combinations.
-        ")
+        "),
+        uiOutput("dynamic_interpretation")
       ),
       card(
         card_header("Interactive Strata Deviations (Residuals with CIs)"),
@@ -527,6 +564,55 @@ server <- function(input, output, session) {
 
     # Disable tooltip for size parameter so it doesn't double-up and break Plotly's rendering gracefully
     ggplotly(p, tooltip = "text") %>% layout(hoverinfo = "text")
+  })
+
+  output$dynamic_interpretation <- renderUI({
+    req(summary_results(), pvc_results())
+
+    # Grab data
+    res <- summary_results()
+    pvc <- pvc_results()
+    df <- as.data.frame(res$stratum_estimates)
+    strata_info <- model_results()$strata_info
+
+    # Merge N into df if available
+    if (!is.null(strata_info) && "n" %in% names(strata_info)) {
+      df <- merge(df, strata_info[, c("stratum", "n")], by = "stratum", all.x = TRUE)
+    } else {
+      df$n <- "Unknown"
+    }
+
+    # Find the most deviant stratum
+    df <- df[order(abs(df$random_effect), decreasing = TRUE), ]
+    most_deviant <- df[1, ]
+
+    # Stratum Label
+    if ("label" %in% names(most_deviant) && !is.na(most_deviant$label)) {
+      dev_label <- paste0(most_deviant$stratum, " (", most_deviant$label, ")")
+    } else {
+      dev_label <- paste0("Stratum ", most_deviant$stratum)
+    }
+
+    dev_effect <- round(most_deviant$random_effect, 3)
+    dev_n <- most_deviant$n
+
+    # Extract metrics
+    vpc_val <- round(res$vpc$estimate * 100, 2)
+    pvc_val <- round(pvc$pvc * 100, 2)
+    interaction_val <- 100 - pvc_val
+
+    # Construct the summary paragraph dynamically
+    tags$div(class = "alert alert-info mt-3",
+      tags$strong("Automated Research Summary: "),
+      "In this analysis, ", tags$strong(paste0(vpc_val, "%")),
+      " of the total variance in the outcome is attributable to the defined intersecting demographic or social strata. ",
+      "When considering simple additive (main) effects, ", tags$strong(paste0(pvc_val, "%")),
+      " of this between-strata disparity is explained away, meaning that ", tags$strong(paste0(interaction_val, "%")),
+      " of the disparity represents unique intersectional interaction effects not captured by standard main-effect modeling. ",
+      "Exploring these residuals reveals that the most prominent intersectional disparity occurs in ",
+      tags$strong(dev_label), " (N = ", dev_n, "), which shows an intersectional deviation score of ",
+      tags$strong(dev_effect), " from what simple additive effects would predict."
+    )
   })
 
   output$interactive_table <- renderDT({
