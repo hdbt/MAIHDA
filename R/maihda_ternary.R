@@ -213,7 +213,7 @@ plot_maihda_ternary <- function(
     p <- p + ggplot2::geom_text(data = top_data, ggplot2::aes(label = .data[["label"]]), size = 2.5, vjust = -1, color = "#222222")
   }
 
-  p <- p + ggplot2::guides(color = "none") # Hide the large color legend, but keep the size legend 
+  p <- p + ggplot2::guides(color = "none") # Hide the large color legend, but keep the size legend
   p <- p + ggtern::theme_legend_position("middleright")
   return(p)
 }

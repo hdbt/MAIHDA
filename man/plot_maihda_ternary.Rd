@@ -8,9 +8,9 @@ plot_maihda_ternary(
   ternary_data,
   size_var = "n",
   color_var = "label",
-  label_top_n = 10,
+  label_top_n = 5,
   label_by = c("interaction_signal", "uncertainty", "n"),
-  alpha = 0.8
+  alpha = 0.7
 )
 }
 \arguments{

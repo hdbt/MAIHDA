@@ -3,8 +3,13 @@
 #' Fits a multilevel model for MAIHDA (Multilevel Analysis of Individual
 #' Heterogeneity and Discriminatory Accuracy) using either lme4 or brms.
 #'
-#' @param formula A formula specifying the model. Should include random effect
-#'   for stratum (e.g., \code{outcome ~ fixed_vars + (1 | stratum)}).
+#' @param formula A formula specifying the model. Can include a random effect
+#'   for stratum (e.g., \code{outcome ~ fixed_vars + (1 | stratum)}) or can
+#'   directly specify the intersection variables to be used for forming strata
+#'   (e.g., \code{outcome ~ fixed_vars + (1 | var1 + var2 + var3)}). If variables
+#'   other than "stratum" are provided in the random effect, \code{\link{make_strata}}
+#'   will be called internally to compute the strata and the formula will be
+#'   updated.
 #' @param data A data frame containing the variables in the formula.
 #' @param engine Character string specifying which engine to use: "lme4" (default)
 #'   or "brms".
@@ -23,18 +28,17 @@
 #'
 #' @examples
 #' \donttest{
-#' # Create strata
+#' # Standard approach: manually create strata first
 #' strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
-#'
-#' # Fit model with lme4
 #' model <- fit_maihda(health_outcome ~ age + (1 | stratum),
 #'                     data = strata_result$data,
 #'                     engine = "lme4")
 #'
-#' # Fit model with brms (if brms is available)
-#' # model_brms <- fit_maihda(health_outcome ~ age + (1 | stratum),
-#' #                          data = strata_result$data,
-#' #                          engine = "brms")
+#' # Simplified approach: specify stratifying variables directly in the grouping structure
+#' # The function internally calls make_strata() to create intersectionals 
+#' model2 <- fit_maihda(health_outcome ~ age + (1 | gender + race + education),
+#'                      data = maihda_sim_data,
+#'                      engine = "lme4")
 #' }
 #'
 #' @export
@@ -51,6 +55,32 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
   }
 
   engine <- match.arg(engine, c("lme4", "brms"))
+
+  # Parse formula to find grouping variables
+  # Check if "stratum" is not already the grouping variable
+  # lme4::findbars or reformulas::findbars extracts the random effect terms
+  re_terms <- lme4::findbars(formula)
+  if (!is.null(re_terms)) {
+    # Extract the names of all grouping variables
+    grouping_vars <- unique(unlist(lapply(re_terms, function(x) all.vars(x[[3]]))))
+    
+    # If the grouping variables are not just "stratum", create strata
+    if (length(grouping_vars) > 0 && !all(grouping_vars == "stratum")) {
+      # Keep variables that exist in the data
+      valid_vars <- intersect(grouping_vars, names(data))
+      
+      if (length(valid_vars) > 0) {
+        strata_result <- make_strata(data, vars = valid_vars)
+        data <- strata_result$data
+        attr(data, "strata_info") <- strata_result$strata_info
+        
+        # Rewrite the formula to use (1 | stratum) instead of the original random effects
+        # We need to drop all the original random effects and add (1 | stratum)
+        fixed_formula <- lme4::nobars(formula)
+        formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
+      }
+    }
+  }
 
   # Convert family to family object if it's a string
   if (is.character(family)) {

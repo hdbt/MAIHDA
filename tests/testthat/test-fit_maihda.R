@@ -37,6 +37,26 @@ test_that("fit_maihda handles different families", {
   expect_equal(model$family$family, "binomial")
 })
 
+test_that("fit_maihda creates strata automatically when interaction is passed", {
+  set.seed(123)
+  data <- data.frame(
+    gender = sample(c("M", "F"), 100, replace = TRUE),
+    race = sample(c("W", "B"), 100, replace = TRUE),
+    age = rnorm(100),
+    outcome = rnorm(100)
+  )
+
+  # Using older manual strata way to ensure they match
+  strata_result <- make_strata(data, c("gender", "race"))
+  model1 <- fit_maihda(outcome ~ age + (1 | stratum), data = strata_result$data)
+
+  # Using auto strata way
+  model2 <- fit_maihda(outcome ~ age + (1 | gender + race), data = data)
+
+  expect_equal(summary_maihda(model1), summary_maihda(model2))
+  expect_true(!is.null(model2$strata_info))
+})
+
 test_that("fit_maihda validates inputs", {
   data <- data.frame(x = 1:10, y = 1:10)
   
