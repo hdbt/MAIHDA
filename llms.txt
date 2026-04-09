@@ -56,25 +56,24 @@ You can install the development version from GitHub:
 devtools::install_github("hdbt/MAIHDA")
 ```
 
+or the current stable version from CRAN:
+
+``` r
+install.packages("MAIHDA")
+```
+
 ## Quick Start
 
 ``` r
 library(MAIHDA)
 
-# 1. Create intersectional strata
-data <- data.frame(
-  gender = sample(c("Male", "Female"), 1000, replace = TRUE),
-  race = sample(c("White", "Black", "Hispanic"), 1000, replace = TRUE),
-  age = rnorm(1000, 50, 10),
-  health_outcome = rnorm(1000, 100, 15)
-)
+# 1 & 2. Create intersectional strata & Fit MAIHDA model
+# You can directly specify the stratifying variables in the random effects
+data("maihda_health_data")
 
-strata_result <- make_strata(data, vars = c("gender", "race"))
-
-# 2. Fit MAIHDA model
 model <- fit_maihda(
-  health_outcome ~ age + (1 | stratum),
-  data = strata_result$data,
+  BMI ~ Age + Poverty + (1 | Gender + Race + Education),
+  data = maihda_health_data,
   engine = "lme4"
 )
 
@@ -86,10 +85,26 @@ print(summary_result)
 pred_strata <- predict_maihda(model, type = "strata")
 pred_individual <- predict_maihda(model, type = "individual")
 
-# 5. Visualize results
-plot_maihda(model, type = "caterpillar")
+# 5. Visualize results (New Shiny App Visualizations)
+# Plot stratum-level predictions (Caterpillar plot)
+plot_maihda(model, type = "predicted")
+
+# Variance partition visualization
 plot_maihda(model, type = "vpc")
-plot_maihda(model, type = "obs_vs_shrunken")
+
+# Risk vs Effect size
+plot_maihda(model, type = "risk_vs_effect")
+
+# Additive vs Intersectional effect decomposition
+plot_maihda(model, type = "effect_decomp")
+
+# Ternary plot separating baseline, additive, and interaction variance
+out_ternary <- maihda_ternary_plot(model)
+print(out_ternary$plot)
+
+# Deviance analysis for predictions
+dev_panels <- plot_prediction_deviation_panels(model$model)
+print(dev_panels)
 ```
 
 ## Main Functions
@@ -124,10 +139,25 @@ Makes predictions at two levels:
 
 Creates various visualizations:
 
-- **Caterpillar plots**: Displays stratum random effects with confidence
-  intervals
+- **Predicted**: Caterpillar plots of stratum random effects with
+  confidence intervals
 - **VPC plots**: Visualizes variance partitioning
 - **Observed vs. Shrunken**: Shows shrinkage of stratum estimates
+- **Risk vs Effect**: Visualizes baseline strata risk against
+  intersectional effect size
+- **Effect Decomp**: Additive versus specific interaction decompositions
+
+### `maihda_ternary_plot()`
+
+Generates an advanced ternary plot showing the relative contribution of
+intercept, additive effects, and unique intersectional interaction
+effects to the overall outcome for each stratum.
+
+### `plot_prediction_deviation_panels()`
+
+Creates an advanced, publication-ready two-panel dashboard for
+visualizing predicted values and identifying extreme/deviant cases in
+individual predictions.
 
 ### `compare_maihda()`
 
@@ -158,13 +188,10 @@ visually.
 ## Example: Intersectional Health Inequalities
 
 ``` r
-# Create strata from gender and race
-strata_result <- make_strata(health_data, vars = c("gender", "race", "education"))
-
-# Fit model adjusting for age
+# Fit model adjusting for age, automatically creating strata from gender, race, and education
 model <- fit_maihda(
-  health_outcome ~ age + (1 | stratum),
-  data = strata_result$data
+  health_outcome ~ age + (1 | gender + race + education),
+  data = health_data
 )
 
 # Get variance partition coefficient
@@ -173,8 +200,13 @@ summary <- summary_maihda(model, bootstrap = TRUE, n_boot = 1000)
 # VPC of 0.15 means 15% of variance is between strata
 # This indicates substantial intersectional inequality
 
-# Visualize which strata have higher/lower outcomes
-plot_maihda(model, type = "caterpillar")
+# Visualize which strata have higher/lower outcomes using new advanced plots
+plot_maihda(model, type = "predicted")
+plot_maihda(model, type = "risk_vs_effect")
+
+# Map out where the specific intersectional variance is emerging
+out_ternary <- maihda_ternary_plot(model)
+print(out_ternary$plot)
 ```
 
 ## Using brms for Bayesian Inference
@@ -182,8 +214,8 @@ plot_maihda(model, type = "caterpillar")
 ``` r
 # Requires brms package
 model_brms <- fit_maihda(
-  health_outcome ~ age + (1 | stratum),
-  data = strata_result$data,
+  health_outcome ~ age + (1 | gender + race + education),
+  data = health_data,
   engine = "brms",
   chains = 4,
   iter = 2000
@@ -196,8 +228,8 @@ summary_brms <- summary_maihda(model_brms)
 
 ``` r
 # Fit competing models
-model1 <- fit_maihda(outcome ~ age + (1 | stratum), data = data1)
-model2 <- fit_maihda(outcome ~ age + gender + (1 | stratum), data = data2)
+model1 <- fit_maihda(outcome ~ age + (1 | gender + race), data = data1)
+model2 <- fit_maihda(outcome ~ age + gender + (1 | gender + race), data = data2)
 
 # Compare with bootstrap CI
 comparison <- compare_maihda(
@@ -215,10 +247,10 @@ plot_comparison(comparison)
 
 ``` r
 # Fit baseline model
-model1 <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
+model1 <- fit_maihda(outcome ~ age + (1 | gender + race), data = data)
 
 # Fit model with additional predictor
-model2 <- fit_maihda(outcome ~ age + gender + (1 | stratum), data = data)
+model2 <- fit_maihda(outcome ~ age + gender + (1 | gender + race), data = data)
 
 # Calculate PVC without bootstrap
 pvc_result <- calculate_pvc(model1, model2)
@@ -331,18 +363,24 @@ A BibTeX entry for LaTeX users is:
   : Calculate Proportional Change in Between-Stratum Variance (PVC)
 - [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
   : Compare MAIHDA Models
+- [`compute_maihda_ternary_data()`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
+  : Compute Ternary Data for MAIHDA Models
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   : Fit MAIHDA Model
 - [`maihda_health_data`](https://hdbt.github.io/MAIHDA/reference/maihda_health_data.md)
   : NHANES Health Data Subset for MAIHDA Use
 - [`maihda_sim_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.md)
   : Simulated Health Data for MAIHDA Use
+- [`maihda_ternary_plot()`](https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.md)
+  : Generate Ternary Plot from MAIHDA Model
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   : Create Strata from Multiple Variables
 - [`plot_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_comparison.md)
   : Plot Model Comparison
 - [`plot_maihda()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda.md)
   : Plot MAIHDA Model Results
+- [`plot_maihda_ternary()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda_ternary.md)
+  : Plot MAIHDA Ternary Diagram
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   : Plot Prediction Deviation Panels
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)

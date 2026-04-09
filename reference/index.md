@@ -6,18 +6,24 @@
   : Calculate Proportional Change in Between-Stratum Variance (PVC)
 - [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
   : Compare MAIHDA Models
+- [`compute_maihda_ternary_data()`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
+  : Compute Ternary Data for MAIHDA Models
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   : Fit MAIHDA Model
 - [`maihda_health_data`](https://hdbt.github.io/MAIHDA/reference/maihda_health_data.md)
   : NHANES Health Data Subset for MAIHDA Use
 - [`maihda_sim_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.md)
   : Simulated Health Data for MAIHDA Use
+- [`maihda_ternary_plot()`](https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.md)
+  : Generate Ternary Plot from MAIHDA Model
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   : Create Strata from Multiple Variables
 - [`plot_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_comparison.md)
   : Plot Model Comparison
 - [`plot_maihda()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda.md)
   : Plot MAIHDA Model Results
+- [`plot_maihda_ternary()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda_ternary.md)
+  : Plot MAIHDA Ternary Diagram
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   : Plot Prediction Deviation Panels
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)

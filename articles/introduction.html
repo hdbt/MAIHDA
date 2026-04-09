@@ -65,7 +65,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-04-08</h4>
+            <h4 data-toc-skip class="date">2026-04-09</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
@@ -108,32 +108,24 @@ Nutrition Examination Survey (<code>maihda_health_data</code>). We will
 use this to examine how Body Mass Index (BMI) varies across
 intersectional demographic groups.</p>
 <div class="section level3">
-<h3 id="step-1-create-intersectional-strata">Step 1: Create Intersectional Strata<a class="anchor" aria-label="anchor" href="#step-1-create-intersectional-strata"></a>
+<h3 id="step-1-2-create-intersectional-strata-and-fit-a-null-maihda-model">Step 1 &amp; 2: Create Intersectional Strata and Fit a Null MAIHDA
+Model<a class="anchor" aria-label="anchor" href="#step-1-2-create-intersectional-strata-and-fit-a-null-maihda-model"></a>
 </h3>
-<p>First, use <code><a href="../reference/make_strata.html">make_strata()</a></code> to combine multiple social
-categories into a single Random Effect grouping variable:</p>
+<p>Use <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> to combine multiple social categories
+directly in the random effect formula. Providing the variables in the
+random effect combined with <code>+</code> allows the function to
+automatically build the intersectional strata on the fly and fit the
+multilevel model.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Load the built-in NHANES dataset</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Create strata from Gender, Race, and Education</span></span>
-<span><span class="va">strata_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/make_strata.html">make_strata</a></span><span class="op">(</span><span class="va">maihda_health_data</span>, vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Gender"</span>, <span class="st">"Race"</span>, <span class="st">"Education"</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View the strata structural information</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">strata_result</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="step-2-fit-a-null-maihda-model">Step 2: Fit a Null MAIHDA Model<a class="anchor" aria-label="anchor" href="#step-2-fit-a-null-maihda-model"></a>
-</h3>
-<p>Fit a multilevel model using the generated strata. A “Null” model
-contains only the intercept and the strata random effect.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Fit the initial Null model</span></span>
+<span><span class="co"># Fit the initial Null model with auto-generated strata</span></span>
 <span><span class="va">model_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">strata_result</span><span class="op">$</span><span class="va">data</span>,</span>
+<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
 <span>  engine <span class="op">=</span> <span class="st">"lme4"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -156,11 +148,11 @@ largely explained by the additive characteristics. If the variance
 remains or even <em>increases</em> (Negative PCV), it signifies strong,
 unique intersectional interactions that cannot be explained away by
 simple main effects.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit an adjusted model</span></span>
 <span><span class="va">model_adj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">strata_result</span><span class="op">$</span><span class="va">data</span></span>
+<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">maihda_health_data</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Calculate PCV with Parametric Bootstrap Confidence Intervals</span></span>
@@ -173,10 +165,10 @@ simple main effects.</p>
 <p>Often, researchers want to know exactly <em>which</em> variable
 explained the variance. Use the <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code> function to
 add covariates one-by-one and track the variance dynamically.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Run a stepwise variance decomposition</span></span>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Run a stepwise variance decomposition (using the auto-generated strata from model_null)</span></span>
 <span><span class="va">stepwise_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/stepwise_pcv.html">stepwise_pcv</a></span><span class="op">(</span></span>
-<span>  data <span class="op">=</span> <span class="va">strata_result</span><span class="op">$</span><span class="va">data</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">model_null</span><span class="op">$</span><span class="va">data</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="st">"BMI"</span>,</span>
 <span>  vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Age"</span>, <span class="st">"Gender"</span>, <span class="st">"Race"</span>, <span class="st">"Education"</span>, <span class="st">"Poverty"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
@@ -190,15 +182,30 @@ inequalities.</p>
 <div class="section level3">
 <h3 id="step-5-visualizations">Step 5: Visualizations<a class="anchor" aria-label="anchor" href="#step-5-visualizations"></a>
 </h3>
-<p>The package provides multiple pre-configured visualization options
-for checking your model estimates (using
-<code><a href="../reference/plot_maihda.html">plot_maihda()</a></code>):</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Caterpillar plot of stratum random effects (with 95% CIs)</span></span>
-<span><span class="fu"><a href="../reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"caterpillar"</span><span class="op">)</span></span>
+<p>The package provides multiple pre-configured, advanced visualization
+options for checking your model estimates natively mirroring the Shiny
+application logic:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Caterpillar plot of predictions for stratum random effects (with 95% CIs)</span></span>
+<span><span class="fu"><a href="../reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Variance partition visualization</span></span>
-<span><span class="fu"><a href="../reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Variance partition (VPC) visualization</span></span>
+<span><span class="fu"><a href="../reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Bivariate risk against stratum-level intersectional effect</span></span>
+<span><span class="fu"><a href="../reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Additive versus Intersectional Effect decomposition</span></span>
+<span><span class="fu"><a href="../reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Ternary Plot of Variances</span></span>
+<span><span class="va">out_ternary</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_ternary_plot.html">maihda_ternary_plot</a></span><span class="op">(</span><span class="va">model_adj</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">out_ternary</span><span class="op">$</span><span class="va">plot</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Individual Prediction Deviance Dashboard</span></span>
+<span><span class="co"># Extract underlying model using $model</span></span>
+<span><span class="va">dev_panels</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_prediction_deviation_panels.html">plot_prediction_deviation_panels</a></span><span class="op">(</span><span class="va">model_adj</span><span class="op">$</span><span class="va">model</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span>, type <span class="op">=</span> <span class="st">"auto"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dev_panels</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -209,7 +216,7 @@ Dashboard.</p>
 <p>You can upload your own data (CSV, SPSS <code>.sav</code>, Stata
 <code>.dta</code>), dynamically select variables, and compute Stepwise
 PCV tables and prediction plots.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Launch the interactive interface</span></span>
 <span><span class="fu"><a href="../reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>

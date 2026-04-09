@@ -92,6 +92,8 @@ intervals for the PVC estimate.
 # Create strata and fit two models
 strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
 model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
+#> Warning: the ‘findbars’ function has moved to the reformulas package. Please update your imports, or ask an upstream package maintainer to do so.
+#> This warning is displayed once per session.
 model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_result$data)
 
 # Calculate PVC without bootstrap

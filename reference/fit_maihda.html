@@ -54,8 +54,13 @@ Heterogeneity and Discriminatory Accuracy) using either lme4 or brms.</p>
 
 
 <dl><dt id="arg-formula">formula<a class="anchor" aria-label="anchor" href="#arg-formula"></a></dt>
-<dd><p>A formula specifying the model. Should include random effect
-for stratum (e.g., <code>outcome ~ fixed_vars + (1 | stratum)</code>).</p></dd>
+<dd><p>A formula specifying the model. Can include a random effect
+for stratum (e.g., <code>outcome ~ fixed_vars + (1 | stratum)</code>) or can
+directly specify the intersection variables to be used for forming strata
+(e.g., <code>outcome ~ fixed_vars + (1 | var1 + var2 + var3)</code>). If variables
+other than "stratum" are provided in the random effect, <code><a href="make_strata.html">make_strata</a></code>
+will be called internally to compute the strata and the formula will be
+updated.</p></dd>
 
 
 <dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
@@ -103,18 +108,19 @@ Common options: "gaussian", "binomial", "poisson". Default is "gaussian".</p></d
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
-<span class="r-in"><span><span class="co"># Create strata</span></span></span>
+<span class="r-in"><span><span class="co"># Standard approach: manually create strata first</span></span></span>
 <span class="r-in"><span><span class="va">strata_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="make_strata.html">make_strata</a></span><span class="op">(</span><span class="va">maihda_sim_data</span>, vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span>, <span class="st">"education"</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Fit model with lme4</span></span></span>
 <span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu">fit_maihda</span><span class="op">(</span><span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                    data <span class="op">=</span> <span class="va">strata_result</span><span class="op">$</span><span class="va">data</span>,</span></span>
 <span class="r-in"><span>                    engine <span class="op">=</span> <span class="st">"lme4"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Fit model with brms (if brms is available)</span></span></span>
-<span class="r-in"><span><span class="co"># model_brms &lt;- fit_maihda(health_outcome ~ age + (1 | stratum),</span></span></span>
-<span class="r-in"><span><span class="co">#                          data = strata_result$data,</span></span></span>
-<span class="r-in"><span><span class="co">#                          engine = "brms")</span></span></span>
+<span class="r-in"><span><span class="co"># Simplified approach: specify stratifying variables directly in the grouping structure</span></span></span>
+<span class="r-in"><span><span class="co"># The function internally calls make_strata() to create intersectionals </span></span></span>
+<span class="r-in"><span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu">fit_maihda</span><span class="op">(</span><span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span> <span class="op">+</span> <span class="va">education</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                     data <span class="op">=</span> <span class="va">maihda_sim_data</span>,</span></span>
+<span class="r-in"><span>                     engine <span class="op">=</span> <span class="st">"lme4"</span><span class="op">)</span></span></span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>the ‘nobars’ function has moved to the reformulas package. Please update your imports, or ask an upstream package maintainer to do so.</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">This warning is displayed once per session.</span></span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

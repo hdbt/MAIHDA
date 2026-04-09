@@ -35,12 +35,14 @@ Nutrition Examination Survey (`maihda_health_data`). We will use this to
 examine how Body Mass Index (BMI) varies across intersectional
 demographic groups.
 
-### Step 1: Create Intersectional Strata
+### Step 1 & 2: Create Intersectional Strata and Fit a Null MAIHDA Model
 
-First, use
-[`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
-to combine multiple social categories into a single Random Effect
-grouping variable:
+Use
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+to combine multiple social categories directly in the random effect
+formula. Providing the variables in the random effect combined with `+`
+allows the function to automatically build the intersectional strata on
+the fly and fit the multilevel model.
 
 ``` r
 library(MAIHDA)
@@ -48,23 +50,10 @@ library(MAIHDA)
 # Load the built-in NHANES dataset
 data("maihda_health_data")
 
-# Create strata from Gender, Race, and Education
-strata_result <- make_strata(maihda_health_data, vars = c("Gender", "Race", "Education"))
-
-# View the strata structural information
-print(strata_result)
-```
-
-### Step 2: Fit a Null MAIHDA Model
-
-Fit a multilevel model using the generated strata. A “Null” model
-contains only the intercept and the strata random effect.
-
-``` r
-# Fit the initial Null model
+# Fit the initial Null model with auto-generated strata
 model_null <- fit_maihda(
-  BMI ~ 1 + (1 | stratum),
-  data = strata_result$data,
+  BMI ~ 1 + (1 | Gender + Race + Education),
+  data = maihda_health_data,
   engine = "lme4"
 )
 
@@ -93,8 +82,8 @@ effects.
 ``` r
 # Fit an adjusted model
 model_adj <- fit_maihda(
-  BMI ~ Age + Gender + Race + Education + Poverty + (1 | stratum),
-  data = strata_result$data
+  BMI ~ Age + Gender + Race + Education + Poverty + (1 | Gender + Race + Education),
+  data = maihda_health_data
 )
 
 # Calculate PCV with Parametric Bootstrap Confidence Intervals
@@ -111,9 +100,9 @@ function to add covariates one-by-one and track the variance
 dynamically.
 
 ``` r
-# Run a stepwise variance decomposition
+# Run a stepwise variance decomposition (using the auto-generated strata from model_null)
 stepwise_results <- stepwise_pcv(
-  data = strata_result$data,
+  data = model_null$data,
   outcome = "BMI",
   vars = c("Age", "Gender", "Race", "Education", "Poverty")
 )
@@ -127,16 +116,31 @@ further apart mathematically, revealing hidden structural inequalities.
 
 ### Step 5: Visualizations
 
-The package provides multiple pre-configured visualization options for
-checking your model estimates (using
-[`plot_maihda()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda.md)):
+The package provides multiple pre-configured, advanced visualization
+options for checking your model estimates natively mirroring the Shiny
+application logic:
 
 ``` r
-# Caterpillar plot of stratum random effects (with 95% CIs)
-plot_maihda(model_adj, type = "caterpillar")
+# Caterpillar plot of predictions for stratum random effects (with 95% CIs)
+plot_maihda(model_adj, type = "predicted")
 
-# Variance partition visualization
+# Variance partition (VPC) visualization
 plot_maihda(model_adj, type = "vpc")
+
+# Bivariate risk against stratum-level intersectional effect
+plot_maihda(model_adj, type = "risk_vs_effect")
+
+# Additive versus Intersectional Effect decomposition
+plot_maihda(model_adj, type = "effect_decomp")
+
+# Ternary Plot of Variances
+out_ternary <- maihda_ternary_plot(model_adj)
+print(out_ternary$plot)
+
+# Individual Prediction Deviance Dashboard
+# Extract underlying model using $model
+dev_panels <- plot_prediction_deviation_panels(model_adj$model, data = maihda_health_data, type = "auto")
+print(dev_panels)
 ```
 
 ## Interactive Shiny App

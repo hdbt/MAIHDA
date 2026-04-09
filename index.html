@@ -103,27 +103,23 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("devtools")</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"hdbt/MAIHDA"</span><span class="op">)</span></span></code></pre></div>
+<p>or the current stable version from CRAN:</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"MAIHDA"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="quick-start">Quick Start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
 </h2>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 1. Create intersectional strata</span></span>
-<span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  gender <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Male"</span>, <span class="st">"Female"</span><span class="op">)</span>, <span class="fl">1000</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
-<span>  race <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"White"</span>, <span class="st">"Black"</span>, <span class="st">"Hispanic"</span><span class="op">)</span>, <span class="fl">1000</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
-<span>  age <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">1000</span>, <span class="fl">50</span>, <span class="fl">10</span><span class="op">)</span>,</span>
-<span>  health_outcome <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">1000</span>, <span class="fl">100</span>, <span class="fl">15</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
+<span><span class="co"># 1 &amp; 2. Create intersectional strata &amp; Fit MAIHDA model</span></span>
+<span><span class="co"># You can directly specify the stratifying variables in the random effects</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">strata_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/make_strata.html">make_strata</a></span><span class="op">(</span><span class="va">data</span>, vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># 2. Fit MAIHDA model</span></span>
 <span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">strata_result</span><span class="op">$</span><span class="va">data</span>,</span>
+<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
 <span>  engine <span class="op">=</span> <span class="st">"lme4"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -135,10 +131,26 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <span><span class="va">pred_strata</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/predict_maihda.html">predict_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"strata"</span><span class="op">)</span></span>
 <span><span class="va">pred_individual</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/predict_maihda.html">predict_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"individual"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 5. Visualize results</span></span>
-<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"caterpillar"</span><span class="op">)</span></span>
+<span><span class="co"># 5. Visualize results (New Shiny App Visualizations)</span></span>
+<span><span class="co"># Plot stratum-level predictions (Caterpillar plot)</span></span>
+<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Variance partition visualization</span></span>
 <span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"obs_vs_shrunken"</span><span class="op">)</span></span></code></pre></div>
+<span></span>
+<span><span class="co"># Risk vs Effect size</span></span>
+<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Additive vs Intersectional effect decomposition</span></span>
+<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Ternary plot separating baseline, additive, and interaction variance</span></span>
+<span><span class="va">out_ternary</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/maihda_ternary_plot.html">maihda_ternary_plot</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">out_ternary</span><span class="op">$</span><span class="va">plot</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Deviance analysis for predictions</span></span>
+<span><span class="va">dev_panels</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/plot_prediction_deviation_panels.html">plot_prediction_deviation_panels</a></span><span class="op">(</span><span class="va">model</span><span class="op">$</span><span class="va">model</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dev_panels</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="main-functions">Main Functions<a class="anchor" aria-label="anchor" href="#main-functions"></a>
@@ -186,12 +198,28 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <p>Creates various visualizations:</p>
 <ul>
 <li>
-<strong>Caterpillar plots</strong>: Displays stratum random effects with confidence intervals</li>
+<strong>Predicted</strong>: Caterpillar plots of stratum random effects with confidence intervals</li>
 <li>
 <strong>VPC plots</strong>: Visualizes variance partitioning</li>
 <li>
 <strong>Observed vs. Shrunken</strong>: Shows shrinkage of stratum estimates</li>
+<li>
+<strong>Risk vs Effect</strong>: Visualizes baseline strata risk against intersectional effect size</li>
+<li>
+<strong>Effect Decomp</strong>: Additive versus specific interaction decompositions</li>
 </ul>
+</div>
+<div class="section level3">
+<h3 id="maihda_ternary_plot">
+<code>maihda_ternary_plot()</code><a class="anchor" aria-label="anchor" href="#maihda_ternary_plot"></a>
+</h3>
+<p>Generates an advanced ternary plot showing the relative contribution of intercept, additive effects, and unique intersectional interaction effects to the overall outcome for each stratum.</p>
+</div>
+<div class="section level3">
+<h3 id="plot_prediction_deviation_panels">
+<code>plot_prediction_deviation_panels()</code><a class="anchor" aria-label="anchor" href="#plot_prediction_deviation_panels"></a>
+</h3>
+<p>Creates an advanced, publication-ready two-panel dashboard for visualizing predicted values and identifying extreme/deviant cases in individual predictions.</p>
 </div>
 <div class="section level3">
 <h3 id="compare_maihda">
@@ -221,14 +249,11 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <div class="section level2">
 <h2 id="example-intersectional-health-inequalities">Example: Intersectional Health Inequalities<a class="anchor" aria-label="anchor" href="#example-intersectional-health-inequalities"></a>
 </h2>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Create strata from gender and race</span></span>
-<span><span class="va">strata_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/make_strata.html">make_strata</a></span><span class="op">(</span><span class="va">health_data</span>, vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span>, <span class="st">"education"</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Fit model adjusting for age</span></span>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Fit model adjusting for age, automatically creating strata from gender, race, and education</span></span>
 <span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">strata_result</span><span class="op">$</span><span class="va">data</span></span>
+<span>  <span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span> <span class="op">+</span> <span class="va">education</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">health_data</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Get variance partition coefficient</span></span>
@@ -237,17 +262,22 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <span><span class="co"># VPC of 0.15 means 15% of variance is between strata</span></span>
 <span><span class="co"># This indicates substantial intersectional inequality</span></span>
 <span></span>
-<span><span class="co"># Visualize which strata have higher/lower outcomes</span></span>
-<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"caterpillar"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Visualize which strata have higher/lower outcomes using new advanced plots</span></span>
+<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Map out where the specific intersectional variance is emerging</span></span>
+<span><span class="va">out_ternary</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/maihda_ternary_plot.html">maihda_ternary_plot</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">out_ternary</span><span class="op">$</span><span class="va">plot</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="using-brms-for-bayesian-inference">Using brms for Bayesian Inference<a class="anchor" aria-label="anchor" href="#using-brms-for-bayesian-inference"></a>
 </h2>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Requires brms package</span></span>
 <span><span class="va">model_brms</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">strata_result</span><span class="op">$</span><span class="va">data</span>,</span>
+<span>  <span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span> <span class="op">+</span> <span class="va">education</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">health_data</span>,</span>
 <span>  engine <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  chains <span class="op">=</span> <span class="fl">4</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span></span>
@@ -258,10 +288,10 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <div class="section level2">
 <h2 id="model-comparison-with-bootstrap">Model Comparison with Bootstrap<a class="anchor" aria-label="anchor" href="#model-comparison-with-bootstrap"></a>
 </h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit competing models</span></span>
-<span><span class="va">model1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data1</span><span class="op">)</span></span>
-<span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">gender</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data2</span><span class="op">)</span></span>
+<span><span class="va">model1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data1</span><span class="op">)</span></span>
+<span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">gender</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Compare with bootstrap CI</span></span>
 <span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_maihda.html">compare_maihda</a></span><span class="op">(</span></span>
@@ -277,12 +307,12 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <div class="section level2">
 <h2 id="calculating-proportional-change-in-variance-pvc">Calculating Proportional Change in Variance (PVC)<a class="anchor" aria-label="anchor" href="#calculating-proportional-change-in-variance-pvc"></a>
 </h2>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit baseline model</span></span>
-<span><span class="va">model1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span><span class="op">)</span></span>
+<span><span class="va">model1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Fit model with additional predictor</span></span>
-<span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">gender</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span><span class="op">)</span></span>
+<span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">gender</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Calculate PVC without bootstrap</span></span>
 <span><span class="va">pvc_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model1</span>, <span class="va">model2</span><span class="op">)</span></span>
@@ -298,7 +328,7 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <div class="section level2">
 <h2 id="stepwise-proportional-change-in-variance-pcv">Stepwise Proportional Change in Variance (PCV)<a class="anchor" aria-label="anchor" href="#stepwise-proportional-change-in-variance-pcv"></a>
 </h2>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Incrementally track the explained variables interactively</span></span>
 <span><span class="va">stepwise_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/stepwise_pcv.html">stepwise_pcv</a></span><span class="op">(</span></span>
 <span>  data <span class="op">=</span> <span class="va">data</span>,</span>
@@ -312,7 +342,7 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 </h2>
 <p>You can access a live, cloud-hosted version of the MAIHDA interactive dashboard directly in your browser without installing R: <strong><a href="https://hdbt.shinyapps.io/shiny/" class="external-link">https://hdbt.shinyapps.io/shiny/</a></strong></p>
 <p>Alternatively, you can run all analyses described above in the browser locally by typing:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -320,7 +350,7 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
 </h2>
 <p>For detailed documentation and examples, see the package vignette:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/vignette.html" class="external-link">vignette</a></span><span class="op">(</span><span class="st">"introduction"</span>, package <span class="op">=</span> <span class="st">"MAIHDA"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -365,14 +395,14 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <p>If you use this package in your research, please cite:</p>
 <pre class="text"><code>Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.7, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA</code></pre>
 <p>A BibTeX entry for LaTeX users is:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="va">@Manual</span>{<span class="ot">Bulut2025MAIHDA</span>,</span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="dt">title</span>  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},</span>
-<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="dt">author</span> = {Hamid Bulut},</span>
-<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>  <span class="dt">year</span>   = {2025},</span>
-<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.1.7},</span>
-<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>  <span class="dt">url</span>    = {https://github.com/hdbt/MAIHDA},</span>
-<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>  <span class="dt">doi</span>    = {10.32614/CRAN.package.MAIHDA}</span>
-<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="va">@Manual</span>{<span class="ot">Bulut2025MAIHDA</span>,</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="dt">title</span>  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="dt">author</span> = {Hamid Bulut},</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="dt">year</span>   = {2025},</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.1.7},</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="dt">url</span>    = {https://github.com/hdbt/MAIHDA},</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="dt">doi</span>    = {10.32614/CRAN.package.MAIHDA}</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>}</span></code></pre></div>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">

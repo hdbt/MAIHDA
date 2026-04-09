@@ -13,8 +13,14 @@ fit_maihda(formula, data, engine = "lme4", family = "gaussian", ...)
 
 - formula:
 
-  A formula specifying the model. Should include random effect for
-  stratum (e.g., `outcome ~ fixed_vars + (1 | stratum)`).
+  A formula specifying the model. Can include a random effect for
+  stratum (e.g., `outcome ~ fixed_vars + (1 | stratum)`) or can directly
+  specify the intersection variables to be used for forming strata
+  (e.g., `outcome ~ fixed_vars + (1 | var1 + var2 + var3)`). If
+  variables other than "stratum" are provided in the random effect,
+  [`make_strata`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  will be called internally to compute the strata and the formula will
+  be updated.
 
 - data:
 
@@ -66,17 +72,18 @@ A maihda_model object containing:
 
 ``` r
 # \donttest{
-# Create strata
+# Standard approach: manually create strata first
 strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
-
-# Fit model with lme4
 model <- fit_maihda(health_outcome ~ age + (1 | stratum),
                     data = strata_result$data,
                     engine = "lme4")
 
-# Fit model with brms (if brms is available)
-# model_brms <- fit_maihda(health_outcome ~ age + (1 | stratum),
-#                          data = strata_result$data,
-#                          engine = "brms")
+# Simplified approach: specify stratifying variables directly in the grouping structure
+# The function internally calls make_strata() to create intersectionals 
+model2 <- fit_maihda(health_outcome ~ age + (1 | gender + race + education),
+                     data = maihda_sim_data,
+                     engine = "lme4")
+#> Warning: the ‘nobars’ function has moved to the reformulas package. Please update your imports, or ask an upstream package maintainer to do so.
+#> This warning is displayed once per session.
 # }
 ```

@@ -68,7 +68,7 @@ plot_maihda(model, type = "vpc")
 plot_maihda(model, type = "obs_vs_shrunken")
 #> function (x, y, ...) 
 #> UseMethod("plot")
-#> <bytecode: 0x560b79b1e508>
+#> <bytecode: 0x55d1418e7c60>
 #> <environment: namespace:base>
 
 # Predicted values with confidence intervals
