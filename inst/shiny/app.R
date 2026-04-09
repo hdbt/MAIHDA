@@ -61,7 +61,9 @@ ui <- page_sidebar(
                               choices = c(
                                           "Prediction Deviation Panels" = "pred_dev",
                                           "Risk vs. Intersectional Effect (Quadrant)" = "risk_vs_effect",
-                                          "Effect Decomposition" = "effect_decomp","VPC"="vpc", "Observed VS Shrunken" = "obs_vs_shrunken",
+                                          "Effect Decomposition" = "effect_decomp",
+                                          "Effect Decomposition (Ternary)" = "ternary",
+                                          "VPC"="vpc", "Observed VS Shrunken" = "obs_vs_shrunken",
                                           "Predicted Values" =  "predicted"),
                               width = "100%")
                 ),
@@ -392,6 +394,9 @@ server <- function(input, output, session) {
       plot_prediction_deviation_panels(model_results(), data = NULL, type = "auto")
     } else if (input$plot_type %in% c("predicted")) {
       plot_maihda(model_results(), type = input$plot_type, n_strata = 20)
+    } else if (input$plot_type == "ternary") {
+      out <- maihda_ternary_plot(model_results())
+      out$plot
     } else {
       plot_maihda(model_results(), type = input$plot_type)
     }
