@@ -71,7 +71,7 @@ ui <- page_sidebar(
                   downloadButton("download_plot", "Download Plot", class = "btn-secondary")
                 )
               ),
-              plotOutput("maihda_plot", height = "500px")),
+              uiOutput("maihda_plot_wrapper")),
     nav_panel("Interactive Explorer",
               uiOutput("interactive_explorer_ui"))
   )
@@ -205,16 +205,15 @@ server <- function(input, output, session) {
       mod1 <- fit_maihda(formula = fmla_null, data = strata_dat$data, engine = eng, family = fam)
       mod2 <- fit_maihda(formula = fmla, data = strata_dat$data, engine = eng, family = fam)
 
-      summ <- summary(mod2)
-      pvc <- calculate_pvc(mod1, mod2, bootstrap = use_boot, n_boot = n_boot)
+        pvc <- calculate_pvc(mod1, mod2, bootstrap = use_boot, n_boot = n_boot)
+        stepwise <- stepwise_pcv(strata_dat$data, outcome = outcome_var, vars = stepwise_vars, engine = eng, family = fam)
 
-      stepwise <- stepwise_pcv(strata_dat$data, outcome = outcome_var, vars = stepwise_vars, engine = eng, family = fam)
-
-      list(model = mod2, summary = summ, pvc = pvc, stepwise = stepwise)
-    }, seed = TRUE) %...>% (function(res) {
-      removeNotification(id)
-      model_results(res$model)
-      summary_results(res$summary)
+        list(model = mod2, pvc = pvc, stepwise = stepwise)
+      }, seed = TRUE) %...>% (function(res) {
+        removeNotification(id)
+        model_results(res$model)
+        # Call S3 dispatch in the main thread where MAIHDA environment is perfectly active
+        summary_results(summary(res$model))
       pvc_results(res$pvc)
       stepwise_results(res$stepwise)
       nav_select("main_tabs", "PVC Results")    }) %...!% (function(err) {
@@ -365,7 +364,7 @@ server <- function(input, output, session) {
       text = hover_text,
       hoverinfo = "text",
       marker = list(color = "#4D9DE0")
-    ) %>%
+    ) |>
       layout(
         title = "Cumulative Intersectional Variance Explained",
         xaxis = list(title = "Sequential Model Step", tickangle = -45),
@@ -402,8 +401,61 @@ server <- function(input, output, session) {
     }
   })
 
+  output$maihda_plot_wrapper <- renderUI({
+    if (input$plot_type == "ternary") {
+      plotlyOutput("maihda_plotly", height = "500px")
+    } else {
+      plotOutput("maihda_plot", height = "500px")
+    }
+  })
+
   output$maihda_plot <- renderPlot({
     current_plot()
+  })
+
+  output$maihda_plotly <- renderPlotly({
+    req(model_results())
+    req(input$plot_type == "ternary")
+    
+    out <- maihda_ternary_plot(model_results())
+    td <- out$data
+    
+    marker_sizes <- pmax(sqrt(td$n) * 2, 4)
+    marker_colors <- as.numeric(as.factor(td$label))
+    
+    plot_ly(
+      data = td,
+      type = 'scatterternary',
+      mode = 'markers',
+      a = ~additive_prop,
+      b = ~interaction_prop,
+      c = ~uncertainty_prop,
+      text = ~paste0(
+        "<b>Stratum:</b> ", label, "<br>",
+        "<b>Size (N):</b> ", n, "<br>",
+        "<b>Additive:</b> ", round(additive_prop * 100, 1), "%<br>",
+        "<b>Intersection-specific:</b> ", round(interaction_prop * 100, 1), "%<br>",
+        "<b>Uncertainty:</b> ", round(uncertainty_prop * 100, 1), "%"
+      ),
+      hoverinfo = "text",
+      marker = list(
+        size = marker_sizes,
+        color = marker_colors,
+        colorscale = "Viridis",
+        opacity = 0.8,
+        line = list(color = "rgba(0,0,0,0.5)", width = 1)
+      )
+    ) |>
+      layout(
+        title = "Interactive MAIHDA Strata Effects Decomposition",
+        ternary = list(
+          sum = 1,
+          aaxis = list(title = "Additive", min = 0.01, linewidth = 2, ticks = "outside", tickvals = seq(0, 1, by = 0.2)),
+          baxis = list(title = "Intersection", min = 0.01, linewidth = 2, ticks = "outside", tickvals = seq(0, 1, by = 0.2)),
+          caxis = list(title = "Uncertainty", min = 0.01, linewidth = 2, ticks = "outside", tickvals = seq(0, 1, by = 0.2))
+        ),
+        margin = list(t = 50, b = 50, l = 50, r = 50)
+      )
   })
 
   output$download_plot <- downloadHandler(
@@ -568,7 +620,7 @@ server <- function(input, output, session) {
     }
 
     # Disable tooltip for size parameter so it doesn't double-up and break Plotly's rendering gracefully
-    ggplotly(p, tooltip = "text") %>% layout(hoverinfo = "text")
+    ggplotly(p, tooltip = "text") |> layout(hoverinfo = "text")
   })
 
   output$dynamic_interpretation <- renderUI({
