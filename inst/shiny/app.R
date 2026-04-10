@@ -416,13 +416,13 @@ server <- function(input, output, session) {
   output$maihda_plotly <- renderPlotly({
     req(model_results())
     req(input$plot_type == "ternary")
-    
+
     out <- maihda_ternary_plot(model_results())
     td <- out$data
-    
+
     marker_sizes <- pmax(sqrt(td$n) * 2, 4)
     marker_colors <- as.numeric(as.factor(td$label))
-    
+
     plot_ly(
       data = td,
       type = 'scatterternary',
