@@ -65,7 +65,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-04-09</h4>
+            <h4 data-toc-skip class="date">2026-04-10</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
@@ -124,13 +124,13 @@ multilevel model.</p>
 <span></span>
 <span><span class="co"># Fit the initial Null model with auto-generated strata</span></span>
 <span><span class="va">model_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span><span class="op">)</span>,</span>
+<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
 <span>  engine <span class="op">=</span> <span class="st">"lme4"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Summarize the variance components (VPC)</span></span>
-<span><span class="va">summary_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/summary_maihda.html">summary_maihda</a></span><span class="op">(</span><span class="va">model_null</span><span class="op">)</span></span>
+<span><span class="va">summary_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model_null</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">summary_null</span><span class="op">)</span></span></code></pre></div>
 <p><strong>Interpretation:</strong> The resulting Variance Partition
 Coefficient (VPC or ICC) tells us what percentage of the total variance
@@ -151,7 +151,7 @@ simple main effects.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit an adjusted model</span></span>
 <span><span class="va">model_adj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span><span class="op">)</span>,</span>
+<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">maihda_health_data</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -187,25 +187,22 @@ options for checking your model estimates natively mirroring the Shiny
 application logic:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Caterpillar plot of predictions for stratum random effects (with 95% CIs)</span></span>
-<span><span class="fu"><a href="../reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Variance partition (VPC) visualization</span></span>
-<span><span class="fu"><a href="../reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Bivariate risk against stratum-level intersectional effect</span></span>
-<span><span class="fu"><a href="../reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Additive versus Intersectional Effect decomposition</span></span>
-<span><span class="fu"><a href="../reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Ternary Plot of Variances</span></span>
-<span><span class="va">out_ternary</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_ternary_plot.html">maihda_ternary_plot</a></span><span class="op">(</span><span class="va">model_adj</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">out_ternary</span><span class="op">$</span><span class="va">plot</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"ternary"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Individual Prediction Deviance Dashboard</span></span>
-<span><span class="co"># Extract underlying model using $model</span></span>
-<span><span class="va">dev_panels</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_prediction_deviation_panels.html">plot_prediction_deviation_panels</a></span><span class="op">(</span><span class="va">model_adj</span><span class="op">$</span><span class="va">model</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span>, type <span class="op">=</span> <span class="st">"auto"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dev_panels</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"prediction_deviation"</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">

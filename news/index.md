@@ -17,8 +17,8 @@
   function to visually decompose the total deviation from the overall
   mean into additive and intersectional components.
 - Replaced the redundant “caterpillar” plot with the “predicted” plot in
-  [`plot_maihda()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda.md)
-  and the interactive dashboard.
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) and the
+  interactive dashboard.
 - Added automatic tertile binning (via an `autobin` parameter) for
   numeric grouping variables with more than 10 unique values in
   [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md).
@@ -66,14 +66,12 @@ CRAN release: 2026-04-03
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   function for fitting multilevel models with lme4 (default) or brms
   engines
-- Added
-  [`summary_maihda()`](https://hdbt.github.io/MAIHDA/reference/summary_maihda.md)
-  function for variance partition and stratum estimates
+- Added [`summary()`](https://rdrr.io/r/base/summary.html) function for
+  variance partition and stratum estimates
 - Added
   [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
   function for individual and stratum-level predictions
-- Added
-  [`plot_maihda()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda.md)
+- Added [`plot()`](https://rdrr.io/r/graphics/plot.default.html)
   function with three plot types:
   - Caterpillar plots of stratum random effects
   - Variance partition coefficient visualization

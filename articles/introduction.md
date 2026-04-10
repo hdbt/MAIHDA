@@ -52,13 +52,13 @@ data("maihda_health_data")
 
 # Fit the initial Null model with auto-generated strata
 model_null <- fit_maihda(
-  BMI ~ 1 + (1 | Gender + Race + Education),
+  BMI ~ 1 + (1 | Gender:Race:Education),
   data = maihda_health_data,
   engine = "lme4"
 )
 
 # Summarize the variance components (VPC)
-summary_null <- summary_maihda(model_null)
+summary_null <- summary(model_null)
 print(summary_null)
 ```
 
@@ -82,7 +82,7 @@ effects.
 ``` r
 # Fit an adjusted model
 model_adj <- fit_maihda(
-  BMI ~ Age + Gender + Race + Education + Poverty + (1 | Gender + Race + Education),
+  BMI ~ Age + Gender + Race + Education + Poverty + (1 | Gender:Race:Education),
   data = maihda_health_data
 )
 
@@ -122,25 +122,22 @@ application logic:
 
 ``` r
 # Caterpillar plot of predictions for stratum random effects (with 95% CIs)
-plot_maihda(model_adj, type = "predicted")
+plot(model_adj, type = "predicted")
 
 # Variance partition (VPC) visualization
-plot_maihda(model_adj, type = "vpc")
+plot(model_adj, type = "vpc")
 
 # Bivariate risk against stratum-level intersectional effect
-plot_maihda(model_adj, type = "risk_vs_effect")
+plot(model_adj, type = "risk_vs_effect")
 
 # Additive versus Intersectional Effect decomposition
-plot_maihda(model_adj, type = "effect_decomp")
+plot(model_adj, type = "effect_decomp")
 
 # Ternary Plot of Variances
-out_ternary <- maihda_ternary_plot(model_adj)
-print(out_ternary$plot)
+plot(model_adj, type = "ternary")
 
 # Individual Prediction Deviance Dashboard
-# Extract underlying model using $model
-dev_panels <- plot_prediction_deviation_panels(model_adj$model, data = maihda_health_data, type = "auto")
-print(dev_panels)
+plot(model_adj, type = "prediction_deviation")
 ```
 
 ## Interactive Shiny App

@@ -51,7 +51,8 @@ predicted values and identifying deviant cases in linear, binomial, or ordinal m
 <span>  data <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"gaussian"</span>, <span class="st">"binomial"</span>, <span class="st">"ordinal"</span><span class="op">)</span>,</span>
 <span>  ordinal_mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"surprise"</span>, <span class="st">"expected_score"</span><span class="op">)</span>,</span>
-<span>  top_n_labels <span class="op">=</span> <span class="fl">5</span></span>
+<span>  top_n_labels <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>  strata_info <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -77,6 +78,10 @@ predicted values and identifying deviant cases in linear, binomial, or ordinal m
 
 <dt id="arg-top-n-labels">top_n_labels<a class="anchor" aria-label="anchor" href="#arg-top-n-labels"></a></dt>
 <dd><p>Number of extreme/deviant cases to label on the plot. Default is 5.</p></dd>
+
+
+<dt id="arg-strata-info">strata_info<a class="anchor" aria-label="anchor" href="#arg-strata-info"></a></dt>
+<dd><p>Optional data frame of strata labels, generally extracted from `maihda_model` objects.</p></dd>
 
 </dl></div>
     <div class="section level2">

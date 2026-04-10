@@ -24,7 +24,7 @@ compute_maihda_ternary_data(
 
 - summary_obj:
 
-  Optional output from \`summary_maihda()\`.
+  Optional output from \`summary()\`.
 
 - scale:
 

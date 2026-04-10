@@ -112,45 +112,19 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 </h2>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># 1 &amp; 2. Create intersectional strata &amp; Fit MAIHDA model</span></span>
-<span><span class="co"># You can directly specify the stratifying variables in the random effects</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># 1. Fit a MAIHDA model</span></span>
 <span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
-<span>  engine <span class="op">=</span> <span class="st">"lme4"</span></span>
+<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">maihda_health_data</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 3. Summarize with variance partition</span></span>
-<span><span class="va">summary_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/summary_maihda.html">summary_maihda</a></span><span class="op">(</span><span class="va">model</span>, bootstrap <span class="op">=</span> <span class="cn">TRUE</span>, n_boot <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">summary_result</span><span class="op">)</span></span>
+<span><span class="co"># 2. Summarize the model (Variance Partition Coefficient, stratum estimates)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 4. Make predictions</span></span>
-<span><span class="va">pred_strata</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/predict_maihda.html">predict_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"strata"</span><span class="op">)</span></span>
-<span><span class="va">pred_individual</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/predict_maihda.html">predict_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"individual"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># 5. Visualize results (New Shiny App Visualizations)</span></span>
-<span><span class="co"># Plot stratum-level predictions (Caterpillar plot)</span></span>
-<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Variance partition visualization</span></span>
-<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Risk vs Effect size</span></span>
-<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Additive vs Intersectional effect decomposition</span></span>
-<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Ternary plot separating baseline, additive, and interaction variance</span></span>
-<span><span class="va">out_ternary</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/maihda_ternary_plot.html">maihda_ternary_plot</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">out_ternary</span><span class="op">$</span><span class="va">plot</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Deviance analysis for predictions</span></span>
-<span><span class="va">dev_panels</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/plot_prediction_deviation_panels.html">plot_prediction_deviation_panels</a></span><span class="op">(</span><span class="va">model</span><span class="op">$</span><span class="va">model</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dev_panels</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># 3. Visualize results (Predicted outputs, VPC, Risk vs. Effect, etc.)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="main-functions">Main Functions<a class="anchor" aria-label="anchor" href="#main-functions"></a>
@@ -168,8 +142,8 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <p>Fits multilevel models using either lme4 (default) or brms engine. Supports various families including gaussian, binomial, and poisson.</p>
 </div>
 <div class="section level3">
-<h3 id="summary_maihda">
-<code>summary_maihda()</code><a class="anchor" aria-label="anchor" href="#summary_maihda"></a>
+<h3 id="summary">
+<code>summary()</code><a class="anchor" aria-label="anchor" href="#summary"></a>
 </h3>
 <p>Provides comprehensive model summaries including:</p>
 <ul>
@@ -192,8 +166,8 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 </ul>
 </div>
 <div class="section level3">
-<h3 id="plot_maihda">
-<code>plot_maihda()</code><a class="anchor" aria-label="anchor" href="#plot_maihda"></a>
+<h3 id="plot">
+<code>plot()</code><a class="anchor" aria-label="anchor" href="#plot"></a>
 </h3>
 <p>Creates various visualizations:</p>
 <ul>
@@ -252,23 +226,25 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit model adjusting for age, automatically creating strata from gender, race, and education</span></span>
 <span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span> <span class="op">+</span> <span class="va">education</span><span class="op">)</span>,</span>
+<span>  <span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">health_data</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Get variance partition coefficient</span></span>
-<span><span class="va">summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/summary_maihda.html">summary_maihda</a></span><span class="op">(</span><span class="va">model</span>, bootstrap <span class="op">=</span> <span class="cn">TRUE</span>, n_boot <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
+<span><span class="va">summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model</span>, bootstrap <span class="op">=</span> <span class="cn">TRUE</span>, n_boot <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># VPC of 0.15 means 15% of variance is between strata</span></span>
 <span><span class="co"># This indicates substantial intersectional inequality</span></span>
 <span></span>
 <span><span class="co"># Visualize which strata have higher/lower outcomes using new advanced plots</span></span>
-<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="reference/plot_maihda.html">plot_maihda</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Map out where the specific intersectional variance is emerging</span></span>
-<span><span class="va">out_ternary</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/maihda_ternary_plot.html">maihda_ternary_plot</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">out_ternary</span><span class="op">$</span><span class="va">plot</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"ternary"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Or run it with no type to see them all!</span></span>
+<span><span class="co"># plot(model)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="using-brms-for-bayesian-inference">Using brms for Bayesian Inference<a class="anchor" aria-label="anchor" href="#using-brms-for-bayesian-inference"></a>
@@ -276,22 +252,22 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Requires brms package</span></span>
 <span><span class="va">model_brms</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span> <span class="op">+</span> <span class="va">education</span><span class="op">)</span>,</span>
+<span>  <span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">health_data</span>,</span>
 <span>  engine <span class="op">=</span> <span class="st">"brms"</span>,</span>
 <span>  chains <span class="op">=</span> <span class="fl">4</span>,</span>
 <span>  iter <span class="op">=</span> <span class="fl">2000</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">summary_brms</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/summary_maihda.html">summary_maihda</a></span><span class="op">(</span><span class="va">model_brms</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">summary_brms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model_brms</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="model-comparison-with-bootstrap">Model Comparison with Bootstrap<a class="anchor" aria-label="anchor" href="#model-comparison-with-bootstrap"></a>
 </h2>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit competing models</span></span>
-<span><span class="va">model1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data1</span><span class="op">)</span></span>
-<span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">gender</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data2</span><span class="op">)</span></span>
+<span><span class="va">model1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data1</span><span class="op">)</span></span>
+<span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">gender</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Compare with bootstrap CI</span></span>
 <span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_maihda.html">compare_maihda</a></span><span class="op">(</span></span>
@@ -309,10 +285,10 @@ A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html
 </h2>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit baseline model</span></span>
-<span><span class="va">model1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span><span class="op">)</span></span>
+<span><span class="va">model1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Fit model with additional predictor</span></span>
-<span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">gender</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span><span class="op">)</span></span>
+<span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">gender</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Calculate PVC without bootstrap</span></span>
 <span><span class="va">pvc_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model1</span>, <span class="va">model2</span><span class="op">)</span></span>

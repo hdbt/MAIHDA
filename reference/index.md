@@ -18,10 +18,10 @@
   : Generate Ternary Plot from MAIHDA Model
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   : Create Strata from Multiple Variables
+- [`plot(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)
+  : Plot MAIHDA Model Results
 - [`plot_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_comparison.md)
   : Plot Model Comparison
-- [`plot_maihda()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda.md)
-  : Plot MAIHDA Model Results
 - [`plot_maihda_ternary()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda_ternary.md)
   : Plot MAIHDA Ternary Diagram
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
@@ -40,5 +40,5 @@
   : Run MAIHDA Shiny Application
 - [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   : Stepwise Proportional Change in Variance (PCV)
-- [`summary_maihda()`](https://hdbt.github.io/MAIHDA/reference/summary_maihda.md)
+- [`summary(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
   : Summarize MAIHDA Model
