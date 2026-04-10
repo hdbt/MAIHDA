@@ -54,9 +54,9 @@ p <- ggplot() +
   geom_sf(data = circles_sfc[[2]], fill = col2, color = "white", linewidth = 1.2) +
   geom_sf(data = circles_sfc[[3]], fill = col3, color = "white", linewidth = 1.2) +
   # Overwrite pairwise intersections with distinct emergent colors
-  geom_sf(data = int_12, fill = col_12, color = "white", linewidth = 1) + 
-  geom_sf(data = int_13, fill = col_13, color = "white", linewidth = 1) + 
-  geom_sf(data = int_23, fill = col_23, color = "white", linewidth = 1) + 
+  geom_sf(data = int_12, fill = col_12, color = "white", linewidth = 1) +
+  geom_sf(data = int_13, fill = col_13, color = "white", linewidth = 1) +
+  geom_sf(data = int_23, fill = col_23, color = "white", linewidth = 1) +
   # Overwrite the central intersection with an emergent color (e.g., bright pink/magenta)
   geom_sf(data = intersection_all, fill = col_all, color = "white", linewidth = 1.2) +
   theme_void() +
