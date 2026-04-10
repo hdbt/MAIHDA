@@ -25,7 +25,8 @@ Imports:
     rlang (>= 0.4.0),
     patchwork,
     ggrepel,
-    tidyselect
+    tidyselect,
+    tibble
 Suggests:
     shiny,
     bslib,

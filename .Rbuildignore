@@ -12,3 +12,5 @@
 ^CRAN-SUBMISSION$
 ^\.Rhistory$
 ^\.vscode$
+^examples$
+^test\.R$

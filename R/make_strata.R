@@ -6,7 +6,7 @@
 #' @param data A data frame containing the variables to create strata from.
 #' @param vars Character vector of variable names to use for creating strata.
 #' @param sep Separator to use between variable values when creating stratum labels.
-#'   Default is "_".
+#'   Default is " \\u00d7 " (a mathematical multiplication sign).
 #' @param min_n Minimum number of observations required for a stratum to be included.
 #'   Strata with fewer observations will be coded as NA. Default is 1.
 #' @param autobin Logical indicating whether to automatically bin numeric grouping variables
@@ -37,7 +37,7 @@
 #' @importFrom tidyr unite
 #' @importFrom rlang .data
 #' @importFrom stats quantile na.omit
-make_strata <- function(data, vars, sep = "_", min_n = 1, autobin = TRUE) {
+make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE) {
   # Input validation
   if (!is.data.frame(data)) {
     stop("'data' must be a data frame")

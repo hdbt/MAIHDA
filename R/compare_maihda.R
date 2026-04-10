@@ -58,7 +58,7 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
 
   # Calculate VPC for each model
   comparison_list <- lapply(seq_along(models), function(i) {
-    summary_obj <- summary_maihda(models[[i]], bootstrap = bootstrap,
+    summary_obj <- summary(models[[i]], bootstrap = bootstrap,
                                  n_boot = n_boot, conf_level = conf_level)
 
     if (bootstrap && summary_obj$vpc$bootstrap) {

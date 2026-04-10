@@ -20,7 +20,7 @@ test_that("fit_maihda works on maihda_health_data summary", {
   model <- fit_maihda(BMI ~ Age + (1 | stratum), data = strata_result$data, engine = "lme4")
   expect_s3_class(model, "maihda_model")
 
-  summ <- summary_maihda(model)
+  summ <- summary(model)
   expect_s3_class(summ, "maihda_summary")
   expect_true(!is.na(summ$vpc$estimate))
 })

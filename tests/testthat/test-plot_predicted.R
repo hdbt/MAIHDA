@@ -13,7 +13,7 @@ test_that("plot_maihda creates predicted plot with lme4", {
                      engine = "lme4")
   
   # Create predicted plot
-  plot <- plot_maihda(model, type = "predicted")
+  plot <- plot(model, type = "predicted")
   
   # Check structure
   expect_true(inherits(plot, "ggplot"))
@@ -37,7 +37,7 @@ test_that("plot_maihda predicted handles n_strata parameter", {
                      engine = "lme4")
   
   # Create predicted plot with limited strata
-  plot <- plot_maihda(model, type = "predicted", n_strata = 10)
+  plot <- plot(model, type = "predicted", n_strata = 10)
   
   # Check that it limits to specified number
   expect_true(inherits(plot, "ggplot"))
@@ -59,7 +59,7 @@ test_that("plot_maihda predicted validates inputs", {
                      engine = "lme4")
   
   # Check plot is created
-  plot <- plot_maihda(model, type = "predicted")
+  plot <- plot(model, type = "predicted")
   expect_true(inherits(plot, "ggplot"))
 })
 
@@ -79,7 +79,7 @@ test_that("plot_maihda predicted preserves stratum order", {
                      engine = "lme4")
   
   # Create predicted plot
-  plot <- plot_maihda(model, type = "predicted")
+  plot <- plot(model, type = "predicted")
   
   # Check structure
   expect_true(inherits(plot, "ggplot"))
@@ -109,8 +109,8 @@ test_that("plot_maihda uses meaningful stratum labels from make_strata", {
   
   # Verify strata_info has labels
   expect_true("label" %in% names(strata_result$strata_info))
-  expect_true(any(grepl("_", strata_result$strata_info$label)))
-  
+  expect_true(any(grepl("\u00d7", strata_result$strata_info$label)))
+
   # Fit model using data from make_strata
   model <- fit_maihda(outcome ~ age + (1 | stratum),
                      data = strata_result$data,
@@ -121,20 +121,20 @@ test_that("plot_maihda uses meaningful stratum labels from make_strata", {
   expect_true("label" %in% names(model$strata_info))
   
   # Get summary
-  summary_obj <- summary_maihda(model)
+  summary_obj <- summary(model)
   
   # Verify summary has labels
   expect_true("label" %in% names(summary_obj$stratum_estimates))
   
   # Create predicted plot
-  plot <- plot_maihda(model, type = "predicted")
+  plot <- plot(model, type = "predicted")
   
   # Check structure
   expect_true(inherits(plot, "ggplot"))
   expect_true("display_label" %in% names(plot$data))
   
-  # Check that meaningful labels are used (should contain underscores from gender_race)
+  # Check that meaningful labels are used (should contain multiplication signs from gender \u00d7 race)
   display_labels <- as.character(plot$data$display_label)
-  expect_true(any(grepl("_", display_labels)),
-             info = "Plot should use meaningful labels like 'Male_White', not numeric IDs")
+  expect_true(any(grepl("\u00d7", display_labels)),
+             info = "Plot should use meaningful labels like 'Male \u00d7 White', not numeric IDs")
 })

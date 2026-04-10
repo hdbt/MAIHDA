@@ -51,9 +51,9 @@ test_that("fit_maihda creates strata automatically when interaction is passed", 
   model1 <- fit_maihda(outcome ~ age + (1 | stratum), data = strata_result$data)
 
   # Using auto strata way
-  model2 <- fit_maihda(outcome ~ age + (1 | gender + race), data = data)
+  model2 <- fit_maihda(outcome ~ age + (1 | gender:race), data = data)
 
-  expect_equal(summary_maihda(model1), summary_maihda(model2))
+  expect_equal(summary(model1), summary(model2))
   expect_true(!is.null(model2$strata_info))
 })
 

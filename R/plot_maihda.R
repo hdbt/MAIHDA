@@ -4,20 +4,25 @@
 #' variance partition coefficient comparisons, observed vs. shrunken estimates,
 #' and predicted subgroup values with confidence intervals.
 #'
-#' @param object A maihda_model object from \code{fit_maihda()}.
+#' @param x A maihda_model object from \code{fit_maihda()}.
 #' @param type Character string specifying plot type:
 #'   \itemize{
 #'     \item "vpc": Variance partition coefficient visualization
 #'     \item "obs_vs_shrunken": Observed vs. shrunken stratum means
 #'     \item "predicted": Predicted values for each stratum with confidence intervals
+#'     \item "risk_vs_effect": Quadrant scatterplot comparing overall risk to intersectional effect
+#'     \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
+#'     \item "ternary": Ternary plot analyzing the dimensional breakdown of variance
+#'     \item "prediction_deviation": Detailed deviation panels for individuals or strata
+#'     \item "all": Generate all available plots (default if not specified)
 #'   }
-#' @param summary_obj Optional maihda_summary object from \code{summary_maihda()}.
+#' @param summary_obj Optional maihda_summary object from \code{summary()}.
 #'   If NULL, will be computed.
 #' @param n_strata Maximum number of strata to display in predicted plot.
 #'   Default is 50. Use NULL for all strata.
 #' @param ... Additional arguments (not currently used).
 #'
-#' @return A ggplot2 object.
+#' @return A ggplot2 object, or a list of ggplot2 objects if type = "all".
 #'
 #' @examples
 #' \donttest{
@@ -25,44 +30,81 @@
 #' model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
 #'
 #' # VPC plot
-#' plot_maihda(model, type = "vpc")
+#' plot(model, type = "vpc")
 #'
-#' # Observed vs shrunken plot
-#' plot_maihda(model, type = "obs_vs_shrunken")
-#'
-#' # Predicted values with confidence intervals
-#' plot_maihda(model, type = "predicted")
+#' # Generate all plots
+#' plots <- plot(model)
 #' }
 #'
 #' @export
 #' @import ggplot2
 #' @importFrom dplyr arrange
-plot_maihda <- function(object, type = c("vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp"),
+plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation"),
                        summary_obj = NULL, n_strata = 50, ...) {
-  if (!inherits(object, "maihda_model")) {
-    stop("'object' must be a maihda_model object from fit_maihda()")
+  if (!inherits(x, "maihda_model")) {
+    stop("'x' must be a maihda_model object from fit_maihda()")
   }
 
-  type <- match.arg(type)
+  object <- x
+
+
+  if (missing(type)) {
+    type <- "all"
+  } else {
+    type <- match.arg(type)
+  }
 
   # Get summary if not provided
   if (is.null(summary_obj)) {
-    summary_obj <- summary_maihda(object)
+    summary_obj <- summary(object)
   }
 
-  if (type == "vpc") {
-    plot <- plot_obs_vs_shrunken(object, summary_obj)
-  } else if (type == "predicted") {
-    plot <- plot_predicted_strata(object, summary_obj, n_strata)
-  } else if (type == "risk_vs_effect") {
-    top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
-    plot <- plot_risk_vs_effect(object, summary_obj, top_n_labels)
-  } else if (type == "effect_decomp") {
-    top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
-    plot <- plot_effect_decomposition(object, summary_obj, top_n_labels)
-  }
+  if (type == "all") {
+    plots <- list()
 
-  return(plot)
+    plots$vpc <- plot_vpc(summary_obj)
+
+    # Try obs_vs_shrunken
+    if ("stratum" %in% names(object$data)) {
+      plots$obs_vs_shrunken <- tryCatch(plot_obs_vs_shrunken(object, summary_obj), error = function(e) NULL)
+    }
+
+    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata), error = function(e) NULL)
+
+    top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
+    plots$risk_vs_effect <- tryCatch(plot_risk_vs_effect(object, summary_obj, top_n_labels), error = function(e) NULL)
+
+    plots$effect_decomp <- tryCatch(plot_effect_decomposition(object, summary_obj, top_n_labels), error = function(e) NULL)
+
+    ternary_out <- tryCatch(maihda_ternary_plot(object)$plot, error = function(e) NULL)
+    if (!is.null(ternary_out)) plots$ternary <- ternary_out
+
+    plots$prediction_deviation <- tryCatch(plot_prediction_deviation_panels(object$model, data = object$data, type = "auto", strata_info = object$strata_info), error = function(e) NULL)
+
+    # print them
+    for (p in plots[!sapply(plots, is.null)]) { print(p) }
+    return(invisible(plots))
+  } else {
+    if (type == "vpc") {
+      plot <- plot_vpc(summary_obj)
+    } else if (type == "obs_vs_shrunken") {
+      plot <- plot_obs_vs_shrunken(object, summary_obj)
+    } else if (type == "predicted") {
+      plot <- plot_predicted_strata(object, summary_obj, n_strata)
+    } else if (type == "risk_vs_effect") {
+      top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
+      plot <- plot_risk_vs_effect(object, summary_obj, top_n_labels)
+    } else if (type == "effect_decomp") {
+      top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
+      plot <- plot_effect_decomposition(object, summary_obj, top_n_labels)
+    } else if (type == "ternary") {
+      plot <- maihda_ternary_plot(object)$plot
+    } else if (type == "prediction_deviation") {
+      plot <- plot_prediction_deviation_panels(object$model, data = object$data, type = "auto", strata_info = object$strata_info)
+    }
+
+    return(plot)
+  }
 }
 
 #' VPC Visualization Plot

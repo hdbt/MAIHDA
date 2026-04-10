@@ -5,7 +5,7 @@
 * Added `plot_prediction_deviation_panels()` function for visualizing predicted values and identifying deviant cases.
 * Added `plot_risk_vs_effect()` function to create a quadrant scatterplot comparing overall marginal predicted risk against pure intersectional effects.
 * Added `plot_effect_decomposition()` function to visually decompose the total deviation from the overall mean into additive and intersectional components.
-* Replaced the redundant "caterpillar" plot with the "predicted" plot in `plot_maihda()` and the interactive dashboard.
+* Replaced the redundant "caterpillar" plot with the "predicted" plot in `plot()` and the interactive dashboard.
 * Added automatic tertile binning (via an `autobin` parameter) for numeric grouping variables with more than 10 unique values in `make_strata()`.
 * Updated the interactive Shiny Dashboard (`run_maihda_app()`) to include the new visualizations and a toggle for auto-binning continuous strata variables.
 
@@ -28,9 +28,9 @@
 * Initial CRAN submission
 * Added `make_strata()` function for creating intersectional strata
 * Added `fit_maihda()` function for fitting multilevel models with lme4 (default) or brms engines
-* Added `summary_maihda()` function for variance partition and stratum estimates
+* Added `summary()` function for variance partition and stratum estimates
 * Added `predict_maihda()` function for individual and stratum-level predictions
-* Added `plot_maihda()` function with three plot types:
+* Added `plot()` function with three plot types:
   * Caterpillar plots of stratum random effects
   * Variance partition coefficient visualization
   * Observed vs. shrunken estimates comparison

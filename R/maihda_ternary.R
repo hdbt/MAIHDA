@@ -1,7 +1,7 @@
 #' Compute Ternary Data for MAIHDA Models
 #'
 #' @param model A fitted MAIHDA model object from `fit_maihda()`.
-#' @param summary_obj Optional output from `summary_maihda()`.
+#' @param summary_obj Optional output from `summary()`.
 #' @param scale Character, either "link" or "response".
 #' @param reference_values List or data.frame of reference values for covariates.
 #' @param uncertainty_method Character indicating how to extract uncertainty.
@@ -187,7 +187,7 @@ plot_maihda_ternary <- function(
     suppressPackageStartupMessages(attachNamespace("ggtern"))
   }
 
-  p <- ggtern::ggtern(data = ternary_data, ggtern::aes(x = additive_prop, y = interaction_prop, z = uncertainty_prop)) +
+  p <- ggtern::ggtern(data = ternary_data, ggtern::aes(x = .data$additive_prop, y = .data$interaction_prop, z = .data$uncertainty_prop)) +
     ggplot2::geom_point(ggplot2::aes(size = .data[[size_var]], color = .data[[color_var]]), alpha = alpha) +
     ggtern::theme_bw() +
     ggtern::theme_showgrid() +

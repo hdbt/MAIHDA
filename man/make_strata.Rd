@@ -4,7 +4,7 @@
 \alias{make_strata}
 \title{Create Strata from Multiple Variables}
 \usage{
-make_strata(data, vars, sep = "_", min_n = 1, autobin = TRUE)
+make_strata(data, vars, sep = " × ", min_n = 1, autobin = TRUE)
 }
 \arguments{
 \item{data}{A data frame containing the variables to create strata from.}
@@ -12,7 +12,7 @@ make_strata(data, vars, sep = "_", min_n = 1, autobin = TRUE)
 \item{vars}{Character vector of variable names to use for creating strata.}
 
 \item{sep}{Separator to use between variable values when creating stratum labels.
-Default is "_".}
+Default is " \\u00d7 " (a mathematical multiplication sign).}
 
 \item{min_n}{Minimum number of observations required for a stratum to be included.
 Strata with fewer observations will be coded as NA. Default is 1.}

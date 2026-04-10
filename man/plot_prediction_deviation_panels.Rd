@@ -9,7 +9,8 @@ plot_prediction_deviation_panels(
   data = NULL,
   type = c("auto", "gaussian", "binomial", "ordinal"),
   ordinal_mode = c("surprise", "expected_score"),
-  top_n_labels = 5
+  top_n_labels = 5,
+  strata_info = NULL
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ plot_prediction_deviation_panels(
 \item{ordinal_mode}{For ordinal models: "surprise" (default, based on observation probability) or "expected_score".}
 
 \item{top_n_labels}{Number of extreme/deviant cases to label on the plot. Default is 5.}
+
+\item{strata_info}{Optional data frame of strata labels, generally extracted from `maihda_model` objects.}
 }
 \value{
 A `patchwork` object containing two `ggplot2` panels.

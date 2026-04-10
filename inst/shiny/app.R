@@ -205,7 +205,7 @@ server <- function(input, output, session) {
       mod1 <- fit_maihda(formula = fmla_null, data = strata_dat$data, engine = eng, family = fam)
       mod2 <- fit_maihda(formula = fmla, data = strata_dat$data, engine = eng, family = fam)
 
-      summ <- summary_maihda(mod2)
+      summ <- summary(mod2)
       pvc <- calculate_pvc(mod1, mod2, bootstrap = use_boot, n_boot = n_boot)
 
       stepwise <- stepwise_pcv(strata_dat$data, outcome = outcome_var, vars = stepwise_vars, engine = eng, family = fam)
@@ -393,12 +393,12 @@ server <- function(input, output, session) {
     if (input$plot_type == "pred_dev") {
       plot_prediction_deviation_panels(model_results(), data = NULL, type = "auto")
     } else if (input$plot_type %in% c("predicted")) {
-      plot_maihda(model_results(), type = input$plot_type, n_strata = 20)
+      plot(model_results(), type = input$plot_type, n_strata = 20)
     } else if (input$plot_type == "ternary") {
       out <- maihda_ternary_plot(model_results())
       out$plot
     } else {
-      plot_maihda(model_results(), type = input$plot_type)
+      plot(model_results(), type = input$plot_type)
     }
   })
 

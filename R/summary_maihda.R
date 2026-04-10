@@ -49,16 +49,16 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' \donttest{
 #' strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
 #' model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
-#' summary_result <- summary_maihda(model)
+#' summary_result <- summary(model)
 #'
 #' # With bootstrap CI
-#' # summary_boot <- summary_maihda(model, bootstrap = TRUE, n_boot = 50)
+#' # summary_boot <- summary(model, bootstrap = TRUE, n_boot = 50)
 #' }
 #'
 #' @export
 #' @importFrom lme4 VarCorr fixef ranef
 #' @importFrom stats vcov confint
-summary_maihda <- function(object, bootstrap = FALSE, n_boot = 1000,
+summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
                           conf_level = 0.95, ...) {
   if (!inherits(object, "maihda_model")) {
     stop("'object' must be a maihda_model object from fit_maihda()")

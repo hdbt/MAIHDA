@@ -6,7 +6,7 @@
 #' @param formula A formula specifying the model. Can include a random effect
 #'   for stratum (e.g., \code{outcome ~ fixed_vars + (1 | stratum)}) or can
 #'   directly specify the intersection variables to be used for forming strata
-#'   (e.g., \code{outcome ~ fixed_vars + (1 | var1 + var2 + var3)}). If variables
+#'   (e.g., \code{outcome ~ fixed_vars + (1 | var1:var2:var3)}). If variables
 #'   other than "stratum" are provided in the random effect, \code{\link{make_strata}}
 #'   will be called internally to compute the strata and the formula will be
 #'   updated.
@@ -36,7 +36,7 @@
 #'
 #' # Simplified approach: specify stratifying variables directly in the grouping structure
 #' # The function internally calls make_strata() to create intersectionals
-#' model2 <- fit_maihda(health_outcome ~ age + (1 | gender + race + education),
+#' model2 <- fit_maihda(health_outcome ~ age + (1 | gender:race:education),
 #'                      data = maihda_sim_data,
 #'                      engine = "lme4")
 #' }

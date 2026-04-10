@@ -17,7 +17,7 @@ compute_maihda_ternary_data(
 \arguments{
 \item{model}{A fitted MAIHDA model object from `fit_maihda()`.}
 
-\item{summary_obj}{Optional output from `summary_maihda()`.}
+\item{summary_obj}{Optional output from `summary()`.}
 
 \item{scale}{Character, either "link" or "response".}
 

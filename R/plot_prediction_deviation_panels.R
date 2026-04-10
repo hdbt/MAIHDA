@@ -8,6 +8,7 @@
 #' @param type Model type: "auto" (default), "gaussian", "binomial", or "ordinal".
 #' @param ordinal_mode For ordinal models: "surprise" (default, based on observation probability) or "expected_score".
 #' @param top_n_labels Number of extreme/deviant cases to label on the plot. Default is 5.
+#' @param strata_info Optional data frame of strata labels, generally extracted from `maihda_model` objects.
 #'
 #' @return A `patchwork` object containing two `ggplot2` panels.
 #' @importFrom rlang check_installed .data
@@ -23,7 +24,8 @@
 plot_prediction_deviation_panels <- function(model, data = NULL,
                                              type = c("auto", "gaussian", "binomial", "ordinal"),
                                              ordinal_mode = c("surprise", "expected_score"),
-                                             top_n_labels = 5) {
+                                             top_n_labels = 5,
+                                             strata_info = NULL) {
 
   rlang::check_installed(c("ggplot2", "patchwork", "dplyr", "tidyr", "ggrepel"))
 
