@@ -222,7 +222,7 @@ vignette("introduction", package = "MAIHDA")
 
 **Required:**
 
-- R (>= 3.5.0)
+- R (>= 4.1.0)
 - lme4 (>= 1.1-27)
 - ggplot2 (>= 3.3.0)
 - dplyr (>= 1.0.0)
