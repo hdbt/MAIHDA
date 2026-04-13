@@ -8,6 +8,8 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 coverage](https://codecov.io/gh/hdbt/MAIHDA/branch/main/graph/badge.svg)](https://app.codecov.io/gh/hdbt/MAIHDA?branch=main)
 [![Lifecycle:
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![Buy Me A
+Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow)](https://buymeacoffee.com/hamidbulut)
 
 ## Overview
 
@@ -278,7 +280,7 @@ vignette("introduction", package = "MAIHDA")
 
 **Required:**
 
-- R (\>= 3.5.0)
+- R (\>= 4.1.0)
 - lme4 (\>= 1.1-27)
 - ggplot2 (\>= 3.3.0)
 - dplyr (\>= 1.0.0)
