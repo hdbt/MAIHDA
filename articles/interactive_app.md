@@ -21,6 +21,7 @@ You can start the interactive dashboard locally by running a single
 command:
 
 ``` r
+
 library(MAIHDA)
 run_maihda_app()
 ```

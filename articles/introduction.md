@@ -22,6 +22,7 @@ Shiny Dashboard for code-free analysis.
 You can install the development version of MAIHDA from GitHub:
 
 ``` r
+
 install.packages("MAIHDA")
 # Or for the latest development version:
 # install.packages("remotes")
@@ -45,6 +46,7 @@ allows the function to automatically build the intersectional strata on
 the fly and fit the multilevel model.
 
 ``` r
+
 library(MAIHDA)
 
 # Load the built-in NHANES dataset
@@ -80,6 +82,7 @@ intersectional interactions that cannot be explained away by simple main
 effects.
 
 ``` r
+
 # Fit an adjusted model
 model_adj <- fit_maihda(
   BMI ~ Age + Gender + Race + Education + Poverty + (1 | Gender:Race:Education),
@@ -100,6 +103,7 @@ function to add covariates one-by-one and track the variance
 dynamically.
 
 ``` r
+
 # Run a stepwise variance decomposition (using the auto-generated strata from model_null)
 stepwise_results <- stepwise_pcv(
   data = model_null$data,
@@ -121,6 +125,7 @@ options for checking your model estimates natively mirroring the Shiny
 application logic:
 
 ``` r
+
 # Caterpillar plot of predictions for stratum random effects (with 95% CIs)
 plot(model_adj, type = "predicted")
 
@@ -150,6 +155,7 @@ dynamically select variables, and compute Stepwise PCV tables and
 prediction plots.
 
 ``` r
+
 # Launch the interactive interface
 run_maihda_app()
 ```

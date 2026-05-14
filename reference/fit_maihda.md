@@ -83,7 +83,5 @@ model <- fit_maihda(health_outcome ~ age + (1 | stratum),
 model2 <- fit_maihda(health_outcome ~ age + (1 | gender:race:education),
                      data = maihda_sim_data,
                      engine = "lme4")
-#> Warning: the ‘nobars’ function has moved to the reformulas package. Please update your imports, or ask an upstream package maintainer to do so.
-#> This warning is displayed once per session.
 # }
 ```

@@ -46,6 +46,12 @@
 <li>Replaced the redundant “caterpillar” plot with the “predicted” plot in <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> and the interactive dashboard.</li>
 <li>Added automatic tertile binning (via an <code>autobin</code> parameter) for numeric grouping variables with more than 10 unique values in <code><a href="../reference/make_strata.html">make_strata()</a></code>.</li>
 <li>Updated the interactive Shiny Dashboard (<code><a href="../reference/run_maihda_app.html">run_maihda_app()</a></code>) to include the new visualizations and a toggle for auto-binning continuous strata variables.</li>
+<li>Added detection for binomial data. <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> will now automatically detect binomial outcomes and switch to the appropriate family.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-0-1-8">Bug Fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-1-8"></a></h3>
+<ul><li>
+<strong>VPC/ICC Calculation Fix</strong>: Corrected the residual variance estimation for binomial and ordinal models. The package now accurately applies the theoretical level-1 variance (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>π</mi><mn>2</mn></msup><mi>/</mi><mn>3</mn></mrow><annotation encoding="application/x-tex">\pi^2 / 3</annotation></semantics></math> for <code>"logit"</code> links and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1</mn><annotation encoding="application/x-tex">1</annotation></semantics></math> for <code>"probit"</code> links) internally when summarizing models or bootstrapping the variance partition coefficient, avoiding deflated VPC/ICC metrics.</li>
 </ul></div>
 </div>
     <div class="section level2">
