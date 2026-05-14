@@ -72,7 +72,19 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     # Extract variance components
     vc <- lme4::VarCorr(model)
     var_random <- as.numeric(vc[[1]][1])  # Between-stratum variance
-    var_residual <- attr(vc, "sc")^2       # Within-stratum variance
+
+    # Get model family
+    fam <- stats::family(model)
+
+    # Calculate residual variance based on family
+    latent_families <- c("binomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
+    if (fam$family %in% latent_families && fam$link == "logit") {
+      var_residual <- (pi^2) / 3
+    } else if (fam$family %in% latent_families && fam$link == "probit") {
+      var_residual <- 1
+    } else {
+      var_residual <- attr(vc, "sc")^2       # Within-stratum variance
+    }
 
     # Calculate VPC (ICC)
     vpc <- var_random / (var_random + var_residual)
@@ -150,7 +162,20 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     # Extract variance components from brms model
     vc <- brms::VarCorr(model)
     var_random <- vc[[1]]$sd[1, "Estimate"]^2
-    var_residual <- vc[[2]]$sd[1, "Estimate"]^2
+
+    # Get model family
+    fam <- stats::family(model)
+
+    # Calculate residual variance based on family
+    latent_families <- c("binomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
+    if (fam$family %in% latent_families && fam$link == "logit") {
+      var_residual <- (pi^2) / 3
+    } else if (fam$family %in% latent_families && fam$link == "probit") {
+      var_residual <- 1
+    } else {
+      # For brms gaussian models, residual variance is in the second element (sigma)
+      var_residual <- vc[[2]]$sd[1, "Estimate"]^2
+    }
 
     # Calculate VPC
     vpc <- var_random / (var_random + var_residual)
@@ -241,7 +266,17 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
       # Calculate VPC
       vc <- lme4::VarCorr(boot_model)
       var_random <- as.numeric(vc[[1]][1])
-      var_residual <- attr(vc, "sc")^2
+
+      fam <- stats::family(boot_model)
+      latent_families <- c("binomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
+      if (fam$family %in% latent_families && fam$link == "logit") {
+        var_residual <- (pi^2) / 3
+      } else if (fam$family %in% latent_families && fam$link == "probit") {
+        var_residual <- 1
+      } else {
+        var_residual <- attr(vc, "sc")^2
+      }
+
       vpc_boot[i] <- var_random / (var_random + var_residual)
     }, error = function(e) {
       vpc_boot[i] <- NA

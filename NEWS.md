@@ -8,6 +8,11 @@
 * Replaced the redundant "caterpillar" plot with the "predicted" plot in `plot()` and the interactive dashboard.
 * Added automatic tertile binning (via an `autobin` parameter) for numeric grouping variables with more than 10 unique values in `make_strata()`.
 * Updated the interactive Shiny Dashboard (`run_maihda_app()`) to include the new visualizations and a toggle for auto-binning continuous strata variables.
+* Added detection for binomial data. `fit_maihda()` will now automatically detect binomial outcomes and switch to the appropriate family.
+
+## Bug Fixes
+
+* **VPC/ICC Calculation Fix**: Corrected the residual variance estimation for binomial and ordinal models. The package now accurately applies the theoretical level-1 variance ($\pi^2 / 3$ for `"logit"` links and $1$ for `"probit"` links) internally when summarizing models or bootstrapping the variance partition coefficient, avoiding deflated VPC/ICC metrics.
 
 # MAIHDA 0.1.7
 

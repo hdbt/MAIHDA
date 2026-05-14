@@ -1,1 +1,0 @@
-library(lme4); f = BMI ~ Age + Poverty + (1 | Gender:Race:Education); r = findbars(f); vars = unlist(lapply(r, function(x) deparse(x[[3]]))); cat(vars, '\n'); fixed = nobars(f); print(update(fixed, . ~ . + (1|stratum)))

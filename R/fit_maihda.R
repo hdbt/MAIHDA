@@ -15,6 +15,8 @@
 #'   or "brms".
 #' @param family Character string or family object specifying the model family.
 #'   Common options: "gaussian", "binomial", "poisson". Default is "gaussian".
+#'   If the outcome variable appears to be binary (0/1) and the default family is used,
+#'   the function will automatically switch to "binomial" and issue a warning.
 #' @param ... Additional arguments passed to \code{lmer}/\code{glmer} (lme4) or
 #'   \code{brm} (brms).
 #'
@@ -43,6 +45,7 @@
 #'
 #' @export
 #' @importFrom lme4 lmer glmer
+#' @importFrom reformulas findbars nobars
 #' @importFrom stats gaussian binomial poisson
 fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...) {
   # Input validation
@@ -56,10 +59,28 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
 
   engine <- match.arg(engine, c("lme4", "brms"))
 
+  # Automatically switch to binomial for binary outcomes if family is default
+  if (missing(family)) {
+    tryCatch({
+      if (length(formula) == 3) {
+        # Extract the response variable evaluated in the data context
+        outcome_vals <- eval(formula[[2]], envir = data)
+        outcome_vals <- stats::na.omit(outcome_vals)
+
+        if (is.null(dim(outcome_vals)) && length(unique(outcome_vals)) == 2) {
+          warning("The outcome variable appears to be binary. Automatically switching to family = 'binomial'. To fit a Linear Probability Model, explicitly specify family = 'gaussian'.", call. = FALSE)
+          family <- "binomial"
+        }
+      }
+    }, error = function(e) {
+      # Silently proceed if formula extraction fails
+    })
+  }
+
   # Parse formula to find grouping variables
   # Check if "stratum" is not already the grouping variable
-  # lme4::findbars or reformulas::findbars extracts the random effect terms
-  re_terms <- lme4::findbars(formula)
+  # reformulas::findbars/nobars extracts the random effect terms (preferred)
+  re_terms <- reformulas::findbars(formula)
   if (!is.null(re_terms)) {
     # Extract the names of all grouping variables
     grouping_vars <- unique(unlist(lapply(re_terms, function(x) all.vars(x[[3]]))))
@@ -76,7 +97,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
 
         # Rewrite the formula to use (1 | stratum) instead of the original random effects
         # We need to drop all the original random effects and add (1 | stratum)
-        fixed_formula <- lme4::nobars(formula)
+        fixed_formula <- reformulas::nobars(formula)
         formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
       }
     }
