@@ -33,7 +33,6 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
   ordinal_mode <- match.arg(ordinal_mode)
 
   # Check if model is a maihda_model
-  strata_info <- NULL
   if (inherits(model, "maihda_model")) {
     if (is.null(data)) data <- model$data
     strata_info <- model$strata_info

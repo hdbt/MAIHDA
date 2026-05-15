@@ -17,6 +17,9 @@
 #'   Common options: "gaussian", "binomial", "poisson". Default is "gaussian".
 #'   If the outcome variable appears to be binary (0/1) and the default family is used,
 #'   the function will automatically switch to "binomial" and issue a warning.
+#' @param autobin Logical indicating whether numeric variables used only for
+#'   automatic strata creation should be binned by \code{\link{make_strata}}.
+#'   Default is TRUE.
 #' @param ... Additional arguments passed to \code{lmer}/\code{glmer} (lme4) or
 #'   \code{brm} (brms).
 #'
@@ -47,7 +50,8 @@
 #' @importFrom lme4 lmer glmer
 #' @importFrom reformulas findbars nobars
 #' @importFrom stats gaussian binomial poisson
-fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...) {
+fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
+                       autobin = TRUE, ...) {
   # Input validation
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a formula object")
@@ -57,7 +61,9 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
     stop("'data' must be a data frame")
   }
 
-  engine <- match.arg(engine, c("lme4", "brms"))
+  if (!is.character(engine) || length(engine) != 1 || !engine %in% c("lme4", "brms")) {
+    stop("'engine' should be one of: lme4, brms", call. = FALSE)
+  }
 
   # Automatically switch to binomial for binary outcomes if family is default
   if (missing(family)) {
@@ -77,29 +83,55 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
     })
   }
 
-  # Parse formula to find grouping variables
-  # Check if "stratum" is not already the grouping variable
-  # reformulas::findbars/nobars extracts the random effect terms (preferred)
+  # Parse formula to find grouping variables. Automatic strata creation is only
+  # safe for the documented shorthand: one intercept-only non-stratum grouping
+  # term such as (1 | gender:race). More complex random-effect structures should
+  # be specified explicitly after calling make_strata().
   re_terms <- reformulas::findbars(formula)
-  if (!is.null(re_terms)) {
-    # Extract the names of all grouping variables
-    grouping_vars <- unique(unlist(lapply(re_terms, function(x) all.vars(x[[3]]))))
+  strata_info <- attr(data, "strata_info")
+  strata_vars <- NULL
 
-    # If the grouping variables are not just "stratum", create strata
-    if (length(grouping_vars) > 0 && !all(grouping_vars == "stratum")) {
-      # Keep variables that exist in the data
-      valid_vars <- intersect(grouping_vars, names(data))
+  if (length(re_terms) > 0) {
+    grouping_vars_by_term <- lapply(re_terms, function(x) all.vars(x[[3]]))
+    grouping_vars <- unique(unlist(grouping_vars_by_term, use.names = FALSE))
+    has_stratum_group <- any(vapply(grouping_vars_by_term, function(vars) {
+      identical(vars, "stratum")
+    }, logical(1)))
 
-      if (length(valid_vars) > 0) {
-        strata_result <- make_strata(data, vars = valid_vars)
-        data <- strata_result$data
-        attr(data, "strata_info") <- strata_result$strata_info
-
-        # Rewrite the formula to use (1 | stratum) instead of the original random effects
-        # We need to drop all the original random effects and add (1 | stratum)
-        fixed_formula <- reformulas::nobars(formula)
-        formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
+    if (!has_stratum_group) {
+      if (length(re_terms) != 1) {
+        stop("Automatic strata creation only supports a single intercept-only random effect, ",
+             "for example (1 | gender:race). For more complex random-effects structures, ",
+             "call make_strata() first and include (1 | stratum) explicitly.",
+             call. = FALSE)
       }
+
+      random_lhs <- paste(deparse(re_terms[[1]][[2]]), collapse = " ")
+      if (random_lhs != "1") {
+        stop("Automatic strata creation only supports intercept-only random effects, ",
+             "for example (1 | gender:race).",
+             call. = FALSE)
+      }
+
+      strata_vars <- grouping_vars_by_term[[1]]
+      missing_grouping_vars <- setdiff(strata_vars, names(data))
+      if (length(missing_grouping_vars) > 0) {
+        stop("Grouping variables not found in data: ",
+             paste(missing_grouping_vars, collapse = ", "), call. = FALSE)
+      }
+      if ("stratum" %in% names(data)) {
+        stop("Automatic strata creation would overwrite an existing 'stratum' column. ",
+             "Use the existing (1 | stratum) model or rename/remove that column first.",
+             call. = FALSE)
+      }
+
+      strata_result <- make_strata(data, vars = strata_vars, autobin = autobin)
+      data$stratum <- strata_result$data$stratum
+      strata_info <- strata_result$strata_info
+      attr(data, "strata_info") <- strata_info
+
+      fixed_formula <- reformulas::nobars(formula)
+      formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
     }
   }
 
@@ -129,18 +161,21 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian", ...)
     model <- brms::brm(formula, data = data, family = family, ...)
   }
 
-  # Create maihda_model object
-  # Capture strata_info if it exists as an attribute on the data
-  strata_info <- attr(data, "strata_info")
+  # Store the actual analytic model frame so downstream calculations use the
+  # same rows as lme4/brms after their NA handling.
+  model_data <- maihda_model_frame(model, fallback = data)
+  attr(model_data, "strata_info") <- strata_info
 
   result <- structure(
     list(
       model = model,
       engine = engine,
       formula = formula,
-      data = data,
+      data = model_data,
+      original_data = data,
       family = family,
-      strata_info = strata_info
+      strata_info = strata_info,
+      strata_vars = strata_vars
     ),
     class = "maihda_model"
   )

@@ -52,20 +52,23 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
     stop("Variables not found in data: ", paste(missing_vars, collapse = ", "))
   }
 
-  # Create a copy of the data to avoid modifying the original
+  # Create a copy of the data to avoid modifying the original. Numeric
+  # auto-binning is applied only to the temporary strata-building columns so
+  # original variables remain valid for fixed-effect model terms.
   result_data <- data
+  strata_data <- data[, vars, drop = FALSE]
 
   # Auto-bin numeric variables with >10 unique values into 3 categories
   if (autobin) {
     for (v in vars) {
-      val <- result_data[[v]]
+      val <- strata_data[[v]]
       if (is.numeric(val) && length(unique(stats::na.omit(val))) > 10) {
         q <- stats::quantile(val, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)
         if (length(unique(q)) == 4) {
-          result_data[[v]] <- cut(val, breaks = q, include.lowest = TRUE,
+          strata_data[[v]] <- cut(val, breaks = q, include.lowest = TRUE,
                                   labels = c(paste0(v, "_Low"), paste0(v, "_Mid"), paste0(v, "_High")))
         } else {
-          result_data[[v]] <- cut(val, breaks = 3, include.lowest = TRUE,
+          strata_data[[v]] <- cut(val, breaks = 3, include.lowest = TRUE,
                                   labels = c(paste0(v, "_Low"), paste0(v, "_Mid"), paste0(v, "_High")))
         }
       }
@@ -73,13 +76,13 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
   }
 
   # Identify rows with any missing values in the specified variables
-  has_missing <- apply(result_data[, vars, drop = FALSE], 1, function(x) any(is.na(x)))
+  has_missing <- apply(strata_data, 1, function(x) any(is.na(x)))
 
   # Create stratum variable by combining the specified variables
   # Only for rows without missing values
   result_data$stratum_label <- NA_character_
   result_data$stratum_label[!has_missing] <- apply(
-    result_data[!has_missing, vars, drop = FALSE], 1,
+    strata_data[!has_missing, , drop = FALSE], 1,
     function(x) paste(x, collapse = sep)
   )
 

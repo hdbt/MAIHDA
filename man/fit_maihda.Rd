@@ -4,7 +4,14 @@
 \alias{fit_maihda}
 \title{Fit MAIHDA Model}
 \usage{
-fit_maihda(formula, data, engine = "lme4", family = "gaussian", ...)
+fit_maihda(
+  formula,
+  data,
+  engine = "lme4",
+  family = "gaussian",
+  autobin = TRUE,
+  ...
+)
 }
 \arguments{
 \item{formula}{A formula specifying the model. Can include a random effect
@@ -21,7 +28,13 @@ updated.}
 or "brms".}
 
 \item{family}{Character string or family object specifying the model family.
-Common options: "gaussian", "binomial", "poisson". Default is "gaussian".}
+Common options: "gaussian", "binomial", "poisson". Default is "gaussian".
+If the outcome variable appears to be binary (0/1) and the default family is used,
+the function will automatically switch to "binomial" and issue a warning.}
+
+\item{autobin}{Logical indicating whether numeric variables used only for
+automatic strata creation should be binned by \code{\link{make_strata}}.
+Default is TRUE.}
 
 \item{...}{Additional arguments passed to \code{lmer}/\code{glmer} (lme4) or
 \code{brm} (brms).}

@@ -179,14 +179,20 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
   # Convert stratum to character for merging (to match stratum_estimates)
   obs_means$stratum <- as.character(obs_means$stratum)
 
-  # Get fixed effects to center the random effects
-  fixed_intercept <- summary_obj$fixed_effects$estimate[1]
-
   # Merge with random effects (shrunken estimates)
   stratum_est <- summary_obj$stratum_estimates
   if (!is.null(stratum_est)) {
+    pred_data <- if (object$engine == "lme4") {
+      maihda_stratum_predictions_lme4(object, summary_obj, scale = "response")
+    } else if (object$engine == "brms") {
+      maihda_stratum_predictions_brms(object, summary_obj, scale = "response")
+    } else {
+      stop("Unsupported engine: ", object$engine)
+    }
+
     plot_data <- merge(obs_means, stratum_est, by = "stratum")
-    plot_data$shrunken <- fixed_intercept + plot_data$random_effect
+    pred_idx <- match(as.character(plot_data$stratum), as.character(pred_data$stratum))
+    plot_data$shrunken <- pred_data$predicted_row[pred_idx]
 
     # Create plot
     p <- ggplot(plot_data, aes(x = .data$observed, y = .data$shrunken)) +
@@ -215,23 +221,23 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
 #' @param object A maihda_model object
 #' @param summary_obj A maihda_summary object
 #' @param n_strata Maximum number of strata to display
+#' @param scale Prediction scale: "response" (default) or "link"
 #' @return A ggplot2 object
 #' @keywords internal
 #' @import ggplot2
 #' @importFrom dplyr arrange slice
-#' @importFrom lme4 fixef
-plot_predicted_strata <- function(object, summary_obj, n_strata) {
-  # Get fixed effects intercept
-  if (object$engine == "lme4") {
-    fixed_intercept <- lme4::fixef(object$model)[1]
+plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link")) {
+  scale <- match.arg(scale)
+
+  pred_data <- if (object$engine == "lme4") {
+    maihda_stratum_predictions_lme4(object, summary_obj, scale = scale)
   } else if (object$engine == "brms") {
-    if (!requireNamespace("brms", quietly = TRUE)) {
-      stop("Package 'brms' is required. Please install it with: install.packages('brms')")
-    }
-    fixed_intercept <- brms::fixef(object$model)[1, "Estimate"]
+    maihda_stratum_predictions_brms(object, summary_obj, scale = scale)
   } else {
     stop("Unsupported engine: ", object$engine)
   }
+
+  fixed_reference <- stats::weighted.mean(pred_data$fixed_row, pred_data$n, na.rm = TRUE)
 
   # Get stratum estimates
   stratum_est <- summary_obj$stratum_estimates
@@ -240,10 +246,10 @@ plot_predicted_strata <- function(object, summary_obj, n_strata) {
     stop("No stratum estimates available for plotting")
   }
 
-  # Calculate predicted values (fixed effect + random effect)
-  stratum_est$predicted <- fixed_intercept + stratum_est$random_effect
-  stratum_est$lower <- fixed_intercept + stratum_est$lower_95
-  stratum_est$upper <- fixed_intercept + stratum_est$upper_95
+  pred_idx <- match(as.character(stratum_est$stratum), as.character(pred_data$stratum))
+  stratum_est$predicted <- pred_data$predicted_row[pred_idx]
+  stratum_est$lower <- pred_data$lower_row[pred_idx]
+  stratum_est$upper <- pred_data$upper_row[pred_idx]
 
   # Keep original order (no sorting)
   # Limit number of strata if requested
@@ -269,12 +275,12 @@ plot_predicted_strata <- function(object, summary_obj, n_strata) {
     geom_point(size = 2, color = "#0072B2") +
     geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper),
                   width = 0.2, alpha = 0.5, color = "#0072B2") +
-    geom_hline(yintercept = fixed_intercept, linetype = "dashed", color = "red", alpha = 0.7) +
+    geom_hline(yintercept = fixed_reference, linetype = "dashed", color = "red", alpha = 0.7) +
     labs(
       title = "Predicted Subgroup Values with 95% Confidence Intervals",
       x = "Stratum",
       y = "Predicted Value",
-      caption = "Dashed line represents overall mean (fixed effect)"
+      caption = "Dashed line represents the mean fixed-only prediction"
     ) +
     theme_minimal() +
     theme(

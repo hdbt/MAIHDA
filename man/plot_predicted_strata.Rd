@@ -4,7 +4,12 @@
 \alias{plot_predicted_strata}
 \title{Plot Predicted Stratum Values with Confidence Intervals}
 \usage{
-plot_predicted_strata(object, summary_obj, n_strata)
+plot_predicted_strata(
+  object,
+  summary_obj,
+  n_strata,
+  scale = c("response", "link")
+)
 }
 \arguments{
 \item{object}{A maihda_model object}
@@ -12,6 +17,8 @@ plot_predicted_strata(object, summary_obj, n_strata)
 \item{summary_obj}{A maihda_summary object}
 
 \item{n_strata}{Maximum number of strata to display}
+
+\item{scale}{Prediction scale: "response" (default) or "link"}
 }
 \value{
 A ggplot2 object

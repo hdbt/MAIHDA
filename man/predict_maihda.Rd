@@ -4,7 +4,13 @@
 \alias{predict_maihda}
 \title{Predict from MAIHDA Model}
 \usage{
-predict_maihda(object, newdata = NULL, type = c("individual", "strata"), ...)
+predict_maihda(
+  object,
+  newdata = NULL,
+  type = c("individual", "strata", "response", "link"),
+  scale = c("response", "link"),
+  ...
+)
 }
 \arguments{
 \item{object}{A maihda_model object from \code{fit_maihda()}.}
@@ -16,14 +22,20 @@ original data from model fitting.}
 \itemize{
   \item "individual": Individual-level predictions including random effects
   \item "strata": Stratum-level predictions (random effects only)
-}}
+}
+For backward compatibility, "link" or "response" may also be passed here
+and will be interpreted as individual-level predictions on that scale.}
+
+\item{scale}{Character string specifying the prediction scale for
+individual-level predictions: "response" (default) or "link".}
 
 \item{...}{Additional arguments passed to predict method of underlying model.}
 }
 \value{
 Depending on type:
   \itemize{
-    \item For "individual": A numeric vector of predicted values
+    \item For "individual": A numeric vector of predicted values on the
+      requested scale
     \item For "strata": A data frame with stratum ID and predicted random effect
   }
 }

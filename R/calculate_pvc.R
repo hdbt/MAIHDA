@@ -66,10 +66,7 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
     stop("Both models must use the same engine (lme4 or brms)")
   }
 
-  # Check that models were fit on compatible data
-  if (nrow(model1$data) != nrow(model2$data)) {
-    warning("Models were fit on data with different numbers of observations. Results may not be meaningful.")
-  }
+  validate_pvc_models(model1, model2)
 
   # Extract between-stratum variance from both models
   var1 <- extract_between_variance(model1)
@@ -127,25 +124,55 @@ extract_between_variance <- function(model) {
   fitted_model <- model$model
 
   if (engine == "lme4") {
-    # Extract variance components
-    vc <- lme4::VarCorr(fitted_model)
-    var_random <- as.numeric(vc[[1]][1])  # Between-stratum variance
-    return(var_random)
+    return(maihda_stratum_variance_lme4(fitted_model))
 
   } else if (engine == "brms") {
-    # Verify brms is available
-    if (!requireNamespace("brms", quietly = TRUE)) {
-      stop("Package 'brms' is required to work with brms models. Please install it with: install.packages('brms')")
-    }
-
-    # Extract variance components from brms model
-    vc <- brms::VarCorr(fitted_model)
-    var_random <- vc[[1]]$sd[1, "Estimate"]^2
-    return(var_random)
+    return(maihda_stratum_variance_brms(fitted_model))
 
   } else {
     stop("Unsupported engine: ", engine, ". Only 'lme4' and 'brms' are supported.")
   }
+}
+
+validate_pvc_models <- function(model1, model2) {
+  n1 <- maihda_nobs(model1$model)
+  n2 <- maihda_nobs(model2$model)
+  if (is.finite(n1) && is.finite(n2) && n1 != n2) {
+    stop("PVC requires both models to use the same analytic sample. ",
+         "Model 1 used ", n1, " observations and Model 2 used ", n2, ".",
+         call. = FALSE)
+  }
+
+  rows1 <- maihda_row_ids(model1$model)
+  rows2 <- maihda_row_ids(model2$model)
+  if (!is.null(rows1) && !is.null(rows2) && !identical(rows1, rows2)) {
+    stop("PVC requires both models to use the same analytic sample in the same row order.",
+         call. = FALSE)
+  }
+
+  strata1 <- unique(as.character(model1$data$stratum))
+  strata2 <- unique(as.character(model2$data$stratum))
+  strata1 <- sort(strata1[!is.na(strata1)])
+  strata2 <- sort(strata2[!is.na(strata2)])
+  if (!identical(strata1, strata2)) {
+    stop("PVC requires both models to use the same stratum definitions.",
+         call. = FALSE)
+  }
+
+  info1 <- model1$strata_info
+  info2 <- model2$strata_info
+  if (!is.null(info1) && !is.null(info2) &&
+      all(c("stratum", "label") %in% names(info1)) &&
+      all(c("stratum", "label") %in% names(info2))) {
+    labels1 <- info1$label[order(as.character(info1$stratum))]
+    labels2 <- info2$label[order(as.character(info2$stratum))]
+    if (!identical(labels1, labels2)) {
+      stop("PVC requires both models to use the same stratum labels.",
+           call. = FALSE)
+    }
+  }
+
+  invisible(TRUE)
 }
 
 #' Bootstrap PVC
@@ -180,25 +207,25 @@ bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
       boot_model2 <- lme4::refit(model2$model, newresp = sim_data[[i]])
 
       # Extract variances
-      vc1 <- lme4::VarCorr(boot_model1)
-      var1 <- as.numeric(vc1[[1]][1])
-
-      vc2 <- lme4::VarCorr(boot_model2)
-      var2 <- as.numeric(vc2[[1]][1])
+      var1 <- maihda_stratum_variance_lme4(boot_model1)
+      var2 <- maihda_stratum_variance_lme4(boot_model2)
 
       # Calculate PVC
-      pvc_boot[i] <- (var1 - var2) / var1
+      pvc_boot[i] <- if (is.finite(var1) && var1 > 0) (var1 - var2) / var1 else NA_real_
     }, error = function(e) {
       pvc_boot[i] <- NA
     })
   }
 
   # Remove NAs
-  pvc_boot <- pvc_boot[!is.na(pvc_boot)]
+  pvc_boot <- pvc_boot[is.finite(pvc_boot)]
 
   if (length(pvc_boot) < n_boot * 0.5) {
     warning(sprintf("More than 50%% of bootstrap samples failed. CI may be unreliable. Only %d/%d successful.",
                     length(pvc_boot), n_boot))
+  }
+  if (length(pvc_boot) == 0) {
+    stop("All PVC bootstrap refits failed or produced zero model-1 stratum variance.")
   }
 
   # Calculate confidence interval

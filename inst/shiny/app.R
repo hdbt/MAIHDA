@@ -199,14 +199,17 @@ server <- function(input, output, session) {
 
       # Step 2: Make strata
       strata_dat <- make_strata(complete_dat, vars = grouping_vars, autobin = autobin_opt)
+      model_dat <- complete_dat
+      model_dat$stratum <- strata_dat$data$stratum
+      attr(model_dat, "strata_info") <- strata_dat$strata_info
 
       # Step 3: Fit model
       fmla_null <- as.formula(paste(outcome_var, "~ 1 + (1 | stratum)"))
-      mod1 <- fit_maihda(formula = fmla_null, data = strata_dat$data, engine = eng, family = fam)
-      mod2 <- fit_maihda(formula = fmla, data = strata_dat$data, engine = eng, family = fam)
+      mod1 <- fit_maihda(formula = fmla_null, data = model_dat, engine = eng, family = fam)
+      mod2 <- fit_maihda(formula = fmla, data = model_dat, engine = eng, family = fam)
 
         pvc <- calculate_pvc(mod1, mod2, bootstrap = use_boot, n_boot = n_boot)
-        stepwise <- stepwise_pcv(strata_dat$data, outcome = outcome_var, vars = stepwise_vars, engine = eng, family = fam)
+        stepwise <- stepwise_pcv(model_dat, outcome = outcome_var, vars = stepwise_vars, engine = eng, family = fam)
 
         list(model = mod2, pvc = pvc, stepwise = stepwise)
       }, seed = TRUE) %...>% (function(res) {

@@ -7,19 +7,13 @@
 #' @return Data frame with labels merged in
 #' @keywords internal
 add_stratum_labels <- function(stratum_estimates, strata_info) {
-  if (is.null(strata_info)) {
+  if (is.null(strata_info) || !"stratum" %in% names(strata_info) || !"label" %in% names(strata_info)) {
     return(stratum_estimates)
   }
 
-  # Extract just stratum and label columns
-  strata_info_subset <- strata_info[, c("stratum", "label")]
+  idx <- match(as.character(stratum_estimates$stratum), as.character(strata_info$stratum))
+  stratum_estimates$label <- strata_info$label[idx]
 
-  # Merge labels into estimates
-  stratum_estimates <- merge(stratum_estimates, strata_info_subset,
-                            by.x = "stratum_id", by.y = "stratum",
-                            all.x = TRUE, sort = FALSE)
-
-  # Reorder columns to put label after stratum
   col_order <- c("stratum", "stratum_id", "label", "random_effect", "se", "lower_95", "upper_95")
   stratum_estimates <- stratum_estimates[, col_order[col_order %in% names(stratum_estimates)]]
 
@@ -71,20 +65,8 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
   if (engine == "lme4") {
     # Extract variance components
     vc <- lme4::VarCorr(model)
-    var_random <- as.numeric(vc[[1]][1])  # Between-stratum variance
-
-    # Get model family
-    fam <- stats::family(model)
-
-    # Calculate residual variance based on family
-    latent_families <- c("binomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
-    if (fam$family %in% latent_families && fam$link == "logit") {
-      var_residual <- (pi^2) / 3
-    } else if (fam$family %in% latent_families && fam$link == "probit") {
-      var_residual <- 1
-    } else {
-      var_residual <- attr(vc, "sc")^2       # Within-stratum variance
-    }
+    var_random <- maihda_stratum_variance_lme4(model)
+    var_residual <- maihda_residual_variance_lme4(model, vc)
 
     # Calculate VPC (ICC)
     vpc <- var_random / (var_random + var_residual)
@@ -120,35 +102,8 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       row.names = NULL
     )
 
-    # Extract random effects (stratum estimates)
-    re <- lme4::ranef(model, condVar = TRUE)
-    stratum_re <- re[[1]]
-    stratum_names <- names(re)
-
-    if (length(stratum_names) > 0 && stratum_names[1] == "stratum") {
-      # Get conditional variances (uncertainties)
-      cond_var <- attr(re[[1]], "postVar")
-      if (is.array(cond_var) && length(dim(cond_var)) == 3) {
-        stratum_se <- sqrt(cond_var[1, 1, ])
-      } else {
-        stratum_se <- rep(NA, nrow(stratum_re))
-      }
-
-      stratum_estimates <- data.frame(
-        stratum = rownames(stratum_re),
-        stratum_id = suppressWarnings(as.integer(rownames(stratum_re))),
-        random_effect = stratum_re[, 1],
-        se = stratum_se,
-        lower_95 = stratum_re[, 1] - 1.96 * stratum_se,
-        upper_95 = stratum_re[, 1] + 1.96 * stratum_se,
-        stringsAsFactors = FALSE
-      )
-
-      # Add stratum labels if strata_info is available
-      stratum_estimates <- add_stratum_labels(stratum_estimates, object$strata_info)
-    } else {
-      stratum_estimates <- NULL
-    }
+    stratum_estimates <- maihda_stratum_ranef_lme4(model)
+    stratum_estimates <- add_stratum_labels(stratum_estimates, object$strata_info)
 
     # Get model summary
     model_summary <- summary(model)
@@ -159,23 +114,8 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       stop("Package 'brms' is required to summarize brms models. Please install it with: install.packages('brms')")
     }
 
-    # Extract variance components from brms model
-    vc <- brms::VarCorr(model)
-    var_random <- vc[[1]]$sd[1, "Estimate"]^2
-
-    # Get model family
-    fam <- stats::family(model)
-
-    # Calculate residual variance based on family
-    latent_families <- c("binomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
-    if (fam$family %in% latent_families && fam$link == "logit") {
-      var_residual <- (pi^2) / 3
-    } else if (fam$family %in% latent_families && fam$link == "probit") {
-      var_residual <- 1
-    } else {
-      # For brms gaussian models, residual variance is in the second element (sigma)
-      var_residual <- vc[[2]]$sd[1, "Estimate"]^2
-    }
+    var_random <- maihda_stratum_variance_brms(model)
+    var_residual <- maihda_residual_variance_brms(model)
 
     # Calculate VPC
     vpc <- var_random / (var_random + var_residual)
@@ -196,21 +136,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     # Extract fixed effects
     fixed_effects <- brms::fixef(model)
 
-    # Extract random effects
-    ranef_result <- brms::ranef(model)[[1]]
-
-    # Transform brms ranef output to match lme4 structure
-    stratum_estimates <- data.frame(
-      stratum = rownames(ranef_result),
-      stratum_id = suppressWarnings(as.integer(rownames(ranef_result))),
-      random_effect = ranef_result[, "Estimate"],
-      se = ranef_result[, "Est.Error"],
-      lower_95 = ranef_result[, "Q2.5"],
-      upper_95 = ranef_result[, "Q97.5"],
-      stringsAsFactors = FALSE
-    )
-
-    # Add stratum labels if strata_info is available
+    stratum_estimates <- maihda_stratum_ranef_brms(model)
     stratum_estimates <- add_stratum_labels(stratum_estimates, object$strata_info)
 
     model_summary <- summary(model)
@@ -247,35 +173,16 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
 #' @importFrom lme4 lmer glmer VarCorr
 bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
   vpc_boot <- numeric(n_boot)
-  n <- nrow(data)
+  sim_data <- stats::simulate(model, nsim = n_boot)
 
   for (i in 1:n_boot) {
-    # Resample with replacement
-    boot_indices <- sample(1:n, n, replace = TRUE)
-    boot_data <- data[boot_indices, ]
-
-    # Fit model on bootstrap sample
     tryCatch({
-      if (inherits(model, "lmerMod")) {
-        boot_model <- lme4::lmer(formula, data = boot_data)
-      } else {
-        boot_model <- lme4::glmer(formula, data = boot_data,
-                family = stats::family(model))
-      }
+      boot_model <- lme4::refit(model, newresp = sim_data[[i]])
 
       # Calculate VPC
       vc <- lme4::VarCorr(boot_model)
-      var_random <- as.numeric(vc[[1]][1])
-
-      fam <- stats::family(boot_model)
-      latent_families <- c("binomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
-      if (fam$family %in% latent_families && fam$link == "logit") {
-        var_residual <- (pi^2) / 3
-      } else if (fam$family %in% latent_families && fam$link == "probit") {
-        var_residual <- 1
-      } else {
-        var_residual <- attr(vc, "sc")^2
-      }
+      var_random <- maihda_stratum_variance_lme4(boot_model)
+      var_residual <- maihda_residual_variance_lme4(boot_model, vc)
 
       vpc_boot[i] <- var_random / (var_random + var_residual)
     }, error = function(e) {
@@ -284,7 +191,10 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
   }
 
   # Remove NAs
-  vpc_boot <- vpc_boot[!is.na(vpc_boot)]
+  vpc_boot <- vpc_boot[is.finite(vpc_boot)]
+  if (length(vpc_boot) == 0) {
+    stop("All VPC bootstrap refits failed.")
+  }
 
   # Calculate confidence interval
   alpha <- 1 - conf_level

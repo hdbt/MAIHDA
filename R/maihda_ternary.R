@@ -59,26 +59,11 @@ compute_maihda_ternary_data <- function(
   u_j_se <- NULL
 
   if (engine == "lme4" || inherits(fitted_mod, "merMod")) {
-    re_terms <- lme4::ranef(fitted_mod, condVar = TRUE)
-    if (!"stratum" %in% names(re_terms)) {
-      stop("Could not find 'stratum' random effects in the lme4 model.")
-    }
-    re_stratum <- re_terms[["stratum"]]
-
-    cond_var <- attr(re_stratum, "postVar")
-    strata_names <- rownames(re_stratum)
-    u_j_raw <- re_stratum[, 1]
-
-    if (!is.null(cond_var)) {
-      u_j_se <- sqrt(cond_var[1, 1, ])
-    } else {
-      u_j_se <- rep(NA_real_, length(u_j_raw))
-    }
-
+    re_stratum <- maihda_stratum_ranef_lme4(fitted_mod)
     re_df <- data.frame(
-      stratum = strata_names,
-      u_j = u_j_raw,
-      uncertainty = u_j_se,
+      stratum = re_stratum$stratum,
+      u_j = re_stratum$random_effect,
+      uncertainty = re_stratum$se,
       stringsAsFactors = FALSE
     )
 
@@ -86,38 +71,71 @@ compute_maihda_ternary_data <- function(
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("brms package is required for brms engine models.")
     }
-    re_summary <- brms::ranef(fitted_mod, summary = TRUE)
-    if (!"stratum" %in% names(re_summary)) {
-      stop("Could not find 'stratum' random effects in the brms model.")
-    }
-    brms_re <- re_summary[["stratum"]]
-    strata_names <- dimnames(brms_re)[[1]]
-
-    u_j_raw <- brms_re[, "Estimate", 1]
-    u_j_se <- brms_re[, "Est.Error", 1]
-
+    re_stratum <- maihda_stratum_ranef_brms(fitted_mod)
     re_df <- data.frame(
-      stratum = strata_names,
-      u_j = u_j_raw,
-      uncertainty = u_j_se,
+      stratum = re_stratum$stratum,
+      u_j = re_stratum$random_effect,
+      uncertainty = re_stratum$se,
       stringsAsFactors = FALSE
     )
   } else {
     stop(sprintf("Engine '%s' is not fully supported for ternary plots yet.", engine))
   }
 
-  if (engine == "lme4") {
-      pred_data <- model$data
-      pred_data <- pred_data[!duplicated(pred_data$stratum), ]
+  pred_data <- model$data
+  pred_data <- pred_data[!is.na(pred_data$stratum), , drop = FALSE]
 
-      fe_preds <- stats::predict(fitted_mod, newdata = pred_data, re.form = NA, type = scale)
-      re_df$additive_only <- fe_preds[match(re_df$stratum, pred_data$stratum)]
-  } else if (engine == "brms") {
-      pred_data <- model$data
-      pred_data <- pred_data[!duplicated(pred_data$stratum), ]
-      fe_preds <- stats::predict(fitted_mod, newdata = pred_data, re_formula = NA)
-      re_df$additive_only <- fe_preds[match(re_df$stratum, pred_data$stratum), "Estimate"]
+  if (!is.null(reference_values)) {
+    strata_levels <- re_df$stratum
+    first_idx <- match(strata_levels, as.character(pred_data$stratum))
+    pred_data <- pred_data[first_idx, , drop = FALSE]
+
+    if (is.data.frame(reference_values)) {
+      ref <- reference_values
+      if (nrow(ref) == 1) {
+        for (nm in names(ref)) {
+          pred_data[[nm]] <- ref[[nm]][1]
+        }
+      } else if ("stratum" %in% names(ref)) {
+        ref_idx <- match(strata_levels, as.character(ref$stratum))
+        for (nm in setdiff(names(ref), "stratum")) {
+          pred_data[[nm]] <- ref[[nm]][ref_idx]
+        }
+      } else if (nrow(ref) == nrow(pred_data)) {
+        for (nm in names(ref)) {
+          pred_data[[nm]] <- ref[[nm]]
+        }
+      } else {
+        stop("reference_values must have one row, one row per stratum, or a 'stratum' column.")
+      }
+    } else if (is.list(reference_values)) {
+      for (nm in names(reference_values)) {
+        pred_data[[nm]] <- reference_values[[nm]][1]
+      }
+    } else {
+      stop("reference_values must be a list or data frame.")
+    }
   }
+
+  if (engine == "lme4" || inherits(fitted_mod, "merMod")) {
+      fe_preds <- stats::predict(fitted_mod, newdata = pred_data, re.form = NA, type = scale)
+  } else if (engine == "brms" || inherits(fitted_mod, "brmsfit")) {
+      fe_preds <- if (scale == "link") {
+        brms::posterior_linpred(fitted_mod, newdata = pred_data, re_formula = NA, summary = TRUE)[, "Estimate"]
+      } else {
+        brms::fitted(fitted_mod, newdata = pred_data, re_formula = NA, summary = TRUE)[, "Estimate"]
+      }
+  }
+
+  additive_by_stratum <- stats::aggregate(
+    x = list(additive_only = as.numeric(fe_preds)),
+    by = list(stratum = as.character(pred_data$stratum)),
+    FUN = mean,
+    na.rm = TRUE
+  )
+  re_df$additive_only <- additive_by_stratum$additive_only[
+    match(as.character(re_df$stratum), additive_by_stratum$stratum)
+  ]
 
   grand_mean_additive <- mean(re_df$additive_only, na.rm = TRUE)
 
@@ -132,18 +150,19 @@ compute_maihda_ternary_data <- function(
   }
 
   row_sums <- res$additive_signal + res$interaction_signal + res$uncertainty
-  res$additive_prop <- res$additive_signal / row_sums
-  res$interaction_prop <- res$interaction_signal / row_sums
-  res$uncertainty_prop <- res$uncertainty / row_sums
+  res$additive_prop <- ifelse(row_sums > 0, res$additive_signal / row_sums, NA_real_)
+  res$interaction_prop <- ifelse(row_sums > 0, res$interaction_signal / row_sums, NA_real_)
+  res$uncertainty_prop <- ifelse(row_sums > 0, res$uncertainty / row_sums, NA_real_)
 
   if (!is.null(strata_info_df) && "n" %in% names(strata_info_df)) {
-      res <- merge(res, strata_info_df, by = "stratum", all.x = TRUE)
-
-      strat_vars <- setdiff(names(strata_info_df), c("stratum", "n"))
-      if (length(strat_vars) > 0) {
-          res$label <- apply(res[, strat_vars, drop = FALSE], 1, paste, collapse = "\n")
-      } else {
-          res$label <- as.character(res$stratum)
+      res <- maihda_add_strata_columns(res, strata_info_df)
+      if (!"label" %in% names(res) || all(is.na(res$label))) {
+        strat_vars <- setdiff(names(strata_info_df), c("stratum", "n", "label"))
+        if (length(strat_vars) > 0) {
+            res$label <- apply(res[, strat_vars, drop = FALSE], 1, paste, collapse = "\n")
+        } else {
+            res$label <- as.character(res$stratum)
+        }
       }
   } else {
       res$n <- 1
@@ -209,7 +228,8 @@ plot_maihda_ternary <- function(
     )
 
   if (label_top_n > 0) {
-    top_data <- ternary_data[order(ternary_data[[label_by]], decreasing = TRUE), ][1:label_top_n, ]
+    top_idx <- seq_len(min(label_top_n, nrow(ternary_data)))
+    top_data <- ternary_data[order(ternary_data[[label_by]], decreasing = TRUE), ][top_idx, ]
     p <- p + ggplot2::geom_text(data = top_data, ggplot2::aes(label = .data[["label"]]), size = 2.5, vjust = -1, color = "#222222")
   }
 

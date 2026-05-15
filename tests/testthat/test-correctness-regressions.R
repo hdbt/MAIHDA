@@ -1,0 +1,150 @@
+test_that("fit_maihda preserves explicit additional random effects", {
+  set.seed(1001)
+  d <- expand.grid(
+    stratum = factor(seq_len(5)),
+    site = factor(seq_len(4)),
+    rep = seq_len(8)
+  )
+  d$x <- rnorm(nrow(d))
+  stratum_u <- rnorm(5, sd = 0.8)[d$stratum]
+  site_u <- rnorm(4, sd = 1.2)[d$site]
+  d$y <- 2 + 0.5 * d$x + stratum_u + site_u + rnorm(nrow(d), sd = 0.3)
+
+  model <- fit_maihda(y ~ x + (1 | site) + (1 | stratum), data = d)
+
+  expect_true(all(c("site", "stratum") %in% names(lme4::VarCorr(model$model))))
+  expect_null(model$strata_info)
+
+  summ <- summary(model)
+  expected <- as.numeric(as.matrix(lme4::VarCorr(model$model)[["stratum"]])["(Intercept)", "(Intercept)"])
+  observed <- summ$variance_components$variance[1]
+  expect_equal(observed, expected, tolerance = 1e-8)
+})
+
+test_that("fit_maihda rejects ambiguous automatic strata formulas", {
+  set.seed(1002)
+  d <- data.frame(
+    gender = sample(c("F", "M"), 100, replace = TRUE),
+    race = sample(c("A", "B"), 100, replace = TRUE),
+    site = sample(letters[1:4], 100, replace = TRUE),
+    x = rnorm(100),
+    y = rnorm(100)
+  )
+
+  expect_error(
+    fit_maihda(y ~ x + (1 | gender:race) + (1 | site), data = d),
+    "Automatic strata creation"
+  )
+})
+
+test_that("automatic strata creation does not bin numeric fixed effects", {
+  set.seed(1003)
+  n <- 180
+  d <- data.frame(
+    age = runif(n, 18, 80),
+    gender = sample(c("F", "M"), n, replace = TRUE)
+  )
+  strata <- interaction(cut(d$age, breaks = 3), d$gender, drop = TRUE)
+  stratum_u <- rnorm(nlevels(strata), sd = 0.7)[as.integer(strata)]
+  d$y <- 1 + 0.2 * d$age + ifelse(d$gender == "M", 0.5, 0) + stratum_u + rnorm(n, sd = 0.4)
+
+  model <- fit_maihda(y ~ age + gender + (1 | age:gender), data = d)
+
+  expect_true(is.numeric(model$data$age))
+  expect_true("age" %in% names(lme4::fixef(model$model)))
+  expect_false(any(grepl("^ageage_", names(lme4::fixef(model$model)))))
+})
+
+test_that("make_strata preserves original numeric grouping variables", {
+  d <- data.frame(
+    age = seq_len(60),
+    gender = rep(c("F", "M"), 30),
+    y = rnorm(60)
+  )
+
+  strata <- make_strata(d, vars = c("age", "gender"))
+
+  expect_true(is.numeric(strata$data$age))
+  expect_true(any(grepl("age_", strata$strata_info$label)))
+})
+
+test_that("calculate_pvc errors for different analytic samples", {
+  set.seed(1004)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(10), each = 10)),
+    x = rnorm(100),
+    z = rnorm(100)
+  )
+  d$z[seq_len(20)] <- NA_real_
+  d$y <- 1 + d$x + rnorm(10, sd = 0.8)[d$stratum] + rnorm(100, sd = 0.3)
+
+  model1 <- fit_maihda(y ~ x + (1 | stratum), data = d)
+  model2 <- fit_maihda(y ~ x + z + (1 | stratum), data = d)
+
+  expect_error(calculate_pvc(model1, model2), "same analytic sample")
+})
+
+test_that("poisson summaries use fitted mean based residual variance", {
+  set.seed(1005)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(12), each = 25)),
+    x = rnorm(300)
+  )
+  stratum_u <- rnorm(12, sd = 0.5)[d$stratum]
+  d$y <- rpois(nrow(d), lambda = exp(1 + 0.25 * d$x + stratum_u))
+
+  model <- fit_maihda(y ~ x + (1 | stratum), data = d, family = "poisson")
+  summ <- summary(model)
+
+  observed <- summ$variance_components$variance[
+    summ$variance_components$component == "Within-stratum (residual)"
+  ]
+  expected <- mean(1 / pmax(stats::fitted(model$model), .Machine$double.eps))
+  expect_equal(observed, expected, tolerance = 1e-8)
+  expect_false(isTRUE(all.equal(observed, 1)))
+})
+
+test_that("binomial predict_maihda defaults to response scale and supports link scale", {
+  set.seed(1006)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(10), each = 25)),
+    x = rnorm(250)
+  )
+  stratum_u <- rnorm(10, sd = 0.8)[d$stratum]
+  d$y <- rbinom(nrow(d), 1, plogis(-0.3 + 0.7 * d$x + stratum_u))
+
+  model <- fit_maihda(y ~ x + (1 | stratum), data = d, family = "binomial")
+  pred_response <- predict_maihda(model)
+  pred_link <- predict_maihda(model, type = "link")
+
+  expect_true(all(pred_response >= 0 & pred_response <= 1))
+  expect_equal(pred_response, plogis(pred_link), tolerance = 1e-8)
+
+  p <- plot(model, type = "predicted")
+  expect_true(all(p$data$predicted >= 0 & p$data$predicted <= 1, na.rm = TRUE))
+})
+
+test_that("ternary additive component is invariant to row order", {
+  set.seed(1007)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(6), each = 20)),
+    age = rep(seq(-2, 2, length.out = 20), 6)
+  )
+  stratum_u <- rnorm(6, sd = 0.5)[d$stratum]
+  d$y <- 10 + 3 * d$age + stratum_u + rnorm(nrow(d), sd = 0.2)
+
+  model <- fit_maihda(y ~ age + (1 | stratum), data = d)
+  reordered <- model
+  reordered$data <- model$data[order(model$data$stratum, -model$data$age), ]
+
+  td1 <- compute_maihda_ternary_data(model, verbose = FALSE)
+  td2 <- compute_maihda_ternary_data(reordered, verbose = FALSE)
+  comp <- merge(
+    as.data.frame(td1[, c("stratum", "additive_only")]),
+    as.data.frame(td2[, c("stratum", "additive_only")]),
+    by = "stratum",
+    suffixes = c("_original", "_reordered")
+  )
+
+  expect_equal(comp$additive_only_original, comp$additive_only_reordered, tolerance = 1e-8)
+})
