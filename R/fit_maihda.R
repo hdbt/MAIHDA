@@ -15,8 +15,9 @@
 #'   or "brms".
 #' @param family Character string or family object specifying the model family.
 #'   Common options: "gaussian", "binomial", "poisson". Default is "gaussian".
-#'   If the outcome variable appears to be binary (0/1) and the default family is used,
-#'   the function will automatically switch to "binomial" and issue a warning.
+#'   If the outcome variable appears to be binary and the default family is used,
+#'   the function will automatically switch to "binomial", recode two-level
+#'   responses to 0/1 for \code{glmer()}, and issue a warning.
 #' @param autobin Logical indicating whether numeric variables used only for
 #'   automatic strata creation should be binned by \code{\link{make_strata}}.
 #'   Default is TRUE.
@@ -148,6 +149,10 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
                      binomial = binomial(),
                      poisson = poisson(),
                      stop("Unsupported family: ", family))
+  }
+
+  if (engine == "lme4" && family$family %in% c("binomial", "quasibinomial")) {
+    data <- maihda_prepare_binomial_response(data, formula)
   }
 
   # Fit model based on engine

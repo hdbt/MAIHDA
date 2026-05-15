@@ -177,12 +177,10 @@ server <- function(input, output, session) {
     id <- showNotification("Creating strata & Fitting Models (May take a moment)...", duration = NULL, type = "message")
 
     # Formula construction
-    if (length(additional_covars) > 0) {
-        fmla_str <- paste(outcome_var, "~", paste(c(grouping_vars, additional_covars), collapse = " + "), "+ (1 | stratum)")
-    } else {
-        fmla_str <- paste(outcome_var, "~", paste(grouping_vars, collapse = " + "), "+ (1 | stratum)")
-    }
-    fmla <- as.formula(fmla_str)
+    fmla <- MAIHDA:::maihda_formula_with_stratum(
+      outcome_var,
+      c(grouping_vars, additional_covars)
+    )
 
     # Variables for stepwise PCV
     stepwise_vars <- c(grouping_vars, additional_covars)
@@ -204,7 +202,7 @@ server <- function(input, output, session) {
       attr(model_dat, "strata_info") <- strata_dat$strata_info
 
       # Step 3: Fit model
-      fmla_null <- as.formula(paste(outcome_var, "~ 1 + (1 | stratum)"))
+      fmla_null <- MAIHDA:::maihda_formula_with_stratum(outcome_var)
       mod1 <- fit_maihda(formula = fmla_null, data = model_dat, engine = eng, family = fam)
       mod2 <- fit_maihda(formula = fmla, data = model_dat, engine = eng, family = fam)
 
@@ -275,7 +273,10 @@ server <- function(input, output, session) {
 
     adjusted_formula <- deparse(mod$formula)
     outcome_var <- all.vars(mod$formula)[1]
-    null_formula <- paste(outcome_var, "~ 1 + (1 | stratum)")
+    null_formula <- paste(
+      deparse(MAIHDA:::maihda_formula_with_stratum(outcome_var)),
+      collapse = ""
+    )
 
     bootstrap_ui <- if (isTRUE(pvc$bootstrap) && !is.null(pvc$ci_lower) && !is.null(pvc$ci_upper)) {
         div(class = "mt-4 text-center text-muted",

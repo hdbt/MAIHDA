@@ -124,6 +124,51 @@ test_that("binomial predict_maihda defaults to response scale and supports link 
   expect_true(all(p$data$predicted >= 0 & p$data$predicted <= 1, na.rm = TRUE))
 })
 
+test_that("fit_maihda recodes two-level responses for glmer", {
+  set.seed(1010)
+  n <- 240
+  d <- data.frame(
+    stratum = factor(rep(seq_len(12), each = n / 12)),
+    x = rnorm(n)
+  )
+  stratum_u <- rnorm(12, sd = 0.5)[d$stratum]
+  y01 <- rbinom(n, 1, plogis(-0.2 + 0.5 * d$x + stratum_u))
+
+  d$y <- ifelse(y01 == 1, 2, 1)
+  expect_warning(
+    numeric_model <- fit_maihda(y ~ x + (1 | stratum), data = d),
+    "Automatically switching to family = 'binomial'",
+    fixed = TRUE
+  )
+  expect_s3_class(numeric_model, "maihda_model")
+  expect_equal(sort(unique(numeric_model$data$y)), c(0L, 1L))
+
+  d$y <- ifelse(y01 == 1, "case", "control")
+  expect_warning(
+    character_model <- fit_maihda(y ~ x + (1 | stratum), data = d),
+    "Automatically switching to family = 'binomial'",
+    fixed = TRUE
+  )
+  expect_s3_class(character_model, "maihda_model")
+  expect_equal(sort(unique(character_model$data$y)), c(0L, 1L))
+})
+
+test_that("stepwise_pcv quotes non-syntactic variable names", {
+  set.seed(1011)
+  d <- data.frame(
+    check.names = FALSE,
+    "health outcome" = rnorm(80),
+    "age years" = rnorm(80),
+    "race group" = rep(letters[1:8], each = 10)
+  )
+  strata <- make_strata(d, "race group")
+
+  out <- stepwise_pcv(strata$data, "health outcome", "age years")
+
+  expect_s3_class(out, "maihda_stepwise")
+  expect_equal(out$Added_Variable[2], "age years")
+})
+
 test_that("predict_maihda rebuilds automatic strata for raw newdata", {
   set.seed(1008)
   d <- data.frame(

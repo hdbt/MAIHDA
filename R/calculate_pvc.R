@@ -319,7 +319,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   )
 
   # Model 0: Null Model
-  null_fmla <- as.formula(paste(outcome, "~ 1 + (1 | stratum)"))
+  null_fmla <- maihda_formula_with_stratum(outcome)
   null_mod <- fit_maihda(null_fmla, data, engine = engine, family = family)
   null_var <- extract_between_variance(null_mod)
 
@@ -341,8 +341,8 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     var <- vars[i]
     current_vars <- c(current_vars, var)
 
-    fmla_str <- paste(outcome, "~", paste(current_vars, collapse = " + "), "+ (1 | stratum)")
-    mod <- fit_maihda(as.formula(fmla_str), data, engine = engine, family = family)
+    fmla <- maihda_formula_with_stratum(outcome, current_vars)
+    mod <- fit_maihda(fmla, data, engine = engine, family = family)
 
     curr_var <- extract_between_variance(mod)
 

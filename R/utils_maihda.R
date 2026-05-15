@@ -24,6 +24,74 @@ maihda_linkinv <- function(fam) {
          stop("Unsupported link function for response-scale transformation: ", link, call. = FALSE))
 }
 
+maihda_quote_name <- function(name) {
+  if (!is.character(name) || length(name) != 1 || is.na(name) || name == "") {
+    stop("Variable names must be non-empty character strings.", call. = FALSE)
+  }
+
+  paste(deparse(as.name(name), backtick = TRUE), collapse = "")
+}
+
+maihda_formula_with_stratum <- function(outcome, vars = character()) {
+  if (!is.character(vars)) {
+    stop("'vars' must be a character vector.", call. = FALSE)
+  }
+
+  fixed_terms <- vapply(vars, maihda_quote_name, character(1))
+  random_term <- paste0("(1 | ", maihda_quote_name("stratum"), ")")
+  rhs <- c(if (length(fixed_terms) > 0) fixed_terms else "1", random_term)
+
+  stats::reformulate(rhs, response = maihda_quote_name(outcome))
+}
+
+maihda_is_binary_vector <- function(x) {
+  if (!is.null(dim(x))) {
+    return(FALSE)
+  }
+
+  x <- x[!is.na(x)]
+  length(unique(x)) == 2
+}
+
+maihda_binary_levels <- function(x) {
+  x <- x[!is.na(x)]
+
+  if (is.factor(x)) {
+    return(levels(droplevels(x)))
+  }
+  if (is.logical(x)) {
+    return(c(FALSE, TRUE))
+  }
+  if (is.numeric(x)) {
+    return(sort(unique(x)))
+  }
+
+  levels(factor(x))
+}
+
+maihda_binary_to_01 <- function(x) {
+  levels_x <- maihda_binary_levels(x)
+  key <- as.character(levels_x)
+  out <- match(as.character(x), key) - 1L
+  out[is.na(x)] <- NA_integer_
+  as.integer(out)
+}
+
+maihda_prepare_binomial_response <- function(data, formula) {
+  response <- formula[[2]]
+  if (!is.symbol(response)) {
+    return(data)
+  }
+
+  outcome <- as.character(response)
+  if (!outcome %in% names(data) || !maihda_is_binary_vector(data[[outcome]])) {
+    return(data)
+  }
+
+  data[[outcome]] <- maihda_binary_to_01(data[[outcome]])
+  data
+}
+
 maihda_model_frame <- function(model, fallback = NULL) {
   out <- tryCatch(stats::model.frame(model), error = function(e) NULL)
   if (is.null(out) && inherits(model, "merMod")) {

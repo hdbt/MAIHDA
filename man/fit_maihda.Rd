@@ -29,8 +29,9 @@ or "brms".}
 
 \item{family}{Character string or family object specifying the model family.
 Common options: "gaussian", "binomial", "poisson". Default is "gaussian".
-If the outcome variable appears to be binary (0/1) and the default family is used,
-the function will automatically switch to "binomial" and issue a warning.}
+If the outcome variable appears to be binary and the default family is used,
+the function will automatically switch to "binomial", recode two-level
+responses to 0/1 for \code{glmer()}, and issue a warning.}
 
 \item{autobin}{Logical indicating whether numeric variables used only for
 automatic strata creation should be binned by \code{\link{make_strata}}.
