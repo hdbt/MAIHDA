@@ -82,8 +82,9 @@ or "brms".</p></dd>
 <dt id="arg-family">family<a class="anchor" aria-label="anchor" href="#arg-family"></a></dt>
 <dd><p>Character string or family object specifying the model family.
 Common options: "gaussian", "binomial", "poisson". Default is "gaussian".
-If the outcome variable appears to be binary (0/1) and the default family is used,
-the function will automatically switch to "binomial" and issue a warning.</p></dd>
+If the outcome variable appears to be binary and the default family is used,
+the function will automatically switch to "binomial", recode two-level
+responses to 0/1 for <code>glmer()</code>, and issue a warning.</p></dd>
 
 
 <dt id="arg-autobin">autobin<a class="anchor" aria-label="anchor" href="#arg-autobin"></a></dt>
