@@ -31,6 +31,8 @@ model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_1$data)
 model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_2$data)
 
 comparison <- compare_maihda(model1, model2, bootstrap = TRUE)
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
 plot_comparison(comparison)
 
 # }

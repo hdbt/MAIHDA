@@ -5,7 +5,12 @@ Plot Predicted Stratum Values with Confidence Intervals
 ## Usage
 
 ``` r
-plot_predicted_strata(object, summary_obj, n_strata)
+plot_predicted_strata(
+  object,
+  summary_obj,
+  n_strata,
+  scale = c("response", "link")
+)
 ```
 
 ## Arguments
@@ -21,6 +26,10 @@ plot_predicted_strata(object, summary_obj, n_strata)
 - n_strata:
 
   Maximum number of strata to display
+
+- scale:
+
+  Prediction scale: "response" (default) or "link"
 
 ## Value
 

@@ -6,7 +6,13 @@ level or individual level.
 ## Usage
 
 ``` r
-predict_maihda(object, newdata = NULL, type = c("individual", "strata"), ...)
+predict_maihda(
+  object,
+  newdata = NULL,
+  type = c("individual", "strata", "response", "link"),
+  scale = c("response", "link"),
+  ...
+)
 ```
 
 ## Arguments
@@ -29,6 +35,15 @@ predict_maihda(object, newdata = NULL, type = c("individual", "strata"), ...)
 
   - "strata": Stratum-level predictions (random effects only)
 
+  For backward compatibility, "link" or "response" may also be passed
+  here and will be interpreted as individual-level predictions on that
+  scale.
+
+- scale:
+
+  Character string specifying the prediction scale for individual-level
+  predictions: "response" (default) or "link".
+
 - ...:
 
   Additional arguments passed to predict method of underlying model.
@@ -37,7 +52,8 @@ predict_maihda(object, newdata = NULL, type = c("individual", "strata"), ...)
 
 Depending on type:
 
-- For "individual": A numeric vector of predicted values
+- For "individual": A numeric vector of predicted values on the
+  requested scale
 
 - For "strata": A data frame with stratum ID and predicted random effect
 

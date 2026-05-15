@@ -6,7 +6,14 @@ Heterogeneity and Discriminatory Accuracy) using either lme4 or brms.
 ## Usage
 
 ``` r
-fit_maihda(formula, data, engine = "lme4", family = "gaussian", ...)
+fit_maihda(
+  formula,
+  data,
+  engine = "lme4",
+  family = "gaussian",
+  autobin = TRUE,
+  ...
+)
 ```
 
 ## Arguments
@@ -34,7 +41,17 @@ fit_maihda(formula, data, engine = "lme4", family = "gaussian", ...)
 - family:
 
   Character string or family object specifying the model family. Common
-  options: "gaussian", "binomial", "poisson". Default is "gaussian".
+  options: "gaussian", "binomial", "poisson". Default is "gaussian". If
+  the outcome variable appears to be binary (0/1) and the default family
+  is used, the function will automatically switch to "binomial" and
+  issue a warning.
+
+- autobin:
+
+  Logical indicating whether numeric variables used only for automatic
+  strata creation should be binned by
+  [`make_strata`](https://hdbt.github.io/MAIHDA/reference/make_strata.md).
+  Default is TRUE.
 
 - ...:
 
