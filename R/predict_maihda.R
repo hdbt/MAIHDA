@@ -58,6 +58,8 @@ predict_maihda <- function(object, newdata = NULL,
   
   if (is.null(newdata)) {
     newdata <- object$data
+  } else {
+    newdata <- maihda_prepare_prediction_data(object, newdata)
   }
   
   if (engine == "lme4") {

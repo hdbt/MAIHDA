@@ -124,6 +124,52 @@ test_that("binomial predict_maihda defaults to response scale and supports link 
   expect_true(all(p$data$predicted >= 0 & p$data$predicted <= 1, na.rm = TRUE))
 })
 
+test_that("predict_maihda rebuilds automatic strata for raw newdata", {
+  set.seed(1008)
+  d <- data.frame(
+    gender = rep(c("F", "M"), each = 40),
+    race = rep(c("A", "B"), times = 40),
+    age = rnorm(80)
+  )
+  stratum_key <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- 1 + 0.5 * d$age + rnorm(nlevels(stratum_key), sd = 0.8)[stratum_key] + rnorm(80, sd = 0.3)
+
+  model <- fit_maihda(y ~ age + (1 | gender:race), data = d)
+
+  raw_newdata <- d[1:20, c("gender", "race", "age")]
+  explicit_newdata <- raw_newdata
+  explicit_newdata$stratum <- model$original_data$stratum[1:20]
+
+  expect_equal(
+    as.numeric(predict_maihda(model, newdata = raw_newdata)),
+    as.numeric(predict_maihda(model, newdata = explicit_newdata)),
+    tolerance = 1e-8
+  )
+})
+
+test_that("predict_maihda reuses training bins for numeric automatic strata", {
+  set.seed(1009)
+  n <- 120
+  d <- data.frame(
+    age = runif(n, 18, 80),
+    gender = sample(c("F", "M"), n, replace = TRUE)
+  )
+  strata <- interaction(cut(d$age, breaks = 3), d$gender, drop = TRUE)
+  d$y <- 2 + 0.1 * d$age + rnorm(nlevels(strata), sd = 0.6)[strata] + rnorm(n, sd = 0.4)
+
+  model <- fit_maihda(y ~ age + gender + (1 | age:gender), data = d)
+
+  raw_newdata <- d[1:30, c("age", "gender")]
+  explicit_newdata <- raw_newdata
+  explicit_newdata$stratum <- model$original_data$stratum[1:30]
+
+  expect_equal(
+    as.numeric(predict_maihda(model, newdata = raw_newdata)),
+    as.numeric(predict_maihda(model, newdata = explicit_newdata)),
+    tolerance = 1e-8
+  )
+})
+
 test_that("ternary additive component is invariant to row order", {
   set.seed(1007)
   d <- data.frame(

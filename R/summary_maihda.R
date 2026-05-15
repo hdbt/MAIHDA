@@ -86,6 +86,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
         estimate = vpc,
         ci_lower = vpc_ci[1],
         ci_upper = vpc_ci[2],
+        conf_level = conf_level,
         bootstrap = TRUE
       )
     } else {
@@ -215,9 +216,10 @@ print.maihda_summary <- function(x, ...) {
 
   cat("Variance Partition Coefficient (VPC/ICC):\n")
   if (x$vpc$bootstrap) {
+    conf_pct <- if (!is.null(x$vpc$conf_level)) x$vpc$conf_level * 100 else 95
     cat(sprintf("  Estimate: %.4f [%.4f, %.4f]\n",
                 x$vpc$estimate, x$vpc$ci_lower, x$vpc$ci_upper))
-    cat("  (Bootstrap 95% CI)\n\n")
+    cat(sprintf("  (Bootstrap %.0f%% CI)\n\n", conf_pct))
   } else {
     cat(sprintf("  Estimate: %.4f\n\n", x$vpc$estimate))
   }

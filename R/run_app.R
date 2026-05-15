@@ -1,3 +1,7 @@
+maihda_app_required_packages <- function() {
+  c("shiny", "bslib", "DT", "future", "promises", "haven", "shinyjs", "plotly", "ggtern")
+}
+
 #' Run MAIHDA Shiny Application
 #'
 #' @description
@@ -14,7 +18,7 @@
 #' run_maihda_app()
 #' }
 run_maihda_app <- function() {
-  required_pkgs <- c("shiny", "bslib", "DT", "future", "promises", "haven", "shinyjs", "plotly")
+  required_pkgs <- maihda_app_required_packages()
   missing_pkgs <- required_pkgs[!vapply(required_pkgs, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]
 
   if (length(missing_pkgs) > 0) {

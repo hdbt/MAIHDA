@@ -25,3 +25,18 @@ test_that("summary handles binomial and gaussian residual variance correctly", {
   binom_resid_var <- summ_binom$variance_components$variance[summ_binom$variance_components$component == "Within-stratum (residual)"]
   expect_equal(binom_resid_var, (pi^2) / 3, tolerance = 1e-6)
 })
+
+test_that("summary print reports requested bootstrap confidence level", {
+  set.seed(1101)
+  d <- data.frame(
+    stratum = rep(seq_len(8), each = 8),
+    x = rnorm(64)
+  )
+  d$y <- 1 + d$x + rnorm(8, sd = 1)[d$stratum] + rnorm(64, sd = 0.5)
+
+  model <- fit_maihda(y ~ x + (1 | stratum), data = d)
+  summ <- summary(model, bootstrap = TRUE, n_boot = 5, conf_level = 0.80)
+
+  expect_equal(summ$vpc$conf_level, 0.80)
+  expect_output(print(summ), "Bootstrap 80% CI", fixed = TRUE)
+})

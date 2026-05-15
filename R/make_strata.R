@@ -59,18 +59,23 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
   strata_data <- data[, vars, drop = FALSE]
 
   # Auto-bin numeric variables with >10 unique values into 3 categories
+  autobin_info <- list()
   if (autobin) {
     for (v in vars) {
       val <- strata_data[[v]]
       if (is.numeric(val) && length(unique(stats::na.omit(val))) > 10) {
         q <- stats::quantile(val, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)
+        labels <- c(paste0(v, "_Low"), paste0(v, "_Mid"), paste0(v, "_High"))
         if (length(unique(q)) == 4) {
-          strata_data[[v]] <- cut(val, breaks = q, include.lowest = TRUE,
-                                  labels = c(paste0(v, "_Low"), paste0(v, "_Mid"), paste0(v, "_High")))
+          breaks <- as.numeric(q)
         } else {
-          strata_data[[v]] <- cut(val, breaks = 3, include.lowest = TRUE,
-                                  labels = c(paste0(v, "_Low"), paste0(v, "_Mid"), paste0(v, "_High")))
+          rx <- range(val, na.rm = TRUE)
+          dx <- diff(rx)
+          breaks <- seq(rx[1] - dx/1000, rx[2] + dx/1000, length.out = 4)
         }
+        strata_data[[v]] <- cut(val, breaks = breaks, include.lowest = TRUE,
+                                labels = labels)
+        autobin_info[[v]] <- list(breaks = breaks, labels = labels)
       }
     }
   }
@@ -122,6 +127,8 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
 
   # Attach strata_info as an attribute to the data for easy access
   attr(result_data, "strata_info") <- strata_info
+  attr(result_data, "strata_sep") <- sep
+  attr(result_data, "strata_autobin_info") <- autobin_info
 
   # Return results
   structure(
@@ -130,7 +137,8 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
       strata_info = strata_info,
       vars = vars,
       sep = sep,
-      min_n = min_n
+      min_n = min_n,
+      autobin_info = autobin_info
     ),
     class = "maihda_strata"
   )

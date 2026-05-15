@@ -271,6 +271,81 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
   out
 }
 
+maihda_apply_autobin_info <- function(strata_data, autobin_info) {
+  if (is.null(autobin_info) || length(autobin_info) == 0) {
+    return(strata_data)
+  }
+
+  for (v in intersect(names(autobin_info), names(strata_data))) {
+    info <- autobin_info[[v]]
+    if (!is.null(info$breaks) && !is.null(info$labels)) {
+      strata_data[[v]] <- cut(strata_data[[v]], breaks = info$breaks,
+                              include.lowest = TRUE, labels = info$labels)
+    }
+  }
+
+  strata_data
+}
+
+maihda_stratum_labels <- function(data, vars, sep = " \u00d7 ", autobin_info = NULL) {
+  strata_data <- data[, vars, drop = FALSE]
+  strata_data <- maihda_apply_autobin_info(strata_data, autobin_info)
+
+  has_missing <- apply(strata_data, 1, function(x) any(is.na(x)))
+  labels <- rep(NA_character_, nrow(strata_data))
+  labels[!has_missing] <- apply(
+    strata_data[!has_missing, , drop = FALSE],
+    1,
+    function(x) paste(x, collapse = sep)
+  )
+  labels
+}
+
+maihda_prepare_prediction_data <- function(object, newdata) {
+  if (!is.data.frame(newdata)) {
+    stop("'newdata' must be a data frame", call. = FALSE)
+  }
+  if ("stratum" %in% names(newdata)) {
+    return(newdata)
+  }
+
+  strata_vars <- object$strata_vars
+  if (is.null(strata_vars) || length(strata_vars) == 0) {
+    return(newdata)
+  }
+
+  missing_vars <- setdiff(strata_vars, names(newdata))
+  if (length(missing_vars) > 0) {
+    stop("Cannot rebuild 'stratum' for prediction. Missing grouping variables in newdata: ",
+         paste(missing_vars, collapse = ", "), call. = FALSE)
+  }
+
+  strata_info <- object$strata_info
+  if (is.null(strata_info) || !all(c("stratum", "label") %in% names(strata_info))) {
+    stop("Cannot rebuild 'stratum' for prediction because training strata labels were not stored.",
+         call. = FALSE)
+  }
+
+  sep <- object$strata_sep
+  if (is.null(sep) || length(sep) != 1) {
+    sep <- " \u00d7 "
+  }
+  labels <- maihda_stratum_labels(newdata, strata_vars, sep, object$strata_autobin_info)
+  stratum_map <- stats::setNames(as.character(strata_info$stratum), strata_info$label)
+  newdata$stratum <- unname(stratum_map[labels])
+
+  unknown <- !is.na(labels) & is.na(newdata$stratum)
+  if (any(unknown)) {
+    unknown_labels <- unique(labels[unknown])
+    stop("newdata contains strata combinations that were not present when the model was fit: ",
+         paste(utils::head(unknown_labels, 5), collapse = ", "),
+         if (length(unknown_labels) > 5) ", ..." else "",
+         call. = FALSE)
+  }
+
+  newdata
+}
+
 maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("response", "link")) {
   scale <- match.arg(scale)
   if (!requireNamespace("brms", quietly = TRUE)) {

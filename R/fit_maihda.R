@@ -89,6 +89,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # be specified explicitly after calling make_strata().
   re_terms <- reformulas::findbars(formula)
   strata_info <- attr(data, "strata_info")
+  strata_sep <- attr(data, "strata_sep")
+  strata_autobin_info <- attr(data, "strata_autobin_info")
   strata_vars <- NULL
 
   if (length(re_terms) > 0) {
@@ -128,7 +130,11 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       strata_result <- make_strata(data, vars = strata_vars, autobin = autobin)
       data$stratum <- strata_result$data$stratum
       strata_info <- strata_result$strata_info
+      strata_sep <- strata_result$sep
+      strata_autobin_info <- strata_result$autobin_info
       attr(data, "strata_info") <- strata_info
+      attr(data, "strata_sep") <- strata_sep
+      attr(data, "strata_autobin_info") <- strata_autobin_info
 
       fixed_formula <- reformulas::nobars(formula)
       formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
@@ -165,6 +171,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # same rows as lme4/brms after their NA handling.
   model_data <- maihda_model_frame(model, fallback = data)
   attr(model_data, "strata_info") <- strata_info
+  attr(model_data, "strata_sep") <- strata_sep
+  attr(model_data, "strata_autobin_info") <- strata_autobin_info
 
   result <- structure(
     list(
@@ -175,7 +183,9 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       original_data = data,
       family = family,
       strata_info = strata_info,
-      strata_vars = strata_vars
+      strata_vars = strata_vars,
+      strata_sep = strata_sep,
+      strata_autobin_info = strata_autobin_info
     ),
     class = "maihda_model"
   )
