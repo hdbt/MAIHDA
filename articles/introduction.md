@@ -104,9 +104,9 @@ dynamically.
 
 ``` r
 
-# Run a stepwise variance decomposition (using the auto-generated strata from model_null)
+# Run a stepwise variance decomposition using the prepared data with strata
 stepwise_results <- stepwise_pcv(
-  data = model_null$data,
+  data = model_null$original_data,
   outcome = "BMI",
   vars = c("Age", "Gender", "Race", "Education", "Poverty")
 )

@@ -52,8 +52,9 @@ Shiny Dashboard
 
 ### 3. Model Fitting & Settings
 
-- Choose the modeling engine: **lme4** (fast, frequentist) or **brms**
-  (robust, Bayesian).
+- Fit models with the **lme4** engine used by the interactive dashboard.
+  Bayesian **brms** models remain available from R code via
+  `fit_maihda(engine = "brms")`.
 - Select covariates to control for within your models.
 - Choose whether to calculate **bootstrap confidence intervals** to get
   robust uncertainty metrics for your Variance Partition Coefficient

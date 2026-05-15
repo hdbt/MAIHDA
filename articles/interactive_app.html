@@ -143,8 +143,9 @@ race, education) to automatically generate intersectional strata.</li>
 <h3 id="model-fitting-settings">3. Model Fitting &amp; Settings<a class="anchor" aria-label="anchor" href="#model-fitting-settings"></a>
 </h3>
 <ul>
-<li>Choose the modeling engine: <strong>lme4</strong> (fast,
-frequentist) or <strong>brms</strong> (robust, Bayesian).</li>
+<li>Fit models with the <strong>lme4</strong> engine used by the
+interactive dashboard. Bayesian <strong>brms</strong> models remain
+available from R code via <code>fit_maihda(engine = "brms")</code>.</li>
 <li>Select covariates to control for within your models.</li>
 <li>Choose whether to calculate <strong>bootstrap confidence
 intervals</strong> to get robust uncertainty metrics for your Variance

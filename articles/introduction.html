@@ -166,9 +166,9 @@ simple main effects.</p>
 explained the variance. Use the <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code> function to
 add covariates one-by-one and track the variance dynamically.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Run a stepwise variance decomposition (using the auto-generated strata from model_null)</span></span>
+<code class="sourceCode R"><span><span class="co"># Run a stepwise variance decomposition using the prepared data with strata</span></span>
 <span><span class="va">stepwise_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/stepwise_pcv.html">stepwise_pcv</a></span><span class="op">(</span></span>
-<span>  data <span class="op">=</span> <span class="va">model_null</span><span class="op">$</span><span class="va">data</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">model_null</span><span class="op">$</span><span class="va">original_data</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="st">"BMI"</span>,</span>
 <span>  vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Age"</span>, <span class="st">"Gender"</span>, <span class="st">"Race"</span>, <span class="st">"Education"</span>, <span class="st">"Poverty"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>

@@ -20,7 +20,8 @@ summary(object, bootstrap = FALSE, n_boot = 1000, conf_level = 0.95, ...)
 - bootstrap:
 
   Logical indicating whether to compute bootstrap confidence intervals
-  for VPC/ICC. Default is FALSE.
+  for VPC/ICC. Default is FALSE. Currently supported for lme4 models
+  only.
 
 - n_boot:
 
