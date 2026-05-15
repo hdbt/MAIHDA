@@ -36,7 +36,9 @@ compute_maihda_ternary_data(
 
 - uncertainty_method:
 
-  Character indicating how to extract uncertainty.
+  Character indicating how to extract uncertainty. "auto" uses
+  conditional standard errors for lme4 models and posterior standard
+  deviations for brms models. "ci_width" uses the 95% interval width.
 
 - include_na_strata:
 
