@@ -23,7 +23,9 @@ compute_maihda_ternary_data(
 
 \item{reference_values}{List or data.frame of reference values for covariates.}
 
-\item{uncertainty_method}{Character indicating how to extract uncertainty.}
+\item{uncertainty_method}{Character indicating how to extract uncertainty.
+"auto" uses conditional standard errors for lme4 models and posterior
+standard deviations for brms models. "ci_width" uses the 95\% interval width.}
 
 \item{include_na_strata}{Logical, whether to include strata with missing data.}
 

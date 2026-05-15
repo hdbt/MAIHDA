@@ -138,3 +138,22 @@ test_that("plot_maihda uses meaningful stratum labels from make_strata", {
   expect_true(any(grepl("\u00d7", display_labels)),
              info = "Plot should use meaningful labels like 'Male \u00d7 White', not numeric IDs")
 })
+
+test_that("observed vs shrunken handles binary factor outcomes", {
+  set.seed(556)
+  strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+
+  expect_warning(
+    model <- fit_maihda(binary_outcome ~ age + (1 | stratum),
+                        data = strata_result$data,
+                        engine = "lme4"),
+    "Automatically switching to family = 'binomial'",
+    fixed = TRUE
+  )
+
+  plot <- plot(model, type = "obs_vs_shrunken")
+
+  expect_true(inherits(plot, "ggplot"))
+  expect_true(all(is.finite(plot$data$observed)))
+  expect_true(all(plot$data$observed >= 0 & plot$data$observed <= 1))
+})

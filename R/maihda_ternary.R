@@ -5,6 +5,8 @@
 #' @param scale Character, either "link" or "response".
 #' @param reference_values List or data.frame of reference values for covariates.
 #' @param uncertainty_method Character indicating how to extract uncertainty.
+#'   "auto" uses conditional standard errors for lme4 models and posterior
+#'   standard deviations for brms models. "ci_width" uses the 95\% interval width.
 #' @param include_na_strata Logical, whether to include strata with missing data.
 #' @param verbose Logical, whether to print messages.
 #'
@@ -63,7 +65,7 @@ compute_maihda_ternary_data <- function(
     re_df <- data.frame(
       stratum = re_stratum$stratum,
       u_j = re_stratum$random_effect,
-      uncertainty = re_stratum$se,
+      uncertainty = maihda_ternary_uncertainty(re_stratum, uncertainty_method, "lme4"),
       stringsAsFactors = FALSE
     )
 
@@ -75,7 +77,7 @@ compute_maihda_ternary_data <- function(
     re_df <- data.frame(
       stratum = re_stratum$stratum,
       u_j = re_stratum$random_effect,
-      uncertainty = re_stratum$se,
+      uncertainty = maihda_ternary_uncertainty(re_stratum, uncertainty_method, "brms"),
       stringsAsFactors = FALSE
     )
   } else {
@@ -123,7 +125,7 @@ compute_maihda_ternary_data <- function(
       fe_preds <- if (scale == "link") {
         brms::posterior_linpred(fitted_mod, newdata = pred_data, re_formula = NA, summary = TRUE)[, "Estimate"]
       } else {
-        brms::fitted(fitted_mod, newdata = pred_data, re_formula = NA, summary = TRUE)[, "Estimate"]
+        stats::fitted(fitted_mod, newdata = pred_data, re_formula = NA, summary = TRUE)[, "Estimate"]
       }
   }
 
@@ -175,6 +177,29 @@ compute_maihda_ternary_data <- function(
   tibble::as_tibble(res)
 }
 
+maihda_ternary_uncertainty <- function(re_stratum, uncertainty_method, engine) {
+  method <- uncertainty_method
+  if (method == "auto") {
+    method <- if (engine == "brms") "posterior_sd" else "se"
+  }
+
+  if (method == "se") {
+    return(re_stratum$se)
+  }
+  if (method == "ci_width") {
+    return(abs(re_stratum$upper_95 - re_stratum$lower_95))
+  }
+  if (method == "posterior_sd") {
+    if (engine != "brms") {
+      stop("uncertainty_method = 'posterior_sd' is only available for brms models.",
+           call. = FALSE)
+    }
+    return(re_stratum$se)
+  }
+
+  stop("Unsupported uncertainty_method: ", uncertainty_method, call. = FALSE)
+}
+
 #' Plot MAIHDA Ternary Diagram
 #'
 #' @param ternary_data Data output from \code{compute_maihda_ternary_data}.
@@ -219,7 +244,7 @@ plot_maihda_ternary <- function(
       color = "Stratum",
       size = "Sample Size (N)",
       title = "MAIHDA Strata Effects Decomposition",
-      caption = "Each point is a stratum. Proximity to a corner indicates higher proportion of that component.\nAdditive: Fixed effects only. Intersection: Random effect magnitude. Uncertainty: Standard error."
+      caption = "Each point is a stratum. Proximity to a corner indicates higher proportion of that component.\nAdditive: Fixed effects only. Intersection: Random effect magnitude. Uncertainty: selected uncertainty metric."
     ) +
     ggplot2::theme(
       text = ggplot2::element_text(family = "sans", size = 11, color = "#333333"),

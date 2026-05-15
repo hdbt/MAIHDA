@@ -25,6 +25,13 @@ test_that("Ternary plot functions work", {
   expect_true(all(c("stratum", "additive_prop", "interaction_prop", "uncertainty_prop") %in% names(td)))
   expect_equal(rowSums(td[, c("additive_prop", "interaction_prop", "uncertainty_prop")]), rep(1, 5), tolerance = 1e-4)
 
+  td_ci <- compute_maihda_ternary_data(model, uncertainty_method = "ci_width")
+  expect_equal(td_ci$uncertainty, td$uncertainty * 3.92, tolerance = 1e-8)
+  expect_error(
+    compute_maihda_ternary_data(model, uncertainty_method = "posterior_sd"),
+    "only available for brms"
+  )
+
   # Test wrapper function
   skip_if_not_installed("ggtern")
   out <- maihda_ternary_plot(model)

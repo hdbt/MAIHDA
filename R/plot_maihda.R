@@ -167,11 +167,15 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
     stop("'stratum' variable not found in data. Make sure to use data from make_strata()")
   }
 
+  observed_outcome <- maihda_observed_outcome_for_plot(data[[outcome_var]], object$family)
+
   # Calculate observed stratum means
-  obs_means <- data |>
+  obs_data <- data
+  obs_data$.maihda_observed_outcome <- observed_outcome
+  obs_means <- obs_data |>
     dplyr::group_by(.data$stratum) |>
     dplyr::summarise(
-      observed = mean(.data[[outcome_var]], na.rm = TRUE),
+      observed = mean(.data$.maihda_observed_outcome, na.rm = TRUE),
       n = dplyr::n(),
       .groups = "drop"
     )
@@ -214,6 +218,32 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
   } else {
     stop("No stratum estimates available for plotting")
   }
+}
+
+maihda_observed_outcome_for_plot <- function(x, family = NULL) {
+  fam_name <- if (!is.null(family) && !is.null(family$family)) family$family else NULL
+  is_binomial <- !is.null(fam_name) && fam_name %in% c("binomial", "quasibinomial")
+
+  if (is.numeric(x)) {
+    return(as.numeric(x))
+  }
+  if (is.logical(x)) {
+    return(as.numeric(x))
+  }
+  if (is.factor(x)) {
+    if (is_binomial && nlevels(x) == 2) {
+      return(as.numeric(x == levels(x)[2]))
+    }
+    stop("Observed-vs-shrunken plots require a numeric outcome, or a two-level factor for binomial models.",
+         call. = FALSE)
+  }
+  if (is.character(x) && is_binomial && length(unique(stats::na.omit(x))) == 2) {
+    levels_x <- sort(unique(stats::na.omit(x)))
+    return(as.numeric(x == levels_x[2]))
+  }
+
+  stop("Observed-vs-shrunken plots require a numeric outcome, or a binary outcome that can be converted to 0/1.",
+       call. = FALSE)
 }
 
 #' Plot Predicted Stratum Values with Confidence Intervals

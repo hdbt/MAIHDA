@@ -96,8 +96,8 @@ Compares VPC/ICC across multiple models with optional bootstrap confidence inter
 
 ### `calculate_pvc()`
 Calculates the proportional change in between-stratum variance (PVC) between two models. This measures how much of the between-stratum variance from a baseline model is explained (or changed) by adding additional predictors in a second model:- Formula: PVC = (Var_model1 - Var_model2) / Var_model1
-- Supports bootstrap confidence intervals
 - Works with both lme4 and brms engines
+- Supports bootstrap confidence intervals for lme4 models
 
 ### `stepwise_pcv()`
 Evaluates multiple sequential models by iteratively adding covariates step-by-step to quantify precisely which variables explain the structural inequalities.
@@ -110,8 +110,8 @@ Launches a locally-hosted, interactive Shiny Dashboard that exposes the core fun
 ```r
 # Fit model adjusting for age, automatically creating strata from gender, race, and education
 model <- fit_maihda(
-  health_outcome ~ age + (1 | gender:race:education),
-  data = health_data
+  BMI ~ Age + (1 | Gender:Race:Education),
+  data = maihda_health_data
 )
 
 # Get variance partition coefficient
@@ -136,8 +136,8 @@ plot(model, type = "ternary")
 ```r
 # Requires brms package
 model_brms <- fit_maihda(
-  health_outcome ~ age + (1 | gender:race:education),
-  data = health_data,
+  BMI ~ Age + (1 | Gender:Race:Education),
+  data = maihda_health_data,
   engine = "brms",
   chains = 4,
   iter = 2000
@@ -253,7 +253,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use this package in your research, please cite:
 
 ```text
-Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.7, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
+Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.8, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
 ```
 
 A BibTeX entry for LaTeX users is:
@@ -263,7 +263,7 @@ A BibTeX entry for LaTeX users is:
   title  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},
   author = {Hamid Bulut},
   year   = {2025},
-  note   = {R package version 0.1.7},
+  note   = {R package version 0.1.8},
   url    = {https://github.com/hdbt/MAIHDA},
   doi    = {10.32614/CRAN.package.MAIHDA}
 }

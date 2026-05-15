@@ -48,9 +48,9 @@ indicates that model2 explains some of the between-stratum variance present in
 model1, while a negative PVC suggests that model2 has more unexplained
 between-stratum variance.
 
-When bootstrap = TRUE, the function resamples the data with replacement and
-refits both models for each bootstrap sample to obtain confidence intervals
-for the PVC estimate.
+When bootstrap = TRUE, the function uses a parametric bootstrap: it simulates
+new responses from model2 and refits both models with \code{lme4::refit()} for
+each simulated response to obtain confidence intervals for the PVC estimate.
 }
 \examples{
 \donttest{

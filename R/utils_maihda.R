@@ -2,8 +2,8 @@
 
 maihda_family <- function(model) {
   fam <- tryCatch(stats::family(model), error = function(e) NULL)
-  if (is.null(fam) && inherits(model, "brmsfit") && requireNamespace("brms", quietly = TRUE)) {
-    fam <- brms::family(model)
+  if (is.null(fam) && inherits(model, "brmsfit")) {
+    fam <- tryCatch(model$family, error = function(e) NULL)
   }
   fam
 }
@@ -214,7 +214,7 @@ maihda_residual_variance_brms <- function(model) {
     return(1)
   }
   if (fam$family == "poisson" && fam$link == "log") {
-    mu <- brms::fitted(model, summary = TRUE)[, "Estimate"]
+    mu <- stats::fitted(model, summary = TRUE)[, "Estimate"]
     mu <- pmax(as.numeric(mu), .Machine$double.eps)
     return(mean(1 / mu, na.rm = TRUE))
   }

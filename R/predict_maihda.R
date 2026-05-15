@@ -83,7 +83,7 @@ predict_maihda <- function(object, newdata = NULL,
     if (type == "individual") {
       # Individual-level predictions
       predictions <- if (scale == "response") {
-        brms::fitted(model, newdata = newdata, summary = TRUE, ...)[, "Estimate"]
+        stats::fitted(model, newdata = newdata, summary = TRUE, ...)[, "Estimate"]
       } else {
         brms::posterior_linpred(model, newdata = newdata, summary = TRUE, ...)[, "Estimate"]
       }
