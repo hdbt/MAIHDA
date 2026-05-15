@@ -16,9 +16,22 @@ test_that("fit_maihda preserves explicit additional random effects", {
   expect_null(model$strata_info)
 
   summ <- summary(model)
-  expected <- as.numeric(as.matrix(lme4::VarCorr(model$model)[["stratum"]])["(Intercept)", "(Intercept)"])
+  vc <- lme4::VarCorr(model$model)
+  expected <- as.numeric(as.matrix(vc[["stratum"]])["(Intercept)", "(Intercept)"])
   observed <- summ$variance_components$variance[1]
   expect_equal(observed, expected, tolerance = 1e-8)
+
+  site_var <- as.numeric(as.matrix(vc[["site"]])["(Intercept)", "(Intercept)"])
+  resid_var <- attr(vc, "sc")^2
+  expected_vpc <- expected / (expected + site_var + resid_var)
+  expect_equal(summ$vpc$estimate, expected_vpc, tolerance = 1e-8)
+  expect_equal(
+    summ$variance_components$variance[
+      summ$variance_components$component == "Other random effects"
+    ],
+    site_var,
+    tolerance = 1e-8
+  )
 })
 
 test_that("fit_maihda rejects ambiguous automatic strata formulas", {
@@ -189,6 +202,72 @@ test_that("predict_maihda rebuilds automatic strata for raw newdata", {
     as.numeric(predict_maihda(model, newdata = raw_newdata)),
     as.numeric(predict_maihda(model, newdata = explicit_newdata)),
     tolerance = 1e-8
+  )
+})
+
+test_that("predict_maihda rebuilds manual make_strata strata for raw newdata", {
+  set.seed(1012)
+  d <- data.frame(
+    gender = rep(c("F", "M"), each = 50),
+    race = rep(c("A", "B"), times = 50),
+    age = rnorm(100)
+  )
+  stratum_key <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- 1 + 0.5 * d$age + rnorm(nlevels(stratum_key), sd = 0.8)[stratum_key] + rnorm(100, sd = 0.3)
+
+  strata <- make_strata(d, c("gender", "race"))
+  model <- fit_maihda(y ~ age + (1 | stratum), data = strata$data)
+
+  raw_newdata <- d[1:20, c("gender", "race", "age")]
+  explicit_newdata <- raw_newdata
+  explicit_newdata$stratum <- strata$data$stratum[1:20]
+
+  expect_equal(model$strata_vars, c("gender", "race"))
+  expect_equal(
+    as.numeric(predict_maihda(model, newdata = raw_newdata)),
+    as.numeric(predict_maihda(model, newdata = explicit_newdata)),
+    tolerance = 1e-8
+  )
+})
+
+test_that("fit_maihda refreshes strata counts after model NA handling", {
+  set.seed(1013)
+  d <- data.frame(
+    group = rep(LETTERS[1:4], each = 15),
+    x = rnorm(60)
+  )
+  d$x[which(d$group == "A")[1:5]] <- NA_real_
+  group_effect <- rnorm(4, sd = 0.8)[match(d$group, LETTERS[1:4])]
+  d$y <- 1 + 0.5 * d$x + group_effect + rnorm(60, sd = 0.2)
+
+  strata <- make_strata(d, "group")
+  model <- fit_maihda(y ~ x + (1 | stratum), data = strata$data)
+  analytic_counts <- table(as.character(model$data$stratum), useNA = "no")
+  expected_counts <- as.integer(analytic_counts[
+    match(as.character(model$strata_info$stratum), names(analytic_counts))
+  ])
+  expected_counts[is.na(expected_counts)] <- 0L
+
+  expect_equal(model$strata_info$n, expected_counts)
+  expect_equal(model$strata_info$n[model$strata_info$group == "A"], 10L)
+})
+
+test_that("summary rejects random-slope models for VPC accounting", {
+  set.seed(1014)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(8), each = 25)),
+    age = rnorm(200)
+  )
+  intercept_u <- rnorm(8, sd = 0.7)[d$stratum]
+  slope_u <- rnorm(8, sd = 0.4)[d$stratum]
+  d$y <- 1 + 0.3 * d$age + intercept_u + slope_u * d$age + rnorm(200, sd = 0.3)
+
+  model <- fit_maihda(y ~ age + (age | stratum), data = d)
+
+  expect_error(
+    summary(model),
+    "intercept-only random effects",
+    fixed = TRUE
   )
 })
 

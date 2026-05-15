@@ -10,7 +10,8 @@
 \item{object}{A maihda_model object from \code{fit_maihda()}.}
 
 \item{bootstrap}{Logical indicating whether to compute bootstrap confidence
-intervals for VPC/ICC. Default is FALSE.}
+intervals for VPC/ICC. Default is FALSE. Currently supported for lme4
+models only.}
 
 \item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.}
 

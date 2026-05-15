@@ -118,6 +118,82 @@ maihda_row_ids <- function(model) {
   row.names(frame)
 }
 
+maihda_infer_strata_vars <- function(strata_info) {
+  if (is.null(strata_info)) {
+    return(NULL)
+  }
+
+  vars <- setdiff(names(strata_info), c("stratum", "label", "n"))
+  if (length(vars) == 0) {
+    return(NULL)
+  }
+
+  vars
+}
+
+maihda_refresh_strata_counts <- function(strata_info, data) {
+  if (is.null(strata_info) ||
+      !"stratum" %in% names(strata_info) ||
+      is.null(data) ||
+      !"stratum" %in% names(data)) {
+    return(strata_info)
+  }
+
+  counts <- table(as.character(data$stratum), useNA = "no")
+  refreshed_n <- as.integer(counts[match(as.character(strata_info$stratum), names(counts))])
+  refreshed_n[is.na(refreshed_n)] <- 0L
+  strata_info$n <- refreshed_n
+
+  strata_info
+}
+
+maihda_non_intercept_effects <- function(effect_names) {
+  if (is.null(effect_names)) {
+    return(character())
+  }
+
+  setdiff(effect_names, c("(Intercept)", "Intercept"))
+}
+
+maihda_stop_for_random_slopes <- function(offending, context) {
+  if (length(offending) == 0) {
+    return(invisible(TRUE))
+  }
+
+  details <- paste(
+    sprintf(
+      "%s (%s)",
+      names(offending),
+      vapply(offending, paste, collapse = ", ", FUN.VALUE = character(1))
+    ),
+    collapse = "; "
+  )
+
+  stop(
+    context,
+    " currently supports intercept-only random effects. Random slopes were found in: ",
+    details,
+    ". Fit random-intercept MAIHDA models for VPC/ICC summaries.",
+    call. = FALSE
+  )
+}
+
+maihda_validate_intercept_only_random_effects_lme4 <- function(model, context = "MAIHDA variance calculations") {
+  vc <- lme4::VarCorr(model)
+  offending <- list()
+
+  for (group in names(vc)) {
+    group_mat <- as.matrix(vc[[group]])
+    non_intercepts <- maihda_non_intercept_effects(rownames(group_mat))
+    if (length(non_intercepts) > 0) {
+      offending[[group]] <- non_intercepts
+    }
+  }
+
+  maihda_stop_for_random_slopes(offending, context)
+  invisible(TRUE)
+}
+
 maihda_stratum_variance_lme4 <- function(model, group = "stratum") {
   vc <- lme4::VarCorr(model)
   if (!group %in% names(vc)) {
@@ -132,6 +208,22 @@ maihda_stratum_variance_lme4 <- function(model, group = "stratum") {
   }
 
   as.numeric(group_vc[intercept_name[1], intercept_name[1]])
+}
+
+maihda_total_random_variance_lme4 <- function(model) {
+  maihda_validate_intercept_only_random_effects_lme4(model)
+
+  vc <- lme4::VarCorr(model)
+  variances <- unlist(lapply(vc, function(group_vc) {
+    group_mat <- as.matrix(group_vc)
+    if (is.null(dim(group_mat))) {
+      return(numeric())
+    }
+    vals <- as.numeric(diag(group_mat))
+    vals[is.finite(vals)]
+  }), use.names = FALSE)
+
+  sum(variances, na.rm = TRUE)
 }
 
 maihda_stratum_variance_brms <- function(model, group = "stratum") {
@@ -160,6 +252,81 @@ maihda_stratum_variance_brms <- function(model, group = "stratum") {
   }
 
   as.numeric(sd_tab[idx, "Estimate"]^2)
+}
+
+maihda_validate_intercept_only_random_effects_brms <- function(vc, context = "MAIHDA variance calculations") {
+  random_groups <- setdiff(names(vc), c("residual__", "sigma"))
+  offending <- list()
+
+  for (group in random_groups) {
+    sd_tab <- vc[[group]]$sd
+    if (is.null(dim(sd_tab))) {
+      next
+    }
+
+    effect_names <- rownames(sd_tab)
+    if (is.null(effect_names) && nrow(sd_tab) == 1) {
+      next
+    }
+
+    non_intercepts <- maihda_non_intercept_effects(effect_names)
+    if (length(non_intercepts) > 0) {
+      offending[[group]] <- non_intercepts
+    }
+  }
+
+  maihda_stop_for_random_slopes(offending, context)
+  invisible(TRUE)
+}
+
+maihda_total_random_variance_brms <- function(model) {
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    stop("Package 'brms' is required to work with brms models. Please install it with: install.packages('brms')")
+  }
+
+  vc <- brms::VarCorr(model)
+  maihda_validate_intercept_only_random_effects_brms(vc)
+
+  random_groups <- setdiff(names(vc), c("residual__", "sigma"))
+  variances <- unlist(lapply(random_groups, function(group) {
+    sd_tab <- vc[[group]]$sd
+    if (is.null(dim(sd_tab)) || !"Estimate" %in% colnames(sd_tab)) {
+      return(numeric())
+    }
+    vals <- as.numeric(sd_tab[, "Estimate"])^2
+    vals[is.finite(vals)]
+  }), use.names = FALSE)
+
+  sum(variances, na.rm = TRUE)
+}
+
+maihda_variance_components_table <- function(var_stratum, var_other_random, var_residual) {
+  var_other_random <- max(0, var_other_random, na.rm = TRUE)
+  total_variance <- var_stratum + var_other_random + var_residual
+
+  components <- "Between-stratum (random)"
+  variances <- var_stratum
+
+  if (is.finite(var_other_random) && var_other_random > sqrt(.Machine$double.eps)) {
+    components <- c(components, "Other random effects")
+    variances <- c(variances, var_other_random)
+  }
+
+  components <- c(components, "Within-stratum (residual)")
+  variances <- c(variances, var_residual)
+
+  proportions <- if (is.finite(total_variance) && total_variance > 0) {
+    variances / total_variance
+  } else {
+    rep(NA_real_, length(variances))
+  }
+
+  data.frame(
+    component = c(components, "Total"),
+    variance = c(variances, total_variance),
+    sd = sqrt(c(variances, total_variance)),
+    proportion = c(proportions, 1.0)
+  )
 }
 
 maihda_stratum_ranef_lme4 <- function(model, group = "stratum") {
@@ -377,7 +544,11 @@ maihda_prepare_prediction_data <- function(object, newdata) {
     return(newdata)
   }
 
+  strata_info <- object$strata_info
   strata_vars <- object$strata_vars
+  if (is.null(strata_vars) || length(strata_vars) == 0) {
+    strata_vars <- maihda_infer_strata_vars(strata_info)
+  }
   if (is.null(strata_vars) || length(strata_vars) == 0) {
     return(newdata)
   }
@@ -388,7 +559,6 @@ maihda_prepare_prediction_data <- function(object, newdata) {
          paste(missing_vars, collapse = ", "), call. = FALSE)
   }
 
-  strata_info <- object$strata_info
   if (is.null(strata_info) || !all(c("stratum", "label") %in% names(strata_info))) {
     stop("Cannot rebuild 'stratum' for prediction because training strata labels were not stored.",
          call. = FALSE)

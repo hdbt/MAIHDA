@@ -127,6 +127,7 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
 
   # Attach strata_info as an attribute to the data for easy access
   attr(result_data, "strata_info") <- strata_info
+  attr(result_data, "strata_vars") <- vars
   attr(result_data, "strata_sep") <- sep
   attr(result_data, "strata_autobin_info") <- autobin_info
 

@@ -114,14 +114,24 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
 #' @keywords internal
 #' @import ggplot2
 plot_vpc <- function(summary_obj) {
-  vpc_data <- summary_obj$variance_components[1:2, ]
+  vpc_data <- summary_obj$variance_components[
+    summary_obj$variance_components$component != "Total", , drop = FALSE
+  ]
+  component_colors <- c(
+    "Between-stratum (random)" = "#E69F00",
+    "Other random effects" = "#009E73",
+    "Within-stratum (residual)" = "#56B4E9"
+  )
+  missing_colors <- setdiff(vpc_data$component, names(component_colors))
+  if (length(missing_colors) > 0) {
+    component_colors[missing_colors] <- "#999999"
+  }
 
   # Create plot
   p <- ggplot(vpc_data, aes(x = "", y = .data$proportion, fill = .data$component)) +
     geom_bar(stat = "identity", width = 1, color = "white") +
     coord_flip() +
-    scale_fill_manual(values = c("Between-stratum (random)" = "#E69F00",
-                                  "Within-stratum (residual)" = "#56B4E9")) +
+    scale_fill_manual(values = component_colors) +
     labs(
       title = sprintf("Variance Partition Coefficient (VPC/ICC) = %.3f",
                      summary_obj$vpc$estimate),

@@ -14,6 +14,7 @@ test_that("make_strata creates strata correctly", {
   expect_true("stratum" %in% names(result$data))
   expect_equal(nrow(result$data), 100)
   expect_equal(nrow(result$strata_info), 4)
+  expect_equal(attr(result$data, "strata_vars"), c("gender", "race"))
   
   # Check that all observations have valid strata
   expect_equal(sum(is.na(result$data$stratum)), 0)

@@ -148,6 +148,7 @@ server <- function(input, output, session) {
 
   # Reactive values for model and results
   model_results <- reactiveVal(NULL)
+  null_summary_results <- reactiveVal(NULL)
   summary_results <- reactiveVal(NULL)
   pvc_results <- reactiveVal(NULL)
   stepwise_results <- reactiveVal(NULL)
@@ -170,6 +171,7 @@ server <- function(input, output, session) {
 
     # Reset old results
     model_results(NULL)
+    null_summary_results(NULL)
     summary_results(NULL)
     pvc_results(NULL)
     stepwise_results(NULL)
@@ -200,6 +202,9 @@ server <- function(input, output, session) {
       model_dat <- complete_dat
       model_dat$stratum <- strata_dat$data$stratum
       attr(model_dat, "strata_info") <- strata_dat$strata_info
+      attr(model_dat, "strata_vars") <- strata_dat$vars
+      attr(model_dat, "strata_sep") <- strata_dat$sep
+      attr(model_dat, "strata_autobin_info") <- strata_dat$autobin_info
 
       # Step 3: Fit model
       fmla_null <- MAIHDA:::maihda_formula_with_stratum(outcome_var)
@@ -209,11 +214,12 @@ server <- function(input, output, session) {
         pvc <- calculate_pvc(mod1, mod2, bootstrap = use_boot, n_boot = n_boot)
         stepwise <- stepwise_pcv(model_dat, outcome = outcome_var, vars = stepwise_vars, engine = eng, family = fam)
 
-        list(model = mod2, pvc = pvc, stepwise = stepwise)
+        list(null_model = mod1, model = mod2, pvc = pvc, stepwise = stepwise)
       }, seed = TRUE) %...>% (function(res) {
         removeNotification(id)
         model_results(res$model)
         # Call S3 dispatch in the main thread where MAIHDA environment is perfectly active
+        null_summary_results(summary(res$null_model))
         summary_results(summary(res$model))
       pvc_results(res$pvc)
       stepwise_results(res$stepwise)
@@ -472,12 +478,13 @@ server <- function(input, output, session) {
   )
 
   output$interactive_explorer_ui <- renderUI({
-    req(model_results(), summary_results(), pvc_results())
+    req(model_results(), null_summary_results(), summary_results(), pvc_results())
+    null_res <- null_summary_results()
     res <- summary_results()
     pvc <- pvc_results()
 
     # Extract metrics for HUD
-    vpc_val <- round(res$vpc$estimate * 100, 2)
+    vpc_val <- round(null_res$vpc$estimate * 100, 2)
     pvc_val <- round(pvc$pvc * 100, 2)
 
     layout_columns(
@@ -628,9 +635,10 @@ server <- function(input, output, session) {
   })
 
   output$dynamic_interpretation <- renderUI({
-    req(summary_results(), pvc_results())
+    req(null_summary_results(), summary_results(), pvc_results())
 
     # Grab data
+    null_res <- null_summary_results()
     res <- summary_results()
     pvc <- pvc_results()
     df <- as.data.frame(res$stratum_estimates)
@@ -658,7 +666,7 @@ server <- function(input, output, session) {
     dev_n <- most_deviant$n
 
     # Extract metrics
-    vpc_val <- round(res$vpc$estimate * 100, 2)
+    vpc_val <- round(null_res$vpc$estimate * 100, 2)
     pvc_val <- round(pvc$pvc * 100, 2)
     interaction_val <- 100 - pvc_val
 

@@ -88,9 +88,9 @@ print(pcv_result)
 Often, researchers want to know exactly *which* variable explained the variance. Use the `stepwise_pcv()` function to add covariates one-by-one and track the variance dynamically.
 
 ```{r eval=FALSE}
-# Run a stepwise variance decomposition (using the auto-generated strata from model_null)
+# Run a stepwise variance decomposition using the prepared data with strata
 stepwise_results <- stepwise_pcv(
-  data = model_null$data,
+  data = model_null$original_data,
   outcome = "BMI",
   vars = c("Age", "Gender", "Race", "Education", "Poverty")
 )

@@ -90,9 +90,12 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # be specified explicitly after calling make_strata().
   re_terms <- reformulas::findbars(formula)
   strata_info <- attr(data, "strata_info")
+  strata_vars <- attr(data, "strata_vars")
+  if (is.null(strata_vars) || length(strata_vars) == 0) {
+    strata_vars <- maihda_infer_strata_vars(strata_info)
+  }
   strata_sep <- attr(data, "strata_sep")
   strata_autobin_info <- attr(data, "strata_autobin_info")
-  strata_vars <- NULL
 
   if (length(re_terms) > 0) {
     grouping_vars_by_term <- lapply(re_terms, function(x) all.vars(x[[3]]))
@@ -134,6 +137,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       strata_sep <- strata_result$sep
       strata_autobin_info <- strata_result$autobin_info
       attr(data, "strata_info") <- strata_info
+      attr(data, "strata_vars") <- strata_vars
       attr(data, "strata_sep") <- strata_sep
       attr(data, "strata_autobin_info") <- strata_autobin_info
 
@@ -175,7 +179,9 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # Store the actual analytic model frame so downstream calculations use the
   # same rows as lme4/brms after their NA handling.
   model_data <- maihda_model_frame(model, fallback = data)
+  strata_info <- maihda_refresh_strata_counts(strata_info, model_data)
   attr(model_data, "strata_info") <- strata_info
+  attr(model_data, "strata_vars") <- strata_vars
   attr(model_data, "strata_sep") <- strata_sep
   attr(model_data, "strata_autobin_info") <- strata_autobin_info
 

@@ -27,7 +27,8 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'
 #' @param object A maihda_model object from \code{fit_maihda()}.
 #' @param bootstrap Logical indicating whether to compute bootstrap confidence
-#'   intervals for VPC/ICC. Default is FALSE.
+#'   intervals for VPC/ICC. Default is FALSE. Currently supported for lme4
+#'   models only.
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
 #' @param conf_level Confidence level for bootstrap intervals. Default is 0.95.
 #' @param ... Additional arguments (not currently used).
@@ -66,17 +67,16 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     # Extract variance components
     vc <- lme4::VarCorr(model)
     var_random <- maihda_stratum_variance_lme4(model)
+    var_total_random <- maihda_total_random_variance_lme4(model)
+    var_other_random <- max(0, var_total_random - var_random)
     var_residual <- maihda_residual_variance_lme4(model, vc)
 
     # Calculate VPC (ICC)
-    vpc <- var_random / (var_random + var_residual)
+    vpc <- var_random / (var_random + var_other_random + var_residual)
 
     # Create variance components data frame
-    variance_components <- data.frame(
-      component = c("Between-stratum (random)", "Within-stratum (residual)", "Total"),
-      variance = c(var_random, var_residual, var_random + var_residual),
-      sd = c(sqrt(var_random), sqrt(var_residual), sqrt(var_random + var_residual)),
-      proportion = c(vpc, 1 - vpc, 1.0)
+    variance_components <- maihda_variance_components_table(
+      var_random, var_other_random, var_residual
     )
 
     # Bootstrap confidence intervals for VPC if requested
@@ -110,22 +110,27 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     model_summary <- summary(model)
 
   } else if (engine == "brms") {
+    if (bootstrap) {
+      stop("Bootstrap VPC confidence intervals are currently only supported for lme4 models. ",
+           "For brms models, use the posterior uncertainty from the fitted model instead.",
+           call. = FALSE)
+    }
+
     # Verify brms is available
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("Package 'brms' is required to summarize brms models. Please install it with: install.packages('brms')")
     }
 
     var_random <- maihda_stratum_variance_brms(model)
+    var_total_random <- maihda_total_random_variance_brms(model)
+    var_other_random <- max(0, var_total_random - var_random)
     var_residual <- maihda_residual_variance_brms(model)
 
     # Calculate VPC
-    vpc <- var_random / (var_random + var_residual)
+    vpc <- var_random / (var_random + var_other_random + var_residual)
 
-    variance_components <- data.frame(
-      component = c("Between-stratum (random)", "Within-stratum (residual)", "Total"),
-      variance = c(var_random, var_residual, var_random + var_residual),
-      sd = c(sqrt(var_random), sqrt(var_residual), sqrt(var_random + var_residual)),
-      proportion = c(vpc, 1 - vpc, 1.0)
+    variance_components <- maihda_variance_components_table(
+      var_random, var_other_random, var_residual
     )
 
     # For brms, bootstrap is not implemented the same way
@@ -183,9 +188,11 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
       # Calculate VPC
       vc <- lme4::VarCorr(boot_model)
       var_random <- maihda_stratum_variance_lme4(boot_model)
+      var_total_random <- maihda_total_random_variance_lme4(boot_model)
+      var_other_random <- max(0, var_total_random - var_random)
       var_residual <- maihda_residual_variance_lme4(boot_model, vc)
 
-      vpc_boot[i] <- var_random / (var_random + var_residual)
+      vpc_boot[i] <- var_random / (var_random + var_other_random + var_residual)
     }, error = function(e) {
       vpc_boot[i] <- NA
     })

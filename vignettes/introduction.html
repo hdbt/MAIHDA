@@ -428,9 +428,9 @@ simple main effects.</p>
 <p>Often, researchers want to know exactly <em>which</em> variable
 explained the variance. Use the <code>stepwise_pcv()</code> function to
 add covariates one-by-one and track the variance dynamically.</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># Run a stepwise variance decomposition (using the auto-generated strata from model_null)</span></span>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># Run a stepwise variance decomposition using the prepared data with strata</span></span>
 <span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>stepwise_results <span class="ot">&lt;-</span> <span class="fu">stepwise_pcv</span>(</span>
-<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">data =</span> model_null<span class="sc">$</span>data,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">data =</span> model_null<span class="sc">$</span>original_data,</span>
 <span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">outcome =</span> <span class="st">&quot;BMI&quot;</span>,</span>
 <span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">vars =</span> <span class="fu">c</span>(<span class="st">&quot;Age&quot;</span>, <span class="st">&quot;Gender&quot;</span>, <span class="st">&quot;Race&quot;</span>, <span class="st">&quot;Education&quot;</span>, <span class="st">&quot;Poverty&quot;</span>)</span>
 <span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>)</span>

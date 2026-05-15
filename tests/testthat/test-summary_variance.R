@@ -40,3 +40,16 @@ test_that("summary print reports requested bootstrap confidence level", {
   expect_equal(summ$vpc$conf_level, 0.80)
   expect_output(print(summ), "Bootstrap 80% CI", fixed = TRUE)
 })
+
+test_that("summary errors clearly when brms bootstrap is requested", {
+  fake_brms_model <- structure(
+    list(engine = "brms", model = NULL),
+    class = "maihda_model"
+  )
+
+  expect_error(
+    summary(fake_brms_model, bootstrap = TRUE),
+    "only supported for lme4",
+    fixed = TRUE
+  )
+})
