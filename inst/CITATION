@@ -1,5 +1,5 @@
-citEntry(
-  entry = "Manual",
+bibentry(
+  bibtype = "Manual",
   title = "MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy",
   author = person("Hamid", "Bulut"),
   year = "2025",

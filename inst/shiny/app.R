@@ -178,43 +178,18 @@ server <- function(input, output, session) {
 
     id <- showNotification("Creating strata & Fitting Models (May take a moment)...", duration = NULL, type = "message")
 
-    # Formula construction
-    fmla <- MAIHDA:::maihda_formula_with_stratum(
-      outcome_var,
-      c(grouping_vars, additional_covars)
-    )
-
-    # Variables for stepwise PCV
-    stepwise_vars <- c(grouping_vars, additional_covars)
-
     future_promise({
-      # Step 1: Handle Missing Data to ensure identical sample sizes across all models.
-      # If models have different Ns, variance comparisons (PCV) and parametric bootstraps are invalid.
-      all_required_cols <- unique(c(outcome_var, grouping_vars, additional_covars))
-      complete_dat <- dat[complete.cases(dat[, all_required_cols, drop = FALSE]), ]
-
-      if (nrow(complete_dat) == 0) {
-          stop("Error: No complete cases remaining after omitting missing values (NAs). Please select different variables.")
-      }
-
-      # Step 2: Make strata
-      strata_dat <- make_strata(complete_dat, vars = grouping_vars, autobin = autobin_opt)
-      model_dat <- complete_dat
-      model_dat$stratum <- strata_dat$data$stratum
-      attr(model_dat, "strata_info") <- strata_dat$strata_info
-      attr(model_dat, "strata_vars") <- strata_dat$vars
-      attr(model_dat, "strata_sep") <- strata_dat$sep
-      attr(model_dat, "strata_autobin_info") <- strata_dat$autobin_info
-
-      # Step 3: Fit model
-      fmla_null <- MAIHDA:::maihda_formula_with_stratum(outcome_var)
-      mod1 <- fit_maihda(formula = fmla_null, data = model_dat, engine = eng, family = fam)
-      mod2 <- fit_maihda(formula = fmla, data = model_dat, engine = eng, family = fam)
-
-        pvc <- calculate_pvc(mod1, mod2, bootstrap = use_boot, n_boot = n_boot)
-        stepwise <- stepwise_pcv(model_dat, outcome = outcome_var, vars = stepwise_vars, engine = eng, family = fam)
-
-        list(null_model = mod1, model = mod2, pvc = pvc, stepwise = stepwise)
+        MAIHDA:::maihda_app_fit_models(
+          dat = dat,
+          outcome_var = outcome_var,
+          grouping_vars = grouping_vars,
+          additional_covars = additional_covars,
+          family = fam,
+          use_boot = use_boot,
+          n_boot = n_boot,
+          autobin = autobin_opt,
+          engine = eng
+        )
       }, seed = TRUE) %...>% (function(res) {
         removeNotification(id)
         model_results(res$model)
@@ -619,7 +594,7 @@ server <- function(input, output, session) {
        p <- p + geom_point(size = 3)
     }
 
-    p <- p + geom_errorbarh(aes(xmin = lower_95, xmax = upper_95), height = 0.2) +
+    p <- p + geom_errorbar(aes(xmin = lower_95, xmax = upper_95), width = 0.2, orientation = "y") +
       theme_minimal() +
       labs(x = "Intersectional Intercept / Effect (Deviation)",
            y = "Stratum", color = tools::toTitleCase(color_var), size = "Sample Size (N)") +
@@ -631,7 +606,7 @@ server <- function(input, output, session) {
     }
 
     # Disable tooltip for size parameter so it doesn't double-up and break Plotly's rendering gracefully
-    ggplotly(p, tooltip = "text") |> layout(hoverinfo = "text")
+    ggplotly(p, tooltip = "text")
   })
 
   output$dynamic_interpretation <- renderUI({

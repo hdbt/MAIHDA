@@ -1,3 +1,11 @@
+maihda_binomial_observed_01 <- function(x, n) {
+  if (is.null(x) || length(x) != n || !maihda_is_binary_vector(x)) {
+    return(rep(NA_integer_, n))
+  }
+
+  maihda_binary_to_01(x)
+}
+
 #' Plot Prediction Deviation Panels
 #'
 #' @description Creates an advanced, publication-ready two-panel dashboard for visualizing
@@ -144,10 +152,13 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
     # Try to extract response variable
     form <- tryCatch(formula(model), error = function(e) NULL)
     obs_outcome <- NULL
+    obs_outcome_01 <- rep(NA_integer_, nrow(data))
     if (!is.null(form)) {
       resp_name <- as.character(form)[2]
       if (resp_name %in% names(data)) {
-        obs_outcome <- as.factor(data[[resp_name]])
+        raw_outcome <- data[[resp_name]]
+        obs_outcome <- as.factor(raw_outcome)
+        obs_outcome_01 <- maihda_binomial_observed_01(raw_outcome, nrow(data))
       }
     }
     if (is.null(obs_outcome)) {
@@ -160,6 +171,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       dplyr::mutate(
         id = dplyr::row_number(),
         obs_outcome = obs_outcome,
+        obs_outcome_01 = obs_outcome_01,
         fitted = preds$fit,
         se = preds$se.fit,
         abs_res_dev = resids
@@ -198,11 +210,15 @@ is_aggregated <- "stratum" %in% names(df)
       )
 
     if (!is_aggregated) {
-      df <- df |> dplyr::mutate(
-        wrong = factor(ifelse((.data$fitted > 0.5 & as.numeric(as.character(.data$obs_outcome)) == 0) |
-                                (.data$fitted < 0.5 & as.numeric(as.character(.data$obs_outcome)) == 1),
-                              "Wrong", "Correct"))
+      wrong <- rep(NA_character_, nrow(df))
+      known_obs <- !is.na(df$obs_outcome_01)
+      wrong[known_obs] <- ifelse(
+        (df$fitted[known_obs] > 0.5 & df$obs_outcome_01[known_obs] == 0) |
+          (df$fitted[known_obs] < 0.5 & df$obs_outcome_01[known_obs] == 1),
+        "Wrong",
+        "Correct"
       )
+      df$wrong <- factor(wrong, levels = c("Correct", "Wrong"))
     }
 
     df <- df |>

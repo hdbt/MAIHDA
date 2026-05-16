@@ -6,25 +6,81 @@ test_that("Shiny app dependency gate leaves upload-only readers optional", {
   expect_false("haven" %in% MAIHDA:::maihda_app_required_packages())
 })
 
-test_that("Shiny HUD keeps null and adjusted summaries separate", {
-  app_file <- system.file("shiny", "app.R", package = "MAIHDA")
-  if (app_file == "") {
-    app_file <- file.path("inst", "shiny", "app.R")
-  }
-  app <- readLines(app_file, warn = FALSE)
+test_that("Shiny app fit helper builds the model objects used by the dashboard", {
+  dat <- MAIHDA::maihda_sim_data[seq_len(150), ]
 
-  expect_true(any(grepl("null_summary_results <- reactiveVal(NULL)", app, fixed = TRUE)))
-  expect_true(any(grepl("null_summary_results(summary(res$null_model))", app, fixed = TRUE)))
-  expect_true(any(grepl("vpc_val <- round(null_res$vpc$estimate * 100, 2)", app, fixed = TRUE)))
+  res <- MAIHDA:::maihda_app_fit_models(
+    dat = dat,
+    outcome_var = "health_outcome",
+    grouping_vars = c("gender", "race"),
+    additional_covars = "age",
+    family = "gaussian",
+    use_boot = FALSE,
+    n_boot = 10,
+    autobin = TRUE,
+    engine = "lme4"
+  )
+
+  expect_s3_class(res$null_model, "maihda_model")
+  expect_s3_class(res$model, "maihda_model")
+  expect_s3_class(res$pvc, "pvc_result")
+  expect_s3_class(res$stepwise, "maihda_stepwise")
+  expect_identical(row.names(res$null_model$data), row.names(res$model$data))
+  expect_equal(res$model$strata_vars, c("gender", "race"))
+  expect_equal(nrow(res$stepwise), 4)
 })
 
-test_that("Shiny stepwise PCV hover text uses explicit added-variable column", {
+maihda_source_app_for_test <- function() {
+  for (pkg in MAIHDA:::maihda_app_required_packages()) {
+    skip_if_not_installed(pkg)
+  }
+
   app_file <- system.file("shiny", "app.R", package = "MAIHDA")
   if (app_file == "") {
     app_file <- file.path("inst", "shiny", "app.R")
   }
-  app <- readLines(app_file, warn = FALSE)
 
-  expect_true(any(grepl("res$Added_Variable", app, fixed = TRUE)))
-  expect_false(any(grepl("res$Added)", app, fixed = TRUE)))
+  old_plan <- future::plan()
+  on.exit(future::plan(old_plan), add = TRUE)
+
+  app_env <- new.env(parent = globalenv())
+  suppressPackageStartupMessages(suppressWarnings(sys.source(app_file, envir = app_env)))
+  app_env
+}
+
+test_that("Shiny server loads data and derives HUD plot data from real results", {
+  app_env <- maihda_source_app_for_test()
+  dat <- MAIHDA::maihda_sim_data[seq_len(120), ]
+  res <- MAIHDA:::maihda_app_fit_models(
+    dat = dat,
+    outcome_var = "health_outcome",
+    grouping_vars = c("gender", "race"),
+    additional_covars = "age",
+    family = "gaussian",
+    use_boot = FALSE,
+    n_boot = 10,
+    autobin = TRUE,
+    engine = "lme4"
+  )
+
+  shiny::testServer(app_env$server, {
+    session$setInputs(
+      dataset = "sim",
+      hud_top_n = 5,
+      hud_sort_var = "effect",
+      hud_color_var = "deviant"
+    )
+
+    expect_equal(nrow(reactive_data()), nrow(MAIHDA::maihda_sim_data))
+
+    model_results(res$model)
+    null_summary_results(summary(res$null_model))
+    summary_results(summary(res$model))
+    pvc_results(res$pvc)
+
+    hud <- hud_plot_data()
+    expect_lte(nrow(hud), 5)
+    expect_true(all(c("display_label", "deviant", "random_effect") %in% names(hud)))
+    expect_true(any(hud$display_label != paste0("Stratum ", hud$stratum)))
+  })
 })
