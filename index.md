@@ -280,7 +280,7 @@ vignette("introduction", package = "MAIHDA")
 
 - R (\>= 4.1.0)
 - lme4 (\>= 1.1-27)
-- ggplot2 (\>= 3.3.0)
+- ggplot2 (\>= 3.4.0)
 - dplyr (\>= 1.0.0)
 - tidyr (\>= 1.1.0)
 - stats, methods, tibble, rlang
@@ -315,7 +315,7 @@ This project is licensed under the MIT License - see the
 If you use this package in your research, please cite:
 
 ``` text
-Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.8, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
+Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.9, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
 ```
 
 A BibTeX entry for LaTeX users is:
@@ -325,7 +325,7 @@ A BibTeX entry for LaTeX users is:
   title  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},
   author = {Hamid Bulut},
   year   = {2025},
-  note   = {R package version 0.1.8},
+  note   = {R package version 0.1.9},
   url    = {https://github.com/hdbt/MAIHDA},
   doi    = {10.32614/CRAN.package.MAIHDA}
 }

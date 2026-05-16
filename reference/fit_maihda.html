@@ -9,7 +9,7 @@ Heterogeneity and Discriminatory Accuracy) using either lme4 or brms."><meta pro
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.9</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,8 +80,9 @@ or "brms".</p></dd>
 
 
 <dt id="arg-family">family<a class="anchor" aria-label="anchor" href="#arg-family"></a></dt>
-<dd><p>Character string or family object specifying the model family.
-Common options: "gaussian", "binomial", "poisson". Default is "gaussian".
+<dd><p>Character string, family object, or family function specifying
+the model family. Common options: "gaussian", "binomial", "poisson".
+Default is "gaussian".
 If the outcome variable appears to be binary and the default family is used,
 the function will automatically switch to "binomial", recode two-level
 responses to 0/1 for <code>glmer()</code>, and issue a warning.</p></dd>

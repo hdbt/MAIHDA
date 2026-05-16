@@ -40,11 +40,12 @@ fit_maihda(
 
 - family:
 
-  Character string or family object specifying the model family. Common
-  options: "gaussian", "binomial", "poisson". Default is "gaussian". If
-  the outcome variable appears to be binary and the default family is
-  used, the function will automatically switch to "binomial", recode
-  two-level responses to 0/1 for `glmer()`, and issue a warning.
+  Character string, family object, or family function specifying the
+  model family. Common options: "gaussian", "binomial", "poisson".
+  Default is "gaussian". If the outcome variable appears to be binary
+  and the default family is used, the function will automatically switch
+  to "binomial", recode two-level responses to 0/1 for `glmer()`, and
+  issue a warning.
 
 - autobin:
 
