@@ -6,6 +6,19 @@ test_that("Shiny app dependency gate leaves upload-only readers optional", {
   expect_false("haven" %in% MAIHDA:::maihda_app_required_packages())
 })
 
+test_that("Shiny PVC HUD display separates residual variance from unmasking", {
+  positive <- MAIHDA:::maihda_app_pvc_display(35)
+  expect_equal(positive$label, "Residual Strata Variance")
+  expect_equal(positive$value, "65%")
+  expect_equal(positive$status, "nonnegative")
+
+  negative <- MAIHDA:::maihda_app_pvc_display(-12.5)
+  expect_equal(negative$label, "Unmasked Variance")
+  expect_equal(negative$value, "+12.5%")
+  expect_equal(negative$remaining_value, "112.5%")
+  expect_equal(negative$status, "negative")
+})
+
 test_that("Shiny ternary plotly helper includes boundary strata", {
   skip_if_not_installed("plotly")
 

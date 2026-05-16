@@ -2,6 +2,40 @@ maihda_app_required_packages <- function() {
   c("shiny", "bslib", "DT", "future", "promises", "shinyjs", "plotly", "ggtern")
 }
 
+maihda_app_pvc_display <- function(pvc_percent) {
+  pvc_percent <- suppressWarnings(as.numeric(pvc_percent)[1])
+  fmt_percent <- function(x) paste0(round(x, 2), "%")
+
+  if (!is.finite(pvc_percent)) {
+    return(list(
+      label = "Residual Strata Variance",
+      value = "N/A",
+      description = "Between-strata variance not explained by main effects",
+      remaining_value = "N/A",
+      status = "unknown"
+    ))
+  }
+
+  remaining_percent <- 100 - pvc_percent
+  if (pvc_percent < 0) {
+    return(list(
+      label = "Unmasked Variance",
+      value = paste0("+", round(abs(pvc_percent), 2), "%"),
+      description = "Increase in between-strata variance after adjustment",
+      remaining_value = fmt_percent(remaining_percent),
+      status = "negative"
+    ))
+  }
+
+  list(
+    label = "Residual Strata Variance",
+    value = fmt_percent(remaining_percent),
+    description = "Between-strata variance not explained by main effects",
+    remaining_value = fmt_percent(remaining_percent),
+    status = "nonnegative"
+  )
+}
+
 maihda_app_ternary_plotly <- function(td) {
   if (!requireNamespace("plotly", quietly = TRUE)) {
     stop("Package 'plotly' is required to render the interactive ternary plot.",

@@ -430,6 +430,7 @@ server <- function(input, output, session) {
     # Extract metrics for HUD
     vpc_val <- round(null_res$vpc$estimate * 100, 2)
     pvc_val <- round(pvc$pvc * 100, 2)
+    pvc_display <- MAIHDA:::maihda_app_pvc_display(pvc_val)
 
     layout_columns(
       col_widths = c(12, 12),
@@ -438,7 +439,7 @@ server <- function(input, output, session) {
         div(class = "d-flex justify-content-around text-center",
             div(h4("VPC (Null)"), h3(paste0(vpc_val, "%")), p(class="text-muted", "Total Variance b/w Strata")),
             div(h4("PVC (Adjusted)"), h3(paste0(pvc_val, "%")), p(class="text-muted", "Variance Explained by Main Effects")),
-            div(h4("Intersectionality"), h3(paste0(100 - pvc_val, "%")), p(class="text-muted", "Unexplained Variance (Interaction Effects)"))
+            div(h4(pvc_display$label), h3(pvc_display$value), p(class="text-muted", pvc_display$description))
         ),
         markdown("
         **Interpretation Guide**:
@@ -612,16 +613,35 @@ server <- function(input, output, session) {
     # Extract metrics
     vpc_val <- round(null_res$vpc$estimate * 100, 2)
     pvc_val <- round(pvc$pvc * 100, 2)
-    interaction_val <- 100 - pvc_val
+    pvc_display <- MAIHDA:::maihda_app_pvc_display(pvc_val)
+    pvc_interpretation <- if (identical(pvc_display$status, "negative")) {
+      tagList(
+        "After adding the selected main effects, between-strata variance increases by ",
+        tags$strong(pvc_display$value),
+        ", a suppression or unmasking pattern. The adjusted model therefore has ",
+        tags$strong(pvc_display$remaining_value),
+        " of the null between-strata variance, rather than an explained-away share. "
+      )
+    } else if (identical(pvc_display$status, "unknown")) {
+      tagList(
+        "The proportional change in variance could not be summarized for this fit, ",
+        "so the adjusted-model share of between-strata variance is not available. "
+      )
+    } else {
+      tagList(
+        "When considering simple additive (main) effects, ", tags$strong(paste0(pvc_val, "%")),
+        " of this between-strata disparity is explained away, leaving ",
+        tags$strong(pvc_display$remaining_value),
+        " of the original between-strata variance in the adjusted model. "
+      )
+    }
 
     # Construct the summary paragraph dynamically
     tags$div(class = "alert alert-info mt-3",
       tags$strong("Automated Research Summary: "),
       "In this analysis, ", tags$strong(paste0(vpc_val, "%")),
       " of the total variance in the outcome is attributable to the defined intersecting demographic or social strata. ",
-      "When considering simple additive (main) effects, ", tags$strong(paste0(pvc_val, "%")),
-      " of this between-strata disparity is explained away, meaning that ", tags$strong(paste0(interaction_val, "%")),
-      " of the disparity represents unique intersectional interaction effects not captured by standard main-effect modeling. ",
+      pvc_interpretation,
       "Exploring these residuals reveals that the most prominent intersectional disparity occurs in ",
       tags$strong(dev_label), " (N = ", dev_n, "), which shows an intersectional deviation score of ",
       tags$strong(dev_effect), " from what simple additive effects would predict."
