@@ -2,7 +2,16 @@
 
 ## MAIHDA 0.1.9
 
+### Bug Fixes
+
+- Clarified the Shiny dashboard PVC/HUD interpretation so negative PVC
+  values are shown as variance unmasking rather than as unexplained
+  interaction variance.
+- Fixed the coverage workflow failure-artifact upload configuration.
+
 ## MAIHDA 0.1.8
+
+CRAN release: 2026-05-16
 
 ### General Updates & New Features
 
