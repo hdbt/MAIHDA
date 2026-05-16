@@ -6,6 +6,66 @@ maihda_binomial_observed_01 <- function(x, n) {
   maihda_binary_to_01(x)
 }
 
+maihda_prediction_panel_auto_type <- function(model) {
+  if (inherits(model, "polr") || inherits(model, "clm") || inherits(model, "ordinal")) {
+    return("ordinal")
+  }
+
+  fam <- maihda_family(model)
+  fam_name <- if (!is.null(fam) && !is.null(fam$family)) fam$family else NULL
+  if (!is.null(fam_name) && fam_name %in% c("binomial", "quasibinomial", "bernoulli")) {
+    return("binomial")
+  }
+  if (!is.null(fam_name) && fam_name %in% c("cumulative", "sratio", "cratio", "acat", "ordinal")) {
+    return("ordinal")
+  }
+
+  "gaussian"
+}
+
+maihda_prediction_panel_fitted <- function(model, data, type) {
+  if (inherits(model, "brmsfit")) {
+    if (!requireNamespace("brms", quietly = TRUE)) {
+      stop("Package 'brms' is required to plot prediction deviations from brms models.",
+           call. = FALSE)
+    }
+    fit <- stats::fitted(model, newdata = data, summary = TRUE)
+    if (is.null(dim(fit)) || !"Estimate" %in% colnames(fit)) {
+      stop("Could not extract fitted estimates from brms model.", call. = FALSE)
+    }
+    se <- if ("Est.Error" %in% colnames(fit)) fit[, "Est.Error"] else rep(0, nrow(data))
+    return(list(fit = as.numeric(fit[, "Estimate"]), se.fit = as.numeric(se)))
+  }
+
+  if (type == "binomial") {
+    preds <- tryCatch(
+      predict(model, type = "response", se.fit = TRUE),
+      error = function(e) list(fit = predict(model, type = "response"), se.fit = rep(0, nrow(data)))
+    )
+  } else {
+    preds <- tryCatch(
+      predict(model, se.fit = TRUE),
+      error = function(e) list(fit = predict(model), se.fit = rep(0, nrow(data)))
+    )
+  }
+
+  if (is.numeric(preds)) {
+    preds <- list(fit = preds, se.fit = rep(0, nrow(data)))
+  }
+  preds
+}
+
+maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_outcome_01) {
+  if (inherits(model, "brmsfit")) {
+    known_obs <- !is.na(obs_outcome_01)
+    out <- rep(0, nrow(data))
+    out[known_obs] <- abs(obs_outcome_01[known_obs] - fitted[known_obs])
+    return(out)
+  }
+
+  tryCatch(abs(residuals(model, type = "deviance")), error = function(e) rep(0, nrow(data)))
+}
+
 #' Plot Prediction Deviation Panels
 #'
 #' @description Creates an advanced, publication-ready two-panel dashboard for visualizing
@@ -62,15 +122,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
 
   # Auto-detect model type if requested
   if (type == "auto") {
-    if (inherits(model, "polr") || inherits(model, "clm") || inherits(model, "ordinal")) {
-      type <- "ordinal"
-    } else if (inherits(model, "glm") && model$family$family %in% c("binomial", "quasibinomial")) {
-      type <- "binomial"
-    } else if (inherits(model, "glmerMod") && model@resp$family$family %in% c("binomial", "quasibinomial")) {
-      type <- "binomial"
-    } else {
-      type <- "gaussian"
-    }
+    type <- maihda_prediction_panel_auto_type(model)
   }
 
   get_extreme_labels <- function(df, metric_col, n) {
@@ -80,8 +132,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
   if (type == "gaussian") {
     # GAUSSIAN / LINEAR LOGIC
     # Approximate predict, some packages handle se.fit differently, so wrap safely
-    preds <- tryCatch(predict(model, se.fit = TRUE), error = function(e) list(fit = predict(model), se.fit = rep(0, nrow(data))))
-    if (is.numeric(preds)) preds <- list(fit = preds, se.fit = rep(0, nrow(data)))
+    preds <- maihda_prediction_panel_fitted(model, data, "gaussian")
 
     df <- data |>
       dplyr::mutate(
@@ -145,9 +196,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
 
   } else if (type == "binomial") {
     # BINOMIAL / LOGISTIC LOGIC
-    preds <- tryCatch(predict(model, type = "response", se.fit = TRUE),
-                      error = function(e) list(fit = predict(model, type = "response"), se.fit = rep(0, nrow(data))))
-    if (is.numeric(preds)) preds <- list(fit = preds, se.fit = rep(0, nrow(data)))
+    preds <- maihda_prediction_panel_fitted(model, data, "binomial")
 
     # Try to extract response variable
     form <- tryCatch(formula(model), error = function(e) NULL)
@@ -165,7 +214,9 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       obs_outcome <- factor(rep(NA, nrow(data)))
     }
 
-    resids <- tryCatch(abs(residuals(model, type = "deviance")), error = function(e) rep(0, nrow(data)))
+    resids <- maihda_prediction_panel_binomial_residuals(
+      model, data, preds$fit, obs_outcome_01
+    )
 
     df <- data |>
       dplyr::mutate(

@@ -8,7 +8,11 @@ library(future)
 library(promises)
 
 # Set up multisession for async processing
+maihda_app_previous_future_plan <- future::plan()
 future::plan(multisession)
+shiny::onStop(function() {
+  future::plan(maihda_app_previous_future_plan)
+})
 
 ui <- page_sidebar(
   shinyjs::useShinyjs(),

@@ -49,6 +49,17 @@ test_that("make_strata handles errors correctly", {
   # Empty vars
   expect_error(make_strata(data, vars = character(0)),
                "at least one variable name")
+
+  # Invalid minimum stratum size
+  expect_error(make_strata(data, vars = "x", min_n = NA),
+               "'min_n' must be a single positive whole number",
+               fixed = TRUE)
+  expect_error(make_strata(data, vars = "x", min_n = 0),
+               "'min_n' must be a single positive whole number",
+               fixed = TRUE)
+  expect_error(make_strata(data, vars = "x", min_n = 1.5),
+               "'min_n' must be a single positive whole number",
+               fixed = TRUE)
 })
 
 test_that("make_strata handles missing values correctly", {

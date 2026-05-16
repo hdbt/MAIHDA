@@ -115,6 +115,32 @@ test_that("calculate_pvc validates inputs", {
                "must be a maihda_model")
 })
 
+test_that("calculate_pvc rejects row-wise different stratum assignments", {
+  set.seed(790)
+  n <- 80
+  d1 <- data.frame(
+    stratum = factor(rep(seq_len(4), each = n / 4)),
+    x = rnorm(n)
+  )
+  d1$y <- 2 + 0.4 * d1$x + rnorm(4, sd = 0.8)[d1$stratum] + rnorm(n, sd = 0.2)
+
+  d2 <- d1
+  d2$stratum <- factor(rep(seq_len(4), times = n / 4))
+
+  model1 <- suppressMessages(suppressWarnings(
+    fit_maihda(y ~ x + (1 | stratum), data = d1)
+  ))
+  model2 <- suppressMessages(suppressWarnings(
+    fit_maihda(y ~ x + (1 | stratum), data = d2)
+  ))
+
+  expect_error(
+    calculate_pvc(model1, model2),
+    "assign each analytic row to the same stratum",
+    fixed = TRUE
+  )
+})
+
 test_that("calculate_pvc handles same model comparison", {
   # Create test data with actual stratum effects
   set.seed(111)

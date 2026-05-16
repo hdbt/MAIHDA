@@ -186,6 +186,17 @@ validate_pvc_models <- function(model1, model2) {
          call. = FALSE)
   }
 
+  if (!"stratum" %in% names(model1$data) || !"stratum" %in% names(model2$data)) {
+    stop("PVC requires both models to include a 'stratum' column in their analytic data.",
+         call. = FALSE)
+  }
+  row_strata1 <- as.character(model1$data$stratum)
+  row_strata2 <- as.character(model2$data$stratum)
+  if (!identical(row_strata1, row_strata2)) {
+    stop("PVC requires both models to assign each analytic row to the same stratum.",
+         call. = FALSE)
+  }
+
   strata1 <- unique(as.character(model1$data$stratum))
   strata2 <- unique(as.character(model2$data$stratum))
   strata1 <- sort(strata1[!is.na(strata1)])

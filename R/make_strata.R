@@ -52,6 +52,13 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
     stop("Variables not found in data: ", paste(missing_vars, collapse = ", "))
   }
 
+  if (!is.numeric(min_n) || length(min_n) != 1 ||
+      is.na(min_n) || !is.finite(min_n) ||
+      min_n < 1 || min_n != floor(min_n)) {
+    stop("'min_n' must be a single positive whole number.", call. = FALSE)
+  }
+  min_n <- as.integer(min_n)
+
   # Create a copy of the data to avoid modifying the original. Numeric
   # auto-binning is applied only to the temporary strata-building columns so
   # original variables remain valid for fixed-effect model terms.

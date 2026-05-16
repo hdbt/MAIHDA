@@ -40,3 +40,22 @@ test_that("plot_prediction_deviation_panels handles factor binomial outcomes wit
     as.integer(df$y == "Yes")
   )
 })
+
+test_that("prediction deviation auto-detects brmsfit families", {
+  fake_bernoulli <- structure(
+    list(family = structure(list(family = "bernoulli", link = "logit"), class = "family")),
+    class = "brmsfit"
+  )
+  fake_gaussian <- structure(
+    list(family = structure(list(family = "gaussian", link = "identity"), class = "family")),
+    class = "brmsfit"
+  )
+  fake_ordinal <- structure(
+    list(family = structure(list(family = "cumulative", link = "logit"), class = "family")),
+    class = "brmsfit"
+  )
+
+  expect_equal(MAIHDA:::maihda_prediction_panel_auto_type(fake_bernoulli), "binomial")
+  expect_equal(MAIHDA:::maihda_prediction_panel_auto_type(fake_gaussian), "gaussian")
+  expect_equal(MAIHDA:::maihda_prediction_panel_auto_type(fake_ordinal), "ordinal")
+})

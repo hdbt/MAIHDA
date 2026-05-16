@@ -79,7 +79,7 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     ternary_out <- tryCatch(maihda_ternary_plot(object)$plot, error = function(e) NULL)
     if (!is.null(ternary_out)) plots$ternary <- ternary_out
 
-    plots$prediction_deviation <- tryCatch(plot_prediction_deviation_panels(object$model, data = object$data, type = "auto", strata_info = object$strata_info), error = function(e) NULL)
+    plots$prediction_deviation <- tryCatch(plot_prediction_deviation_panels(object, type = "auto"), error = function(e) NULL)
 
     # print them
     for (p in plots[!sapply(plots, is.null)]) { print(p) }
@@ -100,7 +100,7 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     } else if (type == "ternary") {
       plot <- maihda_ternary_plot(object)$plot
     } else if (type == "prediction_deviation") {
-      plot <- plot_prediction_deviation_panels(object$model, data = object$data, type = "auto", strata_info = object$strata_info)
+      plot <- plot_prediction_deviation_panels(object, type = "auto")
     }
 
     return(plot)

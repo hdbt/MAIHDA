@@ -48,6 +48,11 @@ maihda_source_app_for_test <- function() {
   app_env
 }
 
+test_that("Shiny app stores previous future plan for restoration", {
+  app_env <- maihda_source_app_for_test()
+  expect_true(exists("maihda_app_previous_future_plan", envir = app_env, inherits = FALSE))
+})
+
 test_that("Shiny server loads data and derives HUD plot data from real results", {
   app_env <- maihda_source_app_for_test()
   dat <- MAIHDA::maihda_sim_data[seq_len(120), ]
