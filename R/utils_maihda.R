@@ -147,6 +147,34 @@ maihda_refresh_strata_counts <- function(strata_info, data) {
   strata_info
 }
 
+maihda_match_strata_rows <- function(data, lookup, vars) {
+  if (length(vars) == 0) {
+    return(rep(NA_integer_, nrow(data)))
+  }
+  if (nrow(data) == 0) {
+    return(integer())
+  }
+  if (is.null(lookup) || nrow(lookup) == 0) {
+    return(rep(NA_integer_, nrow(data)))
+  }
+
+  out <- rep(NA_integer_, nrow(data))
+  for (i in seq_len(nrow(data))) {
+    matches <- rep(TRUE, nrow(lookup))
+    for (var in vars) {
+      value <- data[[var]][i]
+      matches <- matches & !is.na(value) & !is.na(lookup[[var]])
+      matches <- matches & as.character(lookup[[var]]) == as.character(value)
+    }
+    idx <- which(matches)
+    if (length(idx) > 0) {
+      out[i] <- idx[1]
+    }
+  }
+
+  out
+}
+
 maihda_non_intercept_effects <- function(effect_names) {
   if (is.null(effect_names)) {
     return(character())
@@ -560,6 +588,36 @@ maihda_stratum_labels <- function(data, vars, sep = " \u00d7 ", autobin_info = N
   labels
 }
 
+maihda_stratum_lookup <- function(data, strata_info, vars, sep = " \u00d7 ",
+                                  autobin_info = NULL) {
+  strata_data <- data[, vars, drop = FALSE]
+  strata_data <- maihda_apply_autobin_info(strata_data, autobin_info)
+
+  has_missing <- apply(strata_data, 1, function(x) any(is.na(x)))
+  out <- rep(NA_character_, nrow(strata_data))
+
+  if (!all(vars %in% names(strata_info))) {
+    labels <- maihda_stratum_labels(data, vars, sep, autobin_info)
+    stratum_map <- stats::setNames(as.character(strata_info$stratum), strata_info$label)
+    out <- unname(stratum_map[labels])
+    return(out)
+  }
+
+  complete_idx <- which(!has_missing)
+  if (length(complete_idx) == 0) {
+    return(out)
+  }
+
+  matches <- maihda_match_strata_rows(
+    strata_data[complete_idx, , drop = FALSE],
+    strata_info[, vars, drop = FALSE],
+    vars
+  )
+  matched <- !is.na(matches)
+  out[complete_idx[matched]] <- as.character(strata_info$stratum[matches[matched]])
+  out
+}
+
 maihda_prepare_prediction_data <- function(object, newdata) {
   if (!is.data.frame(newdata)) {
     stop("'newdata' must be a data frame", call. = FALSE)
@@ -602,8 +660,13 @@ maihda_prepare_prediction_data <- function(object, newdata) {
   }
 
   labels <- maihda_stratum_labels(newdata, strata_vars, sep, object$strata_autobin_info)
-  stratum_map <- stats::setNames(as.character(strata_info$stratum), strata_info$label)
-  newdata$stratum <- unname(stratum_map[labels])
+  newdata$stratum <- maihda_stratum_lookup(
+    newdata,
+    strata_info,
+    strata_vars,
+    sep,
+    object$strata_autobin_info
+  )
 
   unknown <- !is.na(labels) & is.na(newdata$stratum)
   if (any(unknown)) {

@@ -65,6 +65,8 @@ compute_maihda_ternary_data <- function(
     re_df <- data.frame(
       stratum = re_stratum$stratum,
       u_j = re_stratum$random_effect,
+      lower_95 = re_stratum$lower_95,
+      upper_95 = re_stratum$upper_95,
       uncertainty = maihda_ternary_uncertainty(re_stratum, uncertainty_method, "lme4"),
       stringsAsFactors = FALSE
     )
@@ -77,6 +79,8 @@ compute_maihda_ternary_data <- function(
     re_df <- data.frame(
       stratum = re_stratum$stratum,
       u_j = re_stratum$random_effect,
+      lower_95 = re_stratum$lower_95,
+      upper_95 = re_stratum$upper_95,
       uncertainty = maihda_ternary_uncertainty(re_stratum, uncertainty_method, "brms"),
       stringsAsFactors = FALSE
     )
@@ -119,18 +123,45 @@ compute_maihda_ternary_data <- function(
     }
   }
 
+  fam <- maihda_family(fitted_mod)
+  linkinv <- maihda_linkinv(fam)
+
   if (engine == "lme4" || inherits(fitted_mod, "merMod")) {
-      fe_preds <- stats::predict(fitted_mod, newdata = pred_data, re.form = NA, type = scale)
+      fe_link <- stats::predict(fitted_mod, newdata = pred_data, re.form = NA, type = "link")
   } else if (engine == "brms" || inherits(fitted_mod, "brmsfit")) {
-      fe_preds <- if (scale == "link") {
-        brms::posterior_linpred(fitted_mod, newdata = pred_data, re_formula = NA, summary = TRUE)[, "Estimate"]
-      } else {
-        stats::fitted(fitted_mod, newdata = pred_data, re_formula = NA, summary = TRUE)[, "Estimate"]
-      }
+      fe_link <- brms::posterior_linpred(fitted_mod, newdata = pred_data, re_formula = NA, summary = TRUE)[, "Estimate"]
+  }
+
+  re_idx <- match(as.character(pred_data$stratum), as.character(re_df$stratum))
+  u_by_row <- re_df$u_j[re_idx]
+
+  if (scale == "response") {
+    additive_values <- linkinv(fe_link)
+    full_values <- linkinv(fe_link + u_by_row)
+
+    if (uncertainty_method == "ci_width") {
+      uncertainty_values <- abs(
+        linkinv(fe_link + re_df$upper_95[re_idx]) -
+          linkinv(fe_link + re_df$lower_95[re_idx])
+      )
+    } else {
+      uncertainty_values <- abs(
+        linkinv(fe_link + u_by_row + re_df$uncertainty[re_idx]) -
+          linkinv(fe_link + u_by_row)
+      )
+    }
+  } else {
+    additive_values <- as.numeric(fe_link)
+    full_values <- as.numeric(fe_link + u_by_row)
+    uncertainty_values <- re_df$uncertainty[re_idx]
   }
 
   additive_by_stratum <- stats::aggregate(
-    x = list(additive_only = as.numeric(fe_preds)),
+    x = list(
+      additive_only = as.numeric(additive_values),
+      full_prediction = as.numeric(full_values),
+      uncertainty = as.numeric(uncertainty_values)
+    ),
     by = list(stratum = as.character(pred_data$stratum)),
     FUN = mean,
     na.rm = TRUE
@@ -138,13 +169,25 @@ compute_maihda_ternary_data <- function(
   re_df$additive_only <- additive_by_stratum$additive_only[
     match(as.character(re_df$stratum), additive_by_stratum$stratum)
   ]
+  re_df$full_prediction <- additive_by_stratum$full_prediction[
+    match(as.character(re_df$stratum), additive_by_stratum$stratum)
+  ]
+  if (scale == "response") {
+    re_df$uncertainty <- additive_by_stratum$uncertainty[
+      match(as.character(re_df$stratum), additive_by_stratum$stratum)
+    ]
+  }
 
   grand_mean_additive <- mean(re_df$additive_only, na.rm = TRUE)
 
   res <- re_df
   res$grand_mean_additive <- grand_mean_additive
   res$additive_signal <- abs(res$additive_only - grand_mean_additive)
-  res$interaction_signal <- abs(res$u_j)
+  res$interaction_signal <- if (scale == "response") {
+    abs(res$full_prediction - res$additive_only)
+  } else {
+    abs(res$u_j)
+  }
   res$u_sign <- ifelse(res$u_j >= 0, "Positive", "Negative")
 
   if (!include_na_strata) {

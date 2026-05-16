@@ -81,6 +81,7 @@ test_that("Shiny server loads data and derives HUD plot data from real results",
     hud <- hud_plot_data()
     expect_lte(nrow(hud), 5)
     expect_true(all(c("display_label", "deviant", "random_effect") %in% names(hud)))
+    expect_false("stratum.1" %in% names(hud))
     expect_true(any(hud$display_label != paste0("Stratum ", hud$stratum)))
   })
 })

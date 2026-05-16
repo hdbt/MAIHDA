@@ -13,7 +13,8 @@ A data frame with 3,000 rows and 7 variables:
   \item{Gender}{Gender of the participant (male/female).}
   \item{Race}{Self-reported race/ethnicity.}
   \item{Education}{Educational attainment level.}
-  \item{Poverty}{Poverty to income ratio, a continuous covariate.}
+  \item{Poverty}{Poverty to income ratio, a continuous covariate. Some values
+    may be missing.}
 }
 }
 \source{
@@ -27,7 +28,7 @@ maihda_health_data
 A pedagogical subset of the National Health and Nutrition Examination Survey
 (NHANES) dataset, serving as a real-world example for Multilevel Analysis
 of Individual Heterogeneity and Discriminatory Accuracy (MAIHDA). Contains
-complete records demonstrating intersectional demographic health inequalities.
+selected records demonstrating intersectional demographic health inequalities.
 }
 \examples{
 data(maihda_health_data)

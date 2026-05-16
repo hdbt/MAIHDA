@@ -518,8 +518,8 @@ server <- function(input, output, session) {
     strata_info <- model_results()$strata_info
     if (!is.null(strata_info)) {
       # resolve duplicate column names gracefully
-      cols_to_merge <- setdiff(names(strata_info), setdiff(names(stratum_df), "stratum"))
-      stratum_df <- merge(stratum_df, strata_info[, c("stratum", cols_to_merge)], by = "stratum", all.x = TRUE)
+      cols_to_merge <- setdiff(names(strata_info), names(stratum_df))
+      stratum_df <- merge(stratum_df, strata_info[, c("stratum", cols_to_merge), drop = FALSE], by = "stratum", all.x = TRUE)
     }
 
     # Add Absolute Predicted Values via margin average

@@ -146,6 +146,31 @@ extract_between_variance <- function(model) {
 }
 
 validate_pvc_models <- function(model1, model2) {
+  response1 <- paste(deparse(model1$formula[[2]]), collapse = "")
+  response2 <- paste(deparse(model2$formula[[2]]), collapse = "")
+  if (!identical(response1, response2)) {
+    stop("PVC requires both models to use the same outcome. ",
+         "Model 1 uses '", response1, "' and Model 2 uses '", response2, "'.",
+         call. = FALSE)
+  }
+
+  fam1 <- maihda_family(model1$model)
+  fam2 <- maihda_family(model2$model)
+  fam_key1 <- c(
+    family = if (!is.null(fam1$family)) fam1$family else NA_character_,
+    link = if (!is.null(fam1$link)) fam1$link else NA_character_
+  )
+  fam_key2 <- c(
+    family = if (!is.null(fam2$family)) fam2$family else NA_character_,
+    link = if (!is.null(fam2$link)) fam2$link else NA_character_
+  )
+  if (!identical(fam_key1, fam_key2)) {
+    stop("PVC requires both models to use the same model family and link. ",
+         "Model 1 uses ", fam_key1[["family"]], "(", fam_key1[["link"]], ") and ",
+         "Model 2 uses ", fam_key2[["family"]], "(", fam_key2[["link"]], ").",
+         call. = FALSE)
+  }
+
   n1 <- maihda_nobs(model1$model)
   n2 <- maihda_nobs(model2$model)
   if (is.finite(n1) && is.finite(n2) && n1 != n2) {

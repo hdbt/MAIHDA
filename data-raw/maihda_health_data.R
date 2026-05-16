@@ -10,7 +10,9 @@ library(dplyr)
 
 set.seed(42)
 
-# Select a meaningful subset of the NHANES data
+# Select a meaningful subset of the NHANES data. The core outcome and strata
+# variables are complete; Poverty is kept as-is so examples can demonstrate
+# complete-case handling for covariate-adjusted models.
 # - BMI: Continuous outcome variable
 # - Obese: Binary outcome variable (BMI >= 30)
 # - Age: Continuous covariate

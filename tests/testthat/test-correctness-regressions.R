@@ -81,6 +81,21 @@ test_that("make_strata preserves original numeric grouping variables", {
   expect_true(any(grepl("age_", strata$strata_info$label)))
 })
 
+test_that("make_strata does not collapse values that contain the display separator", {
+  d <- data.frame(
+    a = rep(c("A \u00d7 B", "A"), each = 20),
+    b = rep(c("C", "B \u00d7 C"), each = 20),
+    x = rnorm(40)
+  )
+
+  strata <- make_strata(d, vars = c("a", "b"))
+
+  expect_equal(nrow(strata$strata_info), 2)
+  expect_equal(length(unique(stats::na.omit(strata$data$stratum))), 2)
+  expect_equal(as.character(strata$strata_info$a), c("A \u00d7 B", "A"))
+  expect_equal(as.character(strata$strata_info$b), c("C", "B \u00d7 C"))
+})
+
 test_that("calculate_pvc errors for different analytic samples", {
   set.seed(1004)
   d <- data.frame(
@@ -95,6 +110,32 @@ test_that("calculate_pvc errors for different analytic samples", {
   model2 <- fit_maihda(y ~ x + z + (1 | stratum), data = d)
 
   expect_error(calculate_pvc(model1, model2), "same analytic sample")
+})
+
+test_that("calculate_pvc rejects different outcomes and families", {
+  set.seed(1018)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(8), each = 25)),
+    x = rnorm(200)
+  )
+  stratum_u <- rnorm(8, sd = 0.7)[d$stratum]
+  d$y_gaussian <- 1 + 0.4 * d$x + stratum_u + rnorm(200, sd = 0.3)
+  d$y_count <- rpois(200, lambda = exp(0.2 + 0.3 * d$x + stratum_u))
+
+  gaussian_model <- fit_maihda(y_gaussian ~ x + (1 | stratum), data = d)
+  poisson_model <- fit_maihda(y_count ~ x + (1 | stratum), data = d, family = "poisson")
+  count_gaussian_model <- fit_maihda(y_count ~ x + (1 | stratum), data = d)
+
+  expect_error(
+    calculate_pvc(gaussian_model, poisson_model),
+    "same outcome",
+    fixed = TRUE
+  )
+  expect_error(
+    calculate_pvc(count_gaussian_model, poisson_model),
+    "same model family and link",
+    fixed = TRUE
+  )
 })
 
 test_that("poisson summaries use fitted mean based residual variance", {
@@ -258,6 +299,30 @@ test_that("predict_maihda rebuilds manual make_strata strata for raw newdata", {
   explicit_newdata$stratum <- strata$data$stratum[1:20]
 
   expect_equal(model$strata_vars, c("gender", "race"))
+  expect_equal(
+    as.numeric(predict_maihda(model, newdata = raw_newdata)),
+    as.numeric(predict_maihda(model, newdata = explicit_newdata)),
+    tolerance = 1e-8
+  )
+})
+
+test_that("predict_maihda rebuilds strata when grouping values contain the separator", {
+  set.seed(1019)
+  d <- data.frame(
+    a = rep(c("A \u00d7 B", "A"), each = 40),
+    b = rep(c("C", "B \u00d7 C"), each = 40),
+    x = rnorm(80)
+  )
+  stratum_key <- interaction(d$a, d$b, drop = TRUE)
+  d$y <- 1 + 0.3 * d$x + rnorm(nlevels(stratum_key), sd = 0.8)[stratum_key] +
+    rnorm(80, sd = 0.2)
+
+  strata <- make_strata(d, c("a", "b"))
+  model <- fit_maihda(y ~ x + (1 | stratum), data = strata$data)
+  raw_newdata <- d[1:20, c("a", "b", "x")]
+  explicit_newdata <- raw_newdata
+  explicit_newdata$stratum <- strata$data$stratum[1:20]
+
   expect_equal(
     as.numeric(predict_maihda(model, newdata = raw_newdata)),
     as.numeric(predict_maihda(model, newdata = explicit_newdata)),

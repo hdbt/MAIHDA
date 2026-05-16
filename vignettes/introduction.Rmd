@@ -51,10 +51,16 @@ library(MAIHDA)
 # Load the built-in NHANES dataset
 data("maihda_health_data")
 
+# PVC compares variance across models, so both models must use the same
+# analytic sample. Keep complete cases for all variables used below.
+health_complete <- maihda_health_data[complete.cases(
+  maihda_health_data[, c("BMI", "Age", "Gender", "Race", "Education", "Poverty")]
+), ]
+
 # Fit the initial Null model with auto-generated strata
 model_null <- fit_maihda(
   BMI ~ 1 + (1 | Gender:Race:Education),
-  data = maihda_health_data,
+  data = health_complete,
   engine = "lme4"
 )
 
@@ -75,7 +81,7 @@ If the variance drops significantly (High PCV), the inequalities are largely exp
 # Fit an adjusted model
 model_adj <- fit_maihda(
   BMI ~ Age + Gender + Race + Education + Poverty + (1 | Gender:Race:Education),
-  data = maihda_health_data
+  data = health_complete
 )
 
 # Calculate PCV with Parametric Bootstrap Confidence Intervals

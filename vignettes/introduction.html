@@ -380,7 +380,7 @@ intersectional demographic groups.</p>
 Model</h3>
 <p>Use <code>fit_maihda()</code> to combine multiple social categories
 directly in the random effect formula. Providing the variables in the
-random effect combined with <code>+</code> allows the function to
+random effect combined with <code>:</code> allows the function to
 automatically build the intersectional strata on the fly and fit the
 multilevel model.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(MAIHDA)</span>
@@ -388,16 +388,22 @@ multilevel model.</p>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="co"># Load the built-in NHANES dataset</span></span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;maihda_health_data&quot;</span>)</span>
 <span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co"># Fit the initial Null model with auto-generated strata</span></span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>model_null <span class="ot">&lt;-</span> <span class="fu">fit_maihda</span>(</span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  BMI <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> Gender <span class="sc">+</span> Race <span class="sc">+</span> Education),</span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  <span class="at">data =</span> maihda_health_data,</span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="at">engine =</span> <span class="st">&quot;lme4&quot;</span></span>
-<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>)</span>
-<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a></span>
-<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co"># Summarize the variance components (VPC)</span></span>
-<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>summary_null <span class="ot">&lt;-</span> <span class="fu">summary_maihda</span>(model_null)</span>
-<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="fu">print</span>(summary_null)</span></code></pre></div>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co"># PVC compares variance across models, so both models must use the same</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co"># analytic sample. Keep complete cases for all variables used below.</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>health_complete <span class="ot">&lt;-</span> maihda_health_data[<span class="fu">complete.cases</span>(</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  maihda_health_data[, <span class="fu">c</span>(<span class="st">&quot;BMI&quot;</span>, <span class="st">&quot;Age&quot;</span>, <span class="st">&quot;Gender&quot;</span>, <span class="st">&quot;Race&quot;</span>, <span class="st">&quot;Education&quot;</span>, <span class="st">&quot;Poverty&quot;</span>)]</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>), ]</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co"># Fit the initial Null model with auto-generated strata</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>model_null <span class="ot">&lt;-</span> <span class="fu">fit_maihda</span>(</span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>  BMI <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> Gender<span class="sc">:</span>Race<span class="sc">:</span>Education),</span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>  <span class="at">data =</span> health_complete,</span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>  <span class="at">engine =</span> <span class="st">&quot;lme4&quot;</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>)</span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="co"># Summarize the variance components (VPC)</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>summary_null <span class="ot">&lt;-</span> <span class="fu">summary</span>(model_null)</span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="fu">print</span>(summary_null)</span></code></pre></div>
 <p><strong>Interpretation:</strong> The resulting Variance Partition
 Coefficient (VPC or ICC) tells us what percentage of the total variance
 in BMI in the population lies <em>between</em> the intersectional social
@@ -415,8 +421,8 @@ unique intersectional interactions that cannot be explained away by
 simple main effects.</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Fit an adjusted model</span></span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>model_adj <span class="ot">&lt;-</span> <span class="fu">fit_maihda</span>(</span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  BMI <span class="sc">~</span> Age <span class="sc">+</span> Gender <span class="sc">+</span> Race <span class="sc">+</span> Education <span class="sc">+</span> Poverty <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> Gender <span class="sc">+</span> Race <span class="sc">+</span> Education),</span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">data =</span> maihda_health_data</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  BMI <span class="sc">~</span> Age <span class="sc">+</span> Gender <span class="sc">+</span> Race <span class="sc">+</span> Education <span class="sc">+</span> Poverty <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> Gender<span class="sc">:</span>Race<span class="sc">:</span>Education),</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">data =</span> health_complete</span>
 <span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>)</span>
 <span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a></span>
 <span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co"># Calculate PCV with Parametric Bootstrap Confidence Intervals</span></span>
