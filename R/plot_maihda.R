@@ -165,19 +165,12 @@ plot_vpc <- function(summary_obj) {
 plot_obs_vs_shrunken <- function(object, summary_obj) {
   data <- object$data
 
-  # Get outcome variable name from formula
-  formula_obj <- object$formula
-  outcome_var <- all.vars(formula_obj)[1]
-
-  # Check if outcome and stratum exist
-  if (!outcome_var %in% names(data)) {
-    stop("Outcome variable not found in data")
-  }
+  observed_response <- maihda_observed_response_from_model_frame(data, object$formula)
   if (!"stratum" %in% names(data)) {
     stop("'stratum' variable not found in data. Make sure to use data from make_strata()")
   }
 
-  observed_outcome <- maihda_observed_outcome_for_plot(data[[outcome_var]], object$family)
+  observed_outcome <- maihda_observed_outcome_for_plot(observed_response, object$family)
 
   # Calculate observed stratum means
   obs_data <- data
@@ -230,9 +223,35 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
   }
 }
 
+maihda_observed_response_from_model_frame <- function(data, formula_obj) {
+  response <- tryCatch(stats::model.response(data), error = function(e) NULL)
+  if (!is.null(response)) {
+    return(response)
+  }
+
+  outcome_var <- all.vars(formula_obj)[1]
+  if (!outcome_var %in% names(data)) {
+    stop("Outcome variable not found in data")
+  }
+
+  data[[outcome_var]]
+}
+
 maihda_observed_outcome_for_plot <- function(x, family = NULL) {
   fam_name <- if (!is.null(family) && !is.null(family$family)) family$family else NULL
   is_binomial <- !is.null(fam_name) && fam_name %in% c("binomial", "quasibinomial")
+
+  if ((is.matrix(x) || is.data.frame(x)) && is_binomial && ncol(x) == 2) {
+    x_mat <- as.matrix(x)
+    if (!all(vapply(seq_len(ncol(x_mat)), function(j) is.numeric(x_mat[, j]), logical(1)))) {
+      stop("Observed-vs-shrunken plots require numeric success/failure counts for matrix binomial outcomes.",
+           call. = FALSE)
+    }
+    totals <- rowSums(x_mat, na.rm = FALSE)
+    observed <- x_mat[, 1] / totals
+    observed[!is.finite(observed)] <- NA_real_
+    return(as.numeric(observed))
+  }
 
   if (is.numeric(x)) {
     return(as.numeric(x))

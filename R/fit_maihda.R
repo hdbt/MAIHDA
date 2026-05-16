@@ -13,8 +13,9 @@
 #' @param data A data frame containing the variables in the formula.
 #' @param engine Character string specifying which engine to use: "lme4" (default)
 #'   or "brms".
-#' @param family Character string or family object specifying the model family.
-#'   Common options: "gaussian", "binomial", "poisson". Default is "gaussian".
+#' @param family Character string, family object, or family function specifying
+#'   the model family. Common options: "gaussian", "binomial", "poisson".
+#'   Default is "gaussian".
 #'   If the outcome variable appears to be binary and the default family is used,
 #'   the function will automatically switch to "binomial", recode two-level
 #'   responses to 0/1 for \code{glmer()}, and issue a warning.
@@ -146,13 +147,20 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     }
   }
 
-  # Convert family to family object if it's a string
+  # Convert family to family object if it's a string or constructor function
   if (is.character(family)) {
     family <- switch(family,
                      gaussian = gaussian(),
                      binomial = binomial(),
                      poisson = poisson(),
                      stop("Unsupported family: ", family))
+  } else if (is.function(family)) {
+    family <- family()
+  }
+
+  if (!is.list(family) || is.null(family$family) || is.null(family$link)) {
+    stop("'family' must be a family name, family object, or family function.",
+         call. = FALSE)
   }
 
   if (engine == "lme4" && family$family %in% c("binomial", "quasibinomial")) {

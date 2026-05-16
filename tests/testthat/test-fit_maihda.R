@@ -37,6 +37,28 @@ test_that("fit_maihda handles different families", {
   expect_equal(model$family$family, "binomial")
 })
 
+test_that("fit_maihda accepts family constructor functions", {
+  set.seed(124)
+  data <- data.frame(
+    stratum = rep(1:10, each = 12),
+    age = rnorm(120),
+    outcome = rbinom(120, 1, 0.5)
+  )
+
+  model <- fit_maihda(outcome ~ age + (1 | stratum),
+                      data = data,
+                      engine = "lme4",
+                      family = binomial)
+
+  expect_true(inherits(model, "maihda_model"))
+  expect_equal(model$family$family, "binomial")
+  expect_error(
+    fit_maihda(outcome ~ age + (1 | stratum), data = data, family = list()),
+    "family name, family object, or family function",
+    fixed = TRUE
+  )
+})
+
 test_that("fit_maihda creates strata automatically when interaction is passed", {
   set.seed(123)
   data <- data.frame(

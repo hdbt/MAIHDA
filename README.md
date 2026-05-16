@@ -224,7 +224,7 @@ vignette("introduction", package = "MAIHDA")
 
 - R (>= 4.1.0)
 - lme4 (>= 1.1-27)
-- ggplot2 (>= 3.3.0)
+- ggplot2 (>= 3.4.0)
 - dplyr (>= 1.0.0)
 - tidyr (>= 1.1.0)
 - stats, methods, tibble, rlang
