@@ -26,7 +26,7 @@ You can install the development version of MAIHDA from GitHub:
 install.packages("MAIHDA")
 # Or for the latest development version:
 # install.packages("remotes")
-# remotes::install_github("hamidbulut/MAIHDA")
+# remotes::install_github("hdbt/MAIHDA")
 ```
 
 ## Real-World Example Analysis
@@ -41,7 +41,7 @@ demographic groups.
 Use
 [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
 to combine multiple social categories directly in the random effect
-formula. Providing the variables in the random effect combined with `+`
+formula. Providing the variables in the random effect combined with `:`
 allows the function to automatically build the intersectional strata on
 the fly and fit the multilevel model.
 
@@ -126,7 +126,7 @@ application logic:
 
 ``` r
 
-# Caterpillar plot of predictions for stratum random effects (with 95% CIs)
+# Predicted stratum values with 95% CIs
 plot(model_adj, type = "predicted")
 
 # Variance partition (VPC) visualization

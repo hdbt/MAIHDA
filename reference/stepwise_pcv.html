@@ -86,6 +86,12 @@ add sequentially to the model.</p></dd>
     <p>A data.frame showing the sequential models, the between-stratum
   variance at each step, and both the step-specific and total PCV.</p>
     </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>All models are fit on the complete cases for `outcome`, `stratum`, and all
+variables in `vars` so that each sequential variance comparison uses the same
+analytic sample.</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>

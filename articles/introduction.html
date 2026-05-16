@@ -65,7 +65,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-05-15</h4>
+            <h4 data-toc-skip class="date">2026-05-16</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
@@ -98,7 +98,7 @@ an interactive Shiny Dashboard for code-free analysis.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"MAIHDA"</span><span class="op">)</span></span>
 <span><span class="co"># Or for the latest development version:</span></span>
 <span><span class="co"># install.packages("remotes")</span></span>
-<span><span class="co"># remotes::install_github("hamidbulut/MAIHDA")</span></span></code></pre></div>
+<span><span class="co"># remotes::install_github("hdbt/MAIHDA")</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="real-world-example-analysis">Real-World Example Analysis<a class="anchor" aria-label="anchor" href="#real-world-example-analysis"></a>
@@ -113,7 +113,7 @@ Model<a class="anchor" aria-label="anchor" href="#step-1-2-create-intersectional
 </h3>
 <p>Use <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> to combine multiple social categories
 directly in the random effect formula. Providing the variables in the
-random effect combined with <code>+</code> allows the function to
+random effect combined with <code>:</code> allows the function to
 automatically build the intersectional strata on the fly and fit the
 multilevel model.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
@@ -186,7 +186,7 @@ inequalities.</p>
 options for checking your model estimates natively mirroring the Shiny
 application logic:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Caterpillar plot of predictions for stratum random effects (with 95% CIs)</span></span>
+<code class="sourceCode R"><span><span class="co"># Predicted stratum values with 95% CIs</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Variance partition (VPC) visualization</span></span>

@@ -40,6 +40,12 @@ stepwise_pcv(data, outcome, vars, engine = "lme4", family = "gaussian")
 A data.frame showing the sequential models, the between-stratum variance
 at each step, and both the step-specific and total PCV.
 
+## Details
+
+All models are fit on the complete cases for \`outcome\`, \`stratum\`,
+and all variables in \`vars\` so that each sequential variance
+comparison uses the same analytic sample.
+
 ## Examples
 
 ``` r

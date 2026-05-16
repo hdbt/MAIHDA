@@ -64,7 +64,7 @@ Shiny Dashboard
 
 Once a model is fit, you can navigate across multiple tabs:
 
-- **Caterpillar Plots:** Visually evaluate stratum-level random effects
+- **Predicted Values:** Visually evaluate stratum-level predictions
   relative to the overall mean with dynamic prediction intervals.
 - **VPC Decomposition:** Examine how much of your outcome’s variance is
   attributed to between-stratum differences versus within-stratum
