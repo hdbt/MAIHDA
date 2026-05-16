@@ -67,7 +67,7 @@ This will automatically launch the dashboard in your default web browser or the 
 
 Once a model is fit, you can navigate across multiple tabs:
 
-* **Caterpillar Plots:** Visually evaluate stratum-level random effects relative to the overall mean with dynamic prediction intervals.
+* **Predicted Values:** Visually evaluate stratum-level predictions relative to the overall mean with dynamic prediction intervals.
 * **VPC Decomposition:** Examine how much of your outcome's variance is attributed to between-stratum differences versus within-stratum individual heterogeneity.
 * **Observed vs. Shrunken Estimates:** Compare raw unadjusted group means to your model's shrinkage estimates to see the protective mechanism of multilevel modeling.
 

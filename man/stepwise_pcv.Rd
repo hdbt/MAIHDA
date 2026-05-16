@@ -29,6 +29,11 @@ intermediate (partially-adjusted) models. It adds each predictor variable
 one-by-one to gauge its unique contribution in explaining between-stratum
 inequalities.
 }
+\details{
+All models are fit on the complete cases for `outcome`, `stratum`, and all
+variables in `vars` so that each sequential variance comparison uses the same
+analytic sample.
+}
 \examples{
 \donttest{
 strata_result <- make_strata(maihda_sim_data, c("gender", "race"))

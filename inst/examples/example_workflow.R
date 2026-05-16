@@ -64,9 +64,9 @@ print(pred_strata)
 # Step 5: Visualize results
 # ============================================================================
 
-# Caterpillar plot of stratum random effects
-plot_caterpillar <- plot(model, type = "caterpillar")
-print(plot_caterpillar)
+# Predicted stratum values with confidence intervals
+plot_predicted <- plot(model, type = "predicted")
+print(plot_predicted)
 
 # Variance partition coefficient visualization
 plot_vpc <- plot(model, type = "vpc")

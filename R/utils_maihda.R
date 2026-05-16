@@ -522,6 +522,30 @@ maihda_apply_autobin_info <- function(strata_data, autobin_info) {
   strata_data
 }
 
+maihda_autobin_out_of_range <- function(data, autobin_info) {
+  if (is.null(autobin_info) || length(autobin_info) == 0) {
+    return(character())
+  }
+
+  out <- character()
+  for (v in intersect(names(autobin_info), names(data))) {
+    info <- autobin_info[[v]]
+    if (is.null(info$breaks) || !is.numeric(data[[v]])) {
+      next
+    }
+
+    x <- data[[v]]
+    breaks <- range(info$breaks, na.rm = TRUE)
+    bad <- !is.na(x) & (x < breaks[1] | x > breaks[2])
+    if (any(bad)) {
+      out <- c(out, paste0(v, " outside [", signif(breaks[1], 6), ", ",
+                           signif(breaks[2], 6), "]"))
+    }
+  }
+
+  out
+}
+
 maihda_stratum_labels <- function(data, vars, sep = " \u00d7 ", autobin_info = NULL) {
   strata_data <- data[, vars, drop = FALSE]
   strata_data <- maihda_apply_autobin_info(strata_data, autobin_info)
@@ -568,6 +592,15 @@ maihda_prepare_prediction_data <- function(object, newdata) {
   if (is.null(sep) || length(sep) != 1) {
     sep <- " \u00d7 "
   }
+
+  out_of_range <- maihda_autobin_out_of_range(newdata, object$strata_autobin_info)
+  if (length(out_of_range) > 0) {
+    stop("Cannot rebuild 'stratum' for prediction because numeric grouping values ",
+         "fall outside the training auto-bin ranges: ",
+         paste(out_of_range, collapse = "; "), ".",
+         call. = FALSE)
+  }
+
   labels <- maihda_stratum_labels(newdata, strata_vars, sep, object$strata_autobin_info)
   stratum_map <- stats::setNames(as.character(strata_info$stratum), strata_info$label)
   newdata$stratum <- unname(stratum_map[labels])

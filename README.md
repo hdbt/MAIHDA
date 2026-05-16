@@ -19,7 +19,7 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 - **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
 - **Summaries & Decompositions**: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)
 - **Multiple Prediction Types**: Individual-level and stratum-level predictions
-- **Visualizations**: Caterpillar plots, VPC visualizations, Prediction plots and observed vs. shrunken estimates
+- **Visualizations**: Predicted stratum values, VPC visualizations, risk/effect diagnostics, and observed vs. shrunken estimates
 - **Model Comparison**: Compare models with robust bootstrap confidence intervals for VPC/ICC
 - **Proportional Change in Variance (PVC)**: Quantify how much between-stratum variance is explained by additional predictors
 
@@ -79,7 +79,7 @@ Makes predictions at two levels:
 ### `plot()`
 Creates various visualizations:
 
-- **Predicted**: Caterpillar plots of stratum random effects with confidence intervals
+- **Predicted**: Predicted stratum values with confidence intervals
 - **VPC plots**: Visualizes variance partitioning
 - **Observed vs. Shrunken**: Shows shrinkage of stratum estimates
 - **Risk vs Effect**: Visualizes baseline strata risk against intersectional effect size

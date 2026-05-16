@@ -15,4 +15,4 @@
 ^examples$
 ^test\.R$
 ^playground\.R$
-^Funding\.yml$
+^inst/shiny/rsconnect$

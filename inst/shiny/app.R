@@ -360,7 +360,7 @@ server <- function(input, output, session) {
     # Format tooltip text
     hover_text <- paste(
       "<b>Model:</b>", res$Model, "<br>",
-      "<b>Added:</b>", ifelse(is.na(res$Added), "None", res$Added), "<br>",
+      "<b>Added:</b>", ifelse(is.na(res$Added_Variable), "None", res$Added_Variable), "<br>",
       "<b>Step Variance Drop:</b>", round(res$Step_Variance, 4), "<br>",
       "<b>Step PCV:</b>", ifelse(!is.na(res$Step_PCV), paste0(round(res$Step_PCV * 100, 2), "%"), "0%"), "<br>",
       "<b>Total PCV:</b>", ifelse(!is.na(res$Total_PCV), paste0(round(res$Total_PCV * 100, 2), "%"), "0%")

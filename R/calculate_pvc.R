@@ -124,9 +124,20 @@ extract_between_variance <- function(model) {
   fitted_model <- model$model
 
   if (engine == "lme4") {
+    maihda_validate_intercept_only_random_effects_lme4(
+      fitted_model,
+      context = "PVC calculations"
+    )
     return(maihda_stratum_variance_lme4(fitted_model))
 
   } else if (engine == "brms") {
+    if (!requireNamespace("brms", quietly = TRUE)) {
+      stop("Package 'brms' is required to work with brms models. Please install it with: install.packages('brms')")
+    }
+    maihda_validate_intercept_only_random_effects_brms(
+      brms::VarCorr(fitted_model),
+      context = "PVC calculations"
+    )
     return(maihda_stratum_variance_brms(fitted_model))
 
   } else {
@@ -294,6 +305,11 @@ print.pvc_result <- function(x, ...) {
 #' @return A data.frame showing the sequential models, the between-stratum
 #'   variance at each step, and both the step-specific and total PCV.
 #'
+#' @details
+#' All models are fit on the complete cases for `outcome`, `stratum`, and all
+#' variables in `vars` so that each sequential variance comparison uses the same
+#' analytic sample.
+#'
 #' @examples
 #' \donttest{
 #' strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
@@ -306,6 +322,28 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
 
   if (!"stratum" %in% names(data)) {
     stop("Variable 'stratum' not found in data. Please run make_strata() first.")
+  }
+  required_vars <- unique(c(outcome, "stratum", vars))
+  missing_vars <- setdiff(required_vars, names(data))
+  if (length(missing_vars) > 0) {
+    stop("Variables not found in data: ", paste(missing_vars, collapse = ", "))
+  }
+
+  strata_info <- attr(data, "strata_info")
+  strata_vars <- attr(data, "strata_vars")
+  strata_sep <- attr(data, "strata_sep")
+  strata_autobin_info <- attr(data, "strata_autobin_info")
+
+  complete_idx <- stats::complete.cases(data[, required_vars, drop = FALSE])
+  if (!any(complete_idx)) {
+    stop("No complete cases remain after filtering outcome, stratum, and stepwise variables.")
+  }
+  if (!all(complete_idx)) {
+    data <- data[complete_idx, , drop = FALSE]
+    attr(data, "strata_info") <- strata_info
+    attr(data, "strata_vars") <- strata_vars
+    attr(data, "strata_sep") <- strata_sep
+    attr(data, "strata_autobin_info") <- strata_autobin_info
   }
 
   results <- data.frame(

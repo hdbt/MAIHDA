@@ -1,5 +1,5 @@
 maihda_app_required_packages <- function() {
-  c("shiny", "bslib", "DT", "future", "promises", "haven", "shinyjs", "plotly", "ggtern")
+  c("shiny", "bslib", "DT", "future", "promises", "shinyjs", "plotly", "ggtern")
 }
 
 #' Run MAIHDA Shiny Application

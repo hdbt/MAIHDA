@@ -182,6 +182,41 @@ test_that("stepwise_pcv quotes non-syntactic variable names", {
   expect_equal(out$Added_Variable[2], "age years")
 })
 
+test_that("stepwise_pcv uses one complete analytic sample across steps", {
+  set.seed(1016)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(6), each = 20)),
+    x = rnorm(120),
+    z = rnorm(120)
+  )
+  d$z[seq_len(30)] <- NA_real_
+  d$y <- 1 + d$x + rnorm(6, sd = 0.8)[d$stratum] + rnorm(120, sd = 0.3)
+
+  out <- stepwise_pcv(d, "y", c("x", "z"))
+  complete_d <- d[stats::complete.cases(d[, c("y", "stratum", "x", "z")]), ]
+  null_model <- fit_maihda(y ~ 1 + (1 | stratum), complete_d)
+  x_model <- fit_maihda(y ~ x + (1 | stratum), complete_d)
+  z_model <- fit_maihda(y ~ x + z + (1 | stratum), complete_d)
+
+  expect_equal(out$Variance[1], MAIHDA:::extract_between_variance(null_model), tolerance = 1e-8)
+  expect_equal(out$Variance[2], MAIHDA:::extract_between_variance(x_model), tolerance = 1e-8)
+  expect_equal(out$Variance[3], MAIHDA:::extract_between_variance(z_model), tolerance = 1e-8)
+})
+
+test_that("stepwise_pcv errors when no complete analytic sample remains", {
+  d <- data.frame(
+    stratum = factor(c("a", "b")),
+    x = c(NA_real_, 1),
+    y = c(1, NA_real_)
+  )
+
+  expect_error(
+    stepwise_pcv(d, "y", "x"),
+    "No complete cases remain",
+    fixed = TRUE
+  )
+})
+
 test_that("predict_maihda rebuilds automatic strata for raw newdata", {
   set.seed(1008)
   d <- data.frame(
@@ -271,6 +306,28 @@ test_that("summary rejects random-slope models for VPC accounting", {
   )
 })
 
+test_that("calculate_pvc rejects random-slope models for PVC accounting", {
+  set.seed(1017)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(8), each = 25)),
+    age = rnorm(200),
+    poverty = rnorm(200)
+  )
+  intercept_u <- rnorm(8, sd = 0.7)[d$stratum]
+  slope_u <- rnorm(8, sd = 0.4)[d$stratum]
+  d$y <- 1 + 0.3 * d$age + 0.2 * d$poverty +
+    intercept_u + slope_u * d$age + rnorm(200, sd = 0.3)
+
+  model1 <- fit_maihda(y ~ age + (age | stratum), data = d)
+  model2 <- fit_maihda(y ~ age + poverty + (age | stratum), data = d)
+
+  expect_error(
+    calculate_pvc(model1, model2),
+    "intercept-only random effects",
+    fixed = TRUE
+  )
+})
+
 test_that("predict_maihda reuses training bins for numeric automatic strata", {
   set.seed(1009)
   n <- 120
@@ -291,6 +348,26 @@ test_that("predict_maihda reuses training bins for numeric automatic strata", {
     as.numeric(predict_maihda(model, newdata = raw_newdata)),
     as.numeric(predict_maihda(model, newdata = explicit_newdata)),
     tolerance = 1e-8
+  )
+})
+
+test_that("predict_maihda errors clearly for out-of-range numeric auto-bins", {
+  set.seed(1015)
+  n <- 120
+  d <- data.frame(
+    age = runif(n, 18, 80),
+    gender = sample(c("F", "M"), n, replace = TRUE)
+  )
+  strata <- interaction(cut(d$age, breaks = 3), d$gender, drop = TRUE)
+  d$y <- 2 + 0.1 * d$age + rnorm(nlevels(strata), sd = 0.6)[strata] + rnorm(n, sd = 0.4)
+
+  model <- fit_maihda(y ~ age + gender + (1 | age:gender), data = d)
+  out_of_range <- data.frame(age = c(10, 100), gender = c("F", "M"))
+
+  expect_error(
+    predict_maihda(model, newdata = out_of_range),
+    "outside the training auto-bin ranges",
+    fixed = TRUE
   )
 })
 

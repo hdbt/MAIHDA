@@ -367,7 +367,7 @@ an interactive Shiny Dashboard for code-free analysis.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">&quot;MAIHDA&quot;</span>)</span>
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="co"># Or for the latest development version:</span></span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="co"># install.packages(&quot;remotes&quot;)</span></span>
-<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="co"># remotes::install_github(&quot;hamidbulut/MAIHDA&quot;)</span></span></code></pre></div>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="co"># remotes::install_github(&quot;hdbt/MAIHDA&quot;)</span></span></code></pre></div>
 </div>
 <div id="real-world-example-analysis" class="section level2">
 <h2>Real-World Example Analysis</h2>
@@ -444,13 +444,13 @@ inequalities.</p>
 <div id="step-5-visualizations" class="section level3">
 <h3>Step 5: Visualizations</h3>
 <p>The package provides multiple pre-configured visualization options
-for checking your model estimates (using
-<code>plot_maihda()</code>):</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># Caterpillar plot of stratum random effects (with 95% CIs)</span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">plot_maihda</span>(model_adj, <span class="at">type =</span> <span class="st">&quot;caterpillar&quot;</span>)</span>
+for checking your model estimates natively mirroring the Shiny
+application logic:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># Predicted stratum values with 95% CIs</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">plot</span>(model_adj, <span class="at">type =</span> <span class="st">&quot;predicted&quot;</span>)</span>
 <span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a></span>
 <span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co"># Variance partition visualization</span></span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="fu">plot_maihda</span>(model_adj, <span class="at">type =</span> <span class="st">&quot;vpc&quot;</span>)</span></code></pre></div>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="fu">plot</span>(model_adj, <span class="at">type =</span> <span class="st">&quot;vpc&quot;</span>)</span></code></pre></div>
 </div>
 </div>
 <div id="interactive-shiny-app" class="section level2">

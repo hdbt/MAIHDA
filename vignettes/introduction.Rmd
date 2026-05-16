@@ -34,7 +34,7 @@ You can install the development version of MAIHDA from GitHub:
 install.packages("MAIHDA")
 # Or for the latest development version:
 # install.packages("remotes")
-# remotes::install_github("hamidbulut/MAIHDA")
+# remotes::install_github("hdbt/MAIHDA")
 ```
 
 ## Real-World Example Analysis
@@ -43,7 +43,7 @@ The package includes a pedagogical subset of the National Health and Nutrition E
 
 ### Step 1 & 2: Create Intersectional Strata and Fit a Null MAIHDA Model
 
-Use `fit_maihda()` to combine multiple social categories directly in the random effect formula. Providing the variables in the random effect combined with `+` allows the function to automatically build the intersectional strata on the fly and fit the multilevel model.
+Use `fit_maihda()` to combine multiple social categories directly in the random effect formula. Providing the variables in the random effect combined with `:` allows the function to automatically build the intersectional strata on the fly and fit the multilevel model.
 
 ```{r eval=FALSE}
 library(MAIHDA)
@@ -105,7 +105,7 @@ Negative step PCVs in this table highlight "unmasking" or suppression effects: a
 The package provides multiple pre-configured, advanced visualization options for checking your model estimates natively mirroring the Shiny application logic:
 
 ```{r eval=FALSE}
-# Caterpillar plot of predictions for stratum random effects (with 95% CIs)
+# Predicted stratum values with 95% CIs
 plot(model_adj, type = "predicted")
 
 # Variance partition (VPC) visualization
