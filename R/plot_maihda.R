@@ -358,10 +358,22 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
   # Safe approach matching what's used in plot_prediction_deviation_panels
   model_type <- object$family$family
 
-  if (model_type %in% c("binomial", "quasibinomial")) {
-    preds <- tryCatch(predict(object$model, type = "response"), error = function(e) predict(object$model, type = "response"))
+  if (object$engine == "brms" || inherits(object$model, "brmsfit")) {
+    if (!requireNamespace("brms", quietly = TRUE)) {
+      stop("Package 'brms' is required to plot risk vs. effect for brms models.",
+           call. = FALSE)
+    }
+    preds <- stats::fitted(object$model, newdata = data, re_formula = NA, summary = TRUE)[, "Estimate"]
+  } else if (model_type %in% c("binomial", "quasibinomial")) {
+    preds <- tryCatch(
+      predict(object$model, newdata = data, type = "response", re.form = NA),
+      error = function(e) predict(object$model, type = "response", re.form = NA)
+    )
   } else if (inherits(object$model, "polr") || inherits(object$model, "clm") || inherits(object$model, "ordinal")) {
-    probs <- tryCatch(predict(object$model, type = "probs"), error = function(e) predict(object$model, type = "p"))
+    probs <- tryCatch(
+      predict(object$model, newdata = data, type = "probs"),
+      error = function(e) predict(object$model, newdata = data, type = "p")
+    )
     if (is.matrix(probs) || is.data.frame(probs)) {
       k_seq <- seq_len(ncol(probs))
       preds <- rowSums(probs * matrix(k_seq, nrow = nrow(probs), ncol = ncol(probs), byrow = TRUE))
@@ -369,12 +381,25 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
       preds <- rep(NA, nrow(data))
     }
   } else {
-    preds <- tryCatch(predict(object$model), error = function(e) list(fit = predict(object$model)))
+    preds <- tryCatch(
+      predict(object$model, newdata = data, type = "response", re.form = NA),
+      error = function(e) list(fit = predict(object$model, type = "response", re.form = NA))
+    )
     if (is.list(preds) && "fit" %in% names(preds)) preds <- preds$fit
   }
 
   if (is.null(preds) || (is.numeric(preds) && length(preds) != nrow(data))) {
-      preds <- tryCatch(predict(object$model, se.fit=FALSE), error = function(e) rep(NA, nrow(data)))
+      preds <- tryCatch(
+        predict(object$model, newdata = data, type = "response", re.form = NA, se.fit = FALSE),
+        error = function(e) rep(NA, nrow(data))
+      )
+  }
+  if (is.matrix(preds) || is.data.frame(preds)) {
+    preds <- preds[, 1]
+  }
+  preds <- as.numeric(preds)
+  if (length(preds) != nrow(data)) {
+    stop("Could not compute one risk prediction per analytic row.", call. = FALSE)
   }
 
   # Assign to dataframe and collapse to strata level average

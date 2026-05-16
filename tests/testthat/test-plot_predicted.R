@@ -157,3 +157,26 @@ test_that("observed vs shrunken handles binary factor outcomes", {
   expect_true(all(is.finite(plot$data$observed)))
   expect_true(all(plot$data$observed >= 0 & plot$data$observed <= 1))
 })
+
+test_that("risk_vs_effect uses fixed-only marginal predictions on the x-axis", {
+  set.seed(557)
+  data <- data.frame(
+    stratum = factor(rep(seq_len(8), each = 30)),
+    age = rnorm(240)
+  )
+  stratum_effect <- rnorm(8, sd = 1)[data$stratum]
+  data$outcome <- 1 + 1.5 * data$age + stratum_effect + rnorm(240, sd = 0.2)
+
+  model <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
+  plot <- plot(model, type = "risk_vs_effect")
+
+  fixed_pred <- stats::predict(model$model, newdata = model$data, re.form = NA)
+  expected <- stats::aggregate(
+    fixed_pred ~ stratum,
+    data = model$data,
+    FUN = mean
+  )
+  idx <- match(as.character(plot$data$stratum), as.character(expected$stratum))
+
+  expect_equal(plot$data$mean_predicted, expected$fixed_pred[idx], tolerance = 1e-8)
+})

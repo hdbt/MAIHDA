@@ -2,6 +2,58 @@ maihda_app_required_packages <- function() {
   c("shiny", "bslib", "DT", "future", "promises", "shinyjs", "plotly", "ggtern")
 }
 
+maihda_app_ternary_plotly <- function(td) {
+  if (!requireNamespace("plotly", quietly = TRUE)) {
+    stop("Package 'plotly' is required to render the interactive ternary plot.",
+         call. = FALSE)
+  }
+
+  required_cols <- c("additive_prop", "interaction_prop", "uncertainty_prop", "label", "n")
+  missing_cols <- setdiff(required_cols, names(td))
+  if (length(missing_cols) > 0) {
+    stop("Ternary plot data is missing required columns: ",
+         paste(missing_cols, collapse = ", "), call. = FALSE)
+  }
+
+  marker_sizes <- pmax(sqrt(td$n) * 2, 4)
+  marker_colors <- as.numeric(as.factor(td$label))
+  hover_text <- paste0(
+    "<b>Stratum:</b> ", td$label, "<br>",
+    "<b>Size (N):</b> ", td$n, "<br>",
+    "<b>Additive:</b> ", round(td$additive_prop * 100, 1), "%<br>",
+    "<b>Intersection-specific:</b> ", round(td$interaction_prop * 100, 1), "%<br>",
+    "<b>Uncertainty:</b> ", round(td$uncertainty_prop * 100, 1), "%"
+  )
+
+  plotly::plot_ly(
+    data = td,
+    type = "scatterternary",
+    mode = "markers",
+    a = td$additive_prop,
+    b = td$interaction_prop,
+    c = td$uncertainty_prop,
+    text = hover_text,
+    hoverinfo = "text",
+    marker = list(
+      size = marker_sizes,
+      color = marker_colors,
+      colorscale = "Viridis",
+      opacity = 0.8,
+      line = list(color = "rgba(0,0,0,0.5)", width = 1)
+    )
+  ) |>
+    plotly::layout(
+      title = "Interactive MAIHDA Strata Effects Decomposition",
+      ternary = list(
+        sum = 1,
+        aaxis = list(title = "Additive", min = 0, linewidth = 2, ticks = "outside", tickvals = seq(0, 1, by = 0.2)),
+        baxis = list(title = "Intersection", min = 0, linewidth = 2, ticks = "outside", tickvals = seq(0, 1, by = 0.2)),
+        caxis = list(title = "Uncertainty", min = 0, linewidth = 2, ticks = "outside", tickvals = seq(0, 1, by = 0.2))
+      ),
+      margin = list(t = 50, b = 50, l = 50, r = 50)
+    )
+}
+
 maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
                                   additional_covars = character(),
                                   family = "gaussian", use_boot = FALSE,

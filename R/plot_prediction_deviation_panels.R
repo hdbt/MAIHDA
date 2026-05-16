@@ -6,6 +6,23 @@ maihda_binomial_observed_01 <- function(x, n) {
   maihda_binary_to_01(x)
 }
 
+maihda_binomial_abs_deviance_residual <- function(obs_outcome_01, fitted) {
+  out <- rep(0, length(fitted))
+  known_obs <- !is.na(obs_outcome_01) &
+    obs_outcome_01 %in% c(0L, 1L) &
+    is.finite(fitted)
+
+  if (!any(known_obs)) {
+    return(out)
+  }
+
+  p <- pmin(pmax(fitted[known_obs], .Machine$double.eps), 1 - .Machine$double.eps)
+  y <- obs_outcome_01[known_obs]
+  dev <- ifelse(y == 1L, -2 * log(p), -2 * log1p(-p))
+  out[known_obs] <- sqrt(pmax(dev, 0))
+  out
+}
+
 maihda_prediction_panel_auto_type <- function(model) {
   if (inherits(model, "polr") || inherits(model, "clm") || inherits(model, "ordinal")) {
     return("ordinal")
@@ -39,31 +56,91 @@ maihda_prediction_panel_fitted <- function(model, data, type) {
 
   if (type == "binomial") {
     preds <- tryCatch(
-      predict(model, type = "response", se.fit = TRUE),
-      error = function(e) list(fit = predict(model, type = "response"), se.fit = rep(0, nrow(data)))
+      predict(model, newdata = data, type = "response", se.fit = TRUE),
+      error = function(e) list(
+        fit = predict(model, newdata = data, type = "response"),
+        se.fit = rep(0, nrow(data))
+      )
     )
   } else {
     preds <- tryCatch(
-      predict(model, se.fit = TRUE),
-      error = function(e) list(fit = predict(model), se.fit = rep(0, nrow(data)))
+      predict(model, newdata = data, se.fit = TRUE),
+      error = function(e) list(
+        fit = predict(model, newdata = data),
+        se.fit = rep(0, nrow(data))
+      )
     )
   }
 
   if (is.numeric(preds)) {
     preds <- list(fit = preds, se.fit = rep(0, nrow(data)))
   }
+  preds$fit <- as.numeric(preds$fit)
+  if (length(preds$fit) != nrow(data)) {
+    stop("Predictions must have one fitted value per row in 'data'. ",
+         "Use the original model frame or provide prediction data compatible with the fitted model.",
+         call. = FALSE)
+  }
+  if (is.null(preds$se.fit) || length(preds$se.fit) != nrow(data)) {
+    preds$se.fit <- rep(0, nrow(data))
+  } else {
+    preds$se.fit <- as.numeric(preds$se.fit)
+  }
   preds
+}
+
+maihda_prediction_panel_ordinal_probs <- function(model, data) {
+  probs <- tryCatch(
+    predict(model, newdata = data, type = "probs"),
+    error = function(e) NULL
+  )
+  if (is.null(probs)) {
+    probs <- tryCatch(
+      predict(model, newdata = data, type = "p"),
+      error = function(e) NULL
+    )
+  }
+  if (is.null(probs)) {
+    probs <- tryCatch(
+      predict(model, newdata = data, type = "prob"),
+      error = function(e) NULL
+    )
+  }
+
+  if (is.list(probs) && !is.matrix(probs) && !is.data.frame(probs)) {
+    if (!is.null(probs$fit)) {
+      probs <- probs$fit
+    } else if (!is.null(probs$prob)) {
+      probs <- probs$prob
+    }
+  }
+
+  if (is.null(probs) || (!is.matrix(probs) && !is.data.frame(probs))) {
+    stop("Could not extract probability matrix from ordinal model.", call. = FALSE)
+  }
+
+  probs <- as.data.frame(probs)
+  if (nrow(probs) != nrow(data)) {
+    stop("Ordinal predictions must have one probability row per row in 'data'. ",
+         "Use the original model frame or provide prediction data compatible with the fitted model.",
+         call. = FALSE)
+  }
+
+  probs[] <- lapply(probs, as.numeric)
+  probs
 }
 
 maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_outcome_01) {
   if (inherits(model, "brmsfit")) {
-    known_obs <- !is.na(obs_outcome_01)
-    out <- rep(0, nrow(data))
-    out[known_obs] <- abs(obs_outcome_01[known_obs] - fitted[known_obs])
-    return(out)
+    return(maihda_binomial_abs_deviance_residual(obs_outcome_01, fitted))
   }
 
-  tryCatch(abs(residuals(model, type = "deviance")), error = function(e) rep(0, nrow(data)))
+  model_resids <- tryCatch(abs(residuals(model, type = "deviance")), error = function(e) NULL)
+  if (is.numeric(model_resids) && length(model_resids) == nrow(data)) {
+    return(model_resids)
+  }
+
+  maihda_binomial_abs_deviance_residual(obs_outcome_01, fitted)
 }
 
 #' Plot Prediction Deviation Panels
@@ -313,8 +390,9 @@ is_aggregated <- "stratum" %in% names(df)
 
   } else if (type == "ordinal") {
     # ORDINAL LOGIC
-    probs <- tryCatch(predict(model, type = "probs"), error = function(e) predict(model, type = "p"))
-    if (!is.matrix(probs) && !is.data.frame(probs)) stop("Could not extract probability matrix from ordinal model.")
+    probs <- maihda_prediction_panel_ordinal_probs(model, data)
+    prob_mat <- as.matrix(probs)
+    prob_cols <- colnames(probs)
 
     form <- tryCatch(formula(model), error = function(e) NULL)
     obs_cat <- rep(NA, nrow(data))
@@ -330,15 +408,15 @@ is_aggregated <- "stratum" %in% names(df)
           obs_cat = obs_cat
         )
 
-      k_seq <- seq_len(ncol(probs))
-      df$expected_score <- rowSums(probs * matrix(k_seq, nrow = nrow(probs), ncol = ncol(probs), byrow = TRUE))
+      k_seq <- seq_len(ncol(prob_mat))
+      df$expected_score <- rowSums(prob_mat * matrix(k_seq, nrow = nrow(prob_mat), ncol = ncol(prob_mat), byrow = TRUE))
 
       # Probability of observed category
       df$observed_prob <- NA
       for (i in seq_len(nrow(df))) {
-        col_idx <- match(df$obs_cat[i], colnames(probs))
+        col_idx <- match(df$obs_cat[i], prob_cols)
         if (!is.na(col_idx)) {
-          df$observed_prob[i] <- probs[i, col_idx]
+          df$observed_prob[i] <- prob_mat[i, col_idx]
         }
       }
 
@@ -347,7 +425,7 @@ is_aggregated <- "stratum" %in% names(df)
         df <- df |>
           dplyr::group_by(.data$stratum) |>
           dplyr::summarize(
-            dplyr::across(tidyselect::all_of(colnames(probs)), \(x) mean(x, na.rm = TRUE)),
+            dplyr::across(tidyselect::all_of(prob_cols), \(x) mean(x, na.rm = TRUE)),
             expected_score = mean(.data$expected_score, na.rm = TRUE),
             observed_prob = mean(.data$observed_prob, na.rm = TRUE),
             .groups = "drop"
@@ -371,8 +449,8 @@ is_aggregated <- "stratum" %in% names(df)
         dplyr::mutate(rank = dplyr::row_number())
 
       df_long <- df |>
-        tidyr::pivot_longer(cols = tidyselect::all_of(colnames(probs)), names_to = "Category", values_to = "Probability") |>
-        dplyr::mutate(Category = factor(.data$Category, levels = colnames(probs)))
+        tidyr::pivot_longer(cols = tidyselect::all_of(prob_cols), names_to = "Category", values_to = "Probability") |>
+        dplyr::mutate(Category = factor(.data$Category, levels = prob_cols))
 
       label_df <- df |> dplyr::arrange(dplyr::desc(.data$surprise)) |> utils::head(top_n_labels)
 
@@ -395,8 +473,8 @@ is_aggregated <- "stratum" %in% names(df)
 
     } else {
       # expected_score
-      k_seq <- seq_len(ncol(probs))
-      exp_scores <- rowSums(probs * matrix(k_seq, nrow = nrow(probs), ncol = ncol(probs), byrow = TRUE))
+      k_seq <- seq_len(ncol(prob_mat))
+      exp_scores <- rowSums(prob_mat * matrix(k_seq, nrow = nrow(prob_mat), ncol = ncol(prob_mat), byrow = TRUE))
 
       df <- data |>
         dplyr::mutate(

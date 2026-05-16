@@ -409,42 +409,7 @@ server <- function(input, output, session) {
     out <- maihda_ternary_plot(model_results())
     td <- out$data
 
-    marker_sizes <- pmax(sqrt(td$n) * 2, 4)
-    marker_colors <- as.numeric(as.factor(td$label))
-
-    plot_ly(
-      data = td,
-      type = 'scatterternary',
-      mode = 'markers',
-      a = ~additive_prop,
-      b = ~interaction_prop,
-      c = ~uncertainty_prop,
-      text = ~paste0(
-        "<b>Stratum:</b> ", label, "<br>",
-        "<b>Size (N):</b> ", n, "<br>",
-        "<b>Additive:</b> ", round(additive_prop * 100, 1), "%<br>",
-        "<b>Intersection-specific:</b> ", round(interaction_prop * 100, 1), "%<br>",
-        "<b>Uncertainty:</b> ", round(uncertainty_prop * 100, 1), "%"
-      ),
-      hoverinfo = "text",
-      marker = list(
-        size = marker_sizes,
-        color = marker_colors,
-        colorscale = "Viridis",
-        opacity = 0.8,
-        line = list(color = "rgba(0,0,0,0.5)", width = 1)
-      )
-    ) |>
-      layout(
-        title = "Interactive MAIHDA Strata Effects Decomposition",
-        ternary = list(
-          sum = 1,
-          aaxis = list(title = "Additive", min = 0.01, linewidth = 2, ticks = "outside", tickvals = seq(0, 1, by = 0.2)),
-          baxis = list(title = "Intersection", min = 0.01, linewidth = 2, ticks = "outside", tickvals = seq(0, 1, by = 0.2)),
-          caxis = list(title = "Uncertainty", min = 0.01, linewidth = 2, ticks = "outside", tickvals = seq(0, 1, by = 0.2))
-        ),
-        margin = list(t = 50, b = 50, l = 50, r = 50)
-      )
+    MAIHDA:::maihda_app_ternary_plotly(td)
   })
 
   output$download_plot <- downloadHandler(

@@ -6,6 +6,24 @@ test_that("Shiny app dependency gate leaves upload-only readers optional", {
   expect_false("haven" %in% MAIHDA:::maihda_app_required_packages())
 })
 
+test_that("Shiny ternary plotly helper includes boundary strata", {
+  skip_if_not_installed("plotly")
+
+  td <- data.frame(
+    additive_prop = c(0, 1),
+    interaction_prop = c(1, 0),
+    uncertainty_prop = c(0, 0),
+    label = c("A", "B"),
+    n = c(10, 25)
+  )
+
+  p <- plotly::plotly_build(MAIHDA:::maihda_app_ternary_plotly(td))
+
+  expect_equal(p$x$layout$ternary$aaxis$min, 0)
+  expect_equal(p$x$layout$ternary$baxis$min, 0)
+  expect_equal(p$x$layout$ternary$caxis$min, 0)
+})
+
 test_that("Shiny app fit helper builds the model objects used by the dashboard", {
   dat <- MAIHDA::maihda_sim_data[seq_len(150), ]
 
