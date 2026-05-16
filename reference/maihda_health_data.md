@@ -3,7 +3,7 @@
 A pedagogical subset of the National Health and Nutrition Examination
 Survey (NHANES) dataset, serving as a real-world example for Multilevel
 Analysis of Individual Heterogeneity and Discriminatory Accuracy
-(MAIHDA). Contains complete records demonstrating intersectional
+(MAIHDA). Contains selected records demonstrating intersectional
 demographic health inequalities.
 
 ## Usage
@@ -42,7 +42,8 @@ A data frame with 3,000 rows and 7 variables:
 
 - Poverty:
 
-  Poverty to income ratio, a continuous covariate.
+  Poverty to income ratio, a continuous covariate. Some values may be
+  missing.
 
 ## Source
 

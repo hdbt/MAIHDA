@@ -62,6 +62,5 @@ comparison <- compare_maihda(model1, model2,
 comparison_boot <- compare_maihda(model1, model2,
                                  model_names = c("Base", "With Gender"),
                                  bootstrap = TRUE, n_boot = 500)
-#> boundary (singular) fit: see help('isSingular')
 # }
 ```

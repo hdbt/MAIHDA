@@ -122,10 +122,16 @@ multilevel model.</p>
 <span><span class="co"># Load the built-in NHANES dataset</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># PVC compares variance across models, so both models must use the same</span></span>
+<span><span class="co"># analytic sample. Keep complete cases for all variables used below.</span></span>
+<span><span class="va">health_complete</span> <span class="op">&lt;-</span> <span class="va">maihda_health_data</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/stats/complete.cases.html" class="external-link">complete.cases</a></span><span class="op">(</span></span>
+<span>  <span class="va">maihda_health_data</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BMI"</span>, <span class="st">"Age"</span>, <span class="st">"Gender"</span>, <span class="st">"Race"</span>, <span class="st">"Education"</span>, <span class="st">"Poverty"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="op">)</span>, <span class="op">]</span></span>
+<span></span>
 <span><span class="co"># Fit the initial Null model with auto-generated strata</span></span>
 <span><span class="va">model_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">health_complete</span>,</span>
 <span>  engine <span class="op">=</span> <span class="st">"lme4"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -152,7 +158,7 @@ simple main effects.</p>
 <code class="sourceCode R"><span><span class="co"># Fit an adjusted model</span></span>
 <span><span class="va">model_adj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">maihda_health_data</span></span>
+<span>  data <span class="op">=</span> <span class="va">health_complete</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Calculate PCV with Parametric Bootstrap Confidence Intervals</span></span>
