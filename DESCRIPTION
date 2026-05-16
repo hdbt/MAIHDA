@@ -43,7 +43,6 @@ Suggests:
     knitr,
     MASS,
     rmarkdown,
-    boot (>= 1.3-20),
     ggtern
 VignetteBuilder: knitr
 URL: https://github.com/hdbt/MAIHDA, https://hdbt.github.io/MAIHDA/

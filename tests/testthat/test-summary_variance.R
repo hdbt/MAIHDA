@@ -53,3 +53,26 @@ test_that("summary errors clearly when brms bootstrap is requested", {
     fixed = TRUE
   )
 })
+
+test_that("summary validates bootstrap arguments before simulation", {
+  fake_model <- structure(
+    list(engine = "lme4", model = NULL),
+    class = "maihda_model"
+  )
+
+  expect_error(
+    summary(fake_model, bootstrap = c(TRUE, FALSE)),
+    "'bootstrap' must be TRUE or FALSE",
+    fixed = TRUE
+  )
+  expect_error(
+    summary(fake_model, bootstrap = TRUE, n_boot = 0),
+    "'n_boot' must be a single positive whole number",
+    fixed = TRUE
+  )
+  expect_error(
+    summary(fake_model, bootstrap = TRUE, conf_level = 1),
+    "'conf_level' must be a single number between 0 and 1",
+    fixed = TRUE
+  )
+})

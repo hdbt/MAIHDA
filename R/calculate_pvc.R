@@ -66,6 +66,15 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
     stop("Both models must use the same engine (lme4 or brms)")
   }
 
+  if (!is.logical(bootstrap) || length(bootstrap) != 1 || is.na(bootstrap)) {
+    stop("'bootstrap' must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (bootstrap) {
+    bootstrap_args <- maihda_validate_bootstrap_args(n_boot, conf_level)
+    n_boot <- bootstrap_args$n_boot
+    conf_level <- bootstrap_args$conf_level
+  }
+
   validate_pvc_models(model1, model2)
 
   # Extract between-stratum variance from both models
@@ -95,10 +104,6 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
 
   # Bootstrap confidence intervals if requested
   if (bootstrap) {
-    if (!requireNamespace("boot", quietly = TRUE)) {
-      warning("Package 'boot' is suggested but not installed. Computing bootstrap without boot package.")
-    }
-
     pvc_ci <- bootstrap_pvc(model1, model2, n_boot, conf_level)
     result$ci_lower <- pvc_ci[1]
     result$ci_upper <- pvc_ci[2]

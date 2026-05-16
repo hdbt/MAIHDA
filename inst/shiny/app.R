@@ -454,7 +454,7 @@ server <- function(input, output, session) {
         layout_columns(
           col_widths = c(4, 4, 4),
           selectInput("hud_color_var", "Color Points By:",
-                      choices = c("Significance (Tolerance)" = "deviant", isolate(input$group_vars))),
+                      choices = c("Conditional Interval Status" = "deviant", isolate(input$group_vars))),
           selectInput("hud_sort_var", "Sort Y-Axis By:",
                       choices = c("Effect Size (Magnitude)" = "effect", "Sample Size (N)" = "n", "Alphabetical" = "alpha")),
           sliderInput("hud_top_n", "Show Top Deviant Strata (by Magnitude):",
@@ -464,8 +464,8 @@ server <- function(input, output, session) {
         plotlyOutput("interactive_plot", height = "600px"),
         markdown("
         *Hover over the points to see individual stratum details.*
-        - Points far from the zero-line (red) represent **deviant strata**: groups whose outcome significantly departs from what simple additive effects would predict.
-        - Error bars represent 95% Confidence Intervals (simulated/bootstrap). If the bar does not cross zero, the intersectional effect is statistically significant.
+        - Points far from the zero-line (red) represent **deviant strata** for exploration: groups whose outcome departs most from what simple additive effects would predict.
+        - Error bars are approximate conditional intervals for stratum random effects. If the bar does not cross zero, treat it as a screening signal, not a formal bootstrap or posterior significance test.
         - **Point size** represents the total number of individuals (N) within that stratum configuration.
         ")
       ),
@@ -511,11 +511,11 @@ server <- function(input, output, session) {
       stratum_df$display_label <- paste0("Stratum ", stratum_df$stratum)
     }
 
-    # Add a flag for 'deviant' (significant at 95%)
+    # Add an exploratory flag for conditional intervals that exclude zero.
     if (!"lower_95" %in% names(stratum_df)) stratum_df$lower_95 <- stratum_df$random_effect - 1.96 * stratum_df$se
     if (!"upper_95" %in% names(stratum_df)) stratum_df$upper_95 <- stratum_df$random_effect + 1.96 * stratum_df$se
 
-    stratum_df$deviant <- ifelse(stratum_df$lower_95 > 0 | stratum_df$upper_95 < 0, "Significant", "Not Significant")
+    stratum_df$deviant <- ifelse(stratum_df$lower_95 > 0 | stratum_df$upper_95 < 0, "Excludes zero", "Includes zero")
 
     # Filter the Top N Deviant strata (by highest absolute effect, retaining original signs)
     if (!is.null(input$hud_top_n)) {
@@ -547,7 +547,7 @@ server <- function(input, output, session) {
                                   n_text,
                                   abs_text,
                                   "<br>Effect:", round(stratum_df$random_effect, 3),
-                                  "<br>95% CI:", round(stratum_df$lower_95, 3), " to ", round(stratum_df$upper_95, 3))
+                                  "<br>Approx. conditional interval:", round(stratum_df$lower_95, 3), " to ", round(stratum_df$upper_95, 3))
 
     # Choose mapping variables
     color_var <- if(!is.null(input$hud_color_var)) input$hud_color_var else "deviant"
@@ -572,7 +572,7 @@ server <- function(input, output, session) {
 
     # If using standard deviant coloring, retain manual scale
     if (color_var == "deviant") {
-        p <- p + scale_color_manual(values = c("Significant" = "#E74C3C", "Not Significant" = "#34495E"))
+        p <- p + scale_color_manual(values = c("Excludes zero" = "#E74C3C", "Includes zero" = "#34495E"))
     }
 
     # Disable tooltip for size parameter so it doesn't double-up and break Plotly's rendering gracefully

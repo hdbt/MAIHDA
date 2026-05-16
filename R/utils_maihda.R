@@ -24,6 +24,22 @@ maihda_linkinv <- function(fam) {
          stop("Unsupported link function for response-scale transformation: ", link, call. = FALSE))
 }
 
+maihda_validate_bootstrap_args <- function(n_boot, conf_level) {
+  if (!is.numeric(n_boot) || length(n_boot) != 1 ||
+      is.na(n_boot) || !is.finite(n_boot) ||
+      n_boot < 1 || n_boot != floor(n_boot)) {
+    stop("'n_boot' must be a single positive whole number.", call. = FALSE)
+  }
+
+  if (!is.numeric(conf_level) || length(conf_level) != 1 ||
+      is.na(conf_level) || !is.finite(conf_level) ||
+      conf_level <= 0 || conf_level >= 1) {
+    stop("'conf_level' must be a single number between 0 and 1.", call. = FALSE)
+  }
+
+  list(n_boot = as.integer(n_boot), conf_level = as.numeric(conf_level))
+}
+
 maihda_quote_name <- function(name) {
   if (!is.character(name) || length(name) != 1 || is.na(name) || name == "") {
     stop("Variable names must be non-empty character strings.", call. = FALSE)

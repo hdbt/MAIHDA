@@ -59,6 +59,15 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     stop("'object' must be a maihda_model object from fit_maihda()")
   }
 
+  if (!is.logical(bootstrap) || length(bootstrap) != 1 || is.na(bootstrap)) {
+    stop("'bootstrap' must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (bootstrap) {
+    bootstrap_args <- maihda_validate_bootstrap_args(n_boot, conf_level)
+    n_boot <- bootstrap_args$n_boot
+    conf_level <- bootstrap_args$conf_level
+  }
+
   engine <- object$engine
   model <- object$model
 
