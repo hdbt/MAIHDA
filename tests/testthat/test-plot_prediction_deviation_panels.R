@@ -70,6 +70,26 @@ test_that("binomial fallback residuals stay on the deviance scale", {
   expect_equal(resids, expected)
 })
 
+test_that("binomial residuals align to supplied row order", {
+  set.seed(127)
+  df <- data.frame(x = rnorm(80))
+  df$y <- rbinom(80, 1, plogis(-0.2 + 0.8 * df$x))
+  m <- glm(y ~ x, data = df, family = binomial)
+  shuffled <- df[sample(seq_len(nrow(df))), , drop = FALSE]
+
+  fitted <- MAIHDA:::maihda_prediction_panel_fitted(m, shuffled, "binomial")$fit
+  obs <- MAIHDA:::maihda_binomial_observed_01(shuffled$y, nrow(shuffled))
+  resids <- MAIHDA:::maihda_prediction_panel_binomial_residuals(
+    m,
+    shuffled,
+    fitted,
+    obs
+  )
+  expected <- MAIHDA:::maihda_binomial_abs_deviance_residual(obs, fitted)
+
+  expect_equal(resids, expected)
+})
+
 test_that("plot_prediction_deviation_panels handles factor binomial outcomes without coercion warnings", {
   set.seed(456)
   df <- data.frame(

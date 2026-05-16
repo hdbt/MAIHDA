@@ -131,8 +131,24 @@ maihda_prediction_panel_ordinal_probs <- function(model, data) {
 }
 
 maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_outcome_01) {
+  aligned_obs <- length(obs_outcome_01) == length(fitted)
+  aligned_resids <- if (aligned_obs) {
+    maihda_binomial_abs_deviance_residual(obs_outcome_01, fitted)
+  } else {
+    rep(0, length(fitted))
+  }
+  has_aligned_obs <- aligned_obs && any(
+    !is.na(obs_outcome_01) &
+      obs_outcome_01 %in% c(0L, 1L) &
+      is.finite(fitted)
+  )
+
+  if (has_aligned_obs) {
+    return(aligned_resids)
+  }
+
   if (inherits(model, "brmsfit")) {
-    return(maihda_binomial_abs_deviance_residual(obs_outcome_01, fitted))
+    return(aligned_resids)
   }
 
   model_resids <- tryCatch(abs(residuals(model, type = "deviance")), error = function(e) NULL)
@@ -140,7 +156,7 @@ maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_
     return(model_resids)
   }
 
-  maihda_binomial_abs_deviance_residual(obs_outcome_01, fitted)
+  aligned_resids
 }
 
 #' Plot Prediction Deviation Panels
