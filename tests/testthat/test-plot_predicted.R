@@ -166,8 +166,9 @@ test_that("observed vs shrunken handles two-column binomial outcomes", {
   )
   stratum_effect <- rnorm(8, sd = 0.7)[data$stratum]
   probability <- plogis(-0.3 + 0.5 * data$age + stratum_effect)
-  data$success <- rbinom(nrow(data), size = 10, prob = probability)
-  data$failure <- 10 - data$success
+  trials <- sample(1:25, nrow(data), replace = TRUE)
+  data$success <- rbinom(nrow(data), size = trials, prob = probability)
+  data$failure <- trials - data$success
 
   model <- fit_maihda(cbind(success, failure) ~ age + (1 | stratum),
                       data = data,
@@ -175,15 +176,16 @@ test_that("observed vs shrunken handles two-column binomial outcomes", {
   plot <- plot(model, type = "obs_vs_shrunken")
 
   expected <- stats::aggregate(
-    data$success / (data$success + data$failure),
+    cbind(success = data$success, total = data$success + data$failure),
     by = list(stratum = as.character(data$stratum)),
-    FUN = mean
+    FUN = sum
   )
+  expected$observed <- expected$success / expected$total
   idx <- match(as.character(plot$data$stratum), expected$stratum)
 
   expect_true(inherits(plot, "ggplot"))
   expect_true(all(is.finite(plot$data$observed)))
-  expect_equal(plot$data$observed, expected$x[idx], tolerance = 1e-8)
+  expect_equal(plot$data$observed, expected$observed[idx], tolerance = 1e-8)
 })
 
 test_that("risk_vs_effect uses fixed-only marginal predictions on the x-axis", {

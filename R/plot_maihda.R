@@ -174,12 +174,19 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
 
   # Calculate observed stratum means
   obs_data <- data
-  obs_data$.maihda_observed_outcome <- observed_outcome
+  obs_data$.maihda_observed_numerator <- observed_outcome$numerator
+  obs_data$.maihda_observed_denominator <- observed_outcome$denominator
   obs_means <- obs_data |>
     dplyr::group_by(.data$stratum) |>
     dplyr::summarise(
-      observed = mean(.data$.maihda_observed_outcome, na.rm = TRUE),
-      n = dplyr::n(),
+      observed = maihda_observed_weighted_mean(
+        .data$.maihda_observed_numerator,
+        .data$.maihda_observed_denominator
+      ),
+      n = maihda_observed_sample_size(
+        .data$.maihda_observed_numerator,
+        .data$.maihda_observed_denominator
+      ),
       .groups = "drop"
     )
 
@@ -237,6 +244,39 @@ maihda_observed_response_from_model_frame <- function(data, formula_obj) {
   data[[outcome_var]]
 }
 
+maihda_observed_plot_values <- function(numerator, denominator = NULL) {
+  numerator <- as.numeric(numerator)
+  if (is.null(denominator)) {
+    denominator <- rep(1, length(numerator))
+  }
+  data.frame(
+    numerator = numerator,
+    denominator = as.numeric(denominator)
+  )
+}
+
+maihda_observed_complete <- function(numerator, denominator) {
+  is.finite(numerator) & is.finite(denominator) & denominator > 0
+}
+
+maihda_observed_weighted_mean <- function(numerator, denominator) {
+  keep <- maihda_observed_complete(numerator, denominator)
+  if (!any(keep)) {
+    return(NA_real_)
+  }
+
+  sum(numerator[keep]) / sum(denominator[keep])
+}
+
+maihda_observed_sample_size <- function(numerator, denominator) {
+  keep <- maihda_observed_complete(numerator, denominator)
+  if (!any(keep)) {
+    return(0)
+  }
+
+  sum(denominator[keep])
+}
+
 maihda_observed_outcome_for_plot <- function(x, family = NULL) {
   fam_name <- if (!is.null(family) && !is.null(family$family)) family$family else NULL
   is_binomial <- !is.null(fam_name) && fam_name %in% c("binomial", "quasibinomial")
@@ -248,27 +288,27 @@ maihda_observed_outcome_for_plot <- function(x, family = NULL) {
            call. = FALSE)
     }
     totals <- rowSums(x_mat, na.rm = FALSE)
-    observed <- x_mat[, 1] / totals
-    observed[!is.finite(observed)] <- NA_real_
-    return(as.numeric(observed))
+    numerator <- x_mat[, 1]
+    numerator[!is.finite(totals) | totals <= 0] <- NA_real_
+    return(maihda_observed_plot_values(numerator, totals))
   }
 
   if (is.numeric(x)) {
-    return(as.numeric(x))
+    return(maihda_observed_plot_values(x))
   }
   if (is.logical(x)) {
-    return(as.numeric(x))
+    return(maihda_observed_plot_values(x))
   }
   if (is.factor(x)) {
     if (is_binomial && nlevels(x) == 2) {
-      return(as.numeric(x == levels(x)[2]))
+      return(maihda_observed_plot_values(x == levels(x)[2]))
     }
     stop("Observed-vs-shrunken plots require a numeric outcome, or a two-level factor for binomial models.",
          call. = FALSE)
   }
   if (is.character(x) && is_binomial && length(unique(stats::na.omit(x))) == 2) {
     levels_x <- sort(unique(stats::na.omit(x)))
-    return(as.numeric(x == levels_x[2]))
+    return(maihda_observed_plot_values(x == levels_x[2]))
   }
 
   stop("Observed-vs-shrunken plots require a numeric outcome, or a binary outcome that can be converted to 0/1.",
