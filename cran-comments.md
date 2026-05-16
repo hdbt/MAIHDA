@@ -1,6 +1,6 @@
 ## Test environments
 
-* local: R 4.3.3
+* local: R 4.5.1
 * GitHub Actions (ubuntu-latest): R-devel, R-release, R-oldrel-1
 * GitHub Actions (windows-latest): R-release
 * GitHub Actions (macos-latest): R-release
