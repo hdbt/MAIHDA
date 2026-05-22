@@ -245,7 +245,11 @@ bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
     stop("Bootstrap is currently only supported for lme4 models.")
   }
 
-  pvc_boot <- numeric(n_boot)
+  # Initialise to NA so iterations whose refit() throws — and never reach the
+  # assignment inside the tryCatch body — stay NA rather than the numeric() default of 0.
+  # The error handler runs in its own scope and cannot write back to this vector,
+  # so the initial value is what survives a failure.
+  pvc_boot <- rep(NA_real_, n_boot)
 
   # Parametric Bootstrap: Simulate new responses from the adjusted model (model2)
   # This mathematically preserves the hierarchical structure (random effects)
@@ -264,9 +268,7 @@ bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
 
       # Calculate PVC
       pvc_boot[i] <- if (is.finite(var1) && var1 > 0) (var1 - var2) / var1 else NA_real_
-    }, error = function(e) {
-      pvc_boot[i] <- NA
-    })
+    }, error = function(e) NULL)
   }
 
   # Remove NAs

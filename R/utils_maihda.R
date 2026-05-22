@@ -459,9 +459,13 @@ maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
     return(1)
   }
   if (fam$family == "poisson" && fam$link == "log") {
+    # Stryhn et al. (2006) latent-scale level-1 variance approximation: log(1 + 1/mu).
+    # The simpler 1/mu form is the first-order Taylor expansion and matches log1p(1/mu)
+    # only when 1/mu is small (i.e. mu large); for low-count Poisson outcomes (mu < ~2)
+    # it overestimates residual variance and biases VPC downward.
     mu <- stats::fitted(model)
     mu <- pmax(as.numeric(mu), .Machine$double.eps)
-    return(mean(1 / mu, na.rm = TRUE))
+    return(mean(log1p(1 / mu), na.rm = TRUE))
   }
 
   stop("VPC residual variance is not implemented for family '", fam$family,
@@ -493,9 +497,11 @@ maihda_residual_variance_brms <- function(model) {
     return(1)
   }
   if (fam$family == "poisson" && fam$link == "log") {
+    # Stryhn et al. (2006) latent-scale level-1 variance approximation: log(1 + 1/mu).
+    # See the lme4 sibling for the rationale; 1/mu alone biases VPC downward at low mu.
     mu <- stats::fitted(model, summary = TRUE)[, "Estimate"]
     mu <- pmax(as.numeric(mu), .Machine$double.eps)
-    return(mean(1 / mu, na.rm = TRUE))
+    return(mean(log1p(1 / mu), na.rm = TRUE))
   }
 
   stop("VPC residual variance is not implemented for brms family '", fam$family,

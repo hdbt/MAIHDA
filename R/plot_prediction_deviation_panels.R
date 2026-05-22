@@ -50,16 +50,23 @@ maihda_prediction_panel_fitted <- function(model, data, type) {
     if (is.null(dim(fit)) || !"Estimate" %in% colnames(fit)) {
       stop("Could not extract fitted estimates from brms model.", call. = FALSE)
     }
-    se <- if ("Est.Error" %in% colnames(fit)) fit[, "Est.Error"] else rep(0, nrow(data))
+    # NA (rather than 0) so downstream CI bars are omitted rather than collapsed
+    # to the point estimate when no SE is available.
+    se <- if ("Est.Error" %in% colnames(fit)) fit[, "Est.Error"] else rep(NA_real_, nrow(data))
     return(list(fit = as.numeric(fit[, "Estimate"]), se.fit = as.numeric(se)))
   }
 
+  # SE fallbacks below are NA_real_ — not 0 — because predict() for lme4::merMod
+  # (and some other mixed-model classes) does not implement se.fit. Returning 0
+  # produced ci_lower == ci_upper == fitted, i.e. fake zero-width "95% CI" bars.
+  # NA propagates through fitted +/- 1.96 * se and ggplot drops the geom_errorbar
+  # layer for those rows, which honestly communicates "no SE available".
   if (type == "binomial") {
     preds <- tryCatch(
       predict(model, newdata = data, type = "response", se.fit = TRUE),
       error = function(e) list(
         fit = predict(model, newdata = data, type = "response"),
-        se.fit = rep(0, nrow(data))
+        se.fit = rep(NA_real_, nrow(data))
       )
     )
   } else {
@@ -67,13 +74,13 @@ maihda_prediction_panel_fitted <- function(model, data, type) {
       predict(model, newdata = data, se.fit = TRUE),
       error = function(e) list(
         fit = predict(model, newdata = data),
-        se.fit = rep(0, nrow(data))
+        se.fit = rep(NA_real_, nrow(data))
       )
     )
   }
 
   if (is.numeric(preds)) {
-    preds <- list(fit = preds, se.fit = rep(0, nrow(data)))
+    preds <- list(fit = preds, se.fit = rep(NA_real_, nrow(data)))
   }
   preds$fit <- as.numeric(preds$fit)
   if (length(preds$fit) != nrow(data)) {
@@ -82,7 +89,7 @@ maihda_prediction_panel_fitted <- function(model, data, type) {
          call. = FALSE)
   }
   if (is.null(preds$se.fit) || length(preds$se.fit) != nrow(data)) {
-    preds$se.fit <- rep(0, nrow(data))
+    preds$se.fit <- rep(NA_real_, nrow(data))
   } else {
     preds$se.fit <- as.numeric(preds$se.fit)
   }
