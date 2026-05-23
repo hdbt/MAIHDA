@@ -187,7 +187,11 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
 #' @keywords internal
 #' @importFrom lme4 lmer glmer VarCorr
 bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
-  vpc_boot <- numeric(n_boot)
+  # Initialise to NA so iterations whose refit() throws — and never reach the
+  # assignment inside the tryCatch body — stay NA rather than the numeric() default of 0.
+  # The error handler runs in its own scope and cannot write back to this vector,
+  # so the initial value is what survives a failure.
+  vpc_boot <- rep(NA_real_, n_boot)
   sim_data <- stats::simulate(model, nsim = n_boot)
 
   for (i in 1:n_boot) {
@@ -202,9 +206,7 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
       var_residual <- maihda_residual_variance_lme4(boot_model, vc)
 
       vpc_boot[i] <- var_random / (var_random + var_other_random + var_residual)
-    }, error = function(e) {
-      vpc_boot[i] <- NA
-    })
+    }, error = function(e) NULL)
   }
 
   # Remove NAs

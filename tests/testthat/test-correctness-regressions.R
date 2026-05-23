@@ -153,7 +153,7 @@ test_that("poisson summaries use fitted mean based residual variance", {
   observed <- summ$variance_components$variance[
     summ$variance_components$component == "Within-stratum (residual)"
   ]
-  expected <- mean(1 / pmax(stats::fitted(model$model), .Machine$double.eps))
+  expected <- mean(log1p(1 / pmax(stats::fitted(model$model), .Machine$double.eps)))
   expect_equal(observed, expected, tolerance = 1e-8)
   expect_false(isTRUE(all.equal(observed, 1)))
 })
