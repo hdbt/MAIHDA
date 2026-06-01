@@ -66,17 +66,18 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
              if (!is.null(fam$link)) fam$link else NA_character_, ")")
     }, character(1))
 
+    issues <- character(0)
     if (length(unique(responses)) > 1) {
-      warning("compare_maihda(): models use different outcomes (",
-              paste(unique(responses), collapse = ", "),
-              "); VPCs across different outcomes are not directly comparable.",
-              call. = FALSE)
+      issues <- c(issues, paste0("outcomes (", paste(unique(responses), collapse = ", "), ")"))
     }
     if (length(unique(fam_keys)) > 1) {
-      warning("compare_maihda(): models use different families/links (",
-              paste(unique(fam_keys), collapse = ", "),
-              "); VPCs across different families are not directly comparable.",
-              call. = FALSE)
+      issues <- c(issues, paste0("families/links (", paste(unique(fam_keys), collapse = ", "), ")"))
+    }
+    if (length(issues) > 0) {
+      # Single aggregated warning even when both outcome and family/link differ.
+      warning("compare_maihda(): models differ in ", paste(issues, collapse = " and "),
+              ". VPCs are only directly comparable across models that share an ",
+              "outcome and family/link.", call. = FALSE)
     }
   }
 
