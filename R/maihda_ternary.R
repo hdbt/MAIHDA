@@ -343,7 +343,7 @@ plot_maihda_ternary <- function(ternary_data, ...) {
 #'
 #' @param model A fitted MAIHDA model.
 #' @param summary_obj Optional output from \code{summary_maihda}.
-#' @param ... Additional arguments passed to \code{compute_maihda_ternary_data} and \code{plot_maihda_ternary}.
+#' @param ... Additional arguments passed to \code{compute_maihda_ternary_data} and \code{\link{plot.maihda_ternary}}.
 #'
 #' @return A list containing \code{data} and \code{plot}.
 #' @export

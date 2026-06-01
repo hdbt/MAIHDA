@@ -11,6 +11,8 @@ maihda(
   engine = "lme4",
   family = "gaussian",
   autobin = TRUE,
+  shared_strata = TRUE,
+  min_group_n = 30,
   bootstrap = FALSE,
   n_boot = 1000,
   conf_level = 0.95,
@@ -38,6 +40,13 @@ models agree.}
 
 \item{autobin}{Logical passed to \code{\link{make_strata}}; tertile-bins numeric
 grouping variables. Default TRUE.}
+
+\item{shared_strata}{Logical, forwarded to \code{\link{compare_maihda_groups}}
+when \code{group} is supplied: build strata once on the full data so VPCs are
+comparable across groups (TRUE, default) or rebuild them within each group.}
+
+\item{min_group_n}{Minimum group size for the per-group comparison, forwarded
+to \code{\link{compare_maihda_groups}}. Default 30.}
 
 \item{bootstrap}{Logical; compute parametric-bootstrap VPC confidence intervals
 (lme4 only) for both the overall summary and the per-group comparison.

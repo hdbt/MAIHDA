@@ -38,6 +38,17 @@ test_that("maihda() with group attaches a comparison equal to compare_maihda_gro
   expect_equal(a$groups$var_between, cmp_direct$var_between, tolerance = 1e-8)
 })
 
+test_that("maihda() forwards comparison-only args without leaking them into lmer", {
+  d <- make_workflow_data(4007)
+  # min_group_n and shared_strata are compare_maihda_groups args, not lmer args;
+  # they must not be passed through to the model fitter.
+  expect_no_error(
+    a <- maihda(y ~ age + (1 | gender:race), data = d, group = "country",
+                min_group_n = 10, shared_strata = TRUE)
+  )
+  expect_s3_class(a$groups, "maihda_group_comparison")
+})
+
 test_that("maihda() auto-detects a binary outcome consistently for model and groups", {
   d <- make_workflow_data(4003)
   expect_warning(

@@ -27,6 +27,11 @@
 #'   models agree.
 #' @param autobin Logical passed to \code{\link{make_strata}}; tertile-bins numeric
 #'   grouping variables. Default TRUE.
+#' @param shared_strata Logical, forwarded to \code{\link{compare_maihda_groups}}
+#'   when \code{group} is supplied: build strata once on the full data so VPCs are
+#'   comparable across groups (TRUE, default) or rebuild them within each group.
+#' @param min_group_n Minimum group size for the per-group comparison, forwarded
+#'   to \code{\link{compare_maihda_groups}}. Default 30.
 #' @param bootstrap Logical; compute parametric-bootstrap VPC confidence intervals
 #'   (lme4 only) for both the overall summary and the per-group comparison.
 #'   Default FALSE.
@@ -65,7 +70,8 @@
 #'
 #' @export
 maihda <- function(formula, data, group = NULL, engine = "lme4",
-                   family = "gaussian", autobin = TRUE, bootstrap = FALSE,
+                   family = "gaussian", autobin = TRUE, shared_strata = TRUE,
+                   min_group_n = 30, bootstrap = FALSE,
                    n_boot = 1000, conf_level = 0.95, ...) {
   call <- match.call()
 
@@ -87,6 +93,7 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
   if (!is.null(group)) {
     groups <- compare_maihda_groups(
       formula, data, group = group, engine = engine, family = family_used,
+      shared_strata = shared_strata, min_group_n = min_group_n,
       autobin = autobin, bootstrap = bootstrap, n_boot = n_boot,
       conf_level = conf_level, ...
     )

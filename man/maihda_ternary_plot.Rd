@@ -11,7 +11,7 @@ maihda_ternary_plot(model, summary_obj = NULL, ...)
 
 \item{summary_obj}{Optional output from \code{summary_maihda}.}
 
-\item{...}{Additional arguments passed to \code{compute_maihda_ternary_data} and \code{plot_maihda_ternary}.}
+\item{...}{Additional arguments passed to \code{compute_maihda_ternary_data} and \code{\link{plot.maihda_ternary}}.}
 }
 \value{
 A list containing \code{data} and \code{plot}.

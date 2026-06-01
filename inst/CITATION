@@ -1,10 +1,22 @@
+## Derive the version from the installed DESCRIPTION so the citation never goes stale.
+pkg_version <- tryCatch(as.character(meta$Version), error = function(e) NULL)
+if (is.null(pkg_version) || is.na(pkg_version)) pkg_version <- utils::packageVersion("MAIHDA")
+note_str <- sprintf("R package version %s", pkg_version)
+
 bibentry(
   bibtype = "Manual",
   title = "MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy",
   author = person("Hamid", "Bulut"),
   year = "2025",
-  note = "R package version 0.1.9",
+  note = note_str,
   url = "https://github.com/hdbt/MAIHDA",
   doi = "10.32614/CRAN.package.MAIHDA",
-  textVersion = "Bulut, H. (2025). MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy. R package version 0.1.9. https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA"
+  textVersion = sprintf(
+    paste0(
+      "Bulut, H. (2025). MAIHDA: Multilevel Analysis of Individual Heterogeneity ",
+      "and Discriminatory Accuracy. %s. https://github.com/hdbt/MAIHDA. ",
+      "doi: 10.32614/CRAN.package.MAIHDA"
+    ),
+    note_str
+  )
 )

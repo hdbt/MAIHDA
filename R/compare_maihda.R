@@ -235,11 +235,11 @@ plot_comparison <- function(comparison_df) {
 #'   group = "Education"
 #' )
 #' print(cmp)
-#' plot_group_comparison(cmp, type = "vpc")
+#' plot(cmp, type = "vpc")
 #' }
 #'
 #' @seealso \code{\link{compare_maihda}} for comparing different models on the
-#'   same data; \code{\link{plot_group_comparison}} for visualising the result.
+#'   same data; \code{\link{plot.maihda_group_comparison}} for visualising the result.
 #' @export
 #' @importFrom reformulas findbars nobars
 #' @importFrom stats update na.omit
