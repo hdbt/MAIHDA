@@ -13,12 +13,12 @@
 #' @return A data frame comparing VPC/ICC across models with optional confidence intervals.
 #'
 #' @details
-#' VPCs are only directly comparable when the models share an outcome and
-#' family/link -- the canonical use is nested models (e.g. null vs covariate-
-#' adjusted) on the \emph{same} data and strata, to show how the VPC attenuates.
-#' If the supplied models use different outcomes or families/links,
-#' \code{compare_maihda()} still returns the table but issues a warning, because
-#' VPCs on different scales are not comparable.
+#' VPCs are only directly comparable when the models share an outcome,
+#' family/link, analytic sample, and strata -- the canonical use is nested models
+#' (e.g. null vs covariate-adjusted) on the \emph{same} data and strata, to show
+#' how the VPC attenuates. If the supplied models differ in any of these,
+#' \code{compare_maihda()} still returns the table but issues a single warning,
+#' because the VPCs are then not directly comparable.
 #'
 #' @examples
 #' \donttest{
@@ -65,6 +65,17 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
       paste0(if (!is.null(fam$family)) fam$family else NA_character_, "(",
              if (!is.null(fam$link)) fam$link else NA_character_, ")")
     }, character(1))
+    nobs_vec <- vapply(models, function(m) {
+      n <- maihda_nobs(m$model)
+      if (is.finite(n)) as.integer(n) else NA_integer_
+    }, integer(1))
+    strata_keys <- vapply(models, function(m) {
+      if (!is.null(m$data) && "stratum" %in% names(m$data)) {
+        paste(sort(unique(as.character(stats::na.omit(m$data$stratum)))), collapse = "|")
+      } else {
+        NA_character_
+      }
+    }, character(1))
 
     issues <- character(0)
     if (length(unique(responses)) > 1) {
@@ -73,11 +84,17 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     if (length(unique(fam_keys)) > 1) {
       issues <- c(issues, paste0("families/links (", paste(unique(fam_keys), collapse = ", "), ")"))
     }
+    if (length(unique(stats::na.omit(nobs_vec))) > 1) {
+      issues <- c(issues, paste0("analytic sample size (n = ", paste(nobs_vec, collapse = ", "), ")"))
+    }
+    if (length(unique(stats::na.omit(strata_keys))) > 1) {
+      issues <- c(issues, "stratum definitions")
+    }
     if (length(issues) > 0) {
-      # Single aggregated warning even when both outcome and family/link differ.
+      # Single aggregated warning even when several aspects differ.
       warning("compare_maihda(): models differ in ", paste(issues, collapse = " and "),
               ". VPCs are only directly comparable across models that share an ",
-              "outcome and family/link.", call. = FALSE)
+              "outcome, family/link, analytic sample, and strata.", call. = FALSE)
     }
   }
 

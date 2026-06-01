@@ -21,6 +21,12 @@
 #' Derived from the \code{NHANES} R package. Original data collected by the
 #' Centers for Disease Control and Prevention (CDC).
 #'
+#' @note
+#' This is a teaching/illustration dataset only. It is a non-random subsample and
+#' the analysis functions ignore the NHANES survey weights and complex sampling
+#' design, so results are \strong{not} survey-representative and should not be used
+#' for substantive population inference.
+#'
 #' @examples
 #' data(maihda_health_data)
 #'

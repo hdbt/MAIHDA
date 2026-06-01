@@ -23,7 +23,7 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 - **Visualizations**: Predicted stratum values, VPC visualizations, risk/effect diagnostics, and observed vs. shrunken estimates
 - **Model Comparison**: Compare models with robust bootstrap confidence intervals for VPC/ICC
 - **Group Comparison**: `compare_maihda_groups()` contrasts intersectional inequality (VPC/ICC) across levels of a higher-level variable such as country or region
-- **Proportional Change in Variance (PVC)**: Quantify how much between-stratum variance is explained by additional predictors
+- **Proportional Change in Variance (PCV)**: Quantify how much between-stratum variance is explained by additional predictors
 
 ## Installation
 
@@ -116,7 +116,9 @@ Compares VPC/ICC across multiple models with optional bootstrap confidence inter
 Compares intersectional inequality (VPC/ICC and between-/within-stratum variance) across the levels of a higher-level grouping variable such as country, region, or survey wave, fitting a stratified MAIHDA model per group. Visualize with `plot(result, type = "vpc")`. The bundled `maihda_country_data` (OECD PISA 2018; gender × socioeconomic-status strata across six countries) is built to demonstrate this.
 
 ### `calculate_pvc()`
-Calculates the proportional change in between-stratum variance (PVC) between two models. This measures how much of the between-stratum variance from a baseline model is explained (or changed) by adding additional predictors in a second model:- Formula: PVC = (Var_model1 - Var_model2) / Var_model1
+Calculates the proportional change in between-stratum variance (PCV) between two models — how much of the baseline model's between-stratum variance is explained (or changed) by adding predictors in a second model.
+
+- Formula: PCV = (Var_model1 - Var_model2) / Var_model1
 - Works with both lme4 and brms engines
 - Supports bootstrap confidence intervals for lme4 models
 
@@ -188,7 +190,7 @@ comparison <- compare_maihda(
 plot(comparison)
 ```
 
-## Calculating Proportional Change in Variance (PVC)
+## Calculating Proportional Change in Variance (PCV)
 
 ```r
 # Fit baseline model
@@ -197,15 +199,15 @@ model1 <- fit_maihda(outcome ~ age + (1 | gender:race), data = data)
 # Fit model with additional predictor
 model2 <- fit_maihda(outcome ~ age + gender + (1 | gender:race), data = data)
 
-# Calculate PVC without bootstrap
+# Calculate PCV without bootstrap
 pvc_result <- calculate_pvc(model1, model2)
 print(pvc_result)
 
-# Calculate PVC with bootstrap confidence intervals
+# Calculate PCV with bootstrap confidence intervals
 pvc_boot <- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 1000)
 print(pvc_boot)
 
-# Interpretation: A PVC of 0.25 means that model2 explains 25% of the
+# Interpretation: A PCV of 0.25 means that model2 explains 25% of the
 # between-stratum variance that was present in model1
 ```
 

@@ -44,3 +44,18 @@ test_that("compare_maihda warns when models use different families", {
   expect_match(w, "outcomes")
   expect_match(w, "families/links")
 })
+
+test_that("compare_maihda warns when models use different analytic samples", {
+  set.seed(2203)
+  d <- data.frame(stratum = rep(seq_len(8), each = 25), x = rnorm(200), z = rnorm(200))
+  u <- rnorm(8, sd = 0.7)[d$stratum]
+  d$y <- 1 + 0.3 * d$x + u + rnorm(200, sd = 0.4)
+  d$z[seq_len(40)] <- NA_real_   # z drops 40 rows from the second model's sample
+
+  m_full <- fit_maihda(y ~ x + (1 | stratum), data = d)          # n = 200
+  m_sub  <- fit_maihda(y ~ x + z + (1 | stratum), data = d)       # n = 160
+
+  w <- testthat::capture_warnings(compare_maihda(m_full, m_sub))
+  expect_length(w, 1)
+  expect_match(w, "analytic sample size")
+})

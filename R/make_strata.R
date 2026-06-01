@@ -9,8 +9,13 @@
 #'   Default is " \\u00d7 " (a mathematical multiplication sign).
 #' @param min_n Minimum number of observations required for a stratum to be included.
 #'   Strata with fewer observations will be coded as NA. Default is 1.
-#' @param autobin Logical indicating whether to automatically bin numeric grouping variables
-#'   with more than 10 unique values into 3 categories (tertiles). Default is TRUE.
+#' @param autobin Logical indicating whether to automatically bin numeric grouping
+#'   variables with more than 10 unique values into 3 categories (tertiles).
+#'   Default is TRUE. When this happens a \code{message()} is emitted, because the
+#'   resulting strata are data-dependent (tertile cut-points depend on the sample)
+#'   and a continuous variable placed in the grouping term is usually unintended.
+#'   Set \code{autobin = FALSE} to disable, or bin the variable yourself for
+#'   explicit, reproducible cut-points.
 #'
 #' @return A list with two elements:
 #'   \item{data}{The original data frame with an added 'stratum' column. The
@@ -83,6 +88,12 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
         strata_data[[v]] <- cut(val, breaks = breaks, include.lowest = TRUE,
                                 labels = labels)
         autobin_info[[v]] <- list(breaks = breaks, labels = labels)
+        # Tell the user a continuous grouping variable was discretised: the
+        # resulting strata are data-dependent (tertiles). Pass autobin = FALSE to
+        # disable, or pre-bin the variable yourself for explicit control.
+        message("make_strata(): auto-binned numeric variable '", v,
+                "' into tertiles (", paste(labels, collapse = ", "),
+                "). Set autobin = FALSE to disable.")
       }
     }
   }

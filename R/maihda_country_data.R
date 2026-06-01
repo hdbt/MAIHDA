@@ -44,6 +44,12 @@
 #' 600 complete-case students per country was taken (seed 2026). The data
 #' preparation script is in \code{data-raw/maihda_country_data.R}.
 #'
+#' @note
+#' This is a teaching/illustration dataset only. It uses a single PISA plausible
+#' value for each score and the analysis functions ignore the PISA survey weights
+#' and complex sampling design, so results are \strong{not} survey-representative
+#' and should not be used for substantive cross-national inference.
+#'
 #' @examples
 #' \donttest{
 #' data(maihda_country_data)

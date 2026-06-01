@@ -547,14 +547,17 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     stop("'stratum' variable not found in data. Make sure to use data from make_strata().")
   }
 
-  # Calculate both Full predictions and Fixed-effect ONLY predictions
-
+  # Compute full and fixed-only predictions on the LINK scale. The additive
+  # decomposition (total = additive + intersectional) is only exact on the model
+  # scale: eta = X*beta + u_stratum. On the response scale, for non-identity links
+  # (logit/log) the split is not additive. For Gaussian/identity the link scale
+  # equals the response scale, so this is unchanged there.
   if (object$engine == "lme4") {
-    preds_total <- tryCatch(predict(object$model, type = "response"), error = function(e) rep(NA, nrow(data)))
-    preds_fixed <- tryCatch(predict(object$model, type = "response", re.form = NA), error = function(e) rep(NA, nrow(data)))
+    preds_total <- tryCatch(predict(object$model, type = "link"), error = function(e) rep(NA, nrow(data)))
+    preds_fixed <- tryCatch(predict(object$model, type = "link", re.form = NA), error = function(e) rep(NA, nrow(data)))
   } else if (object$engine == "brms") {
-    preds_total <- tryCatch(fitted(object$model)[, "Estimate"], error = function(e) rep(NA, nrow(data)))
-    preds_fixed <- tryCatch(fitted(object$model, re_formula = NA)[, "Estimate"], error = function(e) rep(NA, nrow(data)))
+    preds_total <- tryCatch(brms::posterior_linpred(object$model, summary = TRUE)[, "Estimate"], error = function(e) rep(NA, nrow(data)))
+    preds_fixed <- tryCatch(brms::posterior_linpred(object$model, re_formula = NA, summary = TRUE)[, "Estimate"], error = function(e) rep(NA, nrow(data)))
   } else {
     stop("Engine not supported for effect decomposition.")
   }
@@ -636,9 +639,14 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     ggplot2::scale_color_manual(values = c("Additive Effect (Demographics)" = "gray60", "Intersectional Effect (Penalty/Advantage)" = "#D55E00")) +
     ggplot2::labs(
       title = "Deviation Decomposition: Additive vs. Intersectional Effects",
-      subtitle = "Visualizing how much of the stratum's deviation from the global mean is due to additive risk factors vs. true intersectionality.\nThe black dot represents the Total Marginal Deviation from the mean.",
+      subtitle = paste0(
+        "Stratum deviation from the global mean split into additive (main-effect) ",
+        "and intersectional (stratum random-effect) components, on the model (link) ",
+        "scale.\nThe black dot is the total deviation. The split is additive on the ",
+        "link scale; for non-Gaussian models it is not additive on the response scale."
+      ),
       x = "Stratum Rank (Ordered by Total Predicted Deviation)",
-      y = "Deviation from Global Mean",
+      y = "Deviation from Global Mean (link scale)",
       color = "Effect Component"
     ) +
     ggplot2::theme_minimal() +

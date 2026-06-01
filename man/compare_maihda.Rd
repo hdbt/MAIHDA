@@ -32,12 +32,12 @@ Compares variance partition coefficients (VPC/ICC) across multiple MAIHDA models
 with optional bootstrap confidence intervals.
 }
 \details{
-VPCs are only directly comparable when the models share an outcome and
-family/link -- the canonical use is nested models (e.g. null vs covariate-
-adjusted) on the \emph{same} data and strata, to show how the VPC attenuates.
-If the supplied models use different outcomes or families/links,
-\code{compare_maihda()} still returns the table but issues a warning, because
-VPCs on different scales are not comparable.
+VPCs are only directly comparable when the models share an outcome,
+family/link, analytic sample, and strata -- the canonical use is nested models
+(e.g. null vs covariate-adjusted) on the \emph{same} data and strata, to show
+how the VPC attenuates. If the supplied models differ in any of these,
+\code{compare_maihda()} still returns the table but issues a single warning,
+because the VPCs are then not directly comparable.
 }
 \examples{
 \donttest{
