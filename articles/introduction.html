@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.9</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.10</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -65,7 +65,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-05-23</h4>
+            <h4 data-toc-skip class="date">2026-06-01</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
@@ -210,6 +210,39 @@ application logic:</p>
 <span><span class="co"># Individual Prediction Deviance Dashboard</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"prediction_deviation"</span><span class="op">)</span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="step-6-compare-intersectional-inequality-across-groups">Step 6: Compare Intersectional Inequality Across Groups<a class="anchor" aria-label="anchor" href="#step-6-compare-intersectional-inequality-across-groups"></a>
+</h3>
+<p>When the data spans several higher-level contexts – countries,
+regions, survey waves – you often want to know whether the
+<em>degree</em> of intersectional inequality differs across them.
+<code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> fits a separate intercept-only
+MAIHDA model within each level of a grouping variable and reports the
+VPC/ICC and variance components side by side.</p>
+<p>By default the intersectional strata are defined once on the full
+data (<code>shared_strata = TRUE</code>), so a stratum denotes the same
+combination in every group and the VPCs are directly comparable. This is
+a <em>stratified</em> analysis (one model per group), not a
+cross-classified model.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Education stands in here for a higher-level grouping variable such as country.</span></span>
+<span><span class="va">group_cmp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_maihda_groups.html">compare_maihda_groups</a></span><span class="op">(</span></span>
+<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">)</span>,</span>
+<span>  data  <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
+<span>  group <span class="op">=</span> <span class="st">"Education"</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">group_cmp</span></span>
+<span></span>
+<span><span class="co"># VPC by group (add bootstrap = TRUE for per-group confidence intervals)</span></span>
+<span><span class="fu"><a href="../reference/plot_group_comparison.html">plot_group_comparison</a></span><span class="op">(</span><span class="va">group_cmp</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Between- vs within-stratum variance share by group</span></span>
+<span><span class="fu"><a href="../reference/plot_group_comparison.html">plot_group_comparison</a></span><span class="op">(</span><span class="va">group_cmp</span>, type <span class="op">=</span> <span class="st">"components"</span><span class="op">)</span></span></code></pre></div>
+<p>Groups smaller than <code>min_group_n</code>, or with fewer than two
+populated strata, are skipped with a warning rather than producing an
+unstable VPC; a group with no between-stratum variation reports a VPC of
+0 instead of erroring.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="interactive-shiny-app">Interactive Shiny App<a class="anchor" aria-label="anchor" href="#interactive-shiny-app"></a>
@@ -219,7 +252,7 @@ Dashboard.</p>
 <p>You can upload your own data (CSV, SPSS <code>.sav</code>, Stata
 <code>.dta</code>), dynamically select variables, and compute Stepwise
 PCV tables and prediction plots.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Launch the interactive interface</span></span>
 <span><span class="fu"><a href="../reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>

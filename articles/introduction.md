@@ -151,6 +151,43 @@ plot(model_adj, type = "ternary")
 plot(model_adj, type = "prediction_deviation")
 ```
 
+### Step 6: Compare Intersectional Inequality Across Groups
+
+When the data spans several higher-level contexts – countries, regions,
+survey waves – you often want to know whether the *degree* of
+intersectional inequality differs across them.
+[`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+fits a separate intercept-only MAIHDA model within each level of a
+grouping variable and reports the VPC/ICC and variance components side
+by side.
+
+By default the intersectional strata are defined once on the full data
+(`shared_strata = TRUE`), so a stratum denotes the same combination in
+every group and the VPCs are directly comparable. This is a *stratified*
+analysis (one model per group), not a cross-classified model.
+
+``` r
+
+# Education stands in here for a higher-level grouping variable such as country.
+group_cmp <- compare_maihda_groups(
+  BMI ~ Age + (1 | Gender:Race),
+  data  = maihda_health_data,
+  group = "Education"
+)
+group_cmp
+
+# VPC by group (add bootstrap = TRUE for per-group confidence intervals)
+plot_group_comparison(group_cmp, type = "vpc")
+
+# Between- vs within-stratum variance share by group
+plot_group_comparison(group_cmp, type = "components")
+```
+
+Groups smaller than `min_group_n`, or with fewer than two populated
+strata, are skipped with a warning rather than producing an unstable
+VPC; a group with no between-stratum variation reports a VPC of 0
+instead of erroring.
+
 ## Interactive Shiny App
 
 The MAIHDA package ships with a fully-featured, interactive Shiny

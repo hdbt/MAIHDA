@@ -339,6 +339,8 @@ A BibTeX entry for LaTeX users is:
   : Calculate Proportional Change in Between-Stratum Variance (PVC)
 - [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
   : Compare MAIHDA Models
+- [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  : Compare MAIHDA Metrics Across Levels of a Grouping Variable
 - [`compute_maihda_ternary_data()`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
   : Compute Ternary Data for MAIHDA Models
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
@@ -355,12 +357,16 @@ A BibTeX entry for LaTeX users is:
   : Plot MAIHDA Model Results
 - [`plot_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_comparison.md)
   : Plot Model Comparison
+- [`plot_group_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.md)
+  : Plot a MAIHDA Group Comparison
 - [`plot_maihda_ternary()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda_ternary.md)
   : Plot MAIHDA Ternary Diagram
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   : Plot Prediction Deviation Panels
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
   : Predict from MAIHDA Model
+- [`print(`*`<maihda_group_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_group_comparison.md)
+  : Print method for MAIHDA group comparisons
 - [`print(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_model.md)
   : Print method for maihda_model
 - [`print(`*`<maihda_strata>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_strata.md)

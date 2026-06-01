@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.9</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.10</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,21 @@
       <small>Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.10" id="maihda-0110">MAIHDA 0.1.10<a class="anchor" aria-label="anchor" href="#maihda-0110"></a></h2>
+<div class="section level3">
+<h3 id="new-features-0-1-10">New Features<a class="anchor" aria-label="anchor" href="#new-features-0-1-10"></a></h3>
+<ul><li>Added <code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> to compare intersectional inequality (VPC/ICC and between-/within-stratum variance) across levels of a higher-level grouping variable such as country, region, or survey wave. It fits a stratified MAIHDA model per group, by default using shared/global strata so VPCs are directly comparable, with optional per-group bootstrap confidence intervals.</li>
+<li>Added <code><a href="../reference/plot_group_comparison.html">plot_group_comparison()</a></code> to visualize the result either as a VPC-by-group forest plot or as stacked variance-composition bars.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-0-1-10">Bug Fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-1-10"></a></h3>
+<ul><li>Fixed parametric-bootstrap confidence intervals for VPC (<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>) and PVC (<code><a href="../reference/calculate_pvc.html">calculate_pvc()</a></code>): failed <code>refit()</code> iterations were silently recorded as <code>0</code> instead of being dropped, biasing intervals toward zero and suppressing the high-failure-rate warning. Failed iterations are now excluded correctly.</li>
+<li>Corrected the Poisson VPC residual-variance approximation to <code>log(1 + 1/mu)</code> (Stryhn et al. 2006); the previous <code>1/mu</code> linearization biased the VPC downward for low-count outcomes.</li>
+<li>
+<code><a href="../reference/plot_prediction_deviation_panels.html">plot_prediction_deviation_panels()</a></code> no longer draws zero-width “95% CI” bars when the underlying model does not supply standard errors (e.g. <code><a href="https://rdrr.io/pkg/lme4/man/merMod-class.html" class="external-link">lme4::merMod</a></code>); intervals are omitted instead of collapsed.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.9" id="maihda-019">MAIHDA 0.1.9<a class="anchor" aria-label="anchor" href="#maihda-019"></a></h2>
 <div class="section level3">
