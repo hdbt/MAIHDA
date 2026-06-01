@@ -2,7 +2,7 @@
 % Please edit documentation in R/compare_maihda.R
 \name{plot_comparison}
 \alias{plot_comparison}
-\title{Plot Model Comparison}
+\title{Plot Model Comparison (deprecated)}
 \usage{
 plot_comparison(comparison_df)
 }
@@ -13,19 +13,7 @@ plot_comparison(comparison_df)
 A ggplot2 object.
 }
 \description{
-Creates a plot comparing VPC/ICC across multiple models.
+Deprecated. Use \code{plot()} on the \code{\link{compare_maihda}} result
+instead, e.g. \code{plot(compare_maihda(...))}.
 }
-\examples{
-\donttest{
-# Create strata and models using simulated data
-strata_1 <- make_strata(maihda_sim_data, vars = c("gender", "race"))
-strata_2 <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
-
-model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_1$data)
-model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_2$data)
-
-comparison <- compare_maihda(model1, model2, bootstrap = TRUE)
-plot_comparison(comparison)
-}
-
-}
+\keyword{internal}

@@ -1,3 +1,18 @@
+# MAIHDA 0.1.11
+
+## New Features
+
+* Added `maihda()`, a single high-level entry point that runs the standard workflow in one call: it fits the model, summarises the VPC/ICC and variance components, and -- when a `group` is supplied -- also compares intersectional inequality across that grouping variable. It returns one consistent `maihda_analysis` object (with `print`, `summary`, and `plot` methods); the `groups` slot is simply `NULL` when no grouping variable is given.
+
+## Improvements
+
+* Plotting is now unified under the base `plot()` generic. `compare_maihda()` and `compute_maihda_ternary_data()` now return classed objects, so `plot()` dispatches automatically:
+  * `plot()` on a `compare_maihda()` result (was `plot_comparison()`)
+  * `plot()` on a `compare_maihda_groups()` result, with `type = "vpc"`/"components" (was `plot_group_comparison()`)
+  * `plot()` on a `compute_maihda_ternary_data()` result (was `plot_maihda_ternary()`)
+* The old `plot_comparison()`, `plot_group_comparison()`, and `plot_maihda_ternary()` functions still work but are **deprecated** and emit a one-time warning pointing to `plot()`.
+
+
 # MAIHDA 0.1.10
 
 ## New Features

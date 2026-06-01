@@ -37,6 +37,33 @@ install.packages("MAIHDA")
 # remotes::install_github("hdbt/MAIHDA")
 ```
 
+## Quick Start: the `maihda()` one-call workflow
+
+If you just want the standard analysis, `maihda()` runs the whole pipeline in a
+single call -- it fits the model, summarises the VPC/ICC and variance components,
+and (optionally) compares intersectional inequality across a higher-level grouping
+variable. It returns one object with `print()`, `summary()`, and `plot()` methods.
+
+```{r eval=FALSE}
+library(MAIHDA)
+data("maihda_health_data")
+
+# Fit + variance summary in one call
+analysis <- maihda(BMI ~ Age + (1 | Gender:Race:Education), data = maihda_health_data)
+analysis                      # concise report (VPC/ICC, #strata)
+summary(analysis)             # full variance components
+plot(analysis, type = "vpc")  # any plot.maihda_model type works here
+
+# Add a higher-level grouping variable to also compare across its levels
+by_education <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data,
+                       group = "Education")
+by_education
+plot(by_education, type = "group_vpc")
+```
+
+The sections below walk through the same steps individually with `fit_maihda()`
+and friends, which you can use directly when you need finer control.
+
 ## Real-World Example Analysis
 
 The package includes a pedagogical subset of the National Health and Nutrition Examination Survey (`maihda_health_data`). We will use this to examine how Body Mass Index (BMI) varies across intersectional demographic groups.
@@ -153,10 +180,10 @@ group_cmp <- compare_maihda_groups(
 group_cmp
 
 # VPC by group (add bootstrap = TRUE for per-group confidence intervals)
-plot_group_comparison(group_cmp, type = "vpc")
+plot(group_cmp, type = "vpc")
 
 # Between- vs within-stratum variance share by group
-plot_group_comparison(group_cmp, type = "components")
+plot(group_cmp, type = "components")
 ```
 
 Groups smaller than `min_group_n`, or with fewer than two populated strata, are

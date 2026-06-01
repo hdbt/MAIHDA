@@ -80,42 +80,47 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
 
   # Combine results
   comparison_df <- do.call(rbind, comparison_list)
-
+  # Class the result so plot() dispatches to plot.maihda_comparison(). It remains
+  # a data.frame, so existing column access and printing are unaffected.
+  class(comparison_df) <- c("maihda_comparison", "data.frame")
   return(comparison_df)
 }
 
-#' Plot Model Comparison
+#' Plot a MAIHDA Model Comparison
 #'
-#' Creates a plot comparing VPC/ICC across multiple models.
+#' Plots VPC/ICC across the models compared by \code{\link{compare_maihda}}.
+#' Dispatched via \code{plot()} on the classed result.
 #'
-#' @param comparison_df A data frame from \code{compare_maihda()}.
+#' @param x A \code{maihda_comparison} object from \code{\link{compare_maihda}}.
+#' @param ... Additional arguments (not used).
 #'
 #' @return A ggplot2 object.
 #'
 #' @examples
 #' \donttest{
-#' # Create strata and models using simulated data
 #' strata_1 <- make_strata(maihda_sim_data, vars = c("gender", "race"))
 #' strata_2 <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
-#' 
+#'
 #' model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_1$data)
 #' model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_2$data)
-#' 
+#'
 #' comparison <- compare_maihda(model1, model2, bootstrap = TRUE)
-#' plot_comparison(comparison)
+#' plot(comparison)
 #' }
 #'
 #' @export
 #' @import ggplot2
-plot_comparison <- function(comparison_df) {
+#' @importFrom rlang .data
+plot.maihda_comparison <- function(x, ...) {
   required_cols <- c("model", "vpc")
-  if (!is.data.frame(comparison_df) || !all(required_cols %in% names(comparison_df))) {
-    stop("comparison_df must be a data frame with 'model' and 'vpc' columns")
+  if (!is.data.frame(x) || !all(required_cols %in% names(x))) {
+    stop("A maihda_comparison must be a data frame with 'model' and 'vpc' columns.",
+         call. = FALSE)
   }
 
-  has_ci <- all(c("ci_lower", "ci_upper") %in% names(comparison_df))
+  has_ci <- all(c("ci_lower", "ci_upper") %in% names(x))
 
-  p <- ggplot(comparison_df, aes(x = .data$model, y = .data$vpc)) +
+  p <- ggplot(x, aes(x = .data$model, y = .data$vpc)) +
     geom_point(size = 4, color = "#0072B2") +
     labs(
       title = "Comparison of Variance Partition Coefficients",
@@ -127,7 +132,7 @@ plot_comparison <- function(comparison_df) {
       plot.title = element_text(hjust = 0.5, face = "bold"),
       axis.text.x = element_text(angle = 45, hjust = 1)
     ) +
-    ylim(0, 1)
+    coord_cartesian(ylim = c(0, 1))
 
   if (has_ci) {
     p <- p + geom_errorbar(aes(ymin = .data$ci_lower, ymax = .data$ci_upper),
@@ -135,6 +140,26 @@ plot_comparison <- function(comparison_df) {
   }
 
   return(p)
+}
+
+#' Plot Model Comparison (deprecated)
+#'
+#' Deprecated. Use \code{plot()} on the \code{\link{compare_maihda}} result
+#' instead, e.g. \code{plot(compare_maihda(...))}.
+#'
+#' @param comparison_df A data frame from \code{compare_maihda()}.
+#' @return A ggplot2 object.
+#' @keywords internal
+#' @export
+plot_comparison <- function(comparison_df) {
+  .Deprecated("plot", msg = paste(
+    "'plot_comparison()' is deprecated.",
+    "Use plot() on the compare_maihda() result, e.g. plot(compare_maihda(...))."
+  ))
+  if (is.data.frame(comparison_df) && !inherits(comparison_df, "maihda_comparison")) {
+    class(comparison_df) <- c("maihda_comparison", class(comparison_df))
+  }
+  plot(comparison_df)
 }
 
 #' Compare MAIHDA Metrics Across Levels of a Grouping Variable
@@ -480,12 +505,14 @@ print.maihda_group_comparison <- function(x, ...) {
 #'
 #' Visualises the output of \code{\link{compare_maihda_groups}} either as a
 #' point/forest plot of the VPC/ICC by group, or as stacked variance-composition
-#' bars (between- vs within-stratum share) by group.
+#' bars (between- vs within-stratum share) by group. Dispatched via \code{plot()}
+#' on the classed result.
 #'
 #' @param x A \code{maihda_group_comparison} object from
 #'   \code{\link{compare_maihda_groups}}.
 #' @param type Either "vpc" (default) for VPC by group with optional bootstrap
 #'   confidence intervals, or "components" for stacked variance proportions.
+#' @param ... Additional arguments (not used).
 #'
 #' @return A ggplot2 object.
 #'
@@ -494,14 +521,14 @@ print.maihda_group_comparison <- function(x, ...) {
 #' data(maihda_health_data)
 #' cmp <- compare_maihda_groups(BMI ~ Age + (1 | Gender:Race),
 #'                              data = maihda_health_data, group = "Education")
-#' plot_group_comparison(cmp, type = "vpc")
-#' plot_group_comparison(cmp, type = "components")
+#' plot(cmp, type = "vpc")
+#' plot(cmp, type = "components")
 #' }
 #'
 #' @export
 #' @import ggplot2
 #' @importFrom rlang .data
-plot_group_comparison <- function(x, type = c("vpc", "components")) {
+plot.maihda_group_comparison <- function(x, type = c("vpc", "components"), ...) {
   if (!inherits(x, "maihda_group_comparison")) {
     stop("'x' must be a maihda_group_comparison object from compare_maihda_groups().",
          call. = FALSE)
@@ -594,4 +621,22 @@ plot_group_comparison <- function(x, type = c("vpc", "components")) {
       plot.title = element_text(hjust = 0.5, face = "bold"),
       axis.text.x = element_text(angle = 45, hjust = 1)
     )
+}
+
+#' Plot a MAIHDA Group Comparison (deprecated)
+#'
+#' Deprecated. Use \code{plot()} on the \code{\link{compare_maihda_groups}}
+#' result instead, e.g. \code{plot(cmp, type = "vpc")}.
+#'
+#' @param x A \code{maihda_group_comparison} object.
+#' @param type Either "vpc" (default) or "components".
+#' @return A ggplot2 object.
+#' @keywords internal
+#' @export
+plot_group_comparison <- function(x, type = c("vpc", "components")) {
+  .Deprecated("plot", msg = paste(
+    "'plot_group_comparison()' is deprecated.",
+    "Use plot() on the compare_maihda_groups() result, e.g. plot(cmp, type = 'vpc')."
+  ))
+  plot(x, type = match.arg(type))
 }
