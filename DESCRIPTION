@@ -1,7 +1,7 @@
 Package: MAIHDA
 Type: Package
 Title: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy
-Version: 0.1.10
+Version: 0.1.11
 Authors@R: c(
     person("Hamid", "Bulut", email = "me@hamidbulut.com", role = c("aut", "cre"))
     )

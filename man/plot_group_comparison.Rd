@@ -2,32 +2,20 @@
 % Please edit documentation in R/compare_maihda.R
 \name{plot_group_comparison}
 \alias{plot_group_comparison}
-\title{Plot a MAIHDA Group Comparison}
+\title{Plot a MAIHDA Group Comparison (deprecated)}
 \usage{
 plot_group_comparison(x, type = c("vpc", "components"))
 }
 \arguments{
-\item{x}{A \code{maihda_group_comparison} object from
-\code{\link{compare_maihda_groups}}.}
+\item{x}{A \code{maihda_group_comparison} object.}
 
-\item{type}{Either "vpc" (default) for VPC by group with optional bootstrap
-confidence intervals, or "components" for stacked variance proportions.}
+\item{type}{Either "vpc" (default) or "components".}
 }
 \value{
 A ggplot2 object.
 }
 \description{
-Visualises the output of \code{\link{compare_maihda_groups}} either as a
-point/forest plot of the VPC/ICC by group, or as stacked variance-composition
-bars (between- vs within-stratum share) by group.
+Deprecated. Use \code{plot()} on the \code{\link{compare_maihda_groups}}
+result instead, e.g. \code{plot(cmp, type = "vpc")}.
 }
-\examples{
-\donttest{
-data(maihda_health_data)
-cmp <- compare_maihda_groups(BMI ~ Age + (1 | Gender:Race),
-                             data = maihda_health_data, group = "Education")
-plot_group_comparison(cmp, type = "vpc")
-plot_group_comparison(cmp, type = "components")
-}
-
-}
+\keyword{internal}

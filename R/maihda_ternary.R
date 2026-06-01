@@ -217,7 +217,11 @@ compute_maihda_ternary_data <- function(
   res <- res[order(res$interaction_signal, decreasing = TRUE), ]
   rownames(res) <- NULL
 
-  tibble::as_tibble(res)
+  out <- tibble::as_tibble(res)
+  # Class the result so plot() dispatches to plot.maihda_ternary(). It remains a
+  # tibble/data.frame, so existing column access is unaffected.
+  class(out) <- c("maihda_ternary", class(out))
+  out
 }
 
 maihda_ternary_uncertainty <- function(re_stratum, uncertainty_method, engine) {
@@ -245,23 +249,30 @@ maihda_ternary_uncertainty <- function(re_stratum, uncertainty_method, engine) {
 
 #' Plot MAIHDA Ternary Diagram
 #'
-#' @param ternary_data Data output from \code{compute_maihda_ternary_data}.
+#' Renders the ternary decomposition produced by
+#' \code{\link{compute_maihda_ternary_data}}. Dispatched via \code{plot()} on the
+#' classed result.
+#'
+#' @param x A \code{maihda_ternary} object from \code{compute_maihda_ternary_data}.
 #' @param size_var Column name for point sizing.
 #' @param color_var Column name for point colors.
 #' @param label_top_n Number of top strata to label.
 #' @param label_by Variable used to determine top strata.
 #' @param alpha Point transparency.
+#' @param ... Additional arguments (not used).
 #'
 #' @return A plot object.
 #' @export
-plot_maihda_ternary <- function(
-    ternary_data,
+plot.maihda_ternary <- function(
+    x,
     size_var = "n",
     color_var = "label",
     label_top_n = 5,
     label_by = c("interaction_signal", "uncertainty", "n"),
-    alpha = 0.7
+    alpha = 0.7,
+    ...
 ) {
+  ternary_data <- x
   label_by <- match.arg(label_by)
 
   if (!requireNamespace("ggtern", quietly = TRUE)) {
@@ -306,11 +317,33 @@ plot_maihda_ternary <- function(
   return(p)
 }
 
+#' Plot MAIHDA Ternary Diagram (deprecated)
+#'
+#' Deprecated. Use \code{plot()} on the \code{\link{compute_maihda_ternary_data}}
+#' result instead, e.g. \code{plot(compute_maihda_ternary_data(model))}.
+#'
+#' @param ternary_data Data output from \code{compute_maihda_ternary_data}.
+#' @param ... Further arguments passed to \code{plot()} (e.g. \code{size_var}).
+#' @return A plot object.
+#' @keywords internal
+#' @export
+plot_maihda_ternary <- function(ternary_data, ...) {
+  .Deprecated("plot", msg = paste(
+    "'plot_maihda_ternary()' is deprecated.",
+    "Use plot() on the compute_maihda_ternary_data() result, e.g.",
+    "plot(compute_maihda_ternary_data(model))."
+  ))
+  if (!inherits(ternary_data, "maihda_ternary")) {
+    class(ternary_data) <- c("maihda_ternary", class(ternary_data))
+  }
+  plot(ternary_data, ...)
+}
+
 #' Generate Ternary Plot from MAIHDA Model
 #'
 #' @param model A fitted MAIHDA model.
 #' @param summary_obj Optional output from \code{summary_maihda}.
-#' @param ... Additional arguments passed to \code{compute_maihda_ternary_data} and \code{plot_maihda_ternary}.
+#' @param ... Additional arguments passed to \code{compute_maihda_ternary_data} and \code{\link{plot.maihda_ternary}}.
 #'
 #' @return A list containing \code{data} and \code{plot}.
 #' @export
@@ -318,15 +351,15 @@ maihda_ternary_plot <- function(model, summary_obj = NULL, ...) {
   args <- list(...)
 
   compute_args <- args[names(args) %in% names(formals(compute_maihda_ternary_data))]
-  plot_args <- args[names(args) %in% names(formals(plot_maihda_ternary))]
+  plot_args <- args[names(args) %in% names(formals(plot.maihda_ternary))]
 
   compute_args$model <- model
   compute_args$summary_obj <- summary_obj
 
   ternary_data <- do.call(compute_maihda_ternary_data, compute_args)
 
-  plot_args$ternary_data <- ternary_data
-  p <- do.call(plot_maihda_ternary, plot_args)
+  plot_args$x <- ternary_data
+  p <- do.call(plot.maihda_ternary, plot_args)
 
   list(
     data = ternary_data,

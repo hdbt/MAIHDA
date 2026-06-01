@@ -102,5 +102,5 @@ comparison <- compare_maihda(
 print(comparison)
 
 # Plot comparison
-plot_comp <- plot_comparison(comparison)
+plot_comp <- plot(comparison)
 print(plot_comp)

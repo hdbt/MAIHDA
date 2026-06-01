@@ -13,6 +13,7 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 
 ## Key Features
 
+- **One-call Workflow**: `maihda()` fits the model, summarises the VPC/ICC, and (optionally) compares across a higher-level group in a single call
 - **Create Intersectional Strata**: Automatically generate strata from multiple categorical variables
 - **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**
 : A fully-featured Shiny application (`run_maihda_app()`) for no-code exploratory data analysis and model fitting
@@ -21,6 +22,7 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 - **Multiple Prediction Types**: Individual-level and stratum-level predictions
 - **Visualizations**: Predicted stratum values, VPC visualizations, risk/effect diagnostics, and observed vs. shrunken estimates
 - **Model Comparison**: Compare models with robust bootstrap confidence intervals for VPC/ICC
+- **Group Comparison**: `compare_maihda_groups()` contrasts intersectional inequality (VPC/ICC) across levels of a higher-level variable such as country or region
 - **Proportional Change in Variance (PVC)**: Quantify how much between-stratum variance is explained by additional predictors
 
 ## Installation
@@ -41,6 +43,16 @@ install.packages("MAIHDA")
 library(MAIHDA)
 data("maihda_health_data")
 
+# Everything in one call: fit + VPC/ICC summary (+ optional group comparison)
+analysis <- maihda(BMI ~ Age + (1 | Gender:Race:Education), data = maihda_health_data)
+analysis                       # concise report
+summary(analysis)              # variance components
+plot(analysis, type = "vpc")   # any model plot type works here
+```
+
+Prefer the individual building blocks? They are all still available:
+
+```r
 # 1. Fit a MAIHDA model
 model <- fit_maihda(
   BMI ~ Age + Poverty + (1 | Gender:Race:Education),
@@ -55,6 +67,12 @@ plot(model)
 ```
 
 ## Main Functions
+
+### `maihda()`
+A single high-level entry point that runs the standard workflow: fits the model,
+summarises the VPC/ICC and variance components, and -- when a `group` is supplied --
+also compares intersectional inequality across that grouping variable. Returns one
+`maihda_analysis` object with `print()`, `summary()`, and `plot()` methods.
 
 ### `make_strata()`
 Creates intersectional strata from multiple categorical variables with optional minimum count filtering.
@@ -93,6 +111,9 @@ Creates an advanced, publication-ready two-panel dashboard for visualizing predi
 
 ### `compare_maihda()`
 Compares VPC/ICC across multiple models with optional bootstrap confidence intervals.
+
+### `compare_maihda_groups()`
+Compares intersectional inequality (VPC/ICC and between-/within-stratum variance) across the levels of a higher-level grouping variable such as country, region, or survey wave, fitting a stratified MAIHDA model per group. Visualize with `plot(result, type = "vpc")`. The bundled `maihda_country_data` (OECD PISA 2018; gender × socioeconomic-status strata across six countries) is built to demonstrate this.
 
 ### `calculate_pvc()`
 Calculates the proportional change in between-stratum variance (PVC) between two models. This measures how much of the between-stratum variance from a baseline model is explained (or changed) by adding additional predictors in a second model:- Formula: PVC = (Var_model1 - Var_model2) / Var_model1
@@ -162,7 +183,7 @@ comparison <- compare_maihda(
 )
 
 # Visualize comparison
-plot_comparison(comparison)
+plot(comparison)
 ```
 
 ## Calculating Proportional Change in Variance (PVC)
@@ -227,12 +248,16 @@ vignette("introduction", package = "MAIHDA")
 - ggplot2 (>= 3.4.0)
 - dplyr (>= 1.0.0)
 - tidyr (>= 1.1.0)
-- stats, methods, tibble, rlang
+- reformulas, patchwork, ggrepel, tidyselect, stats, tibble, rlang
 
 **Optional:**
 
 - brms (>= 2.15.0) - for Bayesian models
-- boot (>= 1.3-20) - for bootstrap confidence intervals
+- ggtern - for ternary diagrams
+- shiny, bslib, DT, plotly, shinyjs - for the interactive dashboard
+
+Bootstrap confidence intervals use a parametric bootstrap via `lme4::simulate()` /
+`lme4::refit()`; no external bootstrap package is required.
 
 ## References
 
@@ -253,7 +278,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use this package in your research, please cite:
 
 ```text
-Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.9, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
+Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.11, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
 ```
 
 A BibTeX entry for LaTeX users is:
@@ -263,7 +288,7 @@ A BibTeX entry for LaTeX users is:
   title  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},
   author = {Hamid Bulut},
   year   = {2025},
-  note   = {R package version 0.1.9},
+  note   = {R package version 0.1.11},
   url    = {https://github.com/hdbt/MAIHDA},
   doi    = {10.32614/CRAN.package.MAIHDA}
 }

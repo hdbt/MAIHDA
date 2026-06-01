@@ -2,33 +2,20 @@
 % Please edit documentation in R/maihda_ternary.R
 \name{plot_maihda_ternary}
 \alias{plot_maihda_ternary}
-\title{Plot MAIHDA Ternary Diagram}
+\title{Plot MAIHDA Ternary Diagram (deprecated)}
 \usage{
-plot_maihda_ternary(
-  ternary_data,
-  size_var = "n",
-  color_var = "label",
-  label_top_n = 5,
-  label_by = c("interaction_signal", "uncertainty", "n"),
-  alpha = 0.7
-)
+plot_maihda_ternary(ternary_data, ...)
 }
 \arguments{
 \item{ternary_data}{Data output from \code{compute_maihda_ternary_data}.}
 
-\item{size_var}{Column name for point sizing.}
-
-\item{color_var}{Column name for point colors.}
-
-\item{label_top_n}{Number of top strata to label.}
-
-\item{label_by}{Variable used to determine top strata.}
-
-\item{alpha}{Point transparency.}
+\item{...}{Further arguments passed to \code{plot()} (e.g. \code{size_var}).}
 }
 \value{
 A plot object.
 }
 \description{
-Plot MAIHDA Ternary Diagram
+Deprecated. Use \code{plot()} on the \code{\link{compute_maihda_ternary_data}}
+result instead, e.g. \code{plot(compute_maihda_ternary_data(model))}.
 }
+\keyword{internal}

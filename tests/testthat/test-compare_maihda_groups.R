@@ -230,10 +230,10 @@ test_that("compare_maihda_groups captures other random-effect variance consisten
   # VPC must use the full denominator: between / (between + other + residual)
   manual <- cmp$var_between / (cmp$var_between + cmp$var_other + cmp$var_residual)
   expect_equal(cmp$vpc[ok], manual[ok], tolerance = 1e-8)
-  expect_s3_class(plot_group_comparison(cmp, type = "components"), "ggplot")
+  expect_s3_class(plot(cmp, type = "components"), "ggplot")
 })
 
-test_that("plot_group_comparison returns ggplot objects for both types", {
+test_that("plot() on a maihda_group_comparison returns ggplot objects for both types", {
   set.seed(3007)
   n <- 300
   d <- data.frame(
@@ -247,10 +247,14 @@ test_that("plot_group_comparison returns ggplot objects for both types", {
 
   cmp <- compare_maihda_groups(y ~ age + (1 | gender:race), data = d, group = "country")
 
-  p_vpc <- plot_group_comparison(cmp, type = "vpc")
-  p_comp <- plot_group_comparison(cmp, type = "components")
+  p_vpc <- plot(cmp, type = "vpc")
+  p_comp <- plot(cmp, type = "components")
   expect_s3_class(p_vpc, "ggplot")
   expect_s3_class(p_comp, "ggplot")
 
-  expect_error(plot_group_comparison(mtcars), "maihda_group_comparison")
+  # the method's class guard (reachable via a direct call)
+  expect_error(plot.maihda_group_comparison(mtcars), "maihda_group_comparison")
+
+  # deprecated alias still works but warns
+  expect_warning(plot_group_comparison(cmp, type = "vpc"), "deprecated")
 })

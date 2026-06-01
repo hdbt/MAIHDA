@@ -97,19 +97,19 @@ and a status note without aborting the whole comparison.
 }
 \examples{
 \donttest{
-data(maihda_health_data)
-# Using Education as a stand-in higher-level grouping variable
+data(maihda_country_data)
+# How does gender x SES inequality in PISA math scores differ across countries?
 cmp <- compare_maihda_groups(
-  BMI ~ Age + (1 | Gender:Race),
-  data = maihda_health_data,
-  group = "Education"
+  math ~ 1 + (1 | gender:ses),
+  data = maihda_country_data,
+  group = "country"
 )
 print(cmp)
-plot_group_comparison(cmp, type = "vpc")
+plot(cmp, type = "vpc")
 }
 
 }
 \seealso{
 \code{\link{compare_maihda}} for comparing different models on the
-  same data; \code{\link{plot_group_comparison}} for visualising the result.
+  same data; \code{\link{plot.maihda_group_comparison}} for visualising the result.
 }
