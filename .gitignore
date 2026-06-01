@@ -1,2 +1,4 @@
 docs
 playground.R
+# Local Shiny (shinyapps.io) deployment metadata — should not be versioned
+inst/shiny/rsconnect/

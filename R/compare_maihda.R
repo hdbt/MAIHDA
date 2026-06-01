@@ -181,14 +181,21 @@ plot_comparison <- function(comparison_df) {
 #'
 #' @return A \code{data.frame} of class \code{maihda_group_comparison} with one
 #'   row per group and columns \code{group}, \code{n}, \code{n_strata},
-#'   \code{vpc}, \code{var_between}, \code{var_residual}, \code{status} (and
-#'   \code{ci_lower}/\code{ci_upper} when \code{bootstrap = TRUE}). Groups that
+#'   \code{vpc}, \code{var_between}, \code{var_other}, \code{var_residual},
+#'   \code{status} (and \code{ci_lower}/\code{ci_upper} when
+#'   \code{bootstrap = TRUE}). \code{var_other} is the variance of any additional
+#'   random effects and is 0 for the canonical single-stratum model. Groups that
 #'   were skipped or failed have \code{NA} metrics and an explanatory
 #'   \code{status}.
 #'
 #' @details
-#' Robustness: a group with fewer than \code{min_group_n} rows or fewer than two
-#' populated strata is skipped (VPC is undefined with a single stratum). A
+#' Robustness: a group with fewer than \code{min_group_n} rows is always skipped
+#' with a warning. A group with fewer than two populated strata is also skipped
+#' (VPC is undefined with a single stratum) when the stratum membership is known
+#' before fitting -- that is, when \code{shared_strata = TRUE} or \code{data}
+#' already carries a \code{stratum} column. Under \code{shared_strata = FALSE}
+#' strata are rebuilt inside each group, so a degenerate single-stratum group is
+#' instead reported with a "fit failed" status rather than a pre-fit skip. A
 #' singular fit yields a VPC of 0 rather than an error (unlike
 #' \code{\link{calculate_pvc}}). A hard fit failure in one group records \code{NA}
 #' and a status note without aborting the whole comparison.
@@ -278,12 +285,12 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     strata_attr_names
   )
 
-  group_levels <- sort(unique(as.character(data[[group]])))
+  group_values <- as.character(data[[group]])
+  group_levels <- sort(unique(group_values[!is.na(group_values)]))
   if (length(group_levels) == 0) {
     stop("Group variable '", group, "' has no non-missing levels.", call. = FALSE)
   }
 
-  empty_ci <- c(NA_real_, NA_real_)
   rows <- vector("list", length(group_levels))
 
   for (gi in seq_along(group_levels)) {
@@ -298,7 +305,8 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     n_g <- nrow(sub)
     row <- data.frame(
       group = g, n = n_g, n_strata = NA_integer_,
-      vpc = NA_real_, var_between = NA_real_, var_residual = NA_real_,
+      vpc = NA_real_, var_between = NA_real_, var_other = NA_real_,
+      var_residual = NA_real_,
       ci_lower = NA_real_, ci_upper = NA_real_,
       status = NA_character_, stringsAsFactors = FALSE
     )
@@ -343,6 +351,11 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     row$vpc <- fit_obj$summ$vpc$estimate
     row$var_between <- vc$variance[vc$component == "Between-stratum (random)"][1]
     row$var_residual <- vc$variance[vc$component == "Within-stratum (residual)"][1]
+    # Variance of any additional random effects (0 for the canonical single
+    # stratum model). Captured so the VPC, the variance columns, and the
+    # components plot stay mutually consistent when extra random effects exist.
+    other_var <- vc$variance[vc$component == "Other random effects"]
+    row$var_other <- if (length(other_var) > 0) sum(other_var) else 0
     row$n_strata <- length(unique(stats::na.omit(fit_obj$model$data$stratum)))
     row$status <- "ok"
 
@@ -390,8 +403,10 @@ maihda_prepare_group_strata <- function(formula, data, shared_strata, autobin = 
     identical(v, "stratum")
   }, logical(1)))
 
-  # Case 1: an existing/explicit stratum column is used directly.
-  if (has_stratum_group || "stratum" %in% names(data)) {
+  # Case 1: the formula explicitly references (1 | stratum) -> reuse the existing
+  # column. The decision is driven by the formula, not by the incidental presence
+  # of a 'stratum' column, so a shorthand formula is always handled in Case 2.
+  if (has_stratum_group) {
     if (!"stratum" %in% names(data)) {
       stop("Formula references (1 | stratum) but 'data' has no 'stratum' column. ",
            "Run make_strata() first, or use the shorthand (1 | var1:var2).",
@@ -421,6 +436,12 @@ maihda_prepare_group_strata <- function(formula, data, shared_strata, autobin = 
   if (length(missing_vars) > 0) {
     stop("Grouping variables not found in data: ",
          paste(missing_vars, collapse = ", "), call. = FALSE)
+  }
+  if ("stratum" %in% names(data)) {
+    stop("'data' already has a 'stratum' column but the formula uses the shorthand ",
+         "(1 | ", paste(strata_vars, collapse = ":"), "). Use (1 | stratum) to reuse ",
+         "the existing column, or remove it to rebuild strata from these variables.",
+         call. = FALSE)
   }
 
   fixed_formula <- reformulas::nobars(formula)
@@ -521,17 +542,41 @@ plot_group_comparison <- function(x, type = c("vpc", "components")) {
     return(p)
   }
 
-  # type == "components": stacked between/residual proportion per group
-  totals <- df$var_between + df$var_residual
-  comp <- data.frame(
-    group = factor(rep(df$group, 2), levels = df$group[order(df$vpc)]),
-    component = rep(c("Between-stratum (random)", "Within-stratum (residual)"),
-                    each = nrow(df)),
-    proportion = c(df$var_between, df$var_residual) / rep(totals, 2),
-    stringsAsFactors = FALSE
+  # type == "components": stacked variance proportions per group. Include any
+  # "Other random effects" variance so the slices match the VPC denominator
+  # (between + other + residual). var_other is 0 for the canonical single
+  # stratum model and the slice is omitted when no group has additional REs.
+  var_other <- if ("var_other" %in% names(df)) df$var_other else rep(0, nrow(df))
+  var_other[is.na(var_other)] <- 0
+  totals <- df$var_between + var_other + df$var_residual
+
+  comp_blocks <- list(
+    data.frame(group = df$group, component = "Between-stratum (random)",
+               variance = df$var_between, stringsAsFactors = FALSE)
+  )
+  if (any(var_other > sqrt(.Machine$double.eps))) {
+    comp_blocks <- c(comp_blocks, list(
+      data.frame(group = df$group, component = "Other random effects",
+                 variance = var_other, stringsAsFactors = FALSE)
+    ))
+  }
+  comp_blocks <- c(comp_blocks, list(
+    data.frame(group = df$group, component = "Within-stratum (residual)",
+               variance = df$var_residual, stringsAsFactors = FALSE)
+  ))
+  comp <- do.call(rbind, comp_blocks)
+
+  total_map <- stats::setNames(totals, as.character(df$group))
+  comp$proportion <- comp$variance / total_map[as.character(comp$group)]
+  comp$group <- factor(comp$group, levels = df$group[order(df$vpc)])
+  comp$component <- factor(
+    comp$component,
+    levels = c("Between-stratum (random)", "Other random effects",
+               "Within-stratum (residual)")
   )
   component_colors <- c(
     "Between-stratum (random)" = "#E69F00",
+    "Other random effects" = "#009E73",
     "Within-stratum (residual)" = "#56B4E9"
   )
 

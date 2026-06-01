@@ -170,6 +170,69 @@ test_that("compare_maihda_groups validates inputs", {
   )
 })
 
+test_that("compare_maihda_groups ignores missing group values", {
+  set.seed(3008)
+  n <- 300
+  d <- data.frame(
+    country = rep(c("A", "B"), each = n / 2),
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race = sample(c("X", "Y"), n, replace = TRUE),
+    age = rnorm(n)
+  )
+  d$country[c(1, 2, 3)] <- NA  # missing group labels must not become a group
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- 1 + 0.3 * d$age + rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
+
+  cmp <- compare_maihda_groups(y ~ age + (1 | gender:race), data = d, group = "country")
+  expect_setequal(cmp$group, c("A", "B"))
+  expect_false(any(is.na(cmp$group)))
+})
+
+test_that("compare_maihda_groups rejects shorthand formula when a stratum column exists", {
+  set.seed(3009)
+  n <- 200
+  d <- data.frame(
+    country = rep(c("A", "B"), each = n / 2),
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race = sample(c("X", "Y"), n, replace = TRUE),
+    age = rnorm(n)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- 1 + 0.3 * d$age + rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
+  strata <- make_strata(d, vars = c("gender", "race"))
+
+  expect_error(
+    compare_maihda_groups(y ~ age + (1 | gender:race), data = strata$data,
+                          group = "country"),
+    "already has a 'stratum' column", fixed = TRUE
+  )
+})
+
+test_that("compare_maihda_groups captures other random-effect variance consistently", {
+  set.seed(3010)
+  d <- expand.grid(
+    country = c("A", "B"), gender = c("F", "M"), race = c("X", "Y"),
+    site = factor(1:4), rep = 1:6
+  )
+  d$age <- rnorm(nrow(d))
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- 1 + 0.3 * d$age +
+    rnorm(nlevels(sk), sd = 0.7)[sk] +
+    rnorm(4, sd = 0.9)[d$site] +
+    rnorm(nrow(d), sd = 0.3)
+  strata <- make_strata(d, vars = c("gender", "race"))
+
+  cmp <- compare_maihda_groups(y ~ age + (1 | site) + (1 | stratum),
+                               data = strata$data, group = "country")
+  expect_true("var_other" %in% names(cmp))
+  ok <- cmp$status == "ok"
+  expect_true(all(cmp$var_other[ok] > 0))
+  # VPC must use the full denominator: between / (between + other + residual)
+  manual <- cmp$var_between / (cmp$var_between + cmp$var_other + cmp$var_residual)
+  expect_equal(cmp$vpc[ok], manual[ok], tolerance = 1e-8)
+  expect_s3_class(plot_group_comparison(cmp, type = "components"), "ggplot")
+})
+
 test_that("plot_group_comparison returns ggplot objects for both types", {
   set.seed(3007)
   n <- 300

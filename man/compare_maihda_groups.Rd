@@ -64,8 +64,10 @@ binning of numeric grouping variables. Default TRUE.}
 \value{
 A \code{data.frame} of class \code{maihda_group_comparison} with one
   row per group and columns \code{group}, \code{n}, \code{n_strata},
-  \code{vpc}, \code{var_between}, \code{var_residual}, \code{status} (and
-  \code{ci_lower}/\code{ci_upper} when \code{bootstrap = TRUE}). Groups that
+  \code{vpc}, \code{var_between}, \code{var_other}, \code{var_residual},
+  \code{status} (and \code{ci_lower}/\code{ci_upper} when
+  \code{bootstrap = TRUE}). \code{var_other} is the variance of any additional
+  random effects and is 0 for the canonical single-stratum model. Groups that
   were skipped or failed have \code{NA} metrics and an explanatory
   \code{status}.
 }
@@ -82,8 +84,13 @@ each group is modelled independently. It is \emph{not} a cross-classified
 model and does not adjust the strata for the grouping variable.
 
 
-Robustness: a group with fewer than \code{min_group_n} rows or fewer than two
-populated strata is skipped (VPC is undefined with a single stratum). A
+Robustness: a group with fewer than \code{min_group_n} rows is always skipped
+with a warning. A group with fewer than two populated strata is also skipped
+(VPC is undefined with a single stratum) when the stratum membership is known
+before fitting -- that is, when \code{shared_strata = TRUE} or \code{data}
+already carries a \code{stratum} column. Under \code{shared_strata = FALSE}
+strata are rebuilt inside each group, so a degenerate single-stratum group is
+instead reported with a "fit failed" status rather than a pre-fit skip. A
 singular fit yields a VPC of 0 rather than an error (unlike
 \code{\link{calculate_pvc}}). A hard fit failure in one group records \code{NA}
 and a status note without aborting the whole comparison.
