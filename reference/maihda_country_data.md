@@ -76,6 +76,14 @@ canonical MAIHDA "null" model is `math ~ 1 + (1 | gender:ses)`;
 comparing its VPC across countries quantifies how much joint
 gender-by-class inequality in achievement varies between countries.
 
+## Note
+
+This is a teaching/illustration dataset only. It uses a single PISA
+plausible value for each score and the analysis functions ignore the
+PISA survey weights and complex sampling design, so results are **not**
+survey-representative and should not be used for substantive
+cross-national inference.
+
 ## Examples
 
 ``` r

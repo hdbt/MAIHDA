@@ -95,6 +95,16 @@ models only.</p></dd>
 <dd><p>Original model summary</p></dd>
 
 </dl></div>
+    <div class="section level2">
+    <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
+    <p>For <code>brms</code> models the VPC/ICC is currently a point estimate computed from
+the posterior <em>summary</em> of the random-effect standard deviations – i.e.
+it squares the posterior mean SD (\(E[\sigma]^2\)) rather than averaging the
+VPC over posterior draws (\(E[\sigma^2]\)), and it does not return a credible
+interval. It is therefore slightly biased and omits posterior uncertainty; a
+future release will compute the VPC from posterior draws. For lme4 models, use
+<code>bootstrap = TRUE</code> for an interval.</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>

@@ -43,7 +43,7 @@ Comparison**:
 [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
 contrasts intersectional inequality (VPC/ICC) across levels of a
 higher-level variable such as country or region - **Proportional Change
-in Variance (PVC)**: Quantify how much between-stratum variance is
+in Variance (PCV)**: Quantify how much between-stratum variance is
 explained by additional predictors
 
 ## Installation
@@ -145,9 +145,12 @@ Creates various visualizations:
 
 ### `maihda_ternary_plot()`
 
-Generates an advanced ternary plot showing the relative contribution of
-intercept, additive effects, and unique intersectional interaction
-effects to the overall outcome for each stratum.
+Generates a ternary diagnostic plot. For each stratum it normalizes
+three magnitudes to sum to 1: the additive signal (how far the
+fixed-effect-only prediction sits from the grand mean), the
+intersection-specific signal (the magnitude of the stratum random
+effect), and the uncertainty in that estimate. It is a relative-signal
+diagnostic, not a formal variance decomposition.
 
 ### `plot_prediction_deviation_panels()`
 
@@ -171,12 +174,14 @@ strata across six countries) is built to demonstrate this.
 
 ### `calculate_pvc()`
 
-Calculates the proportional change in between-stratum variance (PVC)
-between two models. This measures how much of the between-stratum
-variance from a baseline model is explained (or changed) by adding
-additional predictors in a second model:- Formula: PVC = (Var_model1 -
-Var_model2) / Var_model1 - Works with both lme4 and brms engines -
-Supports bootstrap confidence intervals for lme4 models
+Calculates the proportional change in between-stratum variance (PCV)
+between two models — how much of the baseline model’s between-stratum
+variance is explained (or changed) by adding predictors in a second
+model.
+
+- Formula: PCV = (Var_model1 - Var_model2) / Var_model1
+- Works with both lme4 and brms engines
+- Supports bootstrap confidence intervals for lme4 models
 
 ### `stepwise_pcv()`
 
@@ -210,7 +215,7 @@ summary <- summary(model, bootstrap = TRUE, n_boot = 1000)
 plot(model, type = "predicted")
 plot(model, type = "risk_vs_effect")
 
-# Map out where the specific intersectional variance is emerging
+# Map out where the intersection-specific signal is concentrated
 plot(model, type = "ternary")
 
 # Or run it with no type to see them all!
@@ -237,14 +242,16 @@ summary_brms <- summary(model_brms)
 
 ``` r
 
-# Fit competing models
-model1 <- fit_maihda(outcome ~ age + (1 | gender:race), data = data1)
-model2 <- fit_maihda(outcome ~ age + gender + (1 | gender:race), data = data2)
+# Compare nested models on the SAME data and strata (null vs covariate-adjusted).
+# VPCs are only comparable when models share an outcome, family, and sample.
+strata <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+null_model <- fit_maihda(health_outcome ~ 1 + (1 | stratum), data = strata$data)
+adj_model  <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata$data)
 
 # Compare with bootstrap CI
 comparison <- compare_maihda(
-  model1, model2,
-  model_names = c("Base", "With Gender"),
+  null_model, adj_model,
+  model_names = c("Null", "Adjusted"),
   bootstrap = TRUE,
   n_boot = 1000
 )
@@ -253,7 +260,7 @@ comparison <- compare_maihda(
 plot(comparison)
 ```
 
-## Calculating Proportional Change in Variance (PVC)
+## Calculating Proportional Change in Variance (PCV)
 
 ``` r
 
@@ -263,15 +270,15 @@ model1 <- fit_maihda(outcome ~ age + (1 | gender:race), data = data)
 # Fit model with additional predictor
 model2 <- fit_maihda(outcome ~ age + gender + (1 | gender:race), data = data)
 
-# Calculate PVC without bootstrap
+# Calculate PCV without bootstrap
 pvc_result <- calculate_pvc(model1, model2)
 print(pvc_result)
 
-# Calculate PVC with bootstrap confidence intervals
+# Calculate PCV with bootstrap confidence intervals
 pvc_boot <- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 1000)
 print(pvc_boot)
 
-# Interpretation: A PVC of 0.25 means that model2 explains 25% of the
+# Interpretation: A PCV of 0.25 means that model2 explains 25% of the
 # between-stratum variance that was present in model1
 ```
 

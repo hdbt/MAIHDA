@@ -50,6 +50,14 @@ A data frame with 3,000 rows and 7 variables:
 Derived from the `NHANES` R package. Original data collected by the
 Centers for Disease Control and Prevention (CDC).
 
+## Note
+
+This is a teaching/illustration dataset only. It is a non-random
+subsample and the analysis functions ignore the NHANES survey weights
+and complex sampling design, so results are **not**
+survey-representative and should not be used for substantive population
+inference.
+
 ## Examples
 
 ``` r

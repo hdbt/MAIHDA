@@ -80,7 +80,7 @@
 <strong>Create Intersectional Strata</strong>: Automatically generate strata from multiple categorical variables</li>
 <li><strong><a href="https://hdbt.shinyapps.io/shiny/" class="external-link">Interactive Dashboard</a></strong></li>
 </ul>
-<p>: A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html">run_maihda_app()</a></code>) for no-code exploratory data analysis and model fitting - <strong>Model Fitting</strong>: Support for both lme4 and brms (Bayesian) engines - <strong>Summaries &amp; Decompositions</strong>: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV) - <strong>Multiple Prediction Types</strong>: Individual-level and stratum-level predictions - <strong>Visualizations</strong>: Predicted stratum values, VPC visualizations, risk/effect diagnostics, and observed vs. shrunken estimates - <strong>Model Comparison</strong>: Compare models with robust bootstrap confidence intervals for VPC/ICC - <strong>Group Comparison</strong>: <code><a href="reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> contrasts intersectional inequality (VPC/ICC) across levels of a higher-level variable such as country or region - <strong>Proportional Change in Variance (PVC)</strong>: Quantify how much between-stratum variance is explained by additional predictors</p>
+<p>: A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html">run_maihda_app()</a></code>) for no-code exploratory data analysis and model fitting - <strong>Model Fitting</strong>: Support for both lme4 and brms (Bayesian) engines - <strong>Summaries &amp; Decompositions</strong>: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV) - <strong>Multiple Prediction Types</strong>: Individual-level and stratum-level predictions - <strong>Visualizations</strong>: Predicted stratum values, VPC visualizations, risk/effect diagnostics, and observed vs. shrunken estimates - <strong>Model Comparison</strong>: Compare models with robust bootstrap confidence intervals for VPC/ICC - <strong>Group Comparison</strong>: <code><a href="reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> contrasts intersectional inequality (VPC/ICC) across levels of a higher-level variable such as country or region - <strong>Proportional Change in Variance (PCV)</strong>: Quantify how much between-stratum variance is explained by additional predictors</p>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -186,7 +186,7 @@
 <h3 id="maihda_ternary_plot">
 <code>maihda_ternary_plot()</code><a class="anchor" aria-label="anchor" href="#maihda_ternary_plot"></a>
 </h3>
-<p>Generates an advanced ternary plot showing the relative contribution of intercept, additive effects, and unique intersectional interaction effects to the overall outcome for each stratum.</p>
+<p>Generates a ternary diagnostic plot. For each stratum it normalizes three magnitudes to sum to 1: the additive signal (how far the fixed-effect-only prediction sits from the grand mean), the intersection-specific signal (the magnitude of the stratum random effect), and the uncertainty in that estimate. It is a relative-signal diagnostic, not a formal variance decomposition.</p>
 </div>
 <div class="section level3">
 <h3 id="plot_prediction_deviation_panels">
@@ -210,7 +210,12 @@
 <h3 id="calculate_pvc">
 <code>calculate_pvc()</code><a class="anchor" aria-label="anchor" href="#calculate_pvc"></a>
 </h3>
-<p>Calculates the proportional change in between-stratum variance (PVC) between two models. This measures how much of the between-stratum variance from a baseline model is explained (or changed) by adding additional predictors in a second model:- Formula: PVC = (Var_model1 - Var_model2) / Var_model1 - Works with both lme4 and brms engines - Supports bootstrap confidence intervals for lme4 models</p>
+<p>Calculates the proportional change in between-stratum variance (PCV) between two models — how much of the baseline model’s between-stratum variance is explained (or changed) by adding predictors in a second model.</p>
+<ul>
+<li>Formula: PCV = (Var_model1 - Var_model2) / Var_model1</li>
+<li>Works with both lme4 and brms engines</li>
+<li>Supports bootstrap confidence intervals for lme4 models</li>
+</ul>
 </div>
 <div class="section level3">
 <h3 id="stepwise_pcv">
@@ -245,7 +250,7 @@
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Map out where the specific intersectional variance is emerging</span></span>
+<span><span class="co"># Map out where the intersection-specific signal is concentrated</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"ternary"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Or run it with no type to see them all!</span></span>
@@ -270,14 +275,16 @@
 <h2 id="model-comparison-with-bootstrap">Model Comparison with Bootstrap<a class="anchor" aria-label="anchor" href="#model-comparison-with-bootstrap"></a>
 </h2>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Fit competing models</span></span>
-<span><span class="va">model1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data1</span><span class="op">)</span></span>
-<span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">gender</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data2</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># Compare nested models on the SAME data and strata (null vs covariate-adjusted).</span></span>
+<span><span class="co"># VPCs are only comparable when models share an outcome, family, and sample.</span></span>
+<span><span class="va">strata</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/make_strata.html">make_strata</a></span><span class="op">(</span><span class="va">maihda_sim_data</span>, vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">null_model</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">health_outcome</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">strata</span><span class="op">$</span><span class="va">data</span><span class="op">)</span></span>
+<span><span class="va">adj_model</span>  <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">strata</span><span class="op">$</span><span class="va">data</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Compare with bootstrap CI</span></span>
 <span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_maihda.html">compare_maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">model1</span>, <span class="va">model2</span>,</span>
-<span>  model_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Base"</span>, <span class="st">"With Gender"</span><span class="op">)</span>,</span>
+<span>  <span class="va">null_model</span>, <span class="va">adj_model</span>,</span>
+<span>  model_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Null"</span>, <span class="st">"Adjusted"</span><span class="op">)</span>,</span>
 <span>  bootstrap <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  n_boot <span class="op">=</span> <span class="fl">1000</span></span>
 <span><span class="op">)</span></span>
@@ -286,7 +293,7 @@
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">comparison</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="calculating-proportional-change-in-variance-pvc">Calculating Proportional Change in Variance (PVC)<a class="anchor" aria-label="anchor" href="#calculating-proportional-change-in-variance-pvc"></a>
+<h2 id="calculating-proportional-change-in-variance-pcv">Calculating Proportional Change in Variance (PCV)<a class="anchor" aria-label="anchor" href="#calculating-proportional-change-in-variance-pcv"></a>
 </h2>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit baseline model</span></span>
@@ -295,15 +302,15 @@
 <span><span class="co"># Fit model with additional predictor</span></span>
 <span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">gender</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Calculate PVC without bootstrap</span></span>
+<span><span class="co"># Calculate PCV without bootstrap</span></span>
 <span><span class="va">pvc_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model1</span>, <span class="va">model2</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">pvc_result</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Calculate PVC with bootstrap confidence intervals</span></span>
+<span><span class="co"># Calculate PCV with bootstrap confidence intervals</span></span>
 <span><span class="va">pvc_boot</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model1</span>, <span class="va">model2</span>, bootstrap <span class="op">=</span> <span class="cn">TRUE</span>, n_boot <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">pvc_boot</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Interpretation: A PVC of 0.25 means that model2 explains 25% of the</span></span>
+<span><span class="co"># Interpretation: A PCV of 0.25 means that model2 explains 25% of the</span></span>
 <span><span class="co"># between-stratum variance that was present in model1</span></span></code></pre></div>
 </div>
 <div class="section level2">

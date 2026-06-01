@@ -109,8 +109,9 @@ within each group (stratum identities are then not comparable across groups).</p
 
 
 <dt id="arg-min-group-n">min_group_n<a class="anchor" aria-label="anchor" href="#arg-min-group-n"></a></dt>
-<dd><p>Minimum number of rows a group must have to be modelled.
-Smaller groups are skipped with a warning. Default 30.</p></dd>
+<dd><p>Minimum number of rows a group must have (counted before
+model-frame NA handling) to be modelled. Smaller groups are skipped with a
+warning. Default 30.</p></dd>
 
 
 <dt id="arg-bootstrap">bootstrap<a class="anchor" aria-label="anchor" href="#arg-bootstrap"></a></dt>
@@ -143,10 +144,12 @@ binning of numeric grouping variables. Default TRUE.</p></dd>
   row per group and columns <code>group</code>, <code>n</code>, <code>n_strata</code>,
   <code>vpc</code>, <code>var_between</code>, <code>var_other</code>, <code>var_residual</code>,
   <code>status</code> (and <code>ci_lower</code>/<code>ci_upper</code> when
-  <code>bootstrap = TRUE</code>). <code>var_other</code> is the variance of any additional
-  random effects and is 0 for the canonical single-stratum model. Groups that
-  were skipped or failed have <code>NA</code> metrics and an explanatory
-  <code>status</code>.</p>
+  <code>bootstrap = TRUE</code>). For successfully fitted groups <code>n</code> is the
+  analytic sample size used by the model (after dropping rows with missing
+  outcome/covariates); for skipped groups it is the raw group row count.
+  <code>var_other</code> is the variance of any additional random effects and is 0
+  for the canonical single-stratum model. Groups that were skipped or failed
+  have <code>NA</code> metrics and an explanatory <code>status</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

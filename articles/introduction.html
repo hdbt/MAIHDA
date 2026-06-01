@@ -137,6 +137,14 @@ you need finer control.</p>
 Nutrition Examination Survey (<code>maihda_health_data</code>). We will
 use this to examine how Body Mass Index (BMI) varies across
 intersectional demographic groups.</p>
+<blockquote>
+<p><strong>Note.</strong> The bundled <code>maihda_health_data</code>
+and <code>maihda_country_data</code> are for teaching only. They are
+non-random subsamples, and the package ignores the surveys’ weights and
+complex sampling design (and uses a single PISA plausible value), so the
+results below are <strong>not</strong> survey-representative and should
+not be read as substantive population findings.</p>
+</blockquote>
 <div class="section level3">
 <h3 id="step-1-2-create-intersectional-strata-and-fit-a-null-maihda-model">Step 1 &amp; 2: Create Intersectional Strata and Fit a Null MAIHDA
 Model<a class="anchor" aria-label="anchor" href="#step-1-2-create-intersectional-strata-and-fit-a-null-maihda-model"></a>
@@ -179,11 +187,14 @@ groups, rather than just <em>within</em> them.</p>
 <p>To understand if these intersectional inequalities are simply the sum
 of their parts (additive), we evaluate how much variance is explained by
 adding main-effects to the model.</p>
-<p>If the variance drops significantly (High PCV), the inequalities are
-largely explained by the additive characteristics. If the variance
-remains or even <em>increases</em> (Negative PCV), it signifies strong,
-unique intersectional interactions that cannot be explained away by
-simple main effects.</p>
+<p>If the variance drops substantially (high PCV), much of the
+between-stratum inequality is explained by the additive main effects. If
+it remains or even <em>increases</em> (negative PCV), little is
+explained by the main effects. Interpret this cautiously: the PCV is a
+model-dependent variance change, and a low or negative value does not by
+itself prove a “true” intersectional interaction – it can also reflect
+suppression, rescaling (on the latent scale for non-Gaussian models),
+sample composition, or estimation uncertainty.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit an adjusted model</span></span>
 <span><span class="va">model_adj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
@@ -234,7 +245,7 @@ application logic:</p>
 <span><span class="co"># Additive versus Intersectional Effect decomposition</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Ternary Plot of Variances</span></span>
+<span><span class="co"># Ternary diagnostic: additive vs intersection-specific signal vs uncertainty</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"ternary"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Individual Prediction Deviance Dashboard</span></span>

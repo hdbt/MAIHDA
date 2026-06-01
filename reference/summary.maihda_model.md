@@ -59,6 +59,17 @@ A maihda_summary object containing:
 
   Original model summary
 
+## Note
+
+For `brms` models the VPC/ICC is currently a point estimate computed
+from the posterior *summary* of the random-effect standard deviations –
+i.e. it squares the posterior mean SD (\\E\[\sigma\]^2\\) rather than
+averaging the VPC over posterior draws (\\E\[\sigma^2\]\\), and it does
+not return a credible interval. It is therefore slightly biased and
+omits posterior uncertainty; a future release will compute the VPC from
+posterior draws. For lme4 models, use `bootstrap = TRUE` for an
+interval.
+
 ## Examples
 
 ``` r

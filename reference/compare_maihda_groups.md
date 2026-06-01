@@ -67,8 +67,9 @@ compare_maihda_groups(
 
 - min_group_n:
 
-  Minimum number of rows a group must have to be modelled. Smaller
-  groups are skipped with a warning. Default 30.
+  Minimum number of rows a group must have (counted before model-frame
+  NA handling) to be modelled. Smaller groups are skipped with a
+  warning. Default 30.
 
 - bootstrap:
 
@@ -101,10 +102,12 @@ compare_maihda_groups(
 A `data.frame` of class `maihda_group_comparison` with one row per group
 and columns `group`, `n`, `n_strata`, `vpc`, `var_between`, `var_other`,
 `var_residual`, `status` (and `ci_lower`/`ci_upper` when
-`bootstrap = TRUE`). `var_other` is the variance of any additional
-random effects and is 0 for the canonical single-stratum model. Groups
-that were skipped or failed have `NA` metrics and an explanatory
-`status`.
+`bootstrap = TRUE`). For successfully fitted groups `n` is the analytic
+sample size used by the model (after dropping rows with missing
+outcome/covariates); for skipped groups it is the raw group row count.
+`var_other` is the variance of any additional random effects and is 0
+for the canonical single-stratum model. Groups that were skipped or
+failed have `NA` metrics and an explanatory `status`.
 
 ## Details
 

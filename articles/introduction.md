@@ -71,6 +71,13 @@ Nutrition Examination Survey (`maihda_health_data`). We will use this to
 examine how Body Mass Index (BMI) varies across intersectional
 demographic groups.
 
+> **Note.** The bundled `maihda_health_data` and `maihda_country_data`
+> are for teaching only. They are non-random subsamples, and the package
+> ignores the surveys’ weights and complex sampling design (and uses a
+> single PISA plausible value), so the results below are **not**
+> survey-representative and should not be read as substantive population
+> findings.
+
 ### Step 1 & 2: Create Intersectional Strata and Fit a Null MAIHDA Model
 
 Use
@@ -116,11 +123,14 @@ To understand if these intersectional inequalities are simply the sum of
 their parts (additive), we evaluate how much variance is explained by
 adding main-effects to the model.
 
-If the variance drops significantly (High PCV), the inequalities are
-largely explained by the additive characteristics. If the variance
-remains or even *increases* (Negative PCV), it signifies strong, unique
-intersectional interactions that cannot be explained away by simple main
-effects.
+If the variance drops substantially (high PCV), much of the
+between-stratum inequality is explained by the additive main effects. If
+it remains or even *increases* (negative PCV), little is explained by
+the main effects. Interpret this cautiously: the PCV is a
+model-dependent variance change, and a low or negative value does not by
+itself prove a “true” intersectional interaction – it can also reflect
+suppression, rescaling (on the latent scale for non-Gaussian models),
+sample composition, or estimation uncertainty.
 
 ``` r
 
@@ -179,7 +189,7 @@ plot(model_adj, type = "risk_vs_effect")
 # Additive versus Intersectional Effect decomposition
 plot(model_adj, type = "effect_decomp")
 
-# Ternary Plot of Variances
+# Ternary diagnostic: additive vs intersection-specific signal vs uncertainty
 plot(model_adj, type = "ternary")
 
 # Individual Prediction Deviance Dashboard
