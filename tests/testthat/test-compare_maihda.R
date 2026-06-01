@@ -26,3 +26,36 @@ test_that("plot_comparison() is deprecated but still works", {
   expect_warning(p <- plot_comparison(df), "deprecated")
   expect_s3_class(p, "ggplot")
 })
+
+test_that("compare_maihda warns when models use different families", {
+  set.seed(2202)
+  d <- data.frame(stratum = rep(seq_len(8), each = 25), x = rnorm(200))
+  u <- rnorm(8, sd = 0.7)[d$stratum]
+  d$y_gauss <- 1 + 0.3 * d$x + u + rnorm(200, sd = 0.4)
+  d$y_count <- rpois(200, lambda = exp(0.3 + 0.2 * d$x + u))
+
+  m_gauss <- fit_maihda(y_gauss ~ x + (1 | stratum), data = d)
+  m_pois  <- fit_maihda(y_count ~ x + (1 | stratum), data = d, family = "poisson")
+
+  # These models differ in BOTH outcome and family: still a single warning.
+  w <- testthat::capture_warnings(compare_maihda(m_gauss, m_pois))
+  expect_length(w, 1)
+  expect_match(w, "differ in")
+  expect_match(w, "outcomes")
+  expect_match(w, "families/links")
+})
+
+test_that("compare_maihda warns when models use different analytic samples", {
+  set.seed(2203)
+  d <- data.frame(stratum = rep(seq_len(8), each = 25), x = rnorm(200), z = rnorm(200))
+  u <- rnorm(8, sd = 0.7)[d$stratum]
+  d$y <- 1 + 0.3 * d$x + u + rnorm(200, sd = 0.4)
+  d$z[seq_len(40)] <- NA_real_   # z drops 40 rows from the second model's sample
+
+  m_full <- fit_maihda(y ~ x + (1 | stratum), data = d)          # n = 200
+  m_sub  <- fit_maihda(y ~ x + z + (1 | stratum), data = d)       # n = 160
+
+  w <- testthat::capture_warnings(compare_maihda(m_full, m_sub))
+  expect_length(w, 1)
+  expect_match(w, "analytic sample size")
+})

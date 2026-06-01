@@ -54,6 +54,25 @@ test_that("summary errors clearly when brms bootstrap is requested", {
   )
 })
 
+test_that("brms latent residual variance recognises the bernoulli family", {
+  # Unit test of the fix without compiling a Stan model: a bernoulli/logit model
+  # should use the latent residual variance pi^2/3, not error as unsupported.
+  stub_logit <- structure(
+    list(family = structure(list(family = "bernoulli", link = "logit"),
+                            class = "family")),
+    class = "brmsfit"
+  )
+  expect_equal(MAIHDA:::maihda_residual_variance_brms(stub_logit), (pi^2) / 3,
+               tolerance = 1e-8)
+
+  stub_probit <- structure(
+    list(family = structure(list(family = "bernoulli", link = "probit"),
+                            class = "family")),
+    class = "brmsfit"
+  )
+  expect_equal(MAIHDA:::maihda_residual_variance_brms(stub_probit), 1)
+})
+
 test_that("summary validates bootstrap arguments before simulation", {
   fake_model <- structure(
     list(engine = "lme4", model = NULL),

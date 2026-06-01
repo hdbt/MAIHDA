@@ -79,6 +79,66 @@ test_that("fit_maihda creates strata automatically when interaction is passed", 
   expect_true(!is.null(model2$strata_info))
 })
 
+test_that("maihda_response_is_binary distinguishes Bernoulli from aggregated binomial", {
+  d <- data.frame(
+    y01  = rep(0:1, 10),
+    yf   = factor(rep(c("no", "yes"), 10)),
+    cnt  = rep(0:4, 4),
+    succ = rep(3L, 20),
+    fail = rep(7L, 20),
+    n    = rep(10L, 20),
+    x    = rnorm(20)
+  )
+  # Two-level vector responses -> Bernoulli
+  expect_true(MAIHDA:::maihda_response_is_binary(y01 ~ x, d))
+  expect_true(MAIHDA:::maihda_response_is_binary(yf ~ x, d))
+  # Counts and aggregated binomial responses must NOT be treated as Bernoulli
+  expect_false(MAIHDA:::maihda_response_is_binary(cnt ~ x, d))
+  expect_false(MAIHDA:::maihda_response_is_binary(cbind(succ, fail) ~ x, d))
+  expect_false(MAIHDA:::maihda_response_is_binary(succ | trials(n) ~ x, d))
+})
+
+test_that("maihda_response_is_binary uses the analytic (complete-case) sample", {
+  d <- data.frame(
+    y = c(rep(0:1, 9), 2L, 2L),   # full column has a spurious third level
+    x = c(rnorm(18), NA, NA),     # ...only in rows that are incomplete on x
+    stratum = factor(rep(seq_len(2), 10))
+  )
+  # Full column is not binary, but the analytic sample (complete x) is 0/1.
+  expect_false(MAIHDA:::maihda_is_binary_vector(d$y))
+  expect_true(MAIHDA:::maihda_response_is_binary(y ~ x + (1 | stratum), d))
+})
+
+test_that("fit_maihda fits a binary outcome with brms via bernoulli()", {
+  # Compiles a Stan model, so skip on CI/CRAN (toolchain is unreliable there);
+  # the bernoulli residual-variance fix is covered without Stan in
+  # test-summary_variance.R. This runs locally when brms + a compiler are present.
+  skip_on_cran()
+  skip_on_ci()
+  skip_if_not_installed("brms")
+
+  set.seed(321)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(6), each = 30)),
+    x = rnorm(180)
+  )
+  d$y <- rbinom(180, 1, plogis(-0.2 + 0.4 * d$x + rnorm(6, sd = 0.5)[d$stratum]))
+
+  # Tiny chains -> Stan convergence warnings, irrelevant to what we assert
+  # (family routing + the deterministic latent residual variance).
+  model <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ x + (1 | stratum), data = d, engine = "brms",
+               family = "binomial", chains = 1, iter = 200, refresh = 0)
+  ))
+  # binomial 0/1 must be routed to bernoulli, and summary must not error
+  expect_equal(model$family$family, "bernoulli")
+  summ <- suppressWarnings(summary(model))
+  resid_var <- summ$variance_components$variance[
+    summ$variance_components$component == "Within-stratum (residual)"
+  ]
+  expect_equal(resid_var, (pi^2) / 3, tolerance = 1e-6)
+})
+
 test_that("fit_maihda validates inputs", {
   data <- data.frame(x = 1:10, y = 1:10)
 

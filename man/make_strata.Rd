@@ -17,8 +17,13 @@ Default is " \\u00d7 " (a mathematical multiplication sign).}
 \item{min_n}{Minimum number of observations required for a stratum to be included.
 Strata with fewer observations will be coded as NA. Default is 1.}
 
-\item{autobin}{Logical indicating whether to automatically bin numeric grouping variables
-with more than 10 unique values into 3 categories (tertiles). Default is TRUE.}
+\item{autobin}{Logical indicating whether to automatically bin numeric grouping
+variables with more than 10 unique values into 3 categories (tertiles).
+Default is TRUE. When this happens a \code{message()} is emitted, because the
+resulting strata are data-dependent (tertile cut-points depend on the sample)
+and a continuous variable placed in the grouping term is usually unintended.
+Set \code{autobin = FALSE} to disable, or bin the variable yourself for
+explicit, reproducible cut-points.}
 }
 \value{
 A list with two elements:

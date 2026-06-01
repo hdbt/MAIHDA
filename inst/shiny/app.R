@@ -297,7 +297,7 @@ server <- function(input, output, session) {
             "Estimated PVC ",
             tooltip(
               shiny::icon("info-circle"),
-              "PVC measures the reduction in between-stratum variance when moving from the Null model to the Adjusted model. High PVC = inequalities explained by additive characteristics. Low PVC = strong intersectional effects."
+              "PVC is the change in between-stratum variance from the Null to the Adjusted model. A high PVC means much of the between-stratum variation is explained by the additive main effects. A low or negative PVC means little is explained -- interpret cautiously, as this is a model-dependent change that can also reflect suppression, rescaling, sample composition, or uncertainty, not interaction alone."
             )
           ),
           h2(class = "text-success", sprintf("%.2f%%", pvc$pvc * 100))
@@ -445,7 +445,7 @@ server <- function(input, output, session) {
         **Interpretation Guide**:
         - **VPC** (Variance Partition Coefficient) measures how much of the total outcome variance is due to the strata definitions.
         - **PVC** (Proportional Change in Variance) shows how much of that strata variation is explained by simple additive effects.
-        - The remaining percentage represents the true **intersectional effect**, revealing disparities unique to specific strata combinations.
+        - The remaining percentage is the between-stratum variation **not** explained by the additive main effects. It is often interpreted as the intersectional component, but it is a model-dependent quantity and should be read cautiously.
         "),
         uiOutput("dynamic_interpretation")
       ),

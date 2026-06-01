@@ -108,6 +108,36 @@ maihda_prepare_binomial_response <- function(data, formula) {
   data
 }
 
+# TRUE only when the model response is a single two-level (Bernoulli) vector,
+# i.e. a plain symbol naming a binary column. Aggregated binomial responses such
+# as cbind(success, failure) or `y | trials(n)` are calls, not symbols, so they
+# return FALSE and must remain a binomial() model.
+#
+# The check is evaluated on the analytic sample (complete cases over the model
+# variables), matching what lme4/brms actually fit: a response that is 0/1 once
+# rows with missing covariates are dropped is still recognised as Bernoulli.
+maihda_response_is_binary <- function(formula, data) {
+  if (length(formula) != 3L) {
+    return(FALSE)
+  }
+  response <- formula[[2]]
+  if (!is.symbol(response)) {
+    return(FALSE)
+  }
+  outcome <- as.character(response)
+  if (!outcome %in% names(data)) {
+    return(FALSE)
+  }
+
+  model_vars <- intersect(all.vars(formula), names(data))
+  keep <- if (length(model_vars) > 0) {
+    stats::complete.cases(data[, model_vars, drop = FALSE])
+  } else {
+    rep(TRUE, nrow(data))
+  }
+  maihda_is_binary_vector(data[[outcome]][keep])
+}
+
 maihda_model_frame <- function(model, fallback = NULL) {
   out <- tryCatch(stats::model.frame(model), error = function(e) NULL)
   if (is.null(out) && inherits(model, "merMod")) {
@@ -448,7 +478,7 @@ maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
     stop("Unable to determine model family for residual variance calculation.")
   }
 
-  latent_families <- c("binomial", "quasibinomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
+  latent_families <- c("binomial", "bernoulli", "quasibinomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
   if (fam$family == "gaussian") {
     return(attr(vc, "sc")^2)
   }
@@ -478,7 +508,7 @@ maihda_residual_variance_brms <- function(model) {
     stop("Unable to determine brms model family for residual variance calculation.")
   }
 
-  latent_families <- c("binomial", "quasibinomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
+  latent_families <- c("binomial", "bernoulli", "quasibinomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
   if (fam$family == "gaussian") {
     sigma_est <- tryCatch(stats::sigma(model), error = function(e) NA_real_)
     if (length(sigma_est) > 0 && is.finite(sigma_est[1])) {
