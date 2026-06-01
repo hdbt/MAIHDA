@@ -152,7 +152,7 @@ plot(model_adj, type = "risk_vs_effect")
 # Additive versus Intersectional Effect decomposition
 plot(model_adj, type = "effect_decomp")
 
-# Ternary Plot of Variances
+# Ternary diagnostic: additive vs intersection-specific signal vs uncertainty
 plot(model_adj, type = "ternary")
 
 # Individual Prediction Deviance Dashboard

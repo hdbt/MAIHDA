@@ -44,8 +44,9 @@ in every group and VPCs are directly comparable; strata absent from a given
 group are simply unused there. When FALSE, strata are rebuilt independently
 within each group (stratum identities are then not comparable across groups).}
 
-\item{min_group_n}{Minimum number of rows a group must have to be modelled.
-Smaller groups are skipped with a warning. Default 30.}
+\item{min_group_n}{Minimum number of rows a group must have (counted before
+model-frame NA handling) to be modelled. Smaller groups are skipped with a
+warning. Default 30.}
 
 \item{bootstrap}{Logical; compute per-group parametric-bootstrap VPC
 confidence intervals. lme4 engine only. Default FALSE.}
@@ -66,10 +67,12 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   row per group and columns \code{group}, \code{n}, \code{n_strata},
   \code{vpc}, \code{var_between}, \code{var_other}, \code{var_residual},
   \code{status} (and \code{ci_lower}/\code{ci_upper} when
-  \code{bootstrap = TRUE}). \code{var_other} is the variance of any additional
-  random effects and is 0 for the canonical single-stratum model. Groups that
-  were skipped or failed have \code{NA} metrics and an explanatory
-  \code{status}.
+  \code{bootstrap = TRUE}). For successfully fitted groups \code{n} is the
+  analytic sample size used by the model (after dropping rows with missing
+  outcome/covariates); for skipped groups it is the raw group row count.
+  \code{var_other} is the variance of any additional random effects and is 0
+  for the canonical single-stratum model. Groups that were skipped or failed
+  have \code{NA} metrics and an explanatory \code{status}.
 }
 \description{
 Fits a separate intercept-only MAIHDA model within each level of a

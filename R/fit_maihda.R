@@ -163,7 +163,10 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
          call. = FALSE)
   }
 
-  if (engine == "lme4" && family$family %in% c("binomial", "quasibinomial")) {
+  # Recode two-level responses to 0/1 for both engines (glmer and brms bernoulli
+  # both accept a 0/1 numeric response).
+  is_binomial_family <- family$family %in% c("binomial", "quasibinomial")
+  if (is_binomial_family) {
     data <- maihda_prepare_binomial_response(data, formula)
   }
 
@@ -179,6 +182,12 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     # Check if brms is installed
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("Package 'brms' is required but not installed. Please install it with: install.packages('brms')")
+    }
+
+    # brms models a 0/1 response with bernoulli(); passing binomial() would
+    # require a trials specification and errors on Bernoulli data. Keep the link.
+    if (is_binomial_family) {
+      family <- brms::bernoulli(link = family$link)
     }
 
     model <- brms::brm(formula, data = data, family = family, ...)

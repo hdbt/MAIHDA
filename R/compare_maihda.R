@@ -12,22 +12,29 @@
 #'
 #' @return A data frame comparing VPC/ICC across models with optional confidence intervals.
 #'
+#' @details
+#' VPCs are only directly comparable when the models share an outcome and
+#' family/link -- the canonical use is nested models (e.g. null vs covariate-
+#' adjusted) on the \emph{same} data and strata, to show how the VPC attenuates.
+#' If the supplied models use different outcomes or families/links,
+#' \code{compare_maihda()} still returns the table but issues a warning, because
+#' VPCs on different scales are not comparable.
+#'
 #' @examples
 #' \donttest{
-#' # Create strata and models using simulated data
-#' strata_1 <- make_strata(maihda_sim_data, vars = c("gender", "race"))
-#' strata_2 <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
-#' 
-#' model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_1$data)
-#' model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_2$data)
+#' # Canonical use: nested models on the SAME data and strata (null vs adjusted)
+#' strata <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+#'
+#' null_model <- fit_maihda(health_outcome ~ 1 + (1 | stratum), data = strata$data)
+#' adj_model  <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata$data)
 #'
 #' # Compare without bootstrap
-#' comparison <- compare_maihda(model1, model2,
-#'                             model_names = c("Base", "With Gender"))
+#' comparison <- compare_maihda(null_model, adj_model,
+#'                             model_names = c("Null", "Adjusted"))
 #'
 #' # Compare with bootstrap CI
-#' comparison_boot <- compare_maihda(model1, model2,
-#'                                  model_names = c("Base", "With Gender"),
+#' comparison_boot <- compare_maihda(null_model, adj_model,
+#'                                  model_names = c("Null", "Adjusted"),
 #'                                  bootstrap = TRUE, n_boot = 500)
 #' }
 #'
@@ -44,6 +51,32 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
   for (i in seq_along(models)) {
     if (!inherits(models[[i]], "maihda_model")) {
       stop("All arguments must be maihda_model objects")
+    }
+  }
+
+  # VPCs are only comparable on a shared outcome and family/link. Warn (rather
+  # than error, to keep the function flexible) when they differ.
+  if (length(models) > 1) {
+    responses <- vapply(models, function(m) {
+      paste(deparse(m$formula[[2]]), collapse = "")
+    }, character(1))
+    fam_keys <- vapply(models, function(m) {
+      fam <- maihda_family(m$model)
+      paste0(if (!is.null(fam$family)) fam$family else NA_character_, "(",
+             if (!is.null(fam$link)) fam$link else NA_character_, ")")
+    }, character(1))
+
+    if (length(unique(responses)) > 1) {
+      warning("compare_maihda(): models use different outcomes (",
+              paste(unique(responses), collapse = ", "),
+              "); VPCs across different outcomes are not directly comparable.",
+              call. = FALSE)
+    }
+    if (length(unique(fam_keys)) > 1) {
+      warning("compare_maihda(): models use different families/links (",
+              paste(unique(fam_keys), collapse = ", "),
+              "); VPCs across different families are not directly comparable.",
+              call. = FALSE)
     }
   }
 
@@ -98,13 +131,12 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
 #'
 #' @examples
 #' \donttest{
-#' strata_1 <- make_strata(maihda_sim_data, vars = c("gender", "race"))
-#' strata_2 <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
+#' strata <- make_strata(maihda_sim_data, vars = c("gender", "race"))
 #'
-#' model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_1$data)
-#' model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_2$data)
+#' null_model <- fit_maihda(health_outcome ~ 1 + (1 | stratum), data = strata$data)
+#' adj_model  <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata$data)
 #'
-#' comparison <- compare_maihda(model1, model2, bootstrap = TRUE)
+#' comparison <- compare_maihda(null_model, adj_model, bootstrap = TRUE)
 #' plot(comparison)
 #' }
 #'
@@ -192,8 +224,9 @@ plot_comparison <- function(comparison_df) {
 #'   in every group and VPCs are directly comparable; strata absent from a given
 #'   group are simply unused there. When FALSE, strata are rebuilt independently
 #'   within each group (stratum identities are then not comparable across groups).
-#' @param min_group_n Minimum number of rows a group must have to be modelled.
-#'   Smaller groups are skipped with a warning. Default 30.
+#' @param min_group_n Minimum number of rows a group must have (counted before
+#'   model-frame NA handling) to be modelled. Smaller groups are skipped with a
+#'   warning. Default 30.
 #' @param bootstrap Logical; compute per-group parametric-bootstrap VPC
 #'   confidence intervals. lme4 engine only. Default FALSE.
 #' @param n_boot Number of bootstrap samples when \code{bootstrap = TRUE}.
@@ -208,10 +241,12 @@ plot_comparison <- function(comparison_df) {
 #'   row per group and columns \code{group}, \code{n}, \code{n_strata},
 #'   \code{vpc}, \code{var_between}, \code{var_other}, \code{var_residual},
 #'   \code{status} (and \code{ci_lower}/\code{ci_upper} when
-#'   \code{bootstrap = TRUE}). \code{var_other} is the variance of any additional
-#'   random effects and is 0 for the canonical single-stratum model. Groups that
-#'   were skipped or failed have \code{NA} metrics and an explanatory
-#'   \code{status}.
+#'   \code{bootstrap = TRUE}). For successfully fitted groups \code{n} is the
+#'   analytic sample size used by the model (after dropping rows with missing
+#'   outcome/covariates); for skipped groups it is the raw group row count.
+#'   \code{var_other} is the variance of any additional random effects and is 0
+#'   for the canonical single-stratum model. Groups that were skipped or failed
+#'   have \code{NA} metrics and an explanatory \code{status}.
 #'
 #' @details
 #' Robustness: a group with fewer than \code{min_group_n} rows is always skipped
@@ -381,6 +416,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     # components plot stay mutually consistent when extra random effects exist.
     other_var <- vc$variance[vc$component == "Other random effects"]
     row$var_other <- if (length(other_var) > 0) sum(other_var) else 0
+    # Report the analytic sample size actually used by the model (lme4 drops rows
+    # with missing outcome/covariates), not the raw group row count.
+    analytic_n <- maihda_nobs(fit_obj$model$model)
+    if (is.finite(analytic_n)) row$n <- as.integer(analytic_n)
     row$n_strata <- length(unique(stats::na.omit(fit_obj$model$data$stratum)))
     row$status <- "ok"
 

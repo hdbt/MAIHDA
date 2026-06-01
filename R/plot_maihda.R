@@ -376,10 +376,13 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
                   width = 0.2, alpha = 0.5, color = "#0072B2") +
     geom_hline(yintercept = fixed_reference, linetype = "dashed", color = "red", alpha = 0.7) +
     labs(
-      title = "Predicted Subgroup Values with 95% Confidence Intervals",
+      title = "Predicted Subgroup Values with Conditional 95% Intervals",
       x = "Stratum",
       y = "Predicted Value",
-      caption = "Dashed line represents the mean fixed-only prediction"
+      caption = paste(
+        "Intervals reflect random-effect (conditional) uncertainty only,",
+        "not fixed-effect uncertainty.\nDashed line is the mean fixed-only prediction."
+      )
     ) +
     theme_minimal() +
     theme(

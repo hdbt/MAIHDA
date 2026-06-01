@@ -20,13 +20,12 @@ Dispatched via \code{plot()} on the classed result.
 }
 \examples{
 \donttest{
-strata_1 <- make_strata(maihda_sim_data, vars = c("gender", "race"))
-strata_2 <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
+strata <- make_strata(maihda_sim_data, vars = c("gender", "race"))
 
-model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_1$data)
-model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_2$data)
+null_model <- fit_maihda(health_outcome ~ 1 + (1 | stratum), data = strata$data)
+adj_model  <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata$data)
 
-comparison <- compare_maihda(model1, model2, bootstrap = TRUE)
+comparison <- compare_maihda(null_model, adj_model, bootstrap = TRUE)
 plot(comparison)
 }
 

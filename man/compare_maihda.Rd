@@ -31,22 +31,29 @@ A data frame comparing VPC/ICC across models with optional confidence intervals.
 Compares variance partition coefficients (VPC/ICC) across multiple MAIHDA models,
 with optional bootstrap confidence intervals.
 }
+\details{
+VPCs are only directly comparable when the models share an outcome and
+family/link -- the canonical use is nested models (e.g. null vs covariate-
+adjusted) on the \emph{same} data and strata, to show how the VPC attenuates.
+If the supplied models use different outcomes or families/links,
+\code{compare_maihda()} still returns the table but issues a warning, because
+VPCs on different scales are not comparable.
+}
 \examples{
 \donttest{
-# Create strata and models using simulated data
-strata_1 <- make_strata(maihda_sim_data, vars = c("gender", "race"))
-strata_2 <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
+# Canonical use: nested models on the SAME data and strata (null vs adjusted)
+strata <- make_strata(maihda_sim_data, vars = c("gender", "race"))
 
-model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_1$data)
-model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_2$data)
+null_model <- fit_maihda(health_outcome ~ 1 + (1 | stratum), data = strata$data)
+adj_model  <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata$data)
 
 # Compare without bootstrap
-comparison <- compare_maihda(model1, model2,
-                            model_names = c("Base", "With Gender"))
+comparison <- compare_maihda(null_model, adj_model,
+                            model_names = c("Null", "Adjusted"))
 
 # Compare with bootstrap CI
-comparison_boot <- compare_maihda(model1, model2,
-                                 model_names = c("Base", "With Gender"),
+comparison_boot <- compare_maihda(null_model, adj_model,
+                                 model_names = c("Null", "Adjusted"),
                                  bootstrap = TRUE, n_boot = 500)
 }
 

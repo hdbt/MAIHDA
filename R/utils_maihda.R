@@ -448,7 +448,7 @@ maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
     stop("Unable to determine model family for residual variance calculation.")
   }
 
-  latent_families <- c("binomial", "quasibinomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
+  latent_families <- c("binomial", "bernoulli", "quasibinomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
   if (fam$family == "gaussian") {
     return(attr(vc, "sc")^2)
   }
@@ -478,7 +478,7 @@ maihda_residual_variance_brms <- function(model) {
     stop("Unable to determine brms model family for residual variance calculation.")
   }
 
-  latent_families <- c("binomial", "quasibinomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
+  latent_families <- c("binomial", "bernoulli", "quasibinomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
   if (fam$family == "gaussian") {
     sigma_est <- tryCatch(stats::sigma(model), error = function(e) NA_real_)
     if (length(sigma_est) > 0 && is.finite(sigma_est[1])) {

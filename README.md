@@ -104,7 +104,7 @@ Creates various visualizations:
 - **Effect Decomp**: Additive versus specific interaction decompositions
 
 ### `maihda_ternary_plot()`
-Generates an advanced ternary plot showing the relative contribution of intercept, additive effects, and unique intersectional interaction effects to the overall outcome for each stratum.
+Generates a ternary diagnostic plot. For each stratum it normalizes three magnitudes to sum to 1: the additive signal (how far the fixed-effect-only prediction sits from the grand mean), the intersection-specific signal (the magnitude of the stratum random effect), and the uncertainty in that estimate. It is a relative-signal diagnostic, not a formal variance decomposition.
 
 ### `plot_prediction_deviation_panels()`
 Creates an advanced, publication-ready two-panel dashboard for visualizing predicted values and identifying extreme/deviant cases in individual predictions.
@@ -145,7 +145,7 @@ summary <- summary(model, bootstrap = TRUE, n_boot = 1000)
 plot(model, type = "predicted")
 plot(model, type = "risk_vs_effect")
 
-# Map out where the specific intersectional variance is emerging
+# Map out where the intersection-specific signal is concentrated
 plot(model, type = "ternary")
 
 # Or run it with no type to see them all!
@@ -170,14 +170,16 @@ summary_brms <- summary(model_brms)
 ## Model Comparison with Bootstrap
 
 ```r
-# Fit competing models
-model1 <- fit_maihda(outcome ~ age + (1 | gender:race), data = data1)
-model2 <- fit_maihda(outcome ~ age + gender + (1 | gender:race), data = data2)
+# Compare nested models on the SAME data and strata (null vs covariate-adjusted).
+# VPCs are only comparable when models share an outcome, family, and sample.
+strata <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+null_model <- fit_maihda(health_outcome ~ 1 + (1 | stratum), data = strata$data)
+adj_model  <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata$data)
 
 # Compare with bootstrap CI
 comparison <- compare_maihda(
-  model1, model2,
-  model_names = c("Base", "With Gender"),
+  null_model, adj_model,
+  model_names = c("Null", "Adjusted"),
   bootstrap = TRUE,
   n_boot = 1000
 )

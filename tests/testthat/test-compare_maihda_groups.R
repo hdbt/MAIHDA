@@ -112,6 +112,25 @@ test_that("compare_maihda_groups reports VPC 0 (not an error) for a singular gro
   expect_true(cmp$vpc[cmp$group == "signal"] > cmp$vpc[cmp$group == "flat"])
 })
 
+test_that("compare_maihda_groups reports the analytic n after NA handling", {
+  set.seed(3011)
+  n <- 160
+  d <- data.frame(
+    grp = rep(c("A", "B"), each = n / 2),
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race = sample(c("X", "Y"), n, replace = TRUE),
+    x = rnorm(n)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- 1 + 0.3 * d$x + rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
+  # Drop 30 covariate values in group A: 80 raw rows -> 50 analytic rows.
+  d$x[which(d$grp == "A")[1:30]] <- NA_real_
+
+  cmp <- compare_maihda_groups(y ~ x + (1 | gender:race), data = d, group = "grp")
+  expect_equal(cmp$n[cmp$group == "A"], 50L)   # analytic, not the raw 80
+  expect_equal(cmp$n[cmp$group == "B"], 80L)
+})
+
 test_that("compare_maihda_groups bootstrap returns ordered per-group CIs", {
   set.seed(3005)
   n <- 300
