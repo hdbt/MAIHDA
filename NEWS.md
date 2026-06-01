@@ -1,3 +1,17 @@
+# MAIHDA 0.1.10
+
+## New Features
+
+* Added `compare_maihda_groups()` to compare intersectional inequality (VPC/ICC and between-/within-stratum variance) across levels of a higher-level grouping variable such as country, region, or survey wave. It fits a stratified MAIHDA model per group, by default using shared/global strata so VPCs are directly comparable, with optional per-group bootstrap confidence intervals.
+* Added `plot_group_comparison()` to visualize the result either as a VPC-by-group forest plot or as stacked variance-composition bars.
+
+## Bug Fixes
+
+* Fixed parametric-bootstrap confidence intervals for VPC (`summary()`) and PVC (`calculate_pvc()`): failed `refit()` iterations were silently recorded as `0` instead of being dropped, biasing intervals toward zero and suppressing the high-failure-rate warning. Failed iterations are now excluded correctly.
+* Corrected the Poisson VPC residual-variance approximation to `log(1 + 1/mu)` (Stryhn et al. 2006); the previous `1/mu` linearization biased the VPC downward for low-count outcomes.
+* `plot_prediction_deviation_panels()` no longer draws zero-width "95% CI" bars when the underlying model does not supply standard errors (e.g. `lme4::merMod`); intervals are omitted instead of collapsed.
+
+
 # MAIHDA 0.1.9
 
 ## Bug Fixes
