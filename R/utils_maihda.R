@@ -112,6 +112,10 @@ maihda_prepare_binomial_response <- function(data, formula) {
 # i.e. a plain symbol naming a binary column. Aggregated binomial responses such
 # as cbind(success, failure) or `y | trials(n)` are calls, not symbols, so they
 # return FALSE and must remain a binomial() model.
+#
+# The check is evaluated on the analytic sample (complete cases over the model
+# variables), matching what lme4/brms actually fit: a response that is 0/1 once
+# rows with missing covariates are dropped is still recognised as Bernoulli.
 maihda_response_is_binary <- function(formula, data) {
   if (length(formula) != 3L) {
     return(FALSE)
@@ -124,7 +128,14 @@ maihda_response_is_binary <- function(formula, data) {
   if (!outcome %in% names(data)) {
     return(FALSE)
   }
-  maihda_is_binary_vector(data[[outcome]])
+
+  model_vars <- intersect(all.vars(formula), names(data))
+  keep <- if (length(model_vars) > 0) {
+    stats::complete.cases(data[, model_vars, drop = FALSE])
+  } else {
+    rep(TRUE, nrow(data))
+  }
+  maihda_is_binary_vector(data[[outcome]][keep])
 }
 
 maihda_model_frame <- function(model, fallback = NULL) {

@@ -98,6 +98,17 @@ test_that("maihda_response_is_binary distinguishes Bernoulli from aggregated bin
   expect_false(MAIHDA:::maihda_response_is_binary(succ | trials(n) ~ x, d))
 })
 
+test_that("maihda_response_is_binary uses the analytic (complete-case) sample", {
+  d <- data.frame(
+    y = c(rep(0:1, 9), 2L, 2L),   # full column has a spurious third level
+    x = c(rnorm(18), NA, NA),     # ...only in rows that are incomplete on x
+    stratum = factor(rep(seq_len(2), 10))
+  )
+  # Full column is not binary, but the analytic sample (complete x) is 0/1.
+  expect_false(MAIHDA:::maihda_is_binary_vector(d$y))
+  expect_true(MAIHDA:::maihda_response_is_binary(y ~ x + (1 | stratum), d))
+})
+
 test_that("fit_maihda fits a binary outcome with brms via bernoulli()", {
   # Compiles a Stan model, so skip on CI/CRAN (toolchain is unreliable there);
   # the bernoulli residual-variance fix is covered without Stan in
