@@ -163,10 +163,12 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
          call. = FALSE)
   }
 
-  # Recode two-level responses to 0/1 for both engines (glmer and brms bernoulli
-  # both accept a 0/1 numeric response).
+  # Recode a two-level (Bernoulli) response to 0/1 (glmer and brms bernoulli both
+  # accept 0/1). Aggregated binomial responses -- cbind(success, failure) or
+  # `y | trials(n)` -- are left untouched and remain binomial() models.
   is_binomial_family <- family$family %in% c("binomial", "quasibinomial")
-  if (is_binomial_family) {
+  response_is_binary <- is_binomial_family && maihda_response_is_binary(formula, data)
+  if (response_is_binary) {
     data <- maihda_prepare_binomial_response(data, formula)
   }
 
@@ -185,8 +187,10 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     }
 
     # brms models a 0/1 response with bernoulli(); passing binomial() would
-    # require a trials specification and errors on Bernoulli data. Keep the link.
-    if (is_binomial_family) {
+    # require a trials specification and errors on Bernoulli data. Only rewrite
+    # when the response really is a two-level vector -- aggregated binomial
+    # (cbind / trials) must stay binomial().
+    if (response_is_binary) {
       family <- brms::bernoulli(link = family$link)
     }
 

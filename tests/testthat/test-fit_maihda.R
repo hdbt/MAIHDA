@@ -79,6 +79,25 @@ test_that("fit_maihda creates strata automatically when interaction is passed", 
   expect_true(!is.null(model2$strata_info))
 })
 
+test_that("maihda_response_is_binary distinguishes Bernoulli from aggregated binomial", {
+  d <- data.frame(
+    y01  = rep(0:1, 10),
+    yf   = factor(rep(c("no", "yes"), 10)),
+    cnt  = rep(0:4, 4),
+    succ = rep(3L, 20),
+    fail = rep(7L, 20),
+    n    = rep(10L, 20),
+    x    = rnorm(20)
+  )
+  # Two-level vector responses -> Bernoulli
+  expect_true(MAIHDA:::maihda_response_is_binary(y01 ~ x, d))
+  expect_true(MAIHDA:::maihda_response_is_binary(yf ~ x, d))
+  # Counts and aggregated binomial responses must NOT be treated as Bernoulli
+  expect_false(MAIHDA:::maihda_response_is_binary(cnt ~ x, d))
+  expect_false(MAIHDA:::maihda_response_is_binary(cbind(succ, fail) ~ x, d))
+  expect_false(MAIHDA:::maihda_response_is_binary(succ | trials(n) ~ x, d))
+})
+
 test_that("fit_maihda fits a binary outcome with brms via bernoulli()", {
   # Compiles a Stan model, so skip on CI/CRAN (toolchain is unreliable there);
   # the bernoulli residual-variance fix is covered without Stan in

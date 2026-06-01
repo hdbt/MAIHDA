@@ -108,6 +108,25 @@ maihda_prepare_binomial_response <- function(data, formula) {
   data
 }
 
+# TRUE only when the model response is a single two-level (Bernoulli) vector,
+# i.e. a plain symbol naming a binary column. Aggregated binomial responses such
+# as cbind(success, failure) or `y | trials(n)` are calls, not symbols, so they
+# return FALSE and must remain a binomial() model.
+maihda_response_is_binary <- function(formula, data) {
+  if (length(formula) != 3L) {
+    return(FALSE)
+  }
+  response <- formula[[2]]
+  if (!is.symbol(response)) {
+    return(FALSE)
+  }
+  outcome <- as.character(response)
+  if (!outcome %in% names(data)) {
+    return(FALSE)
+  }
+  maihda_is_binary_vector(data[[outcome]])
+}
+
 maihda_model_frame <- function(model, fallback = NULL) {
   out <- tryCatch(stats::model.frame(model), error = function(e) NULL)
   if (is.null(out) && inherits(model, "merMod")) {
