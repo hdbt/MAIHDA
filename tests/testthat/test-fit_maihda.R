@@ -80,7 +80,11 @@ test_that("fit_maihda creates strata automatically when interaction is passed", 
 })
 
 test_that("fit_maihda fits a binary outcome with brms via bernoulli()", {
+  # Compiles a Stan model, so skip on CI/CRAN (toolchain is unreliable there);
+  # the bernoulli residual-variance fix is covered without Stan in
+  # test-summary_variance.R. This runs locally when brms + a compiler are present.
   skip_on_cran()
+  skip_on_ci()
   skip_if_not_installed("brms")
 
   set.seed(321)
