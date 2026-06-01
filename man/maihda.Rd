@@ -91,9 +91,11 @@ a <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data)
 a
 plot(a, type = "vpc")
 
-# Add a higher-level grouping variable to also compare across its levels
-a2 <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data,
-             group = "Education")
+# Add a higher-level grouping variable to also compare across its levels.
+# maihda_country_data has a real country grouping (PISA achievement data):
+data(maihda_country_data)
+a2 <- maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data,
+             group = "country")
 a2
 plot(a2, type = "group_vpc")
 }

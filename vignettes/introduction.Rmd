@@ -54,11 +54,13 @@ analysis                      # concise report (VPC/ICC, #strata)
 summary(analysis)             # full variance components
 plot(analysis, type = "vpc")  # any plot.maihda_model type works here
 
-# Add a higher-level grouping variable to also compare across its levels
-by_education <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data,
-                       group = "Education")
-by_education
-plot(by_education, type = "group_vpc")
+# Add a higher-level grouping variable to also compare across its levels.
+# maihda_country_data (PISA 2018) has a real country grouping:
+data("maihda_country_data")
+by_country <- maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data,
+                     group = "country")
+by_country
+plot(by_country, type = "group_vpc")
 ```
 
 The sections below walk through the same steps individually with `fit_maihda()`
@@ -170,19 +172,24 @@ By default the intersectional strata are defined once on the full data
 group and the VPCs are directly comparable. This is a *stratified* analysis (one
 model per group), not a cross-classified model.
 
+The bundled `maihda_country_data` (OECD PISA 2018) is designed for exactly this:
+it asks how much the joint **gender x socioeconomic-status** inequality in
+mathematics achievement differs across six countries.
+
 ```{r eval=FALSE}
-# Education stands in here for a higher-level grouping variable such as country.
+data("maihda_country_data")
+
 group_cmp <- compare_maihda_groups(
-  BMI ~ Age + (1 | Gender:Race),
-  data  = maihda_health_data,
-  group = "Education"
+  math ~ 1 + (1 | gender:ses),
+  data  = maihda_country_data,
+  group = "country"
 )
 group_cmp
 
-# VPC by group (add bootstrap = TRUE for per-group confidence intervals)
+# VPC by country (add bootstrap = TRUE for per-group confidence intervals)
 plot(group_cmp, type = "vpc")
 
-# Between- vs within-stratum variance share by group
+# Between- vs within-stratum variance share by country
 plot(group_cmp, type = "components")
 ```
 

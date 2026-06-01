@@ -3,6 +3,7 @@
 ## New Features
 
 * Added `maihda()`, a single high-level entry point that runs the standard workflow in one call: it fits the model, summarises the VPC/ICC and variance components, and -- when a `group` is supplied -- also compares intersectional inequality across that grouping variable. It returns one consistent `maihda_analysis` object (with `print`, `summary`, and `plot` methods); the `groups` slot is simply `NULL` when no grouping variable is given.
+* Added the `maihda_country_data` dataset (OECD PISA 2018, accessed via the `learningtower` package): 3,600 students across six countries with gender x socioeconomic-status strata and mathematics-achievement outcomes. It showcases `compare_maihda_groups()` / `maihda(group = "country")`, since intersectional inequality (VPC/ICC) genuinely differs across the countries.
 
 ## Improvements
 
