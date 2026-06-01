@@ -20,6 +20,10 @@ socioeconomic status).
 
 ## Key Features
 
+- **One-call Workflow**:
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) fits
+  the model, summarises the VPC/ICC, and (optionally) compares across a
+  higher-level group in a single call
 - **Create Intersectional Strata**: Automatically generate strata from
   multiple categorical variables
 - **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**
@@ -34,9 +38,13 @@ in Variance (PCV) - **Multiple Prediction Types**: Individual-level and
 stratum-level predictions - **Visualizations**: Predicted stratum
 values, VPC visualizations, risk/effect diagnostics, and observed
 vs. shrunken estimates - **Model Comparison**: Compare models with
-robust bootstrap confidence intervals for VPC/ICC - **Proportional
-Change in Variance (PVC)**: Quantify how much between-stratum variance
-is explained by additional predictors
+robust bootstrap confidence intervals for VPC/ICC - **Group
+Comparison**:
+[`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+contrasts intersectional inequality (VPC/ICC) across levels of a
+higher-level variable such as country or region - **Proportional Change
+in Variance (PVC)**: Quantify how much between-stratum variance is
+explained by additional predictors
 
 ## Installation
 
@@ -62,6 +70,17 @@ install.packages("MAIHDA")
 library(MAIHDA)
 data("maihda_health_data")
 
+# Everything in one call: fit + VPC/ICC summary (+ optional group comparison)
+analysis <- maihda(BMI ~ Age + (1 | Gender:Race:Education), data = maihda_health_data)
+analysis                       # concise report
+summary(analysis)              # variance components
+plot(analysis, type = "vpc")   # any model plot type works here
+```
+
+Prefer the individual building blocks? They are all still available:
+
+``` r
+
 # 1. Fit a MAIHDA model
 model <- fit_maihda(
   BMI ~ Age + Poverty + (1 | Gender:Race:Education),
@@ -76,6 +95,16 @@ plot(model)
 ```
 
 ## Main Functions
+
+### `maihda()`
+
+A single high-level entry point that runs the standard workflow: fits
+the model, summarises the VPC/ICC and variance components, and – when a
+`group` is supplied – also compares intersectional inequality across
+that grouping variable. Returns one `maihda_analysis` object with
+[`print()`](https://rdrr.io/r/base/print.html),
+[`summary()`](https://rdrr.io/r/base/summary.html), and
+[`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods.
 
 ### `make_strata()`
 
@@ -130,6 +159,15 @@ individual predictions.
 
 Compares VPC/ICC across multiple models with optional bootstrap
 confidence intervals.
+
+### `compare_maihda_groups()`
+
+Compares intersectional inequality (VPC/ICC and between-/within-stratum
+variance) across the levels of a higher-level grouping variable such as
+country, region, or survey wave, fitting a stratified MAIHDA model per
+group. Visualize with `plot(result, type = "vpc")`. The bundled
+`maihda_country_data` (OECD PISA 2018; gender × socioeconomic-status
+strata across six countries) is built to demonstrate this.
 
 ### `calculate_pvc()`
 
@@ -212,7 +250,7 @@ comparison <- compare_maihda(
 )
 
 # Visualize comparison
-plot_comparison(comparison)
+plot(comparison)
 ```
 
 ## Calculating Proportional Change in Variance (PVC)
@@ -283,12 +321,18 @@ vignette("introduction", package = "MAIHDA")
 - ggplot2 (\>= 3.4.0)
 - dplyr (\>= 1.0.0)
 - tidyr (\>= 1.1.0)
-- stats, methods, tibble, rlang
+- reformulas, patchwork, ggrepel, tidyselect, stats, tibble, rlang
 
 **Optional:**
 
 - brms (\>= 2.15.0) - for Bayesian models
-- boot (\>= 1.3-20) - for bootstrap confidence intervals
+- ggtern - for ternary diagrams
+- shiny, bslib, DT, plotly, shinyjs - for the interactive dashboard
+
+Bootstrap confidence intervals use a parametric bootstrap via
+`lme4::simulate()` /
+[`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html); no external
+bootstrap package is required.
 
 ## References
 
@@ -315,7 +359,7 @@ This project is licensed under the MIT License - see the
 If you use this package in your research, please cite:
 
 ``` text
-Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.9, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
+Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.11, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
 ```
 
 A BibTeX entry for LaTeX users is:
@@ -325,7 +369,7 @@ A BibTeX entry for LaTeX users is:
   title  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},
   author = {Hamid Bulut},
   year   = {2025},
-  note   = {R package version 0.1.9},
+  note   = {R package version 0.1.11},
   url    = {https://github.com/hdbt/MAIHDA},
   doi    = {10.32614/CRAN.package.MAIHDA}
 }
@@ -345,6 +389,10 @@ A BibTeX entry for LaTeX users is:
   : Compute Ternary Data for MAIHDA Models
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   : Fit MAIHDA Model
+- [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) : Run
+  a Complete MAIHDA Analysis
+- [`maihda_country_data`](https://hdbt.github.io/MAIHDA/reference/maihda_country_data.md)
+  : Cross-National Educational Achievement Data for MAIHDA
 - [`maihda_health_data`](https://hdbt.github.io/MAIHDA/reference/maihda_health_data.md)
   : NHANES Health Data Subset for MAIHDA Use
 - [`maihda_sim_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.md)
@@ -353,18 +401,22 @@ A BibTeX entry for LaTeX users is:
   : Generate Ternary Plot from MAIHDA Model
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   : Create Strata from Multiple Variables
+- [`plot(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_analysis.md)
+  : Plot a MAIHDA Analysis
+- [`plot(`*`<maihda_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_comparison.md)
+  : Plot a MAIHDA Model Comparison
+- [`plot(`*`<maihda_group_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_group_comparison.md)
+  : Plot a MAIHDA Group Comparison
 - [`plot(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)
   : Plot MAIHDA Model Results
-- [`plot_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_comparison.md)
-  : Plot Model Comparison
-- [`plot_group_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.md)
-  : Plot a MAIHDA Group Comparison
-- [`plot_maihda_ternary()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda_ternary.md)
+- [`plot(`*`<maihda_ternary>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_ternary.md)
   : Plot MAIHDA Ternary Diagram
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   : Plot Prediction Deviation Panels
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
   : Predict from MAIHDA Model
+- [`print(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_analysis.md)
+  : Print a MAIHDA Analysis
 - [`print(`*`<maihda_group_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_group_comparison.md)
   : Print method for MAIHDA group comparisons
 - [`print(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_model.md)
@@ -379,6 +431,8 @@ A BibTeX entry for LaTeX users is:
   : Run MAIHDA Shiny Application
 - [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   : Stepwise Proportional Change in Variance (PCV)
+- [`summary(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_analysis.md)
+  : Summarize a MAIHDA Analysis
 - [`summary(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
   : Summarize MAIHDA Model
 

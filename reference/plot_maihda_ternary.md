@@ -1,18 +1,14 @@
-# Plot MAIHDA Ternary Diagram
+# Plot MAIHDA Ternary Diagram (deprecated)
 
-Plot MAIHDA Ternary Diagram
+Deprecated. Use [`plot()`](https://rdrr.io/r/graphics/plot.default.html)
+on the
+[`compute_maihda_ternary_data`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
+result instead, e.g. `plot(compute_maihda_ternary_data(model))`.
 
 ## Usage
 
 ``` r
-plot_maihda_ternary(
-  ternary_data,
-  size_var = "n",
-  color_var = "label",
-  label_top_n = 5,
-  label_by = c("interaction_signal", "uncertainty", "n"),
-  alpha = 0.7
-)
+plot_maihda_ternary(ternary_data, ...)
 ```
 
 ## Arguments
@@ -21,25 +17,11 @@ plot_maihda_ternary(
 
   Data output from `compute_maihda_ternary_data`.
 
-- size_var:
+- ...:
 
-  Column name for point sizing.
-
-- color_var:
-
-  Column name for point colors.
-
-- label_top_n:
-
-  Number of top strata to label.
-
-- label_by:
-
-  Variable used to determine top strata.
-
-- alpha:
-
-  Point transparency.
+  Further arguments passed to
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) (e.g.
+  `size_var`).
 
 ## Value
 

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.10</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.11</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,26 @@
       <small>Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.11" id="maihda-0111">MAIHDA 0.1.11<a class="anchor" aria-label="anchor" href="#maihda-0111"></a></h2>
+<div class="section level3">
+<h3 id="new-features-0-1-11">New Features<a class="anchor" aria-label="anchor" href="#new-features-0-1-11"></a></h3>
+<ul><li>Added <code><a href="../reference/maihda.html">maihda()</a></code>, a single high-level entry point that runs the standard workflow in one call: it fits the model, summarises the VPC/ICC and variance components, and – when a <code>group</code> is supplied – also compares intersectional inequality across that grouping variable. It returns one consistent <code>maihda_analysis</code> object (with <code>print</code>, <code>summary</code>, and <code>plot</code> methods); the <code>groups</code> slot is simply <code>NULL</code> when no grouping variable is given.</li>
+<li>Added the <code>maihda_country_data</code> dataset (OECD PISA 2018, accessed via the <code>learningtower</code> package): 3,600 students across six countries with gender x socioeconomic-status strata and mathematics-achievement outcomes. It showcases <code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> / <code>maihda(group = "country")</code>, since intersectional inequality (VPC/ICC) genuinely differs across the countries.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="improvements-0-1-11">Improvements<a class="anchor" aria-label="anchor" href="#improvements-0-1-11"></a></h3>
+<ul><li>Plotting is now unified under the base <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> generic. <code><a href="../reference/compare_maihda.html">compare_maihda()</a></code> and <code><a href="../reference/compute_maihda_ternary_data.html">compute_maihda_ternary_data()</a></code> now return classed objects, so <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> dispatches automatically:
+<ul><li>
+<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> on a <code><a href="../reference/compare_maihda.html">compare_maihda()</a></code> result (was <code><a href="../reference/plot_comparison.html">plot_comparison()</a></code>)</li>
+<li>
+<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> on a <code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> result, with <code>type = "vpc"</code>/“components” (was <code><a href="../reference/plot_group_comparison.html">plot_group_comparison()</a></code>)</li>
+<li>
+<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> on a <code><a href="../reference/compute_maihda_ternary_data.html">compute_maihda_ternary_data()</a></code> result (was <code><a href="../reference/plot_maihda_ternary.html">plot_maihda_ternary()</a></code>)</li>
+</ul></li>
+<li>The old <code><a href="../reference/plot_comparison.html">plot_comparison()</a></code>, <code><a href="../reference/plot_group_comparison.html">plot_group_comparison()</a></code>, and <code><a href="../reference/plot_maihda_ternary.html">plot_maihda_ternary()</a></code> functions still work but are <strong>deprecated</strong> and emit a one-time warning pointing to <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.10" id="maihda-0110">MAIHDA 0.1.10<a class="anchor" aria-label="anchor" href="#maihda-0110"></a></h2>
 <div class="section level3">

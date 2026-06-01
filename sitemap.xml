@@ -18,12 +18,18 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/extract_between_variance.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/fit_maihda.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/index.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_country_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_health_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_prepare_group_strata.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/make_strata.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_analysis.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_comparison.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_group_comparison.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_ternary.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_comparison.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_effect_decomposition.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.html</loc></url>
@@ -34,6 +40,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_risk_vs_effect.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_vpc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/predict_maihda.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_analysis.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_group_comparison.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_model.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_strata.html</loc></url>
@@ -41,6 +48,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.pvc_result.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/run_maihda_app.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/summary.maihda_analysis.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.html</loc></url>
 </urlset>
 

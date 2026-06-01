@@ -12,6 +12,10 @@
   : Compute Ternary Data for MAIHDA Models
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   : Fit MAIHDA Model
+- [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) : Run
+  a Complete MAIHDA Analysis
+- [`maihda_country_data`](https://hdbt.github.io/MAIHDA/reference/maihda_country_data.md)
+  : Cross-National Educational Achievement Data for MAIHDA
 - [`maihda_health_data`](https://hdbt.github.io/MAIHDA/reference/maihda_health_data.md)
   : NHANES Health Data Subset for MAIHDA Use
 - [`maihda_sim_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.md)
@@ -20,18 +24,22 @@
   : Generate Ternary Plot from MAIHDA Model
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   : Create Strata from Multiple Variables
+- [`plot(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_analysis.md)
+  : Plot a MAIHDA Analysis
+- [`plot(`*`<maihda_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_comparison.md)
+  : Plot a MAIHDA Model Comparison
+- [`plot(`*`<maihda_group_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_group_comparison.md)
+  : Plot a MAIHDA Group Comparison
 - [`plot(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)
   : Plot MAIHDA Model Results
-- [`plot_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_comparison.md)
-  : Plot Model Comparison
-- [`plot_group_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.md)
-  : Plot a MAIHDA Group Comparison
-- [`plot_maihda_ternary()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda_ternary.md)
+- [`plot(`*`<maihda_ternary>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_ternary.md)
   : Plot MAIHDA Ternary Diagram
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   : Plot Prediction Deviation Panels
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
   : Predict from MAIHDA Model
+- [`print(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_analysis.md)
+  : Print a MAIHDA Analysis
 - [`print(`*`<maihda_group_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_group_comparison.md)
   : Print method for MAIHDA group comparisons
 - [`print(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_model.md)
@@ -46,5 +54,7 @@
   : Run MAIHDA Shiny Application
 - [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   : Stepwise Proportional Change in Variance (PCV)
+- [`summary(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_analysis.md)
+  : Summarize a MAIHDA Analysis
 - [`summary(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
   : Summarize MAIHDA Model

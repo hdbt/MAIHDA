@@ -131,34 +131,35 @@ aborting the whole comparison.
 
 [`compare_maihda`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
 for comparing different models on the same data;
-[`plot_group_comparison`](https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.md)
+[`plot.maihda_group_comparison`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_group_comparison.md)
 for visualising the result.
 
 ## Examples
 
 ``` r
 # \donttest{
-data(maihda_health_data)
-# Using Education as a stand-in higher-level grouping variable
+data(maihda_country_data)
+# How does gender x SES inequality in PISA math scores differ across countries?
 cmp <- compare_maihda_groups(
-  BMI ~ Age + (1 | Gender:Race),
-  data = maihda_health_data,
-  group = "Education"
+  math ~ 1 + (1 | gender:ses),
+  data = maihda_country_data,
+  group = "country"
 )
 print(cmp)
 #> MAIHDA Group Comparison
 #> =======================
 #> 
-#> Group variable: Education 
+#> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
 #> 
 #>           group   n n_strata     vpc var_between var_other var_residual status
-#>       8th Grade 196       10 0.11236       3.819         0        30.17     ok
-#>  9 - 11th Grade 366       10 0.03875       2.004         0        49.72     ok
-#>    College Grad 846       10 0.09503       3.308         0        31.50     ok
-#>     High School 632       10 0.05250       2.666         0        48.11     ok
-#>    Some College 960       10 0.03748       1.978         0        50.80     ok
-plot_group_comparison(cmp, type = "vpc")
+#>         Finland 600        6 0.10994       785.8         0         6361     ok
+#>         Germany 600        6 0.14448      1271.6         0         7529     ok
+#>           Italy 600        6 0.11890      1065.3         0         7895     ok
+#>           Japan 600        6 0.13344      1032.3         0         6704     ok
+#>          Mexico 600        6 0.13649       771.5         0         4881     ok
+#>  United Kingdom 600        6 0.06011       470.5         0         7357     ok
+plot(cmp, type = "vpc")
 
 # }
 ```

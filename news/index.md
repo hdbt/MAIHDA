@@ -1,5 +1,56 @@
 # Changelog
 
+## MAIHDA 0.1.11
+
+### New Features
+
+- Added [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md),
+  a single high-level entry point that runs the standard workflow in one
+  call: it fits the model, summarises the VPC/ICC and variance
+  components, and – when a `group` is supplied – also compares
+  intersectional inequality across that grouping variable. It returns
+  one consistent `maihda_analysis` object (with `print`, `summary`, and
+  `plot` methods); the `groups` slot is simply `NULL` when no grouping
+  variable is given.
+- Added the `maihda_country_data` dataset (OECD PISA 2018, accessed via
+  the `learningtower` package): 3,600 students across six countries with
+  gender x socioeconomic-status strata and mathematics-achievement
+  outcomes. It showcases
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  / `maihda(group = "country")`, since intersectional inequality
+  (VPC/ICC) genuinely differs across the countries.
+
+### Improvements
+
+- Plotting is now unified under the base
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) generic.
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  and
+  [`compute_maihda_ternary_data()`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
+  now return classed objects, so
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) dispatches
+  automatically:
+  - [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a
+    [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+    result (was
+    [`plot_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_comparison.md))
+  - [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a
+    [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+    result, with `type = "vpc"`/“components” (was
+    [`plot_group_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.md))
+  - [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a
+    [`compute_maihda_ternary_data()`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
+    result (was
+    [`plot_maihda_ternary()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda_ternary.md))
+- The old
+  [`plot_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_comparison.md),
+  [`plot_group_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.md),
+  and
+  [`plot_maihda_ternary()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda_ternary.md)
+  functions still work but are **deprecated** and emit a one-time
+  warning pointing to
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html).
+
 ## MAIHDA 0.1.10
 
 ### New Features

@@ -21,7 +21,7 @@ maihda_ternary_plot(model, summary_obj = NULL, ...)
 - ...:
 
   Additional arguments passed to `compute_maihda_ternary_data` and
-  `plot_maihda_ternary`.
+  [`plot.maihda_ternary`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_ternary.md).
 
 ## Value
 

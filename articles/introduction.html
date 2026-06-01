@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.10</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.11</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -101,6 +101,36 @@ an interactive Shiny Dashboard for code-free analysis.</p>
 <span><span class="co"># remotes::install_github("hdbt/MAIHDA")</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="quick-start-the-maihda-one-call-workflow">Quick Start: the <code>maihda()</code> one-call workflow<a class="anchor" aria-label="anchor" href="#quick-start-the-maihda-one-call-workflow"></a>
+</h2>
+<p>If you just want the standard analysis, <code><a href="../reference/maihda.html">maihda()</a></code> runs
+the whole pipeline in a single call – it fits the model, summarises the
+VPC/ICC and variance components, and (optionally) compares
+intersectional inequality across a higher-level grouping variable. It
+returns one object with <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>,
+and <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> methods.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Fit + variance summary in one call</span></span>
+<span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span>
+<span><span class="va">analysis</span>                      <span class="co"># concise report (VPC/ICC, #strata)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span>             <span class="co"># full variance components</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">analysis</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span>  <span class="co"># any plot.maihda_model type works here</span></span>
+<span></span>
+<span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span>
+<span><span class="co"># maihda_country_data (PISA 2018) has a real country grouping:</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
+<span><span class="va">by_country</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_country_data</span>,</span>
+<span>                     group <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span>
+<span><span class="va">by_country</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">by_country</span>, type <span class="op">=</span> <span class="st">"group_vpc"</span><span class="op">)</span></span></code></pre></div>
+<p>The sections below walk through the same steps individually with
+<code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> and friends, which you can use directly when
+you need finer control.</p>
+</div>
+<div class="section level2">
 <h2 id="real-world-example-analysis">Real-World Example Analysis<a class="anchor" aria-label="anchor" href="#real-world-example-analysis"></a>
 </h2>
 <p>The package includes a pedagogical subset of the National Health and
@@ -116,7 +146,7 @@ directly in the random effect formula. Providing the variables in the
 random effect combined with <code>:</code> allows the function to
 automatically build the intersectional strata on the fly and fit the
 multilevel model.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Load the built-in NHANES dataset</span></span>
@@ -154,7 +184,7 @@ largely explained by the additive characteristics. If the variance
 remains or even <em>increases</em> (Negative PCV), it signifies strong,
 unique intersectional interactions that cannot be explained away by
 simple main effects.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit an adjusted model</span></span>
 <span><span class="va">model_adj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
@@ -171,7 +201,7 @@ simple main effects.</p>
 <p>Often, researchers want to know exactly <em>which</em> variable
 explained the variance. Use the <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code> function to
 add covariates one-by-one and track the variance dynamically.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Run a stepwise variance decomposition using the prepared data with strata</span></span>
 <span><span class="va">stepwise_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/stepwise_pcv.html">stepwise_pcv</a></span><span class="op">(</span></span>
 <span>  data <span class="op">=</span> <span class="va">model_null</span><span class="op">$</span><span class="va">original_data</span>,</span>
@@ -191,7 +221,7 @@ inequalities.</p>
 <p>The package provides multiple pre-configured, advanced visualization
 options for checking your model estimates natively mirroring the Shiny
 application logic:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Predicted stratum values with 95% CIs</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
 <span></span>
@@ -224,20 +254,25 @@ data (<code>shared_strata = TRUE</code>), so a stratum denotes the same
 combination in every group and the VPCs are directly comparable. This is
 a <em>stratified</em> analysis (one model per group), not a
 cross-classified model.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Education stands in here for a higher-level grouping variable such as country.</span></span>
+<p>The bundled <code>maihda_country_data</code> (OECD PISA 2018) is
+designed for exactly this: it asks how much the joint <strong>gender x
+socioeconomic-status</strong> inequality in mathematics achievement
+differs across six countries.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
+<span></span>
 <span><span class="va">group_cmp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_maihda_groups.html">compare_maihda_groups</a></span><span class="op">(</span></span>
-<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">)</span>,</span>
-<span>  data  <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
-<span>  group <span class="op">=</span> <span class="st">"Education"</span></span>
+<span>  <span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span>
+<span>  data  <span class="op">=</span> <span class="va">maihda_country_data</span>,</span>
+<span>  group <span class="op">=</span> <span class="st">"country"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">group_cmp</span></span>
 <span></span>
-<span><span class="co"># VPC by group (add bootstrap = TRUE for per-group confidence intervals)</span></span>
-<span><span class="fu"><a href="../reference/plot_group_comparison.html">plot_group_comparison</a></span><span class="op">(</span><span class="va">group_cmp</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span>
+<span><span class="co"># VPC by country (add bootstrap = TRUE for per-group confidence intervals)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">group_cmp</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Between- vs within-stratum variance share by group</span></span>
-<span><span class="fu"><a href="../reference/plot_group_comparison.html">plot_group_comparison</a></span><span class="op">(</span><span class="va">group_cmp</span>, type <span class="op">=</span> <span class="st">"components"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Between- vs within-stratum variance share by country</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">group_cmp</span>, type <span class="op">=</span> <span class="st">"components"</span><span class="op">)</span></span></code></pre></div>
 <p>Groups smaller than <code>min_group_n</code>, or with fewer than two
 populated strata, are skipped with a warning rather than producing an
 unstable VPC; a group with no between-stratum variation reports a VPC of
@@ -252,7 +287,7 @@ Dashboard.</p>
 <p>You can upload your own data (CSV, SPSS <code>.sav</code>, Stata
 <code>.dta</code>), dynamically select variables, and compute Stepwise
 PCV tables and prediction plots.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Launch the interactive interface</span></span>
 <span><span class="fu"><a href="../reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>

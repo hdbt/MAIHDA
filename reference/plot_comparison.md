@@ -1,6 +1,9 @@
-# Plot Model Comparison
+# Plot Model Comparison (deprecated)
 
-Creates a plot comparing VPC/ICC across multiple models.
+Deprecated. Use [`plot()`](https://rdrr.io/r/graphics/plot.default.html)
+on the
+[`compare_maihda`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+result instead, e.g. `plot(compare_maihda(...))`.
 
 ## Usage
 
@@ -18,24 +21,3 @@ plot_comparison(comparison_df)
 ## Value
 
 A ggplot2 object.
-
-## Examples
-
-``` r
-# \donttest{
-# Create strata and models using simulated data
-strata_1 <- make_strata(maihda_sim_data, vars = c("gender", "race"))
-strata_2 <- make_strata(maihda_sim_data, vars = c("gender", "race", "education"))
-
-model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_1$data)
-model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_2$data)
-
-comparison <- compare_maihda(model1, model2, bootstrap = TRUE)
-#> boundary (singular) fit: see help('isSingular')
-#> boundary (singular) fit: see help('isSingular')
-#> boundary (singular) fit: see help('isSingular')
-#> boundary (singular) fit: see help('isSingular')
-plot_comparison(comparison)
-
-# }
-```
