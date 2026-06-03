@@ -210,10 +210,12 @@ test_that("print.maihda_summary labels the brms posterior credible interval", {
 })
 
 test_that("brms summary returns a posterior credible interval for the VPC/ICC", {
-  # Compiles a Stan model, so skip on CI/CRAN (toolchain is unreliable there);
-  # the draws-based VPC logic is covered Stan-free by the helper tests above.
+  # Compiles a Stan model, so it is OPT-IN: set MAIHDA_TEST_BRMS=true to run it
+  # (otherwise a plain local test() would hang on Stan compilation). The draws-
+  # based VPC logic is covered Stan-free by the helper tests above.
   skip_on_cran()
-  skip_on_ci()
+  skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
+          "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
   skip_if_not_installed("brms")
 
   set.seed(2024)

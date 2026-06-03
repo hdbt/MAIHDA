@@ -142,6 +142,21 @@ maihda_response_is_binary <- function(formula, data) {
   maihda_is_binary_vector(data[[outcome]][keep])
 }
 
+# TRUE if a random-effect grouping expression is a plain variable or a colon
+# interaction of plain variables (e.g. a, a:b, a:b:c) -- the only forms automatic
+# strata creation understands. Function-call terms such as interaction(a, b),
+# paste(a, b) or cut(age, 3) are FALSE: their semantics would be silently ignored
+# (all.vars() would just extract a and b), so they must go through make_strata().
+maihda_is_colon_interaction <- function(expr) {
+  if (is.symbol(expr)) {
+    return(TRUE)
+  }
+  if (is.call(expr) && identical(expr[[1]], as.name(":"))) {
+    return(all(vapply(as.list(expr)[-1], maihda_is_colon_interaction, logical(1))))
+  }
+  FALSE
+}
+
 maihda_model_frame <- function(model, fallback = NULL) {
   out <- tryCatch(stats::model.frame(model), error = function(e) NULL)
   if (is.null(out) && inherits(model, "merMod")) {

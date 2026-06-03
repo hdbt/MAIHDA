@@ -28,11 +28,11 @@ By utilizing multilevel mixed-effects models (via `lme4` or `brms`), MAIHDA allo
 
 ## Installation
 
-You can install the development version of MAIHDA from GitHub:
-
 ```{r eval=FALSE}
+# Released version (CRAN):
 install.packages("MAIHDA")
-# Or for the latest development version:
+
+# Development version (GitHub):
 # install.packages("remotes")
 # remotes::install_github("hdbt/MAIHDA")
 ```
