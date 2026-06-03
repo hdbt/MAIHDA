@@ -19,12 +19,12 @@ Shiny Dashboard for code-free analysis.
 
 ## Installation
 
-You can install the development version of MAIHDA from GitHub:
-
 ``` r
 
+# Released version (CRAN):
 install.packages("MAIHDA")
-# Or for the latest development version:
+
+# Development version (GitHub):
 # install.packages("remotes")
 # remotes::install_github("hdbt/MAIHDA")
 ```
