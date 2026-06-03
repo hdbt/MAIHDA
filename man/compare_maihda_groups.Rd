@@ -75,10 +75,11 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   have \code{NA} metrics and an explanatory \code{status}.
 }
 \description{
-Fits a separate intercept-only MAIHDA model within each level of a
-higher-level grouping variable (for example country, region, or survey wave)
-and reports how the variance partition coefficient (VPC/ICC) and the
-between-/within-stratum variance components differ across those groups.
+Fits a separate random-intercept MAIHDA model (intercept-only \emph{random}
+effects; any fixed-effect covariates in \code{formula} are still used) within
+each level of a higher-level grouping variable (for example country, region, or
+survey wave) and reports how the variance partition coefficient (VPC/ICC) and
+the between-/within-stratum variance components differ across those groups.
 }
 \details{
 This answers the question "is intersectional inequality larger in some groups

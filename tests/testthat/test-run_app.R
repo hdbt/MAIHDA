@@ -2,6 +2,27 @@ test_that("Shiny app dependency gate includes ternary plotting dependency", {
   expect_true("ggtern" %in% MAIHDA:::maihda_app_required_packages())
 })
 
+test_that("maihda_app_fit_models switches a binary factor outcome to binomial", {
+  set.seed(11)
+  d <- data.frame(
+    Obese = factor(sample(c("No", "Yes"), 240, replace = TRUE)),
+    Gender = sample(c("F", "M"), 240, replace = TRUE),
+    Race = sample(c("A", "B"), 240, replace = TRUE),
+    Age = rnorm(240)
+  )
+  # App default family = "gaussian"; a Yes/No factor must be auto-switched to
+  # binomial (gaussian would error: lmer requires a numeric response).
+  expect_message(
+    res <- MAIHDA:::maihda_app_fit_models(
+      d, outcome_var = "Obese", grouping_vars = c("Gender", "Race"),
+      additional_covars = "Age", family = "gaussian"
+    ),
+    "binomial"
+  )
+  expect_equal(res$model$family$family, "binomial")
+  expect_equal(res$null_model$family$family, "binomial")
+})
+
 test_that("Shiny app dependency gate leaves upload-only readers optional", {
   expect_false("haven" %in% MAIHDA:::maihda_app_required_packages())
 })

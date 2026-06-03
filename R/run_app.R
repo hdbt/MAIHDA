@@ -124,6 +124,19 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
   attr(model_dat, "strata_sep") <- strata_dat$sep
   attr(model_dat, "strata_autobin_info") <- strata_dat$autobin_info
 
+  # The app always passes a family, which suppresses fit_maihda()'s automatic
+  # binary detection. A two-level NON-numeric outcome (e.g. a Yes/No factor) cannot
+  # be fit as gaussian (lmer requires a numeric response), so switch it to
+  # binomial here, mirroring fit_maihda(). Numeric 0/1 outcomes are left as chosen
+  # so an intentional linear probability model still works.
+  if (identical(family, "gaussian") &&
+      !is.numeric(complete_dat[[outcome_var]]) &&
+      maihda_is_binary_vector(complete_dat[[outcome_var]])) {
+    message("maihda_app: outcome '", outcome_var,
+            "' is a two-level factor; using family = 'binomial'.")
+    family <- "binomial"
+  }
+
   adjusted_fmla <- maihda_formula_with_stratum(outcome_var, c(grouping_vars, additional_covars))
   null_fmla <- maihda_formula_with_stratum(outcome_var)
 
