@@ -27,8 +27,11 @@ compare_maihda(
 
 - bootstrap:
 
-  Logical indicating whether to compute bootstrap confidence intervals.
-  Default is FALSE.
+  Logical; for **lme4** models, compute parametric-bootstrap VPC
+  confidence intervals. Default FALSE. It does not apply to **brms**
+  models, which always return a posterior credible interval (so passing
+  `bootstrap = TRUE` with brms models errors) – their interval is
+  included regardless.
 
 - n_boot:
 
@@ -36,12 +39,14 @@ compare_maihda(
 
 - conf_level:
 
-  Confidence level for bootstrap intervals. Default is 0.95.
+  Confidence level for the VPC interval (lme4 bootstrap CI or brms
+  credible interval). Default is 0.95.
 
 ## Value
 
-A data frame comparing VPC/ICC across models with optional confidence
-intervals.
+A `maihda_comparison` data frame of VPC/ICC by model. Interval columns
+(`ci_lower`/`ci_upper`) are included when any model supplies an interval
+– an lme4 bootstrap CI or a brms posterior credible interval.
 
 ## Details
 

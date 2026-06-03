@@ -60,6 +60,10 @@ by_country
 plot(by_country, type = "group_vpc")
 ```
 
+For a fuller walkthrough of the group comparison workflow, see the
+dedicated [group comparison
+vignette](https://hdbt.github.io/MAIHDA/articles/group_comparison.md).
+
 The sections below walk through the same steps individually with
 [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
 and friends, which you can use directly when you need finer control.

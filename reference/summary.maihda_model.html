@@ -20,7 +20,8 @@
       <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+    <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
     <li><a class="dropdown-item" href="../articles/introduction.html">Introduction to MAIHDA</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -59,9 +60,10 @@
 
 
 <dt id="arg-bootstrap">bootstrap<a class="anchor" aria-label="anchor" href="#arg-bootstrap"></a></dt>
-<dd><p>Logical indicating whether to compute bootstrap confidence
-intervals for VPC/ICC. Default is FALSE. Currently supported for lme4
-models only.</p></dd>
+<dd><p>Logical indicating whether to compute parametric bootstrap
+confidence intervals for VPC/ICC. Default is FALSE. Supported for lme4
+models only; <code>brms</code> models always return a posterior credible interval
+(see Details), so <code>bootstrap = TRUE</code> is rejected for them.</p></dd>
 
 
 <dt id="arg-n-boot">n_boot<a class="anchor" aria-label="anchor" href="#arg-n-boot"></a></dt>
@@ -69,7 +71,8 @@ models only.</p></dd>
 
 
 <dt id="arg-conf-level">conf_level<a class="anchor" aria-label="anchor" href="#arg-conf-level"></a></dt>
-<dd><p>Confidence level for bootstrap intervals. Default is 0.95.</p></dd>
+<dd><p>Confidence level for the VPC/ICC interval – the lme4
+bootstrap CI or the brms posterior credible interval. Default is 0.95.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -80,7 +83,9 @@ models only.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A maihda_summary object containing:</p>
 <dl><dt>vpc</dt>
-<dd><p>Variance Partition Coefficient (ICC) with optional CI</p></dd>
+<dd><p>Variance Partition Coefficient (ICC); for lme4 with
+    <code>bootstrap = TRUE</code> and for all brms models this includes
+    <code>ci_lower</code>/<code>ci_upper</code>/<code>conf_level</code></p></dd>
 
   <dt>variance_components</dt>
 <dd><p>Data frame of variance components</p></dd>
@@ -97,13 +102,19 @@ models only.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
-    <p>For <code>brms</code> models the VPC/ICC is currently a point estimate computed from
-the posterior <em>summary</em> of the random-effect standard deviations – i.e.
-it squares the posterior mean SD (\(E[\sigma]^2\)) rather than averaging the
-VPC over posterior draws (\(E[\sigma^2]\)), and it does not return a credible
-interval. It is therefore slightly biased and omits posterior uncertainty; a
-future release will compute the VPC from posterior draws. For lme4 models, use
-<code>bootstrap = TRUE</code> for an interval.</p>
+    <p>For <code>lme4</code> models a VPC/ICC interval is obtained from a parametric
+bootstrap (<code>bootstrap = TRUE</code>). For <code>brms</code> models the VPC/ICC is
+summarised directly from the posterior draws: the reported estimate is the
+posterior median of the per-draw VPC (\(E[\sigma^2]\)-based, not the biased
+\(E[\sigma]^2\)) and the interval is a central credible interval at
+<code>conf_level</code> (default 95%), so no <code>bootstrap</code> argument is needed.
+The variance-components table reports the posterior-mean variance components,
+so the stratum proportion shown there may differ slightly from the headline
+VPC because the median of a ratio is not the ratio of means. For non-Gaussian
+<code>brms</code> families the level-1 (residual) variance uses the usual
+latent-scale approximation; for <code>poisson(log)</code> it is evaluated at the
+posterior-mean fitted values rather than per draw to avoid an expensive
+\(ndraws \times nobs\) computation.</p>
     </div>
 
     <div class="section level2">

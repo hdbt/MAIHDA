@@ -20,7 +20,8 @@ with optional bootstrap confidence intervals."><meta property="og:image" content
       <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+    <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
     <li><a class="dropdown-item" href="../articles/introduction.html">Introduction to MAIHDA</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -68,8 +69,11 @@ with optional bootstrap confidence intervals.</p>
 
 
 <dt id="arg-bootstrap">bootstrap<a class="anchor" aria-label="anchor" href="#arg-bootstrap"></a></dt>
-<dd><p>Logical indicating whether to compute bootstrap confidence
-intervals. Default is FALSE.</p></dd>
+<dd><p>Logical; for <strong>lme4</strong> models, compute parametric-bootstrap
+VPC confidence intervals. Default FALSE. It does not apply to <strong>brms</strong>
+models, which always return a posterior credible interval (so passing
+<code>bootstrap = TRUE</code> with brms models errors) – their interval is included
+regardless.</p></dd>
 
 
 <dt id="arg-n-boot">n_boot<a class="anchor" aria-label="anchor" href="#arg-n-boot"></a></dt>
@@ -77,12 +81,15 @@ intervals. Default is FALSE.</p></dd>
 
 
 <dt id="arg-conf-level">conf_level<a class="anchor" aria-label="anchor" href="#arg-conf-level"></a></dt>
-<dd><p>Confidence level for bootstrap intervals. Default is 0.95.</p></dd>
+<dd><p>Confidence level for the VPC interval (lme4 bootstrap CI or
+brms credible interval). Default is 0.95.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame comparing VPC/ICC across models with optional confidence intervals.</p>
+    <p>A <code>maihda_comparison</code> data frame of VPC/ICC by model. Interval
+  columns (<code>ci_lower</code>/<code>ci_upper</code>) are included when any model supplies
+  an interval – an lme4 bootstrap CI or a brms posterior credible interval.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

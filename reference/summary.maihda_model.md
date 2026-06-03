@@ -19,9 +19,10 @@ summary(object, bootstrap = FALSE, n_boot = 1000, conf_level = 0.95, ...)
 
 - bootstrap:
 
-  Logical indicating whether to compute bootstrap confidence intervals
-  for VPC/ICC. Default is FALSE. Currently supported for lme4 models
-  only.
+  Logical indicating whether to compute parametric bootstrap confidence
+  intervals for VPC/ICC. Default is FALSE. Supported for lme4 models
+  only; `brms` models always return a posterior credible interval (see
+  Details), so `bootstrap = TRUE` is rejected for them.
 
 - n_boot:
 
@@ -29,7 +30,8 @@ summary(object, bootstrap = FALSE, n_boot = 1000, conf_level = 0.95, ...)
 
 - conf_level:
 
-  Confidence level for bootstrap intervals. Default is 0.95.
+  Confidence level for the VPC/ICC interval – the lme4 bootstrap CI or
+  the brms posterior credible interval. Default is 0.95.
 
 - ...:
 
@@ -41,7 +43,9 @@ A maihda_summary object containing:
 
 - vpc:
 
-  Variance Partition Coefficient (ICC) with optional CI
+  Variance Partition Coefficient (ICC); for lme4 with `bootstrap = TRUE`
+  and for all brms models this includes
+  `ci_lower`/`ci_upper`/`conf_level`
 
 - variance_components:
 
@@ -61,14 +65,19 @@ A maihda_summary object containing:
 
 ## Note
 
-For `brms` models the VPC/ICC is currently a point estimate computed
-from the posterior *summary* of the random-effect standard deviations –
-i.e. it squares the posterior mean SD (\\E\[\sigma\]^2\\) rather than
-averaging the VPC over posterior draws (\\E\[\sigma^2\]\\), and it does
-not return a credible interval. It is therefore slightly biased and
-omits posterior uncertainty; a future release will compute the VPC from
-posterior draws. For lme4 models, use `bootstrap = TRUE` for an
-interval.
+For `lme4` models a VPC/ICC interval is obtained from a parametric
+bootstrap (`bootstrap = TRUE`). For `brms` models the VPC/ICC is
+summarised directly from the posterior draws: the reported estimate is
+the posterior median of the per-draw VPC (\\E\[\sigma^2\]\\-based, not
+the biased \\E\[\sigma\]^2\\) and the interval is a central credible
+interval at `conf_level` (default 95%), so no `bootstrap` argument is
+needed. The variance-components table reports the posterior-mean
+variance components, so the stratum proportion shown there may differ
+slightly from the headline VPC because the median of a ratio is not the
+ratio of means. For non-Gaussian `brms` families the level-1 (residual)
+variance uses the usual latent-scale approximation; for `poisson(log)`
+it is evaluated at the posterior-mean fitted values rather than per draw
+to avoid an expensive \\ndraws \times nobs\\ computation.
 
 ## Examples
 
