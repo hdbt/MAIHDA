@@ -243,7 +243,8 @@ summary_brms <- summary(model_brms)
 ``` r
 
 # Compare nested models on the SAME data and strata (null vs covariate-adjusted).
-# VPCs are only comparable when models share an outcome, family, and sample.
+# VPCs are only comparable when models share an outcome, family/link, analytic
+# sample (the same rows), and strata; compare_maihda() warns otherwise.
 strata <- make_strata(maihda_sim_data, vars = c("gender", "race"))
 null_model <- fit_maihda(health_outcome ~ 1 + (1 | stratum), data = strata$data)
 adj_model  <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata$data)

@@ -1,10 +1,11 @@
 # Compare MAIHDA Metrics Across Levels of a Grouping Variable
 
-Fits a separate intercept-only MAIHDA model within each level of a
-higher-level grouping variable (for example country, region, or survey
-wave) and reports how the variance partition coefficient (VPC/ICC) and
-the between-/within-stratum variance components differ across those
-groups.
+Fits a separate random-intercept MAIHDA model (intercept-only *random*
+effects; any fixed-effect covariates in `formula` are still used) within
+each level of a higher-level grouping variable (for example country,
+region, or survey wave) and reports how the variance partition
+coefficient (VPC/ICC) and the between-/within-stratum variance
+components differ across those groups.
 
 ## Usage
 
