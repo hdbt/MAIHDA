@@ -17,15 +17,21 @@ compare_maihda(
 
 \item{model_names}{Optional character vector of names for the models.}
 
-\item{bootstrap}{Logical indicating whether to compute bootstrap confidence
-intervals. Default is FALSE.}
+\item{bootstrap}{Logical; for \strong{lme4} models, compute parametric-bootstrap
+VPC confidence intervals. Default FALSE. It does not apply to \strong{brms}
+models, which always return a posterior credible interval (so passing
+\code{bootstrap = TRUE} with brms models errors) -- their interval is included
+regardless.}
 
 \item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.}
 
-\item{conf_level}{Confidence level for bootstrap intervals. Default is 0.95.}
+\item{conf_level}{Confidence level for the VPC interval (lme4 bootstrap CI or
+brms credible interval). Default is 0.95.}
 }
 \value{
-A data frame comparing VPC/ICC across models with optional confidence intervals.
+A \code{maihda_comparison} data frame of VPC/ICC by model. Interval
+  columns (\code{ci_lower}/\code{ci_upper}) are included when any model supplies
+  an interval -- an lme4 bootstrap CI or a brms posterior credible interval.
 }
 \description{
 Compares variance partition coefficients (VPC/ICC) across multiple MAIHDA models,

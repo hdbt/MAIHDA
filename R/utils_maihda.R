@@ -309,6 +309,19 @@ maihda_stratum_variance_brms <- function(model, group = "stratum") {
     stop("Package 'brms' is required to work with brms models. Please install it with: install.packages('brms')")
   }
 
+  # Posterior-mean between-stratum variance E[sd^2] from the SD draws. Using the
+  # draws (rather than the posterior summary SD squared, E[sd]^2) keeps
+  # calculate_pvc()/stepwise_pcv() consistent with the draws-based VPC reported by
+  # summary.maihda_model(). Falls back to the summary SD if draws are unavailable.
+  draws <- tryCatch(maihda_posterior_draws_brms(model), error = function(e) NULL)
+  if (!is.null(draws)) {
+    rv <- tryCatch(maihda_random_variance_draws_brms(draws, group = group),
+                   error = function(e) NULL)
+    if (!is.null(rv)) {
+      return(mean(rv$stratum))
+    }
+  }
+
   vc <- brms::VarCorr(model)
   if (!group %in% names(vc)) {
     stop("No '", group, "' random-effect variance found in the brms model.")
@@ -364,6 +377,17 @@ maihda_total_random_variance_brms <- function(model) {
 
   vc <- brms::VarCorr(model)
   maihda_validate_intercept_only_random_effects_brms(vc)
+
+  # Posterior-mean total random-effect variance E[sum sd^2] from the SD draws,
+  # consistent with maihda_stratum_variance_brms(); falls back to summary SDs.
+  draws <- tryCatch(maihda_posterior_draws_brms(model), error = function(e) NULL)
+  if (!is.null(draws)) {
+    sd_cols <- grep("^sd_", names(draws), value = TRUE)
+    if (length(sd_cols) > 0) {
+      total_per_draw <- Reduce(`+`, lapply(sd_cols, function(cn) as.numeric(draws[[cn]])^2))
+      return(mean(total_per_draw, na.rm = TRUE))
+    }
+  }
 
   random_groups <- setdiff(names(vc), c("residual__", "sigma"))
   variances <- unlist(lapply(random_groups, function(group) {
