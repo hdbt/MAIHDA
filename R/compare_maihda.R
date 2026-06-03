@@ -75,6 +75,20 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
       n <- maihda_nobs(m$model)
       if (is.finite(n)) as.integer(n) else NA_integer_
     }, integer(1))
+    # Row identity of the analytic sample and the row-wise stratum assignment, so
+    # disjoint samples of the SAME size and strata are still flagged (the same
+    # checks calculate_pvc() makes).
+    row_keys <- vapply(models, function(m) {
+      rid <- maihda_row_ids(m$model)
+      if (is.null(rid)) NA_character_ else paste(rid, collapse = "\r")
+    }, character(1))
+    row_stratum_keys <- vapply(models, function(m) {
+      if (!is.null(m$data) && "stratum" %in% names(m$data)) {
+        paste(as.character(m$data$stratum), collapse = "\r")
+      } else {
+        NA_character_
+      }
+    }, character(1))
     # Key the strata by their DEFINITIONS (the grouping variables and the stratum
     # labels), not just the integer IDs: two models can both number their strata
     # 1..k while defining them from different variables (e.g. a:b vs a:c).
@@ -103,8 +117,11 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     if (length(unique(fam_keys)) > 1) {
       issues <- c(issues, paste0("families/links (", paste(unique(fam_keys), collapse = ", "), ")"))
     }
-    if (length(unique(stats::na.omit(nobs_vec))) > 1) {
-      issues <- c(issues, paste0("analytic sample size (n = ", paste(nobs_vec, collapse = ", "), ")"))
+    sample_differs <- length(unique(stats::na.omit(nobs_vec))) > 1 ||
+      length(unique(stats::na.omit(row_keys))) > 1 ||
+      length(unique(stats::na.omit(row_stratum_keys))) > 1
+    if (sample_differs) {
+      issues <- c(issues, paste0("analytic sample (n = ", paste(nobs_vec, collapse = ", "), ")"))
     }
     if (length(unique(stats::na.omit(strata_keys))) > 1) {
       issues <- c(issues, "stratum definitions")
@@ -235,10 +252,11 @@ plot_comparison <- function(comparison_df) {
 
 #' Compare MAIHDA Metrics Across Levels of a Grouping Variable
 #'
-#' Fits a separate intercept-only MAIHDA model within each level of a
-#' higher-level grouping variable (for example country, region, or survey wave)
-#' and reports how the variance partition coefficient (VPC/ICC) and the
-#' between-/within-stratum variance components differ across those groups.
+#' Fits a separate random-intercept MAIHDA model (intercept-only \emph{random}
+#' effects; any fixed-effect covariates in \code{formula} are still used) within
+#' each level of a higher-level grouping variable (for example country, region, or
+#' survey wave) and reports how the variance partition coefficient (VPC/ICC) and
+#' the between-/within-stratum variance components differ across those groups.
 #'
 #' This answers the question "is intersectional inequality larger in some groups
 #' than others?" by estimating one VPC per group. It is a stratified analysis:

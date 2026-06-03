@@ -57,7 +57,7 @@ test_that("compare_maihda warns when models use different analytic samples", {
 
   w <- testthat::capture_warnings(compare_maihda(m_full, m_sub))
   expect_length(w, 1)
-  expect_match(w, "analytic sample size")
+  expect_match(w, "analytic sample")
 })
 
 test_that("compare_maihda warns when strata definitions differ despite shared IDs", {
@@ -77,6 +77,24 @@ test_that("compare_maihda warns when strata definitions differ despite shared ID
   w <- testthat::capture_warnings(compare_maihda(m_ab, m_ac))
   expect_length(w, 1)
   expect_match(w, "stratum definitions")
+})
+
+test_that("compare_maihda warns for disjoint analytic samples with the same n and strata", {
+  set.seed(2024)
+  big <- data.frame(
+    stratum = factor(rep(seq_len(8), times = 40)),  # all 8 strata throughout
+    x = rnorm(320)
+  )
+  big$y <- 1 + 0.3 * big$x + rnorm(8, sd = 0.7)[big$stratum] + rnorm(320, sd = 0.4)
+  d1 <- big[1:160, ]      # rows 1..160
+  d2 <- big[161:320, ]    # disjoint rows; same n = 160 and same 8 strata
+
+  m1 <- fit_maihda(y ~ x + (1 | stratum), data = d1)
+  m2 <- fit_maihda(y ~ x + (1 | stratum), data = d2)
+
+  w <- testthat::capture_warnings(compare_maihda(m1, m2))
+  expect_length(w, 1)
+  expect_match(w, "analytic sample")
 })
 
 test_that("compare_maihda includes interval columns only when an interval exists", {
