@@ -24,6 +24,16 @@ maihda_linkinv <- function(fam) {
          stop("Unsupported link function for response-scale transformation: ", link, call. = FALSE))
 }
 
+maihda_validate_conf_level <- function(conf_level) {
+  if (!is.numeric(conf_level) || length(conf_level) != 1 ||
+      is.na(conf_level) || !is.finite(conf_level) ||
+      conf_level <= 0 || conf_level >= 1) {
+    stop("'conf_level' must be a single number between 0 and 1.", call. = FALSE)
+  }
+
+  as.numeric(conf_level)
+}
+
 maihda_validate_bootstrap_args <- function(n_boot, conf_level) {
   if (!is.numeric(n_boot) || length(n_boot) != 1 ||
       is.na(n_boot) || !is.finite(n_boot) ||
@@ -31,13 +41,7 @@ maihda_validate_bootstrap_args <- function(n_boot, conf_level) {
     stop("'n_boot' must be a single positive whole number.", call. = FALSE)
   }
 
-  if (!is.numeric(conf_level) || length(conf_level) != 1 ||
-      is.na(conf_level) || !is.finite(conf_level) ||
-      conf_level <= 0 || conf_level >= 1) {
-    stop("'conf_level' must be a single number between 0 and 1.", call. = FALSE)
-  }
-
-  list(n_boot = as.integer(n_boot), conf_level = as.numeric(conf_level))
+  list(n_boot = as.integer(n_boot), conf_level = maihda_validate_conf_level(conf_level))
 }
 
 maihda_quote_name <- function(name) {
@@ -536,6 +540,212 @@ maihda_residual_variance_brms <- function(model) {
 
   stop("VPC residual variance is not implemented for brms family '", fam$family,
        "' with link '", fam$link, "'.")
+}
+
+# ---- brms VPC/ICC from posterior draws -------------------------------------
+# The helpers above collapse the posterior to summary SDs and so report E[sd]^2;
+# the helpers below instead work draw-by-draw (E[sd^2]) and yield a credible
+# interval for the VPC/ICC. summary.maihda_model() uses the draws-based path.
+
+# Posterior draws of a brms model as a data frame. Column names follow the
+# standard Stan/brms convention: group-level SDs are `sd_<group>__<coef>`
+# (e.g. `sd_stratum__Intercept`), the Gaussian residual SD is `sigma`, and
+# population-level effects are `b_<coef>`. This is equivalent to
+# posterior::as_draws_df(model) for our purposes but relies only on the
+# brms-exported as.data.frame() method, so it adds no hard dependency.
+maihda_posterior_draws_brms <- function(model) {
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    stop("Package 'brms' is required to work with brms models. Please install it with: install.packages('brms')")
+  }
+
+  draws <- tryCatch(as.data.frame(model), error = function(e) NULL)
+  if (is.null(draws) || !is.data.frame(draws) || nrow(draws) == 0) {
+    stop("Could not extract posterior draws from the brms model.")
+  }
+
+  draws
+}
+
+# Per-draw random-effect variances from a brms posterior draws data frame.
+# Returns a list of equal-length numeric vectors:
+#   $stratum - between-stratum variance per draw (sd_<group>__Intercept squared)
+#   $total   - summed variance across every group-level SD per draw
+#   $other   - total minus stratum (variance of any non-stratum random effects)
+# This is a pure function of the draws data frame, so it can be unit tested with
+# a hand-built data frame without fitting a Stan model.
+maihda_random_variance_draws_brms <- function(draws, group = "stratum") {
+  if (!is.data.frame(draws)) {
+    stop("'draws' must be a data frame of posterior draws.", call. = FALSE)
+  }
+
+  sd_cols <- grep("^sd_", names(draws), value = TRUE)
+  if (length(sd_cols) == 0) {
+    stop("No random-effect standard-deviation draws (sd_*) found in the brms posterior.")
+  }
+
+  # Stratum-group SD columns, matched by an exact "<group>__" prefix rather than
+  # a regex so that group names containing metacharacters are treated literally.
+  # Intercept-only models contribute exactly one column (sd_<group>__Intercept);
+  # more than one means random slopes, which MAIHDA VPC/ICC does not support.
+  bodies <- sub("^sd_", "", sd_cols)
+  group_cols <- sd_cols[startsWith(bodies, paste0(group, "__"))]
+  if (length(group_cols) == 0L) {
+    stop("No '", group, "' random-effect SD draws (sd_", group,
+         "__*) found in the brms posterior.")
+  }
+  if (length(group_cols) > 1L) {
+    stop("The '", group, "' random effect must include only an intercept for MAIHDA ",
+         "variance calculations (found multiple sd_", group,
+         "__* draws, suggesting random slopes).")
+  }
+
+  var_stratum <- as.numeric(draws[[group_cols]])^2
+  var_total <- Reduce(`+`, lapply(sd_cols, function(cn) as.numeric(draws[[cn]])^2))
+  var_other <- pmax(0, var_total - var_stratum)
+
+  list(stratum = var_stratum, total = var_total, other = var_other)
+}
+
+# Per-draw level-1 (residual) variance for a brms model. Mirrors the latent /
+# distributional choices of maihda_residual_variance_brms() but returns a
+# per-draw vector:
+#   gaussian       -> sigma draws squared (exact)
+#   logit latent   -> pi^2 / 3 (constant across draws)
+#   probit latent  -> 1        (constant across draws)
+#   poisson(log)   -> mean(log1p(1 / mu)) at the POSTERIOR-MEAN fitted means
+#                     (constant across draws). A per-draw version would need an
+#                     ndraws x nobs posterior_epred() matrix, which is
+#                     prohibitively expensive; the random-effect SD draws (the
+#                     dominant source of VPC uncertainty) are still propagated --
+#                     only the small level-1 term is held at its posterior mean.
+# Takes the model (for the family and, for poisson, the fitted means) and the
+# draws data frame (for the sigma draws and the draw count).
+maihda_residual_variance_draws_brms <- function(model, draws) {
+  fam <- maihda_family(model)
+  if (is.null(fam)) {
+    stop("Unable to determine brms model family for residual variance calculation.")
+  }
+
+  n <- nrow(draws)
+  latent_families <- c("binomial", "bernoulli", "quasibinomial", "cumulative",
+                       "sratio", "cratio", "acat", "ordinal")
+
+  if (fam$family == "gaussian") {
+    if ("sigma" %in% names(draws)) {
+      return(as.numeric(draws[["sigma"]])^2)
+    }
+    sigma_est <- tryCatch(stats::sigma(model), error = function(e) NA_real_)
+    if (length(sigma_est) > 0 && is.finite(sigma_est[1])) {
+      return(rep(as.numeric(sigma_est[1])^2, n))
+    }
+    stop("Could not extract residual SD draws ('sigma') from the gaussian brms model.")
+  }
+  if (fam$family %in% latent_families && fam$link == "logit") {
+    return(rep((pi^2) / 3, n))
+  }
+  if (fam$family %in% latent_families && fam$link == "probit") {
+    return(rep(1, n))
+  }
+  if (fam$family == "poisson" && fam$link == "log") {
+    mu <- stats::fitted(model, summary = TRUE)[, "Estimate"]
+    mu <- pmax(as.numeric(mu), .Machine$double.eps)
+    return(rep(mean(log1p(1 / mu), na.rm = TRUE), n))
+  }
+
+  stop("VPC residual variance is not implemented for brms family '", fam$family,
+       "' with link '", fam$link, "'.")
+}
+
+# Summarise a posterior VPC/ICC from per-draw variance components. var_stratum,
+# var_other_random and var_residual are per-draw numeric vectors (length-1
+# scalars are recycled). Returns the posterior point estimate (median by
+# default) and a central credible interval at conf_level. Pure and Stan-free.
+maihda_vpc_posterior_summary <- function(var_stratum, var_other_random,
+                                         var_residual, conf_level = 0.95,
+                                         point = c("median", "mean")) {
+  point <- match.arg(point)
+
+  n <- max(length(var_stratum), length(var_other_random), length(var_residual))
+  recycle <- function(v) if (length(v) == 1L) rep(v, n) else v
+  var_stratum <- recycle(var_stratum)
+  var_other_random <- recycle(var_other_random)
+  var_residual <- recycle(var_residual)
+  if (length(var_stratum) != n || length(var_other_random) != n ||
+      length(var_residual) != n) {
+    stop("Per-draw variance vectors must share a common length (or be scalars).",
+         call. = FALSE)
+  }
+
+  total <- var_stratum + var_other_random + var_residual
+  vpc <- var_stratum / total
+  vpc <- vpc[is.finite(vpc)]
+  if (length(vpc) == 0) {
+    stop("No finite VPC draws were available to summarise the posterior VPC/ICC.",
+         call. = FALSE)
+  }
+
+  alpha <- 1 - conf_level
+  estimate <- if (point == "median") stats::median(vpc) else mean(vpc)
+  ci <- stats::quantile(vpc, probs = c(alpha / 2, 1 - alpha / 2), names = FALSE)
+
+  list(
+    estimate = estimate,
+    ci_lower = ci[1],
+    ci_upper = ci[2],
+    conf_level = conf_level,
+    n_draws = length(vpc)
+  )
+}
+
+# Orchestrates the draws-based brms VPC/ICC used by summary.maihda_model():
+# validates the intercept-only random-effect structure, extracts per-draw
+# variances, and returns both the posterior VPC summary (estimate + credible
+# interval) and the posterior-mean variance components for the components table.
+maihda_vpc_draws_brms <- function(model, conf_level = 0.95, group = "stratum",
+                                  point = c("median", "mean")) {
+  point <- match.arg(point)
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    stop("Package 'brms' is required to work with brms models. Please install it with: install.packages('brms')")
+  }
+
+  maihda_validate_intercept_only_random_effects_brms(brms::VarCorr(model))
+
+  draws <- maihda_posterior_draws_brms(model)
+  rv <- maihda_random_variance_draws_brms(draws, group = group)
+  var_residual <- maihda_residual_variance_draws_brms(model, draws)
+
+  vpc <- maihda_vpc_posterior_summary(
+    rv$stratum, rv$other, var_residual,
+    conf_level = conf_level, point = point
+  )
+
+  list(
+    vpc = vpc,
+    var_stratum = mean(rv$stratum),
+    var_other_random = mean(rv$other),
+    var_residual = mean(var_residual)
+  )
+}
+
+# TRUE when a $vpc list carries a finite lower/upper interval (an lme4 bootstrap
+# CI or a brms posterior credible interval). The print methods use this to
+# decide whether to show an interval alongside the point estimate.
+maihda_vpc_has_interval <- function(vpc) {
+  !is.null(vpc) &&
+    !is.null(vpc$ci_lower) && !is.null(vpc$ci_upper) &&
+    length(vpc$ci_lower) == 1L && length(vpc$ci_upper) == 1L &&
+    is.finite(vpc$ci_lower) && is.finite(vpc$ci_upper)
+}
+
+# Human-readable label for the VPC interval, distinguishing the lme4 parametric
+# bootstrap CI from the brms posterior credible interval.
+maihda_vpc_interval_label <- function(vpc) {
+  conf_pct <- if (!is.null(vpc$conf_level)) vpc$conf_level * 100 else 95
+  if (identical(vpc$method, "posterior")) {
+    sprintf("(Posterior %.0f%% credible interval)", conf_pct)
+  } else {
+    sprintf("(Bootstrap %.0f%% CI)", conf_pct)
+  }
 }
 
 maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("response", "link")) {
