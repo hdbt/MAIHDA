@@ -9,19 +9,23 @@
 \arguments{
 \item{object}{A maihda_model object from \code{fit_maihda()}.}
 
-\item{bootstrap}{Logical indicating whether to compute bootstrap confidence
-intervals for VPC/ICC. Default is FALSE. Currently supported for lme4
-models only.}
+\item{bootstrap}{Logical indicating whether to compute parametric bootstrap
+confidence intervals for VPC/ICC. Default is FALSE. Supported for lme4
+models only; \code{brms} models always return a posterior credible interval
+(see Details), so \code{bootstrap = TRUE} is rejected for them.}
 
 \item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.}
 
-\item{conf_level}{Confidence level for bootstrap intervals. Default is 0.95.}
+\item{conf_level}{Confidence level for the VPC/ICC interval -- the lme4
+bootstrap CI or the brms posterior credible interval. Default is 0.95.}
 
 \item{...}{Additional arguments (not currently used).}
 }
 \value{
 A maihda_summary object containing:
-  \item{vpc}{Variance Partition Coefficient (ICC) with optional CI}
+  \item{vpc}{Variance Partition Coefficient (ICC); for lme4 with
+    \code{bootstrap = TRUE} and for all brms models this includes
+    \code{ci_lower}/\code{ci_upper}/\code{conf_level}}
   \item{variance_components}{Data frame of variance components}
   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
   \item{fixed_effects}{Fixed effects estimates}
@@ -32,13 +36,19 @@ Provides a summary of a MAIHDA model including variance partition coefficients
 (VPC/ICC) and stratum-specific estimates.
 }
 \note{
-For \code{brms} models the VPC/ICC is currently a point estimate computed from
-the posterior \emph{summary} of the random-effect standard deviations -- i.e.
-it squares the posterior mean SD (\eqn{E[\sigma]^2}) rather than averaging the
-VPC over posterior draws (\eqn{E[\sigma^2]}), and it does not return a credible
-interval. It is therefore slightly biased and omits posterior uncertainty; a
-future release will compute the VPC from posterior draws. For lme4 models, use
-\code{bootstrap = TRUE} for an interval.
+For \code{lme4} models a VPC/ICC interval is obtained from a parametric
+bootstrap (\code{bootstrap = TRUE}). For \code{brms} models the VPC/ICC is
+summarised directly from the posterior draws: the reported estimate is the
+posterior median of the per-draw VPC (\eqn{E[\sigma^2]}-based, not the biased
+\eqn{E[\sigma]^2}) and the interval is a central credible interval at
+\code{conf_level} (default 95\%), so no \code{bootstrap} argument is needed.
+The variance-components table reports the posterior-mean variance components,
+so the stratum proportion shown there may differ slightly from the headline
+VPC because the median of a ratio is not the ratio of means. For non-Gaussian
+\code{brms} families the level-1 (residual) variance uses the usual
+latent-scale approximation; for \code{poisson(log)} it is evaluated at the
+posterior-mean fitted values rather than per draw to avoid an expensive
+\eqn{ndraws \times nobs} computation.
 }
 \examples{
 \donttest{

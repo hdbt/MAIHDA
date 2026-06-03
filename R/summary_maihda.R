@@ -26,28 +26,38 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' (VPC/ICC) and stratum-specific estimates.
 #'
 #' @param object A maihda_model object from \code{fit_maihda()}.
-#' @param bootstrap Logical indicating whether to compute bootstrap confidence
-#'   intervals for VPC/ICC. Default is FALSE. Currently supported for lme4
-#'   models only.
+#' @param bootstrap Logical indicating whether to compute parametric bootstrap
+#'   confidence intervals for VPC/ICC. Default is FALSE. Supported for lme4
+#'   models only; \code{brms} models always return a posterior credible interval
+#'   (see Details), so \code{bootstrap = TRUE} is rejected for them.
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
-#' @param conf_level Confidence level for bootstrap intervals. Default is 0.95.
+#' @param conf_level Confidence level for the VPC/ICC interval -- the lme4
+#'   bootstrap CI or the brms posterior credible interval. Default is 0.95.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return A maihda_summary object containing:
-#'   \item{vpc}{Variance Partition Coefficient (ICC) with optional CI}
+#'   \item{vpc}{Variance Partition Coefficient (ICC); for lme4 with
+#'     \code{bootstrap = TRUE} and for all brms models this includes
+#'     \code{ci_lower}/\code{ci_upper}/\code{conf_level}}
 #'   \item{variance_components}{Data frame of variance components}
 #'   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
 #'   \item{fixed_effects}{Fixed effects estimates}
 #'   \item{model_summary}{Original model summary}
 #'
 #' @note
-#' For \code{brms} models the VPC/ICC is currently a point estimate computed from
-#' the posterior \emph{summary} of the random-effect standard deviations -- i.e.
-#' it squares the posterior mean SD (\eqn{E[\sigma]^2}) rather than averaging the
-#' VPC over posterior draws (\eqn{E[\sigma^2]}), and it does not return a credible
-#' interval. It is therefore slightly biased and omits posterior uncertainty; a
-#' future release will compute the VPC from posterior draws. For lme4 models, use
-#' \code{bootstrap = TRUE} for an interval.
+#' For \code{lme4} models a VPC/ICC interval is obtained from a parametric
+#' bootstrap (\code{bootstrap = TRUE}). For \code{brms} models the VPC/ICC is
+#' summarised directly from the posterior draws: the reported estimate is the
+#' posterior median of the per-draw VPC (\eqn{E[\sigma^2]}-based, not the biased
+#' \eqn{E[\sigma]^2}) and the interval is a central credible interval at
+#' \code{conf_level} (default 95\%), so no \code{bootstrap} argument is needed.
+#' The variance-components table reports the posterior-mean variance components,
+#' so the stratum proportion shown there may differ slightly from the headline
+#' VPC because the median of a ratio is not the ratio of means. For non-Gaussian
+#' \code{brms} families the level-1 (residual) variance uses the usual
+#' latent-scale approximation; for \code{poisson(log)} it is evaluated at the
+#' posterior-mean fitted values rather than per draw to avoid an expensive
+#' \eqn{ndraws \times nobs} computation.
 #'
 #' @examples
 #' \donttest{
@@ -105,7 +115,8 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
         ci_lower = vpc_ci[1],
         ci_upper = vpc_ci[2],
         conf_level = conf_level,
-        bootstrap = TRUE
+        bootstrap = TRUE,
+        method = "bootstrap"
       )
     } else {
       vpc_result <- list(
@@ -129,8 +140,9 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
 
   } else if (engine == "brms") {
     if (bootstrap) {
-      stop("Bootstrap VPC confidence intervals are currently only supported for lme4 models. ",
-           "For brms models, use the posterior uncertainty from the fitted model instead.",
+      stop("Bootstrap VPC confidence intervals are only supported for lme4 models. ",
+           "brms summaries already return a posterior credible interval for the ",
+           "VPC/ICC, so 'bootstrap = TRUE' is not needed.",
            call. = FALSE)
     }
 
@@ -139,22 +151,24 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       stop("Package 'brms' is required to summarize brms models. Please install it with: install.packages('brms')")
     }
 
-    var_random <- maihda_stratum_variance_brms(model)
-    var_total_random <- maihda_total_random_variance_brms(model)
-    var_other_random <- max(0, var_total_random - var_random)
-    var_residual <- maihda_residual_variance_brms(model)
+    conf_level <- maihda_validate_conf_level(conf_level)
 
-    # Calculate VPC
-    vpc <- var_random / (var_random + var_other_random + var_residual)
+    # Summarise the VPC/ICC from posterior draws (E[sd^2], with a credible
+    # interval) rather than from the posterior summary SDs (E[sd]^2, no interval).
+    vpc_draws <- maihda_vpc_draws_brms(model, conf_level = conf_level)
 
+    # Components table reports the posterior-mean variance of each component.
     variance_components <- maihda_variance_components_table(
-      var_random, var_other_random, var_residual
+      vpc_draws$var_stratum, vpc_draws$var_other_random, vpc_draws$var_residual
     )
 
-    # For brms, bootstrap is not implemented the same way
     vpc_result <- list(
-      estimate = vpc,
-      bootstrap = FALSE
+      estimate = vpc_draws$vpc$estimate,
+      ci_lower = vpc_draws$vpc$ci_lower,
+      ci_upper = vpc_draws$vpc$ci_upper,
+      conf_level = conf_level,
+      bootstrap = FALSE,
+      method = "posterior"
     )
 
     # Extract fixed effects
@@ -242,11 +256,10 @@ print.maihda_summary <- function(x, ...) {
   cat("====================\n\n")
 
   cat("Variance Partition Coefficient (VPC/ICC):\n")
-  if (x$vpc$bootstrap) {
-    conf_pct <- if (!is.null(x$vpc$conf_level)) x$vpc$conf_level * 100 else 95
+  if (maihda_vpc_has_interval(x$vpc)) {
     cat(sprintf("  Estimate: %.4f [%.4f, %.4f]\n",
                 x$vpc$estimate, x$vpc$ci_lower, x$vpc$ci_upper))
-    cat(sprintf("  (Bootstrap %.0f%% CI)\n\n", conf_pct))
+    cat("  ", maihda_vpc_interval_label(x$vpc), "\n\n", sep = "")
   } else {
     cat(sprintf("  Estimate: %.4f\n\n", x$vpc$estimate))
   }

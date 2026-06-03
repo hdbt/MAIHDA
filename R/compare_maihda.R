@@ -5,12 +5,18 @@
 #'
 #' @param ... Multiple maihda_model objects to compare.
 #' @param model_names Optional character vector of names for the models.
-#' @param bootstrap Logical indicating whether to compute bootstrap confidence
-#'   intervals. Default is FALSE.
+#' @param bootstrap Logical; for \strong{lme4} models, compute parametric-bootstrap
+#'   VPC confidence intervals. Default FALSE. It does not apply to \strong{brms}
+#'   models, which always return a posterior credible interval (so passing
+#'   \code{bootstrap = TRUE} with brms models errors) -- their interval is included
+#'   regardless.
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
-#' @param conf_level Confidence level for bootstrap intervals. Default is 0.95.
+#' @param conf_level Confidence level for the VPC interval (lme4 bootstrap CI or
+#'   brms credible interval). Default is 0.95.
 #'
-#' @return A data frame comparing VPC/ICC across models with optional confidence intervals.
+#' @return A \code{maihda_comparison} data frame of VPC/ICC by model. Interval
+#'   columns (\code{ci_lower}/\code{ci_upper}) are included when any model supplies
+#'   an interval -- an lme4 bootstrap CI or a brms posterior credible interval.
 #'
 #' @details
 #' VPCs are only directly comparable when the models share an outcome,
@@ -69,9 +75,22 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
       n <- maihda_nobs(m$model)
       if (is.finite(n)) as.integer(n) else NA_integer_
     }, integer(1))
+    # Key the strata by their DEFINITIONS (the grouping variables and the stratum
+    # labels), not just the integer IDs: two models can both number their strata
+    # 1..k while defining them from different variables (e.g. a:b vs a:c).
     strata_keys <- vapply(models, function(m) {
-      if (!is.null(m$data) && "stratum" %in% names(m$data)) {
-        paste(sort(unique(as.character(stats::na.omit(m$data$stratum)))), collapse = "|")
+      vars_key <- if (!is.null(m$strata_vars)) {
+        paste(m$strata_vars, collapse = ",")
+      } else {
+        ""
+      }
+      info <- m$strata_info
+      if (!is.null(info) && "label" %in% names(info)) {
+        paste0(vars_key, "::",
+               paste(sort(unique(as.character(info$label))), collapse = "|"))
+      } else if (!is.null(m$data) && "stratum" %in% names(m$data)) {
+        paste0(vars_key, "::",
+               paste(sort(unique(as.character(stats::na.omit(m$data$stratum)))), collapse = "|"))
       } else {
         NA_character_
       }
@@ -107,30 +126,32 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     }
   }
 
-  # Calculate VPC for each model
+  # Calculate VPC for each model. Include an interval whenever the summary
+  # provides one -- an lme4 bootstrap CI (bootstrap = TRUE) or a brms posterior
+  # credible interval (always available) -- rather than keying off the bootstrap
+  # flag, which dropped brms intervals.
   comparison_list <- lapply(seq_along(models), function(i) {
     summary_obj <- summary(models[[i]], bootstrap = bootstrap,
                                  n_boot = n_boot, conf_level = conf_level)
-
-    if (bootstrap && summary_obj$vpc$bootstrap) {
-      data.frame(
-        model = model_names[i],
-        vpc = summary_obj$vpc$estimate,
-        ci_lower = summary_obj$vpc$ci_lower,
-        ci_upper = summary_obj$vpc$ci_upper,
-        stringsAsFactors = FALSE
-      )
-    } else {
-      data.frame(
-        model = model_names[i],
-        vpc = summary_obj$vpc$estimate,
-        stringsAsFactors = FALSE
-      )
-    }
+    vpc <- summary_obj$vpc
+    has_ci <- maihda_vpc_has_interval(vpc)
+    data.frame(
+      model = model_names[i],
+      vpc = vpc$estimate,
+      ci_lower = if (has_ci) vpc$ci_lower else NA_real_,
+      ci_upper = if (has_ci) vpc$ci_upper else NA_real_,
+      stringsAsFactors = FALSE
+    )
   })
 
   # Combine results
   comparison_df <- do.call(rbind, comparison_list)
+  # Drop the interval columns only if no model supplied one, preserving the
+  # plain two-column output for unbootstrapped lme4 comparisons.
+  if (all(is.na(comparison_df$ci_lower)) && all(is.na(comparison_df$ci_upper))) {
+    comparison_df$ci_lower <- NULL
+    comparison_df$ci_upper <- NULL
+  }
   # Class the result so plot() dispatches to plot.maihda_comparison(). It remains
   # a data.frame, so existing column access and printing are unaffected.
   class(comparison_df) <- c("maihda_comparison", "data.frame")
@@ -338,18 +359,16 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   }
 
   # ---- resolve family once on the full data (mirrors fit_maihda) ----
+  # Detect on the analytic (complete-case) sample, not the raw outcome column.
   if (missing(family)) {
-    tryCatch({
-      if (length(formula) == 3) {
-        outcome_vals <- stats::na.omit(eval(formula[[2]], envir = data))
-        if (is.null(dim(outcome_vals)) && length(unique(outcome_vals)) == 2) {
-          warning("The outcome variable appears to be binary. Using family = 'binomial' ",
-                  "for every group. To fit linear probability models, specify ",
-                  "family = 'gaussian' explicitly.", call. = FALSE)
-          family <- "binomial"
-        }
-      }
-    }, error = function(e) NULL)
+    is_binary <- tryCatch(maihda_response_is_binary(formula, data),
+                          error = function(e) FALSE)
+    if (isTRUE(is_binary)) {
+      warning("The outcome variable appears to be binary. Using family = 'binomial' ",
+              "for every group. To fit linear probability models, specify ",
+              "family = 'gaussian' explicitly.", call. = FALSE)
+      family <- "binomial"
+    }
   }
 
   # ---- build shared strata (or defer to per-group) and the fitting formula ----

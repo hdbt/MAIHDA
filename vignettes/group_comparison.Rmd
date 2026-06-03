@@ -1,0 +1,161 @@
+---
+title: "Comparing Intersectional Inequality Across Groups"
+author: "Hamid Bulut"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Comparing Intersectional Inequality Across Groups}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+```
+
+## Introduction
+
+MAIHDA is often used to estimate how much outcome variation lies between
+intersectional strata in a single population. The group comparison workflow asks
+a related contextual question: is intersectional inequality larger in some
+higher-level groups than in others?
+
+Examples include comparing gender-by-class inequality across countries,
+race-by-gender inequality across regions, or intersectional inequality across
+survey waves. In the MAIHDA package, this is handled by `maihda()` with a
+`group` argument or, when you want only the group comparison table, by
+`compare_maihda_groups()`.
+
+## Example data: countries, gender, and socioeconomic status
+
+The package includes `maihda_country_data`, a teaching dataset based on a
+balanced subset of OECD PISA 2018 data. Each row is a student, the outcome is a
+mathematics score, and the intersectional strata are formed by `gender` and
+`ses`.
+
+The higher-level grouping variable is `country`, which lets us ask whether the
+VPC/ICC for gender-by-SES inequality differs across countries.
+
+```{r data}
+library(MAIHDA)
+data("maihda_country_data")
+
+country_counts <- as.data.frame(table(maihda_country_data$country))
+names(country_counts) <- c("country", "n")
+country_counts
+
+table(maihda_country_data$gender, maihda_country_data$ses)
+```
+
+## One-call workflow
+
+Use `maihda()` when you want the usual model summary and the group comparison in
+one object. The formula below defines six intersectional strata
+(`gender:ses`) and asks for a separate VPC/ICC estimate within each country.
+
+```{r one-call}
+analysis <- maihda(
+  math ~ 1 + (1 | gender:ses),
+  data = maihda_country_data,
+  group = "country"
+)
+
+analysis
+```
+
+The printed report includes the overall VPC/ICC first, then the country-level
+comparison. The group comparison is also stored in `analysis$groups`, so it can
+be inspected or saved as a regular data frame.
+
+```{r group-table}
+group_results <- as.data.frame(analysis$groups)
+group_results[order(group_results$vpc, decreasing = TRUE),
+              c("group", "n", "n_strata", "vpc", "var_between",
+                "var_residual", "status")]
+```
+
+In this example all countries have 600 students and all six gender-by-SES strata
+are populated. Higher VPC/ICC values indicate that a larger share of mathematics
+score variation lies between the intersectional strata within that country.
+
+## Visualizing the comparison
+
+The group VPC plot orders countries by the estimated intersectional VPC/ICC. If
+the comparison was run with `bootstrap = TRUE`, the same plot will include
+per-country confidence intervals.
+
+```{r group-vpc-plot}
+plot(analysis, type = "group_vpc")
+```
+
+The variance-components view shows the same comparison as shares of the total
+model variance. The orange segment is the between-stratum component, which is
+the numerator of the VPC/ICC.
+
+```{r group-components-plot}
+plot(analysis, type = "group_components")
+```
+
+## Direct group comparison
+
+If you only need the group comparison table and plots, call
+`compare_maihda_groups()` directly. This fits the same stratified per-country
+models used by `maihda(group = "country")`.
+
+```{r direct-workflow, eval = FALSE}
+group_cmp <- compare_maihda_groups(
+  math ~ 1 + (1 | gender:ses),
+  data = maihda_country_data,
+  group = "country"
+)
+
+group_cmp
+plot(group_cmp, type = "vpc")
+plot(group_cmp, type = "components")
+```
+
+By default, `shared_strata = TRUE`. That means the `gender:ses` strata are
+defined once on the pooled data, then reused in every country. A "female:Low"
+stratum therefore refers to the same type of stratum in each country, which is
+what makes the VPC/ICC estimates directly comparable.
+
+Set `shared_strata = FALSE` only when you intentionally want each group to
+rebuild its own strata. In that case, stratum identities are no longer shared
+across groups, so interpretation should focus on within-group structure rather
+than direct stratum-to-stratum comparison.
+
+## Adding bootstrap intervals
+
+For publication-oriented summaries, you can request per-group parametric
+bootstrap confidence intervals with the `lme4` engine. This can take noticeably
+longer because each group requires repeated model refits, so the example is not
+run when the vignette is built.
+
+```{r bootstrap-example, eval = FALSE}
+group_cmp_boot <- compare_maihda_groups(
+  math ~ 1 + (1 | gender:ses),
+  data = maihda_country_data,
+  group = "country",
+  bootstrap = TRUE,
+  n_boot = 500
+)
+
+plot(group_cmp_boot, type = "vpc")
+```
+
+## Interpretation cautions
+
+The group comparison is a stratified analysis: the package fits one MAIHDA model
+within each country and compares the resulting VPC/ICC estimates. It is not a
+cross-classified model, and it does not estimate country effects in a single
+pooled multilevel model.
+
+The bundled PISA data are for teaching and software demonstration only. They use
+a balanced subsample, one plausible value for each achievement score, and no
+survey weights or complex-sampling adjustments. Treat the results as a
+walkthrough of the workflow, not as substantive cross-national evidence.

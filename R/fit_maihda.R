@@ -67,22 +67,17 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     stop("'engine' should be one of: lme4, brms", call. = FALSE)
   }
 
-  # Automatically switch to binomial for binary outcomes if family is default
+  # Automatically switch to binomial for binary outcomes if family is default.
+  # Detect on the analytic (complete-case) sample so an outcome that is only 0/1
+  # once rows with missing covariates are dropped is still recognised as binary
+  # (consistent with maihda_response_is_binary() used for the brms routing below).
   if (missing(family)) {
-    tryCatch({
-      if (length(formula) == 3) {
-        # Extract the response variable evaluated in the data context
-        outcome_vals <- eval(formula[[2]], envir = data)
-        outcome_vals <- stats::na.omit(outcome_vals)
-
-        if (is.null(dim(outcome_vals)) && length(unique(outcome_vals)) == 2) {
-          warning("The outcome variable appears to be binary. Automatically switching to family = 'binomial'. To fit a Linear Probability Model, explicitly specify family = 'gaussian'.", call. = FALSE)
-          family <- "binomial"
-        }
-      }
-    }, error = function(e) {
-      # Silently proceed if formula extraction fails
-    })
+    is_binary <- tryCatch(maihda_response_is_binary(formula, data),
+                          error = function(e) FALSE)
+    if (isTRUE(is_binary)) {
+      warning("The outcome variable appears to be binary. Automatically switching to family = 'binomial'. To fit a Linear Probability Model, explicitly specify family = 'gaussian'.", call. = FALSE)
+      family <- "binomial"
+    }
   }
 
   # Parse formula to find grouping variables. Automatic strata creation is only

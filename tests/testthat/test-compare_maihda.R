@@ -59,3 +59,38 @@ test_that("compare_maihda warns when models use different analytic samples", {
   expect_length(w, 1)
   expect_match(w, "analytic sample size")
 })
+
+test_that("compare_maihda warns when strata definitions differ despite shared IDs", {
+  set.seed(88)
+  n <- 200
+  d <- data.frame(
+    a = sample(c("p", "q"), n, replace = TRUE),
+    b = sample(c("x", "y"), n, replace = TRUE),
+    cc = sample(c("m", "n"), n, replace = TRUE),
+    age = rnorm(n)
+  )
+  d$y <- rnorm(n)
+  # Both models have strata numbered 1..4, but defined from different variables.
+  m_ab <- fit_maihda(y ~ age + (1 | a:b), data = d)
+  m_ac <- fit_maihda(y ~ age + (1 | a:cc), data = d)
+
+  w <- testthat::capture_warnings(compare_maihda(m_ab, m_ac))
+  expect_length(w, 1)
+  expect_match(w, "stratum definitions")
+})
+
+test_that("compare_maihda includes interval columns only when an interval exists", {
+  set.seed(99)
+  d <- data.frame(stratum = rep(seq_len(8), each = 12), x = rnorm(96))
+  d$y <- 1 + d$x + rnorm(8, sd = 0.9)[d$stratum] + rnorm(96, sd = 0.4)
+  m1 <- fit_maihda(y ~ x + (1 | stratum), data = d)
+  m2 <- fit_maihda(y ~ 1 + (1 | stratum), data = d)
+
+  # lme4 with bootstrap -> interval columns present
+  cmp_ci <- suppressWarnings(compare_maihda(m1, m2, bootstrap = TRUE, n_boot = 25))
+  expect_true(all(c("ci_lower", "ci_upper") %in% names(cmp_ci)))
+
+  # lme4 without bootstrap -> no interval available -> columns dropped
+  cmp_noci <- suppressWarnings(compare_maihda(m1, m2))
+  expect_false("ci_lower" %in% names(cmp_noci))
+})

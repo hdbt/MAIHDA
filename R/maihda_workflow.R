@@ -127,7 +127,7 @@ print.maihda_analysis <- function(x, ...) {
   cat("Engine: ", x$model$engine, " | Family: ", x$model$family$family, "\n", sep = "")
 
   vpc <- x$summary$vpc
-  if (isTRUE(vpc$bootstrap)) {
+  if (maihda_vpc_has_interval(vpc)) {
     cat(sprintf("VPC/ICC: %.4f [%.4f, %.4f]\n", vpc$estimate, vpc$ci_lower, vpc$ci_upper))
   } else {
     cat(sprintf("VPC/ICC: %.4f\n", vpc$estimate))
