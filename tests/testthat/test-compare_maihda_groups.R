@@ -207,6 +207,21 @@ test_that("compare_maihda_groups ignores missing group values", {
   expect_false(any(is.na(cmp$group)))
 })
 
+test_that("compare_maihda_groups rejects function-call grouping terms", {
+  set.seed(6)
+  d <- data.frame(
+    country = rep(c("A", "B"), each = 60),
+    g = sample(c("a", "b"), 120, replace = TRUE),
+    r = sample(c("x", "y"), 120, replace = TRUE),
+    age = rnorm(120)
+  )
+  d$y <- rnorm(120)
+  expect_error(
+    compare_maihda_groups(y ~ age + (1 | interaction(g, r)), data = d, group = "country"),
+    "make_strata", fixed = TRUE
+  )
+})
+
 test_that("compare_maihda_groups rejects shorthand formula when a stratum column exists", {
   set.seed(3009)
   n <- 200

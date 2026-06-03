@@ -549,6 +549,12 @@ maihda_prepare_group_strata <- function(formula, data, shared_strata, autobin = 
     stop("Group comparison supports intercept-only random effects such as ",
          "(1 | gender:race).", call. = FALSE)
   }
+  if (!maihda_is_colon_interaction(re_terms[[1]][[3]])) {
+    stop("Automatic strata creation supports a single variable or a colon ",
+         "interaction such as (1 | gender:race). For other grouping expressions ",
+         "(e.g. interaction(), paste(), cut()), call make_strata() first and use ",
+         "(1 | stratum).", call. = FALSE)
+  }
 
   strata_vars <- grouping_vars_by_term[[1]]
   missing_vars <- setdiff(strata_vars, names(data))

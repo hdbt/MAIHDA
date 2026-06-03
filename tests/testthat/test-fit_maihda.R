@@ -109,12 +109,40 @@ test_that("maihda_response_is_binary uses the analytic (complete-case) sample", 
   expect_true(MAIHDA:::maihda_response_is_binary(y ~ x + (1 | stratum), d))
 })
 
+test_that("maihda_is_colon_interaction accepts only symbols and colon interactions", {
+  expect_true(MAIHDA:::maihda_is_colon_interaction(quote(a)))
+  expect_true(MAIHDA:::maihda_is_colon_interaction(quote(a:b)))
+  expect_true(MAIHDA:::maihda_is_colon_interaction(quote(a:b:c)))
+  expect_false(MAIHDA:::maihda_is_colon_interaction(quote(interaction(a, b))))
+  expect_false(MAIHDA:::maihda_is_colon_interaction(quote(paste(a, b))))
+  expect_false(MAIHDA:::maihda_is_colon_interaction(quote(cut(age, 3))))
+  expect_false(MAIHDA:::maihda_is_colon_interaction(quote(f(x):b)))
+})
+
+test_that("fit_maihda rejects function-call grouping terms in automatic strata", {
+  set.seed(5)
+  d <- data.frame(
+    g = sample(c("a", "b"), 80, replace = TRUE),
+    r = sample(c("x", "y"), 80, replace = TRUE),
+    age = rnorm(80)
+  )
+  d$y <- rnorm(80)
+
+  expect_error(
+    fit_maihda(y ~ age + (1 | interaction(g, r)), data = d),
+    "make_strata", fixed = TRUE
+  )
+  # The colon-interaction shorthand still works.
+  expect_s3_class(fit_maihda(y ~ age + (1 | g:r), data = d), "maihda_model")
+})
+
 test_that("fit_maihda fits a binary outcome with brms via bernoulli()", {
-  # Compiles a Stan model, so skip on CI/CRAN (toolchain is unreliable there);
-  # the bernoulli residual-variance fix is covered without Stan in
-  # test-summary_variance.R. This runs locally when brms + a compiler are present.
+  # Compiles a Stan model, so it is OPT-IN: set MAIHDA_TEST_BRMS=true to run it
+  # (otherwise a plain local test() would hang on Stan compilation). The bernoulli
+  # residual-variance fix is covered Stan-free in test-summary_variance.R.
   skip_on_cran()
-  skip_on_ci()
+  skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
+          "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
   skip_if_not_installed("brms")
 
   set.seed(321)

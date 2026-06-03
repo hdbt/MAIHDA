@@ -115,6 +115,13 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
              call. = FALSE)
       }
 
+      if (!maihda_is_colon_interaction(re_terms[[1]][[3]])) {
+        stop("Automatic strata creation supports a single variable or a colon ",
+             "interaction such as (1 | gender:race). For other grouping expressions ",
+             "(e.g. interaction(), paste(), cut()), call make_strata() first and use ",
+             "(1 | stratum).", call. = FALSE)
+      }
+
       strata_vars <- grouping_vars_by_term[[1]]
       missing_grouping_vars <- setdiff(strata_vars, names(data))
       if (length(missing_grouping_vars) > 0) {

@@ -493,8 +493,14 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
     plot_data$label <- paste("Stratum", plot_data$stratum)
   }
 
-  # Compute centers
-  global_mean <- mean(plot_data$mean_predicted, na.rm = TRUE)
+  # Compute the reference centre as the population mean (weighted by stratum size),
+  # so common and rare strata are represented in proportion to their n -- matching
+  # the weighted reference line in plot_predicted_strata().
+  global_mean <- if ("n" %in% names(plot_data) && any(is.finite(plot_data$n))) {
+    stats::weighted.mean(plot_data$mean_predicted, plot_data$n, na.rm = TRUE)
+  } else {
+    mean(plot_data$mean_predicted, na.rm = TRUE)
+  }
   x_title <- "Mean Predicted Value (Overall Risk)"
   if (model_type %in% c("binomial", "quasibinomial")) x_title <- "Mean Predicted Probability (Risk)"
   if (inherits(object$model, "polr") || inherits(object$model, "clm") || inherits(object$model, "ordinal")) x_title <- "Average Expected Category Score"

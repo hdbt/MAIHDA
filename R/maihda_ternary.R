@@ -178,7 +178,20 @@ compute_maihda_ternary_data <- function(
     ]
   }
 
-  grand_mean_additive <- mean(re_df$additive_only, na.rm = TRUE)
+  # Reference is the population mean additive prediction (weighted by stratum size
+  # when n is available), so rare and common strata are not given equal weight.
+  strata_n <- if (!is.null(strata_info_df) &&
+                  all(c("stratum", "n") %in% names(strata_info_df))) {
+    strata_info_df$n[match(as.character(re_df$stratum),
+                           as.character(strata_info_df$stratum))]
+  } else {
+    NULL
+  }
+  grand_mean_additive <- if (!is.null(strata_n) && any(is.finite(strata_n))) {
+    stats::weighted.mean(re_df$additive_only, strata_n, na.rm = TRUE)
+  } else {
+    mean(re_df$additive_only, na.rm = TRUE)
+  }
 
   res <- re_df
   res$grand_mean_additive <- grand_mean_additive
