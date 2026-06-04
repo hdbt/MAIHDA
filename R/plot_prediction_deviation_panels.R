@@ -50,9 +50,19 @@ maihda_prediction_panel_fitted <- function(model, data, type) {
     if (is.null(dim(fit)) || !"Estimate" %in% colnames(fit)) {
       stop("Could not extract fitted estimates from brms model.", call. = FALSE)
     }
-    # NA (rather than 0) so downstream CI bars are omitted rather than collapsed
-    # to the point estimate when no SE is available.
-    se <- if ("Est.Error" %in% colnames(fit)) fit[, "Est.Error"] else rep(NA_real_, nrow(data))
+    # Derive the interval half-width from the posterior 2.5/97.5% quantiles so the
+    # downstream `estimate +/- 1.96 * se` reflects the actual posterior spread
+    # rather than assuming Est.Error (the posterior SD) describes a normal
+    # interval. (This still renders a symmetric bar; full asymmetric posterior
+    # intervals would require carrying the quantiles through the aggregation.)
+    se <- if (all(c("Q2.5", "Q97.5") %in% colnames(fit))) {
+      (fit[, "Q97.5"] - fit[, "Q2.5"]) / (2 * stats::qnorm(0.975))
+    } else if ("Est.Error" %in% colnames(fit)) {
+      fit[, "Est.Error"]
+    } else {
+      # NA (not 0) so downstream CI bars are omitted rather than collapsed.
+      rep(NA_real_, nrow(data))
+    }
     return(list(fit = as.numeric(fit[, "Estimate"]), se.fit = as.numeric(se)))
   }
 

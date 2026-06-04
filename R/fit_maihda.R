@@ -176,8 +176,11 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
 
   # Fit model based on engine
   if (engine == "lme4") {
-    # Check if it's a Gaussian family (use lmer) or other (use glmer)
-    if (family$family == "gaussian") {
+    # Use lmer only for Gaussian with the identity link -- lmer takes no family
+    # argument and silently ignores a non-identity link. Route a non-identity
+    # Gaussian (e.g. gaussian(link = "log")) through glmer() so the link is
+    # actually honoured, consistent with the family reported on the result.
+    if (family$family == "gaussian" && family$link == "identity") {
       model <- lme4::lmer(formula, data = data, ...)
     } else {
       model <- lme4::glmer(formula, data = data, family = family, ...)

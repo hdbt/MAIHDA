@@ -18,6 +18,10 @@ A ggplot2 object
 }
 \description{
 Creates a quadrant scatterplot comparing overall marginal predicted risk against
-pure intersectional effects (shrunken residuals). Points represent strata.
+the stratum random effects (shrunken between-stratum deviations). Points
+represent strata. The random effect equals the \emph{pure} intersectional
+(interaction) component only when the additive main effects of the strata
+variables are included in the model; otherwise it also absorbs those omitted
+main effects.
 }
 \keyword{internal}

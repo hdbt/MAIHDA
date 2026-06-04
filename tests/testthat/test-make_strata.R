@@ -1,3 +1,17 @@
+test_that("make_strata warns when tied quantiles force equal-width bins", {
+  set.seed(9)
+  # Zero-inflated numeric: tertile cut-points are tied (both 0), so make_strata
+  # falls back to (possibly very imbalanced) equal-width bins, not tertiles.
+  d <- data.frame(
+    g = sample(c("a", "b"), 120, replace = TRUE),
+    val = c(rep(0, 100), runif(20, 5, 10))
+  )
+  expect_warning(
+    suppressMessages(make_strata(d, vars = c("g", "val"))),
+    "equal-width"
+  )
+})
+
 test_that("make_strata creates strata correctly", {
   # Create test data
   data <- data.frame(

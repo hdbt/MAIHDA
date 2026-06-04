@@ -398,7 +398,11 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
 #' Risk vs. Intersectional Effect Plot
 #'
 #' Creates a quadrant scatterplot comparing overall marginal predicted risk against
-#' pure intersectional effects (shrunken residuals). Points represent strata.
+#' the stratum random effects (shrunken between-stratum deviations). Points
+#' represent strata. The random effect equals the \emph{pure} intersectional
+#' (interaction) component only when the additive main effects of the strata
+#' variables are included in the model; otherwise it also absorbs those omitted
+#' main effects.
 #'
 #' @param object A maihda_model object
 #' @param summary_obj A maihda_summary object
@@ -517,10 +521,15 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
     ggplot2::geom_point(ggplot2::aes(size = .data$n), alpha = 0.6, color = "#0072B2") +
     ggrepel::geom_label_repel(data = label_data, ggplot2::aes(label = .data$label), size = 3, min.segment.length = 0) +
     ggplot2::labs(
-      title = "Risk vs. Intersectional Effect",
-      subtitle = "Marginal predicted scores vs pure intersectional random effects\nTop-Right: Double Penalty (High Risk + Unique Penalty factor) \nBottom-Right: High Risk but fully explained by additive characteristics",
+      title = "Risk vs. Stratum Random Effect",
+      subtitle = paste0(
+        "Marginal predicted scores vs stratum random effects.\n",
+        "The random effect is the pure intersectional (interaction) effect only ",
+        "when the strata main effects are in the model; otherwise it also includes ",
+        "those additive main effects."
+      ),
       x = x_title,
-      y = "Random Effect (Intersectional Penalty/Advantage)",
+      y = "Stratum random effect (between-stratum deviation)",
       size = "Sample Size"
     ) +
     ggplot2::theme_minimal() +
@@ -611,7 +620,7 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     data.frame(
       rank = stratum_means$rank,
       label = stratum_means$label,
-      Component = "Additive Effect (Demographics)",
+      Component = "Fixed-effect component",
       y_start = 0,
       y_end = stratum_means$additive_dev,
       abs_total_dev = stratum_means$abs_total_dev
@@ -619,7 +628,7 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     data.frame(
       rank = stratum_means$rank,
       label = stratum_means$label,
-      Component = "Intersectional Effect (Penalty/Advantage)",
+      Component = "Stratum random-effect component",
       y_start = stratum_means$additive_dev,
       y_end = stratum_means$total_dev,
       abs_total_dev = stratum_means$abs_total_dev
@@ -627,7 +636,7 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
   )
 
   # Set component ordering so Additive is handled first
-  seg_data$Component <- factor(seg_data$Component, levels = c("Additive Effect (Demographics)", "Intersectional Effect (Penalty/Advantage)"))
+  seg_data$Component <- factor(seg_data$Component, levels = c("Fixed-effect component", "Stratum random-effect component"))
 
   # Label the most extreme overall cases
   label_data <- stratum_means |>
@@ -642,14 +651,15 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     ggplot2::geom_point(data = stratum_means, ggplot2::aes(x = .data$rank, y = .data$total_dev), size = 1.5, color = "black") +
     # Label extremes
     ggrepel::geom_label_repel(data = label_data, ggplot2::aes(x = .data$rank, y = .data$total_dev, label = .data$label), size = 3, min.segment.length = 0) +
-    ggplot2::scale_color_manual(values = c("Additive Effect (Demographics)" = "gray60", "Intersectional Effect (Penalty/Advantage)" = "#D55E00")) +
+    ggplot2::scale_color_manual(values = c("Fixed-effect component" = "gray60", "Stratum random-effect component" = "#D55E00")) +
     ggplot2::labs(
-      title = "Deviation Decomposition: Additive vs. Intersectional Effects",
+      title = "Deviation Decomposition: Fixed vs. Stratum-Random Components",
       subtitle = paste0(
-        "Stratum deviation from the global mean split into additive (main-effect) ",
-        "and intersectional (stratum random-effect) components, on the model (link) ",
-        "scale.\nThe black dot is the total deviation. The split is additive on the ",
-        "link scale; for non-Gaussian models it is not additive on the response scale."
+        "Stratum deviation from the global mean split into the fixed-effect and ",
+        "stratum random-effect components, on the model (link) scale.\nThe black ",
+        "dot is the total deviation. The random-effect component is the pure ",
+        "intersectional (interaction) effect only when the strata main effects are ",
+        "in the model; otherwise it also includes those additive main effects."
       ),
       x = "Stratum Rank (Ordered by Total Predicted Deviation)",
       y = "Deviation from Global Mean (link scale)",

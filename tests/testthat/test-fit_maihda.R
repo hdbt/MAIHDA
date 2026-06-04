@@ -185,6 +185,19 @@ test_that("fit_maihda fits a binary outcome with brms via bernoulli()", {
   expect_equal(resid_var, (pi^2) / 3, tolerance = 1e-6)
 })
 
+test_that("fit_maihda routes a non-identity Gaussian link through glmer", {
+  set.seed(8)
+  d <- data.frame(stratum = factor(rep(seq_len(6), each = 25)), x = rnorm(150))
+  d$y <- exp(1 + 0.1 * d$x + rnorm(6, sd = 0.2)[d$stratum] + rnorm(150, sd = 0.1))
+
+  m <- suppressWarnings(
+    fit_maihda(y ~ x + (1 | stratum), data = d, family = gaussian(link = "log"))
+  )
+  # lmer would silently ignore the link and fit identity; glmer honours it.
+  expect_false(inherits(m$model, "lmerMod"))
+  expect_equal(maihda_family(m$model)$link, "log")
+})
+
 test_that("fit_maihda validates inputs", {
   data <- data.frame(x = 1:10, y = 1:10)
 

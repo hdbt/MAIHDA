@@ -25,6 +25,18 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' Provides a summary of a MAIHDA model including variance partition coefficients
 #' (VPC/ICC) and stratum-specific estimates.
 #'
+#' @section Interpreting the VPC/ICC: The VPC is the between-stratum variance
+#'   divided by the total \emph{unexplained} variance (between-stratum + residual);
+#'   it is a conditional/residual ICC that excludes variance captured by the fixed
+#'   effects, so for models with covariates it is conditional on them. It is most
+#'   commonly read from the null model \code{outcome ~ 1 + (1 | stratum)}, where it
+#'   is the total between-stratum share. For non-Gaussian families the level-1
+#'   (residual) variance uses a latent/distributional approximation (e.g.
+#'   \eqn{\pi^2/3} for logistic), so the VPC is on that latent scale. The stratum
+#'   random effects represent the total between-stratum deviation; they equal the
+#'   \emph{pure} intersectional (interaction) component only when the additive main
+#'   effects of the strata variables are included in the model.
+#'
 #' @param object A maihda_model object from \code{fit_maihda()}.
 #' @param bootstrap Logical indicating whether to compute parametric bootstrap
 #'   confidence intervals for VPC/ICC. Default is FALSE. Supported for lme4
@@ -232,15 +244,8 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
     }, error = function(e) NULL)
   }
 
-  # Remove NAs
-  vpc_boot <- vpc_boot[is.finite(vpc_boot)]
-  if (length(vpc_boot) == 0) {
-    stop("All VPC bootstrap refits failed.")
-  }
-
-  # Calculate confidence interval
-  alpha <- 1 - conf_level
-  ci <- stats::quantile(vpc_boot, probs = c(alpha/2, 1 - alpha/2))
+  # Reduce to an interval, requiring a minimum number of successful refits.
+  ci <- maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC")
 
   return(ci)
 }

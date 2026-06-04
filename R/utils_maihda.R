@@ -34,6 +34,34 @@ maihda_validate_conf_level <- function(conf_level) {
   as.numeric(conf_level)
 }
 
+# Reduce successful bootstrap draws to a central interval, requiring a minimum
+# number of successful refits (so an interval is never returned from one or a
+# handful of draws) and warning when the failure rate is high.
+maihda_bootstrap_ci <- function(values, n_boot, conf_level, what = "VPC") {
+  values <- values[is.finite(values)]
+  n_ok <- length(values)
+  failed <- n_boot - n_ok
+  min_ok <- 10L
+
+  if (n_ok == 0) {
+    stop("All ", what, " bootstrap refits failed; no interval can be computed.",
+         call. = FALSE)
+  }
+  if (n_ok < min_ok) {
+    stop(sprintf(paste0("Only %d of %d %s bootstrap refits succeeded; at least %d ",
+                        "are required to form an interval. Increase n_boot or check ",
+                        "for singular/failing fits."),
+                 n_ok, n_boot, what, min_ok), call. = FALSE)
+  }
+  if (failed > n_boot * 0.5) {
+    warning(sprintf("%d of %d %s bootstrap refits failed (%.0f%%); the interval may be unreliable.",
+                    failed, n_boot, what, 100 * failed / n_boot), call. = FALSE)
+  }
+
+  alpha <- 1 - conf_level
+  stats::quantile(values, probs = c(alpha / 2, 1 - alpha / 2), names = FALSE)
+}
+
 maihda_validate_bootstrap_args <- function(n_boot, conf_level) {
   if (!is.numeric(n_boot) || length(n_boot) != 1 ||
       is.na(n_boot) || !is.finite(n_boot) ||
@@ -191,6 +219,28 @@ maihda_nobs <- function(model) {
     frame <- maihda_model_frame(model)
     if (is.null(frame)) NA_integer_ else nrow(frame)
   })
+}
+
+# Content fingerprint of a model's analytic response vector. Two models fitted to
+# the same data share a fingerprint even if the rows were reordered or carry
+# default 1:n names; models fitted to unrelated data do not. Used to catch
+# comparisons/PVC across different datasets that happen to share n, row names and
+# stratum ids.
+maihda_response_fingerprint <- function(model) {
+  frame <- maihda_model_frame(model)
+  if (is.null(frame)) {
+    return(NA_character_)
+  }
+  resp <- tryCatch(stats::model.response(frame), error = function(e) NULL)
+  if (is.null(resp)) {
+    return(NA_character_)
+  }
+  resp <- unname(resp)
+  if (is.numeric(resp)) {
+    paste(formatC(resp, format = "g", digits = 12), collapse = "\r")
+  } else {
+    paste(as.character(resp), collapse = "\r")
+  }
 }
 
 maihda_row_ids <- function(model) {

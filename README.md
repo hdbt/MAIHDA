@@ -137,11 +137,17 @@ model <- fit_maihda(
   data = maihda_health_data
 )
 
-# Get variance partition coefficient
+# Get the variance partition coefficient (VPC/ICC)
 summary <- summary(model, bootstrap = TRUE, n_boot = 1000)
 
-# VPC of 0.15 means 15% of variance is between strata
-# This indicates substantial intersectional inequality
+# The VPC is the share of the *unexplained* (between-stratum + residual) variance
+# that lies between strata -- here conditional on Age, and on the latent scale for
+# non-Gaussian models (e.g. logistic uses pi^2/3 as the level-1 variance). Read
+# from the null model `outcome ~ 1 + (1 | strata)` it is the total between-stratum
+# share. NOTE: the between-stratum variation reflects the combined additive +
+# interaction differences across strata; it represents the *pure* intersectional
+# (interaction) effect only once the additive main effects of the strata variables
+# are added to the model.
 
 # Visualize which strata have higher/lower outcomes using new advanced plots
 plot(model, type = "predicted")

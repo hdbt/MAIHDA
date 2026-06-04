@@ -50,6 +50,20 @@ latent-scale approximation; for \code{poisson(log)} it is evaluated at the
 posterior-mean fitted values rather than per draw to avoid an expensive
 \eqn{ndraws \times nobs} computation.
 }
+\section{Interpreting the VPC/ICC}{
+ The VPC is the between-stratum variance
+  divided by the total \emph{unexplained} variance (between-stratum + residual);
+  it is a conditional/residual ICC that excludes variance captured by the fixed
+  effects, so for models with covariates it is conditional on them. It is most
+  commonly read from the null model \code{outcome ~ 1 + (1 | stratum)}, where it
+  is the total between-stratum share. For non-Gaussian families the level-1
+  (residual) variance uses a latent/distributional approximation (e.g.
+  \eqn{\pi^2/3} for logistic), so the VPC is on that latent scale. The stratum
+  random effects represent the total between-stratum deviation; they equal the
+  \emph{pure} intersectional (interaction) component only when the additive main
+  effects of the strata variables are included in the model.
+}
+
 \examples{
 \donttest{
 strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
