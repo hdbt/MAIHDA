@@ -109,6 +109,24 @@ test_that("maihda_response_is_binary uses the analytic (complete-case) sample", 
   expect_true(MAIHDA:::maihda_response_is_binary(y ~ x + (1 | stratum), d))
 })
 
+test_that("fit_maihda recodes a character binary outcome with a third value on dropped rows", {
+  set.seed(909)
+  n <- 200
+  d <- data.frame(stratum = factor(rep(seq_len(8), each = 25)), x = rnorm(n))
+  d$y <- ifelse(rbinom(n, 1, plogis(0.3 * d$x)) == 1, "case", "control")
+  d$y[1:2] <- "other"      # a third level...
+  d$x[1:2] <- NA_real_     # ...only on rows dropped for missing covariates
+
+  # Detection is on the analytic 2-level sample; recoding must follow it, so the
+  # character response becomes 0/1 and glmer() does not error on a stray level.
+  expect_warning(
+    m <- fit_maihda(y ~ x + (1 | stratum), data = d),
+    "binary", ignore.case = TRUE
+  )
+  expect_equal(m$family$family, "binomial")
+  expect_setequal(sort(unique(stats::na.omit(m$data[["y"]]))), c(0, 1))
+})
+
 test_that("maihda_is_colon_interaction accepts only symbols and colon interactions", {
   expect_true(MAIHDA:::maihda_is_colon_interaction(quote(a)))
   expect_true(MAIHDA:::maihda_is_colon_interaction(quote(a:b)))

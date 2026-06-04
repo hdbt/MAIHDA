@@ -244,7 +244,7 @@ test_that("calculate_pvc print method works", {
   
   # Print should work without error
   expect_output(print(pvc_result), "Proportional Change in Variance")
-  expect_output(print(pvc_result), "PVC:")
+  expect_output(print(pvc_result), "PCV:")
   expect_output(print(pvc_result), "Between-stratum variance:")
 })
 

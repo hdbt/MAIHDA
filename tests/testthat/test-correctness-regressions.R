@@ -258,6 +258,30 @@ test_that("stepwise_pcv errors when no complete analytic sample remains", {
   )
 })
 
+test_that("stepwise_pcv auto-detects a binary outcome when family is the default", {
+  set.seed(910)
+  base <- data.frame(
+    g = sample(c("a", "b"), 240, replace = TRUE),
+    r = sample(c("x", "y"), 240, replace = TRUE),
+    age = rnorm(240)
+  )
+  strata <- make_strata(base, vars = c("g", "r"))
+  d <- strata$data
+  d$y <- rbinom(240, 1, plogis(-0.2 + 0.3 * d$age))
+
+  # Default family must not silently fit a Gaussian PCV on a binary outcome.
+  expect_warning(
+    out <- stepwise_pcv(d, "y", "age"),
+    "binary", ignore.case = TRUE
+  )
+  expect_s3_class(out, "maihda_stepwise")
+
+  # Explicit gaussian is respected: no binary auto-switch (other warnings, e.g.
+  # singular fits, are irrelevant here).
+  w <- testthat::capture_warnings(stepwise_pcv(d, "y", "age", family = "gaussian"))
+  expect_false(any(grepl("binary", w, ignore.case = TRUE)))
+})
+
 test_that("predict_maihda rebuilds automatic strata for raw newdata", {
   set.seed(1008)
   d <- data.frame(

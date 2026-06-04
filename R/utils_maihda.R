@@ -97,6 +97,23 @@ maihda_binary_to_01 <- function(x) {
   as.integer(out)
 }
 
+# Complete-case row mask over the model variables in `formula` that are present
+# in `data` -- the analytic sample lme4/brms actually fit.
+maihda_complete_model_rows <- function(formula, data) {
+  model_vars <- intersect(all.vars(formula), names(data))
+  if (length(model_vars) == 0) {
+    return(rep(TRUE, nrow(data)))
+  }
+  stats::complete.cases(data[, model_vars, drop = FALSE])
+}
+
+# Recode a vector to 0/1 using exactly two reference levels: the first level
+# becomes 0, the second becomes 1, and anything else (including NA) becomes NA.
+maihda_recode_to_01 <- function(x, levels_2) {
+  key <- as.character(levels_2)
+  as.integer(match(as.character(x), key) - 1L)
+}
+
 maihda_prepare_binomial_response <- function(data, formula) {
   response <- formula[[2]]
   if (!is.symbol(response)) {
@@ -104,11 +121,18 @@ maihda_prepare_binomial_response <- function(data, formula) {
   }
 
   outcome <- as.character(response)
-  if (!outcome %in% names(data) || !maihda_is_binary_vector(data[[outcome]])) {
+  # Recode against the analytic (complete-case) sample, matching the binary
+  # detection in fit_maihda(). A character/factor outcome whose third value
+  # appears only on rows dropped for missing covariates is still recoded to 0/1;
+  # the out-of-sample value becomes NA (and is dropped) rather than left as a
+  # stray level that glmer() would reject.
+  if (!outcome %in% names(data) || !maihda_response_is_binary(formula, data)) {
     return(data)
   }
 
-  data[[outcome]] <- maihda_binary_to_01(data[[outcome]])
+  keep <- maihda_complete_model_rows(formula, data)
+  analytic_levels <- maihda_binary_levels(data[[outcome]][keep])
+  data[[outcome]] <- maihda_recode_to_01(data[[outcome]], analytic_levels)
   data
 }
 
@@ -133,13 +157,7 @@ maihda_response_is_binary <- function(formula, data) {
     return(FALSE)
   }
 
-  model_vars <- intersect(all.vars(formula), names(data))
-  keep <- if (length(model_vars) > 0) {
-    stats::complete.cases(data[, model_vars, drop = FALSE])
-  } else {
-    rep(TRUE, nrow(data))
-  }
-  maihda_is_binary_vector(data[[outcome]][keep])
+  maihda_is_binary_vector(data[[outcome]][maihda_complete_model_rows(formula, data)])
 }
 
 # TRUE if a random-effect grouping expression is a plain variable or a colon

@@ -1,16 +1,18 @@
-#' Calculate Proportional Change in Between-Stratum Variance (PVC)
+#' Calculate Proportional Change in Between-Stratum Variance (PCV)
 #'
-#' Calculates the proportional change in between-stratum variance (PVC) between
-#' two MAIHDA models. The PVC measures how much the between-stratum variance
+#' Calculates the proportional change in between-stratum variance (PCV) between
+#' two MAIHDA models. The PCV measures how much the between-stratum variance
 #' changes when moving from one model to another, and is calculated as:
-#' PVC = (Var_model1 - Var_model2) / Var_model1
+#' PCV = (Var_model1 - Var_model2) / Var_model1.
+#' (The function and result object retain the historical "pvc" naming;
+#' \dQuote{PVC} and \dQuote{PCV} refer to the same quantity.)
 #'
 #' @param model1 A maihda_model object from \code{fit_maihda()}. This is the
 #'   reference model (typically a simpler or baseline model).
 #' @param model2 A maihda_model object from \code{fit_maihda()}. This is the
 #'   comparison model (typically a more complex model with additional predictors).
 #' @param bootstrap Logical indicating whether to compute bootstrap confidence
-#'   intervals for PVC. Default is FALSE.
+#'   intervals for the PCV. Default is FALSE.
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
 #' @param conf_level Confidence level for bootstrap intervals. Default is 0.95.
 #'
@@ -296,16 +298,16 @@ bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
 #' @return No return value, called for side effects.
 #' @export
 print.pvc_result <- function(x, ...) {
-  cat("Proportional Change in Variance (PVC)\n")
+  cat("Proportional Change in Variance (PCV)\n")
   cat("=====================================\n\n")
 
   if (x$bootstrap) {
     conf_pct <- if (!is.null(x$conf_level)) x$conf_level * 100 else 95
-    cat(sprintf("PVC: %.4f [%.4f, %.4f]\n",
+    cat(sprintf("PCV: %.4f [%.4f, %.4f]\n",
                 x$pvc, x$ci_lower, x$ci_upper))
     cat(sprintf("(Bootstrap %.0f%% CI)\n\n", conf_pct))
   } else {
-    cat(sprintf("PVC: %.4f\n\n", x$pvc))
+    cat(sprintf("PCV: %.4f\n\n", x$pvc))
   }
 
   cat("Between-stratum variance:\n")
@@ -387,6 +389,16 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     attr(data, "strata_vars") <- strata_vars
     attr(data, "strata_sep") <- strata_sep
     attr(data, "strata_autobin_info") <- strata_autobin_info
+  }
+
+  # Auto-detect a binary outcome when family is left at the default, mirroring
+  # fit_maihda()/maihda(). Otherwise a binary outcome would silently be fit on the
+  # Gaussian (linear) scale for numeric 0/1, or error for a factor.
+  if (missing(family) && maihda_is_binary_vector(data[[outcome]])) {
+    warning("The outcome variable appears to be binary. Using family = 'binomial' ",
+            "for the stepwise PCV. Specify family = 'gaussian' explicitly for a ",
+            "linear probability model.", call. = FALSE)
+    family <- "binomial"
   }
 
   results <- data.frame(
