@@ -54,7 +54,7 @@ ui <- page_sidebar(
               DTOutput("data_table")),
     nav_panel("Model Summary",
               uiOutput("model_summary_ui")),
-    nav_panel("PVC Results",
+    nav_panel("PCV Results",
               uiOutput("pvc_summary_ui")),
     nav_panel("Stepwise PCV",
               uiOutput("stepwise_pcv_ui")),
@@ -202,7 +202,7 @@ server <- function(input, output, session) {
         summary_results(summary(res$model))
       pvc_results(res$pvc)
       stepwise_results(res$stepwise)
-      nav_select("main_tabs", "PVC Results")    }) %...!% (function(err) {
+      nav_select("main_tabs", "PCV Results")    }) %...!% (function(err) {
       removeNotification(id)
       showNotification(paste("Error fitting model:", err$message), type = "error", duration = 15)    })
 
@@ -273,7 +273,7 @@ server <- function(input, output, session) {
     }
 
     card(
-      card_header("Proportional Change in Variance (PVC)"),
+      card_header("Proportional Change in Variance (PCV)"),
       card_body(
         div(class = "d-flex justify-content-around text-center mb-4",
           div(
@@ -294,10 +294,10 @@ server <- function(input, output, session) {
         hr(),
         div(class = "text-center",
           h3(
-            "Estimated PVC ",
+            "Estimated PCV ",
             tooltip(
               shiny::icon("info-circle"),
-              "PVC is the change in between-stratum variance from the Null to the Adjusted model. A high PVC means much of the between-stratum variation is explained by the additive main effects. A low or negative PVC means little is explained -- interpret cautiously, as this is a model-dependent change that can also reflect suppression, rescaling, sample composition, or uncertainty, not interaction alone."
+              "PCV is the change in between-stratum variance from the Null to the Adjusted model. A high PCV means much of the between-stratum variation is explained by the additive main effects. A low or negative PCV means little is explained -- interpret cautiously, as this is a model-dependent change that can also reflect suppression, rescaling, sample composition, or uncertainty, not interaction alone."
             )
           ),
           h2(class = "text-success", sprintf("%.2f%%", pvc$pvc * 100))
@@ -438,13 +438,13 @@ server <- function(input, output, session) {
         card_header("HUD: Key MAIHDA Metrics"),
         div(class = "d-flex justify-content-around text-center",
             div(h4("VPC (Null)"), h3(paste0(vpc_val, "%")), p(class="text-muted", "Total Variance b/w Strata")),
-            div(h4("PVC (Adjusted)"), h3(paste0(pvc_val, "%")), p(class="text-muted", "Variance Explained by Main Effects")),
+            div(h4("PCV (Adjusted)"), h3(paste0(pvc_val, "%")), p(class="text-muted", "Variance Explained by Main Effects")),
             div(h4(pvc_display$label), h3(pvc_display$value), p(class="text-muted", pvc_display$description))
         ),
         markdown("
         **Interpretation Guide**:
         - **VPC** (Variance Partition Coefficient) measures how much of the total outcome variance is due to the strata definitions.
-        - **PVC** (Proportional Change in Variance) shows how much of that strata variation is explained by simple additive effects.
+        - **PCV** (Proportional Change in Variance) shows how much of that strata variation is explained by simple additive effects.
         - The remaining percentage is the between-stratum variation **not** explained by the additive main effects. It is often interpreted as the intersectional component, but it is a model-dependent quantity and should be read cautiously.
         "),
         uiOutput("dynamic_interpretation")

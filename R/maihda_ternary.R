@@ -1,7 +1,6 @@
 #' Compute Ternary Data for MAIHDA Models
 #'
 #' @param model A fitted MAIHDA model object from `fit_maihda()`.
-#' @param summary_obj Optional output from `summary()`.
 #' @param scale Character, either "link" or "response".
 #' @param reference_values List or data.frame of reference values for covariates.
 #' @param uncertainty_method Character indicating how to extract uncertainty.
@@ -17,7 +16,6 @@
 #' @importFrom stats predict
 compute_maihda_ternary_data <- function(
     model,
-    summary_obj = NULL,
     scale = c("link", "response"),
     reference_values = NULL,
     uncertainty_method = c("auto", "se", "ci_width", "posterior_sd"),
@@ -355,19 +353,17 @@ plot_maihda_ternary <- function(ternary_data, ...) {
 #' Generate Ternary Plot from MAIHDA Model
 #'
 #' @param model A fitted MAIHDA model.
-#' @param summary_obj Optional output from \code{summary_maihda}.
 #' @param ... Additional arguments passed to \code{compute_maihda_ternary_data} and \code{\link{plot.maihda_ternary}}.
 #'
 #' @return A list containing \code{data} and \code{plot}.
 #' @export
-maihda_ternary_plot <- function(model, summary_obj = NULL, ...) {
+maihda_ternary_plot <- function(model, ...) {
   args <- list(...)
 
   compute_args <- args[names(args) %in% names(formals(compute_maihda_ternary_data))]
   plot_args <- args[names(args) %in% names(formals(plot.maihda_ternary))]
 
   compute_args$model <- model
-  compute_args$summary_obj <- summary_obj
 
   ternary_data <- do.call(compute_maihda_ternary_data, compute_args)
 

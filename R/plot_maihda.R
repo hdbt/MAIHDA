@@ -12,7 +12,7 @@
 #'     \item "predicted": Predicted values for each stratum with confidence intervals
 #'     \item "risk_vs_effect": Quadrant scatterplot comparing overall risk to intersectional effect
 #'     \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
-#'     \item "ternary": Ternary plot analyzing the dimensional breakdown of variance
+#'     \item "ternary": Ternary diagnostic of the relative additive, intersectional, and uncertainty signals per stratum (a normalized-magnitude diagnostic, not a variance decomposition)
 #'     \item "prediction_deviation": Detailed deviation panels for individuals or strata
 #'     \item "all": Generate all available plots (default if not specified)
 #'   }

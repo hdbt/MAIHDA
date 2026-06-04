@@ -289,7 +289,15 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       ggplot2::geom_hline(ggplot2::aes(yintercept = .data$mean_fitted[1]), linetype = "dashed") +
       ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = .data$id), size = 3, min.segment.length = 0) +
       ggplot2::scale_color_manual(values = c("Above Mean" = "#0072B2", "Below Mean" = "#D55E00")) +
-      ggplot2::labs(x = x_label, y = "Fitted Value", color = "Direction", size = "Deviation\nMagnitude") +
+      ggplot2::labs(
+        x = x_label, y = "Fitted Value", color = "Direction", size = "Deviation\nMagnitude",
+        caption = if (identical(x_label, "Stratum Rank")) {
+          paste("Stratum intervals are approximate: the mean of the individual",
+                "prediction SEs, not the SE of the stratum-mean prediction.")
+        } else {
+          NULL
+        }
+      ) +
       ggplot2::theme_minimal()
 
     return(patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 2)))
@@ -392,7 +400,11 @@ is_aggregated <- "stratum" %in% names(df)
     if (is_aggregated) {
       p2 <- p2 +
         ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_res_dev), alpha = 0.8) +
-        ggplot2::labs(x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|")
+        ggplot2::labs(
+          x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|",
+          caption = paste("Stratum intervals are approximate: the mean of the individual",
+                          "prediction SEs, not the SE of the stratum-mean prediction.")
+        )
     } else {
       p2 <- p2 +
         ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_res_dev, shape = .data$obs_outcome), alpha = 0.8)

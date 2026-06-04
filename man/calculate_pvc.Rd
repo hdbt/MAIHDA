@@ -2,7 +2,7 @@
 % Please edit documentation in R/calculate_pvc.R
 \name{calculate_pvc}
 \alias{calculate_pvc}
-\title{Calculate Proportional Change in Between-Stratum Variance (PVC)}
+\title{Calculate Proportional Change in Between-Stratum Variance (PCV)}
 \usage{
 calculate_pvc(
   model1,
@@ -20,7 +20,7 @@ reference model (typically a simpler or baseline model).}
 comparison model (typically a more complex model with additional predictors).}
 
 \item{bootstrap}{Logical indicating whether to compute bootstrap confidence
-intervals for PVC. Default is FALSE.}
+intervals for the PCV. Default is FALSE.}
 
 \item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.}
 
@@ -36,10 +36,12 @@ A list containing:
   \item{bootstrap}{Logical indicating if bootstrap was used}
 }
 \description{
-Calculates the proportional change in between-stratum variance (PVC) between
-two MAIHDA models. The PVC measures how much the between-stratum variance
+Calculates the proportional change in between-stratum variance (PCV) between
+two MAIHDA models. The PCV measures how much the between-stratum variance
 changes when moving from one model to another, and is calculated as:
-PVC = (Var_model1 - Var_model2) / Var_model1
+PCV = (Var_model1 - Var_model2) / Var_model1.
+(The function and result object retain the historical "pvc" naming;
+\dQuote{PVC} and \dQuote{PCV} refer to the same quantity.)
 }
 \details{
 The PVC is interpreted as the proportional reduction (or increase if negative)

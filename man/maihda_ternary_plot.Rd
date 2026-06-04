@@ -4,12 +4,10 @@
 \alias{maihda_ternary_plot}
 \title{Generate Ternary Plot from MAIHDA Model}
 \usage{
-maihda_ternary_plot(model, summary_obj = NULL, ...)
+maihda_ternary_plot(model, ...)
 }
 \arguments{
 \item{model}{A fitted MAIHDA model.}
-
-\item{summary_obj}{Optional output from \code{summary_maihda}.}
 
 \item{...}{Additional arguments passed to \code{compute_maihda_ternary_data} and \code{\link{plot.maihda_ternary}}.}
 }
