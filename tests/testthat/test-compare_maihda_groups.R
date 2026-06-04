@@ -112,6 +112,39 @@ test_that("compare_maihda_groups reports VPC 0 (not an error) for a singular gro
   expect_true(cmp$vpc[cmp$group == "signal"] > cmp$vpc[cmp$group == "flat"])
 })
 
+test_that("compare_maihda_groups warns and names groups with a singular fit", {
+  # "flat" carries the identical response pattern in every stratum -> zero
+  # between-stratum variance -> a deterministically singular fit; "signal" has
+  # real between-stratum variance and must NOT be named in the warning.
+  flat <- data.frame(
+    grp = "flat",
+    gender = rep(c("F", "M"), each = 20),
+    race   = rep(rep(c("X", "Y"), each = 10), 2),
+    y = rep(c(-2, -1, 0, 1, 2), times = 8)
+  )
+  set.seed(3105)
+  signal <- data.frame(
+    grp = "signal",
+    gender = sample(c("F", "M"), 200, replace = TRUE),
+    race = sample(c("X", "Y"), 200, replace = TRUE)
+  )
+  sk <- interaction(signal$gender, signal$race, drop = TRUE)
+  signal$y <- rnorm(nlevels(sk), sd = 1.0)[sk] + rnorm(200, sd = 0.4)
+  d <- rbind(flat, signal)
+
+  w <- testthat::capture_warnings(
+    cmp <- compare_maihda_groups(y ~ 1 + (1 | gender:race), data = d, group = "grp")
+  )
+  fit_warn <- w[grepl("fit problems", w, fixed = TRUE)]
+  expect_length(fit_warn, 1)
+  expect_match(fit_warn, "singular fit: flat")
+  # The non-singular group must not be named in the diagnostics warning.
+  expect_false(grepl("signal", fit_warn))
+  # The fit still completed, so status stays "ok"; the warning is the signal.
+  expect_equal(cmp$status[cmp$group == "flat"], "ok")
+  expect_equal(cmp$status[cmp$group == "signal"], "ok")
+})
+
 test_that("compare_maihda_groups reports the analytic n after NA handling", {
   set.seed(3011)
   n <- 160

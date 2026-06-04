@@ -102,6 +102,12 @@ instead reported with a "fit failed" status rather than a pre-fit skip. A
 singular fit yields a VPC of 0 rather than an error (unlike
 \code{\link{calculate_pvc}}). A hard fit failure in one group records \code{NA}
 and a status note without aborting the whole comparison.
+
+Fit-quality diagnostics: for the \code{lme4} engine, groups whose model is
+singular or fails to converge keep a \code{status} of \code{"ok"} (the fit did
+complete) but are named in a single aggregated warning, because their VPC/ICC
+may be unreliable -- a singular fit usually pins the between-stratum variance at
+the boundary, giving a VPC of 0.
 }
 \examples{
 \donttest{
