@@ -7,7 +7,6 @@ Compute Ternary Data for MAIHDA Models
 ``` r
 compute_maihda_ternary_data(
   model,
-  summary_obj = NULL,
   scale = c("link", "response"),
   reference_values = NULL,
   uncertainty_method = c("auto", "se", "ci_width", "posterior_sd"),
@@ -21,10 +20,6 @@ compute_maihda_ternary_data(
 - model:
 
   A fitted MAIHDA model object from \`fit_maihda()\`.
-
-- summary_obj:
-
-  Optional output from \`summary()\`.
 
 - scale:
 

@@ -1,9 +1,11 @@
-# Calculate Proportional Change in Between-Stratum Variance (PVC)
+# Calculate Proportional Change in Between-Stratum Variance (PCV)
 
-Calculates the proportional change in between-stratum variance (PVC)
-between two MAIHDA models. The PVC measures how much the between-stratum
+Calculates the proportional change in between-stratum variance (PCV)
+between two MAIHDA models. The PCV measures how much the between-stratum
 variance changes when moving from one model to another, and is
-calculated as: PVC = (Var_model1 - Var_model2) / Var_model1
+calculated as: PCV = (Var_model1 - Var_model2) / Var_model1. (The
+function and result object retain the historical "pvc" naming; “PVC” and
+“PCV” refer to the same quantity.)
 
 ## Usage
 
@@ -35,7 +37,7 @@ calculate_pvc(
 - bootstrap:
 
   Logical indicating whether to compute bootstrap confidence intervals
-  for PVC. Default is FALSE.
+  for the PCV. Default is FALSE.
 
 - n_boot:
 

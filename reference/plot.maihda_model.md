@@ -42,8 +42,9 @@ plot(
   - "effect_decomp": Visualizes additive vs intersectional deviation
     from global mean
 
-  - "ternary": Ternary plot analyzing the dimensional breakdown of
-    variance
+  - "ternary": Ternary diagnostic of the relative additive,
+    intersectional, and uncertainty signals per stratum (a
+    normalized-magnitude diagnostic, not a variance decomposition)
 
   - "prediction_deviation": Detailed deviation panels for individuals or
     strata

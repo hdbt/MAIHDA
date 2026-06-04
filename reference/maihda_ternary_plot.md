@@ -5,7 +5,7 @@ Generate Ternary Plot from MAIHDA Model
 ## Usage
 
 ``` r
-maihda_ternary_plot(model, summary_obj = NULL, ...)
+maihda_ternary_plot(model, ...)
 ```
 
 ## Arguments
@@ -13,10 +13,6 @@ maihda_ternary_plot(model, summary_obj = NULL, ...)
 - model:
 
   A fitted MAIHDA model.
-
-- summary_obj:
-
-  Optional output from `summary_maihda`.
 
 - ...:
 

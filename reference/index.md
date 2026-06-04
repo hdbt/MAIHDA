@@ -3,7 +3,7 @@
 ## All functions
 
 - [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
-  : Calculate Proportional Change in Between-Stratum Variance (PVC)
+  : Calculate Proportional Change in Between-Stratum Variance (PCV)
 - [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
   : Compare MAIHDA Models
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
