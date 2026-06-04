@@ -127,10 +127,16 @@ maihda_bootstrap_ci <- function(values, n_boot, conf_level, what = "VPC") {
 }
 
 maihda_validate_bootstrap_args <- function(n_boot, conf_level) {
+  # Forming an interval needs at least maihda_bootstrap_ci()'s minimum number of
+  # successful refits, so reject n_boot below that floor here -- failing fast with
+  # a clear message rather than only erroring later, after the bootstrap has run.
+  min_boot <- 10L
   if (!is.numeric(n_boot) || length(n_boot) != 1 ||
       is.na(n_boot) || !is.finite(n_boot) ||
-      n_boot < 1 || n_boot != floor(n_boot)) {
-    stop("'n_boot' must be a single positive whole number.", call. = FALSE)
+      n_boot < min_boot || n_boot != floor(n_boot)) {
+    stop("'n_boot' must be a single whole number >= ", min_boot,
+         " (at least ", min_boot, " successful refits are required to form an interval).",
+         call. = FALSE)
   }
 
   list(n_boot = as.integer(n_boot), conf_level = maihda_validate_conf_level(conf_level))
@@ -189,14 +195,55 @@ maihda_binary_to_01 <- function(x) {
   as.integer(out)
 }
 
-# Complete-case row mask over the model variables in `formula` that are present
-# in `data` -- the analytic sample lme4/brms actually fit.
-maihda_complete_model_rows <- function(formula, data) {
-  model_vars <- intersect(all.vars(formula), names(data))
-  if (length(model_vars) == 0) {
-    return(rep(TRUE, nrow(data)))
+# The analytic model frame lme4/brms will actually fit: response and fixed-effect
+# transformations are applied, the grouping variables are retained, and rows that
+# are missing after those transformations are dropped (na.omit). An optional
+# `subset` expression (the lme4/brms `subset=` argument) is applied first. This is
+# what the binary auto-detection and the small-sample guards key off, so they see
+# exactly the rows the model uses rather than the raw columns -- which ignore
+# transformations (e.g. log(x) of a non-positive value) and subsetting. Returns
+# NULL when the frame cannot be built (callers fall back to a raw check).
+maihda_analytic_model_frame <- function(formula, data, subset = NULL,
+                                        subset_env = parent.frame()) {
+  if (!is.null(subset)) {
+    keep <- tryCatch(eval(subset, envir = data, enclos = subset_env),
+                     error = function(e) NULL)
+    if (!is.null(keep)) {
+      keep <- if (is.logical(keep)) {
+        !is.na(keep) & keep
+      } else {
+        seq_len(nrow(data)) %in% keep
+      }
+      data <- data[keep, , drop = FALSE]
+    }
   }
-  stats::complete.cases(data[, model_vars, drop = FALSE])
+
+  fr_form <- tryCatch(reformulas::subbars(formula), error = function(e) NULL)
+  if (is.null(fr_form)) {
+    return(NULL)
+  }
+  environment(fr_form) <- environment(formula)
+  tryCatch(
+    stats::model.frame(fr_form, data = data, na.action = stats::na.omit),
+    error = function(e) NULL
+  )
+}
+
+# The model response over the analytic sample (post-transformation, post-NA and
+# post-subset). Only plain-symbol responses qualify as a Bernoulli candidate, so a
+# transformed or aggregated response (log(y), cbind(s, f), `y | trials(n)`) yields
+# NULL -- meaning "not a single two-level response".
+maihda_analytic_response <- function(formula, data, subset = NULL,
+                                     subset_env = parent.frame()) {
+  if (length(formula) != 3L || !is.symbol(formula[[2]])) {
+    return(NULL)
+  }
+  fr <- maihda_analytic_model_frame(formula, data, subset = subset,
+                                    subset_env = subset_env)
+  if (is.null(fr)) {
+    return(NULL)
+  }
+  tryCatch(stats::model.response(fr), error = function(e) NULL)
 }
 
 # Recode a vector to 0/1 using exactly two reference levels: the first level
@@ -206,24 +253,27 @@ maihda_recode_to_01 <- function(x, levels_2) {
   as.integer(match(as.character(x), key) - 1L)
 }
 
-maihda_prepare_binomial_response <- function(data, formula) {
+maihda_prepare_binomial_response <- function(data, formula, subset = NULL,
+                                             subset_env = parent.frame()) {
   response <- formula[[2]]
   if (!is.symbol(response)) {
     return(data)
   }
 
   outcome <- as.character(response)
-  # Recode against the analytic (complete-case) sample, matching the binary
-  # detection in fit_maihda(). A character/factor outcome whose third value
-  # appears only on rows dropped for missing covariates is still recoded to 0/1;
-  # the out-of-sample value becomes NA (and is dropped) rather than left as a
-  # stray level that glmer() would reject.
-  if (!outcome %in% names(data) || !maihda_response_is_binary(formula, data)) {
+  # Recode against the analytic sample lme4/glmer actually fits (transformations
+  # applied, missing rows and any `subset` dropped), matching the binary detection
+  # in fit_maihda(). A character/factor outcome whose third value appears only on
+  # excluded rows is still recoded to 0/1; the out-of-sample value becomes NA (and
+  # is dropped) rather than left as a stray level that glmer() would reject.
+  resp <- maihda_analytic_response(formula, data, subset = subset,
+                                   subset_env = subset_env)
+  if (!outcome %in% names(data) || is.null(resp) ||
+      !maihda_is_binary_vector(resp)) {
     return(data)
   }
 
-  keep <- maihda_complete_model_rows(formula, data)
-  analytic_levels <- maihda_binary_levels(data[[outcome]][keep])
+  analytic_levels <- maihda_binary_levels(resp)
   data[[outcome]] <- maihda_recode_to_01(data[[outcome]], analytic_levels)
   data
 }
@@ -233,23 +283,18 @@ maihda_prepare_binomial_response <- function(data, formula) {
 # as cbind(success, failure) or `y | trials(n)` are calls, not symbols, so they
 # return FALSE and must remain a binomial() model.
 #
-# The check is evaluated on the analytic sample (complete cases over the model
-# variables), matching what lme4/brms actually fit: a response that is 0/1 once
-# rows with missing covariates are dropped is still recognised as Bernoulli.
-maihda_response_is_binary <- function(formula, data) {
-  if (length(formula) != 3L) {
+# The check is evaluated on the analytic sample lme4/brms actually fits -- the
+# model frame after applying transformations, dropping missing rows, and applying
+# any `subset` -- so a response that is 0/1 only once excluded rows are removed is
+# still recognised as Bernoulli.
+maihda_response_is_binary <- function(formula, data, subset = NULL,
+                                      subset_env = parent.frame()) {
+  resp <- maihda_analytic_response(formula, data, subset = subset,
+                                   subset_env = subset_env)
+  if (is.null(resp)) {
     return(FALSE)
   }
-  response <- formula[[2]]
-  if (!is.symbol(response)) {
-    return(FALSE)
-  }
-  outcome <- as.character(response)
-  if (!outcome %in% names(data)) {
-    return(FALSE)
-  }
-
-  maihda_is_binary_vector(data[[outcome]][maihda_complete_model_rows(formula, data)])
+  maihda_is_binary_vector(resp)
 }
 
 # TRUE if a random-effect grouping expression is a plain variable or a colon
@@ -655,6 +700,12 @@ maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
 
   latent_families <- c("binomial", "bernoulli", "quasibinomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
   if (fam$family == "gaussian") {
+    # Only the identity link yields a coherent VPC: attr(vc, "sc")^2 is the
+    # residual variance on the response scale, while the between-stratum variance
+    # is on the linear-predictor (link) scale. With a non-identity link (e.g.
+    # gaussian(link = "log")) the two live on different scales, so their ratio is
+    # not a valid variance partition.
+    maihda_stop_gaussian_non_identity_vpc(fam$link)
     return(attr(vc, "sc")^2)
   }
   if (fam$family %in% latent_families && fam$link == "logit") {
@@ -677,6 +728,20 @@ maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
        "' with link '", fam$link, "'.")
 }
 
+# A Gaussian model with a non-identity link mixes a response-scale residual
+# variance with a link-scale between-stratum variance, so no valid VPC/ICC exists.
+# Raise one clear, shared error rather than silently returning an invalid ratio.
+maihda_stop_gaussian_non_identity_vpc <- function(link) {
+  if (identical(link, "identity")) {
+    return(invisible(NULL))
+  }
+  stop("VPC/ICC is not available for a Gaussian model with a non-identity link ",
+       "(here '", link, "'): the residual variance is on the response scale while ",
+       "the between-stratum variance is on the link scale, so their ratio is not a ",
+       "valid variance partition. Refit with the identity link, or transform the ",
+       "outcome and use gaussian(link = \"identity\").", call. = FALSE)
+}
+
 maihda_residual_variance_brms <- function(model) {
   fam <- maihda_family(model)
   if (is.null(fam)) {
@@ -685,6 +750,9 @@ maihda_residual_variance_brms <- function(model) {
 
   latent_families <- c("binomial", "bernoulli", "quasibinomial", "cumulative", "sratio", "cratio", "acat", "ordinal")
   if (fam$family == "gaussian") {
+    # See maihda_residual_variance_lme4(): a non-identity Gaussian link mixes a
+    # response-scale residual with a link-scale random effect, so the VPC is invalid.
+    maihda_stop_gaussian_non_identity_vpc(fam$link)
     sigma_est <- tryCatch(stats::sigma(model), error = function(e) NA_real_)
     if (length(sigma_est) > 0 && is.finite(sigma_est[1])) {
       return(as.numeric(sigma_est[1]^2))
@@ -802,6 +870,8 @@ maihda_residual_variance_draws_brms <- function(model, draws) {
                        "sratio", "cratio", "acat", "ordinal")
 
   if (fam$family == "gaussian") {
+    # A non-identity Gaussian link mixes scales (see maihda_residual_variance_lme4()).
+    maihda_stop_gaussian_non_identity_vpc(fam$link)
     if ("sigma" %in% names(draws)) {
       return(as.numeric(draws[["sigma"]])^2)
     }

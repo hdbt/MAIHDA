@@ -69,13 +69,25 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     stop("'engine' should be one of: lme4, brms", call. = FALSE)
   }
 
+  # Capture the caller's scope and the unevaluated `...` expressions up front. The
+  # dots are spliced into the engine call later (rather than forwarded straight
+  # through `...`), so data-masked lme4/brms arguments such as weights=, subset=
+  # and offset= resolve against the data and the caller's variables instead of
+  # failing with a "..1 used in an incorrect context" error.
+  caller_env <- parent.frame()
+  dots <- match.call(expand.dots = FALSE)[["..."]]
+  subset_expr <- if (!is.null(dots)) dots[["subset"]] else NULL
+
   # Automatically switch to binomial for binary outcomes if family is default.
-  # Detect on the analytic (complete-case) sample so an outcome that is only 0/1
-  # once rows with missing covariates are dropped is still recognised as binary
+  # Detect on the analytic sample lme4/brms will actually fit -- the model frame
+  # after transformations, NA-dropping and any `subset` -- so an outcome that is
+  # only 0/1 once excluded rows are removed is still recognised as binary
   # (consistent with maihda_response_is_binary() used for the brms routing below).
   if (missing(family)) {
-    is_binary <- tryCatch(maihda_response_is_binary(formula, data),
-                          error = function(e) FALSE)
+    is_binary <- tryCatch(
+      maihda_response_is_binary(formula, data, subset = subset_expr,
+                                subset_env = caller_env),
+      error = function(e) FALSE)
     if (isTRUE(is_binary)) {
       warning("The outcome variable appears to be binary. Automatically switching to family = 'binomial'. To fit a Linear Probability Model, explicitly specify family = 'gaussian'.", call. = FALSE)
       family <- "binomial"
@@ -171,21 +183,39 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # accept 0/1). Aggregated binomial responses -- cbind(success, failure) or
   # `y | trials(n)` -- are left untouched and remain binomial() models.
   is_binomial_family <- family$family %in% c("binomial", "quasibinomial")
-  response_is_binary <- is_binomial_family && maihda_response_is_binary(formula, data)
+  response_is_binary <- is_binomial_family &&
+    maihda_response_is_binary(formula, data, subset = subset_expr,
+                              subset_env = caller_env)
   if (response_is_binary) {
-    data <- maihda_prepare_binomial_response(data, formula)
+    data <- maihda_prepare_binomial_response(data, formula, subset = subset_expr,
+                                             subset_env = caller_env)
   }
 
-  # Fit model based on engine
+  # Build the engine call explicitly and evaluate it in an environment that
+  # exposes the processed `data`, so the `...` arguments (including data-masked
+  # ones such as weights=/subset=/offset=) are resolved by lme4/brms against the
+  # data and the caller's scope. Forwarding them straight through `...` makes lme4
+  # capture them as `..1`/`..2` promises it cannot evaluate, which fails with
+  # "..1 used in an incorrect context". Pointing the formula's environment at the
+  # caller lets non-data variables in those arguments resolve where the user wrote
+  # the model.
+  # `data` is bound here (not in fit_maihda's frame, which fit_env does not see) so
+  # the call below can refer to it by the natural name. R resolves function calls
+  # separately from value bindings, so this does not shadow the base data() function.
+  fit_env <- new.env(parent = caller_env)
+  fit_env$data <- data
+  environment(formula) <- caller_env
+
   if (engine == "lme4") {
     # Use lmer only for Gaussian with the identity link -- lmer takes no family
     # argument and silently ignores a non-identity link. Route a non-identity
     # Gaussian (e.g. gaussian(link = "log")) through glmer() so the link is
     # actually honoured, consistent with the family reported on the result.
-    if (family$family == "gaussian" && family$link == "identity") {
-      model <- lme4::lmer(formula, data = data, ...)
-    } else {
-      model <- lme4::glmer(formula, data = data, family = family, ...)
+    use_lmer <- family$family == "gaussian" && family$link == "identity"
+    fit_fun <- if (use_lmer) quote(lme4::lmer) else quote(lme4::glmer)
+    fit_args <- list(formula = formula, data = quote(data))
+    if (!use_lmer) {
+      fit_args$family <- family
     }
   } else if (engine == "brms") {
     # Check if brms is installed
@@ -201,8 +231,13 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       family <- brms::bernoulli(link = family$link)
     }
 
-    model <- brms::brm(formula, data = data, family = family, ...)
+    fit_fun <- quote(brms::brm)
+    fit_args <- list(formula = formula, data = quote(data),
+                     family = family)
   }
+
+  fit_call <- as.call(c(list(fit_fun), fit_args, as.list(dots)))
+  model <- eval(fit_call, fit_env)
 
   # Capture fit-quality diagnostics (singular fit / non-convergence) so they can
   # be reported by print()/summary(); lme4 surfaces these only once at fit time.

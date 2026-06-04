@@ -460,6 +460,64 @@ test_that("predict_maihda errors clearly for out-of-range numeric auto-bins", {
   )
 })
 
+test_that("VPC/ICC errors for a Gaussian model with a non-identity link", {
+  set.seed(2001)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(8), each = 25)),
+    x = rnorm(200)
+  )
+  stratum_u <- rnorm(8, sd = 0.3)[d$stratum]
+  d$y <- exp(0.5 + 0.2 * d$x + stratum_u) * rlnorm(200, 0, 0.15)
+
+  model <- suppressWarnings(
+    fit_maihda(y ~ x + (1 | stratum), data = d, family = gaussian(link = "log"))
+  )
+  # The log link is honoured (routed through glmer), but the VPC mixes a
+  # response-scale residual with a link-scale random effect, so it must error
+  # rather than report an invalid partition.
+  expect_equal(model$family$link, "log")
+  expect_error(summary(model), "non-identity link", fixed = TRUE)
+  expect_error(
+    MAIHDA:::maihda_residual_variance_lme4(model$model),
+    "non-identity link", fixed = TRUE
+  )
+})
+
+test_that("fit_maihda forwards data-masked weights= and subset= to lme4", {
+  set.seed(2004)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(8), each = 25)),
+    x = rnorm(200)
+  )
+  d$y <- 1 + 0.4 * d$x + rnorm(8, sd = 0.6)[d$stratum] + rnorm(200, sd = 0.3)
+  d$w <- runif(200, 0.5, 1.5)
+
+  # Both reproduced a "..1 used in an incorrect context" error before the call was
+  # built explicitly. weights= is a column of `data`; subset= is an expression over it.
+  expect_s3_class(
+    fit_maihda(y ~ x + (1 | stratum), data = d, weights = w),
+    "maihda_model"
+  )
+  m_sub <- fit_maihda(y ~ x + (1 | stratum), data = d, subset = x > 0)
+  expect_s3_class(m_sub, "maihda_model")
+  expect_equal(as.integer(stats::nobs(m_sub$model)), sum(d$x > 0))
+})
+
+test_that("bootstrap n_boot must clear the 10-refit minimum up front", {
+  set.seed(2006)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(6), each = 20)),
+    x = rnorm(120)
+  )
+  d$y <- 1 + 0.3 * d$x + rnorm(6, sd = 0.6)[d$stratum] + rnorm(120, sd = 0.3)
+  model <- fit_maihda(y ~ x + (1 | stratum), data = d)
+
+  expect_error(
+    summary(model, bootstrap = TRUE, n_boot = 5),
+    "n_boot' must be a single whole number >= 10", fixed = TRUE
+  )
+})
+
 test_that("ternary additive component is invariant to row order", {
   set.seed(1007)
   d <- data.frame(

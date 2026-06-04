@@ -20,8 +20,8 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 - **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
 - **Summaries & Decompositions**: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)
 - **Multiple Prediction Types**: Individual-level and stratum-level predictions
-- **Visualizations**: Predicted stratum values, VPC visualizations, risk/effect diagnostics, and observed vs. shrunken estimates
-- **Model Comparison**: Compare models with robust bootstrap confidence intervals for VPC/ICC
+- **Visualizations**: Predicted stratum values, VPC visualizations, mean-prediction vs. stratum-effect diagnostics, and observed vs. shrunken estimates
+- **Model Comparison**: Compare models with parametric-bootstrap confidence intervals for VPC/ICC
 - **Group Comparison**: `compare_maihda_groups()` contrasts intersectional inequality (VPC/ICC) across levels of a higher-level variable such as country or region
 - **Proportional Change in Variance (PCV)**: Quantify how much between-stratum variance is explained by additional predictors
 
@@ -62,7 +62,7 @@ model <- fit_maihda(
 # 2. Summarize the model (Variance Partition Coefficient, stratum estimates)
 summary(model)
 
-# 3. Visualize results (Predicted outputs, VPC, Risk vs. Effect, etc.)
+# 3. Visualize results (Predicted outputs, VPC, Mean Prediction vs. Stratum Effect, etc.)
 plot(model)
 ```
 
@@ -100,14 +100,14 @@ Creates various visualizations:
 - **Predicted**: Predicted stratum values with confidence intervals
 - **VPC plots**: Visualizes variance partitioning
 - **Observed vs. Shrunken**: Shows shrinkage of stratum estimates
-- **Risk vs Effect**: Visualizes baseline strata risk against intersectional effect size
+- **Mean Prediction vs. Stratum Effect**: Plots each stratum's mean predicted outcome against its stratum random effect (the direction of "worse"/"better" depends on the outcome, so it is not framed as risk)
 - **Effect Decomp**: Additive versus specific interaction decompositions
 
 ### `maihda_ternary_plot()`
 Generates a ternary diagnostic plot. For each stratum it normalizes three magnitudes to sum to 1: the additive signal (how far the fixed-effect-only prediction sits from the grand mean), the intersection-specific signal (the magnitude of the stratum random effect), and the uncertainty in that estimate. It is a relative-signal diagnostic, not a formal variance decomposition.
 
 ### `plot_prediction_deviation_panels()`
-Creates an advanced, publication-ready two-panel dashboard for visualizing predicted values and identifying extreme/deviant cases in individual predictions.
+Creates an advanced, publication-ready two-panel dashboard for visualizing predicted values and highlighting the most notable cases or strata. What counts as notable depends on the model type — the largest deviation from the mean prediction (Gaussian/Poisson), the largest absolute deviance residual (binomial), or the most surprising observation (ordinal) — and the labelled points are not regression-diagnostic outliers.
 
 ### `compare_maihda()`
 Compares VPC/ICC across multiple models with optional bootstrap confidence intervals.
@@ -116,14 +116,14 @@ Compares VPC/ICC across multiple models with optional bootstrap confidence inter
 Compares intersectional inequality (VPC/ICC and between-/within-stratum variance) across the levels of a higher-level grouping variable such as country, region, or survey wave, fitting a stratified MAIHDA model per group. Visualize with `plot(result, type = "vpc")`. The bundled `maihda_country_data` (OECD PISA 2018; gender × socioeconomic-status strata across six countries) is built to demonstrate this.
 
 ### `calculate_pvc()`
-Calculates the proportional change in between-stratum variance (PCV) between two models — how much of the baseline model's between-stratum variance is explained (or changed) by adding predictors in a second model.
+Calculates the proportional change in between-stratum variance (PCV) between two models. It is the share of the baseline model's between-stratum variance explained by the second model only when the second nests the first (adding predictors on the same outcome, sample and strata); otherwise it is a model-dependent change in variance.
 
 - Formula: PCV = (Var_model1 - Var_model2) / Var_model1
 - Works with both lme4 and brms engines
 - Supports bootstrap confidence intervals for lme4 models
 
 ### `stepwise_pcv()`
-Evaluates multiple sequential models by iteratively adding covariates step-by-step to quantify precisely which variables explain the structural inequalities.
+Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step's PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model, so it is order-dependent rather than an order-invariant "unique" contribution.
 
 ### `run_maihda_app()`
 Launches a locally-hosted, interactive Shiny Dashboard that exposes the core functionalities for data modeling, visualization, and summarization visually.
@@ -214,8 +214,10 @@ print(pvc_result)
 pvc_boot <- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 1000)
 print(pvc_boot)
 
-# Interpretation: A PCV of 0.25 means that model2 explains 25% of the
-# between-stratum variance that was present in model1
+# Interpretation: A PCV of 0.25 means the between-stratum variance is 25% lower in
+# model2 than in model1. This is "variance explained" by the added predictors only
+# when model2 nests model1 (same outcome, sample and strata); otherwise read it as
+# a model-dependent change in between-stratum variance.
 ```
 
 ## Stepwise Proportional Change in Variance (PCV)
