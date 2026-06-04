@@ -327,6 +327,12 @@ plot_comparison <- function(comparison_df) {
 #' \code{\link{calculate_pvc}}). A hard fit failure in one group records \code{NA}
 #' and a status note without aborting the whole comparison.
 #'
+#' Fit-quality diagnostics: for the \code{lme4} engine, groups whose model is
+#' singular or fails to converge keep a \code{status} of \code{"ok"} (the fit did
+#' complete) but are named in a single aggregated warning, because their VPC/ICC
+#' may be unreliable -- a singular fit usually pins the between-stratum variance at
+#' the boundary, giving a VPC of 0.
+#'
 #' @examples
 #' \donttest{
 #' data(maihda_country_data)
@@ -417,6 +423,11 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   }
 
   rows <- vector("list", length(group_levels))
+  # Collect groups whose lme4 fit was singular or failed to converge, so a single
+  # aggregated warning can be raised at the end (these make a group's VPC
+  # unreliable). brms fits report NA here and are diagnosed via Rhat elsewhere.
+  singular_groups <- character(0)
+  nonconverged_groups <- character(0)
 
   for (gi in seq_along(group_levels)) {
     g <- group_levels[gi]
@@ -488,6 +499,13 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     row$n_strata <- length(unique(stats::na.omit(fit_obj$model$data$stratum)))
     row$status <- "ok"
 
+    # Flag fit-quality problems (singular / non-converged) for an aggregated
+    # warning. The fit still "succeeded" (status stays "ok"), but the VPC may be
+    # unreliable -- a singular fit typically pins the stratum variance at 0.
+    diag <- fit_obj$model$diagnostics
+    if (isTRUE(diag$singular)) singular_groups <- c(singular_groups, g)
+    if (isFALSE(diag$converged)) nonconverged_groups <- c(nonconverged_groups, g)
+
     # Keep whatever interval the summary provides -- an lme4 bootstrap CI or a
     # brms posterior credible interval -- rather than only the bootstrap flag,
     # which dropped brms intervals.
@@ -497,6 +515,25 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     }
 
     rows[[gi]] <- row
+  }
+
+  # Single aggregated warning when any group's lme4 fit was singular or did not
+  # converge, naming the affected groups so their VPCs can be read with caution.
+  diag_notes <- character(0)
+  if (length(singular_groups) > 0) {
+    diag_notes <- c(diag_notes,
+                    paste0("singular fit: ", paste(singular_groups, collapse = ", ")))
+  }
+  if (length(nonconverged_groups) > 0) {
+    diag_notes <- c(diag_notes,
+                    paste0("did not converge: ", paste(nonconverged_groups, collapse = ", ")))
+  }
+  if (length(diag_notes) > 0) {
+    warning("compare_maihda_groups(): lme4 reported fit problems (",
+            paste(diag_notes, collapse = "; "),
+            "). A singular fit means the between-stratum variance is at the boundary ",
+            "(often VPC = 0); a non-converged fit may be unreliable. Interpret these ",
+            "groups' VPC/ICC values with caution.", call. = FALSE)
   }
 
   out <- do.call(rbind, rows)
