@@ -24,6 +24,70 @@ maihda_linkinv <- function(fam) {
          stop("Unsupported link function for response-scale transformation: ", link, call. = FALSE))
 }
 
+# Capture fit-quality diagnostics (singular fit, non-convergence) so they can be
+# surfaced on demand. lme4 returns singular fits silently and only warns about
+# convergence once, at fit time, so we re-read both from the fitted object for
+# reporting in print()/summary(). brms (Stan) convergence is diagnosed elsewhere
+# via Rhat, so for brmsfit objects only the engine is recorded here.
+maihda_fit_diagnostics <- function(model) {
+  diagnostics <- list(
+    engine = NA_character_,
+    singular = NA,
+    converged = NA,
+    messages = character(0)
+  )
+
+  if (inherits(model, "merMod")) {
+    diagnostics$engine <- "lme4"
+    diagnostics$singular <- tryCatch(isTRUE(lme4::isSingular(model)),
+                                     error = function(e) NA)
+    msgs <- tryCatch(model@optinfo$conv$lme4$messages,
+                     error = function(e) NULL)
+    msgs <- as.character(msgs)
+    msgs <- msgs[nzchar(msgs)]
+    diagnostics$messages <- msgs
+    diagnostics$converged <- length(msgs) == 0
+  } else if (inherits(model, "brmsfit")) {
+    diagnostics$engine <- "brms"
+  }
+
+  structure(diagnostics, class = "maihda_fit_diagnostics")
+}
+
+# Format fit diagnostics as a character vector of report lines (empty when the fit
+# looks clean), shared by the maihda_model and maihda_summary print methods.
+maihda_format_fit_diagnostics <- function(diagnostics) {
+  if (is.null(diagnostics)) {
+    return(character(0))
+  }
+
+  out <- character(0)
+  if (isTRUE(diagnostics$singular)) {
+    out <- c(
+      out,
+      "Singular fit: at least one variance component is estimated at (or near) zero.",
+      "  The between-stratum variance and any VPC/PCV derived from it may be unreliable."
+    )
+  }
+  if (isFALSE(diagnostics$converged) && length(diagnostics$messages) > 0) {
+    out <- c(out, "Convergence warnings reported by lme4:",
+             paste0("  - ", diagnostics$messages))
+  }
+  out
+}
+
+# Print the fit-diagnostics block (nothing is printed for a clean fit).
+maihda_print_fit_diagnostics <- function(diagnostics) {
+  diag_lines <- maihda_format_fit_diagnostics(diagnostics)
+  if (length(diag_lines) == 0) {
+    return(invisible(NULL))
+  }
+  cat("Fit diagnostics:\n")
+  cat(paste0("  ", diag_lines), sep = "\n")
+  cat("\n\n")
+  invisible(NULL)
+}
+
 maihda_validate_conf_level <- function(conf_level) {
   if (!is.numeric(conf_level) || length(conf_level) != 1 ||
       is.na(conf_level) || !is.finite(conf_level) ||

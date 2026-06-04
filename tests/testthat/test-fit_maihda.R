@@ -198,6 +198,54 @@ test_that("fit_maihda routes a non-identity Gaussian link through glmer", {
   expect_equal(maihda_family(m$model)$link, "log")
 })
 
+test_that("maihda_fit_diagnostics flags a singular lme4 fit and stays quiet otherwise", {
+  # Every group carries the identical response pattern, so the between-group
+  # variance is exactly zero and lme4 returns a boundary (singular) fit.
+  d_sing <- data.frame(
+    g = factor(rep(seq_len(10), each = 5)),
+    y = rep(c(-2, -1, 0, 1, 2), times = 10)
+  )
+  m_sing <- suppressMessages(suppressWarnings(
+    lme4::lmer(y ~ 1 + (1 | g), data = d_sing)
+  ))
+  diag_sing <- MAIHDA:::maihda_fit_diagnostics(m_sing)
+  expect_s3_class(diag_sing, "maihda_fit_diagnostics")
+  expect_true(isTRUE(diag_sing$singular))
+  expect_true(any(grepl("Singular fit",
+                        MAIHDA:::maihda_format_fit_diagnostics(diag_sing))))
+
+  # A healthy fit with real between-group variance is silent.
+  set.seed(1)
+  d_ok <- data.frame(g = factor(rep(seq_len(20), each = 20)), x = rnorm(400))
+  d_ok$y <- rnorm(20, sd = 1)[d_ok$g] + 0.3 * d_ok$x + rnorm(400, sd = 0.5)
+  diag_ok <- MAIHDA:::maihda_fit_diagnostics(lme4::lmer(y ~ x + (1 | g), data = d_ok))
+  expect_false(isTRUE(diag_ok$singular))
+  expect_true(isTRUE(diag_ok$converged))
+  expect_length(MAIHDA:::maihda_format_fit_diagnostics(diag_ok), 0)
+})
+
+test_that("fit_maihda stores diagnostics and print/summary report a singular fit", {
+  # Identical response pattern in each of the four gender:race strata -> zero
+  # between-stratum variance -> singular fit, deterministically.
+  d <- data.frame(
+    gender = rep(c("F", "M"), each = 20),
+    race   = rep(rep(c("A", "B"), each = 10), 2),
+    y = rep(c(-2, -1, 0, 1, 2), times = 8)
+  )
+  m <- suppressMessages(suppressWarnings(
+    fit_maihda(y ~ 1 + (1 | gender:race), data = d)
+  ))
+  expect_s3_class(m$diagnostics, "maihda_fit_diagnostics")
+  expect_true(isTRUE(m$diagnostics$singular))
+
+  model_out <- paste(utils::capture.output(print(m)), collapse = "\n")
+  expect_match(model_out, "Singular fit")
+
+  summ_out <- paste(utils::capture.output(print(suppressWarnings(summary(m)))),
+                    collapse = "\n")
+  expect_match(summ_out, "Singular fit")
+})
+
 test_that("fit_maihda validates inputs", {
   data <- data.frame(x = 1:10, y = 1:10)
 

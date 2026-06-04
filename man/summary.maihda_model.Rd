@@ -30,6 +30,8 @@ A maihda_summary object containing:
   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
   \item{fixed_effects}{Fixed effects estimates}
   \item{model_summary}{Original model summary}
+  \item{diagnostics}{Fit-quality diagnostics (singular fit / convergence)
+    carried over from the fitted model and reported by the print method}
 }
 \description{
 Provides a summary of a MAIHDA model including variance partition coefficients

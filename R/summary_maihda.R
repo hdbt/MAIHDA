@@ -55,6 +55,8 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
 #'   \item{fixed_effects}{Fixed effects estimates}
 #'   \item{model_summary}{Original model summary}
+#'   \item{diagnostics}{Fit-quality diagnostics (singular fit / convergence)
+#'     carried over from the fitted model and reported by the print method}
 #'
 #' @note
 #' For \code{lme4} models a VPC/ICC interval is obtained from a parametric
@@ -200,7 +202,8 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       stratum_estimates = stratum_estimates,
       fixed_effects = fixed_effects,
       model_summary = model_summary,
-      engine = engine
+      engine = engine,
+      diagnostics = object$diagnostics
     ),
     class = "maihda_summary"
   )
@@ -259,6 +262,8 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
 print.maihda_summary <- function(x, ...) {
   cat("MAIHDA Model Summary\n")
   cat("====================\n\n")
+
+  maihda_print_fit_diagnostics(x$diagnostics)
 
   cat("Variance Partition Coefficient (VPC/ICC):\n")
   if (maihda_vpc_has_interval(x$vpc)) {

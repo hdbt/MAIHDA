@@ -49,6 +49,8 @@ A maihda_model object containing:
   \item{data}{The data used for fitting}
   \item{family}{The family used}
   \item{strata_info}{The strata information from make_strata() if available, NULL otherwise}
+  \item{diagnostics}{Fit-quality diagnostics (singular fit / convergence) for
+    lme4 models, surfaced by the print and summary methods}
 }
 \description{
 Fits a multilevel model for MAIHDA (Multilevel Analysis of Individual

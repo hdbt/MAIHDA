@@ -32,6 +32,8 @@
 #'   \item{data}{The data used for fitting}
 #'   \item{family}{The family used}
 #'   \item{strata_info}{The strata information from make_strata() if available, NULL otherwise}
+#'   \item{diagnostics}{Fit-quality diagnostics (singular fit / convergence) for
+#'     lme4 models, surfaced by the print and summary methods}
 #'
 #' @examples
 #' \donttest{
@@ -202,6 +204,10 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     model <- brms::brm(formula, data = data, family = family, ...)
   }
 
+  # Capture fit-quality diagnostics (singular fit / non-convergence) so they can
+  # be reported by print()/summary(); lme4 surfaces these only once at fit time.
+  diagnostics <- maihda_fit_diagnostics(model)
+
   # Store the actual analytic model frame so downstream calculations use the
   # same rows as lme4/brms after their NA handling.
   model_data <- maihda_model_frame(model, fallback = data)
@@ -222,7 +228,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       strata_info = strata_info,
       strata_vars = strata_vars,
       strata_sep = strata_sep,
-      strata_autobin_info = strata_autobin_info
+      strata_autobin_info = strata_autobin_info,
+      diagnostics = diagnostics
     ),
     class = "maihda_model"
   )
@@ -242,6 +249,7 @@ print.maihda_model <- function(x, ...) {
   cat("Engine:", x$engine, "\n")
   cat("Family:", x$family$family, "\n")
   cat("Formula:", deparse(x$formula), "\n\n")
+  maihda_print_fit_diagnostics(x$diagnostics)
   cat("Underlying model:\n")
   print(x$model, ...)
   invisible(x)

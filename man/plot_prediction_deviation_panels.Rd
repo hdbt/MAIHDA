@@ -22,7 +22,8 @@ plot_prediction_deviation_panels(
 
 \item{ordinal_mode}{For ordinal models: "surprise" (default, based on observation probability) or "expected_score".}
 
-\item{top_n_labels}{Number of extreme/deviant cases to label on the plot. Default is 5.}
+\item{top_n_labels}{Number of most-deviating cases (largest deviation from the
+mean prediction) to label on the plot. Default is 5.}
 
 \item{strata_info}{Optional data frame of strata labels, generally extracted from `maihda_model` objects.}
 }
@@ -30,6 +31,8 @@ plot_prediction_deviation_panels(
 A `patchwork` object containing two `ggplot2` panels.
 }
 \description{
-Creates an advanced, publication-ready two-panel dashboard for visualizing
-predicted values and identifying deviant cases in linear, binomial, or ordinal models.
+Creates an advanced, publication-ready two-panel dashboard for
+visualizing predicted values and highlighting the cases (or strata) whose
+predictions sit furthest from the mean. These are the largest deviations from
+the average prediction, not statistical outliers or model-misfit "deviants".
 }

@@ -10,7 +10,7 @@
 #'     \item "vpc": Variance partition coefficient visualization
 #'     \item "obs_vs_shrunken": Observed vs. shrunken stratum means
 #'     \item "predicted": Predicted values for each stratum with confidence intervals
-#'     \item "risk_vs_effect": Quadrant scatterplot comparing overall risk to intersectional effect
+#'     \item "risk_vs_effect": Quadrant scatterplot of each stratum's mean predicted outcome against its random effect
 #'     \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
 #'     \item "ternary": Ternary diagnostic of the relative additive, intersectional, and uncertainty signals per stratum (a normalized-magnitude diagnostic, not a variance decomposition)
 #'     \item "prediction_deviation": Detailed deviation panels for individuals or strata
@@ -395,14 +395,15 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
   return(p)
 }
 
-#' Risk vs. Intersectional Effect Plot
+#' Mean Prediction vs. Stratum Random Effect Plot
 #'
-#' Creates a quadrant scatterplot comparing overall marginal predicted risk against
-#' the stratum random effects (shrunken between-stratum deviations). Points
-#' represent strata. The random effect equals the \emph{pure} intersectional
-#' (interaction) component only when the additive main effects of the strata
-#' variables are included in the model; otherwise it also absorbs those omitted
-#' main effects.
+#' Creates a quadrant scatterplot comparing each stratum's mean predicted outcome
+#' against its stratum random effect (shrunken between-stratum deviation). Points
+#' represent strata. Whether a higher predicted value is "worse" or "better"
+#' depends on the outcome, so the axes are not framed as risk. The random effect
+#' equals the \emph{pure} intersectional (interaction) component only when the
+#' additive main effects of the strata variables are included in the model;
+#' otherwise it also absorbs those omitted main effects.
 #'
 #' @param object A maihda_model object
 #' @param summary_obj A maihda_summary object
@@ -426,8 +427,8 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
 
   if (object$engine == "brms" || inherits(object$model, "brmsfit")) {
     if (!requireNamespace("brms", quietly = TRUE)) {
-      stop("Package 'brms' is required to plot risk vs. effect for brms models.",
-           call. = FALSE)
+      stop("Package 'brms' is required to plot the mean prediction vs. stratum ",
+           "random effect for brms models.", call. = FALSE)
     }
     preds <- stats::fitted(object$model, newdata = data, re_formula = NA, summary = TRUE)[, "Estimate"]
   } else if (model_type %in% c("binomial", "quasibinomial")) {
@@ -465,7 +466,7 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
   }
   preds <- as.numeric(preds)
   if (length(preds) != nrow(data)) {
-    stop("Could not compute one risk prediction per analytic row.", call. = FALSE)
+    stop("Could not compute one prediction per analytic row.", call. = FALSE)
   }
 
   # Assign to dataframe and collapse to strata level average
@@ -486,7 +487,7 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
   if (is.null(stratum_est)) stop("No stratum estimates available for plotting")
   stratum_est$stratum <- as.character(stratum_est$stratum)
 
-  # Merge Risk (pred) + Effect (random)
+  # Merge mean prediction + stratum random effect
   plot_data <- merge(stratum_means, stratum_est, by = "stratum")
 
   # Map appropriate text labels to dots
@@ -505,8 +506,8 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
   } else {
     mean(plot_data$mean_predicted, na.rm = TRUE)
   }
-  x_title <- "Mean Predicted Value (Overall Risk)"
-  if (model_type %in% c("binomial", "quasibinomial")) x_title <- "Mean Predicted Probability (Risk)"
+  x_title <- "Mean Predicted Value"
+  if (model_type %in% c("binomial", "quasibinomial")) x_title <- "Mean Predicted Probability"
   if (inherits(object$model, "polr") || inherits(object$model, "clm") || inherits(object$model, "ordinal")) x_title <- "Average Expected Category Score"
 
   # Label the ones with largest intersectional residuals (positive or negative)
@@ -521,12 +522,13 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
     ggplot2::geom_point(ggplot2::aes(size = .data$n), alpha = 0.6, color = "#0072B2") +
     ggrepel::geom_label_repel(data = label_data, ggplot2::aes(label = .data$label), size = 3, min.segment.length = 0) +
     ggplot2::labs(
-      title = "Risk vs. Stratum Random Effect",
+      title = "Mean Prediction vs. Stratum Random Effect",
       subtitle = paste0(
-        "Marginal predicted scores vs stratum random effects.\n",
-        "The random effect is the pure intersectional (interaction) effect only ",
-        "when the strata main effects are in the model; otherwise it also includes ",
-        "those additive main effects."
+        "Mean predicted outcome per stratum vs the stratum random effect. ",
+        "Whether a higher predicted value is 'worse' or 'better' depends on the ",
+        "outcome.\nThe random effect is the pure intersectional (interaction) ",
+        "effect only when the strata main effects are in the model; otherwise it ",
+        "also includes those additive main effects."
       ),
       x = x_title,
       y = "Stratum random effect (between-stratum deviation)",

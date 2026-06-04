@@ -178,14 +178,17 @@ maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_
 
 #' Plot Prediction Deviation Panels
 #'
-#' @description Creates an advanced, publication-ready two-panel dashboard for visualizing
-#' predicted values and identifying deviant cases in linear, binomial, or ordinal models.
+#' @description Creates an advanced, publication-ready two-panel dashboard for
+#' visualizing predicted values and highlighting the cases (or strata) whose
+#' predictions sit furthest from the mean. These are the largest deviations from
+#' the average prediction, not statistical outliers or model-misfit "deviants".
 #'
 #' @param model A fitted model object (e.g., from `lm()`, `glm()`, `MASS::polr()`, or `lme4::glmer()`).
 #' @param data The original data frame used to fit the model. If `NULL`, attempts to extract from the model.
 #' @param type Model type: "auto" (default), "gaussian", "binomial", or "ordinal".
 #' @param ordinal_mode For ordinal models: "surprise" (default, based on observation probability) or "expected_score".
-#' @param top_n_labels Number of extreme/deviant cases to label on the plot. Default is 5.
+#' @param top_n_labels Number of most-deviating cases (largest deviation from the
+#'   mean prediction) to label on the plot. Default is 5.
 #' @param strata_info Optional data frame of strata labels, generally extracted from `maihda_model` objects.
 #'
 #' @return A `patchwork` object containing two `ggplot2` panels.
