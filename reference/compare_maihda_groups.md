@@ -135,6 +135,12 @@ rather than an error (unlike
 A hard fit failure in one group records `NA` and a status note without
 aborting the whole comparison.
 
+Fit-quality diagnostics: for the `lme4` engine, groups whose model is
+singular or fails to converge keep a `status` of `"ok"` (the fit did
+complete) but are named in a single aggregated warning, because their
+VPC/ICC may be unreliable – a singular fit usually pins the
+between-stratum variance at the boundary, giving a VPC of 0.
+
 ## See also
 
 [`compare_maihda`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)

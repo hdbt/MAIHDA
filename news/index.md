@@ -57,6 +57,11 @@
   [`summary()`](https://rdrr.io/r/base/summary.html) surface a “Fit
   diagnostics” note so a boundary/non-converged fit – which makes the
   VPC/PCV unreliable – is no longer silent.
+- [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now raises a single aggregated warning naming any group whose lme4 fit
+  was singular or failed to converge (per-group fits on small strata are
+  where this is most likely), so an unreliable per-group VPC – often
+  pinned at 0 by a boundary fit – is no longer silent.
 - The `"risk_vs_effect"` plot no longer frames the outcome axis as
   “risk”. A higher predicted value is not universally “bad” (it depends
   on the outcome), so the axis and title now read as a neutral “mean
