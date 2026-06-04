@@ -68,10 +68,62 @@
   predicted value/probability”, with a note that the direction depends
   on the outcome.
 - Clarified the documentation of
-  [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md):
-  it highlights the cases or strata whose predictions sit furthest from
-  the mean (the largest deviations), which are not statistical outliers
-  or model-misfit “deviants”.
+  [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
+  to match the implementation: the labelled points use a per-type metric
+  – deviation from the mean prediction for Gaussian/Poisson (and the
+  ordinal expected-score mode), the absolute deviance residual for
+  binomial, and surprise for the ordinal surprise mode – and are not
+  statistical outliers or model-misfit “deviants”.
+- Clarified that the per-group VPC/ICC in
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  is the between-stratum *share* of variance, which can differ across
+  groups because of the residual variance as well as the between-stratum
+  variance. The documentation now points to the `var_between` column for
+  comparing the absolute amount of intersectional variation, and notes
+  that overlap of separate per-group intervals is not a valid test of
+  whether two groups’ VPCs differ.
+- Clarified the PCV documentation
+  ([`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md),
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  and the print method): the PCV is a model-dependent change in
+  between-stratum variance and equals variance “explained” only when the
+  second model nests the first; the stepwise PCV is order-dependent and
+  not a variable’s unique contribution.
+
+### Bug Fixes
+
+- VPC/ICC is no longer reported for a Gaussian model fit with a
+  non-identity link (e.g. `gaussian(link = "log")`). The residual
+  variance is on the response scale while the between-stratum variance
+  is on the link scale, so
+  [`summary()`](https://rdrr.io/r/base/summary.html),
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md),
+  and
+  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  now raise a clear error instead of silently returning an invalid
+  variance partition.
+- Binary-outcome auto-detection now keys off the analytic model frame –
+  after applying covariate transformations (e.g. `log(x)`), dropping
+  rows with missing values, and applying any `subset=` – instead of the
+  raw outcome column. An outcome that is only 0/1 once excluded rows are
+  removed is now correctly fit with `family = "binomial"`.
+- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  now builds the `lmer()`/`glmer()`/`brm()` call explicitly when
+  forwarding `...`, so data-masked engine arguments such as `weights=`,
+  `subset=`, and `offset=` work instead of failing with “..1 used in an
+  incorrect context”.
+- [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
+  now plots Poisson/count models on the response (expected-count) scale
+  with count labels, rather than routing them through the Gaussian
+  link-scale branch.
+- `compare_maihda_groups(min_group_n = ...)` now guards the analytic
+  sample size (the rows the model actually fits) rather than the raw
+  group row count, so a group with enough raw rows but a tiny usable
+  sample is skipped instead of being fit on a handful of observations.
+- `n_boot` for bootstrap intervals must now be at least 10 (the minimum
+  number of successful refits an interval requires); an unusably small
+  `n_boot` fails immediately with a clear message instead of only
+  erroring after the bootstrap runs.
 
 ## MAIHDA 0.1.10
 

@@ -187,7 +187,7 @@ plot(model_adj, type = "predicted")
 # Variance partition (VPC) visualization
 plot(model_adj, type = "vpc")
 
-# Bivariate risk against stratum-level intersectional effect
+# Mean predicted outcome against the stratum random effect
 plot(model_adj, type = "risk_vs_effect")
 
 # Additive versus Intersectional Effect decomposition

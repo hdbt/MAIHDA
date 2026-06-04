@@ -77,11 +77,14 @@ A list containing:
 
 ## Details
 
-The PVC is interpreted as the proportional reduction (or increase if
-negative) in between-stratum variance when moving from model1 to model2.
-A positive PVC indicates that model2 explains some of the
-between-stratum variance present in model1, while a negative PVC
-suggests that model2 has more unexplained between-stratum variance.
+The PVC is the proportional change in between-stratum variance when
+moving from model1 to model2: a positive value means model2 has lower
+between-stratum variance, a negative value means higher. It is the share
+of model1's between-stratum variance *explained* by model2 only in the
+canonical nested case, where model2 adds fixed-effect predictors to
+model1 on the same outcome, analytic sample and strata. The function
+does not require nesting, so for non-nested models the PVC is simply a
+model-dependent difference in variance, not an explained proportion.
 
 When bootstrap = TRUE, the function uses a parametric bootstrap: it
 simulates new responses from model2 and refits both models with

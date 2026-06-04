@@ -81,7 +81,7 @@
 <strong>Create Intersectional Strata</strong>: Automatically generate strata from multiple categorical variables</li>
 <li><strong><a href="https://hdbt.shinyapps.io/shiny/" class="external-link">Interactive Dashboard</a></strong></li>
 </ul>
-<p>: A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html">run_maihda_app()</a></code>) for no-code exploratory data analysis and model fitting - <strong>Model Fitting</strong>: Support for both lme4 and brms (Bayesian) engines - <strong>Summaries &amp; Decompositions</strong>: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV) - <strong>Multiple Prediction Types</strong>: Individual-level and stratum-level predictions - <strong>Visualizations</strong>: Predicted stratum values, VPC visualizations, risk/effect diagnostics, and observed vs. shrunken estimates - <strong>Model Comparison</strong>: Compare models with robust bootstrap confidence intervals for VPC/ICC - <strong>Group Comparison</strong>: <code><a href="reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> contrasts intersectional inequality (VPC/ICC) across levels of a higher-level variable such as country or region - <strong>Proportional Change in Variance (PCV)</strong>: Quantify how much between-stratum variance is explained by additional predictors</p>
+<p>: A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html">run_maihda_app()</a></code>) for no-code exploratory data analysis and model fitting - <strong>Model Fitting</strong>: Support for both lme4 and brms (Bayesian) engines - <strong>Summaries &amp; Decompositions</strong>: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV) - <strong>Multiple Prediction Types</strong>: Individual-level and stratum-level predictions - <strong>Visualizations</strong>: Predicted stratum values, VPC visualizations, mean-prediction vs. stratum-effect diagnostics, and observed vs. shrunken estimates - <strong>Model Comparison</strong>: Compare models with parametric-bootstrap confidence intervals for VPC/ICC - <strong>Group Comparison</strong>: <code><a href="reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> contrasts intersectional inequality (VPC/ICC) across levels of a higher-level variable such as country or region - <strong>Proportional Change in Variance (PCV)</strong>: Quantify how much between-stratum variance is explained by additional predictors</p>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -117,7 +117,7 @@
 <span><span class="co"># 2. Summarize the model (Variance Partition Coefficient, stratum estimates)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 3. Visualize results (Predicted outputs, VPC, Risk vs. Effect, etc.)</span></span>
+<span><span class="co"># 3. Visualize results (Predicted outputs, VPC, Mean Prediction vs. Stratum Effect, etc.)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -178,7 +178,7 @@
 <li>
 <strong>Observed vs. Shrunken</strong>: Shows shrinkage of stratum estimates</li>
 <li>
-<strong>Risk vs Effect</strong>: Visualizes baseline strata risk against intersectional effect size</li>
+<strong>Mean Prediction vs. Stratum Effect</strong>: Plots each stratum’s mean predicted outcome against its stratum random effect (the direction of “worse”/“better” depends on the outcome, so it is not framed as risk)</li>
 <li>
 <strong>Effect Decomp</strong>: Additive versus specific interaction decompositions</li>
 </ul>
@@ -193,7 +193,7 @@
 <h3 id="plot_prediction_deviation_panels">
 <code>plot_prediction_deviation_panels()</code><a class="anchor" aria-label="anchor" href="#plot_prediction_deviation_panels"></a>
 </h3>
-<p>Creates an advanced, publication-ready two-panel dashboard for visualizing predicted values and identifying extreme/deviant cases in individual predictions.</p>
+<p>Creates an advanced, publication-ready two-panel dashboard for visualizing predicted values and highlighting the most notable cases or strata. What counts as notable depends on the model type — the largest deviation from the mean prediction (Gaussian/Poisson), the largest absolute deviance residual (binomial), or the most surprising observation (ordinal) — and the labelled points are not regression-diagnostic outliers.</p>
 </div>
 <div class="section level3">
 <h3 id="compare_maihda">
@@ -211,7 +211,7 @@
 <h3 id="calculate_pvc">
 <code>calculate_pvc()</code><a class="anchor" aria-label="anchor" href="#calculate_pvc"></a>
 </h3>
-<p>Calculates the proportional change in between-stratum variance (PCV) between two models — how much of the baseline model’s between-stratum variance is explained (or changed) by adding predictors in a second model.</p>
+<p>Calculates the proportional change in between-stratum variance (PCV) between two models. It is the share of the baseline model’s between-stratum variance explained by the second model only when the second nests the first (adding predictors on the same outcome, sample and strata); otherwise it is a model-dependent change in variance.</p>
 <ul>
 <li>Formula: PCV = (Var_model1 - Var_model2) / Var_model1</li>
 <li>Works with both lme4 and brms engines</li>
@@ -222,7 +222,7 @@
 <h3 id="stepwise_pcv">
 <code>stepwise_pcv()</code><a class="anchor" aria-label="anchor" href="#stepwise_pcv"></a>
 </h3>
-<p>Evaluates multiple sequential models by iteratively adding covariates step-by-step to quantify precisely which variables explain the structural inequalities.</p>
+<p>Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step’s PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model, so it is order-dependent rather than an order-invariant “unique” contribution.</p>
 </div>
 <div class="section level3">
 <h3 id="run_maihda_app">
@@ -318,8 +318,10 @@
 <span><span class="va">pvc_boot</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model1</span>, <span class="va">model2</span>, bootstrap <span class="op">=</span> <span class="cn">TRUE</span>, n_boot <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">pvc_boot</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Interpretation: A PCV of 0.25 means that model2 explains 25% of the</span></span>
-<span><span class="co"># between-stratum variance that was present in model1</span></span></code></pre></div>
+<span><span class="co"># Interpretation: A PCV of 0.25 means the between-stratum variance is 25% lower in</span></span>
+<span><span class="co"># model2 than in model1. This is "variance explained" by the added predictors only</span></span>
+<span><span class="co"># when model2 nests model1 (same outcome, sample and strata); otherwise read it as</span></span>
+<span><span class="co"># a model-dependent change in between-stratum variance.</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="stepwise-proportional-change-in-variance-pcv">Stepwise Proportional Change in Variance (PCV)<a class="anchor" aria-label="anchor" href="#stepwise-proportional-change-in-variance-pcv"></a>

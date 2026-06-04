@@ -119,11 +119,14 @@ intervals for the PCV. Default is FALSE.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The PVC is interpreted as the proportional reduction (or increase if negative)
-in between-stratum variance when moving from model1 to model2. A positive PVC
-indicates that model2 explains some of the between-stratum variance present in
-model1, while a negative PVC suggests that model2 has more unexplained
-between-stratum variance.</p>
+    <p>The PVC is the proportional change in between-stratum variance when moving from
+model1 to model2: a positive value means model2 has lower between-stratum
+variance, a negative value means higher. It is the share of model1's
+between-stratum variance <em>explained</em> by model2 only in the canonical nested
+case, where model2 adds fixed-effect predictors to model1 on the same outcome,
+analytic sample and strata. The function does not require nesting, so for
+non-nested models the PVC is simply a model-dependent difference in variance,
+not an explained proportion.</p>
 <p>When bootstrap = TRUE, the function uses a parametric bootstrap: it simulates
 new responses from model2 and refits both models with <code><a href="https://rdrr.io/pkg/lme4/man/refit.html" class="external-link">lme4::refit()</a></code> for
 each simulated response to obtain confidence intervals for the PVC estimate.</p>

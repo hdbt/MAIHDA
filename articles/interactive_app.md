@@ -56,9 +56,9 @@ Shiny Dashboard
   Bayesian **brms** models remain available from R code via
   `fit_maihda(engine = "brms")`.
 - Select covariates to control for within your models.
-- Choose whether to calculate **bootstrap confidence intervals** to get
-  robust uncertainty metrics for your Variance Partition Coefficient
-  (VPC / ICC).
+- Choose whether to calculate **parametric bootstrap confidence
+  intervals** to quantify the uncertainty in your Variance Partition
+  Coefficient (VPC / ICC).
 
 ### 4. Interactive Visualizations
 

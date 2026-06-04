@@ -68,9 +68,11 @@ compare_maihda_groups(
 
 - min_group_n:
 
-  Minimum number of rows a group must have (counted before model-frame
-  NA handling) to be modelled. Smaller groups are skipped with a
-  warning. Default 30.
+  Minimum size of the *analytic* sample a group must have – the rows
+  that survive the model frame (covariate transformations applied, rows
+  with a missing outcome/covariate dropped) – to be modelled. Groups
+  with a smaller usable sample are skipped with a warning, even if they
+  have more raw rows. Default 30.
 
 - bootstrap:
 
@@ -103,34 +105,47 @@ compare_maihda_groups(
 A `data.frame` of class `maihda_group_comparison` with one row per group
 and columns `group`, `n`, `n_strata`, `vpc`, `var_between`, `var_other`,
 `var_residual`, `status` (and `ci_lower`/`ci_upper` when
-`bootstrap = TRUE`). For successfully fitted groups `n` is the analytic
-sample size used by the model (after dropping rows with missing
-outcome/covariates); for skipped groups it is the raw group row count.
-`var_other` is the variance of any additional random effects and is 0
-for the canonical single-stratum model. Groups that were skipped or
-failed have `NA` metrics and an explanatory `status`.
+`bootstrap = TRUE`). `n` is the analytic sample size used by the model
+(after dropping rows with a missing outcome/covariate) for both fitted
+and skipped groups, falling back to the raw row count only when the
+model frame cannot be built. `var_other` is the variance of any
+additional random effects and is 0 for the canonical single-stratum
+model. Groups that were skipped or failed have `NA` metrics and an
+explanatory `status`.
 
 ## Details
 
-This addresses the question "is intersectional inequality larger in some
-groups than others?" by estimating one VPC per group. It is a stratified
-analysis: each group is modelled independently. It is *not* a
-cross-classified model and does not adjust the strata for the grouping
-variable. It is also **descriptive**: it reports each group's VPC (with
-an interval when available – an lme4 bootstrap CI or a brms credible
-interval) for side-by-side comparison, but does not perform a formal
-statistical test of whether the VPCs differ between groups, so judge
-differences against the reported intervals.
+It estimates one VPC per group as a stratified analysis: each group is
+modelled independently. It is *not* a cross-classified model and does
+not adjust the strata for the grouping variable.
 
-Robustness: a group with fewer than `min_group_n` rows is always skipped
-with a warning. A group with fewer than two populated strata is also
-skipped (VPC is undefined with a single stratum) when the stratum
-membership is known before fitting – that is, when
-`shared_strata = TRUE` or `data` already carries a `stratum` column.
-Under `shared_strata = FALSE` strata are rebuilt inside each group, so a
-degenerate single-stratum group is instead reported with a "fit failed"
-status rather than a pre-fit skip. A singular fit yields a VPC of 0
-rather than an error (unlike
+The VPC is the *share* of the unexplained variance that lies between
+strata, not the absolute magnitude of intersectional inequality. Because
+it is a ratio, a group's VPC can differ from another's because the
+between-stratum variance differs, because the within-stratum (residual)
+variance differs, or both – two groups with the same between-stratum
+variance can have very different VPCs. To compare the absolute amount of
+between-stratum (intersectional) variation across groups, read the
+returned `var_between` column alongside the VPC rather than treating a
+higher VPC as "more inequality".
+
+It is **descriptive**: it reports each group's VPC (with an interval
+when available – an lme4 bootstrap CI or a brms credible interval) for
+side-by-side comparison, but does not test whether the VPCs differ
+between groups. The per-group intervals describe each group's own
+uncertainty; whether two intervals overlap is *not* a valid test of the
+difference between their VPCs, which would require modelling that
+difference directly.
+
+Robustness: a group whose *analytic* sample (rows surviving the model
+frame) has fewer than `min_group_n` observations is always skipped with
+a warning. A group with fewer than two populated strata is also skipped
+(VPC is undefined with a single stratum) when the stratum membership is
+known before fitting – that is, when `shared_strata = TRUE` or `data`
+already carries a `stratum` column. Under `shared_strata = FALSE` strata
+are rebuilt inside each group, so a degenerate single-stratum group is
+instead reported with a "fit failed" status rather than a pre-fit skip.
+A singular fit yields a VPC of 0 rather than an error (unlike
 [`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)).
 A hard fit failure in one group records `NA` and a status note without
 aborting the whole comparison.
