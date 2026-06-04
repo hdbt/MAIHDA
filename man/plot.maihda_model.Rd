@@ -21,7 +21,7 @@
   \item "vpc": Variance partition coefficient visualization
   \item "obs_vs_shrunken": Observed vs. shrunken stratum means
   \item "predicted": Predicted values for each stratum with confidence intervals
-  \item "risk_vs_effect": Quadrant scatterplot comparing overall risk to intersectional effect
+  \item "risk_vs_effect": Quadrant scatterplot of each stratum's mean predicted outcome against its random effect
   \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
   \item "ternary": Ternary diagnostic of the relative additive, intersectional, and uncertainty signals per stratum (a normalized-magnitude diagnostic, not a variance decomposition)
   \item "prediction_deviation": Detailed deviation panels for individuals or strata

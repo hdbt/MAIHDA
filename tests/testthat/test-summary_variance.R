@@ -35,7 +35,9 @@ test_that("summary print reports requested bootstrap confidence level", {
   d$y <- 1 + d$x + rnorm(8, sd = 1)[d$stratum] + rnorm(64, sd = 0.5)
 
   model <- fit_maihda(y ~ x + (1 | stratum), data = d)
-  summ <- summary(model, bootstrap = TRUE, n_boot = 5, conf_level = 0.80)
+  # n_boot must clear maihda_bootstrap_ci()'s 10-refit minimum; the test only
+  # checks that the requested confidence level is echoed in the printout.
+  summ <- summary(model, bootstrap = TRUE, n_boot = 50, conf_level = 0.80)
 
   expect_equal(summ$vpc$conf_level, 0.80)
   expect_output(print(summ), "Bootstrap 80% CI", fixed = TRUE)

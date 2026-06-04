@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot_maihda.R
 \name{plot_risk_vs_effect}
 \alias{plot_risk_vs_effect}
-\title{Risk vs. Intersectional Effect Plot}
+\title{Mean Prediction vs. Stratum Random Effect Plot}
 \usage{
 plot_risk_vs_effect(object, summary_obj, top_n_labels = 10)
 }
@@ -17,7 +17,12 @@ plot_risk_vs_effect(object, summary_obj, top_n_labels = 10)
 A ggplot2 object
 }
 \description{
-Creates a quadrant scatterplot comparing overall marginal predicted risk against
-pure intersectional effects (shrunken residuals). Points represent strata.
+Creates a quadrant scatterplot comparing each stratum's mean predicted outcome
+against its stratum random effect (shrunken between-stratum deviation). Points
+represent strata. Whether a higher predicted value is "worse" or "better"
+depends on the outcome, so the axes are not framed as risk. The random effect
+equals the \emph{pure} intersectional (interaction) component only when the
+additive main effects of the strata variables are included in the model;
+otherwise it also absorbs those omitted main effects.
 }
 \keyword{internal}

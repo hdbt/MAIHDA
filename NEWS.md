@@ -12,6 +12,9 @@
   * `plot()` on a `compare_maihda_groups()` result, with `type = "vpc"`/"components" (was `plot_group_comparison()`)
   * `plot()` on a `compute_maihda_ternary_data()` result (was `plot_maihda_ternary()`)
 * The old `plot_comparison()`, `plot_group_comparison()`, and `plot_maihda_ternary()` functions still work but are **deprecated** and emit a one-time warning pointing to `plot()`.
+* `fit_maihda()` now records lme4 fit-quality diagnostics (singular fit and convergence warnings) on the model object; `print()` on the model and `summary()` surface a "Fit diagnostics" note so a boundary/non-converged fit -- which makes the VPC/PCV unreliable -- is no longer silent.
+* The `"risk_vs_effect"` plot no longer frames the outcome axis as "risk". A higher predicted value is not universally "bad" (it depends on the outcome), so the axis and title now read as a neutral "mean predicted value/probability", with a note that the direction depends on the outcome.
+* Clarified the documentation of `plot_prediction_deviation_panels()`: it highlights the cases or strata whose predictions sit furthest from the mean (the largest deviations), which are not statistical outliers or model-misfit "deviants".
 
 
 # MAIHDA 0.1.10

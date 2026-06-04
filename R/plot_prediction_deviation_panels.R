@@ -50,9 +50,19 @@ maihda_prediction_panel_fitted <- function(model, data, type) {
     if (is.null(dim(fit)) || !"Estimate" %in% colnames(fit)) {
       stop("Could not extract fitted estimates from brms model.", call. = FALSE)
     }
-    # NA (rather than 0) so downstream CI bars are omitted rather than collapsed
-    # to the point estimate when no SE is available.
-    se <- if ("Est.Error" %in% colnames(fit)) fit[, "Est.Error"] else rep(NA_real_, nrow(data))
+    # Derive the interval half-width from the posterior 2.5/97.5% quantiles so the
+    # downstream `estimate +/- 1.96 * se` reflects the actual posterior spread
+    # rather than assuming Est.Error (the posterior SD) describes a normal
+    # interval. (This still renders a symmetric bar; full asymmetric posterior
+    # intervals would require carrying the quantiles through the aggregation.)
+    se <- if (all(c("Q2.5", "Q97.5") %in% colnames(fit))) {
+      (fit[, "Q97.5"] - fit[, "Q2.5"]) / (2 * stats::qnorm(0.975))
+    } else if ("Est.Error" %in% colnames(fit)) {
+      fit[, "Est.Error"]
+    } else {
+      # NA (not 0) so downstream CI bars are omitted rather than collapsed.
+      rep(NA_real_, nrow(data))
+    }
     return(list(fit = as.numeric(fit[, "Estimate"]), se.fit = as.numeric(se)))
   }
 
@@ -168,14 +178,17 @@ maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_
 
 #' Plot Prediction Deviation Panels
 #'
-#' @description Creates an advanced, publication-ready two-panel dashboard for visualizing
-#' predicted values and identifying deviant cases in linear, binomial, or ordinal models.
+#' @description Creates an advanced, publication-ready two-panel dashboard for
+#' visualizing predicted values and highlighting the cases (or strata) whose
+#' predictions sit furthest from the mean. These are the largest deviations from
+#' the average prediction, not statistical outliers or model-misfit "deviants".
 #'
 #' @param model A fitted model object (e.g., from `lm()`, `glm()`, `MASS::polr()`, or `lme4::glmer()`).
 #' @param data The original data frame used to fit the model. If `NULL`, attempts to extract from the model.
 #' @param type Model type: "auto" (default), "gaussian", "binomial", or "ordinal".
 #' @param ordinal_mode For ordinal models: "surprise" (default, based on observation probability) or "expected_score".
-#' @param top_n_labels Number of extreme/deviant cases to label on the plot. Default is 5.
+#' @param top_n_labels Number of most-deviating cases (largest deviation from the
+#'   mean prediction) to label on the plot. Default is 5.
 #' @param strata_info Optional data frame of strata labels, generally extracted from `maihda_model` objects.
 #'
 #' @return A `patchwork` object containing two `ggplot2` panels.

@@ -89,6 +89,11 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
         NA_character_
       }
     }, character(1))
+    # Content fingerprint of the analytic response, so unrelated datasets that
+    # happen to share n, default 1:n row names and stratum ids are still caught.
+    response_keys <- vapply(models, function(m) {
+      maihda_response_fingerprint(m$model)
+    }, character(1))
     # Key the strata by their DEFINITIONS (the grouping variables and the stratum
     # labels), not just the integer IDs: two models can both number their strata
     # 1..k while defining them from different variables (e.g. a:b vs a:c).
@@ -119,7 +124,8 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     }
     sample_differs <- length(unique(stats::na.omit(nobs_vec))) > 1 ||
       length(unique(stats::na.omit(row_keys))) > 1 ||
-      length(unique(stats::na.omit(row_stratum_keys))) > 1
+      length(unique(stats::na.omit(row_stratum_keys))) > 1 ||
+      length(unique(stats::na.omit(response_keys))) > 1
     if (sample_differs) {
       issues <- c(issues, paste0("analytic sample (n = ", paste(nobs_vec, collapse = ", "), ")"))
     }
@@ -258,10 +264,14 @@ plot_comparison <- function(comparison_df) {
 #' survey wave) and reports how the variance partition coefficient (VPC/ICC) and
 #' the between-/within-stratum variance components differ across those groups.
 #'
-#' This answers the question "is intersectional inequality larger in some groups
+#' This addresses the question "is intersectional inequality larger in some groups
 #' than others?" by estimating one VPC per group. It is a stratified analysis:
 #' each group is modelled independently. It is \emph{not} a cross-classified
-#' model and does not adjust the strata for the grouping variable.
+#' model and does not adjust the strata for the grouping variable. It is also
+#' \strong{descriptive}: it reports each group's VPC (with an interval when
+#' available -- an lme4 bootstrap CI or a brms credible interval) for side-by-side
+#' comparison, but does not perform a formal statistical test of whether the VPCs
+#' differ between groups, so judge differences against the reported intervals.
 #'
 #' @param formula A model formula. Either the shorthand intersectional form
 #'   \code{outcome ~ covars + (1 | var1:var2)} (strata are built automatically)
@@ -478,7 +488,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     row$n_strata <- length(unique(stats::na.omit(fit_obj$model$data$stratum)))
     row$status <- "ok"
 
-    if (bootstrap && isTRUE(fit_obj$summ$vpc$bootstrap)) {
+    # Keep whatever interval the summary provides -- an lme4 bootstrap CI or a
+    # brms posterior credible interval -- rather than only the bootstrap flag,
+    # which dropped brms intervals.
+    if (maihda_vpc_has_interval(fit_obj$summ$vpc)) {
       row$ci_lower <- fit_obj$summ$vpc$ci_lower
       row$ci_upper <- fit_obj$summ$vpc$ci_upper
     }
@@ -487,7 +500,9 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   }
 
   out <- do.call(rbind, rows)
-  if (!bootstrap) {
+  # Drop the interval columns only when no group supplied one (e.g. unbootstrapped
+  # lme4); brms groups carry a posterior credible interval without bootstrap.
+  if (all(is.na(out$ci_lower)) && all(is.na(out$ci_upper))) {
     out$ci_lower <- NULL
     out$ci_upper <- NULL
   }

@@ -78,22 +78,32 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
       if (is.numeric(val) && length(unique(stats::na.omit(val))) > 10) {
         q <- stats::quantile(val, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)
         labels <- c(paste0(v, "_Low"), paste0(v, "_Mid"), paste0(v, "_High"))
-        if (length(unique(q)) == 4) {
+        tertiles_ok <- length(unique(q)) == 4
+        if (tertiles_ok) {
           breaks <- as.numeric(q)
         } else {
+          # Tied quantiles (e.g. skewed/zero-inflated data): tertiles are not
+          # defined, so fall back to equal-width bins. These are NOT tertiles and
+          # can be highly imbalanced; warn rather than silently mislabel.
           rx <- range(val, na.rm = TRUE)
           dx <- diff(rx)
           breaks <- seq(rx[1] - dx/1000, rx[2] + dx/1000, length.out = 4)
+          warning("make_strata(): numeric variable '", v, "' has tied tertile ",
+                  "cut-points, so equal-width bins were used instead of tertiles. ",
+                  "The resulting groups may be very imbalanced; consider binning '",
+                  v, "' yourself or setting autobin = FALSE.", call. = FALSE)
         }
         strata_data[[v]] <- cut(val, breaks = breaks, include.lowest = TRUE,
                                 labels = labels)
         autobin_info[[v]] <- list(breaks = breaks, labels = labels)
-        # Tell the user a continuous grouping variable was discretised: the
-        # resulting strata are data-dependent (tertiles). Pass autobin = FALSE to
-        # disable, or pre-bin the variable yourself for explicit control.
-        message("make_strata(): auto-binned numeric variable '", v,
-                "' into tertiles (", paste(labels, collapse = ", "),
-                "). Set autobin = FALSE to disable.")
+        # Inform the user a continuous grouping variable was discretised: the
+        # resulting strata are data-dependent. Pass autobin = FALSE to disable,
+        # or pre-bin the variable yourself for explicit control.
+        kind <- if (tertiles_ok) "tertiles" else "equal-width bins (tied tertiles)"
+        counts <- table(strata_data[[v]])
+        message("make_strata(): auto-binned numeric variable '", v, "' into ", kind,
+                " (", paste(sprintf("%s=%d", names(counts), as.integer(counts)),
+                            collapse = ", "), "). Set autobin = FALSE to disable.")
       }
     }
   }

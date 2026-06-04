@@ -82,10 +82,14 @@ survey wave) and reports how the variance partition coefficient (VPC/ICC) and
 the between-/within-stratum variance components differ across those groups.
 }
 \details{
-This answers the question "is intersectional inequality larger in some groups
+This addresses the question "is intersectional inequality larger in some groups
 than others?" by estimating one VPC per group. It is a stratified analysis:
 each group is modelled independently. It is \emph{not} a cross-classified
-model and does not adjust the strata for the grouping variable.
+model and does not adjust the strata for the grouping variable. It is also
+\strong{descriptive}: it reports each group's VPC (with an interval when
+available -- an lme4 bootstrap CI or a brms credible interval) for side-by-side
+comparison, but does not perform a formal statistical test of whether the VPCs
+differ between groups, so judge differences against the reported intervals.
 
 
 Robustness: a group with fewer than \code{min_group_n} rows is always skipped

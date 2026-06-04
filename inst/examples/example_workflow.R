@@ -80,22 +80,22 @@ print(plot_obs_shrunk)
 # Step 6: Compare models (optional)
 # ============================================================================
 
-# Fit a second model with education added
-strata_result2 <- make_strata(
-  data = maihda_sim_data,
-  vars = c("gender", "race", "education")
-)
-
+# Fit an adjusted model on the SAME data and strata that adds the additive main
+# effects of the strata variables. Comparing the unadjusted vs additive-adjusted
+# model is the canonical MAIHDA contrast: it shows how much of the between-stratum
+# variance is explained by the additive (main-effect) components, leaving the
+# remainder as the intersectional interaction. (Comparing models built on
+# DIFFERENT strata definitions would not be a valid PCV.)
 model2 <- fit_maihda(
-  formula = health_outcome ~ age + (1 | stratum),
-  data = strata_result2$data,
+  formula = health_outcome ~ age + gender + race + (1 | stratum),
+  data = strata_result$data,
   engine = "lme4"
 )
 
-# Compare models
+# Compare nested models on the same data and strata.
 comparison <- compare_maihda(
   model, model2,
-  model_names = c("Gender x Race", "Gender x Race x Education"),
+  model_names = c("Unadjusted", "Additive-adjusted"),
   bootstrap = FALSE  # Set to TRUE for bootstrap CI
 )
 

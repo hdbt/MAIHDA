@@ -193,6 +193,15 @@ validate_pvc_models <- function(model1, model2) {
          call. = FALSE)
   }
 
+  # Content fingerprint: catch unrelated datasets that share n and default 1:n
+  # row names but hold different responses.
+  fp1 <- maihda_response_fingerprint(model1$model)
+  fp2 <- maihda_response_fingerprint(model2$model)
+  if (!is.na(fp1) && !is.na(fp2) && !identical(fp1, fp2)) {
+    stop("PVC requires both models to be fitted to the same analytic data; the ",
+         "outcome values differ between the two models.", call. = FALSE)
+  }
+
   if (!"stratum" %in% names(model1$data) || !"stratum" %in% names(model2$data)) {
     stop("PVC requires both models to include a 'stratum' column in their analytic data.",
          call. = FALSE)
@@ -273,20 +282,9 @@ bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
     }, error = function(e) NULL)
   }
 
-  # Remove NAs
-  pvc_boot <- pvc_boot[is.finite(pvc_boot)]
-
-  if (length(pvc_boot) < n_boot * 0.5) {
-    warning(sprintf("More than 50%% of bootstrap samples failed. CI may be unreliable. Only %d/%d successful.",
-                    length(pvc_boot), n_boot))
-  }
-  if (length(pvc_boot) == 0) {
-    stop("All PVC bootstrap refits failed or produced zero model-1 stratum variance.")
-  }
-
-  # Calculate confidence interval
-  alpha <- 1 - conf_level
-  ci <- stats::quantile(pvc_boot, probs = c(alpha/2, 1 - alpha/2))
+  # Reduce to an interval, requiring a minimum number of successful refits and
+  # warning on a high failure rate.
+  ci <- maihda_bootstrap_ci(pvc_boot, n_boot, conf_level, "PVC")
 
   return(ci)
 }
