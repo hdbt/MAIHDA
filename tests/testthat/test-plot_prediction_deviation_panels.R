@@ -148,8 +148,30 @@ test_that("prediction deviation auto-detects brmsfit families", {
     list(family = structure(list(family = "cumulative", link = "logit"), class = "family")),
     class = "brmsfit"
   )
+  fake_poisson <- structure(
+    list(family = structure(list(family = "poisson", link = "log"), class = "family")),
+    class = "brmsfit"
+  )
 
   expect_equal(MAIHDA:::maihda_prediction_panel_auto_type(fake_bernoulli), "binomial")
   expect_equal(MAIHDA:::maihda_prediction_panel_auto_type(fake_gaussian), "gaussian")
   expect_equal(MAIHDA:::maihda_prediction_panel_auto_type(fake_ordinal), "ordinal")
+  expect_equal(MAIHDA:::maihda_prediction_panel_auto_type(fake_poisson), "poisson")
+})
+
+test_that("Poisson prediction panels use response-scale (count) fitted values", {
+  set.seed(2005)
+  df <- data.frame(x = rnorm(150))
+  df$y <- rpois(150, lambda = exp(1 + 0.3 * df$x))
+  m <- glm(y ~ x, data = df, family = poisson)
+
+  # Poisson is no longer routed through the Gaussian (link-scale) branch.
+  expect_equal(MAIHDA:::maihda_prediction_panel_auto_type(m), "poisson")
+
+  fitted_used <- MAIHDA:::maihda_prediction_panel_fitted(m, df, "poisson")$fit
+  expect_equal(fitted_used, unname(predict(m, type = "response")), tolerance = 1e-8)
+  # ...and NOT the link (log) scale the old Gaussian routing produced.
+  expect_false(isTRUE(all.equal(fitted_used, unname(predict(m, type = "link")))))
+
+  expect_s3_class(plot_prediction_deviation_panels(m, df), "patchwork")
 })

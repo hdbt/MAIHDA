@@ -280,7 +280,7 @@ test_that("summary validates bootstrap arguments before simulation", {
   )
   expect_error(
     summary(fake_model, bootstrap = TRUE, n_boot = 0),
-    "'n_boot' must be a single positive whole number",
+    "'n_boot' must be a single whole number >= 10",
     fixed = TRUE
   )
   expect_error(

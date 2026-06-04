@@ -145,6 +145,30 @@ test_that("compare_maihda_groups warns and names groups with a singular fit", {
   expect_equal(cmp$status[cmp$group == "signal"], "ok")
 })
 
+test_that("compare_maihda_groups skips a group whose analytic sample is below min_group_n", {
+  set.seed(3111)
+  N <- 200
+  d <- data.frame(
+    grp    = rep(c("ok", "tiny"), each = N / 2),
+    gender = sample(c("F", "M"), N, replace = TRUE),
+    ses    = sample(c("lo", "hi"), N, replace = TRUE),
+    y      = rnorm(N)
+  )
+  # 'tiny' has 100 raw rows but only 8 non-missing outcomes -> 8 analytic rows.
+  tiny_rows <- which(d$grp == "tiny")
+  d$y[tiny_rows[seq_len(length(tiny_rows) - 8)]] <- NA_real_
+
+  cmp <- suppressWarnings(
+    compare_maihda_groups(y ~ 1 + (1 | gender:ses), data = d, group = "grp",
+                          min_group_n = 30)
+  )
+  # Guard is on the analytic sample, so 'tiny' is skipped despite 100 raw rows.
+  expect_match(cmp$status[cmp$group == "tiny"], "skipped")
+  expect_true(is.na(cmp$vpc[cmp$group == "tiny"]))
+  expect_equal(cmp$n[cmp$group == "tiny"], 8L)
+  expect_equal(cmp$status[cmp$group == "ok"], "ok")
+})
+
 test_that("compare_maihda_groups reports the analytic n after NA handling", {
   set.seed(3011)
   n <- 160

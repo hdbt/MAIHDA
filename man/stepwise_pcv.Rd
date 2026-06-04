@@ -25,9 +25,11 @@ A data.frame showing the sequential models, the between-stratum
 }
 \description{
 Estimates the proportional change in variance (PCV) sequentially by fitting
-intermediate (partially-adjusted) models. It adds each predictor variable
-one-by-one to gauge its unique contribution in explaining between-stratum
-inequalities.
+intermediate (partially-adjusted) models, adding each predictor one-by-one. The
+step-specific PCV is the change in between-stratum variance contributed by a
+predictor \emph{given the variables already in the model}. Because the steps are
+sequential it is order-dependent: it reflects each variable's marginal,
+model-dependent change, not an order-invariant \dQuote{unique} contribution.
 }
 \details{
 All models are fit on the complete cases for `outcome`, `stratum`, and all

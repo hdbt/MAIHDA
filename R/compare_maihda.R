@@ -264,14 +264,25 @@ plot_comparison <- function(comparison_df) {
 #' survey wave) and reports how the variance partition coefficient (VPC/ICC) and
 #' the between-/within-stratum variance components differ across those groups.
 #'
-#' This addresses the question "is intersectional inequality larger in some groups
-#' than others?" by estimating one VPC per group. It is a stratified analysis:
-#' each group is modelled independently. It is \emph{not} a cross-classified
-#' model and does not adjust the strata for the grouping variable. It is also
-#' \strong{descriptive}: it reports each group's VPC (with an interval when
+#' It estimates one VPC per group as a stratified analysis: each group is modelled
+#' independently. It is \emph{not} a cross-classified model and does not adjust the
+#' strata for the grouping variable.
+#'
+#' The VPC is the \emph{share} of the unexplained variance that lies between strata,
+#' not the absolute magnitude of intersectional inequality. Because it is a ratio,
+#' a group's VPC can differ from another's because the between-stratum variance
+#' differs, because the within-stratum (residual) variance differs, or both -- two
+#' groups with the same between-stratum variance can have very different VPCs. To
+#' compare the absolute amount of between-stratum (intersectional) variation across
+#' groups, read the returned \code{var_between} column alongside the VPC rather than
+#' treating a higher VPC as "more inequality".
+#'
+#' It is \strong{descriptive}: it reports each group's VPC (with an interval when
 #' available -- an lme4 bootstrap CI or a brms credible interval) for side-by-side
-#' comparison, but does not perform a formal statistical test of whether the VPCs
-#' differ between groups, so judge differences against the reported intervals.
+#' comparison, but does not test whether the VPCs differ between groups. The
+#' per-group intervals describe each group's own uncertainty; whether two intervals
+#' overlap is \emph{not} a valid test of the difference between their VPCs, which
+#' would require modelling that difference directly.
 #'
 #' @param formula A model formula. Either the shorthand intersectional form
 #'   \code{outcome ~ covars + (1 | var1:var2)} (strata are built automatically)
@@ -291,9 +302,11 @@ plot_comparison <- function(comparison_df) {
 #'   in every group and VPCs are directly comparable; strata absent from a given
 #'   group are simply unused there. When FALSE, strata are rebuilt independently
 #'   within each group (stratum identities are then not comparable across groups).
-#' @param min_group_n Minimum number of rows a group must have (counted before
-#'   model-frame NA handling) to be modelled. Smaller groups are skipped with a
-#'   warning. Default 30.
+#' @param min_group_n Minimum size of the \emph{analytic} sample a group must have
+#'   -- the rows that survive the model frame (covariate transformations applied,
+#'   rows with a missing outcome/covariate dropped) -- to be modelled. Groups with
+#'   a smaller usable sample are skipped with a warning, even if they have more raw
+#'   rows. Default 30.
 #' @param bootstrap Logical; compute per-group parametric-bootstrap VPC
 #'   confidence intervals. lme4 engine only. Default FALSE.
 #' @param n_boot Number of bootstrap samples when \code{bootstrap = TRUE}.
@@ -308,16 +321,18 @@ plot_comparison <- function(comparison_df) {
 #'   row per group and columns \code{group}, \code{n}, \code{n_strata},
 #'   \code{vpc}, \code{var_between}, \code{var_other}, \code{var_residual},
 #'   \code{status} (and \code{ci_lower}/\code{ci_upper} when
-#'   \code{bootstrap = TRUE}). For successfully fitted groups \code{n} is the
-#'   analytic sample size used by the model (after dropping rows with missing
-#'   outcome/covariates); for skipped groups it is the raw group row count.
-#'   \code{var_other} is the variance of any additional random effects and is 0
-#'   for the canonical single-stratum model. Groups that were skipped or failed
-#'   have \code{NA} metrics and an explanatory \code{status}.
+#'   \code{bootstrap = TRUE}). \code{n} is the analytic sample size used by the
+#'   model (after dropping rows with a missing outcome/covariate) for both fitted
+#'   and skipped groups, falling back to the raw row count only when the model
+#'   frame cannot be built. \code{var_other} is the variance of any additional
+#'   random effects and is 0 for the canonical single-stratum model. Groups that
+#'   were skipped or failed have \code{NA} metrics and an explanatory
+#'   \code{status}.
 #'
 #' @details
-#' Robustness: a group with fewer than \code{min_group_n} rows is always skipped
-#' with a warning. A group with fewer than two populated strata is also skipped
+#' Robustness: a group whose \emph{analytic} sample (rows surviving the model
+#' frame) has fewer than \code{min_group_n} observations is always skipped with a
+#' warning. A group with fewer than two populated strata is also skipped
 #' (VPC is undefined with a single stratum) when the stratum membership is known
 #' before fitting -- that is, when \code{shared_strata = TRUE} or \code{data}
 #' already carries a \code{stratum} column. Under \code{shared_strata = FALSE}
@@ -438,7 +453,12 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       attr(sub, a) <- carried_attrs[[a]]
     }
 
-    n_g <- nrow(sub)
+    # Size of the analytic sample the model will actually fit: the rows surviving
+    # the model frame (covariate transformations applied, missing outcome/covariate
+    # rows dropped), not the raw group row count. min_group_n guards this so a
+    # group with enough raw rows but a tiny usable sample is still skipped.
+    analytic_fr <- maihda_analytic_model_frame(fit_formula, sub)
+    n_g <- if (is.null(analytic_fr)) nrow(sub) else nrow(analytic_fr)
     row <- data.frame(
       group = g, n = n_g, n_strata = NA_integer_,
       vpc = NA_real_, var_between = NA_real_, var_other = NA_real_,
@@ -452,8 +472,8 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       row$n_strata <- length(unique(stats::na.omit(sub$stratum)))
     }
     if (n_g < min_group_n) {
-      row$status <- sprintf("skipped: n = %d < min_group_n = %g", n_g, min_group_n)
-      warning(sprintf("Group '%s' has %d rows (< min_group_n = %g); skipped.",
+      row$status <- sprintf("skipped: analytic n = %d < min_group_n = %g", n_g, min_group_n)
+      warning(sprintf("Group '%s' has %d analytic rows (< min_group_n = %g); skipped.",
                       g, n_g, min_group_n), call. = FALSE)
       rows[[gi]] <- row
       next

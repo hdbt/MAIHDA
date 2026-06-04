@@ -25,11 +25,14 @@
 #'   \item{bootstrap}{Logical indicating if bootstrap was used}
 #'
 #' @details
-#' The PVC is interpreted as the proportional reduction (or increase if negative)
-#' in between-stratum variance when moving from model1 to model2. A positive PVC
-#' indicates that model2 explains some of the between-stratum variance present in
-#' model1, while a negative PVC suggests that model2 has more unexplained
-#' between-stratum variance.
+#' The PVC is the proportional change in between-stratum variance when moving from
+#' model1 to model2: a positive value means model2 has lower between-stratum
+#' variance, a negative value means higher. It is the share of model1's
+#' between-stratum variance \emph{explained} by model2 only in the canonical nested
+#' case, where model2 adds fixed-effect predictors to model1 on the same outcome,
+#' analytic sample and strata. The function does not require nesting, so for
+#' non-nested models the PVC is simply a model-dependent difference in variance,
+#' not an explained proportion.
 #'
 #' When bootstrap = TRUE, the function uses a parametric bootstrap: it simulates
 #' new responses from model2 and refits both models with \code{lme4::refit()} for
@@ -315,13 +318,15 @@ print.pvc_result <- function(x, ...) {
               x$var_model1 - x$var_model2,
               x$pvc * 100))
 
-  cat("\nInterpretation:\n")
+  cat("\nInterpretation (PCV is the proportional change in between-stratum\n")
+  cat("variance between the models; it is variance 'explained' only when Model 2\n")
+  cat("nests Model 1 by adding predictors on the same outcome, sample and strata):\n")
   if (x$pvc > 0) {
-    cat(sprintf("  Model 2 explains %.1f%% of the between-stratum variance\n", x$pvc * 100))
-    cat("  present in Model 1 (variance reduction).\n")
+    cat(sprintf("  Between-stratum variance is %.1f%% lower in Model 2 than in Model 1.\n",
+                x$pvc * 100))
   } else if (x$pvc < 0) {
-    cat(sprintf("  Model 2 has %.1f%% more between-stratum variance than\n", abs(x$pvc) * 100))
-    cat("  Model 1 (variance increase).\n")
+    cat(sprintf("  Between-stratum variance is %.1f%% higher in Model 2 than in Model 1.\n",
+                abs(x$pvc) * 100))
   } else {
     cat("  No change in between-stratum variance between models.\n")
   }
@@ -333,9 +338,11 @@ print.pvc_result <- function(x, ...) {
 #'
 #' @description
 #' Estimates the proportional change in variance (PCV) sequentially by fitting
-#' intermediate (partially-adjusted) models. It adds each predictor variable
-#' one-by-one to gauge its unique contribution in explaining between-stratum
-#' inequalities.
+#' intermediate (partially-adjusted) models, adding each predictor one-by-one. The
+#' step-specific PCV is the change in between-stratum variance contributed by a
+#' predictor \emph{given the variables already in the model}. Because the steps are
+#' sequential it is order-dependent: it reflects each variable's marginal,
+#' model-dependent change, not an order-invariant \dQuote{unique} contribution.
 #'
 #' @param data Data frame with observations. Ensure `make_strata()` was run first
 #'   so the `stratum` variable exists.

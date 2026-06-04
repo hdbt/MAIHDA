@@ -33,3 +33,24 @@ test_that("fit_maihda auto-detects binary on the analytic (complete-case) sample
   )
   expect_equal(m$family$family, "binomial")
 })
+
+test_that("fit_maihda detects binary on the post-transformation analytic frame", {
+  set.seed(2002)
+  n <- 300
+  d <- data.frame(
+    stratum = factor(rep(seq_len(10), each = 30)),
+    # 15 non-positive x make log(x) NaN, so lme4 drops those rows.
+    x = c(rep(-1, 15), runif(n - 15, 0.2, 4))
+  )
+  y <- rbinom(n, 1, 0.45)
+  y[1:15] <- 2L          # a spurious third level, only on the log(x)-dropped rows
+  d$y <- y
+
+  # The raw column has three values, but the analytic frame (after log(x) drops
+  # the non-positive rows) is 0/1, so the family must switch to binomial.
+  expect_warning(
+    m <- fit_maihda(y ~ log(x) + (1 | stratum), data = d),
+    "binary", ignore.case = TRUE
+  )
+  expect_equal(m$family$family, "binomial")
+})

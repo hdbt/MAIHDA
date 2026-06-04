@@ -36,6 +36,12 @@ maihda_prediction_panel_auto_type <- function(model) {
   if (!is.null(fam_name) && fam_name %in% c("cumulative", "sratio", "cratio", "acat", "ordinal")) {
     return("ordinal")
   }
+  # Count models must predict on the response (count) scale: routing them through
+  # the Gaussian branch would plot link-scale (log) predictions under Gaussian
+  # labels and calculations.
+  if (!is.null(fam_name) && fam_name %in% c("poisson", "quasipoisson", "negbinomial")) {
+    return("poisson")
+  }
 
   "gaussian"
 }
@@ -71,7 +77,10 @@ maihda_prediction_panel_fitted <- function(model, data, type) {
   # produced ci_lower == ci_upper == fitted, i.e. fake zero-width "95% CI" bars.
   # NA propagates through fitted +/- 1.96 * se and ggplot drops the geom_errorbar
   # layer for those rows, which honestly communicates "no SE available".
-  if (type == "binomial") {
+  if (type == "binomial" || type == "poisson") {
+    # Count and binary models are summarised on the response scale (expected count
+    # / probability), not the link scale that predict() returns by default for a
+    # GLM(M).
     preds <- tryCatch(
       predict(model, newdata = data, type = "response", se.fit = TRUE),
       error = function(e) list(
@@ -179,16 +188,30 @@ maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_
 #' Plot Prediction Deviation Panels
 #'
 #' @description Creates an advanced, publication-ready two-panel dashboard for
-#' visualizing predicted values and highlighting the cases (or strata) whose
-#' predictions sit furthest from the mean. These are the largest deviations from
-#' the average prediction, not statistical outliers or model-misfit "deviants".
+#' visualizing predicted values and highlighting the most notable cases or strata.
+#' What "notable" means depends on the model type, and the labelled points are
+#' \emph{not} statistical outliers in the regression-diagnostic sense:
+#' \itemize{
+#'   \item Gaussian and Poisson (and the ordinal \code{"expected_score"} mode):
+#'     the cases/strata whose prediction sits furthest from the mean prediction
+#'     (largest deviation), ranked by absolute deviation.
+#'   \item Binomial: the cases/strata with the largest absolute deviance residual,
+#'     i.e. where the observed 0/1 outcome is least consistent with the fitted
+#'     probability (worst-fit points), ranked by \eqn{|deviance residual|}.
+#'   \item Ordinal \code{"surprise"} mode: the cases/strata with the highest
+#'     surprise \eqn{-\log P(\text{observed category})}, i.e. the least probable
+#'     observations under the model.
+#' }
 #'
 #' @param model A fitted model object (e.g., from `lm()`, `glm()`, `MASS::polr()`, or `lme4::glmer()`).
 #' @param data The original data frame used to fit the model. If `NULL`, attempts to extract from the model.
-#' @param type Model type: "auto" (default), "gaussian", "binomial", or "ordinal".
+#' @param type Model type: "auto" (default), "gaussian", "poisson", "binomial", or "ordinal".
 #' @param ordinal_mode For ordinal models: "surprise" (default, based on observation probability) or "expected_score".
-#' @param top_n_labels Number of most-deviating cases (largest deviation from the
-#'   mean prediction) to label on the plot. Default is 5.
+#' @param top_n_labels Number of points to label on the plot. The ranking metric
+#'   depends on the model type (see Description): deviation from the mean
+#'   prediction for Gaussian/Poisson and the ordinal expected-score mode, absolute
+#'   deviance residual for binomial, and surprise for the ordinal surprise mode.
+#'   Default is 5.
 #' @param strata_info Optional data frame of strata labels, generally extracted from `maihda_model` objects.
 #'
 #' @return A `patchwork` object containing two `ggplot2` panels.
@@ -203,7 +226,7 @@ maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_
 #' @export
 #'
 plot_prediction_deviation_panels <- function(model, data = NULL,
-                                             type = c("auto", "gaussian", "binomial", "ordinal"),
+                                             type = c("auto", "gaussian", "poisson", "binomial", "ordinal"),
                                              ordinal_mode = c("surprise", "expected_score"),
                                              top_n_labels = 5,
                                              strata_info = NULL) {
@@ -242,10 +265,16 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
     df |> dplyr::arrange(dplyr::desc(abs(.data[[metric_col]]))) |> utils::head(n)
   }
 
-  if (type == "gaussian") {
-    # GAUSSIAN / LINEAR LOGIC
-    # Approximate predict, some packages handle se.fit differently, so wrap safely
-    preds <- maihda_prediction_panel_fitted(model, data, "gaussian")
+  if (type == "gaussian" || type == "poisson") {
+    # GAUSSIAN / LINEAR (and POISSON / COUNT) LOGIC. Both rank strata/cases by how
+    # far their prediction sits from the mean prediction; counts are summarised on
+    # the response (expected-count) scale with count labels, and the symmetric
+    # interval is clamped at 0.
+    is_count <- type == "poisson"
+    preds <- maihda_prediction_panel_fitted(model, data, type)
+
+    value_dist_title <- if (is_count) "Distribution of Predicted Counts" else "Distribution of Fitted Values"
+    value_axis_label <- if (is_count) "Predicted Count" else "Fitted Value"
 
     df <- data |>
       dplyr::mutate(
@@ -276,7 +305,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
 
     df <- df |>
       dplyr::mutate(
-        ci_lower = .data$fitted - 1.96 * .data$se,
+        ci_lower = if (is_count) pmax(0, .data$fitted - 1.96 * .data$se) else .data$fitted - 1.96 * .data$se,
         ci_upper = .data$fitted + 1.96 * .data$se,
         mean_fitted = mean(.data$fitted, na.rm = TRUE),
         deviation = .data$fitted - .data$mean_fitted,
@@ -292,7 +321,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       ggplot2::geom_density(fill = "gray80", alpha = 0.5) +
       ggplot2::geom_vline(ggplot2::aes(xintercept = .data$mean_fitted[1]), linetype = "dashed", color = "black") +
       ggplot2::geom_rug(data = label_df, color = "red", linewidth = 1) +
-      ggplot2::labs(title = "Distribution of Fitted Values", x = NULL, y = "Density") +
+      ggplot2::labs(title = value_dist_title, x = NULL, y = "Density") +
       ggplot2::theme_minimal()
 
     p2 <- ggplot2::ggplot(df, ggplot2::aes(x = .data$rank, y = .data$fitted)) +
@@ -303,7 +332,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = .data$id), size = 3, min.segment.length = 0) +
       ggplot2::scale_color_manual(values = c("Above Mean" = "#0072B2", "Below Mean" = "#D55E00")) +
       ggplot2::labs(
-        x = x_label, y = "Fitted Value", color = "Direction", size = "Deviation\nMagnitude",
+        x = x_label, y = value_axis_label, color = "Direction", size = "Deviation\nMagnitude",
         caption = if (identical(x_label, "Stratum Rank")) {
           paste("Stratum intervals are approximate: the mean of the individual",
                 "prediction SEs, not the SE of the stratum-mean prediction.")
