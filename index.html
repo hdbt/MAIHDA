@@ -16,8 +16,8 @@
 <script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy">
-<meta name="description" content="Provides a comprehensive toolkit for conducting Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy (MAIHDA). Methods are described in Merlo (2018) &lt;doi:10.1016/j.socscimed.2017.12.018&gt; and Evans et al. (2018) &lt;doi:10.1016/j.socscimed.2017.11.011&gt;. Automatically generates intersectional strata, fits analytical models, extracts statistics, and produces visualizations.">
-<meta property="og:description" content="Provides a comprehensive toolkit for conducting Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy (MAIHDA). Methods are described in Merlo (2018) &lt;doi:10.1016/j.socscimed.2017.12.018&gt; and Evans et al. (2018) &lt;doi:10.1016/j.socscimed.2017.11.011&gt;. Automatically generates intersectional strata, fits analytical models, extracts statistics, and produces visualizations.">
+<meta name="description" content="Provides a comprehensive toolkit for conducting Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy (MAIHDA). Methods are described in Merlo (2018) &lt;doi:10.1016/j.socscimed.2017.12.026&gt; and Evans et al. (2018) &lt;doi:10.1016/j.socscimed.2017.11.011&gt;. Automatically generates intersectional strata, fits analytical models, extracts statistics, and produces visualizations.">
+<meta property="og:description" content="Provides a comprehensive toolkit for conducting Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy (MAIHDA). Methods are described in Merlo (2018) &lt;doi:10.1016/j.socscimed.2017.12.026&gt; and Evans et al. (2018) &lt;doi:10.1016/j.socscimed.2017.11.011&gt;. Automatically generates intersectional strata, fits analytical models, extracts statistics, and produces visualizations.">
 <meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png">
 </head>
 <body>
@@ -241,11 +241,17 @@
 <span>  data <span class="op">=</span> <span class="va">maihda_health_data</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Get variance partition coefficient</span></span>
+<span><span class="co"># Get the variance partition coefficient (VPC/ICC)</span></span>
 <span><span class="va">summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model</span>, bootstrap <span class="op">=</span> <span class="cn">TRUE</span>, n_boot <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># VPC of 0.15 means 15% of variance is between strata</span></span>
-<span><span class="co"># This indicates substantial intersectional inequality</span></span>
+<span><span class="co"># The VPC is the share of the *unexplained* (between-stratum + residual) variance</span></span>
+<span><span class="co"># that lies between strata -- here conditional on Age, and on the latent scale for</span></span>
+<span><span class="co"># non-Gaussian models (e.g. logistic uses pi^2/3 as the level-1 variance). Read</span></span>
+<span><span class="co"># from the null model `outcome ~ 1 + (1 | strata)` it is the total between-stratum</span></span>
+<span><span class="co"># share. NOTE: the between-stratum variation reflects the combined additive +</span></span>
+<span><span class="co"># interaction differences across strata; it represents the *pure* intersectional</span></span>
+<span><span class="co"># (interaction) effect only once the additive main effects of the strata variables</span></span>
+<span><span class="co"># are added to the model.</span></span>
 <span></span>
 <span><span class="co"># Visualize which strata have higher/lower outcomes using new advanced plots</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>

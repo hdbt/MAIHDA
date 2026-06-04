@@ -86,6 +86,11 @@ A maihda_model object containing:
 
   The strata information from make_strata() if available, NULL otherwise
 
+- diagnostics:
+
+  Fit-quality diagnostics (singular fit / convergence) for lme4 models,
+  surfaced by the print and summary methods
+
 ## Examples
 
 ``` r

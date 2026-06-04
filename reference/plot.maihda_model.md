@@ -36,8 +36,8 @@ plot(
   - "predicted": Predicted values for each stratum with confidence
     intervals
 
-  - "risk_vs_effect": Quadrant scatterplot comparing overall risk to
-    intersectional effect
+  - "risk_vs_effect": Quadrant scatterplot of each stratum's mean
+    predicted outcome against its random effect
 
   - "effect_decomp": Visualizes additive vs intersectional deviation
     from global mean

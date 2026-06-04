@@ -99,6 +99,10 @@ bootstrap CI or the brms posterior credible interval. Default is 0.95.</p></dd>
   <dt>model_summary</dt>
 <dd><p>Original model summary</p></dd>
 
+  <dt>diagnostics</dt>
+<dd><p>Fit-quality diagnostics (singular fit / convergence)
+    carried over from the fitted model and reported by the print method</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
@@ -115,6 +119,20 @@ VPC because the median of a ratio is not the ratio of means. For non-Gaussian
 latent-scale approximation; for <code>poisson(log)</code> it is evaluated at the
 posterior-mean fitted values rather than per draw to avoid an expensive
 \(ndraws \times nobs\) computation.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="interpreting-the-vpc-icc">Interpreting the VPC/ICC<a class="anchor" aria-label="anchor" href="#interpreting-the-vpc-icc"></a></h2>
+    <p>The VPC is the between-stratum variance
+  divided by the total <em>unexplained</em> variance (between-stratum + residual);
+  it is a conditional/residual ICC that excludes variance captured by the fixed
+  effects, so for models with covariates it is conditional on them. It is most
+  commonly read from the null model <code>outcome ~ 1 + (1 | stratum)</code>, where it
+  is the total between-stratum share. For non-Gaussian families the level-1
+  (residual) variance uses a latent/distributional approximation (e.g.
+  \(\pi^2/3\) for logistic), so the VPC is on that latent scale. The stratum
+  random effects represent the total between-stratum deviation; they equal the
+  <em>pure</em> intersectional (interaction) component only when the additive main
+  effects of the strata variables are included in the model.</p>
     </div>
 
     <div class="section level2">

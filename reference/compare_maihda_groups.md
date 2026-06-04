@@ -112,11 +112,15 @@ failed have `NA` metrics and an explanatory `status`.
 
 ## Details
 
-This answers the question "is intersectional inequality larger in some
+This addresses the question "is intersectional inequality larger in some
 groups than others?" by estimating one VPC per group. It is a stratified
 analysis: each group is modelled independently. It is *not* a
 cross-classified model and does not adjust the strata for the grouping
-variable.
+variable. It is also **descriptive**: it reports each group's VPC (with
+an interval when available – an lme4 bootstrap CI or a brms credible
+interval) for side-by-side comparison, but does not perform a formal
+statistical test of whether the VPCs differ between groups, so judge
+differences against the reported intervals.
 
 Robustness: a group with fewer than `min_group_n` rows is always skipped
 with a warning. A group with fewer than two populated strata is also

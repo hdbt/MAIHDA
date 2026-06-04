@@ -1,8 +1,10 @@
 # Plot Prediction Deviation Panels
 
 Creates an advanced, publication-ready two-panel dashboard for
-visualizing predicted values and identifying deviant cases in linear,
-binomial, or ordinal models.
+visualizing predicted values and highlighting the cases (or strata)
+whose predictions sit furthest from the mean. These are the largest
+deviations from the average prediction, not statistical outliers or
+model-misfit "deviants".
 
 ## Usage
 
@@ -40,7 +42,8 @@ plot_prediction_deviation_panels(
 
 - top_n_labels:
 
-  Number of extreme/deviant cases to label on the plot. Default is 5.
+  Number of most-deviating cases (largest deviation from the mean
+  prediction) to label on the plot. Default is 5.
 
 - strata_info:
 

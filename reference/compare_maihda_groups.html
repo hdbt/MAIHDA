@@ -157,10 +157,14 @@ binning of numeric grouping variables. Default TRUE.</p></dd>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>This answers the question "is intersectional inequality larger in some groups
+    <p>This addresses the question "is intersectional inequality larger in some groups
 than others?" by estimating one VPC per group. It is a stratified analysis:
 each group is modelled independently. It is <em>not</em> a cross-classified
-model and does not adjust the strata for the grouping variable.</p>
+model and does not adjust the strata for the grouping variable. It is also
+<strong>descriptive</strong>: it reports each group's VPC (with an interval when
+available – an lme4 bootstrap CI or a brms credible interval) for side-by-side
+comparison, but does not perform a formal statistical test of whether the VPCs
+differ between groups, so judge differences against the reported intervals.</p>
 
 <p>Robustness: a group with fewer than <code>min_group_n</code> rows is always skipped
 with a warning. A group with fewer than two populated strata is also skipped

@@ -63,6 +63,11 @@ A maihda_summary object containing:
 
   Original model summary
 
+- diagnostics:
+
+  Fit-quality diagnostics (singular fit / convergence) carried over from
+  the fitted model and reported by the print method
+
 ## Note
 
 For `lme4` models a VPC/ICC interval is obtained from a parametric
@@ -78,6 +83,21 @@ ratio of means. For non-Gaussian `brms` families the level-1 (residual)
 variance uses the usual latent-scale approximation; for `poisson(log)`
 it is evaluated at the posterior-mean fitted values rather than per draw
 to avoid an expensive \\ndraws \times nobs\\ computation.
+
+## Interpreting the VPC/ICC
+
+The VPC is the between-stratum variance divided by the total
+*unexplained* variance (between-stratum + residual); it is a
+conditional/residual ICC that excludes variance captured by the fixed
+effects, so for models with covariates it is conditional on them. It is
+most commonly read from the null model `outcome ~ 1 + (1 | stratum)`,
+where it is the total between-stratum share. For non-Gaussian families
+the level-1 (residual) variance uses a latent/distributional
+approximation (e.g. \\\pi^2/3\\ for logistic), so the VPC is on that
+latent scale. The stratum random effects represent the total
+between-stratum deviation; they equal the *pure* intersectional
+(interaction) component only when the additive main effects of the
+strata variables are included in the model.
 
 ## Examples
 

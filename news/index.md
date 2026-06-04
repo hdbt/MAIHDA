@@ -50,6 +50,23 @@
   functions still work but are **deprecated** and emit a one-time
   warning pointing to
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html).
+- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  now records lme4 fit-quality diagnostics (singular fit and convergence
+  warnings) on the model object;
+  [`print()`](https://rdrr.io/r/base/print.html) on the model and
+  [`summary()`](https://rdrr.io/r/base/summary.html) surface a “Fit
+  diagnostics” note so a boundary/non-converged fit – which makes the
+  VPC/PCV unreliable – is no longer silent.
+- The `"risk_vs_effect"` plot no longer frames the outcome axis as
+  “risk”. A higher predicted value is not universally “bad” (it depends
+  on the outcome), so the axis and title now read as a neutral “mean
+  predicted value/probability”, with a note that the direction depends
+  on the outcome.
+- Clarified the documentation of
+  [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md):
+  it highlights the cases or strata whose predictions sit furthest from
+  the mean (the largest deviations), which are not statistical outliers
+  or model-misfit “deviants”.
 
 ## MAIHDA 0.1.10
 
