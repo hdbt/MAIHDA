@@ -189,16 +189,3 @@ group_cmp_boot <- compare_maihda_groups(
 
 plot(group_cmp_boot, type = "vpc")
 ```
-
-## Interpretation cautions
-
-The group comparison is a stratified analysis: the package fits one
-MAIHDA model within each country and compares the resulting VPC/ICC
-estimates. It is not a cross-classified model, and it does not estimate
-country effects in a single pooled multilevel model.
-
-The bundled PISA data are for teaching and software demonstration only.
-They use a balanced subsample, one plausible value for each achievement
-score, and no survey weights or complex-sampling adjustments. Treat the
-results as a walkthrough of the workflow, not as substantive
-cross-national evidence.
