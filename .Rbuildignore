@@ -17,3 +17,4 @@
 ^test\.R$
 ^playground\.R$
 ^inst/shiny/rsconnect$
+^vignettes/.*\.html$

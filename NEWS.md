@@ -22,7 +22,13 @@
 * Documented which families the MAIHDA variance summaries support (`gaussian("identity")`, binomial/Bernoulli with logit/probit, `poisson("log")`); other families such as `Gamma(link = "log")` will fit but `summary()`/VPC/PCV will stop with a clear "not implemented" error rather than returning an invalid number.
 * README clarifications: a note that the CRAN release can lag this repository (so the newest features may require the GitHub development version), and the interactive-dashboard dependency list now includes `future`, `promises`, and `haven` (for SPSS/Stata uploads).
 * Completed the PCV wording cleanup in the remaining vignette and Shiny-app text (the prior pass missed several spots), and softened over-strong app labels: the quadrant plot is "Mean Prediction vs. Stratum Effect" (not "Risk vs. Intersectional Effect"), the cumulative-PCV chart is "Change in Between-Stratum Variance" (not "Variance Explained"), and "deviant strata" is now "most extreme strata".
-* Removed the stale checked-in rendered vignette HTML (`vignettes/*.html`); these are build artifacts generated from the `.Rmd` sources and had drifted out of sync with the corrected text. They are now git-ignored.
+* Removed the stale checked-in rendered vignette HTML (`vignettes/*.html`); these are build artifacts generated from the `.Rmd` sources and had drifted out of sync with the corrected text. They are now git-ignored and added to `.Rbuildignore`, so a locally rendered HTML is never shipped in the tarball and R CMD build regenerates `inst/doc` from the `.Rmd`.
+* Fixed an invalid documented URL flagged by `R CMD check --as-cran`: the `maihda_country_data` `@source` linked to `https://www.oecd.org/pisa/data/`, which returns HTTP 403. It now links to the CRAN page of the `learningtower` package (the reproducible access route used to build the dataset), keeping the OECD PISA 2018 attribution in the text.
+* The `data-raw/maihda_health_data.R` regeneration script no longer calls `install.packages("NHANES")` as a side effect; like the country-data script it now stops with a clear message asking the developer to install the dependency.
+
+## Performance
+
+* `make_strata()` (and the prediction-time stratum lookup) now matches rows to strata with a single vectorised, collision-safe key match instead of an O(rows x strata x variables) row-by-row scan, so it scales to large survey datasets. Behaviour is unchanged, including the correct handling of values that contain the stratum-label separator.
 
 ## Bug Fixes
 
