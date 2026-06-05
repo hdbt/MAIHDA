@@ -497,6 +497,13 @@ is_aggregated <- "stratum" %in% names(df)
         }
       }
 
+      # Per-observation surprise (negative log-likelihood of the observed
+      # category). The stratum-level value is the MEAN of this -- average surprise
+      # / log loss = mean(-log(p)). Collapsing probabilities first and taking
+      # -log(mean(p)) is a different (smaller, by Jensen) quantity that can change
+      # the stratum ranking, so surprise is computed per row and then averaged.
+      df$surprise <- -log(df$observed_prob)
+
       if ("stratum" %in% names(data)) {
         df$stratum <- data$stratum
         df <- df |>
@@ -505,6 +512,7 @@ is_aggregated <- "stratum" %in% names(df)
             dplyr::across(tidyselect::all_of(prob_cols), \(x) mean(x, na.rm = TRUE)),
             expected_score = mean(.data$expected_score, na.rm = TRUE),
             observed_prob = mean(.data$observed_prob, na.rm = TRUE),
+            surprise = mean(.data$surprise, na.rm = TRUE),
             .groups = "drop"
           )
 
@@ -519,7 +527,9 @@ is_aggregated <- "stratum" %in% names(df)
         x_label <- "Case Rank (Ordered by Expected Category Score)"
       }
 
-      df$surprise <- -log(df$observed_prob)
+      # df$surprise is already the per-observation value (case-level) or its
+      # per-stratum mean (stratum-level); do not recompute it from a collapsed
+      # probability here.
 
       df <- df |>
         dplyr::arrange(.data$expected_score) |>

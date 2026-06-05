@@ -32,7 +32,14 @@ the model family. Common options: "gaussian", "binomial", "poisson".
 Default is "gaussian".
 If the outcome variable appears to be binary and the default family is used,
 the function will automatically switch to "binomial", recode two-level
-responses to 0/1 for \code{glmer()}, and issue a warning.}
+responses to 0/1 for \code{glmer()}, and issue a warning.
+Although any valid family object is accepted for fitting, the MAIHDA variance
+summaries (\code{\link{summary.maihda_model}}, VPC/ICC, PCV) are only defined
+for \code{gaussian("identity")}, the binomial/Bernoulli families with a logit
+or probit link, and \code{poisson("log")}. Other families (for example
+\code{Gamma(link = "log")}) will fit, but \code{summary()} and the VPC/PCV
+helpers will stop with an "not implemented" error because no level-1 variance
+is defined for them.}
 
 \item{autobin}{Logical indicating whether numeric variables used only for
 automatic strata creation should be binned by \code{\link{make_strata}}.

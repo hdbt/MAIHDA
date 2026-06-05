@@ -26,16 +26,24 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' (VPC/ICC) and stratum-specific estimates.
 #'
 #' @section Interpreting the VPC/ICC: The VPC is the between-stratum variance
-#'   divided by the total \emph{unexplained} variance (between-stratum + residual);
-#'   it is a conditional/residual ICC that excludes variance captured by the fixed
-#'   effects, so for models with covariates it is conditional on them. It is most
-#'   commonly read from the null model \code{outcome ~ 1 + (1 | stratum)}, where it
-#'   is the total between-stratum share. For non-Gaussian families the level-1
-#'   (residual) variance uses a latent/distributional approximation (e.g.
-#'   \eqn{\pi^2/3} for logistic), so the VPC is on that latent scale. The stratum
-#'   random effects represent the total between-stratum deviation; they equal the
-#'   \emph{pure} intersectional (interaction) component only when the additive main
-#'   effects of the strata variables are included in the model.
+#'   divided by the total \emph{unexplained} variance. For the canonical
+#'   single-stratum model that denominator is between-stratum + residual, but if the
+#'   model includes additional random effects (e.g. \code{(1 | site)}) their
+#'   variance is included in the denominator too (between-stratum + other random
+#'   effects + residual), so the VPC is the between-stratum \emph{share} of all
+#'   unexplained variance. It is a conditional/residual ICC that excludes variance
+#'   captured by the fixed effects, so for models with covariates it is conditional
+#'   on them. It is most commonly read from the null model
+#'   \code{outcome ~ 1 + (1 | stratum)}, where it is the total between-stratum
+#'   share. For non-Gaussian families the level-1 (residual) variance uses a
+#'   latent/distributional approximation (e.g. \eqn{\pi^2/3} for logistic), so the
+#'   VPC is on that latent scale; for a \emph{weighted} Gaussian model the level-1
+#'   variance is the mean conditional residual variance,
+#'   \eqn{\bar{\sigma^2 / w_i}}, since the per-observation residual variance is
+#'   \eqn{\sigma^2 / w_i}. The stratum random effects represent the total
+#'   between-stratum deviation; they equal the \emph{pure} intersectional
+#'   (interaction) component only when the additive main effects of the strata
+#'   variables are included in the model.
 #'
 #' @param object A maihda_model object from \code{fit_maihda()}.
 #' @param bootstrap Logical indicating whether to compute parametric bootstrap
@@ -130,7 +138,9 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
         ci_upper = vpc_ci[2],
         conf_level = conf_level,
         bootstrap = TRUE,
-        method = "bootstrap"
+        method = "bootstrap",
+        n_boot_ok = attr(vpc_ci, "n_ok"),
+        mc_se = attr(vpc_ci, "mc_se")
       )
     } else {
       vpc_result <- list(
@@ -269,7 +279,12 @@ print.maihda_summary <- function(x, ...) {
   if (maihda_vpc_has_interval(x$vpc)) {
     cat(sprintf("  Estimate: %.4f [%.4f, %.4f]\n",
                 x$vpc$estimate, x$vpc$ci_lower, x$vpc$ci_upper))
-    cat("  ", maihda_vpc_interval_label(x$vpc), "\n\n", sep = "")
+    cat("  ", maihda_vpc_interval_label(x$vpc), "\n", sep = "")
+    if (!is.null(x$vpc$mc_se) && is.finite(x$vpc$mc_se)) {
+      cat(sprintf("  (%d successful bootstrap draws; Monte Carlo SE %.4f)\n",
+                  as.integer(x$vpc$n_boot_ok), x$vpc$mc_se))
+    }
+    cat("\n")
   } else {
     cat(sprintf("  Estimate: %.4f\n\n", x$vpc$estimate))
   }

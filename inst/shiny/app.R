@@ -314,10 +314,10 @@ server <- function(input, output, session) {
       card_header("Stepwise Proportional Change in Variance Decomposition"),
       card_body(
         markdown("
-        This table displays how much between-stratum inequality is explained incrementally.
+        This table shows the proportional change in between-stratum variance as covariates are added step by step. It is a model-dependent, order-dependent comparison, not a causal decomposition of inequality.
 
-        *   **Step_PCV**: Percentage of variance explained compared to the *previous* model step.
-        *   **Total_PCV**: Percentage of variance explained compared to the *null* model (Step 0).
+        *   **Step_PCV**: Proportional change in between-stratum variance relative to the *previous* model step.
+        *   **Total_PCV**: Proportional change relative to the *null* model (Step 0).
         "),
         plotlyOutput("stepwise_pcv_plot", height = "400px"),
         hr(),
@@ -438,14 +438,14 @@ server <- function(input, output, session) {
         card_header("HUD: Key MAIHDA Metrics"),
         div(class = "d-flex justify-content-around text-center",
             div(h4("VPC (Null)"), h3(paste0(vpc_val, "%")), p(class="text-muted", "Total Variance b/w Strata")),
-            div(h4("PCV (Adjusted)"), h3(paste0(pvc_val, "%")), p(class="text-muted", "Variance Explained by Main Effects")),
+            div(h4("PCV (Adjusted)"), h3(paste0(pvc_val, "%")), p(class="text-muted", "Between-Stratum Variance Change with Main Effects")),
             div(h4(pvc_display$label), h3(pvc_display$value), p(class="text-muted", pvc_display$description))
         ),
         markdown("
         **Interpretation Guide**:
-        - **VPC** (Variance Partition Coefficient) measures how much of the total outcome variance is due to the strata definitions.
-        - **PCV** (Proportional Change in Variance) shows how much of that strata variation is explained by simple additive effects.
-        - The remaining percentage is the between-stratum variation **not** explained by the additive main effects. It is often interpreted as the intersectional component, but it is a model-dependent quantity and should be read cautiously.
+        - **VPC** (Variance Partition Coefficient) measures the share of the unexplained outcome variance that lies between strata.
+        - **PCV** (Proportional Change in Variance) is the proportional change in between-stratum variance when the additive main effects are added. It is a model-dependent comparison, not a causal measure of variance 'explained'.
+        - The remaining between-stratum variation is often read as the intersectional component, but it is model-dependent and should be interpreted cautiously (a negative PCV does not by itself prove hidden structural inequality).
         "),
         uiOutput("dynamic_interpretation")
       ),

@@ -603,13 +603,24 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     stratum_means$label <- paste("Stratum", stratum_means$stratum)
   }
 
-  # Calculate components
-  # Total Dev = Additive Dev + Intersectional Dev
+  # Calculate components: total_dev = additive_dev + intersectional_dev.
+  # The intersectional (stratum) component is the stratum random effect (BLUP)
+  # itself, taken from the summary, NOT total-minus-fixed. With additional random
+  # effects (e.g. (1 | site)) total-minus-fixed would also absorb those, wrongly
+  # attributing them to the stratum; using the stratum random effect isolates the
+  # intersectional component. For the canonical single-stratum model the two are
+  # identical. Strata absent from the random-effect table contribute 0.
+  re_map <- stats::setNames(
+    as.numeric(summary_obj$stratum_estimates$random_effect),
+    as.character(summary_obj$stratum_estimates$stratum)
+  )
+  stratum_means$intersectional_dev <- unname(re_map[stratum_means$stratum])
+  stratum_means$intersectional_dev[is.na(stratum_means$intersectional_dev)] <- 0
+
   stratum_means <- stratum_means |>
     dplyr::mutate(
-      total_dev = .data$mean_total - global_mean,
       additive_dev = .data$mean_fixed - global_mean,
-      intersectional_dev = .data$mean_total - .data$mean_fixed,
+      total_dev = .data$additive_dev + .data$intersectional_dev,
       abs_total_dev = abs(.data$total_dev)
     ) |>
     dplyr::arrange(.data$total_dev) |>
@@ -657,11 +668,11 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     ggplot2::labs(
       title = "Deviation Decomposition: Fixed vs. Stratum-Random Components",
       subtitle = paste0(
-        "Stratum deviation from the global mean split into the fixed-effect and ",
-        "stratum random-effect components, on the model (link) scale.\nThe black ",
-        "dot is the total deviation. The random-effect component is the pure ",
-        "intersectional (interaction) effect only when the strata main effects are ",
-        "in the model; otherwise it also includes those additive main effects."
+        "Stratum deviation split into the fixed-effect component and the stratum ",
+        "random effect (BLUP), on the model (link) scale.\nThe black dot is their ",
+        "sum; any other random effects (e.g. (1 | site)) are not included. The ",
+        "stratum component is the pure intersectional (interaction) effect only when ",
+        "the strata main effects are in the model; otherwise it also absorbs them."
       ),
       x = "Stratum Rank (Ordered by Total Predicted Deviation)",
       y = "Deviation from Global Mean (link scale)",

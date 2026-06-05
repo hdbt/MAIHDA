@@ -23,6 +23,28 @@ test_that("maihda_app_fit_models switches a binary factor outcome to binomial", 
   expect_equal(res$null_model$family$family, "binomial")
 })
 
+test_that("maihda_app_fit_models switches a numeric 0/1 outcome to binomial", {
+  set.seed(2115)
+  n <- 600
+  d <- data.frame(
+    Gender = sample(c("F", "M"), n, replace = TRUE),
+    Race = sample(c("A", "B"), n, replace = TRUE)
+  )
+  sk <- interaction(d$Gender, d$Race, drop = TRUE)
+  d$Obese <- rbinom(n, 1, plogis(rnorm(nlevels(sk), sd = 1)[sk]))  # numeric 0/1
+
+  # A no-code user leaving the default gaussian on a numeric 0/1 outcome must not
+  # silently get a linear probability model; the app mirrors the core API.
+  expect_message(
+    res <- MAIHDA:::maihda_app_fit_models(
+      d, outcome_var = "Obese", grouping_vars = c("Gender", "Race"),
+      family = "gaussian"
+    ),
+    "binomial"
+  )
+  expect_equal(res$null_model$family$family, "binomial")
+})
+
 test_that("Shiny app dependency gate leaves upload-only readers optional", {
   expect_false("haven" %in% MAIHDA:::maihda_app_required_packages())
 })

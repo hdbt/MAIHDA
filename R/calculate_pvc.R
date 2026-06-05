@@ -114,6 +114,8 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
     result$ci_upper <- pvc_ci[2]
     result$bootstrap <- TRUE
     result$conf_level <- conf_level
+    result$n_boot_ok <- attr(pvc_ci, "n_ok")
+    result$mc_se <- attr(pvc_ci, "mc_se")
   }
 
   class(result) <- "pvc_result"
@@ -306,7 +308,12 @@ print.pvc_result <- function(x, ...) {
     conf_pct <- if (!is.null(x$conf_level)) x$conf_level * 100 else 95
     cat(sprintf("PCV: %.4f [%.4f, %.4f]\n",
                 x$pvc, x$ci_lower, x$ci_upper))
-    cat(sprintf("(Bootstrap %.0f%% CI)\n\n", conf_pct))
+    cat(sprintf("(Bootstrap %.0f%% CI)\n", conf_pct))
+    if (!is.null(x$mc_se) && is.finite(x$mc_se)) {
+      cat(sprintf("(%d successful bootstrap draws; Monte Carlo SE %.4f)\n",
+                  as.integer(x$n_boot_ok), x$mc_se))
+    }
+    cat("\n")
   } else {
     cat(sprintf("PCV: %.4f\n\n", x$pvc))
   }

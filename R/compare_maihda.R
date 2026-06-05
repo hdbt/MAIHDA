@@ -299,9 +299,12 @@ plot_comparison <- function(comparison_df) {
 #'   "binomial" (with a warning) so every group uses the same family.
 #' @param shared_strata Logical. When TRUE (default) intersectional strata are
 #'   defined once on the full data so that a stratum denotes the same combination
-#'   in every group and VPCs are directly comparable; strata absent from a given
-#'   group are simply unused there. When FALSE, strata are rebuilt independently
-#'   within each group (stratum identities are then not comparable across groups).
+#'   in every group; this makes the stratum \emph{definitions} comparable across
+#'   groups. Note that a group may still not contain every stratum, so two groups'
+#'   VPCs can be estimated over different sets of populated strata -- they are then
+#'   not strictly directly comparable, and the function warns when this happens.
+#'   When FALSE, strata are rebuilt independently within each group (stratum
+#'   identities are then not comparable across groups at all).
 #' @param min_group_n Minimum size of the \emph{analytic} sample a group must have
 #'   -- the rows that survive the model frame (covariate transformations applied,
 #'   rows with a missing outcome/covariate dropped) -- to be modelled. Groups with
@@ -407,11 +410,31 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     conf_level <- bootstrap_args$conf_level
   }
 
+  # Evaluate the forwarded engine arguments (e.g. weights=/subset=) with the data
+  # mask, as fit_maihda() does, so the upfront family detection and the per-group
+  # min_group_n guard below see the same rows the per-group fits will use. Capturing
+  # them as quosures keeps them working when compare_maihda_groups() is itself
+  # called through maihda(); the per-group fits still receive the raw `...`.
+  dot_vals <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
+  subset_value <- dot_vals[["subset"]]
+  weights_value <- dot_vals[["weights"]]
+  n_full <- nrow(data)
+  # Per-group slice of a full-length value, used only for the row-count guard:
+  # logical subsets and numeric weights slice cleanly; other forms are left to the
+  # per-group fit (which re-resolves them) and simply not reflected in the guard.
+  slice_full <- function(val, idx) {
+    if (is.null(val) || length(val) != n_full) return(NULL)
+    val[idx]
+  }
+
   # ---- resolve family once on the full data (mirrors fit_maihda) ----
-  # Detect on the analytic (complete-case) sample, not the raw outcome column.
+  # Detect on the analytic sample (transformations, subset and weight-NA applied),
+  # not the raw outcome column.
   if (missing(family)) {
-    is_binary <- tryCatch(maihda_response_is_binary(formula, data),
-                          error = function(e) FALSE)
+    is_binary <- tryCatch(
+      maihda_response_is_binary(formula, data, subset = subset_value,
+                                weights = weights_value),
+      error = function(e) FALSE)
     if (isTRUE(is_binary)) {
       warning("The outcome variable appears to be binary. Using family = 'binomial' ",
               "for every group. To fit linear probability models, specify ",
@@ -443,6 +466,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # unreliable). brms fits report NA here and are diagnosed via Rhat elsewhere.
   singular_groups <- character(0)
   nonconverged_groups <- character(0)
+  # Set of strata actually populated in each successfully fitted group, used to
+  # warn when shared strata still leave groups with different stratum support
+  # (their VPCs are then estimated over different level sets).
+  populated_strata <- list()
 
   for (gi in seq_along(group_levels)) {
     g <- group_levels[gi]
@@ -454,10 +481,15 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     }
 
     # Size of the analytic sample the model will actually fit: the rows surviving
-    # the model frame (covariate transformations applied, missing outcome/covariate
-    # rows dropped), not the raw group row count. min_group_n guards this so a
-    # group with enough raw rows but a tiny usable sample is still skipped.
-    analytic_fr <- maihda_analytic_model_frame(fit_formula, sub)
+    # the model frame (covariate transformations applied; rows missing, excluded by
+    # `subset`, or carrying a missing weight dropped), not the raw group row count.
+    # min_group_n guards this so a group with enough raw rows but a tiny usable
+    # sample is still skipped.
+    analytic_fr <- maihda_analytic_model_frame(
+      fit_formula, sub,
+      subset = slice_full(subset_value, idx),
+      weights = slice_full(weights_value, idx)
+    )
     n_g <- if (is.null(analytic_fr)) nrow(sub) else nrow(analytic_fr)
     row <- data.frame(
       group = g, n = n_g, n_strata = NA_integer_,
@@ -516,7 +548,9 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     # with missing outcome/covariates), not the raw group row count.
     analytic_n <- maihda_nobs(fit_obj$model$model)
     if (is.finite(analytic_n)) row$n <- as.integer(analytic_n)
-    row$n_strata <- length(unique(stats::na.omit(fit_obj$model$data$stratum)))
+    group_strata <- sort(unique(stats::na.omit(as.character(fit_obj$model$data$stratum))))
+    row$n_strata <- length(group_strata)
+    populated_strata[[g]] <- group_strata
     row$status <- "ok"
 
     # Flag fit-quality problems (singular / non-converged) for an aggregated
@@ -535,6 +569,24 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     }
 
     rows[[gi]] <- row
+  }
+
+  # Even with shared/global strata, groups can end up with different *populated*
+  # strata (some combinations are simply absent in a given group). Each group's VPC
+  # is then estimated over a different set of strata, so the VPCs are not strictly
+  # directly comparable; warn (this does not apply to shared_strata = FALSE, where
+  # the strata are explicitly per-group and already documented as non-comparable).
+  if (isTRUE(shared_strata) && length(populated_strata) >= 2) {
+    distinct_supports <- unique(populated_strata)
+    if (length(distinct_supports) > 1) {
+      support_sizes <- vapply(populated_strata, length, integer(1))
+      warning("compare_maihda_groups(): groups have different populated strata (",
+              paste(sprintf("%s: %d", names(populated_strata), support_sizes),
+                    collapse = ", "),
+              "). Even with shared_strata = TRUE each group's VPC is estimated over ",
+              "the strata present in that group, so VPCs based on different stratum ",
+              "support are not strictly directly comparable.", call. = FALSE)
+    }
   }
 
   # Single aggregated warning when any group's lme4 fit was singular or did not

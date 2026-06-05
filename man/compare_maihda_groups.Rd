@@ -40,9 +40,12 @@ a binary outcome is auto-detected once on the full data and switched to
 
 \item{shared_strata}{Logical. When TRUE (default) intersectional strata are
 defined once on the full data so that a stratum denotes the same combination
-in every group and VPCs are directly comparable; strata absent from a given
-group are simply unused there. When FALSE, strata are rebuilt independently
-within each group (stratum identities are then not comparable across groups).}
+in every group; this makes the stratum \emph{definitions} comparable across
+groups. Note that a group may still not contain every stratum, so two groups'
+VPCs can be estimated over different sets of populated strata -- they are then
+not strictly directly comparable, and the function warns when this happens.
+When FALSE, strata are rebuilt independently within each group (stratum
+identities are then not comparable across groups at all).}
 
 \item{min_group_n}{Minimum size of the \emph{analytic} sample a group must have
 -- the rows that survive the model frame (covariate transformations applied,

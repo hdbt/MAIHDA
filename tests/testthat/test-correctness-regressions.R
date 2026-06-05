@@ -460,6 +460,141 @@ test_that("predict_maihda errors clearly for out-of-range numeric auto-bins", {
   )
 })
 
+test_that("maihda() resolves caller-local weights/subset through the data mask", {
+  # Reproduces the wrapper bug: from inside a function, weights/subset that name a
+  # caller-local variable were lost because ... forwarding became ..1 promises.
+  run <- function() {
+    set.seed(2110)
+    n <- 200
+    d <- data.frame(stratum = factor(rep(seq_len(8), each = 25)), x = rnorm(n))
+    d$y <- 1 + 0.4 * d$x + rnorm(8, sd = 0.6)[d$stratum] + rnorm(n, sd = 0.3)
+    w_local <- runif(n, 0.5, 1.5)       # caller-local, NOT a column of d
+    keep_local <- d$x > 0               # caller-local logical
+    a <- maihda(y ~ x + (1 | stratum), data = d, weights = w_local)
+    expect_equal(unname(stats::weights(a$model$model, type = "prior")), w_local)
+    b <- maihda(y ~ x + (1 | stratum), data = d, subset = keep_local)
+    expect_equal(as.integer(stats::nobs(b$model$model)), sum(keep_local))
+  }
+  run()
+})
+
+test_that("compare_maihda_groups resolves a weights column for every group", {
+  run <- function() {
+    set.seed(2111)
+    n <- 240
+    d <- data.frame(
+      grp = rep(c("A", "B"), each = n / 2),
+      gender = sample(c("F", "M"), n, replace = TRUE),
+      ses = sample(c("lo", "hi"), n, replace = TRUE)
+    )
+    sk <- interaction(d$gender, d$ses, drop = TRUE)
+    d$y <- rnorm(nlevels(sk), sd = 0.6)[sk] + rnorm(n, sd = 0.4)
+    d$wcol <- runif(n, 0.5, 1.5)
+    cmp <- suppressWarnings(
+      compare_maihda_groups(y ~ 1 + (1 | gender:ses), data = d, group = "grp",
+                            min_group_n = 5, weights = wcol)
+    )
+    expect_true(all(cmp$status == "ok"))
+  }
+  run()
+})
+
+test_that("fit_maihda recodes a binary outcome without breaking a label subset", {
+  set.seed(2120)
+  n <- 200
+  d <- data.frame(stratum = factor(rep(seq_len(8), each = 25)), x = rnorm(n))
+  d$y <- ifelse(rbinom(n, 1, plogis(0.3 * d$x)) == 1, "yes", "no")
+
+  # subset references the ORIGINAL labels; recoding to 0/1 must not break it.
+  expect_warning(
+    m <- fit_maihda(y ~ x + (1 | stratum), data = d, subset = y %in% c("no", "yes")),
+    "binary", ignore.case = TRUE
+  )
+  expect_equal(m$family$family, "binomial")
+  expect_equal(as.integer(stats::nobs(m$model)), n)
+})
+
+test_that("weighted Gaussian VPC uses the mean conditional residual variance", {
+  set.seed(2112)
+  n <- 300
+  d <- data.frame(stratum = factor(rep(seq_len(10), each = 30)), x = rnorm(n))
+  d$y <- 1 + 0.4 * d$x + rnorm(10, sd = 0.8)[d$stratum] + rnorm(n, sd = 0.5)
+  d$wt <- runif(n, 0.2, 3)
+
+  m <- fit_maihda(y ~ x + (1 | stratum), data = d, weights = wt)
+  s <- summary(m)
+  vc <- lme4::VarCorr(m$model)
+  sigma2 <- attr(vc, "sc")^2
+  var_between <- as.numeric(as.matrix(vc[["stratum"]])["(Intercept)", "(Intercept)"])
+  prior_w <- stats::weights(m$model, type = "prior")
+  resid_expected <- sigma2 * mean(1 / prior_w)   # mean conditional residual variance
+
+  observed_resid <- s$variance_components$variance[
+    s$variance_components$component == "Within-stratum (residual)"
+  ]
+  expect_equal(observed_resid, resid_expected, tolerance = 1e-8)
+  expect_equal(s$vpc$estimate, var_between / (var_between + resid_expected), tolerance = 1e-8)
+  # ...and it differs from the naive sigma^2-only VPC the package used to report.
+  expect_false(isTRUE(all.equal(s$vpc$estimate,
+                                var_between / (var_between + sigma2))))
+})
+
+test_that("binary detection respects negative subset indices and NA weights", {
+  set.seed(2113)
+  n <- 150
+  d <- data.frame(stratum = factor(rep(seq_len(6), each = 25)), x = rnorm(n))
+  y <- rbinom(n, 1, 0.5)
+  y[1:6] <- 2L                 # a spurious third value on the first six rows
+  d$y <- y
+
+  # Negative subset excludes exactly those rows -> analytic response is 0/1.
+  m_sub <- suppressWarnings(fit_maihda(y ~ x + (1 | stratum), data = d, subset = -(1:6)))
+  expect_equal(m_sub$family$family, "binomial")
+
+  # NA weights drop the same rows (lme4 removes them), so detection must too.
+  w <- rep(1, n)
+  w[1:6] <- NA_real_
+  m_w <- suppressWarnings(fit_maihda(y ~ x + (1 | stratum), data = d, weights = w))
+  expect_equal(m_w$family$family, "binomial")
+})
+
+test_that("effect decomposition isolates the stratum random effect from other REs", {
+  set.seed(2105)
+  d <- expand.grid(stratum = factor(seq_len(5)), site = factor(seq_len(4)), rep = seq_len(12))
+  d$x <- rnorm(nrow(d))
+  d$y <- 2 + 0.5 * d$x + rnorm(5, sd = 0.8)[d$stratum] +
+    rnorm(4, sd = 1.5)[d$site] + rnorm(nrow(d), sd = 0.3)
+
+  model <- fit_maihda(y ~ x + (1 | site) + (1 | stratum), data = d)
+  summ <- summary(model)
+  p <- MAIHDA:::plot_effect_decomposition(model, summ)
+
+  seg <- NULL
+  for (ly in p$layers) {
+    if (!is.null(ly$data) && "Component" %in% names(ly$data)) seg <- ly$data
+  }
+  expect_false(is.null(seg))
+  inter <- seg[seg$Component == "Stratum random-effect component", ]
+  inter_dev <- inter$y_end - inter$y_start
+  # The intersectional component must be exactly the stratum random effects, NOT
+  # total-minus-fixed (which would also absorb the (1 | site) variance).
+  expect_equal(sort(inter_dev), sort(summ$stratum_estimates$random_effect),
+               tolerance = 1e-6)
+})
+
+test_that("bootstrap VPC reports Monte Carlo error", {
+  set.seed(2114)
+  n <- 200
+  d <- data.frame(stratum = factor(rep(seq_len(8), each = 25)), x = rnorm(n))
+  d$y <- 1 + 0.3 * d$x + rnorm(8, sd = 0.7)[d$stratum] + rnorm(n, sd = 0.3)
+  m <- fit_maihda(y ~ x + (1 | stratum), data = d)
+
+  s <- suppressWarnings(summary(m, bootstrap = TRUE, n_boot = 50))
+  expect_true(is.finite(s$vpc$mc_se))
+  expect_true(s$vpc$n_boot_ok >= 10 && s$vpc$n_boot_ok <= 50)
+  expect_output(print(s), "Monte Carlo SE", fixed = TRUE)
+})
+
 test_that("VPC/ICC errors for a Gaussian model with a non-identity link", {
   set.seed(2001)
   d <- data.frame(

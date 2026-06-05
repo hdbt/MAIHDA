@@ -159,6 +159,37 @@ test_that("prediction deviation auto-detects brmsfit families", {
   expect_equal(MAIHDA:::maihda_prediction_panel_auto_type(fake_poisson), "poisson")
 })
 
+test_that("ordinal stratum surprise averages per-observation surprise (log loss)", {
+  skip_if_not_installed("MASS")
+  set.seed(2108)
+  n <- 300
+  d <- data.frame(stratum = factor(rep(seq_len(6), each = 50)), x = rnorm(n))
+  eta <- 0.6 * d$x + rnorm(6, sd = 0.8)[d$stratum]
+  d$y <- factor(findInterval(eta + rlogis(n), c(-0.8, 0.8)),
+                labels = c("low", "mid", "high"), ordered = TRUE)
+  m <- MASS::polr(y ~ x, data = d, Hess = TRUE)
+
+  p <- plot_prediction_deviation_panels(m, d, type = "ordinal",
+                                        ordinal_mode = "surprise")
+  plotted <- p[[2]]$data            # the surprise panel's data, per stratum
+
+  # Reference: per-observation surprise -log(P(observed)), averaged per stratum.
+  probs <- predict(m, type = "probs")
+  obs <- as.character(d$y)
+  p_obs <- vapply(seq_len(nrow(d)),
+                  function(i) probs[i, match(obs[i], colnames(probs))], numeric(1))
+  ref <- tapply(-log(p_obs), d$stratum, mean)
+
+  m_plot <- stats::setNames(plotted$surprise, as.character(plotted$stratum))
+  common <- intersect(names(m_plot), names(ref))
+  p_mean <- tapply(p_obs, d$stratum, mean)
+  expect_gt(length(common), 0)
+  expect_equal(as.numeric(m_plot[common]), as.numeric(ref[common]), tolerance = 1e-6)
+  # The mean-of-logs differs from the (incorrect) log-of-mean it replaced.
+  expect_false(isTRUE(all.equal(as.numeric(m_plot[common]),
+                                as.numeric(-log(p_mean[common])))))
+})
+
 test_that("Poisson prediction panels use response-scale (count) fitted values", {
   set.seed(2005)
   df <- data.frame(x = rnorm(150))

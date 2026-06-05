@@ -19,6 +19,13 @@
 #'   If the outcome variable appears to be binary and the default family is used,
 #'   the function will automatically switch to "binomial", recode two-level
 #'   responses to 0/1 for \code{glmer()}, and issue a warning.
+#'   Although any valid family object is accepted for fitting, the MAIHDA variance
+#'   summaries (\code{\link{summary.maihda_model}}, VPC/ICC, PCV) are only defined
+#'   for \code{gaussian("identity")}, the binomial/Bernoulli families with a logit
+#'   or probit link, and \code{poisson("log")}. Other families (for example
+#'   \code{Gamma(link = "log")}) will fit, but \code{summary()} and the VPC/PCV
+#'   helpers will stop with an "not implemented" error because no level-1 variance
+#'   is defined for them.
 #' @param autobin Logical indicating whether numeric variables used only for
 #'   automatic strata creation should be binned by \code{\link{make_strata}}.
 #'   Default is TRUE.
@@ -53,6 +60,7 @@
 #' @export
 #' @importFrom lme4 lmer glmer
 #' @importFrom reformulas findbars nobars
+#' @importFrom rlang enquos eval_tidy
 #' @importFrom stats gaussian binomial poisson
 fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
                        autobin = TRUE, ...) {
@@ -69,24 +77,28 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     stop("'engine' should be one of: lme4, brms", call. = FALSE)
   }
 
-  # Capture the caller's scope and the unevaluated `...` expressions up front. The
-  # dots are spliced into the engine call later (rather than forwarded straight
-  # through `...`), so data-masked lme4/brms arguments such as weights=, subset=
-  # and offset= resolve against the data and the caller's variables instead of
-  # failing with a "..1 used in an incorrect context" error.
-  caller_env <- parent.frame()
-  dots <- match.call(expand.dots = FALSE)[["..."]]
-  subset_expr <- if (!is.null(dots)) dots[["subset"]] else NULL
+  # Capture the forwarded engine arguments as quosures (each keeps its expression
+  # AND its environment) and evaluate them once, here, against the data. Plain
+  # `...` forwarding turns data-masked arguments into ..1/..2 promises that bypass
+  # the data mask once fit_maihda is called through maihda()/compare_maihda_groups();
+  # rlang::eval_tidy() instead resolves each argument against the data columns first
+  # and then the caller's scope, so weights = a_column, weights = a_caller_variable,
+  # and subset = y %in% c("no", "yes") all work at any nesting depth. Evaluating the
+  # subset here, against the ORIGINAL response, also makes it immune to the 0/1
+  # recoding below. The resulting values feed binary detection and the engine call.
+  dot_vals <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
+  subset_value <- dot_vals[["subset"]]
+  weights_value <- dot_vals[["weights"]]
 
   # Automatically switch to binomial for binary outcomes if family is default.
   # Detect on the analytic sample lme4/brms will actually fit -- the model frame
-  # after transformations, NA-dropping and any `subset` -- so an outcome that is
-  # only 0/1 once excluded rows are removed is still recognised as binary
-  # (consistent with maihda_response_is_binary() used for the brms routing below).
+  # after transformations, NA-dropping, any `subset`, and dropping rows with a
+  # missing prior weight -- so an outcome that is only 0/1 once excluded rows are
+  # removed is still recognised as binary.
   if (missing(family)) {
     is_binary <- tryCatch(
-      maihda_response_is_binary(formula, data, subset = subset_expr,
-                                subset_env = caller_env),
+      maihda_response_is_binary(formula, data, subset = subset_value,
+                                weights = weights_value),
       error = function(e) FALSE)
     if (isTRUE(is_binary)) {
       warning("The outcome variable appears to be binary. Automatically switching to family = 'binomial'. To fit a Linear Probability Model, explicitly specify family = 'gaussian'.", call. = FALSE)
@@ -184,27 +196,29 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # `y | trials(n)` -- are left untouched and remain binomial() models.
   is_binomial_family <- family$family %in% c("binomial", "quasibinomial")
   response_is_binary <- is_binomial_family &&
-    maihda_response_is_binary(formula, data, subset = subset_expr,
-                              subset_env = caller_env)
+    maihda_response_is_binary(formula, data, subset = subset_value,
+                              weights = weights_value)
   if (response_is_binary) {
-    data <- maihda_prepare_binomial_response(data, formula, subset = subset_expr,
-                                             subset_env = caller_env)
+    data <- maihda_prepare_binomial_response(data, formula, subset = subset_value,
+                                             weights = weights_value)
   }
 
-  # Build the engine call explicitly and evaluate it in an environment that
-  # exposes the processed `data`, so the `...` arguments (including data-masked
-  # ones such as weights=/subset=/offset=) are resolved by lme4/brms against the
-  # data and the caller's scope. Forwarding them straight through `...` makes lme4
-  # capture them as `..1`/`..2` promises it cannot evaluate, which fails with
-  # "..1 used in an incorrect context". Pointing the formula's environment at the
-  # caller lets non-data variables in those arguments resolve where the user wrote
-  # the model.
-  # `data` is bound here (not in fit_maihda's frame, which fit_env does not see) so
-  # the call below can refer to it by the natural name. R resolves function calls
-  # separately from value bindings, so this does not shadow the base data() function.
-  fit_env <- new.env(parent = caller_env)
+  # Build the engine call from the already-evaluated `...` values. Each value is
+  # bound in a private environment and referenced by name so the model's stored
+  # call stays small and readable (e.g. weights = .maihda_arg_weights) rather than
+  # embedding whole vectors, and the pre-evaluated subset is a plain logical that no
+  # longer depends on the (now recoded) response. The formula's environment is
+  # pointed at this env so that lme4/brms, which evaluate `weights`/`subset` against
+  # the formula's environment, find the bound values (and the `data` symbol).
+  fit_env <- new.env(parent = environment(formula))
   fit_env$data <- data
-  environment(formula) <- caller_env
+  dot_args <- list()
+  for (nm in names(dot_vals)) {
+    bind_nm <- paste0(".maihda_arg_", nm)
+    assign(bind_nm, dot_vals[[nm]], envir = fit_env)
+    dot_args[[nm]] <- as.name(bind_nm)
+  }
+  environment(formula) <- fit_env
 
   if (engine == "lme4") {
     # Use lmer only for Gaussian with the identity link -- lmer takes no family
@@ -236,7 +250,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
                      family = family)
   }
 
-  fit_call <- as.call(c(list(fit_fun), fit_args, as.list(dots)))
+  fit_call <- as.call(c(list(fit_fun), fit_args, dot_args))
   model <- eval(fit_call, fit_env)
 
   # Capture fit-quality diagnostics (singular fit / non-convergence) so they can

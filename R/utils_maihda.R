@@ -49,6 +49,32 @@ maihda_fit_diagnostics <- function(model) {
     diagnostics$converged <- length(msgs) == 0
   } else if (inherits(model, "brmsfit")) {
     diagnostics$engine <- "brms"
+    # Stan/brms convergence is not flagged at fit time the way lme4 surfaces
+    # singular/convergence warnings, so check the standard HMC diagnostics here:
+    # the maximum Rhat (chain mixing; > 1.01 is the common threshold) and the
+    # number of divergent transitions (a divergence signals the sampler could not
+    # explore the posterior, so estimates may be biased). Both are wrapped so a
+    # missing brms or an unusual fit degrades to "no diagnostics" rather than error.
+    if (requireNamespace("brms", quietly = TRUE)) {
+      msgs <- character(0)
+      max_rhat <- tryCatch(suppressWarnings(max(brms::rhat(model), na.rm = TRUE)),
+                           error = function(e) NA_real_)
+      if (is.finite(max_rhat) && max_rhat > 1.01) {
+        msgs <- c(msgs, sprintf(
+          "Max Rhat = %.3f (> 1.01): the chains may not have converged.", max_rhat))
+      }
+      n_div <- tryCatch({
+        np <- brms::nuts_params(model)
+        sum(np$Value[np$Parameter == "divergent__"], na.rm = TRUE)
+      }, error = function(e) NA_real_)
+      if (is.finite(n_div) && n_div > 0) {
+        msgs <- c(msgs, sprintf(
+          "%d divergent transition(s): the posterior may be biased; consider increasing adapt_delta.",
+          as.integer(n_div)))
+      }
+      diagnostics$messages <- msgs
+      diagnostics$converged <- length(msgs) == 0
+    }
   }
 
   structure(diagnostics, class = "maihda_fit_diagnostics")
@@ -70,8 +96,12 @@ maihda_format_fit_diagnostics <- function(diagnostics) {
     )
   }
   if (isFALSE(diagnostics$converged) && length(diagnostics$messages) > 0) {
-    out <- c(out, "Convergence warnings reported by lme4:",
-             paste0("  - ", diagnostics$messages))
+    header <- if (identical(diagnostics$engine, "brms")) {
+      "MCMC convergence diagnostics (brms):"
+    } else {
+      "Convergence warnings reported by lme4:"
+    }
+    out <- c(out, header, paste0("  - ", diagnostics$messages))
   }
   out
 }
@@ -123,7 +153,15 @@ maihda_bootstrap_ci <- function(values, n_boot, conf_level, what = "VPC") {
   }
 
   alpha <- 1 - conf_level
-  stats::quantile(values, probs = c(alpha / 2, 1 - alpha / 2), names = FALSE)
+  ci <- stats::quantile(values, probs = c(alpha / 2, 1 - alpha / 2), names = FALSE)
+  # Report the Monte Carlo error of the interval so users can judge whether enough
+  # draws were used. n_ok is the effective number of successful refits; mc_se is the
+  # Monte Carlo standard error of the bootstrap distribution's centre
+  # (sd / sqrt(n_ok)), a simple proxy for how much the interval would move with a
+  # different bootstrap seed. The print methods surface these.
+  attr(ci, "n_ok") <- n_ok
+  attr(ci, "mc_se") <- if (n_ok > 1) stats::sd(values) / sqrt(n_ok) else NA_real_
+  ci
 }
 
 maihda_validate_bootstrap_args <- function(n_boot, conf_level) {
@@ -195,28 +233,47 @@ maihda_binary_to_01 <- function(x) {
   as.integer(out)
 }
 
-# The analytic model frame lme4/brms will actually fit: response and fixed-effect
-# transformations are applied, the grouping variables are retained, and rows that
-# are missing after those transformations are dropped (na.omit). An optional
-# `subset` expression (the lme4/brms `subset=` argument) is applied first. This is
-# what the binary auto-detection and the small-sample guards key off, so they see
-# exactly the rows the model uses rather than the raw columns -- which ignore
-# transformations (e.g. log(x) of a non-positive value) and subsetting. Returns
-# NULL when the frame cannot be built (callers fall back to a raw check).
-maihda_analytic_model_frame <- function(formula, data, subset = NULL,
-                                        subset_env = parent.frame()) {
+# Logical keep-mask over `n` rows reproducing the row selection lme4/brms apply
+# before fitting: an (already-evaluated) `subset` value -- logical (recycled,
+# NA -> drop), positive/negative numeric indices, or character row names -- and
+# the removal of rows whose (already-evaluated) prior `weights` is NA. Subset and
+# weights arrive as VALUES (resolved with the data mask in fit_maihda) so this
+# helper never needs to evaluate user expressions.
+maihda_row_mask <- function(data, subset = NULL, weights = NULL) {
+  n <- nrow(data)
+  keep <- rep(TRUE, n)
   if (!is.null(subset)) {
-    keep <- tryCatch(eval(subset, envir = data, enclos = subset_env),
-                     error = function(e) NULL)
-    if (!is.null(keep)) {
-      keep <- if (is.logical(keep)) {
-        !is.na(keep) & keep
-      } else {
-        seq_len(nrow(data)) %in% keep
-      }
-      data <- data[keep, , drop = FALSE]
+    if (is.logical(subset)) {
+      s <- if (length(subset) == n) subset else rep_len(subset, n)
+      keep <- keep & !is.na(s) & s
+    } else if (is.numeric(subset)) {
+      sel <- logical(n)
+      idx <- tryCatch(seq_len(n)[subset], error = function(e) integer(0))
+      idx <- idx[!is.na(idx) & idx >= 1L & idx <= n]
+      sel[idx] <- TRUE
+      keep <- keep & sel
+    } else if (is.character(subset)) {
+      keep <- keep & (rownames(data) %in% subset)
     }
   }
+  if (!is.null(weights) && length(weights) == n) {
+    keep <- keep & !is.na(weights)
+  }
+  keep
+}
+
+# The analytic model frame lme4/brms will actually fit: response and fixed-effect
+# transformations are applied, the grouping variables are retained, any `subset` is
+# honoured, rows with a missing prior weight are dropped, and rows missing after
+# those transformations are dropped (na.omit). This is what the binary
+# auto-detection and the small-sample guards key off, so they see exactly the rows
+# the model uses rather than the raw columns -- which ignore transformations (e.g.
+# log(x) of a non-positive value), subsetting, and weight-based row removal.
+# Returns NULL when the frame cannot be built (callers fall back to a raw check).
+maihda_analytic_model_frame <- function(formula, data, subset = NULL,
+                                        weights = NULL) {
+  keep <- maihda_row_mask(data, subset = subset, weights = weights)
+  data <- data[keep, , drop = FALSE]
 
   fr_form <- tryCatch(reformulas::subbars(formula), error = function(e) NULL)
   if (is.null(fr_form)) {
@@ -229,17 +286,17 @@ maihda_analytic_model_frame <- function(formula, data, subset = NULL,
   )
 }
 
-# The model response over the analytic sample (post-transformation, post-NA and
-# post-subset). Only plain-symbol responses qualify as a Bernoulli candidate, so a
-# transformed or aggregated response (log(y), cbind(s, f), `y | trials(n)`) yields
-# NULL -- meaning "not a single two-level response".
+# The model response over the analytic sample (post-transformation, post-NA,
+# post-subset and post-weight-NA). Only plain-symbol responses qualify as a
+# Bernoulli candidate, so a transformed or aggregated response (log(y),
+# cbind(s, f), `y | trials(n)`) yields NULL -- "not a single two-level response".
 maihda_analytic_response <- function(formula, data, subset = NULL,
-                                     subset_env = parent.frame()) {
+                                     weights = NULL) {
   if (length(formula) != 3L || !is.symbol(formula[[2]])) {
     return(NULL)
   }
   fr <- maihda_analytic_model_frame(formula, data, subset = subset,
-                                    subset_env = subset_env)
+                                    weights = weights)
   if (is.null(fr)) {
     return(NULL)
   }
@@ -254,7 +311,7 @@ maihda_recode_to_01 <- function(x, levels_2) {
 }
 
 maihda_prepare_binomial_response <- function(data, formula, subset = NULL,
-                                             subset_env = parent.frame()) {
+                                             weights = NULL) {
   response <- formula[[2]]
   if (!is.symbol(response)) {
     return(data)
@@ -262,12 +319,13 @@ maihda_prepare_binomial_response <- function(data, formula, subset = NULL,
 
   outcome <- as.character(response)
   # Recode against the analytic sample lme4/glmer actually fits (transformations
-  # applied, missing rows and any `subset` dropped), matching the binary detection
-  # in fit_maihda(). A character/factor outcome whose third value appears only on
-  # excluded rows is still recoded to 0/1; the out-of-sample value becomes NA (and
-  # is dropped) rather than left as a stray level that glmer() would reject.
+  # applied; rows excluded by `subset`, a missing weight, or missingness dropped),
+  # matching the binary detection in fit_maihda(). A character/factor outcome whose
+  # third value appears only on excluded rows is still recoded to 0/1; the
+  # out-of-sample value becomes NA (and is dropped) rather than left as a stray
+  # level that glmer() would reject.
   resp <- maihda_analytic_response(formula, data, subset = subset,
-                                   subset_env = subset_env)
+                                   weights = weights)
   if (!outcome %in% names(data) || is.null(resp) ||
       !maihda_is_binary_vector(resp)) {
     return(data)
@@ -284,13 +342,13 @@ maihda_prepare_binomial_response <- function(data, formula, subset = NULL,
 # return FALSE and must remain a binomial() model.
 #
 # The check is evaluated on the analytic sample lme4/brms actually fits -- the
-# model frame after applying transformations, dropping missing rows, and applying
-# any `subset` -- so a response that is 0/1 only once excluded rows are removed is
-# still recognised as Bernoulli.
+# model frame after transformations, missing-row dropping, any `subset`, and the
+# removal of rows with a missing prior weight -- so a response that is 0/1 only
+# once excluded rows are removed is still recognised as Bernoulli.
 maihda_response_is_binary <- function(formula, data, subset = NULL,
-                                      subset_env = parent.frame()) {
+                                      weights = NULL) {
   resp <- maihda_analytic_response(formula, data, subset = subset,
-                                   subset_env = subset_env)
+                                   weights = weights)
   if (is.null(resp)) {
     return(FALSE)
   }
@@ -692,6 +750,26 @@ maihda_stratum_ranef_brms <- function(model, group = "stratum") {
   )
 }
 
+# Gaussian level-1 (residual) variance for VPC. For an unweighted lmer this is the
+# usual sigma^2. With prior weights w_i the observation-level residual variance is
+# sigma^2 / w_i, so there is no single residual variance; we report the mean
+# conditional residual variance, mean_i(sigma^2 / w_i) = sigma^2 * mean(1 / w_i),
+# as the level-1 variance (see the VPC note in summary.maihda_model()). Reduces to
+# sigma^2 when all weights are 1.
+maihda_gaussian_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
+  sigma2 <- attr(vc, "sc")^2
+  w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
+  if (is.null(w) || length(w) == 0) {
+    return(sigma2)
+  }
+  w <- as.numeric(w)
+  w <- w[is.finite(w) & w > 0]
+  if (length(w) == 0 || isTRUE(all(abs(w - 1) < sqrt(.Machine$double.eps)))) {
+    return(sigma2)
+  }
+  sigma2 * mean(1 / w)
+}
+
 maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
   fam <- maihda_family(model)
   if (is.null(fam)) {
@@ -706,7 +784,7 @@ maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
     # gaussian(link = "log")) the two live on different scales, so their ratio is
     # not a valid variance partition.
     maihda_stop_gaussian_non_identity_vpc(fam$link)
-    return(attr(vc, "sc")^2)
+    return(maihda_gaussian_residual_variance_lme4(model, vc))
   }
   if (fam$family %in% latent_families && fam$link == "logit") {
     return((pi^2) / 3)

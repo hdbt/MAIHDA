@@ -23,7 +23,7 @@ The **MAIHDA** package provides specialized tools for conducting Multilevel Anal
 By utilizing multilevel mixed-effects models (via `lme4` or `brms`), MAIHDA allows researchers to:
 1. Automatically construct intersectional strata.
 2. Estimate between-stratum variance and Variance Partition Coefficients (VPC).
-3. Evaluate the Proportional Change in Variance (PCV) to understand how much inequalities are driven by additive main effects versus unique intersectional effects.
+3. Evaluate the Proportional Change in Variance (PCV): a descriptive, model-dependent measure of how much the between-stratum variance changes when additive main effects are added (it is not a causal decomposition, and a negative PCV does not by itself establish hidden structural inequality).
 4. Launch an interactive Shiny Dashboard for code-free analysis.
 
 ## Installation

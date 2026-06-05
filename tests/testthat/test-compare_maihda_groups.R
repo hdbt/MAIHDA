@@ -145,6 +145,26 @@ test_that("compare_maihda_groups warns and names groups with a singular fit", {
   expect_equal(cmp$status[cmp$group == "signal"], "ok")
 })
 
+test_that("compare_maihda_groups warns when groups have different populated strata", {
+  set.seed(2116)
+  N <- 400
+  g <- data.frame(
+    grp = rep(c("A", "B"), each = N / 2),
+    gender = sample(c("F", "M"), N, replace = TRUE),
+    ses = sample(c("lo", "hi"), N, replace = TRUE)
+  )
+  # Group B contains only gender == "F", so it populates 2 of the 4 shared strata.
+  g$gender[g$grp == "B"] <- "F"
+  sk <- interaction(g$gender, g$ses, drop = TRUE)
+  g$y <- rnorm(nlevels(sk), sd = 0.6)[sk] + rnorm(N, sd = 0.4)
+
+  w <- testthat::capture_warnings(
+    compare_maihda_groups(y ~ 1 + (1 | gender:ses), data = g, group = "grp",
+                          min_group_n = 5)
+  )
+  expect_true(any(grepl("different populated strata", w)))
+})
+
 test_that("compare_maihda_groups skips a group whose analytic sample is below min_group_n", {
   set.seed(3111)
   N <- 200
