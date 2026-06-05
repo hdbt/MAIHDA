@@ -1,3 +1,6 @@
 docs
 playground.R
 shiny.dcf
+# Rendered vignette outputs are build artifacts (R CMD build / pkgdown generate
+# them from the .Rmd sources); do not commit them, or they go stale.
+vignettes/*.html

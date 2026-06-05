@@ -410,21 +410,30 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     conf_level <- bootstrap_args$conf_level
   }
 
-  # Evaluate the forwarded engine arguments (e.g. weights=/subset=) with the data
-  # mask, as fit_maihda() does, so the upfront family detection and the per-group
-  # min_group_n guard below see the same rows the per-group fits will use. Capturing
-  # them as quosures keeps them working when compare_maihda_groups() is itself
-  # called through maihda(); the per-group fits still receive the raw `...`.
+  # Evaluate the forwarded engine arguments (e.g. weights=/subset=) once, with the
+  # data mask, as fit_maihda() does. Capturing them as quosures keeps them working
+  # when compare_maihda_groups() is itself called through maihda(). The resulting
+  # full-length values are then SLICED per group before both the min_group_n guard
+  # and the per-group fit, so an external `weights = w` / `subset = keep` vector
+  # (one not stored as a data column) lines up with each group's rows instead of
+  # being passed at full length (which fails with a length mismatch or, for a
+  # subset, silently recycles onto the wrong rows).
   dot_vals <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
   subset_value <- dot_vals[["subset"]]
   weights_value <- dot_vals[["weights"]]
   n_full <- nrow(data)
-  # Per-group slice of a full-length value, used only for the row-count guard:
-  # logical subsets and numeric weights slice cleanly; other forms are left to the
-  # per-group fit (which re-resolves them) and simply not reflected in the guard.
+  # Per-group slice of a single full-length value (used for the row-count guard).
   slice_full <- function(val, idx) {
     if (is.null(val) || length(val) != n_full) return(NULL)
     val[idx]
+  }
+  # Per-group view of all forwarded dots: full-length atomic vectors (weights,
+  # subset, offset, ...) are sliced to the group's rows; scalars and objects
+  # (control, REML, nAGQ, ...) are passed through unchanged.
+  slice_dots_for_group <- function(idx) {
+    lapply(dot_vals, function(v) {
+      if (is.atomic(v) && is.null(dim(v)) && length(v) == n_full) v[idx] else v
+    })
   }
 
   # ---- resolve family once on the full data (mirrors fit_maihda) ----
@@ -520,7 +529,13 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
 
     fit_obj <- tryCatch(
       {
-        model <- fit_maihda(fit_formula, sub, engine = engine, family = family, ...)
+        # Pass the per-group SLICED dot values (not the raw full-length `...`) so
+        # weights/subset/offset align with this group's rows.
+        model <- do.call(
+          fit_maihda,
+          c(list(fit_formula, sub, engine = engine, family = family),
+            slice_dots_for_group(idx))
+        )
         summ <- summary(model, bootstrap = bootstrap, n_boot = n_boot,
                         conf_level = conf_level)
         list(model = model, summ = summ, error = NULL)

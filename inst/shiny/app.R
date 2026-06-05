@@ -64,7 +64,7 @@ ui <- page_sidebar(
                   selectInput("plot_type", "Select Plot Type:",
                               choices = c(
                                           "Prediction Deviation Panels" = "pred_dev",
-                                          "Risk vs. Intersectional Effect (Quadrant)" = "risk_vs_effect",
+                                          "Mean Prediction vs. Stratum Effect (Quadrant)" = "risk_vs_effect",
                                           "Effect Decomposition" = "effect_decomp",
                                           "Effect Decomposition (Ternary)" = "ternary",
                                           "VPC"="vpc", "Observed VS Shrunken" = "obs_vs_shrunken",
@@ -355,7 +355,7 @@ server <- function(input, output, session) {
       marker = list(color = "#4D9DE0")
     ) |>
       layout(
-        title = "Cumulative Intersectional Variance Explained",
+        title = "Cumulative Change in Between-Stratum Variance",
         xaxis = list(title = "Sequential Model Step", tickangle = -45),
         yaxis = list(title = "Total PCV (Proportional Change in Variance)", tickformat = ".1%")
       )
@@ -457,14 +457,14 @@ server <- function(input, output, session) {
                       choices = c("Conditional Interval Status" = "deviant", isolate(input$group_vars))),
           selectInput("hud_sort_var", "Sort Y-Axis By:",
                       choices = c("Effect Size (Magnitude)" = "effect", "Sample Size (N)" = "n", "Alphabetical" = "alpha")),
-          sliderInput("hud_top_n", "Show Top Deviant Strata (by Magnitude):",
+          sliderInput("hud_top_n", "Show Top Strata (by Effect Magnitude):",
                       min = 5, max = max(5, nrow(res$stratum_estimates)),
                       value = min(25, nrow(res$stratum_estimates)), step = 1)
         ),
         plotlyOutput("interactive_plot", height = "600px"),
         markdown("
         *Hover over the points to see individual stratum details.*
-        - Points far from the zero-line (red) represent **deviant strata** for exploration: groups whose outcome departs most from what simple additive effects would predict.
+        - Points far from the zero-line (red) are the **most extreme strata** for exploration: groups whose outcome departs most from what the additive main effects alone would predict (a descriptive flag, not a model-misfit diagnosis).
         - Error bars are approximate conditional intervals for stratum random effects. If the bar does not cross zero, treat it as a screening signal, not a formal bootstrap or posterior significance test.
         - **Point size** represents the total number of individuals (N) within that stratum configuration.
         ")

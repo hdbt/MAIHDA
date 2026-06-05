@@ -145,6 +145,80 @@ test_that("compare_maihda_groups warns and names groups with a singular fit", {
   expect_equal(cmp$status[cmp$group == "signal"], "ok")
 })
 
+test_that("compare_maihda_groups accepts a data-column weights argument", {
+  set.seed(4201)
+  n <- 320
+  d <- data.frame(
+    grp = rep(c("A", "B"), each = n / 2),
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    ses = sample(c("lo", "hi"), n, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$ses, drop = TRUE)
+  d$y <- rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
+  d$wcol <- runif(n, 0.5, 1.5)
+
+  cmp <- suppressWarnings(
+    compare_maihda_groups(y ~ 1 + (1 | gender:ses), data = d, group = "grp",
+                          min_group_n = 5, weights = wcol)
+  )
+  expect_true(all(cmp$status == "ok"))
+})
+
+test_that("compare_maihda_groups applies an external weights vector per group", {
+  set.seed(4202)
+  n <- 320
+  d <- data.frame(
+    grp = rep(c("A", "B"), each = n / 2),
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    ses = sample(c("lo", "hi"), n, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$ses, drop = TRUE)
+  d$y <- rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
+  w_ext <- runif(n, 0.5, 1.5)   # external vector, NOT a column of d
+
+  # External weights used to fail every group with a length mismatch.
+  cmp_ext <- suppressWarnings(
+    compare_maihda_groups(y ~ 1 + (1 | gender:ses), data = d, group = "grp",
+                          min_group_n = 5, weights = w_ext)
+  )
+  expect_true(all(cmp_ext$status == "ok"))
+
+  # The external vector must be applied exactly like the same weights as a column.
+  d$wcol <- w_ext
+  cmp_col <- suppressWarnings(
+    compare_maihda_groups(y ~ 1 + (1 | gender:ses), data = d, group = "grp",
+                          min_group_n = 5, weights = wcol)
+  )
+  expect_equal(cmp_ext$vpc, cmp_col$vpc, tolerance = 1e-8)
+  expect_equal(cmp_ext$var_residual, cmp_col$var_residual, tolerance = 1e-8)
+})
+
+test_that("compare_maihda_groups slices an external subset to each group's rows", {
+  set.seed(4203)
+  n <- 240
+  d <- data.frame(
+    grp = rep(c("A", "B"), each = n / 2),
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    ses = sample(c("lo", "hi"), n, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$ses, drop = TRUE)
+  d$y <- rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
+
+  # Non-uniform external subset: keep 80 of group A (rows 1:80) and 30 of group B
+  # (rows 121:150). A naive recycle of the full vector onto each group would fit
+  # the wrong rows for group B.
+  keep_ext <- rep(FALSE, n)
+  keep_ext[1:80] <- TRUE
+  keep_ext[121:150] <- TRUE
+
+  cmp <- suppressWarnings(
+    compare_maihda_groups(y ~ 1 + (1 | gender:ses), data = d, group = "grp",
+                          min_group_n = 5, subset = keep_ext)
+  )
+  expect_equal(cmp$n[cmp$group == "A"], 80L)
+  expect_equal(cmp$n[cmp$group == "B"], 30L)
+})
+
 test_that("compare_maihda_groups warns when groups have different populated strata", {
   set.seed(2116)
   N <- 400

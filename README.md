@@ -23,7 +23,7 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 - **Visualizations**: Predicted stratum values, VPC visualizations, mean-prediction vs. stratum-effect diagnostics, and observed vs. shrunken estimates
 - **Model Comparison**: Compare models with parametric-bootstrap confidence intervals for VPC/ICC
 - **Group Comparison**: `compare_maihda_groups()` contrasts intersectional inequality (VPC/ICC) across levels of a higher-level variable such as country or region
-- **Proportional Change in Variance (PCV)**: Quantify how much between-stratum variance is explained by additional predictors
+- **Proportional Change in Variance (PCV)**: Quantify the proportional change in between-stratum variance when additional predictors are added (it is variance "explained" only when the models are nested; otherwise it is a model-dependent change)
 
 ## Installation
 
