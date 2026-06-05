@@ -3,7 +3,7 @@
 # for pedagogical use in the MAIHDA R package.
 
 if (!requireNamespace("NHANES", quietly = TRUE)) {
-  install.packages("NHANES")
+  stop("Install 'NHANES' to regenerate this dataset: install.packages('NHANES')")
 }
 
 library(dplyr)

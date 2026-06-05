@@ -96,6 +96,26 @@ test_that("make_strata does not collapse values that contain the display separat
   expect_equal(as.character(strata$strata_info$b), c("C", "B \u00d7 C"))
 })
 
+test_that("maihda_match_strata_rows is collision-safe and keeps row-by-row semantics", {
+  lookup <- data.frame(
+    a = c("A \u00d7 B", "A", "X"),
+    b = c("C", "B \u00d7 C", "Y"),
+    stringsAsFactors = FALSE
+  )
+  data <- data.frame(
+    a = c("A", "A \u00d7 B", "X", "A", NA, "Z"),
+    b = c("B \u00d7 C", "C", "Y", "C", "C", "Y"),
+    stringsAsFactors = FALSE
+  )
+  # First matching lookup row per data row; NA when nothing matches or a value is
+  # missing/absent from the lookup. Row 4 (A, C) must NOT collide with the display
+  # labels of rows 1/2, and row 6 (Z, ...) is an unknown value.
+  expect_equal(
+    MAIHDA:::maihda_match_strata_rows(data, lookup, c("a", "b")),
+    c(2L, 1L, 3L, NA, NA, NA)
+  )
+})
+
 test_that("calculate_pvc errors for different analytic samples", {
   set.seed(1004)
   d <- data.frame(

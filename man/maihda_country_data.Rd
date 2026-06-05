@@ -25,11 +25,11 @@ A data frame with 3,600 rows (600 students in each of 6 countries) and
 }
 \source{
 Derived from the OECD Programme for International Student Assessment (PISA)
-2018 student questionnaire data: OECD (2019), \emph{PISA 2018 Database},
-\url{https://www.oecd.org/pisa/data/}. Accessed and cleaned via the
-\pkg{learningtower} R package (MIT licensed). A balanced random subsample of
-600 complete-case students per country was taken (seed 2026). The data
-preparation script is in \code{data-raw/maihda_country_data.R}.
+2018 student questionnaire data (OECD (2019), \emph{PISA 2018 Database}),
+accessed and cleaned via the \pkg{learningtower} R package (MIT licensed),
+\url{https://CRAN.R-project.org/package=learningtower}. A balanced random
+subsample of 600 complete-case students per country was taken (seed 2026). The
+data preparation script is in \code{data-raw/maihda_country_data.R}.
 }
 \usage{
 maihda_country_data

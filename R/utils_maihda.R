@@ -458,21 +458,29 @@ maihda_match_strata_rows <- function(data, lookup, vars) {
     return(rep(NA_integer_, nrow(data)))
   }
 
-  out <- rep(NA_integer_, nrow(data))
-  for (i in seq_len(nrow(data))) {
-    matches <- rep(TRUE, nrow(lookup))
-    for (var in vars) {
-      value <- data[[var]][i]
-      matches <- matches & !is.na(value) & !is.na(lookup[[var]])
-      matches <- matches & as.character(lookup[[var]]) == as.character(value)
-    }
-    idx <- which(matches)
-    if (length(idx) > 0) {
-      out[i] <- idx[1]
-    }
+  # Encode each row as a composite key built from per-column integer codes joined
+  # by "\r". The codes come from a shared per-variable level table (the distinct
+  # values seen in `lookup`), so a missing value, or a value not present in
+  # `lookup`, gets no code and the row matches no stratum. Integer codes cannot
+  # contain "\r", so distinct value combinations always produce distinct keys even
+  # when the values themselves contain the display separator. This preserves the
+  # exact semantics of the previous row-by-row matcher (first matching lookup row,
+  # NA when nothing matches) while replacing its O(rows * strata * vars) scan with a
+  # single vectorised match(), which scales to large survey data.
+  levels_by_var <- lapply(vars, function(v) unique(as.character(lookup[[v]])))
+  names(levels_by_var) <- vars
+
+  encode <- function(df) {
+    code_cols <- lapply(vars, function(v) {
+      match(as.character(df[[v]]), levels_by_var[[v]])
+    })
+    any_missing <- Reduce(`|`, lapply(code_cols, is.na))
+    keys <- do.call(paste, c(code_cols, list(sep = "\r")))
+    keys[any_missing] <- NA_character_
+    keys
   }
 
-  out
+  match(encode(data), encode(lookup))
 }
 
 maihda_non_intercept_effects <- function(effect_names) {
