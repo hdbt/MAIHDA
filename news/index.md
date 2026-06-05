@@ -106,6 +106,17 @@
   repository (so the newest features may require the GitHub development
   version), and the interactive-dashboard dependency list now includes
   `future`, `promises`, and `haven` (for SPSS/Stata uploads).
+- Completed the PCV wording cleanup in the remaining vignette and
+  Shiny-app text (the prior pass missed several spots), and softened
+  over-strong app labels: the quadrant plot is “Mean Prediction
+  vs. Stratum Effect” (not “Risk vs. Intersectional Effect”), the
+  cumulative-PCV chart is “Change in Between-Stratum Variance” (not
+  “Variance Explained”), and “deviant strata” is now “most extreme
+  strata”.
+- Removed the stale checked-in rendered vignette HTML
+  (`vignettes/*.html`); these are build artifacts generated from the
+  `.Rmd` sources and had drifted out of sync with the corrected text.
+  They are now git-ignored.
 
 ### Bug Fixes
 
@@ -142,6 +153,13 @@
   a `subset=` expression referencing the original response labels
   (e.g. `subset = y %in% c("no", "yes")`): the subset is evaluated
   against the original response before recoding.
+- [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now slices forwarded `weights=`/`subset=`/`offset=` to each group’s
+  rows before fitting, not just for the row-count guard. An external
+  (non-column) `weights` vector previously failed every group with a
+  length mismatch, and an external `subset` vector could be recycled
+  onto the wrong rows of later groups; both now align correctly per
+  group.
 - The Gaussian VPC/ICC now accounts for prior `weights`. With weights
   the per-observation residual variance is `sigma^2 / w_i`, so the
   level-1 variance reported is the mean conditional residual variance

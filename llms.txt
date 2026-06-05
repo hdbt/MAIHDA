@@ -43,8 +43,10 @@ VPC/ICC - **Group Comparison**:
 [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
 contrasts intersectional inequality (VPC/ICC) across levels of a
 higher-level variable such as country or region - **Proportional Change
-in Variance (PCV)**: Quantify how much between-stratum variance is
-explained by additional predictors
+in Variance (PCV)**: Quantify the proportional change in between-stratum
+variance when additional predictors are added (it is variance
+“explained” only when the models are nested; otherwise it is a
+model-dependent change)
 
 ## Installation
 
