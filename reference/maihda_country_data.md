@@ -58,11 +58,12 @@ variables:
 ## Source
 
 Derived from the OECD Programme for International Student Assessment
-(PISA) 2018 student questionnaire data: OECD (2019), *PISA 2018
-Database*, <https://www.oecd.org/pisa/data/>. Accessed and cleaned via
-the learningtower R package (MIT licensed). A balanced random subsample
-of 600 complete-case students per country was taken (seed 2026). The
-data preparation script is in `data-raw/maihda_country_data.R`.
+(PISA) 2018 student questionnaire data (OECD (2019), *PISA 2018
+Database*), accessed and cleaned via the learningtower R package (MIT
+licensed), <https://CRAN.R-project.org/package=learningtower>. A
+balanced random subsample of 600 complete-case students per country was
+taken (seed 2026). The data preparation script is in
+`data-raw/maihda_country_data.R`.
 
 ## Details
 

@@ -116,7 +116,28 @@
 - Removed the stale checked-in rendered vignette HTML
   (`vignettes/*.html`); these are build artifacts generated from the
   `.Rmd` sources and had drifted out of sync with the corrected text.
-  They are now git-ignored.
+  They are now git-ignored and added to `.Rbuildignore`, so a locally
+  rendered HTML is never shipped in the tarball and R CMD build
+  regenerates `inst/doc` from the `.Rmd`.
+- Fixed an invalid documented URL flagged by `R CMD check --as-cran`:
+  the `maihda_country_data` `@source` linked to
+  `https://www.oecd.org/pisa/data/`, which returns HTTP 403. It now
+  links to the CRAN page of the `learningtower` package (the
+  reproducible access route used to build the dataset), keeping the OECD
+  PISA 2018 attribution in the text.
+- The `data-raw/maihda_health_data.R` regeneration script no longer
+  calls `install.packages("NHANES")` as a side effect; like the
+  country-data script it now stops with a clear message asking the
+  developer to install the dependency.
+
+### Performance
+
+- [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  (and the prediction-time stratum lookup) now matches rows to strata
+  with a single vectorised, collision-safe key match instead of an
+  O(rows x strata x variables) row-by-row scan, so it scales to large
+  survey datasets. Behaviour is unchanged, including the correct
+  handling of values that contain the stratum-label separator.
 
 ### Bug Fixes
 
