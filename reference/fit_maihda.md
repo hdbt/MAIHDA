@@ -45,7 +45,15 @@ fit_maihda(
   Default is "gaussian". If the outcome variable appears to be binary
   and the default family is used, the function will automatically switch
   to "binomial", recode two-level responses to 0/1 for `glmer()`, and
-  issue a warning.
+  issue a warning. Although any valid family object is accepted for
+  fitting, the MAIHDA variance summaries
+  ([`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md),
+  VPC/ICC, PCV) are only defined for `gaussian("identity")`, the
+  binomial/Bernoulli families with a logit or probit link, and
+  `poisson("log")`. Other families (for example `Gamma(link = "log")`)
+  will fit, but [`summary()`](https://rdrr.io/r/base/summary.html) and
+  the VPC/PCV helpers will stop with an "not implemented" error because
+  no level-1 variance is defined for them.
 
 - autobin:
 

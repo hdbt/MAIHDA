@@ -88,7 +88,20 @@
   and the print method): the PCV is a model-dependent change in
   between-stratum variance and equals variance “explained” only when the
   second model nests the first; the stepwise PCV is order-dependent and
-  not a variable’s unique contribution.
+  not a variable’s unique contribution. The vignette and Shiny app no
+  longer describe PCV as variance causally “explained” by main effects
+  or treat a negative PCV as evidence of hidden structural inequality.
+- Corrected the [`summary()`](https://rdrr.io/r/base/summary.html)
+  VPC/ICC documentation: the denominator is the total unexplained
+  variance, which includes the variance of any additional random effects
+  (not just between-stratum + residual), and a note on the
+  weighted-Gaussian level-1 variance was added.
+- Documented which families the MAIHDA variance summaries support
+  (`gaussian("identity")`, binomial/Bernoulli with logit/probit,
+  `poisson("log")`); other families such as `Gamma(link = "log")` will
+  fit but [`summary()`](https://rdrr.io/r/base/summary.html)/VPC/PCV
+  will stop with a clear “not implemented” error rather than returning
+  an invalid number.
 
 ### Bug Fixes
 
@@ -104,14 +117,51 @@
   variance partition.
 - Binary-outcome auto-detection now keys off the analytic model frame –
   after applying covariate transformations (e.g. `log(x)`), dropping
-  rows with missing values, and applying any `subset=` – instead of the
-  raw outcome column. An outcome that is only 0/1 once excluded rows are
-  removed is now correctly fit with `family = "binomial"`.
-- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  now builds the `lmer()`/`glmer()`/`brm()` call explicitly when
-  forwarding `...`, so data-masked engine arguments such as `weights=`,
-  `subset=`, and `offset=` work instead of failing with “..1 used in an
-  incorrect context”.
+  rows with missing values, dropping rows with a missing prior weight,
+  and applying any `subset=` (including negative/character row indices)
+  – instead of the raw outcome column. An outcome that is only 0/1 once
+  excluded rows are removed is now correctly fit with
+  `family = "binomial"`.
+- Data-masked engine arguments forwarded through `...` (e.g. `weights=`,
+  `subset=`, `offset=`) now work at any nesting depth, including through
+  the [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  wrappers. Arguments are captured as quosures and resolved with the
+  data mask
+  ([`rlang::eval_tidy`](https://rlang.r-lib.org/reference/eval_tidy.html)),
+  fixing the previous “object not found” / “..1 used in an incorrect
+  context” failures (a direct
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  call worked, but the wrappers did not).
+- A binary outcome is now recoded to 0/1 in a way that no longer breaks
+  a `subset=` expression referencing the original response labels
+  (e.g. `subset = y %in% c("no", "yes")`): the subset is evaluated
+  against the original response before recoding.
+- The Gaussian VPC/ICC now accounts for prior `weights`. With weights
+  the per-observation residual variance is `sigma^2 / w_i`, so the
+  level-1 variance reported is the mean conditional residual variance
+  `mean(sigma^2 / w_i)` rather than a single `sigma^2`; unweighted
+  models are unchanged.
+- [`plot_effect_decomposition()`](https://hdbt.github.io/MAIHDA/reference/plot_effect_decomposition.md)
+  now uses the stratum random effect (BLUP) itself as the intersectional
+  component instead of (full prediction - fixed prediction). With
+  additional random effects such as `(1 | site)` the latter wrongly
+  absorbed those effects into the stratum component.
+- The stratum-level “surprise” in
+  [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
+  (ordinal, surprise mode) is now the average per-observation surprise,
+  `mean(-log(p))` (log loss), instead of `-log(mean(p))`, which could
+  change stratum rankings.
+- The Shiny app
+  ([`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
+  now also auto-detects a numeric 0/1 outcome and fits it as binomial
+  under the default family, matching the core API, instead of silently
+  fitting a linear probability model.
+- [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now warns when groups end up with different populated strata even
+  under `shared_strata = TRUE`, since their VPCs are then estimated over
+  different stratum support and are not strictly directly comparable.
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   now plots Poisson/count models on the response (expected-count) scale
   with count labels, rather than routing them through the Gaussian
@@ -124,6 +174,19 @@
   number of successful refits an interval requires); an unusably small
   `n_boot` fails immediately with a clear message instead of only
   erroring after the bootstrap runs.
+
+### Diagnostics
+
+- `brms` fits now record MCMC convergence diagnostics (maximum Rhat and
+  the number of divergent transitions) alongside the engine, surfaced in
+  the “Fit diagnostics” block of
+  [`print()`](https://rdrr.io/r/base/print.html)/[`summary()`](https://rdrr.io/r/base/summary.html)
+  so a non-converged or divergent Bayesian fit is no longer silent.
+- Bootstrap VPC/PCV intervals now report Monte Carlo error:
+  [`summary()`](https://rdrr.io/r/base/summary.html) and
+  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  print the number of successful bootstrap draws and the Monte Carlo
+  standard error so the precision of an interval can be judged.
 
 ## MAIHDA 0.1.10
 
