@@ -107,9 +107,9 @@ print(summary_null)
 
 ### Step 3: Evaluate Proportional Change in Variance (PCV)
 
-To understand if these intersectional inequalities are simply the sum of their parts (additive), we evaluate how much variance is explained by adding main-effects to the model.
+To understand whether these intersectional inequalities are largely the sum of their parts (additive), we evaluate how much the between-stratum variance changes when the additive main effects are added to the model.
 
-If the variance drops substantially (high PCV), much of the between-stratum inequality is explained by the additive main effects. If it remains or even *increases* (negative PCV), little is explained by the main effects. Interpret this cautiously: the PCV is a model-dependent variance change, and a low or negative value does not by itself prove a "true" intersectional interaction -- it can also reflect suppression, rescaling (on the latent scale for non-Gaussian models), sample composition, or estimation uncertainty.
+If the variance drops substantially (high PCV), the between-stratum differences are much smaller once the additive main effects are included. If it remains or even *increases* (negative PCV), the additive main effects account for little of it. Interpret this cautiously: the PCV is a model-dependent variance change, not a causal decomposition, and a low or negative value does not by itself prove a "true" intersectional interaction -- it can also reflect suppression, rescaling (on the latent scale for non-Gaussian models), sample composition, or estimation uncertainty.
 
 ```{r eval=FALSE}
 # Fit an adjusted model
@@ -138,7 +138,7 @@ stepwise_results <- stepwise_pcv(
 print(stepwise_results)
 ```
 
-Negative step PCVs in this table highlight "unmasking" or suppression effects: adding a variable caused the intersectional groups to push further apart mathematically, revealing hidden structural inequalities.
+Negative step PCVs in this table indicate an "unmasking"/suppression pattern: adding a variable increased the between-stratum variance. This is a model-dependent change in variance, not proof that a hidden structural inequality was causally revealed -- a negative PCV can also reflect suppression, rescaling, sample composition, or estimation uncertainty, so interpret it cautiously alongside the fitted effects.
 
 ### Step 5: Visualizations
 

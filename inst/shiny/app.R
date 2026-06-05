@@ -297,7 +297,7 @@ server <- function(input, output, session) {
             "Estimated PCV ",
             tooltip(
               shiny::icon("info-circle"),
-              "PCV is the change in between-stratum variance from the Null to the Adjusted model. A high PCV means much of the between-stratum variation is explained by the additive main effects. A low or negative PCV means little is explained -- interpret cautiously, as this is a model-dependent change that can also reflect suppression, rescaling, sample composition, or uncertainty, not interaction alone."
+              "PCV is the proportional change in between-stratum variance from the Null to the Adjusted model. A high PCV means the between-stratum variance is much smaller after adding the additive main effects; a low or negative PCV means little change (or an increase). This is a model-dependent change, not proof that inequality was causally 'explained away' -- it can also reflect suppression, rescaling, sample composition, or uncertainty, not interaction alone."
             )
           ),
           h2(class = "text-success", sprintf("%.2f%%", pvc$pvc * 100))
@@ -629,10 +629,12 @@ server <- function(input, output, session) {
       )
     } else {
       tagList(
-        "When considering simple additive (main) effects, ", tags$strong(paste0(pvc_val, "%")),
-        " of this between-strata disparity is explained away, leaving ",
+        "After adding the simple additive (main) effects, the between-strata variance is ",
+        tags$strong(paste0(pvc_val, "%")),
+        " smaller, leaving ",
         tags$strong(pvc_display$remaining_value),
-        " of the original between-strata variance in the adjusted model. "
+        " of the original between-strata variance in the adjusted model. This is a ",
+        "model-dependent change, not necessarily variance causally explained by those effects. "
       )
     }
 

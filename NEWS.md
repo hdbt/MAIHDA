@@ -20,6 +20,7 @@
 * Clarified the PCV documentation (`calculate_pvc()`, `stepwise_pcv()`, and the print method): the PCV is a model-dependent change in between-stratum variance and equals variance "explained" only when the second model nests the first; the stepwise PCV is order-dependent and not a variable's unique contribution. The vignette and Shiny app no longer describe PCV as variance causally "explained" by main effects or treat a negative PCV as evidence of hidden structural inequality.
 * Corrected the `summary()` VPC/ICC documentation: the denominator is the total unexplained variance, which includes the variance of any additional random effects (not just between-stratum + residual), and a note on the weighted-Gaussian level-1 variance was added.
 * Documented which families the MAIHDA variance summaries support (`gaussian("identity")`, binomial/Bernoulli with logit/probit, `poisson("log")`); other families such as `Gamma(link = "log")` will fit but `summary()`/VPC/PCV will stop with a clear "not implemented" error rather than returning an invalid number.
+* README clarifications: a note that the CRAN release can lag this repository (so the newest features may require the GitHub development version), and the interactive-dashboard dependency list now includes `future`, `promises`, and `haven` (for SPSS/Stata uploads).
 
 ## Bug Fixes
 
