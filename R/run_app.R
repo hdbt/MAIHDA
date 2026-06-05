@@ -10,7 +10,7 @@ maihda_app_pvc_display <- function(pvc_percent) {
     return(list(
       label = "Residual Strata Variance",
       value = "N/A",
-      description = "Between-strata variance not explained by main effects",
+      description = "Between-strata variance remaining after adjusting for main effects",
       remaining_value = "N/A",
       status = "unknown"
     ))
