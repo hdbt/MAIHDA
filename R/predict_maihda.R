@@ -21,7 +21,11 @@
 #'   \itemize{
 #'     \item For "individual": A numeric vector of predicted values on the
 #'       requested scale
-#'     \item For "strata": A data frame with stratum ID and predicted random effect
+#'     \item For "strata": A data frame with stratum ID and predicted random
+#'       effect. When \code{newdata} is supplied, the result is restricted to the
+#'       strata present in \code{newdata} (and a stratum the model never saw is an
+#'       error, as for "individual"); when \code{newdata} is \code{NULL}, every
+#'       training stratum is returned.
 #'   }
 #'
 #' @examples
@@ -73,7 +77,7 @@ predict_maihda <- function(object, newdata = NULL,
       result <- maihda_stratum_ranef_lme4(model)
       result$predicted <- result$random_effect
       result <- result[, c("stratum", "predicted", "se", "lower_95", "upper_95")]
-      return(result)
+      return(maihda_filter_strata_predictions(result, newdata))
     }
     
   } else if (engine == "brms") {
@@ -96,7 +100,32 @@ predict_maihda <- function(object, newdata = NULL,
       result <- maihda_stratum_ranef_brms(model)
       result$predicted <- result$random_effect
       result <- result[, c("stratum", "predicted", "se", "lower_95", "upper_95")]
-      return(result)
+      return(maihda_filter_strata_predictions(result, newdata))
     }
   }
+}
+
+# Restrict a per-stratum prediction table to the strata present in `newdata` so
+# type = "strata" respects newdata the way type = "individual" does (instead of
+# always returning every training stratum). A stratum in newdata that the model
+# never saw is an error, matching the individual path. When newdata carries no
+# stratum column the table is returned unchanged.
+maihda_filter_strata_predictions <- function(result, newdata) {
+  if (is.null(newdata) || !"stratum" %in% names(newdata)) {
+    return(result)
+  }
+  wanted <- unique(as.character(newdata$stratum))
+  wanted <- wanted[!is.na(wanted)]
+  if (length(wanted) == 0) {
+    return(result)
+  }
+  known <- as.character(result$stratum)
+  unknown <- setdiff(wanted, known)
+  if (length(unknown) > 0) {
+    stop("newdata contains strata not present in the fitted model: ",
+         paste(utils::head(unknown, 5), collapse = ", "),
+         if (length(unknown) > 5) ", ..." else "",
+         call. = FALSE)
+  }
+  result[known %in% wanted, , drop = FALSE]
 }

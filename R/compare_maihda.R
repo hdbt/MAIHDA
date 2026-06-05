@@ -508,9 +508,19 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       status = NA_character_, stringsAsFactors = FALSE
     )
 
-    # pre-fit guards (only when a stratum column is already present, i.e. shared)
+    # pre-fit guards (only when a stratum column is already present, i.e. shared).
+    # Count populated strata on the ANALYTIC frame (the rows the model actually
+    # fits) when available, not the raw subgroup: a group with >= 2 raw strata but
+    # only one stratum left after missing-row removal must be skipped as
+    # VPC-undefined here, otherwise lme4 fails later with "grouping factors must
+    # have > 1 sampled level".
     if ("stratum" %in% names(sub)) {
-      row$n_strata <- length(unique(stats::na.omit(sub$stratum)))
+      stratum_src <- if (!is.null(analytic_fr) && "stratum" %in% names(analytic_fr)) {
+        analytic_fr$stratum
+      } else {
+        sub$stratum
+      }
+      row$n_strata <- length(unique(stats::na.omit(stratum_src)))
     }
     if (n_g < min_group_n) {
       row$status <- sprintf("skipped: analytic n = %d < min_group_n = %g", n_g, min_group_n)

@@ -145,6 +145,34 @@ test_that("compare_maihda_groups warns and names groups with a singular fit", {
   expect_equal(cmp$status[cmp$group == "signal"], "ok")
 })
 
+test_that("compare_maihda_groups skips a group with one analytic stratum (two raw)", {
+  set.seed(2302)
+  N <- 200
+  d <- data.frame(
+    grp = rep(c("A", "B"), each = N / 2),
+    gender = sample(c("F", "M"), N, replace = TRUE),
+    ses = sample(c("lo", "hi"), N, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$ses, drop = TRUE)
+  d$y <- rnorm(nlevels(sk), sd = 0.6)[sk] + rnorm(N, sd = 0.4)
+  # Group B has two raw strata (F.lo, F.hi), but every F.hi outcome is missing, so
+  # only one stratum survives into the analytic frame. The pre-fit guard must skip
+  # it as VPC-undefined rather than letting lme4 fail with "grouping factors must
+  # have > 1 sampled level".
+  bF <- d$grp == "B"
+  d$gender[bF] <- "F"
+  d$y[bF & d$ses == "hi"] <- NA_real_
+
+  cmp <- suppressWarnings(
+    compare_maihda_groups(y ~ 1 + (1 | gender:ses), data = d, group = "grp",
+                          min_group_n = 5)
+  )
+  expect_equal(cmp$n_strata[cmp$group == "B"], 1L)
+  expect_match(cmp$status[cmp$group == "B"], "skipped")
+  expect_match(cmp$status[cmp$group == "B"], "VPC undefined")
+  expect_true(is.na(cmp$vpc[cmp$group == "B"]))
+})
+
 test_that("compare_maihda_groups accepts a data-column weights argument", {
   set.seed(4201)
   n <- 320

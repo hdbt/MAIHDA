@@ -282,6 +282,35 @@ test_that("stepwise_pcv auto-detects a binary outcome when family is the default
   expect_false(any(grepl("binary", w, ignore.case = TRUE)))
 })
 
+test_that("predict_maihda(type = 'strata') respects newdata", {
+  set.seed(2301)
+  d <- data.frame(
+    gender = rep(c("F", "M"), each = 60),
+    race = rep(c("A", "B"), times = 60),
+    age = rnorm(120)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- 1 + 0.4 * d$age + rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(120, sd = 0.3)
+  model <- fit_maihda(y ~ age + (1 | gender:race), data = d)
+
+  # With no newdata, every training stratum is returned.
+  all_strata <- predict_maihda(model, type = "strata")
+  expect_gt(nrow(all_strata), 1L)
+
+  # newdata from a single stratum returns only that stratum, not all of them.
+  nd <- data.frame(gender = "F", race = "A", age = rnorm(3))
+  got <- predict_maihda(model, newdata = nd, type = "strata")
+  expect_equal(nrow(got), 1L)
+
+  # A stratum the model never saw is an error, as for type = "individual".
+  nd_unknown <- nd
+  nd_unknown$stratum <- "9999"
+  expect_error(
+    predict_maihda(model, newdata = nd_unknown, type = "strata"),
+    "not present in the fitted model", fixed = TRUE
+  )
+})
+
 test_that("predict_maihda rebuilds automatic strata for raw newdata", {
   set.seed(1008)
   d <- data.frame(
