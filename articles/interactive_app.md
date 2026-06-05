@@ -78,8 +78,9 @@ Once a model is fit, you can navigate across multiple tabs:
 The dashboard calculates stepwise Proportional Change in Variance
 (**PCV**) tables:
 
-- See how much inequality is “explained away” by adding covariates
-  sequentially.
+- See the proportional change in between-stratum variance as covariates
+  are added sequentially (a model-dependent, descriptive comparison, not
+  a causal decomposition of inequality).
 - Uncover masking/suppression effects directly inside the app by
   comparing partial PCV values across models.
 

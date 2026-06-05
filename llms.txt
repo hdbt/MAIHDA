@@ -63,7 +63,13 @@ or the current stable version from CRAN:
 install.packages("MAIHDA")
 ```
 
-## Quick Start
+> **Note:** the CRAN release can lag behind this repository. Some
+> features documented below
+> (e.g. [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+> and
+> [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md))
+> were added after the current CRAN version, so install the development
+> version from GitHub if you need them. \## Quick Start
 
 ``` r
 
@@ -351,7 +357,11 @@ vignette("introduction", package = "MAIHDA")
 
 - brms (\>= 2.15.0) - for Bayesian models
 - ggtern - for ternary diagrams
-- shiny, bslib, DT, plotly, shinyjs - for the interactive dashboard
+- shiny, bslib, DT, plotly, shinyjs, future, promises - for the
+  interactive dashboard
+  ([`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
+- haven - for uploading SPSS (.sav) / Stata (.dta) files in the
+  dashboard
 
 Bootstrap confidence intervals use a parametric bootstrap via
 `lme4::simulate()` /

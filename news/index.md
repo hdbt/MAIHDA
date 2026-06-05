@@ -102,6 +102,10 @@
   fit but [`summary()`](https://rdrr.io/r/base/summary.html)/VPC/PCV
   will stop with a clear “not implemented” error rather than returning
   an invalid number.
+- README clarifications: a note that the CRAN release can lag this
+  repository (so the newest features may require the GitHub development
+  version), and the interactive-dashboard dependency list now includes
+  `future`, `promises`, and `haven` (for SPSS/Stata uploads).
 
 ### Bug Fixes
 

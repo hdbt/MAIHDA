@@ -93,10 +93,9 @@
 <p>or the current stable version from CRAN:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"MAIHDA"</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="quick-start">Quick Start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
-</h2>
+<blockquote>
+<p><strong>Note:</strong> the CRAN release can lag behind this repository. Some features documented below (e.g. <code><a href="reference/maihda.html">maihda()</a></code> and <code><a href="reference/compare_maihda_groups.html">compare_maihda_groups()</a></code>) were added after the current CRAN version, so install the development version from GitHub if you need them. ## Quick Start</p>
+</blockquote>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
@@ -367,7 +366,8 @@
 <ul>
 <li>brms (&gt;= 2.15.0) - for Bayesian models</li>
 <li>ggtern - for ternary diagrams</li>
-<li>shiny, bslib, DT, plotly, shinyjs - for the interactive dashboard</li>
+<li>shiny, bslib, DT, plotly, shinyjs, future, promises - for the interactive dashboard (<code><a href="reference/run_maihda_app.html">run_maihda_app()</a></code>)</li>
+<li>haven - for uploading SPSS (.sav) / Stata (.dta) files in the dashboard</li>
 </ul>
 <p>Bootstrap confidence intervals use a parametric bootstrap via <code>lme4::simulate()</code> / <code><a href="https://rdrr.io/pkg/lme4/man/refit.html" class="external-link">lme4::refit()</a></code>; no external bootstrap package is required.</p>
 </div>
