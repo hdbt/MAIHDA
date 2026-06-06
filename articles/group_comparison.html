@@ -224,8 +224,15 @@ stratified per-country models used by
 <p>By default, <code>shared_strata = TRUE</code>. That means the
 <code>gender:ses</code> strata are defined once on the pooled data, then
 reused in every country. A “female:Low” stratum therefore refers to the
-same type of stratum in each country, which is what makes the VPC/ICC
-estimates directly comparable.</p>
+same type of stratum in each country, which makes the stratum
+<em>definitions</em> comparable across countries.</p>
+<p>Shared definitions are necessary but not by themselves sufficient for
+the VPCs to be <em>directly</em> comparable. A given country may not
+contain every stratum, so two countries’ VPCs can be estimated over
+different sets of <em>populated</em> strata. When that happens,
+<code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> issues a warning, and the VPCs
+should be read with that caveat in mind (alongside the
+<code>n_strata</code> column) rather than as strictly like-for-like.</p>
 <p>Set <code>shared_strata = FALSE</code> only when you intentionally
 want each group to rebuild its own strata. In that case, stratum
 identities are no longer shared across groups, so interpretation should

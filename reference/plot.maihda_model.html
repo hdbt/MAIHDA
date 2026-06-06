@@ -79,7 +79,11 @@ and predicted subgroup values with confidence intervals.</p>
 
 <dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
 <dd><p>Character string specifying plot type:</p><ul><li><p>"vpc": Variance partition coefficient visualization</p></li>
-<li><p>"obs_vs_shrunken": Observed vs. shrunken stratum means</p></li>
+<li><p>"obs_vs_shrunken": Observed vs. shrunken stratum means. The y-axis
+    (model-based estimate) includes the fixed effects, so for a
+    covariate-adjusted model the distance from the diagonal reflects both
+    shrinkage <em>and</em> covariate adjustment, not shrinkage alone; it is a
+    pure shrinkage view only for an intercept-only (null) model</p></li>
 <li><p>"predicted": Predicted values for each stratum with confidence intervals</p></li>
 <li><p>"risk_vs_effect": Quadrant scatterplot of each stratum's mean predicted outcome against its random effect</p></li>
 <li><p>"effect_decomp": Visualizes additive vs intersectional deviation from global mean</p></li>

@@ -31,7 +31,11 @@ plot(
 
   - "vpc": Variance partition coefficient visualization
 
-  - "obs_vs_shrunken": Observed vs. shrunken stratum means
+  - "obs_vs_shrunken": Observed vs. shrunken stratum means. The y-axis
+    (model-based estimate) includes the fixed effects, so for a
+    covariate-adjusted model the distance from the diagonal reflects
+    both shrinkage *and* covariate adjustment, not shrinkage alone; it
+    is a pure shrinkage view only for an intercept-only (null) model
 
   - "predicted": Predicted values for each stratum with confidence
     intervals
