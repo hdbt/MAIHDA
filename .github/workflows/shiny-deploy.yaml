@@ -50,6 +50,9 @@ jobs:
           extra-packages: |
             any::rsconnect
             any::remotes
+            any::testthat
+            any::pkgload
+            any::MASS
             any::shiny
             any::bslib
             any::DT
@@ -73,6 +76,18 @@ jobs:
             upgrade = "never", dependencies = TRUE
           )
 
+      # Gate the deploy: a red test suite, or an app.R that fails to load, must
+      # abort the job BEFORE anything is published. The smoke test sources app.R,
+      # which runs its top-level code (library() calls, UI/server construction) and
+      # so catches errors the helper unit tests do not exercise.
+      - name: Test the package and smoke-test the app
+        shell: Rscript {0}
+        run: |
+          testthat::test_local(stop_on_failure = TRUE)
+          app <- source("inst/shiny/app.R")$value
+          stopifnot(inherits(app, "shiny.appobj"))
+          cat("App built successfully:", class(app)[1], "\n")
+
       - name: Deploy to shinyapps.io
         shell: Rscript {0}
         env:
@@ -90,3 +105,17 @@ jobs:
             account     = "hdbt",
             forceUpdate = TRUE
           )
+
+      # Confirm the freshly deployed app actually serves (catches startup errors
+      # that a "successful" deploy can still hide). Retries to allow a cold start.
+      - name: Verify the deployed app responds
+        run: |
+          url="https://hdbt.shinyapps.io/shiny/"
+          for i in $(seq 1 6); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || echo "000")
+            echo "Attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then echo "App is live."; exit 0; fi
+            sleep 20
+          done
+          echo "::error::App did not return HTTP 200 after deploy ($url)"
+          exit 1
