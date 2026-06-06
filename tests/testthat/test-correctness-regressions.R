@@ -588,6 +588,90 @@ test_that("weighted Gaussian VPC uses the mean conditional residual variance", {
                                 var_between / (var_between + sigma2))))
 })
 
+test_that("PVC/comparison flag models that differ only in prior weights", {
+  set.seed(2401)
+  d <- make_strata(maihda_sim_data, vars = c("gender", "race"))$data
+  n <- nrow(d)
+  w <- runif(n, 0.2, 5)
+  m_unw  <- fit_maihda(health_outcome ~ age + (1 | stratum), data = d)
+  m_unw2 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = d)
+  m_w    <- fit_maihda(health_outcome ~ age + (1 | stratum), data = d, weights = w)
+  m_unit <- fit_maihda(health_outcome ~ age + (1 | stratum), data = d, weights = rep(1, n))
+
+  # Different weights, same rows/outcome/strata: hard error in PVC, warning in compare.
+  expect_error(calculate_pvc(m_unw, m_w), "same prior weights", fixed = TRUE)
+  expect_true(any(grepl("prior weights",
+                        testthat::capture_warnings(compare_maihda(m_unw, m_w)))))
+
+  # Unweighted and explicit unit weights are equivalent (no weight complaint).
+  expect_s3_class(calculate_pvc(m_unw, m_unit), "pvc_result")
+  expect_false(any(grepl("prior weights",
+                         testthat::capture_warnings(compare_maihda(m_unw, m_unit)))))
+  expect_s3_class(calculate_pvc(m_unw, m_unw2), "pvc_result")
+})
+
+test_that("binary recoding records and reports the level -> 0/1 mapping", {
+  set.seed(2402)
+  n <- 200
+  d <- data.frame(stratum = factor(rep(seq_len(8), each = 25)), x = rnorm(n))
+  d$y <- ifelse(rbinom(n, 1, plogis(0.3 * d$x)) == 1, "yes", "no")
+
+  # Explicit family = "binomial" still surfaces the mapping (message + stored).
+  expect_message(
+    m_char <- fit_maihda(y ~ x + (1 | stratum), data = d, family = "binomial"),
+    "recoded to 0/1"
+  )
+  expect_equal(m_char$response_recoding$level[m_char$response_recoding$value == 1L], "yes")
+
+  # A factor whose levels are reversed maps the OPPOSITE way, and that is recorded.
+  d$yf <- factor(d$y, levels = c("yes", "no"))
+  m_fac <- suppressMessages(
+    fit_maihda(yf ~ x + (1 | stratum), data = d, family = "binomial")
+  )
+  expect_equal(m_fac$response_recoding$level[m_fac$response_recoding$value == 1L], "no")
+
+  # An already-0/1 numeric outcome is a no-op: no recoding message.
+  d$y01 <- rbinom(n, 1, 0.5)
+  msgs01 <- character(0)
+  withCallingHandlers(
+    suppressWarnings(fit_maihda(y01 ~ x + (1 | stratum), data = d, family = "binomial")),
+    message = function(mm) {
+      msgs01 <<- c(msgs01, conditionMessage(mm)); invokeRestart("muffleMessage")
+    }
+  )
+  expect_false(any(grepl("recoded to 0/1", msgs01)))
+})
+
+test_that("stratum predictions honour prior weights; unweighted aggregation unchanged", {
+  set.seed(2403)
+  N <- 160
+  dat <- data.frame(A = rep(c("a", "b"), each = N / 2),
+                    B = rep(c("p", "q"), times = N / 2))
+  dat$x <- rnorm(N)
+  sk <- interaction(dat$A, dat$B, drop = TRUE)
+  dat$y <- 2 + 1.5 * dat$x + rnorm(4, sd = 0.7)[sk] + rnorm(N, sd = 0.3)
+  dat$wt <- exp(0.9 * dat$x)   # weights correlate with x within stratum
+
+  mw <- fit_maihda(y ~ x + (1 | A:B), data = dat, weights = wt)
+  ph <- MAIHDA:::maihda_stratum_predictions_lme4(mw, summary(mw), scale = "response")
+  fit_incl <- predict(mw$model)
+  prw <- stats::weights(mw$model, type = "prior")
+  strat <- as.character(mw$data$stratum)
+  wmean <- tapply(seq_along(fit_incl), strat,
+                  function(i) stats::weighted.mean(fit_incl[i], prw[i]))
+  helper <- stats::setNames(ph$predicted_row, as.character(ph$stratum))
+  expect_equal(as.numeric(helper[names(wmean)]), as.numeric(wmean), tolerance = 1e-6)
+  expect_true("w_sum" %in% names(ph))
+
+  # Unweighted model: the per-stratum aggregation is the plain mean (unchanged).
+  mu <- fit_maihda(y ~ x + (1 | A:B), data = dat)
+  pu <- MAIHDA:::maihda_stratum_predictions_lme4(mu, summary(mu), scale = "response")
+  umean <- tapply(predict(mu$model), as.character(mu$data$stratum), mean)
+  helperu <- stats::setNames(pu$predicted_row, as.character(pu$stratum))
+  expect_equal(as.numeric(helperu[names(umean)]), as.numeric(umean), tolerance = 1e-10)
+  expect_equal(pu$w_sum, as.numeric(pu$n))
+})
+
 test_that("binary detection respects negative subset indices and NA weights", {
   set.seed(2113)
   n <- 150

@@ -114,10 +114,19 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
         NA_character_
       }
     }, character(1))
+    # Prior weights change the variance estimates, so VPCs from differently
+    # weighted fits are not comparable even on the same rows/strata. (Unweighted
+    # and explicit unit-weight fits map to the same "unit" key.)
+    weight_keys <- vapply(models, function(m) {
+      maihda_weight_fingerprint(m$model)
+    }, character(1))
 
     issues <- character(0)
     if (length(unique(responses)) > 1) {
       issues <- c(issues, paste0("outcomes (", paste(unique(responses), collapse = ", "), ")"))
+    }
+    if (length(unique(stats::na.omit(weight_keys))) > 1) {
+      issues <- c(issues, "prior weights")
     }
     if (length(unique(fam_keys)) > 1) {
       issues <- c(issues, paste0("families/links (", paste(unique(fam_keys), collapse = ", "), ")"))

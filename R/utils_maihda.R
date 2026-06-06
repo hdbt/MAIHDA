@@ -333,6 +333,29 @@ maihda_prepare_binomial_response <- function(data, formula, subset = NULL,
 
   analytic_levels <- maihda_binary_levels(resp)
   data[[outcome]] <- maihda_recode_to_01(data[[outcome]], analytic_levels)
+
+  # Record (and surface) which level became the modeled event (= 1). The mapping
+  # follows base glm/glmer convention -- for a character outcome the levels are
+  # alphabetical, for a factor the declared level order -- so "case"/"control"
+  # could map either way depending on the column type. That is easy to invert
+  # silently, especially when family = "binomial" is passed explicitly (no
+  # auto-detect warning fires), so we attach the mapping to the data (fit_maihda()
+  # stores it on the model as $response_recoding) and emit one informational
+  # message. A response already coded 0/1 is a no-op and stays silent.
+  recoding <- data.frame(
+    level = as.character(analytic_levels),
+    value = c(0L, 1L),
+    role = c("reference", "event"),
+    stringsAsFactors = FALSE
+  )
+  attr(data, "response_recoding") <- recoding
+  if (!identical(as.character(analytic_levels), c("0", "1"))) {
+    message(sprintf(
+      "Binary outcome '%s' recoded to 0/1: '%s' = 0 (reference), '%s' = 1 (modeled event). %s",
+      outcome, analytic_levels[1], analytic_levels[2],
+      "Set the factor levels (or supply a 0/1 outcome) to control which level is the event."
+    ))
+  }
   data
 }
 
@@ -408,6 +431,24 @@ maihda_response_fingerprint <- function(model) {
   } else {
     paste(as.character(resp), collapse = "\r")
   }
+}
+
+# Fingerprint of a model's prior weights, so PVC / model comparisons do not
+# silently combine fits that share an outcome, sample and strata but used DIFFERENT
+# prior weights (which change the variance estimates). An unweighted fit and an
+# explicit weights = rep(1, n) fit both map to "unit", so they compare as equal;
+# engines where prior weights are not recoverable (e.g. brms) also degrade to
+# "unit" rather than erroring, leaving their current behaviour unchanged.
+maihda_weight_fingerprint <- function(model) {
+  w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
+  if (is.null(w) || length(w) == 0) {
+    return("unit")
+  }
+  w <- as.numeric(w)
+  if (all(is.finite(w)) && isTRUE(all(abs(w - 1) < sqrt(.Machine$double.eps)))) {
+    return("unit")
+  }
+  paste(formatC(w, format = "g", digits = 12), collapse = "\r")
 }
 
 maihda_row_ids <- function(model) {
@@ -1075,6 +1116,55 @@ maihda_vpc_interval_label <- function(vpc) {
   }
 }
 
+# Prior weights aligned to a model's analytic rows (object$data is the model
+# frame, so its row order matches weights(model, type = "prior")). Returns
+# rep(1, n) when the model is unweighted or the weights cannot be recovered (e.g.
+# brms), so weighted aggregations below reduce EXACTLY to the unweighted ones for
+# the common case. Used so stratum-level plot summaries honour survey/prior
+# weights, consistent with the weighted Gaussian VPC.
+maihda_prior_weights <- function(object) {
+  n <- nrow(object$data)
+  # Aggregated binomial responses (cbind(success, failure) / `y | trials(n)`)
+  # report the binomial TRIALS through weights(type = "prior"); those are already
+  # encoded in the response denominator, so multiplying by them would double-count.
+  # Treat such models as unweighted for stratum-level aggregation.
+  resp <- tryCatch(stats::model.response(object$data), error = function(e) NULL)
+  if (!is.null(resp) && !is.null(dim(resp))) {
+    return(rep(1, n))
+  }
+  w <- tryCatch(stats::weights(object$model, type = "prior"), error = function(e) NULL)
+  if (is.null(w) || length(w) != n) {
+    return(rep(1, n))
+  }
+  w <- as.numeric(w)
+  w[!is.finite(w)] <- NA_real_
+  w
+}
+
+# Per-stratum prior-weight-weighted means of the named columns of `pred_df` (which
+# must carry `stratum` and `weight` columns). Returns a data frame with `stratum`,
+# the weighted columns, integer `n` (row count) and `w_sum` (sum of weights),
+# ordered by stratum. Reduces exactly to unweighted means when all weights are
+# equal, so unweighted models are unaffected.
+maihda_weighted_stratum_aggregate <- function(pred_df, cols) {
+  groups <- sort(unique(pred_df$stratum))
+  wmean <- function(col) {
+    vapply(groups, function(g) {
+      sel <- pred_df$stratum == g
+      stats::weighted.mean(pred_df[[col]][sel], pred_df$weight[sel], na.rm = TRUE)
+    }, numeric(1))
+  }
+  out <- data.frame(stratum = groups, stringsAsFactors = FALSE)
+  for (col in cols) {
+    out[[col]] <- wmean(col)
+  }
+  out$n <- as.integer(vapply(groups, function(g) sum(pred_df$stratum == g), integer(1)))
+  out$w_sum <- vapply(groups,
+                      function(g) sum(pred_df$weight[pred_df$stratum == g], na.rm = TRUE),
+                      numeric(1))
+  out
+}
+
 maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("response", "link")) {
   scale <- match.arg(scale)
   data <- object$data
@@ -1085,6 +1175,7 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
   model <- object$model
   fam <- maihda_family(model)
   linkinv <- maihda_linkinv(fam)
+  prior_w <- maihda_prior_weights(object)
 
   eta_fixed <- stats::predict(model, newdata = data, re.form = NA, type = "link")
   stratum_est <- summary_obj$stratum_estimates
@@ -1106,21 +1197,16 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
     lower_row = transform_eta(eta_fixed + stratum_est$lower_95[idx]),
     upper_row = transform_eta(eta_fixed + stratum_est$upper_95[idx]),
     fixed_row = transform_eta(eta_fixed),
+    weight = prior_w,
     stringsAsFactors = FALSE
   )
 
-  out <- stats::aggregate(
-    pred_df[, c("predicted_row", "lower_row", "upper_row", "fixed_row")],
-    by = list(stratum = pred_df$stratum),
-    FUN = mean,
-    na.rm = TRUE
+  # Prior-weight-weighted per-stratum means, so a weighted/survey fit's stratum
+  # predictions are population-representative (consistent with the weighted VPC);
+  # identical to the previous unweighted means for an unweighted model.
+  maihda_weighted_stratum_aggregate(
+    pred_df, c("predicted_row", "lower_row", "upper_row", "fixed_row")
   )
-  out$n <- as.integer(stats::aggregate(
-    pred_df$predicted_row,
-    by = list(stratum = pred_df$stratum),
-    FUN = length
-  )$x)
-  out
 }
 
 maihda_apply_autobin_info <- function(strata_data, autobin_info) {
@@ -1283,6 +1369,7 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
   model <- object$model
   fam <- maihda_family(model)
   linkinv <- maihda_linkinv(fam)
+  prior_w <- maihda_prior_weights(object)
   eta_fixed <- brms::posterior_linpred(model, newdata = data, re_formula = NA, summary = TRUE)[, "Estimate"]
 
   stratum_est <- summary_obj$stratum_estimates
@@ -1304,21 +1391,16 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
     lower_row = transform_eta(eta_fixed + stratum_est$lower_95[idx]),
     upper_row = transform_eta(eta_fixed + stratum_est$upper_95[idx]),
     fixed_row = transform_eta(eta_fixed),
+    weight = prior_w,
     stringsAsFactors = FALSE
   )
 
-  out <- stats::aggregate(
-    pred_df[, c("predicted_row", "lower_row", "upper_row", "fixed_row")],
-    by = list(stratum = pred_df$stratum),
-    FUN = mean,
-    na.rm = TRUE
+  # Prior-weight-weighted per-stratum means, so a weighted/survey fit's stratum
+  # predictions are population-representative (consistent with the weighted VPC);
+  # identical to the previous unweighted means for an unweighted model.
+  maihda_weighted_stratum_aggregate(
+    pred_df, c("predicted_row", "lower_row", "upper_row", "fixed_row")
   )
-  out$n <- as.integer(stats::aggregate(
-    pred_df$predicted_row,
-    by = list(stratum = pred_df$stratum),
-    FUN = length
-  )$x)
-  out
 }
 
 maihda_add_strata_columns <- function(data, strata_info) {
