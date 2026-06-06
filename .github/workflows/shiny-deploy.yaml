@@ -1,0 +1,92 @@
+# Auto-deploy the bundled Shiny app (inst/shiny/app.R) to shinyapps.io.
+#
+# Runs on every push to `main` that touches the app or the package, and can also
+# be run manually from the Actions tab (workflow_dispatch).
+#
+# REQUIRED repository secrets (Settings -> Secrets and variables -> Actions):
+#   SHINYAPPS_TOKEN   - token  from shinyapps.io -> Account -> Tokens
+#   SHINYAPPS_SECRET  - secret from the same token (click "Show secret")
+#
+# The deploy targets the EXISTING app: account "hdbt", appName "shiny", so it
+# updates https://hdbt.shinyapps.io/shiny/ rather than creating a new app.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'inst/shiny/**'
+      - 'R/**'
+      - 'DESCRIPTION'
+      - 'NAMESPACE'
+      - '.github/workflows/shiny-deploy.yaml'
+  workflow_dispatch:
+
+name: shiny-deploy
+
+# Never let two deploys run at once; a newer push supersedes an in-flight deploy.
+concurrency:
+  group: shiny-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      # Lets remotes::install_github() use the Actions token (needed for a private
+      # repo; harmless for a public one).
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true   # fast pre-built Linux binaries
+
+      # Install the package's hard dependencies plus the extra packages the Shiny
+      # app needs at runtime (these live in Suggests, so are not pulled in by the
+      # package's Imports alone) and rsconnect/remotes for the deploy itself.
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          dependencies: '"hard"'
+          extra-packages: |
+            any::rsconnect
+            any::remotes
+            any::shiny
+            any::bslib
+            any::DT
+            any::plotly
+            any::ggplot2
+            any::future
+            any::promises
+            any::shinyjs
+            any::haven
+            any::ggtern
+
+      # Install MAIHDA from THIS commit. Installing via install_github records a
+      # GitHub source in the package metadata, so rsconnect tells shinyapps.io to
+      # reinstall MAIHDA from GitHub (the development version the app expects)
+      # rather than the older CRAN release.
+      - name: Install MAIHDA from the pushed commit
+        shell: Rscript {0}
+        run: |
+          remotes::install_github(
+            paste0("${{ github.repository }}@", "${{ github.sha }}"),
+            upgrade = "never", dependencies = TRUE
+          )
+
+      - name: Deploy to shinyapps.io
+        shell: Rscript {0}
+        env:
+          SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
+          SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET }}
+        run: |
+          rsconnect::setAccountInfo(
+            name   = "hdbt",
+            token  = Sys.getenv("SHINYAPPS_TOKEN"),
+            secret = Sys.getenv("SHINYAPPS_SECRET")
+          )
+          rsconnect::deployApp(
+            appDir      = "inst/shiny",
+            appName     = "shiny",
+            account     = "hdbt",
+            forceUpdate = TRUE
+          )
