@@ -38,9 +38,17 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+<li><a class="dropdown-item" href="../articles/introduction.html">Introduction to MAIHDA</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
+    <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
+    <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
+    <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
-    <li><a class="dropdown-item" href="../articles/introduction.html">Introduction to MAIHDA</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -66,7 +74,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-06-05</h4>
+            <h4 data-toc-skip class="date">2026-06-06</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
@@ -120,19 +128,69 @@ and <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external
 <span><span class="co"># Fit + variance summary in one call</span></span>
 <span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span>
 <span><span class="va">analysis</span>                      <span class="co"># concise report (VPC/ICC, #strata)</span></span>
+<span><span class="co">#&gt; MAIHDA Analysis</span></span>
+<span><span class="co">#&gt; ===============</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Formula: BMI ~ Age + (1 | stratum) </span></span>
+<span><span class="co">#&gt; Engine: lme4 | Family: gaussian</span></span>
+<span><span class="co">#&gt; VPC/ICC: 0.0627</span></span>
+<span><span class="co">#&gt; Strata: 50</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Use summary() for variance components and plot(type = ...) for figures.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span>             <span class="co"># full variance components</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">analysis</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span>  <span class="co"># any plot.maihda_model type works here</span></span>
-<span></span>
-<span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span>
-<span><span class="co"># maihda_country_data (PISA 2018) has a real country grouping:</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; MAIHDA Model Summary</span></span>
+<span><span class="co">#&gt; ====================</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Variance Partition Coefficient (VPC/ICC):</span></span>
+<span><span class="co">#&gt;   Estimate: 0.0627</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Variance Components:</span></span>
+<span><span class="co">#&gt;                  component variance    sd proportion</span></span>
+<span><span class="co">#&gt;   Between-stratum (random)     2.90 1.703    0.06268</span></span>
+<span><span class="co">#&gt;  Within-stratum (residual)    43.37 6.586    0.93732</span></span>
+<span><span class="co">#&gt;                      Total    46.27 6.802    1.00000</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Fixed Effects:</span></span>
+<span><span class="co">#&gt;         term estimate</span></span>
+<span><span class="co">#&gt;  (Intercept) 28.20790</span></span>
+<span><span class="co">#&gt;          Age  0.01503</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Stratum Estimates (first 10):</span></span>
+<span><span class="co">#&gt;  stratum stratum_id                           label random_effect     se</span></span>
+<span><span class="co">#&gt;        1          1  male × Hispanic × Some College     -0.245110 1.0419</span></span>
+<span><span class="co">#&gt;        2          2     male × Black × College Grad      0.771975 1.1139</span></span>
+<span><span class="co">#&gt;        3          3   female × White × College Grad     -1.819926 0.3520</span></span>
+<span><span class="co">#&gt;        4          4     male × Hispanic × 8th Grade      0.921381 1.3183</span></span>
+<span><span class="co">#&gt;        5          5    female × Mexican × 8th Grade      1.823058 0.9510</span></span>
+<span><span class="co">#&gt;        6          6     male × White × College Grad     -0.743146 0.3572</span></span>
+<span><span class="co">#&gt;        7          7    female × White × High School      0.004942 0.4191</span></span>
+<span><span class="co">#&gt;        8          8     male × White × Some College      1.023286 0.3556</span></span>
+<span><span class="co">#&gt;        9          9 female × White × 9 - 11th Grade      0.685130 0.6038</span></span>
+<span><span class="co">#&gt;       10         10 female × Hispanic × High School      0.287026 1.0690</span></span>
+<span><span class="co">#&gt;  lower_95 upper_95</span></span>
+<span><span class="co">#&gt;  -2.28715  1.79693</span></span>
+<span><span class="co">#&gt;  -1.41123  2.95518</span></span>
+<span><span class="co">#&gt;  -2.50991 -1.12994</span></span>
+<span><span class="co">#&gt;  -1.66250  3.50526</span></span>
+<span><span class="co">#&gt;  -0.04088  3.68700</span></span>
+<span><span class="co">#&gt;  -1.44320 -0.04309</span></span>
+<span><span class="co">#&gt;  -0.81642  0.82631</span></span>
+<span><span class="co">#&gt;   0.32630  1.72028</span></span>
+<span><span class="co">#&gt;  -0.49833  1.86859</span></span>
+<span><span class="co">#&gt;  -1.80812  2.38217</span></span>
+<span><span class="co">#&gt;   ... and 40 more strata</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">analysis</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span>  <span class="co"># any plot.maihda_model type works here</span></span></code></pre></div>
+<p><img src="introduction_files/figure-html/quickstart-1.png" class="r-plt" alt="" width="672"></p>
+<p>You can add a higher-level grouping variable to also compare across
+its levels. <code>maihda_country_data</code> (PISA 2018) has a real
+country grouping; this workflow has its own <a href="group_comparison.html">group comparison vignette</a>, so here we
+just point to it:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
 <span><span class="va">by_country</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_country_data</span>,</span>
 <span>                     group <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span>
 <span><span class="va">by_country</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">by_country</span>, type <span class="op">=</span> <span class="st">"group_vpc"</span><span class="op">)</span></span></code></pre></div>
-<p>For a fuller walkthrough of the group comparison workflow, see the
-dedicated <a href="group_comparison.html">group comparison
-vignette</a>.</p>
 <p>The sections below walk through the same steps individually with
 <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> and friends, which you can use directly when
 you need finer control.</p>
@@ -161,13 +219,8 @@ directly in the random effect formula. Providing the variables in the
 random effect combined with <code>:</code> allows the function to
 automatically build the intersectional strata on the fly and fit the
 multilevel model.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Load the built-in NHANES dataset</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># PVC compares variance across models, so both models must use the same</span></span>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># PVC compares variance across models, so both models must use the same</span></span>
 <span><span class="co"># analytic sample. Keep complete cases for all variables used below.</span></span>
 <span><span class="va">health_complete</span> <span class="op">&lt;-</span> <span class="va">maihda_health_data</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/stats/complete.cases.html" class="external-link">complete.cases</a></span><span class="op">(</span></span>
 <span>  <span class="va">maihda_health_data</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BMI"</span>, <span class="st">"Age"</span>, <span class="st">"Gender"</span>, <span class="st">"Race"</span>, <span class="st">"Education"</span>, <span class="st">"Poverty"</span><span class="op">)</span><span class="op">]</span></span>
@@ -182,7 +235,47 @@ multilevel model.</p>
 <span></span>
 <span><span class="co"># Summarize the variance components (VPC)</span></span>
 <span><span class="va">summary_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model_null</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">summary_null</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">summary_null</span><span class="op">)</span></span>
+<span><span class="co">#&gt; MAIHDA Model Summary</span></span>
+<span><span class="co">#&gt; ====================</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Variance Partition Coefficient (VPC/ICC):</span></span>
+<span><span class="co">#&gt;   Estimate: 0.0636</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Variance Components:</span></span>
+<span><span class="co">#&gt;                  component variance    sd proportion</span></span>
+<span><span class="co">#&gt;   Between-stratum (random)    2.932 1.712    0.06357</span></span>
+<span><span class="co">#&gt;  Within-stratum (residual)   43.187 6.572    0.93643</span></span>
+<span><span class="co">#&gt;                      Total   46.118 6.791    1.00000</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Fixed Effects:</span></span>
+<span><span class="co">#&gt;         term estimate</span></span>
+<span><span class="co">#&gt;  (Intercept)    29.01</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Stratum Estimates (first 10):</span></span>
+<span><span class="co">#&gt;  stratum stratum_id                           label random_effect     se</span></span>
+<span><span class="co">#&gt;        1          1  male × Hispanic × Some College       -0.3652 1.0426</span></span>
+<span><span class="co">#&gt;        2          2     male × Black × College Grad        0.5847 1.1667</span></span>
+<span><span class="co">#&gt;        3          3   female × White × College Grad       -1.8639 0.3550</span></span>
+<span><span class="co">#&gt;        4          4     male × Hispanic × 8th Grade        1.1454 1.3490</span></span>
+<span><span class="co">#&gt;        5          5    female × Mexican × 8th Grade        1.9078 1.0173</span></span>
+<span><span class="co">#&gt;        6          6     male × White × College Grad       -0.7119 0.3652</span></span>
+<span><span class="co">#&gt;        7          7    female × White × High School        0.2352 0.4374</span></span>
+<span><span class="co">#&gt;        8          8     male × White × Some College        0.9413 0.3587</span></span>
+<span><span class="co">#&gt;        9          9 female × White × 9 - 11th Grade        0.9152 0.6162</span></span>
+<span><span class="co">#&gt;       10         10 female × Hispanic × High School        0.1229 1.0994</span></span>
+<span><span class="co">#&gt;  lower_95  upper_95</span></span>
+<span><span class="co">#&gt;  -2.40868  1.678302</span></span>
+<span><span class="co">#&gt;  -1.70198  2.871286</span></span>
+<span><span class="co">#&gt;  -2.55965 -1.168149</span></span>
+<span><span class="co">#&gt;  -1.49872  3.789553</span></span>
+<span><span class="co">#&gt;  -0.08613  3.901702</span></span>
+<span><span class="co">#&gt;  -1.42775  0.004003</span></span>
+<span><span class="co">#&gt;  -0.62207  1.092543</span></span>
+<span><span class="co">#&gt;   0.23837  1.644306</span></span>
+<span><span class="co">#&gt;  -0.29260  2.122989</span></span>
+<span><span class="co">#&gt;  -2.03195  2.277736</span></span>
+<span><span class="co">#&gt;   ... and 40 more strata</span></span></code></pre></div>
 <p><strong>Interpretation:</strong> The resulting Variance Partition
 Coefficient (VPC or ICC) tells us what percentage of the total variance
 in BMI in the population lies <em>between</em> the intersectional social
@@ -204,16 +297,36 @@ decomposition, and a low or negative value does not by itself prove a
 “true” intersectional interaction – it can also reflect suppression,
 rescaling (on the latent scale for non-Gaussian models), sample
 composition, or estimation uncertainty.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Fit an adjusted model</span></span>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Fit an adjusted model on the SAME analytic sample</span></span>
 <span><span class="va">model_adj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">health_complete</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Calculate PCV with Parametric Bootstrap Confidence Intervals</span></span>
-<span><span class="va">pcv_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model_null</span>, <span class="va">model_adj</span>, bootstrap <span class="op">=</span> <span class="cn">TRUE</span>, n_boot <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">pcv_result</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Point estimate of the proportional change in between-stratum variance</span></span>
+<span><span class="va">pcv_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model_null</span>, <span class="va">model_adj</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">pcv_result</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Proportional Change in Variance (PCV)</span></span>
+<span><span class="co">#&gt; =====================================</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; PCV: 0.6693</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Between-stratum variance:</span></span>
+<span><span class="co">#&gt;   Model 1: 2.931928</span></span>
+<span><span class="co">#&gt;   Model 2: 0.969511</span></span>
+<span><span class="co">#&gt;   Change:  1.962417 (66.93%)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span>
+<span><span class="co">#&gt; variance between the models; it is variance 'explained' only when Model 2</span></span>
+<span><span class="co">#&gt; nests Model 1 by adding predictors on the same outcome, sample and strata):</span></span>
+<span><span class="co">#&gt;   Between-stratum variance is 66.9% lower in Model 2 than in Model 1.</span></span></code></pre></div>
+<p>For publication-ready uncertainty, add parametric bootstrap
+confidence intervals. This refits the model many times, so it is not run
+when the vignette is built:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pcv_boot</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model_null</span>, <span class="va">model_adj</span>, bootstrap <span class="op">=</span> <span class="cn">TRUE</span>, n_boot <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">pcv_boot</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="step-4-stepwise-pcv-decomposition">Step 4: Stepwise PCV Decomposition<a class="anchor" aria-label="anchor" href="#step-4-stepwise-pcv-decomposition"></a>
@@ -221,7 +334,7 @@ composition, or estimation uncertainty.</p>
 <p>Often, researchers want to know exactly <em>which</em> variable
 explained the variance. Use the <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code> function to
 add covariates one-by-one and track the variance dynamically.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Run a stepwise variance decomposition using the prepared data with strata</span></span>
 <span><span class="va">stepwise_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/stepwise_pcv.html">stepwise_pcv</a></span><span class="op">(</span></span>
 <span>  data <span class="op">=</span> <span class="va">model_null</span><span class="op">$</span><span class="va">original_data</span>,</span>
@@ -229,7 +342,14 @@ add covariates one-by-one and track the variance dynamically.</p>
 <span>  vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Age"</span>, <span class="st">"Gender"</span>, <span class="st">"Race"</span>, <span class="st">"Education"</span>, <span class="st">"Poverty"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">stepwise_results</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">stepwise_results</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   Step      Model        Added_Variable  Variance     Step_PCV   Total_PCV</span></span>
+<span><span class="co">#&gt; 1    0 Null Model None (Intercept only) 2.9319281  0.000000000 0.000000000</span></span>
+<span><span class="co">#&gt; 2    1    Model 1                   Age 2.8627658  0.023589378 0.023589378</span></span>
+<span><span class="co">#&gt; 3    2    Model 2                Gender 2.9232893 -0.021141634 0.002946462</span></span>
+<span><span class="co">#&gt; 4    3    Model 3                  Race 1.3016798  0.554720831 0.556032830</span></span>
+<span><span class="co">#&gt; 5    4    Model 4             Education 0.9756602  0.250460705 0.667229160</span></span>
+<span><span class="co">#&gt; 6    5    Model 5               Poverty 0.9695115  0.006302093 0.669326313</span></span></code></pre></div>
 <p>Negative step PCVs in this table indicate an “unmasking”/suppression
 pattern: adding a variable increased the between-stratum variance. This
 is a model-dependent change in variance, not proof that a hidden
@@ -243,25 +363,34 @@ effects.</p>
 </h3>
 <p>The package provides multiple pre-configured, advanced visualization
 options for checking your model estimates natively mirroring the Shiny
-application logic:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+application logic. The dedicated <a href="interpreting_plots.html">plot
+interpretation vignette</a> explains how to read each one.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Predicted stratum values with 95% CIs</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Variance partition (VPC) visualization</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Mean predicted outcome against the stratum random effect</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Additive versus Intersectional Effect decomposition</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Ternary diagnostic: additive vs intersection-specific signal vs uncertainty</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"ternary"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Individual Prediction Deviance Dashboard</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="introduction_files/figure-html/plot-predicted-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Variance partition (VPC) visualization</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="introduction_files/figure-html/plot-vpc-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Mean predicted outcome against the stratum random effect</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="introduction_files/figure-html/plot-risk-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Additive versus Intersectional Effect decomposition</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="introduction_files/figure-html/plot-decomp-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Individual Prediction Deviance Dashboard</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"prediction_deviation"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="introduction_files/figure-html/plot-prediction-deviation-1.png" class="r-plt" alt="" width="672"></p>
+<p>The ternary diagnostic needs the optional <code>ggtern</code>
+package, so it is only drawn when that package is installed:</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Ternary diagnostic: additive vs intersection-specific signal vs uncertainty</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"ternary"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="introduction_files/figure-html/plot-ternary-1.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level3">
 <h3 id="step-6-compare-intersectional-inequality-across-groups">Step 6: Compare Intersectional Inequality Across Groups<a class="anchor" aria-label="anchor" href="#step-6-compare-intersectional-inequality-across-groups"></a>
@@ -281,7 +410,7 @@ cross-classified model.</p>
 designed for exactly this: it asks how much the joint <strong>gender x
 socioeconomic-status</strong> inequality in mathematics achievement
 differs across six countries.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">group_cmp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_maihda_groups.html">compare_maihda_groups</a></span><span class="op">(</span></span>
@@ -290,17 +419,56 @@ differs across six countries.</p>
 <span>  group <span class="op">=</span> <span class="st">"country"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">group_cmp</span></span>
+<span><span class="co">#&gt; MAIHDA Group Comparison</span></span>
+<span><span class="co">#&gt; =======================</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Group variable: country </span></span>
+<span><span class="co">#&gt; Engine: lme4  | Family: gaussian  | Strata: shared/global </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;           group   n n_strata     vpc var_between var_other var_residual status</span></span>
+<span><span class="co">#&gt;         Finland 600        6 0.10994       785.8         0         6361     ok</span></span>
+<span><span class="co">#&gt;         Germany 600        6 0.14448      1271.6         0         7529     ok</span></span>
+<span><span class="co">#&gt;           Italy 600        6 0.11890      1065.3         0         7895     ok</span></span>
+<span><span class="co">#&gt;           Japan 600        6 0.13344      1032.3         0         6704     ok</span></span>
+<span><span class="co">#&gt;          Mexico 600        6 0.13649       771.5         0         4881     ok</span></span>
+<span><span class="co">#&gt;  United Kingdom 600        6 0.06011       470.5         0         7357     ok</span></span>
 <span></span>
 <span><span class="co"># VPC by country (add bootstrap = TRUE for per-group confidence intervals)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">group_cmp</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span>
-<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">group_cmp</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="introduction_files/figure-html/group-compare-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span></span>
 <span><span class="co"># Between- vs within-stratum variance share by country</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">group_cmp</span>, type <span class="op">=</span> <span class="st">"components"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="introduction_files/figure-html/group-compare-2.png" class="r-plt" alt="" width="672"></p>
 <p>Groups smaller than <code>min_group_n</code>, or with fewer than two
 populated strata, are skipped with a warning rather than producing an
 unstable VPC; a group with no between-stratum variation reports a VPC of
 0 instead of erroring.</p>
 </div>
+</div>
+<div class="section level2">
+<h2 id="where-to-next">Where to next<a class="anchor" aria-label="anchor" href="#where-to-next"></a>
+</h2>
+<p>This vignette is the hub for the rest of the documentation:</p>
+<ul>
+<li>
+<strong><a href="binary_outcomes.html">MAIHDA for binary
+outcomes</a></strong> – logistic MAIHDA, the latent-scale VPC, and a
+discriminatory-accuracy (AUC) recipe.</li>
+<li>
+<strong><a href="interpreting_plots.html">Interpreting MAIHDA plots
+and diagnostics</a></strong> – how to read every plot type shown above,
+and what <em>not</em> to conclude from each.</li>
+<li>
+<strong><a href="group_comparison.html">Comparing intersectional
+inequality across groups</a></strong> – the full
+<code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> / <code>maihda(group = ...)</code>
+workflow.</li>
+<li>
+<strong><a href="interactive_app.html">Interactive data
+analysis</a></strong> – the no-code Shiny dashboard.</li>
+</ul>
 </div>
 <div class="section level2">
 <h2 id="interactive-shiny-app">Interactive Shiny App<a class="anchor" aria-label="anchor" href="#interactive-shiny-app"></a>
@@ -310,7 +478,7 @@ Dashboard.</p>
 <p>You can upload your own data (CSV, SPSS <code>.sav</code>, Stata
 <code>.dta</code>), dynamically select variables, and compute Stepwise
 PCV tables and prediction plots.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Launch the interactive interface</span></span>
 <span><span class="fu"><a href="../reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>

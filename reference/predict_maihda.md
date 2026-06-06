@@ -55,7 +55,11 @@ Depending on type:
 - For "individual": A numeric vector of predicted values on the
   requested scale
 
-- For "strata": A data frame with stratum ID and predicted random effect
+- For "strata": A data frame with stratum ID and predicted random
+  effect. When `newdata` is supplied, the result is restricted to the
+  strata present in `newdata` (and a stratum the model never saw is an
+  error, as for "individual"); when `newdata` is `NULL`, every training
+  stratum is returned.
 
 ## Examples
 

@@ -213,6 +213,17 @@
   sample size (the rows the model actually fits) rather than the raw
   group row count, so a group with enough raw rows but a tiny usable
   sample is skipped instead of being fit on a handful of observations.
+- `predict_maihda(type = "strata")` now respects `newdata`: it returns
+  only the strata present in `newdata` (and errors on a stratum the
+  model never saw, as `type = "individual"` does) instead of always
+  returning every training stratum. With `newdata = NULL` it still
+  returns all strata.
+- [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now counts populated strata for the pre-fit guard on the analytic
+  model frame, not the raw subgroup. A group with two raw strata but
+  only one stratum left after missing-row removal is now cleanly skipped
+  as VPC-undefined instead of failing during fitting with “grouping
+  factors must have \> 1 sampled level”.
 - `n_boot` for bootstrap intervals must now be at least 10 (the minimum
   number of successful refits an interval requires); an unusably small
   `n_boot` fails immediately with a clear message instead of only
