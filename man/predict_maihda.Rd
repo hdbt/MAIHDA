@@ -36,7 +36,11 @@ Depending on type:
   \itemize{
     \item For "individual": A numeric vector of predicted values on the
       requested scale
-    \item For "strata": A data frame with stratum ID and predicted random effect
+    \item For "strata": A data frame with stratum ID and predicted random
+      effect. When \code{newdata} is supplied, the result is restricted to the
+      strata present in \code{newdata} (and a stratum the model never saw is an
+      error, as for "individual"); when \code{newdata} is \code{NULL}, every
+      training stratum is returned.
   }
 }
 \description{
