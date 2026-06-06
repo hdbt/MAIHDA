@@ -56,6 +56,7 @@ model_null <- fit_maihda(
 #> Warning: The outcome variable appears to be binary. Automatically switching to
 #> family = 'binomial'. To fit a Linear Probability Model, explicitly specify
 #> family = 'gaussian'.
+#> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.
 ```
 
 The warning is a feature, not a problem. To be explicit (and to silence
@@ -159,12 +160,14 @@ model_null2 <- fit_maihda(
   Obese ~ 1 + (1 | Gender:Race:Education),
   data = health_complete, family = "binomial"
 )
+#> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.
 
 # Model 2: adjust for an individual-level covariate (age)
 model_adj <- fit_maihda(
   Obese ~ Age + (1 | Gender:Race:Education),
   data = health_complete, family = "binomial"
 )
+#> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.
 
 pcv <- calculate_pvc(model_null2, model_adj)
 print(pcv)

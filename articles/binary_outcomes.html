@@ -135,7 +135,8 @@ to <code>family = "binomial"</code>, recodes the response to 0/1 for
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; Warning: The outcome variable appears to be binary. Automatically switching to</span></span>
 <span><span class="co">#&gt; family = 'binomial'. To fit a Linear Probability Model, explicitly specify</span></span>
-<span><span class="co">#&gt; family = 'gaussian'.</span></span></code></pre></div>
+<span><span class="co">#&gt; family = 'gaussian'.</span></span>
+<span><span class="co">#&gt; Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.</span></span></code></pre></div>
 <p>The warning is a feature, not a problem. To be explicit (and to
 silence the warning), pass <code>family = "binomial"</code> yourself –
 this is the recommended form for scripts:</p>
@@ -231,12 +232,14 @@ sample:</p>
 <span>  <span class="va">Obese</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">health_complete</span>, family <span class="op">=</span> <span class="st">"binomial"</span></span>
 <span><span class="op">)</span></span>
+<span><span class="co">#&gt; Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.</span></span>
 <span></span>
 <span><span class="co"># Model 2: adjust for an individual-level covariate (age)</span></span>
 <span><span class="va">model_adj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">Obese</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">health_complete</span>, family <span class="op">=</span> <span class="st">"binomial"</span></span>
 <span><span class="op">)</span></span>
+<span><span class="co">#&gt; Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.</span></span>
 <span></span>
 <span><span class="va">pcv</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model_null2</span>, <span class="va">model_adj</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">pcv</span><span class="op">)</span></span>

@@ -45,8 +45,16 @@ fit_maihda(
   Default is "gaussian". If the outcome variable appears to be binary
   and the default family is used, the function will automatically switch
   to "binomial", recode two-level responses to 0/1 for `glmer()`, and
-  issue a warning. Although any valid family object is accepted for
-  fitting, the MAIHDA variance summaries
+  issue a warning. When a two-level non-0/1 response is recoded (on
+  either the auto-detected or an explicit `family = "binomial"` path),
+  the mapping follows the usual convention – the first level becomes 0
+  (reference) and the second becomes 1 (the modeled event), where
+  "first/second" means alphabetical order for a character outcome and
+  the declared order for a factor. The chosen mapping is reported via a
+  [`message()`](https://rdrr.io/r/base/message.html) and stored on the
+  result as `$response_recoding`; set the factor levels (or supply a 0/1
+  outcome) to control which level is the event. Although any valid
+  family object is accepted for fitting, the MAIHDA variance summaries
   ([`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md),
   VPC/ICC, PCV) are only defined for `gaussian("identity")`, the
   binomial/Bernoulli families with a logit or probit link, and
@@ -93,6 +101,12 @@ A maihda_model object containing:
 - strata_info:
 
   The strata information from make_strata() if available, NULL otherwise
+
+- response_recoding:
+
+  For a recoded two-level outcome, a data frame mapping each original
+  level to its 0/1 value and role (reference/event); NULL when no
+  recoding occurred
 
 - diagnostics:
 

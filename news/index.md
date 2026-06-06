@@ -228,6 +228,35 @@
   number of successful refits an interval requires); an unusably small
   `n_boot` fails immediately with a clear message instead of only
   erroring after the bootstrap runs.
+- [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  and
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  now detect differing prior `weights`: previously two models fit to the
+  same rows/outcome/strata but with different weights compared as if
+  equivalent (PCV returned silently, no warning), even though weights
+  change the variance estimates.
+  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  now errors and
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  warns; an unweighted fit and an explicit unit-weight fit are still
+  treated as equal.
+- When a two-level non-0/1 outcome is recoded to 0/1, the chosen mapping
+  (which level becomes the modeled event = 1) is now reported via a
+  [`message()`](https://rdrr.io/r/base/message.html) and stored on the
+  model as `$response_recoding`. Previously the mapping followed
+  alphabetical (character) or declared (factor) level order silently,
+  with no signal at all when `family = "binomial"` was passed
+  explicitly, so the modeled event could be inverted unnoticed. The 0/1
+  assignment rule is unchanged (it matches base `glm`).
+- Stratum-level plot aggregations (`plot(type = "predicted")`,
+  `"risk_vs_effect"`, `"obs_vs_shrunken"`, `"effect_decomp"`) now honour
+  prior `weights`, collapsing per-stratum predictions with a
+  prior-weight-weighted mean (and weighting the reference lines by the
+  summed weights). This makes the plots consistent with the weighted
+  Gaussian VPC for survey/weighted fits; unweighted models are
+  unaffected, and aggregated-binomial (`cbind`) fits, whose
+  `weights(type = "prior")` are the trials, are left unweighted to avoid
+  double-counting.
 
 ### Diagnostics
 
