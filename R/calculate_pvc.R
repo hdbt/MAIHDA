@@ -207,6 +207,15 @@ validate_pvc_models <- function(model1, model2) {
          "outcome values differ between the two models.", call. = FALSE)
   }
 
+  # Prior weights change the variance estimates, so a PCV across fits that used
+  # different weights would compare incomparable quantities. (An unweighted fit and
+  # an explicit weights = rep(1, n) fit are treated as equal.)
+  if (!identical(maihda_weight_fingerprint(model1$model),
+                 maihda_weight_fingerprint(model2$model))) {
+    stop("PVC requires both models to use the same prior weights; the two models ",
+         "were fit with different weights.", call. = FALSE)
+  }
+
   if (!"stratum" %in% names(model1$data) || !"stratum" %in% names(model2$data)) {
     stop("PVC requires both models to include a 'stratum' column in their analytic data.",
          call. = FALSE)

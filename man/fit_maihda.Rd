@@ -33,6 +33,14 @@ Default is "gaussian".
 If the outcome variable appears to be binary and the default family is used,
 the function will automatically switch to "binomial", recode two-level
 responses to 0/1 for \code{glmer()}, and issue a warning.
+When a two-level non-0/1 response is recoded (on either the auto-detected or
+an explicit \code{family = "binomial"} path), the mapping follows the usual
+convention -- the first level becomes 0 (reference) and the second becomes 1
+(the modeled event), where "first/second" means alphabetical order for a
+character outcome and the declared order for a factor. The chosen mapping is
+reported via a \code{message()} and stored on the result as
+\code{$response_recoding}; set the factor levels (or supply a 0/1 outcome) to
+control which level is the event.
 Although any valid family object is accepted for fitting, the MAIHDA variance
 summaries (\code{\link{summary.maihda_model}}, VPC/ICC, PCV) are only defined
 for \code{gaussian("identity")}, the binomial/Bernoulli families with a logit
@@ -56,6 +64,9 @@ A maihda_model object containing:
   \item{data}{The data used for fitting}
   \item{family}{The family used}
   \item{strata_info}{The strata information from make_strata() if available, NULL otherwise}
+  \item{response_recoding}{For a recoded two-level outcome, a data frame mapping
+    each original level to its 0/1 value and role (reference/event); NULL when no
+    recoding occurred}
   \item{diagnostics}{Fit-quality diagnostics (singular fit / convergence) for
     lme4 models, surfaced by the print and summary methods}
 }

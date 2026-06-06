@@ -176,12 +176,14 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
   obs_data <- data
   obs_data$.maihda_observed_numerator <- observed_outcome$numerator
   obs_data$.maihda_observed_denominator <- observed_outcome$denominator
+  obs_data$.maihda_prior_weight <- maihda_prior_weights(object)
   obs_means <- obs_data |>
     dplyr::group_by(.data$stratum) |>
     dplyr::summarise(
       observed = maihda_observed_weighted_mean(
         .data$.maihda_observed_numerator,
-        .data$.maihda_observed_denominator
+        .data$.maihda_observed_denominator,
+        .data$.maihda_prior_weight
       ),
       n = maihda_observed_sample_size(
         .data$.maihda_observed_numerator,
@@ -259,13 +261,22 @@ maihda_observed_complete <- function(numerator, denominator) {
   is.finite(numerator) & is.finite(denominator) & denominator > 0
 }
 
-maihda_observed_weighted_mean <- function(numerator, denominator) {
+maihda_observed_weighted_mean <- function(numerator, denominator, w = NULL) {
   keep <- maihda_observed_complete(numerator, denominator)
   if (!any(keep)) {
     return(NA_real_)
   }
 
-  sum(numerator[keep]) / sum(denominator[keep])
+  # Incorporate prior/survey weights so the observed stratum mean is on the same
+  # (population-representative) footing as the weighted shrunken estimate. With
+  # unit weights this is the previous sum(numerator)/sum(denominator).
+  if (is.null(w)) {
+    w <- rep(1, length(numerator))
+  }
+  w <- as.numeric(w)
+  w[!is.finite(w)] <- 0
+
+  sum(w[keep] * numerator[keep]) / sum(w[keep] * denominator[keep])
 }
 
 maihda_observed_sample_size <- function(numerator, denominator) {
@@ -336,7 +347,10 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
     stop("Unsupported engine: ", object$engine)
   }
 
-  fixed_reference <- stats::weighted.mean(pred_data$fixed_row, pred_data$n, na.rm = TRUE)
+  # Weight the across-strata reference by each stratum's summed prior weights
+  # (w_sum), which equals the row count for an unweighted model.
+  ref_weights <- if ("w_sum" %in% names(pred_data)) pred_data$w_sum else pred_data$n
+  fixed_reference <- stats::weighted.mean(pred_data$fixed_row, ref_weights, na.rm = TRUE)
 
   # Get stratum estimates
   stratum_est <- summary_obj$stratum_estimates
@@ -469,14 +483,19 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
     stop("Could not compute one prediction per analytic row.", call. = FALSE)
   }
 
-  # Assign to dataframe and collapse to strata level average
+  # Assign to dataframe and collapse to strata level average. Prior weights make
+  # the per-stratum mean (and the reference centre below) population-representative
+  # for a weighted/survey fit; for an unweighted model the weights are all 1 and
+  # this reduces to the previous plain means.
   data$pred_val <- preds
+  data$.maihda_w <- maihda_prior_weights(object)
 
   stratum_means <- data |>
     dplyr::group_by(.data$stratum) |>
     dplyr::summarize(
-      mean_predicted = mean(.data$pred_val, na.rm = TRUE),
+      mean_predicted = stats::weighted.mean(.data$pred_val, .data$.maihda_w, na.rm = TRUE),
       n = dplyr::n(),
+      w_sum = sum(.data$.maihda_w, na.rm = TRUE),
       .groups = "drop"
     )
 
@@ -498,11 +517,13 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
     plot_data$label <- paste("Stratum", plot_data$stratum)
   }
 
-  # Compute the reference centre as the population mean (weighted by stratum size),
-  # so common and rare strata are represented in proportion to their n -- matching
+  # Compute the reference centre as the population mean, weighting each stratum by
+  # its summed prior weights (w_sum, = stratum size for an unweighted model), so
+  # common and rare strata are represented in proportion to their weight -- matching
   # the weighted reference line in plot_predicted_strata().
-  global_mean <- if ("n" %in% names(plot_data) && any(is.finite(plot_data$n))) {
-    stats::weighted.mean(plot_data$mean_predicted, plot_data$n, na.rm = TRUE)
+  ref_w <- if ("w_sum" %in% names(plot_data)) plot_data$w_sum else plot_data$n
+  global_mean <- if (any(is.finite(ref_w))) {
+    stats::weighted.mean(plot_data$mean_predicted, ref_w, na.rm = TRUE)
   } else {
     mean(plot_data$mean_predicted, na.rm = TRUE)
   }
@@ -581,15 +602,20 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
 
   data$pred_total <- preds_total
   data$pred_fixed <- preds_fixed
+  # Prior/survey weights so the per-stratum and global means are
+  # population-representative for a weighted fit (the stratum random-effect
+  # component below is the weight-invariant BLUP). Unit weights reproduce the
+  # previous unweighted means exactly.
+  data$.maihda_w <- maihda_prior_weights(object)
 
-  global_mean <- mean(data$pred_total, na.rm = TRUE)
+  global_mean <- stats::weighted.mean(data$pred_total, data$.maihda_w, na.rm = TRUE)
 
   # Aggregate to stratum level
   stratum_means <- data |>
     dplyr::group_by(.data$stratum) |>
     dplyr::summarize(
-      mean_total = mean(.data$pred_total, na.rm = TRUE),
-      mean_fixed = mean(.data$pred_fixed, na.rm = TRUE),
+      mean_total = stats::weighted.mean(.data$pred_total, .data$.maihda_w, na.rm = TRUE),
+      mean_fixed = stats::weighted.mean(.data$pred_fixed, .data$.maihda_w, na.rm = TRUE),
       .groups = "drop"
     )
 
