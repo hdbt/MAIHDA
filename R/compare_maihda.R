@@ -428,9 +428,17 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # being passed at full length (which fails with a length mismatch or, for a
   # subset, silently recycles onto the wrong rows).
   dot_vals <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
-  subset_value <- dot_vals[["subset"]]
-  weights_value <- dot_vals[["weights"]]
   n_full <- nrow(data)
+  # A numeric `subset` (e.g. subset = c(1:10, 31:40)) holds GLOBAL row indices into
+  # `data`, and a recycled logical mask is likewise positional over the full data.
+  # Expand both to a full-length logical mask BEFORE the per-group slicing below;
+  # otherwise the same vector is reinterpreted relative to each subgroup (numeric
+  # index k picks the k-th row of the group, not global row k), silently fitting
+  # the wrong rows. Store the normalized value back into dot_vals so the per-group
+  # fit (slice_dots_for_group) slices it too, not just the row-count guard.
+  subset_value <- maihda_normalize_subset(dot_vals[["subset"]], n_full)
+  dot_vals[["subset"]] <- subset_value
+  weights_value <- dot_vals[["weights"]]
   # Per-group slice of a single full-length value (used for the row-count guard).
   slice_full <- function(val, idx) {
     if (is.null(val) || length(val) != n_full) return(NULL)

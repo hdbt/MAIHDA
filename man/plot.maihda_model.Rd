@@ -19,7 +19,11 @@
 \item{type}{Character string specifying plot type:
 \itemize{
   \item "vpc": Variance partition coefficient visualization
-  \item "obs_vs_shrunken": Observed vs. shrunken stratum means
+  \item "obs_vs_shrunken": Observed vs. shrunken stratum means. The y-axis
+    (model-based estimate) includes the fixed effects, so for a
+    covariate-adjusted model the distance from the diagonal reflects both
+    shrinkage \emph{and} covariate adjustment, not shrinkage alone; it is a
+    pure shrinkage view only for an intercept-only (null) model
   \item "predicted": Predicted values for each stratum with confidence intervals
   \item "risk_vs_effect": Quadrant scatterplot of each stratum's mean predicted outcome against its random effect
   \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean

@@ -87,12 +87,21 @@ compute_maihda_ternary_data <- function(
   }
 
   pred_data <- model$data
-  pred_data <- pred_data[!is.na(pred_data$stratum), , drop = FALSE]
+  stratum_keep <- !is.na(pred_data$stratum)
+  pred_data <- pred_data[stratum_keep, , drop = FALSE]
+  # Prior/precision weights aligned to pred_data, so the per-stratum aggregation
+  # and the reference centre below are weighted for a weighted fit (consistent with
+  # the weighted VPC and the other stratum-level plots). Unit weights reduce both
+  # to the previous plain/size-weighted means. These are lme4 prior/precision
+  # weights, not a complex survey design (no design-based variance is computed).
+  prior_w_full <- maihda_prior_weights(model)
+  pred_w <- prior_w_full[stratum_keep]
 
   if (!is.null(reference_values)) {
     strata_levels <- re_df$stratum
     first_idx <- match(strata_levels, as.character(pred_data$stratum))
     pred_data <- pred_data[first_idx, , drop = FALSE]
+    pred_w <- pred_w[first_idx]
 
     if (is.data.frame(reference_values)) {
       ref <- reference_values
@@ -154,15 +163,19 @@ compute_maihda_ternary_data <- function(
     uncertainty_values <- re_df$uncertainty[re_idx]
   }
 
-  additive_by_stratum <- stats::aggregate(
-    x = list(
+  # Prior-weight-weighted per-stratum means, so a weighted fit's stratum
+  # additive/full predictions match the weighted VPC; reduces to plain means when
+  # the fit is unweighted.
+  additive_by_stratum <- maihda_weighted_stratum_aggregate(
+    data.frame(
+      stratum = as.character(pred_data$stratum),
       additive_only = as.numeric(additive_values),
       full_prediction = as.numeric(full_values),
-      uncertainty = as.numeric(uncertainty_values)
+      uncertainty = as.numeric(uncertainty_values),
+      weight = pred_w,
+      stringsAsFactors = FALSE
     ),
-    by = list(stratum = as.character(pred_data$stratum)),
-    FUN = mean,
-    na.rm = TRUE
+    c("additive_only", "full_prediction", "uncertainty")
   )
   re_df$additive_only <- additive_by_stratum$additive_only[
     match(as.character(re_df$stratum), additive_by_stratum$stratum)
@@ -176,17 +189,26 @@ compute_maihda_ternary_data <- function(
     ]
   }
 
-  # Reference is the population mean additive prediction (weighted by stratum size
-  # when n is available), so rare and common strata are not given equal weight.
-  strata_n <- if (!is.null(strata_info_df) &&
-                  all(c("stratum", "n") %in% names(strata_info_df))) {
+  # Reference is the mean additive prediction across strata, weighted so rare and
+  # common strata are not given equal weight. For a weighted fit use each stratum's
+  # summed prior weights (so the centre is on the same weighted footing as the
+  # per-stratum aggregation above); otherwise use the stratum size. Both reduce to
+  # the plain mean when neither is available.
+  is_weighted <- !isTRUE(all.equal(prior_w_full, rep(1, length(prior_w_full))))
+  strata_w <- if (is_weighted) {
+    pop_w <- tapply(prior_w_full[stratum_keep],
+                    as.character(model$data$stratum[stratum_keep]),
+                    sum, na.rm = TRUE)
+    as.numeric(pop_w[as.character(re_df$stratum)])
+  } else if (!is.null(strata_info_df) &&
+             all(c("stratum", "n") %in% names(strata_info_df))) {
     strata_info_df$n[match(as.character(re_df$stratum),
                            as.character(strata_info_df$stratum))]
   } else {
     NULL
   }
-  grand_mean_additive <- if (!is.null(strata_n) && any(is.finite(strata_n))) {
-    stats::weighted.mean(re_df$additive_only, strata_n, na.rm = TRUE)
+  grand_mean_additive <- if (!is.null(strata_w) && any(is.finite(strata_w))) {
+    stats::weighted.mean(re_df$additive_only, strata_w, na.rm = TRUE)
   } else {
     mean(re_df$additive_only, na.rm = TRUE)
   }

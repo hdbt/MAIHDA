@@ -23,6 +23,30 @@ maihda_binomial_abs_deviance_residual <- function(obs_outcome_01, fitted) {
   out
 }
 
+# Prior/precision weights aligned to `data`'s rows, used to make the per-stratum
+# aggregation a weighted mean for weighted fits (consistent with the weighted VPC
+# and the other stratum-level plots). Falls back to unit weights -- so the
+# weighted means reduce EXACTLY to plain means -- when the model is unweighted,
+# the weights cannot be recovered, or they do not align with `data` (e.g.
+# user-supplied prediction data). These are lme4 prior/precision weights, not a
+# complex survey design (no design-based variance is computed).
+maihda_prediction_panel_prior_weights <- function(maihda_obj, model, data) {
+  n <- nrow(data)
+  w <- NULL
+  if (!is.null(maihda_obj)) {
+    w <- tryCatch(maihda_prior_weights(maihda_obj), error = function(e) NULL)
+  }
+  if (is.null(w)) {
+    w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
+  }
+  if (is.null(w) || !is.numeric(w) || length(w) != n) {
+    return(rep(1, n))
+  }
+  w <- as.numeric(w)
+  w[!is.finite(w)] <- NA_real_
+  w
+}
+
 maihda_prediction_panel_auto_type <- function(model) {
   if (inherits(model, "polr") || inherits(model, "clm") || inherits(model, "ordinal")) {
     return("ordinal")
@@ -236,8 +260,11 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
   type <- match.arg(type)
   ordinal_mode <- match.arg(ordinal_mode)
 
-  # Check if model is a maihda_model
+  # Check if model is a maihda_model. Keep the wrapper so prior/precision weights
+  # can be recovered for the weighted stratum aggregation before unwrapping.
+  maihda_obj <- NULL
   if (inherits(model, "maihda_model")) {
+    maihda_obj <- model
     if (is.null(data)) data <- model$data
     strata_info <- model$strata_info
     model <- model$model
@@ -255,6 +282,10 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       error = function(e) stop("Please provide the original 'data' argument, could not extract from model.")
     )
   }
+
+  # Prior/precision weights for the per-stratum aggregation (unit weights for an
+  # unweighted fit, so the weighted means below reduce to plain means).
+  prior_w <- maihda_prediction_panel_prior_weights(maihda_obj, model, data)
 
   # Auto-detect model type if requested
   if (type == "auto") {
@@ -280,17 +311,15 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       dplyr::mutate(
         id = dplyr::row_number(),
         fitted = preds$fit,
-        se = preds$se.fit
+        se = preds$se.fit,
+        weight = prior_w
       )
 
     if ("stratum" %in% names(df)) {
-      df <- df |>
-        dplyr::group_by(.data$stratum) |>
-        dplyr::summarize(
-          fitted = mean(.data$fitted, na.rm = TRUE),
-          se = mean(.data$se, na.rm = TRUE),
-          .groups = "drop"
-        )
+      # Prior-weight-weighted per-stratum means so a weighted fit's stratum
+      # summary is consistent with the weighted VPC; reduces to plain means when
+      # the fit is unweighted.
+      df <- maihda_weighted_stratum_aggregate(df, c("fitted", "se"))
 
       if (!is.null(strata_info) && "label" %in% names(strata_info)) {
         id_map <- setNames(strata_info$label, strata_info$stratum)
@@ -375,20 +404,18 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
         obs_outcome_01 = obs_outcome_01,
         fitted = preds$fit,
         se = preds$se.fit,
-        abs_res_dev = resids
+        abs_res_dev = resids,
+        weight = prior_w
       )
 
 is_aggregated <- "stratum" %in% names(df)
 
     if (is_aggregated) {
-      df <- df |>
-        dplyr::group_by(.data$stratum) |>
-        dplyr::summarize(
-          fitted = mean(.data$fitted, na.rm = TRUE),
-          se = mean(.data$se, na.rm = TRUE),
-          abs_res_dev = mean(.data$abs_res_dev, na.rm = TRUE),
-          .groups = "drop"
-        )
+      # Prior-weight-weighted per-stratum means (fitted probability, SE, and
+      # absolute deviance residual); reduces to plain means when unweighted.
+      df <- maihda_weighted_stratum_aggregate(
+        df, c("fitted", "se", "abs_res_dev")
+      )
 
       if (!is.null(strata_info) && "label" %in% names(strata_info)) {
         id_map <- setNames(strata_info$label, strata_info$stratum)
@@ -506,15 +533,13 @@ is_aggregated <- "stratum" %in% names(df)
 
       if ("stratum" %in% names(data)) {
         df$stratum <- data$stratum
-        df <- df |>
-          dplyr::group_by(.data$stratum) |>
-          dplyr::summarize(
-            dplyr::across(tidyselect::all_of(prob_cols), \(x) mean(x, na.rm = TRUE)),
-            expected_score = mean(.data$expected_score, na.rm = TRUE),
-            observed_prob = mean(.data$observed_prob, na.rm = TRUE),
-            surprise = mean(.data$surprise, na.rm = TRUE),
-            .groups = "drop"
-          )
+        df$weight <- prior_w
+        # Prior-weight-weighted per-stratum means of the category probabilities and
+        # the surprise/score summaries (the stratum surprise stays the average of
+        # the per-row -log P, now weighted); reduces to plain means when unweighted.
+        df <- maihda_weighted_stratum_aggregate(
+          df, c(prob_cols, "expected_score", "observed_prob", "surprise")
+        )
 
         if (!is.null(strata_info) && "label" %in% names(strata_info)) {
           id_map <- setNames(strata_info$label, strata_info$stratum)
@@ -566,16 +591,14 @@ is_aggregated <- "stratum" %in% names(df)
       df <- data |>
         dplyr::mutate(
           id = dplyr::row_number(),
-          fitted = exp_scores
+          fitted = exp_scores,
+          weight = prior_w
         )
 
       if ("stratum" %in% names(df)) {
-        df <- df |>
-          dplyr::group_by(.data$stratum) |>
-          dplyr::summarize(
-            fitted = mean(.data$fitted, na.rm = TRUE),
-            .groups = "drop"
-          )
+        # Prior-weight-weighted per-stratum mean expected score; reduces to the
+        # plain mean when the fit is unweighted.
+        df <- maihda_weighted_stratum_aggregate(df, c("fitted"))
 
         if (!is.null(strata_info) && "label" %in% names(strata_info)) {
           id_map <- setNames(strata_info$label, strata_info$stratum)

@@ -8,7 +8,11 @@
 #' @param type Character string specifying plot type:
 #'   \itemize{
 #'     \item "vpc": Variance partition coefficient visualization
-#'     \item "obs_vs_shrunken": Observed vs. shrunken stratum means
+#'     \item "obs_vs_shrunken": Observed vs. shrunken stratum means. The y-axis
+#'       (model-based estimate) includes the fixed effects, so for a
+#'       covariate-adjusted model the distance from the diagonal reflects both
+#'       shrinkage \emph{and} covariate adjustment, not shrinkage alone; it is a
+#'       pure shrinkage view only for an intercept-only (null) model
 #'     \item "predicted": Predicted values for each stratum with confidence intervals
 #'     \item "risk_vs_effect": Quadrant scatterplot of each stratum's mean predicted outcome against its random effect
 #'     \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
@@ -155,13 +159,21 @@ plot_vpc <- function(summary_obj) {
 
 #' Observed vs. Shrunken Estimates Plot
 #'
+#' @details The x-axis is each stratum's raw observed mean; the y-axis is the
+#'   model-based stratum estimate, which includes the fixed-effect contribution.
+#'   For an intercept-only (null) model the vertical distance from the diagonal is
+#'   pure shrinkage toward the grand mean. For a covariate-adjusted model the model
+#'   estimate also moves with the stratum's covariate profile, so distance from the
+#'   diagonal reflects \emph{both} shrinkage and covariate adjustment and should
+#'   not be read as shrinkage alone. The caption notes which case applies.
+#'
 #' @param object A maihda_model object
 #' @param summary_obj A maihda_summary object
 #' @return A ggplot2 object
 #' @keywords internal
 #' @import ggplot2
 #' @importFrom dplyr group_by summarise
-#' @importFrom stats formula
+#' @importFrom stats formula terms
 plot_obs_vs_shrunken <- function(object, summary_obj) {
   data <- object$data
 
@@ -210,6 +222,22 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
     pred_idx <- match(as.character(plot_data$stratum), as.character(pred_data$stratum))
     plot_data$shrunken <- pred_data$predicted_row[pred_idx]
 
+    # The y-axis (model estimate) includes the fixed effects, so for an adjusted
+    # model the vertical gap from the diagonal mixes shrinkage with covariate
+    # adjustment; only an intercept-only model gives a pure shrinkage view. Flag
+    # which case applies in the caption rather than letting it be misread.
+    fixed_terms <- tryCatch(
+      attr(stats::terms(reformulas::nobars(object$formula)), "term.labels"),
+      error = function(e) character(0)
+    )
+    interpretation_caption <- if (length(fixed_terms) > 0) {
+      paste("Adjusted model: the y-axis includes fixed effects, so distance from",
+            "the diagonal reflects both shrinkage and covariate adjustment.")
+    } else {
+      paste("Null model: vertical distance from the diagonal is shrinkage of the",
+            "stratum mean toward the grand mean.")
+    }
+
     # Create plot
     p <- ggplot(plot_data, aes(x = .data$observed, y = .data$shrunken)) +
       geom_point(aes(size = .data$n), alpha = 0.6, color = "#0072B2") +
@@ -218,7 +246,8 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
         title = "Observed vs. Shrunken Stratum Estimates",
         x = "Observed Stratum Mean",
         y = "Shrunken Estimate (with Random Effect)",
-        size = "Sample Size"
+        size = "Sample Size",
+        caption = interpretation_caption
       ) +
       theme_minimal() +
       theme(
@@ -267,9 +296,12 @@ maihda_observed_weighted_mean <- function(numerator, denominator, w = NULL) {
     return(NA_real_)
   }
 
-  # Incorporate prior/survey weights so the observed stratum mean is on the same
-  # (population-representative) footing as the weighted shrunken estimate. With
-  # unit weights this is the previous sum(numerator)/sum(denominator).
+  # Incorporate the model's prior/precision weights so the observed stratum mean is
+  # on the same weighted footing as the weighted shrunken estimate. These are lme4
+  # prior/precision weights, not a complex survey design -- no design-based
+  # (e.g. Taylor-linearised) variance is computed -- so results are not
+  # survey-representative. With unit weights this is the previous
+  # sum(numerator)/sum(denominator).
   if (is.null(w)) {
     w <- rep(1, length(numerator))
   }
@@ -483,10 +515,11 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
     stop("Could not compute one prediction per analytic row.", call. = FALSE)
   }
 
-  # Assign to dataframe and collapse to strata level average. Prior weights make
-  # the per-stratum mean (and the reference centre below) population-representative
-  # for a weighted/survey fit; for an unweighted model the weights are all 1 and
-  # this reduces to the previous plain means.
+  # Assign to dataframe and collapse to strata level average. The model's
+  # prior/precision weights make the per-stratum mean (and the reference centre
+  # below) reflect the weighted fit; these are lme4 prior weights, not a complex
+  # survey design, so the result is not survey-representative. For an unweighted
+  # model the weights are all 1 and this reduces to the previous plain means.
   data$pred_val <- preds
   data$.maihda_w <- maihda_prior_weights(object)
 
@@ -602,9 +635,10 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
 
   data$pred_total <- preds_total
   data$pred_fixed <- preds_fixed
-  # Prior/survey weights so the per-stratum and global means are
-  # population-representative for a weighted fit (the stratum random-effect
-  # component below is the weight-invariant BLUP). Unit weights reproduce the
+  # The model's prior/precision weights so the per-stratum and global means reflect
+  # the weighted fit (the stratum random-effect component below is the
+  # weight-invariant BLUP). These are lme4 prior weights, not a complex survey
+  # design, so the result is not survey-representative. Unit weights reproduce the
   # previous unweighted means exactly.
   data$.maihda_w <- maihda_prior_weights(object)
 
