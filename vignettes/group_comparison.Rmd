@@ -121,8 +121,15 @@ plot(group_cmp, type = "components")
 
 By default, `shared_strata = TRUE`. That means the `gender:ses` strata are
 defined once on the pooled data, then reused in every country. A "female:Low"
-stratum therefore refers to the same type of stratum in each country, which is
-what makes the VPC/ICC estimates directly comparable.
+stratum therefore refers to the same type of stratum in each country, which makes
+the stratum *definitions* comparable across countries.
+
+Shared definitions are necessary but not by themselves sufficient for the VPCs to
+be *directly* comparable. A given country may not contain every stratum, so two
+countries' VPCs can be estimated over different sets of *populated* strata. When
+that happens, `compare_maihda_groups()` issues a warning, and the VPCs should be
+read with that caveat in mind (alongside the `n_strata` column) rather than as
+strictly like-for-like.
 
 Set `shared_strata = FALSE` only when you intentionally want each group to
 rebuild its own strata. In that case, stratum identities are no longer shared

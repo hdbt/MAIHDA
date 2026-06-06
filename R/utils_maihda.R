@@ -262,6 +262,34 @@ maihda_row_mask <- function(data, subset = NULL, weights = NULL) {
   keep
 }
 
+# Expand an (already-evaluated) `subset` value into a full-length logical mask over
+# `n` rows. Positional subsets -- numeric row indices (e.g. c(1:10, 31:40)) or a
+# recycled logical mask -- are GLOBAL: index k means the k-th row of the data the
+# subset was written against. They must be turned into a full-length mask BEFORE
+# being sliced per group, otherwise the same vector is silently reinterpreted
+# relative to each subgroup and selects the wrong rows. Mirrors the subset
+# handling in maihda_row_mask(). Character (row-name) subsets are name-based, not
+# positional -- base `[` preserves row names in a group's slice, so they are
+# returned unchanged and matched per group by name; NULL stays NULL.
+maihda_normalize_subset <- function(subset, n) {
+  if (is.null(subset)) {
+    return(NULL)
+  }
+  if (is.logical(subset)) {
+    mask <- if (length(subset) == n) subset else rep_len(subset, n)
+    mask[is.na(mask)] <- FALSE
+    return(mask)
+  }
+  if (is.numeric(subset)) {
+    mask <- logical(n)
+    idx <- tryCatch(seq_len(n)[subset], error = function(e) integer(0))
+    idx <- idx[!is.na(idx) & idx >= 1L & idx <= n]
+    mask[idx] <- TRUE
+    return(mask)
+  }
+  subset
+}
+
 # The analytic model frame lme4/brms will actually fit: response and fixed-effect
 # transformations are applied, the grouping variables are retained, any `subset` is
 # honoured, rows with a missing prior weight are dropped, and rows missing after
@@ -1116,12 +1144,14 @@ maihda_vpc_interval_label <- function(vpc) {
   }
 }
 
-# Prior weights aligned to a model's analytic rows (object$data is the model
-# frame, so its row order matches weights(model, type = "prior")). Returns
+# Prior/precision weights aligned to a model's analytic rows (object$data is the
+# model frame, so its row order matches weights(model, type = "prior")). Returns
 # rep(1, n) when the model is unweighted or the weights cannot be recovered (e.g.
 # brms), so weighted aggregations below reduce EXACTLY to the unweighted ones for
-# the common case. Used so stratum-level plot summaries honour survey/prior
-# weights, consistent with the weighted Gaussian VPC.
+# the common case. Used so stratum-level plot summaries honour the lme4 prior
+# weights, consistent with the weighted Gaussian VPC. These are prior/precision
+# weights, NOT a complex survey design -- no design-based variance is computed and
+# results are not survey-representative.
 maihda_prior_weights <- function(object) {
   n <- nrow(object$data)
   # Aggregated binomial responses (cbind(success, failure) / `y | trials(n)`)
@@ -1201,9 +1231,10 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
     stringsAsFactors = FALSE
   )
 
-  # Prior-weight-weighted per-stratum means, so a weighted/survey fit's stratum
-  # predictions are population-representative (consistent with the weighted VPC);
-  # identical to the previous unweighted means for an unweighted model.
+  # Prior-weight-weighted per-stratum means, so a weighted fit's stratum
+  # predictions reflect the prior/precision weights (consistent with the weighted
+  # VPC); identical to the previous unweighted means for an unweighted model. These
+  # are lme4 prior weights, not a complex survey design (not survey-representative).
   maihda_weighted_stratum_aggregate(
     pred_df, c("predicted_row", "lower_row", "upper_row", "fixed_row")
   )
@@ -1395,9 +1426,10 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
     stringsAsFactors = FALSE
   )
 
-  # Prior-weight-weighted per-stratum means, so a weighted/survey fit's stratum
-  # predictions are population-representative (consistent with the weighted VPC);
-  # identical to the previous unweighted means for an unweighted model.
+  # Prior-weight-weighted per-stratum means, so a weighted fit's stratum
+  # predictions reflect the prior/precision weights (consistent with the weighted
+  # VPC); identical to the previous unweighted means for an unweighted model. These
+  # are lme4 prior weights, not a complex survey design (not survey-representative).
   maihda_weighted_stratum_aggregate(
     pred_df, c("predicted_row", "lower_row", "upper_row", "fixed_row")
   )
