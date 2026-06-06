@@ -3,3 +3,26 @@ template:
   bootstrap: 5
   bootswatch: flatly
   default_assets: true
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+
+articles:
+  - title: Get started
+    navbar: ~
+    contents:
+      - introduction
+  - title: Workflows
+    navbar: Workflows
+    contents:
+      - binary_outcomes
+      - group_comparison
+  - title: Interpretation
+    navbar: Interpretation
+    contents:
+      - interpreting_plots
+  - title: Interactive app
+    navbar: Interactive app
+    contents:
+      - interactive_app
