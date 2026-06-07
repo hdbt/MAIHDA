@@ -1,0 +1,112 @@
+name: brms-tests
+
+# The Stan-backed (brms) code paths -- the end-to-end Bayesian fit and the
+# posterior VPC/ICC summary -- are opt-in for local and CRAN runs because they
+# compile a Stan model (slow), so the standard R-CMD-check and test-coverage
+# workflows skip them. Without a job that turns them on, the Bayesian path could
+# regress silently. This workflow exercises it weekly, on demand, and on pull
+# requests that touch package code or the tests/workflow themselves.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'   # 06:17 UTC every Monday
+  workflow_dispatch:
+  # Catch a brms regression at PR time, not only on the weekly run. The path
+  # filter keeps doc-only / unrelated PRs from paying the Stan-compile cost.
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'R/**'
+      - 'tests/**'
+      - 'DESCRIPTION'
+      - '.github/workflows/brms-tests.yaml'
+
+permissions: read-all
+
+# An expensive (Stan-compiling) job; cancel superseded runs on the same PR/branch.
+concurrency:
+  group: brms-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  brms-tests:
+    runs-on: ubuntu-latest
+    # A cold runner installs rstan and compiles the Stan models at test time.
+    timeout-minutes: 75
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      # Both gates must be open or the Stan-backed tests skip themselves:
+      #   * MAIHDA_TEST_BRMS -> the brms opt-in skip_if() in the test files
+      #   * NOT_CRAN         -> the skip_on_cran() guarding the same tests
+      MAIHDA_TEST_BRMS: "true"
+      NOT_CRAN: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          # Keep the dependency surface lean and reliable: hard deps only, plus
+          # brms + a Stan backend (rstan, the brms default) and the test runner.
+          # Listing brms/rstan as required means the job fails fast if they cannot
+          # be installed, rather than letting the tests silently skip.
+          dependencies: '"hard"'
+          extra-packages: |
+            any::brms
+            any::rstan
+            any::testthat
+            any::pkgload
+
+      - name: Report environment and Stan backend
+        run: |
+          cat("MAIHDA_TEST_BRMS=", Sys.getenv("MAIHDA_TEST_BRMS"), "\n", sep = "")
+          cat("NOT_CRAN=", Sys.getenv("NOT_CRAN"), "\n", sep = "")
+          cat("brms ", as.character(packageVersion("brms")), "\n", sep = "")
+          cat("rstan ", as.character(packageVersion("rstan")), "\n", sep = "")
+        shell: Rscript {0}
+
+      - name: Run the Stan-backed (brms) tests
+        run: |
+          # Run only the two files that hold the opt-in Bayesian tests. They also
+          # contain fast lme4/helper tests, which is fine; MAIHDA_TEST_BRMS and
+          # NOT_CRAN are set at the job level so the gated tests execute.
+          res <- testthat::test_local(
+            ".",
+            filter = "fit_maihda|summary_variance",
+            reporter = "summary",
+            stop_on_failure = FALSE
+          )
+          df <- as.data.frame(res)
+
+          # These names must match the test_that() blocks gated by MAIHDA_TEST_BRMS
+          # in test-fit_maihda.R and test-summary_variance.R. If a name drifts this
+          # job fails loudly, rather than going green on a silently-skipped path.
+          gated <- c(
+            "fit_maihda fits a binary outcome with brms via bernoulli()",
+            "brms summary returns a posterior credible interval for the VPC/ICC"
+          )
+          status <- vapply(gated, function(nm) {
+            row <- df[df$test == nm, , drop = FALSE]
+            if (nrow(row) == 0) return("missing")
+            if (isTRUE(row$skipped[1])) return("skipped")
+            if (row$failed[1] > 0 || isTRUE(row$error[1])) return("failed")
+            "passed"
+          }, character(1))
+          print(data.frame(test = gated, status = status, row.names = NULL))
+
+          if (any(status != "passed")) {
+            stop("Stan-backed brms test(s) did not run and pass: ",
+                 paste(sprintf("%s = %s", gated, status), collapse = "; "))
+          }
+          if (sum(df$failed) > 0 || any(df$error)) {
+            stop(sprintf("Test failures detected (failed=%d, errors=%d).",
+                         sum(df$failed), sum(df$error)))
+          }
+          cat("\nStan-backed brms tests ran and passed.\n")
+        shell: Rscript {0}
