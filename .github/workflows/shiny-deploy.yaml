@@ -94,6 +94,13 @@ jobs:
           SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
           SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET }}
         run: |
+          # Point repos at a source-serving CRAN mirror before snapshotting deps.
+          # The runner installs binaries from RSPM (use-public-rspm), whose repo is
+          # a distro-specific binary URL. rsconnect would bake that into the bundle
+          # manifest, and shinyapps.io - which rebuilds every package FROM SOURCE -
+          # then fails with "Unsupported url scheme: RSPM/src/contrib/<pkg>.tar.gz".
+          # cloud.r-project.org serves the source tarballs the build server needs.
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
           rsconnect::setAccountInfo(
             name   = "hdbt",
             token  = Sys.getenv("SHINYAPPS_TOKEN"),
