@@ -88,6 +88,116 @@ maihda_app_ternary_plotly <- function(td) {
     )
 }
 
+# PCV is genuinely undefined for some otherwise valid fits -- most commonly when
+# the baseline (null) model has zero or negative between-stratum variance (a
+# singular fit / no between-stratum variation). calculate_pvc() errors in that
+# case by design, but the dashboard should still show the fitted model, VPC,
+# summaries and plots rather than aborting the whole analysis. This wrapper
+# returns calculate_pvc()'s result when it succeeds and, when it does not, a
+# sentinel pvc_result (pvc = NA, available = FALSE) the UI can recognise. A
+# bootstrap-only failure (the point PCV is fine but its CI could not be formed)
+# degrades to the point estimate with a note rather than discarding the PCV.
+maihda_app_calculate_pvc_safe <- function(null_model, adjusted_model,
+                                          use_boot = FALSE, n_boot = 100) {
+  attempt <- function(bootstrap) {
+    tryCatch(
+      calculate_pvc(null_model, adjusted_model, bootstrap = bootstrap, n_boot = n_boot),
+      error = function(e) conditionMessage(e)
+    )
+  }
+
+  boot_message <- NULL
+  if (isTRUE(use_boot)) {
+    res <- attempt(TRUE)
+    if (inherits(res, "pvc_result")) {
+      return(res)
+    }
+    # The bootstrap leg failed; remember why, then retry for just the point PCV so
+    # a CI-only failure does not discard an otherwise valid PCV.
+    boot_message <- res
+  }
+
+  res <- attempt(FALSE)
+  if (inherits(res, "pvc_result")) {
+    if (!is.null(boot_message)) {
+      res$boot_message <- boot_message
+    }
+    return(res)
+  }
+
+  # The point PCV itself is undefined. Surface the variances we can still report
+  # alongside an availability flag and the underlying message for the UI.
+  var1 <- tryCatch(extract_between_variance(null_model), error = function(e) NA_real_)
+  var2 <- tryCatch(extract_between_variance(adjusted_model), error = function(e) NA_real_)
+  structure(
+    list(
+      pvc = NA_real_,
+      var_model1 = var1,
+      var_model2 = var2,
+      bootstrap = FALSE,
+      available = FALSE,
+      message = res
+    ),
+    class = "pvc_result"
+  )
+}
+
+# The "Compute Bootstrap CIs" control advertises uncertainty for the VPC/ICC, but
+# the bootstrap is expensive. Compute the VPC/ICC intervals here, inside the
+# background worker that already fits the models, so the UI session stays
+# responsive; summary.maihda_model() itself is dispatched later in the main app
+# session (where S3 dispatch is reliable) and these intervals are merged in via
+# maihda_app_attach_vpc_ci(). Returns a list of two CI vectors (or NULL each) for
+# the null and adjusted models. lme4 only -- the dashboard always fits with lme4,
+# and a failed/insufficient set of refits yields NULL (no interval) rather than
+# aborting the fit.
+maihda_app_bootstrap_vpc_cis <- function(null_model, adjusted_model,
+                                         use_boot = FALSE, n_boot = 100,
+                                         conf_level = 0.95) {
+  empty <- list(null = NULL, adjusted = NULL)
+  if (!isTRUE(use_boot)) {
+    return(empty)
+  }
+
+  args <- tryCatch(maihda_validate_bootstrap_args(n_boot, conf_level),
+                   error = function(e) NULL)
+  if (is.null(args)) {
+    return(empty)
+  }
+
+  boot_ci <- function(model) {
+    if (!identical(model$engine, "lme4")) {
+      return(NULL)
+    }
+    tryCatch(
+      bootstrap_vpc(model$model, model$data, model$formula, args$n_boot, args$conf_level),
+      error = function(e) NULL
+    )
+  }
+
+  list(null = boot_ci(null_model), adjusted = boot_ci(adjusted_model))
+}
+
+# Merge a worker-computed VPC/ICC bootstrap interval into a maihda_summary's vpc
+# component so it carries the same fields summary.maihda_model(bootstrap = TRUE)
+# would set (and maihda_vpc_has_interval()/maihda_vpc_interval_label() recognise).
+# Returns the summary unchanged when no usable interval is available.
+maihda_app_attach_vpc_ci <- function(summary_obj, vpc_ci, conf_level = 0.95) {
+  if (is.null(summary_obj) || is.null(vpc_ci) || length(vpc_ci) < 2 ||
+      !all(is.finite(vpc_ci[1:2]))) {
+    return(summary_obj)
+  }
+
+  summary_obj$vpc$ci_lower <- vpc_ci[[1]]
+  summary_obj$vpc$ci_upper <- vpc_ci[[2]]
+  summary_obj$vpc$conf_level <- conf_level
+  summary_obj$vpc$bootstrap <- TRUE
+  summary_obj$vpc$method <- "bootstrap"
+  summary_obj$vpc$n_boot_ok <- attr(vpc_ci, "n_ok")
+  summary_obj$vpc$mc_se <- attr(vpc_ci, "mc_se")
+  summary_obj
+}
+
 maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
                                   additional_covars = character(),
                                   family = "gaussian", use_boot = FALSE,
@@ -144,7 +254,13 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
 
   null_model <- fit_maihda(formula = null_fmla, data = model_dat, engine = engine, family = family)
   adjusted_model <- fit_maihda(formula = adjusted_fmla, data = model_dat, engine = engine, family = family)
-  pvc <- calculate_pvc(null_model, adjusted_model, bootstrap = use_boot, n_boot = n_boot)
+
+  # PCV degrades gracefully (a sentinel, not an error) when it is undefined; the
+  # VPC/ICC bootstrap intervals are computed here in the worker and merged into
+  # the main-session summaries by the app.
+  pvc <- maihda_app_calculate_pvc_safe(null_model, adjusted_model, use_boot, n_boot)
+  vpc_ci <- maihda_app_bootstrap_vpc_cis(null_model, adjusted_model, use_boot, n_boot)
+
   stepwise <- stepwise_pcv(
     model_dat,
     outcome = outcome_var,
@@ -153,7 +269,14 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
     family = family
   )
 
-  list(null_model = null_model, model = adjusted_model, pvc = pvc, stepwise = stepwise)
+  list(
+    null_model = null_model,
+    model = adjusted_model,
+    pvc = pvc,
+    stepwise = stepwise,
+    vpc_ci_null = vpc_ci$null,
+    vpc_ci_adjusted = vpc_ci$adjusted
+  )
 }
 
 #' Run MAIHDA Shiny Application

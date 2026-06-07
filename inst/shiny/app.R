@@ -195,9 +195,11 @@ server <- function(input, output, session) {
       }, seed = TRUE) %...>% (function(res) {
         removeNotification(id)
         model_results(res$model)
-        # Call S3 dispatch in the main thread where MAIHDA environment is perfectly active
-        null_summary_results(summary(res$null_model))
-        summary_results(summary(res$model))
+        # Dispatch summary() in the main thread, where the MAIHDA S3 method is
+        # reliably found, then merge in the VPC/ICC bootstrap intervals computed
+        # in the background worker (see maihda_app_bootstrap_vpc_cis()).
+        null_summary_results(MAIHDA:::maihda_app_attach_vpc_ci(summary(res$null_model), res$vpc_ci_null))
+        summary_results(MAIHDA:::maihda_app_attach_vpc_ci(summary(res$model), res$vpc_ci_adjusted))
       pvc_results(res$pvc)
       stepwise_results(res$stepwise)
       nav_select("main_tabs", "PCV Results")    }) %...!% (function(err) {
@@ -210,10 +212,21 @@ server <- function(input, output, session) {
     req(summary_results())
     res <- summary_results()
 
+    vpc <- res$vpc
+    vpc_interval <- if (MAIHDA:::maihda_vpc_has_interval(vpc)) {
+      div(class = "text-muted",
+          sprintf("[%.2f%%, %.2f%%] %s",
+                  vpc$ci_lower * 100, vpc$ci_upper * 100,
+                  MAIHDA:::maihda_vpc_interval_label(vpc)))
+    } else {
+      NULL
+    }
+
     tagList(
       card(
         card_header("Variance Partition Coefficient (VPC) / ICC"),
-        h3(HTML(sprintf("<span class='text-primary'>%.2f%%</span>", res$vpc$estimate * 100)))
+        h3(HTML(sprintf("<span class='text-primary'>%.2f%%</span>", vpc$estimate * 100))),
+        vpc_interval
       ),
       layout_columns(
         card(
@@ -266,6 +279,10 @@ server <- function(input, output, session) {
             h5("Bootstrap 95% Confidence Interval"),
             tags$p(sprintf("[%.2f%%, %.2f%%]", pvc$ci_lower * 100, pvc$ci_upper * 100))
         )
+    } else if (!is.null(pvc$boot_message)) {
+        div(class = "mt-4 text-center text-muted",
+            tags$p(sprintf("Bootstrap CI unavailable: %s", pvc$boot_message))
+        )
     } else {
         NULL
     }
@@ -279,14 +296,14 @@ server <- function(input, output, session) {
             tags$code(null_formula),
             br(),br(),
             h5("Variance:"),
-            h4(if (!is.null(pvc$var_model1)) sprintf("%.4f", pvc$var_model1) else "N/A")
+            h4(if (!is.null(pvc$var_model1) && is.finite(pvc$var_model1)) sprintf("%.4f", pvc$var_model1) else "N/A")
           ),
           div(
             h5("Adjusted Model (Model 2)"),
             tags$code(paste(adjusted_formula, collapse = "")),
             br(),br(),
             h5("Variance:"),
-            h4(if (!is.null(pvc$var_model2)) sprintf("%.4f", pvc$var_model2) else "N/A")
+            h4(if (!is.null(pvc$var_model2) && is.finite(pvc$var_model2)) sprintf("%.4f", pvc$var_model2) else "N/A")
           )
         ),
         hr(),
@@ -298,7 +315,17 @@ server <- function(input, output, session) {
               "PCV is the proportional change in between-stratum variance from the Null to the Adjusted model. A high PCV means the between-stratum variance is much smaller after adding the additive main effects; a low or negative PCV means little change (or an increase). This is a model-dependent change, not proof that inequality was causally 'explained away' -- it can also reflect suppression, rescaling, sample composition, or uncertainty, not interaction alone."
             )
           ),
-          h2(class = "text-success", sprintf("%.2f%%", pvc$pvc * 100))
+          if (is.finite(pvc$pvc)) {
+            h2(class = "text-success", sprintf("%.2f%%", pvc$pvc * 100))
+          } else {
+            tagList(
+              h2(class = "text-muted", "N/A"),
+              div(class = "alert alert-warning text-start",
+                  tags$strong("PCV could not be calculated. "),
+                  if (!is.null(pvc$message)) pvc$message else
+                    "The baseline between-stratum variance is zero, so the proportional change is undefined. The model fit, VPC and visualizations above remain valid.")
+            )
+          }
         ),
         bootstrap_ui
       )
@@ -426,8 +453,15 @@ server <- function(input, output, session) {
     pvc <- pvc_results()
 
     # Extract metrics for HUD
-    vpc_val <- round(null_res$vpc$estimate * 100, 2)
+    null_vpc <- null_res$vpc
+    vpc_val <- round(null_vpc$estimate * 100, 2)
+    vpc_ci_text <- if (MAIHDA:::maihda_vpc_has_interval(null_vpc)) {
+      sprintf("95%% CI [%.2f%%, %.2f%%]", null_vpc$ci_lower * 100, null_vpc$ci_upper * 100)
+    } else {
+      NULL
+    }
     pvc_val <- round(pvc$pvc * 100, 2)
+    pvc_val_display <- if (is.finite(pvc_val)) paste0(pvc_val, "%") else "N/A"
     pvc_display <- MAIHDA:::maihda_app_pvc_display(pvc_val)
 
     layout_columns(
@@ -435,8 +469,10 @@ server <- function(input, output, session) {
       card(
         card_header("HUD: Key MAIHDA Metrics"),
         div(class = "d-flex justify-content-around text-center",
-            div(h4("VPC (Null)"), h3(paste0(vpc_val, "%")), p(class="text-muted", "Total Variance b/w Strata")),
-            div(h4("PCV (Adjusted)"), h3(paste0(pvc_val, "%")), p(class="text-muted", "Between-Stratum Variance Change with Main Effects")),
+            div(h4("VPC (Null)"), h3(paste0(vpc_val, "%")),
+                p(class="text-muted mb-0", "Total Variance b/w Strata"),
+                if (!is.null(vpc_ci_text)) p(class="text-muted small mb-0", vpc_ci_text) else NULL),
+            div(h4("PCV (Adjusted)"), h3(pvc_val_display), p(class="text-muted", "Between-Stratum Variance Change with Main Effects")),
             div(h4(pvc_display$label), h3(pvc_display$value), p(class="text-muted", pvc_display$description))
         ),
         markdown("

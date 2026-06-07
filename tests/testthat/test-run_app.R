@@ -104,6 +104,82 @@ test_that("Shiny app fit helper builds the model objects used by the dashboard",
   expect_equal(nrow(res$stepwise), 4)
 })
 
+test_that("maihda_app_fit_models degrades gracefully when baseline between-stratum variance is zero", {
+  # Four strata that each hold the IDENTICAL multiset of (>2) outcome values: the
+  # null model has exactly zero between-stratum variance, so calculate_pvc()
+  # errors by design. The fit itself is valid, though, so the helper must still
+  # return the models (for the dashboard to show VPC/summaries/plots) and flag the
+  # PCV as unavailable rather than aborting the whole analysis.
+  base <- data.frame(
+    gender = rep(c("F", "M"), each = 6),
+    race   = rep(rep(c("A", "B"), each = 3), 2),
+    y      = rep(c(2, 4, 6), times = 4)
+  )
+  d <- base[rep(seq_len(nrow(base)), 10), ]
+
+  res <- expect_no_error(
+    suppressWarnings(suppressMessages(
+      MAIHDA:::maihda_app_fit_models(
+        d, outcome_var = "y", grouping_vars = c("gender", "race"),
+        family = "gaussian"
+      )
+    ))
+  )
+
+  expect_s3_class(res$null_model, "maihda_model")
+  expect_s3_class(res$model, "maihda_model")
+  expect_s3_class(res$pvc, "pvc_result")
+  # PCV flagged unavailable, with the underlying reason carried for the UI.
+  expect_true(is.na(res$pvc$pvc))
+  expect_false(isTRUE(res$pvc$available))
+  expect_true(is.character(res$pvc$message) && nzchar(res$pvc$message))
+  # Stepwise PCV already tolerates zero variance (returns NA), so it still builds.
+  expect_s3_class(res$stepwise, "maihda_stepwise")
+})
+
+test_that("maihda_app_fit_models computes VPC/ICC bootstrap intervals when requested", {
+  skip_on_cran()
+  dat <- MAIHDA::maihda_sim_data[seq_len(150), ]
+
+  res <- suppressWarnings(suppressMessages(
+    MAIHDA:::maihda_app_fit_models(
+      dat = dat, outcome_var = "health_outcome",
+      grouping_vars = c("gender", "race"), additional_covars = "age",
+      family = "gaussian", use_boot = TRUE, n_boot = 25, engine = "lme4"
+    )
+  ))
+
+  # The worker returns finite VPC/ICC intervals for both the null and adjusted
+  # models -- this is what the "Compute Bootstrap CIs" control advertises.
+  expect_length(res$vpc_ci_null, 2)
+  expect_length(res$vpc_ci_adjusted, 2)
+  expect_true(all(is.finite(res$vpc_ci_null)))
+  expect_lte(res$vpc_ci_null[1], res$vpc_ci_null[2])
+
+  # Attaching an interval yields a summary the VPC interval helpers recognise.
+  summ <- MAIHDA:::maihda_app_attach_vpc_ci(summary(res$null_model), res$vpc_ci_null)
+  expect_true(MAIHDA:::maihda_vpc_has_interval(summ$vpc))
+  expect_identical(summ$vpc$method, "bootstrap")
+  expect_true(isTRUE(summ$vpc$bootstrap))
+})
+
+test_that("maihda_app helpers leave summaries unchanged without a bootstrap interval", {
+  res <- suppressWarnings(suppressMessages(
+    MAIHDA:::maihda_app_fit_models(
+      dat = MAIHDA::maihda_sim_data[seq_len(120), ],
+      outcome_var = "health_outcome", grouping_vars = c("gender", "race"),
+      family = "gaussian", use_boot = FALSE, engine = "lme4"
+    )
+  ))
+  # No bootstrap requested => no VPC intervals carried back.
+  expect_null(res$vpc_ci_null)
+  expect_null(res$vpc_ci_adjusted)
+
+  summ <- summary(res$null_model)
+  expect_identical(MAIHDA:::maihda_app_attach_vpc_ci(summ, NULL), summ)
+  expect_false(MAIHDA:::maihda_vpc_has_interval(MAIHDA:::maihda_app_attach_vpc_ci(summ, NULL)$vpc))
+})
+
 maihda_source_app_for_test <- function() {
   for (pkg in MAIHDA:::maihda_app_required_packages()) {
     skip_if_not_installed(pkg)
