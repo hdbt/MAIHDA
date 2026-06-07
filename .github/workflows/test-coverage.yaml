@@ -45,6 +45,12 @@ jobs:
           files: ./cobertura.xml
           plugins: noop
           disable_search: true
+          # Skip the uploader's GPG self-check: the codecov CLI fetches its signing
+          # key from a keyserver to verify its own binary, and that fetch fails
+          # intermittently ("no valid OpenPGP data found"), aborting the upload even
+          # though coverage ran fine. The binary still arrives over HTTPS from the
+          # codecov CDN; this only drops the extra signature step.
+          skip_validation: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Show testthat output
