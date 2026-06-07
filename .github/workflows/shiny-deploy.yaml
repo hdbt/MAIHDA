@@ -44,6 +44,15 @@ jobs:
       # Install the package's hard dependencies plus the extra packages the Shiny
       # app needs at runtime (these live in Suggests, so are not pulled in by the
       # package's Imports alone) and rsconnect/remotes for the deploy itself.
+      #
+      # The app-runtime packages are listed WITHOUT the any:: prefix on purpose:
+      # an explicit any:: ref makes pak stamp the installed package
+      # `RemoteType: any`, which stops rsconnect from resolving it via
+      # available.packages() at deploy time - it then records the bare string
+      # "RSPM" as the repo and shinyapps.io fails to fetch the source. Plain names
+      # install identically but keep clean CRAN provenance. Build-only tooling
+      # (rsconnect/remotes/testthat/pkgload) is not in the app bundle, so its
+      # provenance is irrelevant and it keeps any::.
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           dependencies: '"hard"'
@@ -52,17 +61,17 @@ jobs:
             any::remotes
             any::testthat
             any::pkgload
-            any::MASS
-            any::shiny
-            any::bslib
-            any::DT
-            any::plotly
-            any::ggplot2
-            any::future
-            any::promises
-            any::shinyjs
-            any::haven
-            any::ggtern
+            MASS
+            shiny
+            bslib
+            DT
+            plotly
+            ggplot2
+            future
+            promises
+            shinyjs
+            haven
+            ggtern
 
       # Install MAIHDA from THIS commit. Installing via install_github records a
       # GitHub source in the package metadata, so rsconnect tells shinyapps.io to
