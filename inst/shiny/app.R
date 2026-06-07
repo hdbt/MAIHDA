@@ -27,7 +27,7 @@ ui <- page_sidebar(
                             "Upload Custom Data" = "upload")),
     conditionalPanel(
       condition = "input.dataset == 'upload'",
-      fileInput("upload", "Upload Data (CSV/RDS/DTA/SAV)", accept = c(".csv", ".rds", ".dta", ".sav"))
+      fileInput("upload", "Upload Data (CSV/DTA/SAV)", accept = c(".csv", ".dta", ".sav"))
     ),
 
     # Model specification
@@ -95,8 +95,6 @@ server <- function(input, output, session) {
       dat <- tryCatch({
         if (ext == "csv") {
           read.csv(input$upload$datapath)
-        } else if (ext == "rds") {
-          readRDS(input$upload$datapath)
         } else if (ext == "dta") {
           if (!requireNamespace('haven', quietly = TRUE)) stop("haven package required for DTA files")
           haven::as_factor(haven::read_dta(input$upload$datapath))
@@ -642,11 +640,12 @@ server <- function(input, output, session) {
     tags$div(class = "alert alert-info mt-3",
       tags$strong("Automated Research Summary: "),
       "In this analysis, ", tags$strong(paste0(vpc_val, "%")),
-      " of the total variance in the outcome is attributable to the defined intersecting demographic or social strata. ",
+      " of the (null-model) variance in the outcome lies between the defined intersecting demographic or social strata",
+      " -- a between-stratum share of variance (on the model's latent scale for binary or count outcomes), not variance causally attributable to those strata. ",
       pvc_interpretation,
-      "Exploring these residuals reveals that the most prominent intersectional disparity occurs in ",
-      tags$strong(dev_label), " (N = ", dev_n, "), which shows an intersectional deviation score of ",
-      tags$strong(dev_effect), " from what simple additive effects would predict."
+      "Among these residuals, the largest between-stratum departure from what the additive main effects alone would predict is in ",
+      tags$strong(dev_label), " (N = ", dev_n, "), with an intersectional deviation score of ",
+      tags$strong(dev_effect), ". Treat this as a descriptive screening flag rather than a confirmed disparity, especially for non-representative data, latent-scale models, or conditional intervals."
     )
   })
 
