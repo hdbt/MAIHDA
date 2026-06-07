@@ -27,21 +27,24 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           dependencies: '"hard"'
+          # Tooling keeps any:: (not part of the app manifest). App-runtime deps
+          # are listed WITHOUT any:: so pak does not stamp them RemoteType: any,
+          # which is what made rsconnect fall back to a bare "RSPM" repository.
           extra-packages: |
             any::rsconnect
             any::remotes
             any::jsonlite
-            any::shiny
-            any::bslib
-            any::DT
-            any::plotly
-            any::ggplot2
-            any::future
-            any::promises
-            any::shinyjs
-            any::haven
-            any::ggtern
-            any::MASS
+            shiny
+            bslib
+            DT
+            plotly
+            ggplot2
+            future
+            promises
+            shinyjs
+            haven
+            ggtern
+            MASS
 
       - name: Install MAIHDA from the PR commit
         shell: Rscript {0}
