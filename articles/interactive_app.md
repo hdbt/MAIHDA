@@ -57,8 +57,11 @@ Shiny Dashboard
   `fit_maihda(engine = "brms")`.
 - Select covariates to control for within your models.
 - Choose whether to calculate **parametric bootstrap confidence
-  intervals** to quantify the uncertainty in your Variance Partition
-  Coefficient (VPC / ICC).
+  intervals** to quantify uncertainty. When enabled, the dashboard
+  reports bootstrap intervals for both the Variance Partition
+  Coefficient (VPC / ICC) – shown in the Model Summary and Interactive
+  Explorer tabs – and the Proportional Change in Variance (PCV), shown
+  in the PCV Results tab.
 
 ### 4. Interactive Visualizations
 

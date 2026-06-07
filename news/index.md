@@ -257,6 +257,23 @@
   unaffected, and aggregated-binomial (`cbind`) fits, whose
   `weights(type = "prior")` are the trials, are left unweighted to avoid
   double-counting.
+- The Shiny app’s “Compute Bootstrap CIs” control now actually produces
+  the VPC/ICC bootstrap intervals it (and the vignette) advertise. The
+  bootstrap was previously applied only to the PCV, so the headline
+  VPC/ICC was shown as a point estimate with no interval. The interval
+  is now computed in the background worker (keeping the UI responsive)
+  and displayed alongside the VPC/ICC in the Model Summary and
+  Interactive Explorer tabs; the PCV interval in the PCV Results tab is
+  unchanged.
+- The Shiny app
+  ([`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
+  no longer aborts the whole analysis when the baseline (null) model has
+  zero or negative between-stratum variance (a singular /
+  no-between-variation fit), which makes
+  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  error by design. The fitted model, VPC/ICC, summaries, and plots are
+  now shown as usual and the PCV is reported as unavailable (with the
+  underlying reason) instead of failing the entire workflow.
 
 ### Diagnostics
 
