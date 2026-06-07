@@ -371,8 +371,18 @@ by side.
 
 By default the intersectional strata are defined once on the full data
 (`shared_strata = TRUE`), so a stratum denotes the same combination in
-every group and the VPCs are directly comparable. This is a *stratified*
-analysis (one model per group), not a cross-classified model.
+every group. Shared definitions make the stratum *labels* comparable
+across groups, but they are necessary rather than sufficient for the
+VPCs themselves to be directly comparable: a group need not contain
+every stratum, so two groups’ VPCs can be estimated over different sets
+of *populated* strata, and differences in residual variance and
+`var_between` still matter
+([`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+warns when groups end up with different populated strata; see the [group
+comparison
+vignette](https://hdbt.github.io/MAIHDA/articles/group_comparison.md)).
+This is a *stratified* analysis (one model per group), not a
+cross-classified model.
 
 The bundled `maihda_country_data` (OECD PISA 2018) is designed for
 exactly this: it asks how much the joint **gender x
