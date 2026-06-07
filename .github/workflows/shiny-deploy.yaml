@@ -94,13 +94,22 @@ jobs:
           SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
           SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET }}
         run: |
-          # Point repos at a source-serving CRAN mirror before snapshotting deps.
-          # The runner installs binaries from RSPM (use-public-rspm), whose repo is
-          # a distro-specific binary URL. rsconnect would bake that into the bundle
-          # manifest, and shinyapps.io - which rebuilds every package FROM SOURCE -
-          # then fails with "Unsupported url scheme: RSPM/src/contrib/<pkg>.tar.gz".
-          # cloud.r-project.org serves the source tarballs the build server needs.
-          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          # Make rsconnect record source-fetchable repo URLs in the bundle manifest.
+          #
+          # use-public-rspm installs binaries from Posit Package Manager, so every
+          # dep's DESCRIPTION carries `Repository: RSPM`. rsconnect resolves that by
+          # NAME against getOption("repos"); if no entry is named "RSPM" it writes the
+          # bare string "RSPM", and shinyapps.io - which rebuilds every package FROM
+          # SOURCE - dies with "Unsupported url scheme: RSPM/src/contrib/<pkg>.tar.gz".
+          #
+          # So map "RSPM" to PPM's *source* endpoint (the binary URL minus the
+          # __linux__/<distro>/ segment): same snapshot the binaries came from, so it
+          # serves the exact installed versions as source tarballs. CRAN is a fallback
+          # for anything rsconnect relates via available.packages() instead of by name.
+          options(repos = c(
+            RSPM = "https://packagemanager.posit.co/cran/latest",
+            CRAN = "https://cloud.r-project.org"
+          ))
           rsconnect::setAccountInfo(
             name   = "hdbt",
             token  = Sys.getenv("SHINYAPPS_TOKEN"),
