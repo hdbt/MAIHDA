@@ -93,7 +93,6 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'
 #' @export
 #' @importFrom lme4 VarCorr fixef ranef
-#' @importFrom stats vcov confint
 summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
                           conf_level = 0.95, ...) {
   if (!inherits(object, "maihda_model")) {
