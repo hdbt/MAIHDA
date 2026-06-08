@@ -15,8 +15,7 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 
 - **One-call Workflow**: `maihda()` fits the model, summarises the VPC/ICC, and (optionally) compares across a higher-level group in a single call
 - **Create Intersectional Strata**: Automatically generate strata from multiple categorical variables
-- **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**
-: A fully-featured Shiny application (`run_maihda_app()`) for no-code exploratory data analysis and model fitting
+- **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**: A fully-featured Shiny application (`run_maihda_app()`) for no-code exploratory data analysis and model fitting
 - **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
 - **Summaries & Decompositions**: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)
 - **Multiple Prediction Types**: Individual-level and stratum-level predictions
