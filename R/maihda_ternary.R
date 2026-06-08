@@ -39,10 +39,9 @@ compute_maihda_ternary_data <- function(
   fitted_mod <- model$model
   if (is.null(fitted_mod)) stop("Could not find fitted model within maihda_model object.")
 
-  # Try to retrieve strata info
-  has_strata_info <- exists("strata_info", where = model) || !is.null(model$strata_info) || exists("data", where = model)
-
-  if (has_strata_info && !is.null(model$strata_info)) {
+  # Retrieve strata info: prefer the stored strata_info table, otherwise rebuild
+  # minimal stratum counts from the model data below.
+  if (!is.null(model$strata_info)) {
       strata_info_df <- model$strata_info
   } else if (!is.null(model$data) && "stratum" %in% names(model$data)) {
       strata_counts <- table(model$data$stratum)

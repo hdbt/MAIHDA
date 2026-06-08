@@ -22,8 +22,10 @@
 #'   }
 #' @param summary_obj Optional maihda_summary object from \code{summary()}.
 #'   If NULL, will be computed.
-#' @param n_strata Maximum number of strata to display in predicted plot.
-#'   Default is 50. Use NULL for all strata.
+#' @param n_strata Maximum number of strata to display in the predicted plot.
+#'   When there are more strata than this, the first \code{n_strata} (in stratum
+#'   order) are shown and the plot caption notes how many were omitted. Default
+#'   is 50. Use NULL for all strata.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return A ggplot2 object, or a list of ggplot2 objects if type = "all".
@@ -362,7 +364,7 @@ maihda_observed_outcome_for_plot <- function(x, family = NULL) {
 #'
 #' @param object A maihda_model object
 #' @param summary_obj A maihda_summary object
-#' @param n_strata Maximum number of strata to display
+#' @param n_strata Maximum number of strata to display (the first n_strata, in stratum order)
 #' @param scale Prediction scale: "response" (default) or "link"
 #' @return A ggplot2 object
 #' @keywords internal
@@ -396,11 +398,15 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
   stratum_est$lower <- pred_data$lower_row[pred_idx]
   stratum_est$upper <- pred_data$upper_row[pred_idx]
 
-  # Keep original order (no sorting)
-  # Limit number of strata if requested
-  if (!is.null(n_strata) && nrow(stratum_est) > n_strata) {
-    indices <- as.integer(seq(1, nrow(stratum_est), length.out = n_strata))
-    stratum_est <- dplyr::slice(stratum_est, indices)
+  # Keep original order (no sorting). n_strata is a MAXIMUM: when there are more
+  # strata than that, show the first n_strata in stratum order rather than
+  # thinning an evenly-spaced subset across all of them. The old stride sampling
+  # silently dropped strata from the middle while implying full coverage; the
+  # caption below records how many were omitted so the cap is not silent.
+  n_total_strata <- nrow(stratum_est)
+  truncated_strata <- !is.null(n_strata) && n_total_strata > n_strata
+  if (truncated_strata) {
+    stratum_est <- utils::head(stratum_est, n_strata)
   }
 
   # Use labels if available, otherwise use numeric stratum IDs
@@ -425,9 +431,15 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
       title = "Predicted Subgroup Values with Conditional 95% Intervals",
       x = "Stratum",
       y = "Predicted Value",
-      caption = paste(
-        "Intervals reflect random-effect (conditional) uncertainty only,",
-        "not fixed-effect uncertainty.\nDashed line is the mean fixed-only prediction."
+      caption = paste0(
+        "Intervals reflect random-effect (conditional) uncertainty only, ",
+        "not fixed-effect uncertainty.\nDashed line is the mean fixed-only prediction.",
+        if (truncated_strata) {
+          sprintf("\nShowing the first %d of %d strata (n_strata = %d).",
+                  n_strata, n_total_strata, n_strata)
+        } else {
+          ""
+        }
       )
     ) +
     theme_minimal() +
