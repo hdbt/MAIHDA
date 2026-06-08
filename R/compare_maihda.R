@@ -767,17 +767,40 @@ print.maihda_group_comparison <- function(x, ...) {
   invisible(x)
 }
 
+#' Join non-empty caption lines for a plot
+#'
+#' Pastes its arguments into a single newline-separated caption, dropping any that
+#' are NULL, NA, or empty. Returns NULL when nothing remains, so a plot with no
+#' caption content keeps a clean (caption-free) look.
+#'
+#' @param ... Character scalars (or NULL).
+#' @return A single newline-joined string, or NULL.
+#' @keywords internal
+maihda_compose_caption <- function(...) {
+  parts <- unlist(list(...), use.names = FALSE)
+  parts <- parts[!is.na(parts) & nzchar(parts)]
+  if (length(parts) == 0) {
+    return(NULL)
+  }
+  paste(parts, collapse = "\n")
+}
+
 #' Plot a MAIHDA Group Comparison
 #'
-#' Visualises the output of \code{\link{compare_maihda_groups}} either as a
-#' point/forest plot of the VPC/ICC by group, or as stacked variance-composition
-#' bars (between- vs within-stratum share) by group. Dispatched via \code{plot()}
-#' on the classed result.
+#' Visualises the output of \code{\link{compare_maihda_groups}} as a point/forest
+#' plot of the VPC/ICC by group, as stacked variance-composition bars (between- vs
+#' within-stratum share) by group, or as bars of the absolute between-stratum
+#' (intersectional) variance by group. Dispatched via \code{plot()} on the classed
+#' result.
 #'
 #' @param x A \code{maihda_group_comparison} object from
 #'   \code{\link{compare_maihda_groups}}.
-#' @param type Either "vpc" (default) for VPC by group with optional bootstrap
-#'   confidence intervals, or "components" for stacked variance proportions.
+#' @param type One of "vpc" (default) for VPC by group with optional bootstrap
+#'   confidence intervals, "components" for stacked variance proportions, or
+#'   "between_variance" for the absolute between-stratum variance by group. The VPC
+#'   is a \emph{share} of the unexplained variance; "between_variance" shows the
+#'   \emph{magnitude} the ratio cannot convey (two groups with very different VPCs
+#'   can share a between-stratum variance, and vice versa).
 #' @param ... Additional arguments (not used).
 #'
 #' @return A ggplot2 object.
@@ -789,24 +812,40 @@ print.maihda_group_comparison <- function(x, ...) {
 #'                              data = maihda_health_data, group = "Education")
 #' plot(cmp, type = "vpc")
 #' plot(cmp, type = "components")
+#' plot(cmp, type = "between_variance")
 #' }
 #'
 #' @export
 #' @import ggplot2
 #' @importFrom rlang .data
-plot.maihda_group_comparison <- function(x, type = c("vpc", "components"), ...) {
+plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "between_variance"), ...) {
   if (!inherits(x, "maihda_group_comparison")) {
     stop("'x' must be a maihda_group_comparison object from compare_maihda_groups().",
          call. = FALSE)
   }
   type <- match.arg(type)
 
-  df <- as.data.frame(x)
-  df <- df[!is.na(df$vpc), , drop = FALSE]
+  df_all <- as.data.frame(x)
+  df <- df_all[!is.na(df_all$vpc), , drop = FALSE]
   if (nrow(df) == 0) {
     stop("No groups with an estimable VPC to plot.", call. = FALSE)
   }
   group_var <- attr(x, "group_var")
+
+  # Groups skipped (small analytic n, a single populated stratum) or whose fit failed
+  # carry an NA vpc and are dropped from every view. Note them on the plot rather than
+  # letting them disappear silently (long lists are truncated past five names).
+  omitted <- as.character(df_all$group[is.na(df_all$vpc)])
+  omit_note <- if (length(omitted) > 0) {
+    shown <- omitted
+    if (length(shown) > 5) {
+      shown <- c(shown[seq_len(5)], sprintf("(+%d more)", length(omitted) - 5))
+    }
+    sprintf("%d group(s) omitted (no estimable VPC): %s.",
+            length(omitted), paste(shown, collapse = ", "))
+  } else {
+    NULL
+  }
 
   if (type == "vpc") {
     df <- df[order(df$vpc), , drop = FALSE]
@@ -814,16 +853,26 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components"), ...) 
     has_ci <- all(c("ci_lower", "ci_upper") %in% names(df)) &&
       any(is.finite(df$ci_lower) & is.finite(df$ci_upper))
 
+    vpc_caption <- maihda_compose_caption(
+      paste("Descriptive comparison: each interval reflects one group's own",
+            "uncertainty; overlap is not a test of whether VPCs differ. The VPC is",
+            "the share of unexplained variance that lies between strata, not the",
+            "magnitude of inequality -- see type = \"between_variance\"."),
+      omit_note
+    )
+
     p <- ggplot(df, aes(x = .data$group, y = .data$vpc)) +
       geom_point(size = 4, color = "#0072B2") +
       labs(
         title = "Intersectional VPC/ICC by Group",
         x = group_var,
-        y = "VPC (ICC)"
+        y = "VPC (ICC)",
+        caption = vpc_caption
       ) +
       theme_minimal() +
       theme(
         plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
         axis.text.x = element_text(angle = 45, hjust = 1)
       ) +
       coord_cartesian(ylim = c(0, 1))
@@ -833,6 +882,39 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components"), ...) 
                              width = 0.2, color = "#0072B2")
     }
     return(p)
+  }
+
+  if (type == "between_variance") {
+    # Absolute between-stratum variance -- the magnitude the VPC ratio cannot convey:
+    # two groups with very different VPCs can share a var_between, and vice versa.
+    # Singular groups (var_between pinned at the boundary) stay as an informative zero
+    # bar; only NA (skipped/failed) groups are dropped, matching the "vpc" view.
+    df <- df[order(df$var_between), , drop = FALSE]
+    df$group <- factor(df$group, levels = df$group)
+
+    bv_caption <- maihda_compose_caption(
+      paste("Absolute between-stratum (intersectional) variance -- the magnitude the",
+            "VPC share cannot convey. On the model (link) scale for non-Gaussian",
+            "families; unlike the VPC it is not normalised by the residual variance."),
+      omit_note
+    )
+
+    return(
+      ggplot(df, aes(x = .data$group, y = .data$var_between)) +
+        geom_col(fill = "#E69F00") +
+        labs(
+          title = "Between-stratum (intersectional) variance by group",
+          x = group_var,
+          y = "Between-stratum variance",
+          caption = bv_caption
+        ) +
+        theme_minimal() +
+        theme(
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
+          axis.text.x = element_text(angle = 45, hjust = 1)
+        )
+    )
   }
 
   # type == "components": stacked variance proportions per group. Include any
@@ -880,11 +962,13 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components"), ...) 
       title = "Variance Composition by Group",
       x = group_var,
       y = "Proportion of Variance",
-      fill = "Component"
+      fill = "Component",
+      caption = maihda_compose_caption(omit_note)
     ) +
     theme_minimal() +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"),
+      plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
       axis.text.x = element_text(angle = 45, hjust = 1)
     )
 }
@@ -895,11 +979,11 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components"), ...) 
 #' result instead, e.g. \code{plot(cmp, type = "vpc")}.
 #'
 #' @param x A \code{maihda_group_comparison} object.
-#' @param type Either "vpc" (default) or "components".
+#' @param type One of "vpc" (default), "components", or "between_variance".
 #' @return A ggplot2 object.
 #' @keywords internal
 #' @export
-plot_group_comparison <- function(x, type = c("vpc", "components")) {
+plot_group_comparison <- function(x, type = c("vpc", "components", "between_variance")) {
   .Deprecated("plot", msg = paste(
     "'plot_group_comparison()' is deprecated.",
     "Use plot() on the compare_maihda_groups() result, e.g. plot(cmp, type = 'vpc')."

@@ -11,8 +11,8 @@
 
 \item{type}{One of the \code{\link{plot.maihda_model}} types ("all", "vpc",
 "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp", "ternary",
-"prediction_deviation") or a group type ("group_vpc", "group_components").
-Default "all".}
+"prediction_deviation") or a group type ("group_vpc", "group_components",
+"group_between_variance"). Default "all".}
 
 \item{...}{Additional arguments passed to the underlying plot method.}
 }
@@ -21,7 +21,7 @@ A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
 }
 \description{
 Dispatches to the model's plots (see \code{\link{plot.maihda_model}}) for the
-model-level \code{type}s, and to the group comparison for \code{"group_vpc"}
-and \code{"group_components"} when \code{\link{maihda}} was called with a
-\code{group}.
+model-level \code{type}s, and to the group comparison for \code{"group_vpc"},
+\code{"group_components"}, and \code{"group_between_variance"} when
+\code{\link{maihda}} was called with a \code{group}.
 }

@@ -462,12 +462,69 @@ test_that("plot() on a maihda_group_comparison returns ggplot objects for both t
 
   p_vpc <- plot(cmp, type = "vpc")
   p_comp <- plot(cmp, type = "components")
+  p_bv <- plot(cmp, type = "between_variance")
   expect_s3_class(p_vpc, "ggplot")
   expect_s3_class(p_comp, "ggplot")
+  expect_s3_class(p_bv, "ggplot")
+  # between_variance plots the absolute var_between, not the ratio
+  expect_identical(p_bv$labels$y, "Between-stratum variance")
 
   # the method's class guard (reachable via a direct call)
   expect_error(plot.maihda_group_comparison(mtcars), "maihda_group_comparison")
 
-  # deprecated alias still works but warns
+  # deprecated alias still works but warns, including for the new type
   expect_warning(plot_group_comparison(cmp, type = "vpc"), "deprecated")
+  expect_warning(plot_group_comparison(cmp, type = "between_variance"), "deprecated")
+})
+
+test_that("plot() notes omitted groups in the caption instead of dropping silently", {
+  set.seed(3201)
+  # Two large groups (estimable) and one tiny group skipped below min_group_n, so the
+  # plot must still flag that 'tiny' was dropped rather than omit it without trace.
+  big <- data.frame(
+    grp = rep(c("A", "B"), each = 200),
+    gender = sample(c("F", "M"), 400, replace = TRUE),
+    race = sample(c("X", "Y"), 400, replace = TRUE),
+    age = rnorm(400)
+  )
+  tiny <- data.frame(
+    grp = "tiny", gender = sample(c("F", "M"), 10, replace = TRUE),
+    race = sample(c("X", "Y"), 10, replace = TRUE), age = rnorm(10)
+  )
+  d <- rbind(big, tiny)
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- 1 + 0.3 * d$age + rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(nrow(d), sd = 0.4)
+
+  cmp <- suppressWarnings(
+    compare_maihda_groups(y ~ age + (1 | gender:race), data = d, group = "grp",
+                          min_group_n = 30)
+  )
+
+  for (ty in c("vpc", "components", "between_variance")) {
+    cap <- plot(cmp, type = ty)$labels$caption
+    expect_match(cap, "omitted")
+    expect_match(cap, "tiny")
+  }
+})
+
+test_that("plot.maihda_analysis dispatches group_between_variance", {
+  set.seed(3202)
+  n <- 240
+  d <- data.frame(
+    country = rep(c("A", "B"), each = n / 2),
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    ses = sample(c("lo", "hi"), n, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$ses, drop = TRUE)
+  d$math <- 1 + rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
+
+  a <- suppressWarnings(
+    maihda(math ~ 1 + (1 | gender:ses), data = d, group = "country")
+  )
+  expect_s3_class(plot(a, type = "group_between_variance"), "ggplot")
+
+  # Without a group, the group types error rather than silently no-op.
+  a_nogroup <- suppressWarnings(maihda(math ~ 1 + (1 | gender:ses), data = d))
+  expect_error(plot(a_nogroup, type = "group_between_variance"),
+               "No group comparison")
 })

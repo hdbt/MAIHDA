@@ -165,15 +165,15 @@ summary.maihda_analysis <- function(object, ...) {
 #' Plot a MAIHDA Analysis
 #'
 #' Dispatches to the model's plots (see \code{\link{plot.maihda_model}}) for the
-#' model-level \code{type}s, and to the group comparison for \code{"group_vpc"}
-#' and \code{"group_components"} when \code{\link{maihda}} was called with a
-#' \code{group}.
+#' model-level \code{type}s, and to the group comparison for \code{"group_vpc"},
+#' \code{"group_components"}, and \code{"group_between_variance"} when
+#' \code{\link{maihda}} was called with a \code{group}.
 #'
 #' @param x A \code{maihda_analysis} object from \code{\link{maihda}}.
 #' @param type One of the \code{\link{plot.maihda_model}} types ("all", "vpc",
 #'   "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp", "ternary",
-#'   "prediction_deviation") or a group type ("group_vpc", "group_components").
-#'   Default "all".
+#'   "prediction_deviation") or a group type ("group_vpc", "group_components",
+#'   "group_between_variance"). Default "all".
 #' @param ... Additional arguments passed to the underlying plot method.
 #' @return A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
 #' @export
@@ -181,15 +181,15 @@ plot.maihda_analysis <- function(x, type = "all", ...) {
   type <- match.arg(type, c(
     "all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
     "effect_decomp", "ternary", "prediction_deviation",
-    "group_vpc", "group_components"
+    "group_vpc", "group_components", "group_between_variance"
   ))
 
-  if (type %in% c("group_vpc", "group_components")) {
+  if (type %in% c("group_vpc", "group_components", "group_between_variance")) {
     if (is.null(x$groups)) {
       stop("No group comparison is available. Call maihda() with a 'group' argument.",
            call. = FALSE)
     }
-    gtype <- if (type == "group_vpc") "vpc" else "components"
+    gtype <- sub("^group_", "", type)
     return(plot(x$groups, type = gtype))
   }
 
@@ -198,7 +198,8 @@ plot.maihda_analysis <- function(x, type = "all", ...) {
     if (!is.null(x$groups)) {
       group_plots <- list(
         group_vpc = plot(x$groups, type = "vpc"),
-        group_components = plot(x$groups, type = "components")
+        group_components = plot(x$groups, type = "components"),
+        group_between_variance = plot(x$groups, type = "between_variance")
       )
       for (p in group_plots) print(p)
       model_plots <- c(model_plots, group_plots)

@@ -4,12 +4,12 @@
 \alias{plot_group_comparison}
 \title{Plot a MAIHDA Group Comparison (deprecated)}
 \usage{
-plot_group_comparison(x, type = c("vpc", "components"))
+plot_group_comparison(x, type = c("vpc", "components", "between_variance"))
 }
 \arguments{
 \item{x}{A \code{maihda_group_comparison} object.}
 
-\item{type}{Either "vpc" (default) or "components".}
+\item{type}{One of "vpc" (default), "components", or "between_variance".}
 }
 \value{
 A ggplot2 object.
