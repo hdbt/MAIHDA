@@ -26,27 +26,29 @@ socioeconomic status).
   higher-level group in a single call
 - **Create Intersectional Strata**: Automatically generate strata from
   multiple categorical variables
-- **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**
-
-: A fully-featured Shiny application
-([`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
-for no-code exploratory data analysis and model fitting - **Model
-Fitting**: Support for both lme4 and brms (Bayesian) engines -
-**Summaries & Decompositions**: Variance partition coefficients
-(VPC/ICC), stratum-specific estimates, and stepwise Proportional Change
-in Variance (PCV) - **Multiple Prediction Types**: Individual-level and
-stratum-level predictions - **Visualizations**: Predicted stratum
-values, VPC visualizations, mean-prediction vs. stratum-effect
-diagnostics, and observed vs. shrunken estimates - **Model Comparison**:
-Compare models with parametric-bootstrap confidence intervals for
-VPC/ICC - **Group Comparison**:
-[`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
-contrasts intersectional inequality (VPC/ICC) across levels of a
-higher-level variable such as country or region - **Proportional Change
-in Variance (PCV)**: Quantify the proportional change in between-stratum
-variance when additional predictors are added (it is variance
-“explained” only when the models are nested; otherwise it is a
-model-dependent change)
+- **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**: A
+  fully-featured Shiny application
+  ([`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
+  for no-code exploratory data analysis and model fitting
+- **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
+- **Summaries & Decompositions**: Variance partition coefficients
+  (VPC/ICC), stratum-specific estimates, and stepwise Proportional
+  Change in Variance (PCV)
+- **Multiple Prediction Types**: Individual-level and stratum-level
+  predictions
+- **Visualizations**: Predicted stratum values, VPC visualizations,
+  mean-prediction vs. stratum-effect diagnostics, and observed
+  vs. shrunken estimates
+- **Model Comparison**: Compare models with parametric-bootstrap
+  confidence intervals for VPC/ICC
+- **Group Comparison**:
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  contrasts intersectional inequality (VPC/ICC) across levels of a
+  higher-level variable such as country or region
+- **Proportional Change in Variance (PCV)**: Quantify the proportional
+  change in between-stratum variance when additional predictors are
+  added (it is variance “explained” only when the models are nested;
+  otherwise it is a model-dependent change)
 
 ## Installation
 
