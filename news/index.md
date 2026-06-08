@@ -285,6 +285,17 @@
   error by design. The fitted model, VPC/ICC, summaries, and plots are
   now shown as usual and the PCV is reported as unavailable (with the
   underlying reason) instead of failing the entire workflow.
+- [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now accepts a bare family *function* (e.g. `family = stats::gaussian`)
+  – one of the documented forms (“as in `fit_maihda`”), alongside a
+  family name (`"gaussian"`) and a family object
+  ([`gaussian()`](https://rdrr.io/r/stats/family.html)). The per-group
+  fits already handled it; only the family metadata recorded on the
+  result did not, so the call fit every group and then failed with
+  “object of type ‘closure’ is not subsettable”. The family function is
+  now resolved to a family object up front, exactly as
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  does.
 
 ### Diagnostics
 
