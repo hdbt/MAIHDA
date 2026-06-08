@@ -3,7 +3,7 @@
 Dispatches to the model's plots (see
 [`plot.maihda_model`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md))
 for the model-level `type`s, and to the group comparison for
-`"group_vpc"` and `"group_components"` when
+`"group_vpc"`, `"group_components"`, and `"group_between_variance"` when
 [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) was called
 with a `group`.
 
@@ -27,7 +27,8 @@ plot(x, type = "all", ...)
   [`plot.maihda_model`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)
   types ("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
   "effect_decomp", "ternary", "prediction_deviation") or a group type
-  ("group_vpc", "group_components"). Default "all".
+  ("group_vpc", "group_components", "group_between_variance"). Default
+  "all".
 
 - ...:
 

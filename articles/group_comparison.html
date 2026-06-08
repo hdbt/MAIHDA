@@ -205,13 +205,32 @@ component, which is the numerator of the VPC/ICC.</p>
 <p><img src="group_comparison_files/figure-html/group-components-plot-1.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level2">
+<h2 id="share-versus-magnitude">Share versus magnitude<a class="anchor" aria-label="anchor" href="#share-versus-magnitude"></a>
+</h2>
+<p>The VPC/ICC is a <em>ratio</em>: the share of the unexplained
+variation that lies between strata. A larger VPC therefore does not
+necessarily mean a larger <em>amount</em> of between-stratum
+(intersectional) variation – it can also reflect a smaller residual
+variance. Two countries with the same absolute between-stratum variance
+can have very different VPCs, and vice versa.</p>
+<p>The <code>"group_between_variance"</code> view plots the absolute
+between-stratum variance (<code>var_between</code>) directly, so it can
+be read alongside the VPC to separate the <em>share</em> of inequality
+from its <em>magnitude</em>.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">analysis</span>, type <span class="op">=</span> <span class="st">"group_between_variance"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="group_comparison_files/figure-html/group-between-variance-plot-1.png" class="r-plt" alt="" width="672"></p>
+<p>For non-Gaussian models this variance is on the model (link) scale,
+and unlike the VPC it is not normalised by the residual variance.</p>
+</div>
+<div class="section level2">
 <h2 id="direct-group-comparison">Direct group comparison<a class="anchor" aria-label="anchor" href="#direct-group-comparison"></a>
 </h2>
 <p>If you only need the group comparison table and plots, call
 <code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> directly. This fits the same
 stratified per-country models used by
 <code>maihda(group = "country")</code>.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">group_cmp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_maihda_groups.html">compare_maihda_groups</a></span><span class="op">(</span></span>
 <span>  <span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">maihda_country_data</span>,</span>
@@ -247,7 +266,7 @@ parametric bootstrap confidence intervals with the <code>lme4</code>
 engine. This can take noticeably longer because each group requires
 repeated model refits, so the example is not run when the vignette is
 built.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">group_cmp_boot</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_maihda_groups.html">compare_maihda_groups</a></span><span class="op">(</span></span>
 <span>  <span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">maihda_country_data</span>,</span>

@@ -139,6 +139,29 @@ plot(analysis, type = "group_components")
 
 ![](group_comparison_files/figure-html/group-components-plot-1.png)
 
+## Share versus magnitude
+
+The VPC/ICC is a *ratio*: the share of the unexplained variation that
+lies between strata. A larger VPC therefore does not necessarily mean a
+larger *amount* of between-stratum (intersectional) variation – it can
+also reflect a smaller residual variance. Two countries with the same
+absolute between-stratum variance can have very different VPCs, and vice
+versa.
+
+The `"group_between_variance"` view plots the absolute between-stratum
+variance (`var_between`) directly, so it can be read alongside the VPC
+to separate the *share* of inequality from its *magnitude*.
+
+``` r
+
+plot(analysis, type = "group_between_variance")
+```
+
+![](group_comparison_files/figure-html/group-between-variance-plot-1.png)
+
+For non-Gaussian models this variance is on the model (link) scale, and
+unlike the VPC it is not normalised by the residual variance.
+
 ## Direct group comparison
 
 If you only need the group comparison table and plots, call

@@ -82,6 +82,17 @@
   comparing the absolute amount of intersectional variation, and notes
   that overlap of separate per-group intervals is not a valid test of
   whether two groups’ VPCs differ.
+- [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  result gains `type = "between_variance"` (and
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a
+  `maihda(group = )` analysis gains `type = "group_between_variance"`),
+  which bars the absolute between-stratum variance by group – the
+  *magnitude* of intersectional variation that the VPC *share* cannot
+  convey. The VPC plot now also carries an interpretive caption (it is
+  descriptive, and overlapping intervals are not a difference test), and
+  all group plots now name any groups omitted because their VPC was not
+  estimable instead of dropping them silently.
 - Clarified the PCV documentation
   ([`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md),
   [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
