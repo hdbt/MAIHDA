@@ -469,6 +469,15 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     }
   }
 
+  # `family` may be supplied as a (possibly uncalled) family function such as
+  # stats::gaussian -- a documented form that fit_maihda accepts. Evaluate it to a
+  # family object now so the per-group fits and the family metadata recorded on the
+  # result (attr "family", read below as family$family) treat it identically to a
+  # family object, rather than erroring on the closure.
+  if (is.function(family)) {
+    family <- family()
+  }
+
   # ---- build shared strata (or defer to per-group) and the fitting formula ----
   prepared <- maihda_prepare_group_strata(formula, data, shared_strata, autobin)
   data <- prepared$data

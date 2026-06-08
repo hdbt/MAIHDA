@@ -192,6 +192,36 @@ test_that("compare_maihda_groups accepts a data-column weights argument", {
   expect_true(all(cmp$status == "ok"))
 })
 
+test_that("compare_maihda_groups accepts a family function as well as a string/object", {
+  set.seed(4202)
+  n <- 320
+  d <- data.frame(
+    grp = rep(c("A", "B"), each = n / 2),
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    ses = sample(c("lo", "hi"), n, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$ses, drop = TRUE)
+  d$y <- rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
+
+  run <- function(fam) {
+    compare_maihda_groups(y ~ 1 + (1 | gender:ses), data = d, group = "grp",
+                          min_group_n = 5, family = fam)
+  }
+  # As documented ("As in fit_maihda"), a name, a family object, and a bare family
+  # function are all accepted. The bare function previously crashed when recording
+  # the family attribute ("object of type 'closure' is not subsettable").
+  cmp_str  <- run("gaussian")
+  cmp_obj  <- run(stats::gaussian())
+  cmp_fun  <- run(stats::gaussian)            # regression: must not error
+
+  expect_equal(attr(cmp_str, "family"), "gaussian")
+  expect_equal(attr(cmp_obj, "family"), "gaussian")
+  expect_equal(attr(cmp_fun, "family"), "gaussian")
+  # The three forms describe the same model, so the VPCs must coincide.
+  expect_equal(cmp_fun$vpc, cmp_str$vpc, tolerance = 1e-10)
+  expect_equal(cmp_obj$vpc, cmp_str$vpc, tolerance = 1e-10)
+})
+
 test_that("compare_maihda_groups applies an external weights vector per group", {
   set.seed(4202)
   n <- 320
