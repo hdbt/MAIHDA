@@ -381,3 +381,148 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
     hud_plot_data
   })
 }
+
+# --- Model Comparison tab ----------------------------------------------------
+# Wires in two exported, tested comparison functions the app otherwise never
+# surfaces: compare_maihda() (nested-model VPC forest plot, computed from the
+# null + adjusted models already fitted) and compare_maihda_groups() (a full
+# MAIHDA refitted within each level of a higher-level group). The latter is slow,
+# so it has its own button + async future. `comparison_results` is a reactive
+# carrying the precomputed maihda_comparison; `reactive_data` / `fit_params` /
+# `fitted_family` describe the last fit so the stratified comparison can be built.
+
+#' @noRd
+mod_compare_ui <- function(id) {
+  ns <- shiny::NS(id)
+  shiny::tagList(
+    bslib::card(
+      bslib::card_header("Nested models: VPC comparison (null vs adjusted)"),
+      bslib::card_body(
+        shiny::markdown(
+          "Compares the between-stratum VPC of the **null** (strata-only) model with
+          the **adjusted** model (main effects added) -- computed automatically from
+          your last fit."),
+        DT::DTOutput(ns("nested_table")),
+        shinycssloaders::withSpinner(shiny::plotOutput(ns("nested_plot"), height = "320px"))
+      )
+    ),
+    bslib::card(
+      bslib::card_header("Stratified MAIHDA: VPC by a higher-level group"),
+      bslib::card_body(
+        shiny::markdown(
+          "Fits a *separate* MAIHDA within each level of a higher-level group
+          (e.g. country, region) and compares the between-stratum VPC across groups.
+          This refits a model per group, so it can be slow."),
+        bslib::layout_columns(
+          col_widths = c(5, 4, 3),
+          shiny::selectInput(ns("group_var"), "Group by:", choices = NULL),
+          shiny::selectInput(ns("plot_type"), "Plot:",
+                             choices = c("VPC by group" = "vpc",
+                                         "Variance components" = "components",
+                                         "Between-stratum variance" = "between_variance")),
+          shiny::div(class = "mt-3",
+                     shiny::actionButton(ns("run_group"), "Run group comparison",
+                                         class = "btn-primary"))
+        ),
+        shinycssloaders::withSpinner(shiny::plotOutput(ns("group_plot"), height = "420px")),
+        DT::DTOutput(ns("group_table"))
+      )
+    )
+  )
+}
+
+#' @noRd
+mod_compare_server <- function(id, comparison_results, reactive_data, fit_params,
+                               fitted_family) {
+  shiny::moduleServer(id, function(input, output, session) {
+    ns <- session$ns
+
+    round_numeric <- function(df, digits = 4) {
+      num <- vapply(df, is.numeric, logical(1))
+      df[num] <- lapply(df[num], round, digits)
+      df
+    }
+
+    # ---- Nested comparison (auto, from the last fit) ----
+    output$nested_table <- DT::renderDT({
+      shiny::req(comparison_results())
+      DT::datatable(round_numeric(as.data.frame(comparison_results())),
+                    options = list(dom = "t", paging = FALSE), rownames = FALSE)
+    })
+
+    output$nested_plot <- shiny::renderPlot({
+      shiny::req(comparison_results())
+      plot(comparison_results())
+    })
+
+    # ---- Group-variable choices: data columns minus outcome + strata + covars ----
+    shiny::observe({
+      dat <- reactive_data()
+      p <- fit_params()
+      shiny::req(dat, p)
+      used <- c(p$outcome, p$grouping_vars, p$covariates)
+      shiny::updateSelectInput(session, "group_var", choices = setdiff(names(dat), used))
+    })
+
+    # ---- Stratified group comparison (own async fit) ----
+    group_cmp <- shiny::reactiveVal(NULL)
+
+    shiny::observeEvent(input$run_group, {
+      dat <- reactive_data()
+      p <- fit_params()
+      grp <- input$group_var
+      shiny::req(dat, p, grp, length(p$grouping_vars) > 0)
+
+      fam <- if (!is.null(fitted_family())) fitted_family() else "gaussian"
+      autobin_opt <- isTRUE(p$autobin)
+
+      # Build outcome ~ 1 + (1 | g1:g2:...); compare_maihda_groups() forms strata
+      # itself. Detach the formula environment so the future does not serialise the
+      # whole reactive context.
+      rand <- paste(vapply(p$grouping_vars, maihda_quote_name, character(1)), collapse = ":")
+      fml <- stats::as.formula(
+        paste0(maihda_quote_name(p$outcome), " ~ 1 + (1 | ", rand, ")")
+      )
+      environment(fml) <- globalenv()
+
+      group_cmp(NULL)
+      shinyjs::disable(ns("run_group"))
+      note <- shiny::showNotification(
+        sprintf("Fitting a MAIHDA per level of '%s' (may take a while)...", grp),
+        duration = NULL, type = "message")
+
+      finish <- function() {
+        shiny::removeNotification(note)
+        shinyjs::enable(ns("run_group"))
+      }
+
+      promises::then(
+        promises::future_promise({
+          compare_maihda_groups(formula = fml, data = dat, group = grp,
+                                family = fam, autobin = autobin_opt)
+        }, seed = TRUE),
+        onFulfilled = function(res) {
+          finish()
+          group_cmp(res)
+        },
+        onRejected = function(err) {
+          finish()
+          shiny::showNotification(
+            paste("Group comparison failed:", conditionMessage(err)),
+            type = "error", duration = 12)
+        }
+      )
+    })
+
+    output$group_table <- DT::renderDT({
+      shiny::req(group_cmp())
+      DT::datatable(round_numeric(as.data.frame(group_cmp())),
+                    options = list(pageLength = 15, scrollX = TRUE), rownames = FALSE)
+    })
+
+    output$group_plot <- shiny::renderPlot({
+      shiny::req(group_cmp())
+      plot(group_cmp(), type = input$plot_type)
+    })
+  })
+}

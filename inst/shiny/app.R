@@ -37,6 +37,7 @@ ui <- page_sidebar(
     # Model specification
     selectizeInput("outcome", "Outcome Variable", choices = NULL),
     selectizeInput("group_vars", "Strata Grouping Variables", choices = NULL, multiple = TRUE),
+    uiOutput("group_var_hint"),
     checkboxInput("autobin", "Auto-bin continuous strata vars (>10 unique values) into 3 groups", value = TRUE),
     selectizeInput("covariates", "Additional Covariates (Fixed Effects)", choices = NULL, multiple = TRUE),
 
@@ -63,6 +64,8 @@ ui <- page_sidebar(
               uiOutput("pvc_summary_ui")),
     nav_panel("Stepwise PCV",
               uiOutput("stepwise_pcv_ui")),
+    nav_panel("Model Comparison",
+              MAIHDA:::mod_compare_ui("compare")),
     nav_panel("Visualizations",
               MAIHDA:::mod_visualizations_ui("viz")),
     nav_panel("Interactive Explorer",
@@ -154,6 +157,18 @@ server <- function(input, output, session) {
     shinyjs::toggleState("fit_btn", condition = length(input$group_vars) > 0)
   })
 
+  # Non-blocking guard: a single grouping variable is an ordinary multilevel model,
+  # not an intersectional MAIHDA. Warn, but allow it (a user may want it).
+  output$group_var_hint <- renderUI({
+    if (length(input$group_vars) == 1) {
+      div(class = "text-warning small mt-1",
+          icon("triangle-exclamation"),
+          " Only one grouping variable: this is an ordinary multilevel model, not an intersectional MAIHDA. Select 2+ variables to form intersectional strata.")
+    } else {
+      NULL
+    }
+  })
+
   output$data_table <- renderDT({
     datatable(reactive_data(), options = list(pageLength = 10, scrollX = TRUE))
   })
@@ -166,6 +181,8 @@ server <- function(input, output, session) {
   stepwise_results <- reactiveVal(NULL)
   fitted_family <- reactiveVal(NULL)   # resolved family of the last fit (for display)
   fit_params <- reactiveVal(NULL)      # inputs of the last fit (for the "Reproduce in R" tab)
+  da_results <- reactiveVal(NULL)      # discriminatory accuracy (binomial only): null + adjusted
+  comparison_results <- reactiveVal(NULL)  # nested-model VPC comparison (null vs adjusted)
 
   # Monotonic request token: each fit increments it, so a slower superseded future
   # can recognise it is stale and discard its result rather than overwriting a
@@ -216,6 +233,8 @@ server <- function(input, output, session) {
     pvc_results(NULL)
     stepwise_results(NULL)
     fitted_family(NULL)
+    da_results(NULL)
+    comparison_results(NULL)
 
     id <- showNotification("Creating strata & Fitting Models (May take a moment)...", duration = NULL, type = "message")
 
@@ -248,6 +267,24 @@ server <- function(input, output, session) {
         summary_results(MAIHDA:::maihda_app_attach_vpc_ci(summary(res$model), res$vpc_ci_adjusted))
         pvc_results(res$pvc)
         stepwise_results(res$stepwise)
+        # Discriminatory accuracy is only defined for binomial fits. Compute AUC/MOR
+        # for the strata-only (null) and adjusted models in the main thread (fast --
+        # predict + rank, no refit).
+        if (identical(res$family_used, "binomial")) {
+          da_results(list(
+            null = tryCatch(MAIHDA::maihda_discriminatory_accuracy(res$null_model),
+                            error = function(e) NULL),
+            adjusted = tryCatch(MAIHDA::maihda_discriminatory_accuracy(res$model),
+                                error = function(e) NULL)
+          ))
+        }
+        # Nested-model VPC comparison (null vs adjusted) for the Model Comparison
+        # tab -- pure (reads VPCs from the already-fitted models), so main-thread.
+        comparison_results(tryCatch(
+          MAIHDA::compare_maihda(res$null_model, res$model,
+                                 model_names = c("Model 1: Null", "Model 2: Adjusted")),
+          error = function(e) NULL
+        ))
         if (isTRUE(res$family_autoswitched)) {
           showNotification(
             sprintf("Outcome '%s' is binary -- fitted as 'binomial' (not the selected 'gaussian').",
@@ -284,6 +321,67 @@ server <- function(input, output, session) {
       NULL
     }
 
+    # Surface the fit-quality diagnostics fit_maihda() already computes (singular
+    # fit / non-convergence): these silently invalidate the VPC/PCV if ignored.
+    diag_lines <- MAIHDA:::maihda_format_fit_diagnostics(model_results()$diagnostics)
+    diag_ui <- if (length(diag_lines) > 0) {
+      div(class = "alert alert-warning",
+          tags$strong("Fit diagnostics"),
+          tags$ul(lapply(diag_lines, function(l) tags$li(l))))
+    } else {
+      div(class = "text-success small",
+          icon("check-circle"), " Model converged with no singularity warnings.")
+    }
+
+    # Strata overview + small-cell warning, from the per-stratum sample sizes in
+    # strata_info. Small cells make the random-effect estimates unstable.
+    si <- model_results()$strata_info
+    strata_ui <- if (!is.null(si) && "n" %in% names(si)) {
+      small_thresh <- 10
+      n_strata <- nrow(si)
+      n_small <- sum(si$n < small_thresh, na.rm = TRUE)
+      tagList(
+        div(class = "small text-muted mt-1",
+            sprintf("%d strata; sizes range %d-%d (median %d).",
+                    n_strata, min(si$n, na.rm = TRUE), max(si$n, na.rm = TRUE),
+                    round(stats::median(si$n, na.rm = TRUE)))),
+        if (n_small > 0) {
+          div(class = "alert alert-warning mt-1",
+              sprintf("%d of %d strata have fewer than %d individuals. Random-effect estimates for small strata are unstable -- interpret their deviations cautiously.",
+                      n_small, n_strata, small_thresh))
+        } else NULL
+      )
+    } else {
+      NULL
+    }
+
+    # Discriminatory Accuracy card (binomial only): AUC of the strata-only vs the
+    # adjusted model, plus the Median Odds Ratio.
+    fmt_metric <- function(x, digits = 3) {
+      if (!is.null(x) && is.finite(x)) formatC(x, format = "f", digits = digits) else "NA"
+    }
+    da <- da_results()
+    da_card <- if (!is.null(da) && (!is.null(da$null) || !is.null(da$adjusted))) {
+      card(
+        card_header("Discriminatory Accuracy (binary outcome)"),
+        div(class = "d-flex justify-content-around text-center",
+            div(h5("AUC -- strata only"),
+                h3(fmt_metric(if (!is.null(da$null)) da$null$auc else NA)),
+                p(class = "text-muted mb-0", "C-statistic of the intersectional strata alone")),
+            div(h5("AUC -- adjusted"),
+                h3(fmt_metric(if (!is.null(da$adjusted)) da$adjusted$auc else NA)),
+                p(class = "text-muted mb-0", "With individual covariates added")),
+            div(h5("Median Odds Ratio"),
+                h3(fmt_metric(if (!is.null(da$null)) da$null$mor else NA, 2)),
+                p(class = "text-muted mb-0", "Between-stratum heterogeneity on the odds-ratio scale"))
+        ),
+        div(class = "small text-muted mt-2",
+            "AUC = 0.5 is chance. A high between-stratum VPC can still translate into only modest individual-level discriminatory accuracy -- the cautionary message at the heart of the 'DA' in MAIHDA.")
+      )
+    } else {
+      NULL
+    }
+
     tagList(
       card(
         card_header("Variance Partition Coefficient (VPC) / ICC"),
@@ -291,6 +389,12 @@ server <- function(input, output, session) {
         vpc_interval,
         family_line
       ),
+      card(
+        card_header("Fit diagnostics & strata overview"),
+        diag_ui,
+        strata_ui
+      ),
+      da_card,
       layout_columns(
         card(
           card_header("Variance Components"),
@@ -474,6 +578,15 @@ server <- function(input, output, session) {
     summary_results = summary_results,
     pvc_results = pvc_results,
     group_vars = reactive(input$group_vars)
+  )
+
+  # Model Comparison tab: nested null-vs-adjusted VPC + stratified-by-group MAIHDA.
+  MAIHDA:::mod_compare_server(
+    "compare",
+    comparison_results = comparison_results,
+    reactive_data = reactive_data,
+    fit_params = fit_params,
+    fitted_family = fitted_family
   )
 
   # --- Reproduce in R: a console script mirroring the last fit ----------------

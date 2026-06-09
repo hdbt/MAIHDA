@@ -41,4 +41,5 @@ analytic sample.
 strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
 stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
 }
+
 }

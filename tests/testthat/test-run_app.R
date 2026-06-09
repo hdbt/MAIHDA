@@ -215,6 +215,20 @@ test_that("Shiny server loads the selected built-in dataset", {
   })
 })
 
+test_that("A single grouping variable triggers the non-intersectional hint", {
+  app_env <- maihda_source_app_for_test()
+
+  shiny::testServer(app_env$server, {
+    session$setInputs(dataset = "sim", group_vars = "gender")
+    hint_one <- paste(unlist(output$group_var_hint), collapse = " ")
+    expect_match(hint_one, "intersectional", ignore.case = TRUE)
+
+    session$setInputs(group_vars = c("gender", "race"))
+    hint_two <- paste(unlist(output$group_var_hint), collapse = " ")
+    expect_false(grepl("intersectional", hint_two, ignore.case = TRUE))
+  })
+})
+
 test_that("Explorer module derives HUD plot data from real results", {
   for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
   dat <- MAIHDA::maihda_sim_data[seq_len(120), ]
@@ -345,4 +359,34 @@ test_that("A fixed seed makes the bootstrap intervals reproducible across fits",
   r2 <- fit()
   expect_equal(r1$vpc_ci_null, r2$vpc_ci_null)
   expect_equal(r1$vpc_ci_adjusted, r2$vpc_ci_adjusted)
+})
+
+test_that("Model-comparison module renders the nested null-vs-adjusted comparison", {
+  for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
+  res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
+    MAIHDA::maihda_sim_data[seq_len(150), ],
+    outcome_var = "health_outcome", grouping_vars = c("gender", "race"),
+    additional_covars = "age", family = "gaussian"
+  )))
+  cmp <- compare_maihda(res$null_model, res$model,
+                        model_names = c("Model 1: Null", "Model 2: Adjusted"))
+  expect_s3_class(cmp, "maihda_comparison")
+  expect_equal(nrow(cmp), 2)
+  expect_true(all(c("model", "vpc") %in% names(cmp)))
+
+  shiny::testServer(
+    MAIHDA:::mod_compare_server,
+    args = list(
+      comparison_results = shiny::reactiveVal(cmp),
+      reactive_data = shiny::reactiveVal(MAIHDA::maihda_sim_data),
+      fit_params = shiny::reactiveVal(list(
+        outcome = "health_outcome", grouping_vars = c("gender", "race"),
+        covariates = "age", autobin = TRUE)),
+      fitted_family = shiny::reactiveVal("gaussian")
+    ),
+    expr = {
+      # The nested comparison table renders from the precomputed result.
+      expect_no_error(output$nested_table)
+    }
+  )
 })
