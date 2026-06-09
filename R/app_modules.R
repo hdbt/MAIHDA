@@ -254,7 +254,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
       if (!is.null(mod$data)) {
         pred_vals <- tryCatch({
           pred <- predict_maihda(mod)
-          agg <- aggregate(pred ~ stratum, data = mod$data, FUN = mean)
+          agg <- stats::aggregate()(pred ~ stratum, data = mod$data, FUN = mean)
           names(agg)[2] <- "abs_pred"
           agg
         }, error = function(e) NULL)
@@ -444,7 +444,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
         df <- hud_plot_data()
         cols_to_drop <- c("tooltip", "display_label")
         df <- df[, !names(df) %in% cols_to_drop]
-        write.csv(df, file, row.names = FALSE)
+        utils::write.csv()(df, file, row.names = FALSE)
       }
     )
 
