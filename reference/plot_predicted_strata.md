@@ -25,7 +25,8 @@ plot_predicted_strata(
 
 - n_strata:
 
-  Maximum number of strata to display
+  Maximum number of strata to display (the first n_strata, in stratum
+  order)
 
 - scale:
 

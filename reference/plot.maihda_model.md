@@ -63,7 +63,9 @@ plot(
 
 - n_strata:
 
-  Maximum number of strata to display in predicted plot. Default is 50.
+  Maximum number of strata to display in the predicted plot. When there
+  are more strata than this, the first `n_strata` (in stratum order) are
+  shown and the plot caption notes how many were omitted. Default is 50.
   Use NULL for all strata.
 
 - ...:

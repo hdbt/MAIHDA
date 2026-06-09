@@ -1,0 +1,39 @@
+# Median Odds Ratio (MOR) for a binomial MAIHDA model
+
+The Median Odds Ratio translates the between-stratum variance of a
+logistic MAIHDA model onto the odds-ratio scale: the median relative
+change in the odds of the outcome when comparing two individuals from
+randomly chosen strata (higher- vs lower-risk).
+`MOR = exp(sqrt(2 * V_A) * qnorm(0.75))`, where `V_A` is the
+between-stratum (latent, logit-scale) variance. An MOR of 1 indicates no
+between-stratum heterogeneity.
+
+## Usage
+
+``` r
+maihda_mor(model)
+```
+
+## Arguments
+
+- model:
+
+  A `maihda_model` from
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  fitted with a `binomial` family.
+
+## Value
+
+A single number (the MOR, \\\ge 1\\), or `NA_real_` if the
+between-stratum variance is unavailable.
+
+## References
+
+Larsen, K., & Merlo, J. (2005). Appropriate assessment of neighborhood
+effects on individual health: integrating random and fixed effects in
+multilevel logistic regression. *American Journal of Epidemiology*,
+161(1), 81-88.
+
+## See also
+
+[`maihda_discriminatory_accuracy`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
