@@ -401,7 +401,7 @@ test_that("maihda_app_default_vars gives dataset-aware defaults and a heuristic 
 
   health <- MAIHDA:::maihda_app_default_vars("health", MAIHDA::maihda_health_data)
   expect_equal(health$outcome, "Obese")
-  expect_equal(health$groups, c("Gender", "Race"))
+  expect_equal(health$groups, c("Gender", "Race", "Age"))
 
   # Upload / unknown dataset: first column as outcome, first two categorical-ish
   # columns as strata (continuous columns are not strata candidates).

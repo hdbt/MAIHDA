@@ -30,7 +30,7 @@ Imports:
     tibble
 Suggests:
     shiny,
-    bslib,
+    bslib (>= 0.7.0),
     DT,
     future,
     promises,
