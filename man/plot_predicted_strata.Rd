@@ -16,7 +16,7 @@ plot_predicted_strata(
 
 \item{summary_obj}{A maihda_summary object}
 
-\item{n_strata}{Maximum number of strata to display}
+\item{n_strata}{Maximum number of strata to display (the first n_strata, in stratum order)}
 
 \item{scale}{Prediction scale: "response" (default) or "link"}
 }

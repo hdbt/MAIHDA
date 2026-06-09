@@ -1,5 +1,50 @@
 maihda_app_required_packages <- function() {
-  c("shiny", "bslib", "DT", "future", "promises", "shinyjs", "plotly", "ggtern")
+  c("shiny", "bslib", "DT", "future", "promises", "shinyjs", "plotly", "ggtern",
+    "shinycssloaders")
+}
+
+# Sensible default outcome + grouping variables for the dashboard's variable
+# pickers. Built-in datasets get curated defaults (validated against the data's
+# actual columns); anything else -- uploads, or a built-in whose columns changed --
+# falls back to a heuristic: the first column as the outcome and the first two
+# "categorical-ish" columns (factor/character/logical, or numeric with <= 10
+# distinct values) as the strata. This replaces the previous logic, which hardcoded
+# the simulated dataset's lowercase names ("health_outcome", "gender", "race") and
+# therefore left the NHANES dataset (Obese, Gender, Race, ...) with no usable
+# defaults, disabling the Fit button.
+maihda_app_default_vars <- function(dataset, data) {
+  if (!is.data.frame(data) || ncol(data) == 0) {
+    return(list(outcome = NULL, groups = character(0)))
+  }
+  cols <- names(data)
+
+  known <- switch(
+    as.character(dataset),
+    pisa = list(outcome = "math", groups = c("gender", "ses")),
+    health = list(outcome = "Obese", groups = c("Gender", "Race")),
+    list(outcome = NULL, groups = character(0))
+  )
+
+  outcome <- if (!is.null(known$outcome) && known$outcome %in% cols) known$outcome else NULL
+  groups <- intersect(known$groups, cols)
+
+  if (is.null(outcome)) {
+    outcome <- cols[1]
+  }
+
+  # Top up the strata defaults to two from categorical-ish columns when the curated
+  # names did not supply them (covers uploads and unknown datasets).
+  if (length(groups) < 2) {
+    candidates <- setdiff(cols, c(outcome, groups))
+    is_catish <- vapply(candidates, function(cn) {
+      x <- data[[cn]]
+      is.factor(x) || is.character(x) || is.logical(x) ||
+        (is.numeric(x) && length(unique(x[!is.na(x)])) <= 10)
+    }, logical(1))
+    groups <- utils::head(c(groups, candidates[is_catish]), 2)
+  }
+
+  list(outcome = outcome, groups = groups)
 }
 
 maihda_app_pvc_display <- function(pvc_percent) {
@@ -202,7 +247,7 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
                                   additional_covars = character(),
                                   family = "gaussian", use_boot = FALSE,
                                   n_boot = 100, autobin = TRUE,
-                                  engine = "lme4") {
+                                  engine = "lme4", seed = NULL) {
   if (!is.data.frame(dat)) {
     stop("'dat' must be a data frame.", call. = FALSE)
   }
@@ -240,6 +285,8 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
   # fit as binomial rather than silently as a linear probability model. This keeps
   # the no-code app consistent with the core API and avoids surprising LPM fits. To
   # fit an LPM intentionally, call fit_maihda(..., family = "gaussian") from R.
+  family_requested <- family
+  family_autoswitched <- FALSE
   if (identical(family, "gaussian") &&
       maihda_is_binary_vector(complete_dat[[outcome_var]])) {
     message("maihda_app: outcome '", outcome_var,
@@ -247,6 +294,7 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
             "For a linear probability model, fit from R with ",
             "fit_maihda(..., family = 'gaussian').")
     family <- "binomial"
+    family_autoswitched <- TRUE
   }
 
   adjusted_fmla <- maihda_formula_with_stratum(outcome_var, c(grouping_vars, additional_covars))
@@ -254,6 +302,14 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
 
   null_model <- fit_maihda(formula = null_fmla, data = model_dat, engine = engine, family = family)
   adjusted_model <- fit_maihda(formula = adjusted_fmla, data = model_dat, engine = engine, family = family)
+
+  # A user-supplied seed makes the (otherwise random) bootstrap CIs reproducible
+  # across runs, and lets the exported "Reproduce in R" script reproduce the same
+  # PCV interval. Set it once before the bootstrap-consuming steps below; the
+  # deterministic steps (strata, lme4 fits, stepwise refits) are unaffected.
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
 
   # PCV degrades gracefully (a sentinel, not an error) when it is undefined; the
   # VPC/ICC bootstrap intervals are computed here in the worker and merged into
@@ -275,8 +331,88 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
     pvc = pvc,
     stepwise = stepwise,
     vpc_ci_null = vpc_ci$null,
-    vpc_ci_adjusted = vpc_ci$adjusted
+    vpc_ci_adjusted = vpc_ci$adjusted,
+    family_used = family,
+    family_requested = family_requested,
+    family_autoswitched = family_autoswitched
   )
+}
+
+# Build a runnable R script that reproduces, from the console, the analysis the
+# dashboard just performed. It is a pure string builder (no Shiny, no fitting) so
+# it can be unit-tested directly, and it reuses maihda_quote_name() -- the same
+# helper maihda_formula_with_stratum() uses -- so the emitted formulas match what
+# maihda_app_fit_models() actually fits. `family` should be the *resolved* family
+# (e.g. the binomial an auto-switched binary outcome was fit with), so the script
+# reproduces the real fit rather than the originally selected family.
+maihda_app_generate_code <- function(outcome_var, grouping_vars,
+                                     additional_covars = character(),
+                                     family = "gaussian", autobin = TRUE,
+                                     use_boot = FALSE, n_boot = 100, seed = NULL,
+                                     dataset = c("pisa", "health", "upload"),
+                                     upload_name = NULL) {
+  dataset <- match.arg(dataset)
+  additional_covars <- if (is.null(additional_covars)) character() else additional_covars
+
+  quote_names <- function(x) vapply(x, maihda_quote_name, character(1))
+  as_char_vec <- function(x) paste0("c(", paste0('"', x, '"', collapse = ", "), ")")
+  fixed_terms <- c(grouping_vars, additional_covars)
+
+  null_fmla <- paste0(maihda_quote_name(outcome_var), " ~ (1 | stratum)")
+  adj_fmla <- paste0(
+    maihda_quote_name(outcome_var), " ~ ",
+    paste(c(quote_names(fixed_terms), "(1 | stratum)"), collapse = " + ")
+  )
+
+  data_line <- switch(dataset,
+    pisa   = "data <- MAIHDA::maihda_country_data",
+    health = "data <- MAIHDA::maihda_health_data",
+    upload = sprintf('data <- read.csv("%s")  # adjust path/reader for your file',
+                     if (is.null(upload_name)) "your_data.csv" else upload_name)
+  )
+
+  lines <- c(
+    "# Reproducible MAIHDA analysis script",
+    "# Generated by MAIHDA::run_maihda_app() -- mirrors the dashboard's model fit.",
+    "library(MAIHDA)",
+    "",
+    "# 1. Load the data",
+    data_line,
+    "",
+    "# 2. Build intersectional strata from the grouping variables",
+    sprintf("strata <- make_strata(data, vars = %s, autobin = %s)",
+            as_char_vec(grouping_vars), if (isTRUE(autobin)) "TRUE" else "FALSE"),
+    "data$stratum <- strata$data$stratum",
+    "",
+    "# 3. Fit the null and adjusted MAIHDA models",
+    sprintf('null_model     <- fit_maihda(%s, data = data, family = "%s")',
+            null_fmla, family),
+    sprintf('adjusted_model <- fit_maihda(%s, data = data, family = "%s")',
+            adj_fmla, family),
+    "",
+    "# 4. Variance partition coefficient, fixed effects and stratum estimates",
+    "summary(adjusted_model)",
+    "",
+    "# 5. Proportional change in variance (PCV)"
+  )
+
+  if (!is.null(seed)) {
+    lines <- c(lines, sprintf("set.seed(%s)", seed))
+  }
+  lines <- c(lines,
+    if (isTRUE(use_boot)) {
+      sprintf("calculate_pvc(null_model, adjusted_model, bootstrap = TRUE, n_boot = %s)",
+              n_boot)
+    } else {
+      "calculate_pvc(null_model, adjusted_model)"
+    },
+    "",
+    "# 6. Stepwise PCV decomposition",
+    sprintf('stepwise_pcv(data, outcome = "%s", vars = %s)',
+            outcome_var, as_char_vec(fixed_terms))
+  )
+
+  paste(lines, collapse = "\n")
 }
 
 #' Run MAIHDA Shiny Application

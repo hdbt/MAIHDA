@@ -37,6 +37,7 @@ Suggests:
     plotly,
     haven,
     shinyjs,
+    shinycssloaders,
     brms (>= 2.15.0),
     testthat (>= 3.0.0),
     shinytest2,

@@ -35,8 +35,10 @@
 \item{summary_obj}{Optional maihda_summary object from \code{summary()}.
 If NULL, will be computed.}
 
-\item{n_strata}{Maximum number of strata to display in predicted plot.
-Default is 50. Use NULL for all strata.}
+\item{n_strata}{Maximum number of strata to display in the predicted plot.
+When there are more strata than this, the first \code{n_strata} (in stratum
+order) are shown and the plot caption notes how many were omitted. Default
+is 50. Use NULL for all strata.}
 
 \item{...}{Additional arguments (not currently used).}
 }

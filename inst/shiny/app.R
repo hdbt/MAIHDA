@@ -14,6 +14,10 @@ shiny::onStop(function() {
   future::plan(maihda_app_previous_future_plan)
 })
 
+# Allow larger uploads than Shiny's 5 MB default so real-world CSV/DTA/SAV files
+# do not silently fail before reaching reactive_data()'s reader.
+options(shiny.maxRequestSize = 50 * 1024^2)
+
 ui <- page_sidebar(
   shinyjs::useShinyjs(),
   title = "MAIHDA Analysis Dashboard",
@@ -21,8 +25,15 @@ ui <- page_sidebar(
 
   sidebar = sidebar(
     title = "Controls",
+    actionLink("help", tagList(icon("circle-question"), "Help / Glossary"),
+               `aria-label` = "Open help and glossary"),
+    actionLink("show_code", tagList(icon("code"), "Reproduce in R"),
+               `aria-label` = "Show the reproducible R script for this analysis"),
+    bookmarkButton(label = "Bookmark / share",
+                   title = "Save this analysis configuration to a shareable URL (built-in data + selections)."),
+    tags$hr(class = "my-1"),
     selectInput("dataset", "1. Select Dataset:",
-                choices = c("Built-in: Simulated Data" = "sim",
+                choices = c("Built-in: PISA Country Data" = "pisa",
                             "Built-in: NHANES Health Data" = "health",
                             "Upload Custom Data" = "upload")),
     conditionalPanel(
@@ -31,8 +42,17 @@ ui <- page_sidebar(
     ),
 
     # Model specification
-    selectizeInput("outcome", "Outcome Variable", choices = NULL),
-    selectizeInput("group_vars", "Strata Grouping Variables", choices = NULL, multiple = TRUE),
+    selectizeInput("outcome",
+                   tagList("Outcome Variable ",
+                           tooltip(icon("info-circle"),
+                                   "The variable whose inequality you're analysing. A two-level outcome is fitted as logistic automatically.")),
+                   choices = NULL),
+    selectizeInput("group_vars",
+                   tagList("Strata Grouping Variables ",
+                           tooltip(icon("info-circle"),
+                                   "Pick 2 or more variables (e.g. gender and race). Their combinations define the intersectional strata.")),
+                   choices = NULL, multiple = TRUE),
+    uiOutput("group_var_hint"),
     checkboxInput("autobin", "Auto-bin continuous strata vars (>10 unique values) into 3 groups", value = TRUE),
     selectizeInput("covariates", "Additional Covariates (Fixed Effects)", choices = NULL, multiple = TRUE),
 
@@ -41,7 +61,8 @@ ui <- page_sidebar(
     checkboxInput("use_boot", "Compute Bootstrap CIs (Slower)", value = FALSE),
     conditionalPanel(
       condition = "input.use_boot == true",
-      numericInput("n_boot", "Bootstrap Samples", value = 100, min = 10, step = 10)
+      numericInput("n_boot", "Bootstrap Samples", value = 100, min = 10, step = 10),
+      numericInput("seed", "Random Seed (reproducible bootstrap)", value = 123, min = 1, step = 1)
     ),
 
     # Action button to trigger fitting
@@ -51,49 +72,43 @@ ui <- page_sidebar(
   navset_card_tab(
     id = "main_tabs",
     nav_panel("Data View",
-              DTOutput("data_table")),
+              shinycssloaders::withSpinner(DTOutput("data_table"))),
     nav_panel("Model Summary",
               uiOutput("model_summary_ui")),
     nav_panel("PCV Results",
               uiOutput("pvc_summary_ui")),
     nav_panel("Stepwise PCV",
               uiOutput("stepwise_pcv_ui")),
+    nav_panel("Model Comparison",
+              MAIHDA:::mod_compare_ui("compare")),
     nav_panel("Visualizations",
-              div(class = "d-flex justify-content-between align-items-center align-items-md-end mb-3",
-                div(class = "flex-grow-1 me-3",
-                  selectInput("plot_type", "Select Plot Type:",
-                              choices = c(
-                                          "Prediction Deviation Panels" = "pred_dev",
-                                          "Mean Prediction vs. Stratum Effect (Quadrant)" = "risk_vs_effect",
-                                          "Effect Decomposition" = "effect_decomp",
-                                          "Effect Decomposition (Ternary)" = "ternary",
-                                          "VPC"="vpc", "Observed VS Shrunken" = "obs_vs_shrunken",
-                                          "Predicted Values" =  "predicted"),
-                              width = "100%")
-                ),
-                div(class = "mb-3",
-                  downloadButton("download_plot", "Download Plot", class = "btn-secondary")
-                )
-              ),
-              uiOutput("maihda_plot_wrapper")),
+              MAIHDA:::mod_visualizations_ui("viz")),
     nav_panel("Interactive Explorer",
-              uiOutput("interactive_explorer_ui"))
+              MAIHDA:::mod_explorer_ui("explorer"))
   )
 )
 
 server <- function(input, output, session) {
 
-  # Load data: if no file, use maihda_sim_data
+  # URL bookmarking captures the analysis *configuration* (built-in dataset +
+  # variable/family/seed selections), not the fitted results. Exclude the file
+  # upload (an uploaded file cannot be restored from a URL) and the action controls
+  # (so a restored bookmark never auto-triggers a fit). Module run-buttons are
+  # excluded inside their own modules.
+  setBookmarkExclude(c("upload", "fit_btn", "help", "show_code"))
+
+  # Load data: built-in PISA / NHANES datasets, or an uploaded file
   reactive_data <- reactive({
-    if (input$dataset == "sim") {
-      return(MAIHDA::maihda_sim_data)
+    if (input$dataset == "pisa") {
+      # PISA: math/reading scores by gender x SES across countries
+      return(MAIHDA::maihda_country_data)
     } else if (input$dataset == "health") {
-      # Use the new real-world health dataset
+      # Real-world NHANES health dataset
       return(MAIHDA::maihda_health_data)
     } else if (input$dataset == "upload" && !is.null(input$upload)) {
       ext <- tolower(tools::file_ext(input$upload$name))
       dat <- tryCatch({
-        if (ext == "csv") {
+        raw <- if (ext == "csv") {
           read.csv(input$upload$datapath)
         } else if (ext == "dta") {
           if (!requireNamespace('haven', quietly = TRUE)) stop("haven package required for DTA files")
@@ -104,6 +119,11 @@ server <- function(input, output, session) {
         } else {
           stop("Unsupported format")
         }
+        raw <- as.data.frame(raw)
+        if (nrow(raw) == 0 || ncol(raw) == 0) {
+          stop("The uploaded file has no usable rows or columns.")
+        }
+        raw
       }, error = function(e) {
         showNotification(paste("Error loading file:", e$message), type = "error")
         NULL
@@ -124,8 +144,11 @@ server <- function(input, output, session) {
     curr_group <- isolate(input$group_vars)
     curr_covars <- isolate(input$covariates)
 
-    new_outcome <- ifelse(!is.null(curr_outcome) && curr_outcome %in% cols, curr_outcome, ifelse("health_outcome" %in% cols, "health_outcome", cols[1]))
-    new_group <- if(!is.null(curr_group) && all(curr_group %in% cols)) curr_group else intersect(c("gender", "race"), cols)
+    # Dataset-aware defaults (fixes the NHANES dataset, whose columns are
+    # capitalised); preserve the user's current selections when still valid.
+    spec <- MAIHDA:::maihda_app_default_vars(input$dataset, reactive_data())
+    new_outcome <- if (!is.null(curr_outcome) && curr_outcome %in% cols) curr_outcome else spec$outcome
+    new_group <- if (!is.null(curr_group) && all(curr_group %in% cols)) curr_group else spec$groups
 
     # Calculate available covariates by excluding outcome and strata variables
     used_vars <- c(new_outcome, new_group)
@@ -144,6 +167,54 @@ server <- function(input, output, session) {
     shinyjs::toggleState("fit_btn", condition = length(input$group_vars) > 0)
   })
 
+  # Non-blocking guard: a single grouping variable is an ordinary multilevel model,
+  # not an intersectional MAIHDA. Warn, but allow it (a user may want it).
+  output$group_var_hint <- renderUI({
+    if (length(input$group_vars) == 1) {
+      div(class = "text-warning small mt-1",
+          icon("triangle-exclamation"),
+          " Only one grouping variable: this is an ordinary multilevel model, not an intersectional MAIHDA. Select 2+ variables to form intersectional strata.")
+    } else {
+      NULL
+    }
+  })
+
+  observeEvent(input$help, {
+    showModal(modalDialog(
+      title = "MAIHDA Dashboard -- Help & Glossary",
+      easyClose = TRUE,
+      size = "l",
+      markdown(
+        "### How to use this dashboard
+1. **Select a dataset** -- a built-in example or your own CSV/DTA/SAV upload.
+2. **Choose an outcome** and **two or more grouping variables**; their
+   combinations form the intersectional *strata*.
+3. *(Optional)* add covariates, pick a family, enable bootstrap CIs.
+4. Click **Fit MAIHDA Model** -- results populate the tabs across the top.
+
+### Glossary
+- **Strata** -- the intersectional groups formed by combining the grouping
+  variables (e.g. *Female x Black x Low-education*).
+- **VPC / ICC** -- Variance Partition Coefficient: the share of outcome variation
+  that lies *between* strata. For binary/count outcomes it is on the model's
+  latent scale.
+- **PCV** -- Proportional Change in Variance: how much the between-stratum variance
+  shrinks once the additive main effects are added (a model-dependent comparison,
+  not proof that inequality was 'explained away').
+- **MAIHDA** -- Multilevel Analysis of Individual Heterogeneity and Discriminatory
+  Accuracy.
+- **Discriminatory accuracy** (binary outcomes):
+    - **AUC / C-statistic** -- how well stratum membership predicts the individual
+      outcome (0.5 = chance). A high VPC can still go with only modest AUC.
+    - **MOR** (Median Odds Ratio) -- the typical change in odds between a higher-
+      and a lower-risk stratum; 1 means no between-stratum heterogeneity.
+
+*See the package vignettes for worked examples and the statistical details.*"
+      ),
+      footer = modalButton("Close")
+    ))
+  })
+
   output$data_table <- renderDT({
     datatable(reactive_data(), options = list(pageLength = 10, scrollX = TRUE))
   })
@@ -154,6 +225,15 @@ server <- function(input, output, session) {
   summary_results <- reactiveVal(NULL)
   pvc_results <- reactiveVal(NULL)
   stepwise_results <- reactiveVal(NULL)
+  fitted_family <- reactiveVal(NULL)   # resolved family of the last fit (for display)
+  fit_params <- reactiveVal(NULL)      # inputs of the last fit (for the "Reproduce in R" dialog)
+  da_results <- reactiveVal(NULL)      # discriminatory accuracy (binomial only): null + adjusted
+  comparison_results <- reactiveVal(NULL)  # nested-model VPC comparison (null vs adjusted)
+
+  # Monotonic request token: each fit increments it, so a slower superseded future
+  # can recognise it is stale and discard its result rather than overwriting a
+  # newer fit. Pairs with disabling the button while a fit is in flight.
+  fit_id <- reactiveVal(0)
 
   observeEvent(input$fit_btn, {
     dat <- reactive_data()
@@ -170,6 +250,27 @@ server <- function(input, output, session) {
     use_boot <- input$use_boot
     n_boot <- input$n_boot
     autobin_opt <- input$autobin
+    seed_opt <- if (isTRUE(use_boot)) input$seed else NULL
+
+    # Claim a request token and lock the button so a second click cannot launch a
+    # competing fit whose (possibly out-of-order) result would clobber this one.
+    this_fit <- fit_id() + 1
+    fit_id(this_fit)
+    shinyjs::disable("fit_btn")
+
+    # Remember exactly what this fit used so the "Reproduce in R" dialog mirrors it,
+    # independent of any later sidebar edits.
+    fit_params(list(
+      dataset = input$dataset,
+      upload_name = if (!is.null(input$upload)) input$upload$name else NULL,
+      outcome = outcome_var,
+      grouping_vars = grouping_vars,
+      covariates = additional_covars,
+      autobin = autobin_opt,
+      use_boot = use_boot,
+      n_boot = n_boot,
+      seed = seed_opt
+    ))
 
     # Reset old results
     model_results(NULL)
@@ -177,6 +278,9 @@ server <- function(input, output, session) {
     summary_results(NULL)
     pvc_results(NULL)
     stepwise_results(NULL)
+    fitted_family(NULL)
+    da_results(NULL)
+    comparison_results(NULL)
 
     id <- showNotification("Creating strata & Fitting Models (May take a moment)...", duration = NULL, type = "message")
 
@@ -190,26 +294,70 @@ server <- function(input, output, session) {
           use_boot = use_boot,
           n_boot = n_boot,
           autobin = autobin_opt,
-          engine = eng
+          engine = eng,
+          seed = seed_opt
         )
       }, seed = TRUE) %...>% (function(res) {
         removeNotification(id)
+        # A newer fit has superseded this one: drop the stale result and leave the
+        # button for the newer fit to re-enable when it finishes.
+        if (!identical(this_fit, fit_id())) return(invisible(NULL))
+        shinyjs::enable("fit_btn")
+
         model_results(res$model)
+        fitted_family(res$family_used)
         # Dispatch summary() in the main thread, where the MAIHDA S3 method is
         # reliably found, then merge in the VPC/ICC bootstrap intervals computed
         # in the background worker (see maihda_app_bootstrap_vpc_cis()).
         null_summary_results(MAIHDA:::maihda_app_attach_vpc_ci(summary(res$null_model), res$vpc_ci_null))
         summary_results(MAIHDA:::maihda_app_attach_vpc_ci(summary(res$model), res$vpc_ci_adjusted))
-      pvc_results(res$pvc)
-      stepwise_results(res$stepwise)
-      nav_select("main_tabs", "PCV Results")    }) %...!% (function(err) {
-      removeNotification(id)
-      showNotification(paste("Error fitting model:", err$message), type = "error", duration = 15)    })
-
+        pvc_results(res$pvc)
+        stepwise_results(res$stepwise)
+        # Discriminatory accuracy is only defined for binomial fits. Compute AUC/MOR
+        # for the strata-only (null) and adjusted models in the main thread (fast --
+        # predict + rank, no refit).
+        if (identical(res$family_used, "binomial")) {
+          da_results(list(
+            null = tryCatch(MAIHDA::maihda_discriminatory_accuracy(res$null_model),
+                            error = function(e) NULL),
+            adjusted = tryCatch(MAIHDA::maihda_discriminatory_accuracy(res$model),
+                                error = function(e) NULL)
+          ))
+        }
+        # Nested-model VPC comparison (null vs adjusted) for the Model Comparison
+        # tab -- pure (reads VPCs from the already-fitted models), so main-thread.
+        comparison_results(tryCatch(
+          MAIHDA::compare_maihda(res$null_model, res$model,
+                                 model_names = c("Model 1: Null", "Model 2: Adjusted")),
+          error = function(e) NULL
+        ))
+        if (isTRUE(res$family_autoswitched)) {
+          showNotification(
+            sprintf("Outcome '%s' is binary -- fitted as 'binomial' (not the selected 'gaussian').",
+                    outcome_var),
+            type = "warning", duration = 12
+          )
+        }
+        nav_select("main_tabs", "PCV Results")
+      }) %...!% (function(err) {
+        removeNotification(id)
+        if (!identical(this_fit, fit_id())) return(invisible(NULL))
+        shinyjs::enable("fit_btn")
+        showNotification(paste("Error fitting model:", err$message), type = "error", duration = 15)
+      })
   })
 
   output$model_summary_ui <- renderUI({
-    req(summary_results())
+    if (is.null(summary_results())) {
+      return(card(
+        card_header("Getting started"),
+        card_body(markdown(
+          "No model fitted yet. **1.** Pick a dataset, **2.** choose an outcome and
+          **2+ grouping variables**, then **3.** click *Fit MAIHDA Model* in the
+          sidebar. Need definitions? Open **Help / Glossary** at the top of the
+          sidebar."))
+      ))
+    }
     res <- summary_results()
 
     vpc <- res$vpc
@@ -222,12 +370,107 @@ server <- function(input, output, session) {
       NULL
     }
 
+    family_line <- if (!is.null(fitted_family())) {
+      div(class = "text-muted small", sprintf("Fitted with family = '%s'", fitted_family()))
+    } else {
+      NULL
+    }
+
+    # For binomial fits the headline VPC is latent-scale; also show the response
+    # (probability) scale VPC as an interpretable complement. Seeded so the
+    # simulation-based value is stable across re-renders.
+    response_vpc_line <- if (identical(fitted_family(), "binomial")) {
+      seed_val <- if (!is.null(fit_params()) && !is.null(fit_params()$seed)) fit_params()$seed else 1L
+      rv <- tryCatch(MAIHDA::maihda_vpc_response(model_results(), seed = seed_val),
+                     error = function(e) NULL)
+      if (!is.null(rv) && is.finite(rv$estimate)) {
+        div(class = "text-muted small",
+            sprintf("Response-scale VPC: %.2f%% (simulation method; latent-scale shown above)",
+                    rv$estimate * 100))
+      } else {
+        NULL
+      }
+    } else {
+      NULL
+    }
+
+    # Surface the fit-quality diagnostics fit_maihda() already computes (singular
+    # fit / non-convergence): these silently invalidate the VPC/PCV if ignored.
+    diag_lines <- MAIHDA:::maihda_format_fit_diagnostics(model_results()$diagnostics)
+    diag_ui <- if (length(diag_lines) > 0) {
+      div(class = "alert alert-warning",
+          tags$strong("Fit diagnostics"),
+          tags$ul(lapply(diag_lines, function(l) tags$li(l))))
+    } else {
+      div(class = "text-success small",
+          icon("check-circle"), " Model converged with no singularity warnings.")
+    }
+
+    # Strata overview + small-cell warning, from the per-stratum sample sizes in
+    # strata_info. Small cells make the random-effect estimates unstable.
+    si <- model_results()$strata_info
+    strata_ui <- if (!is.null(si) && "n" %in% names(si)) {
+      small_thresh <- 10
+      n_strata <- nrow(si)
+      n_small <- sum(si$n < small_thresh, na.rm = TRUE)
+      tagList(
+        div(class = "small text-muted mt-1",
+            sprintf("%d strata; sizes range %d-%d (median %d).",
+                    n_strata, min(si$n, na.rm = TRUE), max(si$n, na.rm = TRUE),
+                    round(stats::median(si$n, na.rm = TRUE)))),
+        if (n_small > 0) {
+          div(class = "alert alert-warning mt-1",
+              sprintf("%d of %d strata have fewer than %d individuals. Random-effect estimates for small strata are unstable -- interpret their deviations cautiously.",
+                      n_small, n_strata, small_thresh))
+        } else NULL
+      )
+    } else {
+      NULL
+    }
+
+    # Discriminatory Accuracy card (binomial only): AUC of the strata-only vs the
+    # adjusted model, plus the Median Odds Ratio.
+    fmt_metric <- function(x, digits = 3) {
+      if (!is.null(x) && is.finite(x)) formatC(x, format = "f", digits = digits) else "NA"
+    }
+    da <- da_results()
+    da_card <- if (!is.null(da) && (!is.null(da$null) || !is.null(da$adjusted))) {
+      card(
+        card_header("Discriminatory Accuracy (binary outcome)"),
+        div(class = "d-flex justify-content-around text-center",
+            div(h5("AUC -- strata only"),
+                h3(fmt_metric(if (!is.null(da$null)) da$null$auc else NA)),
+                p(class = "text-muted mb-0", "C-statistic of the intersectional strata alone")),
+            div(h5("AUC -- adjusted"),
+                h3(fmt_metric(if (!is.null(da$adjusted)) da$adjusted$auc else NA)),
+                p(class = "text-muted mb-0", "With individual covariates added")),
+            div(h5("Median Odds Ratio"),
+                h3(fmt_metric(if (!is.null(da$null)) da$null$mor else NA, 2)),
+                p(class = "text-muted mb-0", "Between-stratum heterogeneity on the odds-ratio scale"))
+        ),
+        div(class = "small text-muted mt-2",
+            "AUC = 0.5 is chance. A high between-stratum VPC can still translate into only modest individual-level discriminatory accuracy -- the cautionary message at the heart of the 'DA' in MAIHDA.")
+      )
+    } else {
+      NULL
+    }
+
     tagList(
       card(
-        card_header("Variance Partition Coefficient (VPC) / ICC"),
+        card_header(tagList("Variance Partition Coefficient (VPC) / ICC ",
+                            tooltip(icon("info-circle"),
+                                    "Share of outcome variation that lies between strata. For binary/count outcomes this is on the model's latent scale."))),
         h3(HTML(sprintf("<span class='text-primary'>%.2f%%</span>", vpc$estimate * 100))),
-        vpc_interval
+        vpc_interval,
+        family_line,
+        response_vpc_line
       ),
+      card(
+        card_header("Fit diagnostics & strata overview"),
+        diag_ui,
+        strata_ui
+      ),
+      da_card,
       layout_columns(
         card(
           card_header("Variance Components"),
@@ -344,7 +587,7 @@ server <- function(input, output, session) {
         *   **Step_PCV**: Proportional change in between-stratum variance relative to the *previous* model step.
         *   **Total_PCV**: Proportional change relative to the *null* model (Step 0).
         "),
-        plotlyOutput("stepwise_pcv_plot", height = "400px"),
+        shinycssloaders::withSpinner(plotlyOutput("stepwise_pcv_plot", height = "400px")),
         hr(),
         DTOutput("stepwise_pcv_dt")
       )
@@ -399,318 +642,80 @@ server <- function(input, output, session) {
     datatable(df, options = list(dom = 't', paging = FALSE, ordering = FALSE), rownames = FALSE, escape = FALSE)
   })
 
-  current_plot <- reactive({
-    req(model_results())
-    req(input$plot_type)
+  # Visualizations tab: plot picker, ggplot/plotly swap and PNG download.
+  MAIHDA:::mod_visualizations_server("viz", model_results = model_results)
 
-    if (input$plot_type == "pred_dev") {
-      plot_prediction_deviation_panels(model_results(), data = NULL, type = "auto")
-    } else if (input$plot_type %in% c("predicted")) {
-      plot(model_results(), type = input$plot_type, n_strata = 20)
-    } else if (input$plot_type == "ternary") {
-      out <- maihda_ternary_plot(model_results())
-      out$plot
-    } else {
-      plot(model_results(), type = input$plot_type)
-    }
-  })
-
-  output$maihda_plot_wrapper <- renderUI({
-    if (input$plot_type == "ternary") {
-      plotlyOutput("maihda_plotly", height = "500px")
-    } else {
-      plotOutput("maihda_plot", height = "500px")
-    }
-  })
-
-  output$maihda_plot <- renderPlot({
-    current_plot()
-  })
-
-  output$maihda_plotly <- renderPlotly({
-    req(model_results())
-    req(input$plot_type == "ternary")
-
-    out <- maihda_ternary_plot(model_results())
-    td <- out$data
-
-    MAIHDA:::maihda_app_ternary_plotly(td)
-  })
-
-  output$download_plot <- downloadHandler(
-    filename = function() {
-      paste0("maihda_", input$plot_type, "_plot.png")
-    },
-    content = function(file) {
-      ggsave(file, plot = current_plot(), width = 10, height = 8, dpi = 300)
-    }
+  # Interactive Explorer (HUD) tab: key metrics, filterable strata-deviation
+  # plot and filtered data export.
+  MAIHDA:::mod_explorer_server(
+    "explorer",
+    model_results = model_results,
+    null_summary_results = null_summary_results,
+    summary_results = summary_results,
+    pvc_results = pvc_results,
+    group_vars = reactive(input$group_vars)
   )
 
-  output$interactive_explorer_ui <- renderUI({
-    req(model_results(), null_summary_results(), summary_results(), pvc_results())
-    null_res <- null_summary_results()
-    res <- summary_results()
-    pvc <- pvc_results()
+  # Model Comparison tab: nested null-vs-adjusted VPC + stratified-by-group MAIHDA.
+  MAIHDA:::mod_compare_server(
+    "compare",
+    comparison_results = comparison_results,
+    reactive_data = reactive_data,
+    fit_params = fit_params,
+    fitted_family = fitted_family
+  )
 
-    # Extract metrics for HUD
-    null_vpc <- null_res$vpc
-    vpc_val <- round(null_vpc$estimate * 100, 2)
-    vpc_ci_text <- if (MAIHDA:::maihda_vpc_has_interval(null_vpc)) {
-      sprintf("95%% CI [%.2f%%, %.2f%%]", null_vpc$ci_lower * 100, null_vpc$ci_upper * 100)
-    } else {
-      NULL
-    }
-    pvc_val <- round(pvc$pvc * 100, 2)
-    pvc_val_display <- if (is.finite(pvc_val)) paste0(pvc_val, "%") else "N/A"
-    pvc_display <- MAIHDA:::maihda_app_pvc_display(pvc_val)
+  # --- Reproduce in R: a console script mirroring the last fit ----------------
+  # Accessed via a small sidebar link that opens a modal (rather than a full tab).
+  # Reads the stored parameters of the last fit (not the live sidebar) and the
+  # resolved family, so the emitted script reproduces the model actually fitted.
+  observeEvent(input$show_code, {
+    showModal(modalDialog(
+      title = "Reproduce this analysis in R",
+      easyClose = TRUE,
+      size = "l",
+      markdown(
+        "Copy or download the script below to reproduce your **last model fit** from
+        the R console -- same models, VPC and PCV (the random seed makes the bootstrap
+        intervals reproducible)."),
+      div(class = "mb-2",
+          downloadButton("download_code", "Download .R Script", class = "btn-secondary",
+                         `aria-label` = "Download the reproducible R script")),
+      verbatimTextOutput("repro_code"),
+      footer = modalButton("Close")
+    ))
+  })
 
-    layout_columns(
-      col_widths = c(12, 12),
-      card(
-        card_header("HUD: Key MAIHDA Metrics"),
-        div(class = "d-flex justify-content-around text-center",
-            div(h4("VPC (Null)"), h3(paste0(vpc_val, "%")),
-                p(class="text-muted mb-0", "Total Variance b/w Strata"),
-                if (!is.null(vpc_ci_text)) p(class="text-muted small mb-0", vpc_ci_text) else NULL),
-            div(h4("PCV (Adjusted)"), h3(pvc_val_display), p(class="text-muted", "Between-Stratum Variance Change with Main Effects")),
-            div(h4(pvc_display$label), h3(pvc_display$value), p(class="text-muted", pvc_display$description))
-        ),
-        markdown("
-        **Interpretation Guide**:
-        - **VPC** (Variance Partition Coefficient) measures the share of the unexplained outcome variance that lies between strata.
-        - **PCV** (Proportional Change in Variance) is the proportional change in between-stratum variance when the additive main effects are added. It is a model-dependent comparison, not a causal measure of variance 'explained'.
-        - The remaining between-stratum variation is often read as the intersectional component, but it is model-dependent and should be interpreted cautiously (a negative PCV does not by itself prove hidden structural inequality).
-        "),
-        uiOutput("dynamic_interpretation")
-      ),
-      card(
-        card_header("Interactive Strata Deviations (Residuals with CIs)"),
-        layout_columns(
-          col_widths = c(4, 4, 4),
-          selectInput("hud_color_var", "Color Points By:",
-                      choices = c("Conditional Interval Status" = "deviant", isolate(input$group_vars))),
-          selectInput("hud_sort_var", "Sort Y-Axis By:",
-                      choices = c("Effect Size (Magnitude)" = "effect", "Sample Size (N)" = "n", "Alphabetical" = "alpha")),
-          sliderInput("hud_top_n", "Show Top Strata (by Effect Magnitude):",
-                      min = 5, max = max(5, nrow(res$stratum_estimates)),
-                      value = min(25, nrow(res$stratum_estimates)), step = 1)
-        ),
-        plotlyOutput("interactive_plot", height = "600px"),
-        markdown("
-        *Hover over the points to see individual stratum details.*
-        - Points far from the zero-line (red) are the **most extreme strata** for exploration: groups whose outcome departs most from what the additive main effects alone would predict (a descriptive flag, not a model-misfit diagnosis).
-        - Error bars are approximate conditional intervals for stratum random effects. If the bar does not cross zero, treat it as a screening signal, not a formal bootstrap or posterior significance test.
-        - **Point size** represents the total number of individuals (N) within that stratum configuration.
-        ")
-      ),
-      card(
-        card_header("Filtered Strata Data Export"),
-        div(class = "mb-3", downloadButton("download_hud_data", "Download Highlighted Data (CSV)", class = "btn-secondary")),
-        DTOutput("interactive_table")
-      )
+  repro_code_text <- reactive({
+    req(model_results(), fit_params(), fitted_family())
+    p <- fit_params()
+    MAIHDA:::maihda_app_generate_code(
+      outcome_var = p$outcome,
+      grouping_vars = p$grouping_vars,
+      additional_covars = p$covariates,
+      family = fitted_family(),
+      autobin = p$autobin,
+      use_boot = p$use_boot,
+      n_boot = p$n_boot,
+      seed = p$seed,
+      dataset = p$dataset,
+      upload_name = p$upload_name
     )
   })
 
-  # Reactive containing exactly the dataframe filtered for HUD exploring
-  hud_plot_data <- reactive({
-    req(summary_results(), model_results())
-
-    # Build a simple data frame for plotting
-    stratum_df <- as.data.frame(summary_results()$stratum_estimates)
-
-    # Merge with strata_info to get specific variables (N, gender, race, etc.)
-    strata_info <- model_results()$strata_info
-    if (!is.null(strata_info)) {
-      # resolve duplicate column names gracefully
-      cols_to_merge <- setdiff(names(strata_info), names(stratum_df))
-      stratum_df <- merge(stratum_df, strata_info[, c("stratum", cols_to_merge), drop = FALSE], by = "stratum", all.x = TRUE)
+  output$repro_code <- renderText({
+    if (is.null(model_results()) || is.null(fit_params())) {
+      return("Fit a model to generate a reproducible R script for this analysis.")
     }
-
-    # Add Absolute Predicted Values via margin average
-    mod <- model_results()
-    if (!is.null(mod$data)) {
-        pred_vals <- tryCatch({
-            pred <- predict_maihda(mod)
-            agg <- aggregate(pred ~ stratum, data = mod$data, FUN = mean)
-            names(agg)[2] <- "abs_pred"
-            agg
-        }, error = function(e) NULL)
-        if (!is.null(pred_vals)) stratum_df <- merge(stratum_df, pred_vals, by = "stratum", all.x = TRUE)
-    }
-
-    # Use stratum labels if generated, otherwise default to IDs
-    if ("label" %in% names(stratum_df) && !all(is.na(stratum_df$label))) {
-      stratum_df$display_label <- paste0(stratum_df$stratum, ": ", stratum_df$label)
-    } else {
-      stratum_df$display_label <- paste0("Stratum ", stratum_df$stratum)
-    }
-
-    # Add an exploratory flag for conditional intervals that exclude zero.
-    if (!"lower_95" %in% names(stratum_df)) stratum_df$lower_95 <- stratum_df$random_effect - 1.96 * stratum_df$se
-    if (!"upper_95" %in% names(stratum_df)) stratum_df$upper_95 <- stratum_df$random_effect + 1.96 * stratum_df$se
-
-    stratum_df$deviant <- ifelse(stratum_df$lower_95 > 0 | stratum_df$upper_95 < 0, "Excludes zero", "Includes zero")
-
-    # Filter the Top N Deviant strata (by highest absolute effect, retaining original signs)
-    if (!is.null(input$hud_top_n)) {
-      stratum_df <- stratum_df[order(abs(stratum_df$random_effect), decreasing = TRUE), ]
-      stratum_df <- head(stratum_df, input$hud_top_n)
-    }
-
-    stratum_df
+    repro_code_text()
   })
 
-  output$interactive_plot <- renderPlotly({
-    req(hud_plot_data())
-    stratum_df <- hud_plot_data()
-
-    # Y-axis Sorting Control
-    sort_by <- if (!is.null(input$hud_sort_var)) input$hud_sort_var else "effect"
-    if (sort_by == "n" && "n" %in% names(stratum_df)) {
-        stratum_df$display_label <- factor(stratum_df$display_label, levels = stratum_df$display_label[order(stratum_df$n)])
-    } else if (sort_by == "alpha") {
-        stratum_df$display_label <- factor(stratum_df$display_label, levels = rev(stratum_df$display_label[order(as.character(stratum_df$display_label))]))
-    } else {
-        stratum_df$display_label <- factor(stratum_df$display_label, levels = stratum_df$display_label[order(stratum_df$random_effect)])
-    }
-
-    # Create tooltip format
-    n_text <- if ("n" %in% names(stratum_df)) paste("<br>Sample Size (N):", stratum_df$n) else ""
-    abs_text <- if ("abs_pred" %in% names(stratum_df)) paste("<br>Absolute Pred. Outcome:", round(stratum_df$abs_pred, 3)) else ""
-    stratum_df$tooltip <- paste0("<b>", stratum_df$display_label, "</b>",
-                                  n_text,
-                                  abs_text,
-                                  "<br>Effect:", round(stratum_df$random_effect, 3),
-                                  "<br>Approx. conditional interval:", round(stratum_df$lower_95, 3), " to ", round(stratum_df$upper_95, 3))
-
-    # Choose mapping variables
-    color_var <- if(!is.null(input$hud_color_var)) input$hud_color_var else "deviant"
-    size_mapped <- "n" %in% names(stratum_df)
-
-    p <- ggplot(stratum_df, aes(x = random_effect, y = display_label,
-                                color = .data[[color_var]],
-                                text = tooltip)) +
-      geom_vline(xintercept = 0, linetype = "dashed", color = "grey50")
-
-    if (size_mapped) {
-       p <- p + geom_point(aes(size = n), alpha = 0.8) + scale_size_continuous(range = c(2, 6))
-    } else {
-       p <- p + geom_point(size = 3)
-    }
-
-    p <- p + geom_errorbar(aes(xmin = lower_95, xmax = upper_95), width = 0.2, orientation = "y") +
-      theme_minimal() +
-      labs(x = "Intersectional Intercept / Effect (Deviation)",
-           y = "Stratum", color = tools::toTitleCase(color_var), size = "Sample Size (N)") +
-      theme(axis.text.y = element_text(size = 8))
-
-    # If using standard deviant coloring, retain manual scale
-    if (color_var == "deviant") {
-        p <- p + scale_color_manual(values = c("Excludes zero" = "#E74C3C", "Includes zero" = "#34495E"))
-    }
-
-    # Disable tooltip for size parameter so it doesn't double-up and break Plotly's rendering gracefully
-    ggplotly(p, tooltip = "text")
-  })
-
-  output$dynamic_interpretation <- renderUI({
-    req(null_summary_results(), summary_results(), pvc_results())
-
-    # Grab data
-    null_res <- null_summary_results()
-    res <- summary_results()
-    pvc <- pvc_results()
-    df <- as.data.frame(res$stratum_estimates)
-    strata_info <- model_results()$strata_info
-
-    # Merge N into df if available
-    if (!is.null(strata_info) && "n" %in% names(strata_info)) {
-      df <- merge(df, strata_info[, c("stratum", "n")], by = "stratum", all.x = TRUE)
-    } else {
-      df$n <- "Unknown"
-    }
-
-    # Find the most deviant stratum
-    df <- df[order(abs(df$random_effect), decreasing = TRUE), ]
-    most_deviant <- df[1, ]
-
-    # Stratum Label
-    if ("label" %in% names(most_deviant) && !is.na(most_deviant$label)) {
-      dev_label <- paste0(most_deviant$stratum, " (", most_deviant$label, ")")
-    } else {
-      dev_label <- paste0("Stratum ", most_deviant$stratum)
-    }
-
-    dev_effect <- round(most_deviant$random_effect, 3)
-    dev_n <- most_deviant$n
-
-    # Extract metrics
-    vpc_val <- round(null_res$vpc$estimate * 100, 2)
-    pvc_val <- round(pvc$pvc * 100, 2)
-    pvc_display <- MAIHDA:::maihda_app_pvc_display(pvc_val)
-    pvc_interpretation <- if (identical(pvc_display$status, "negative")) {
-      tagList(
-        "After adding the selected main effects, between-strata variance increases by ",
-        tags$strong(pvc_display$value),
-        ", a suppression or unmasking pattern. The adjusted model therefore has ",
-        tags$strong(pvc_display$remaining_value),
-        " of the null between-strata variance, rather than an explained-away share. "
-      )
-    } else if (identical(pvc_display$status, "unknown")) {
-      tagList(
-        "The proportional change in variance could not be summarized for this fit, ",
-        "so the adjusted-model share of between-strata variance is not available. "
-      )
-    } else {
-      tagList(
-        "After adding the simple additive (main) effects, the between-strata variance is ",
-        tags$strong(paste0(pvc_val, "%")),
-        " smaller, leaving ",
-        tags$strong(pvc_display$remaining_value),
-        " of the original between-strata variance in the adjusted model. This is a ",
-        "model-dependent change, not necessarily variance causally explained by those effects. "
-      )
-    }
-
-    # Construct the summary paragraph dynamically
-    tags$div(class = "alert alert-info mt-3",
-      tags$strong("Automated Research Summary: "),
-      "In this analysis, ", tags$strong(paste0(vpc_val, "%")),
-      " of the (null-model) variance in the outcome lies between the defined intersecting demographic or social strata",
-      " -- a between-stratum share of variance (on the model's latent scale for binary or count outcomes), not variance causally attributable to those strata. ",
-      pvc_interpretation,
-      "Among these residuals, the largest between-stratum departure from what the additive main effects alone would predict is in ",
-      tags$strong(dev_label), " (N = ", dev_n, "), with an intersectional deviation score of ",
-      tags$strong(dev_effect), ". Treat this as a descriptive screening flag rather than a confirmed disparity, especially for non-representative data, latent-scale models, or conditional intervals."
-    )
-  })
-
-  output$interactive_table <- renderDT({
-    req(hud_plot_data())
-    df <- hud_plot_data()
-
-    # Drop tooltip and internal parsing columns before showing table
-    cols_to_drop <- c("tooltip", "display_label")
-    df <- df[, !names(df) %in% cols_to_drop]
-
-    # Round numerics
-    num_cols <- vapply(df, is.numeric, logical(1))
-    df[num_cols] <- lapply(df[num_cols], round, 3)
-
-    datatable(df, options = list(pageLength = 10, scrollX = TRUE), rownames = FALSE)
-  })
-
-  output$download_hud_data <- downloadHandler(
-    filename = function() {
-      paste0("maihda_highlighted_strata_", Sys.Date(), ".csv")
-    },
+  output$download_code <- downloadHandler(
+    filename = function() "maihda_analysis.R",
     content = function(file) {
-      df <- hud_plot_data()
-      cols_to_drop <- c("tooltip", "display_label")
-      df <- df[, !names(df) %in% cols_to_drop]
-      write.csv(df, file, row.names = FALSE)
+      writeLines(repro_code_text(), file)
     }
   )
 }
 
-shinyApp(ui = ui, server = server)
+shinyApp(ui = ui, server = server, enableBookmarking = "url")
