@@ -18,74 +18,117 @@ shiny::onStop(function() {
 # do not silently fail before reaching reactive_data()'s reader.
 options(shiny.maxRequestSize = 50 * 1024^2)
 
-ui <- page_sidebar(
-  shinyjs::useShinyjs(),
-  title = "MAIHDA Analysis Dashboard",
-  theme = bs_theme(version = 5, primary = "#2C3E50", success = "#6BCF7F", info = "#4D9DE0"),
+# A system-ui font stack (deliberately not font_google()): it needs no network
+# call at startup, so the app never fails to launch offline, and still renders in
+# a modern UI font ("Inter" when the user has it installed, otherwise the OS UI
+# font). The palette keeps the existing brand navy as primary and reuses the
+# plotly bar colour (#4D9DE0) as info for cross-component consistency.
+maihda_fonts <- c("Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto",
+                  "Helvetica Neue", "Arial", "sans-serif")
+maihda_theme <- bs_theme(
+  version = 5,
+  primary = "#2C3E50", secondary = "#5D6D7E",
+  success = "#2E7D5B", info = "#4D9DE0", warning = "#E0A458",
+  base_font = maihda_fonts, heading_font = maihda_fonts,
+  "border-radius" = "0.6rem"
+)
+
+ui <- page_navbar(
+  id = "main_tabs",
+  window_title = "MAIHDA Analysis Dashboard",
+  title = tags$span(class = "maihda-brand", icon("layer-group"), "MAIHDA Dashboard"),
+  theme = maihda_theme,
+  fillable = FALSE,
+  header = tagList(
+    shinyjs::useShinyjs(),
+    tags$head(tags$link(rel = "stylesheet", href = "custom.css"))
+  ),
 
   sidebar = sidebar(
     title = "Controls",
-    actionLink("help", tagList(icon("circle-question"), "Help / Glossary"),
-               `aria-label` = "Open help and glossary"),
-    actionLink("show_code", tagList(icon("code"), "Reproduce in R"),
-               `aria-label` = "Show the reproducible R script for this analysis"),
-    bookmarkButton(label = "Bookmark / share",
-                   title = "Save this analysis configuration to a shareable URL (built-in data + selections)."),
-    tags$hr(class = "my-1"),
-    selectInput("dataset", "1. Select Dataset:",
-                choices = c("Built-in: PISA Country Data" = "pisa",
-                            "Built-in: NHANES Health Data" = "health",
-                            "Upload Custom Data" = "upload")),
-    conditionalPanel(
-      condition = "input.dataset == 'upload'",
-      fileInput("upload", "Upload Data (CSV/DTA/SAV)", accept = c(".csv", ".dta", ".sav"))
+    width = 330,
+    accordion(
+      id = "sidebar_steps",
+      open = c("step-data", "step-model"),
+      multiple = TRUE,
+      accordion_panel(
+        "1 · Data", value = "step-data", icon = icon("table"),
+        selectInput("dataset", "Select Dataset:",
+                    # NHANES first so it is the default: its Gender x Race x Age
+                    # MAIHDA is a clean, non-singular showcase. PISA shines in the
+                    # cross-country group-comparison tab rather than this headline.
+                    choices = c("Built-in: NHANES Health Data" = "health",
+                                "Built-in: PISA Country Data" = "pisa",
+                                "Upload Custom Data" = "upload")),
+        conditionalPanel(
+          condition = "input.dataset == 'upload'",
+          fileInput("upload", "Upload Data (CSV/DTA/SAV)", accept = c(".csv", ".dta", ".sav"))
+        )
+      ),
+      accordion_panel(
+        "2 · Model", value = "step-model", icon = icon("sitemap"),
+        selectizeInput("outcome",
+                       tagList("Outcome Variable ",
+                               tooltip(icon("info-circle"),
+                                       "The variable whose inequality you're analysing. A two-level outcome is fitted as logistic automatically.")),
+                       choices = NULL),
+        selectizeInput("group_vars",
+                       tagList("Strata Grouping Variables ",
+                               tooltip(icon("info-circle"),
+                                       "Pick 2 or more variables (e.g. gender and race). Their combinations define the intersectional strata.")),
+                       choices = NULL, multiple = TRUE),
+        uiOutput("group_var_hint"),
+        checkboxInput("autobin", "Auto-bin continuous strata vars (>10 unique values) into 3 groups", value = TRUE),
+        selectizeInput("covariates", "Additional Covariates (Fixed Effects)", choices = NULL, multiple = TRUE)
+      ),
+      accordion_panel(
+        "3 · Options", value = "step-options", icon = icon("sliders"),
+        selectInput("family", "Family", choices = c("gaussian", "binomial", "poisson"), selected = "gaussian"),
+        checkboxInput("use_boot", "Compute Bootstrap CIs (Slower)", value = FALSE),
+        conditionalPanel(
+          condition = "input.use_boot == true",
+          numericInput("n_boot", "Bootstrap Samples", value = 100, min = 10, step = 10),
+          numericInput("seed", "Random Seed (reproducible bootstrap)", value = 123, min = 1, step = 1)
+        )
+      )
     ),
-
-    # Model specification
-    selectizeInput("outcome",
-                   tagList("Outcome Variable ",
-                           tooltip(icon("info-circle"),
-                                   "The variable whose inequality you're analysing. A two-level outcome is fitted as logistic automatically.")),
-                   choices = NULL),
-    selectizeInput("group_vars",
-                   tagList("Strata Grouping Variables ",
-                           tooltip(icon("info-circle"),
-                                   "Pick 2 or more variables (e.g. gender and race). Their combinations define the intersectional strata.")),
-                   choices = NULL, multiple = TRUE),
-    uiOutput("group_var_hint"),
-    checkboxInput("autobin", "Auto-bin continuous strata vars (>10 unique values) into 3 groups", value = TRUE),
-    selectizeInput("covariates", "Additional Covariates (Fixed Effects)", choices = NULL, multiple = TRUE),
-
-    # Model settings
-    selectInput("family", "Family", choices = c("gaussian", "binomial", "poisson"), selected = "gaussian"),
-    checkboxInput("use_boot", "Compute Bootstrap CIs (Slower)", value = FALSE),
-    conditionalPanel(
-      condition = "input.use_boot == true",
-      numericInput("n_boot", "Bootstrap Samples", value = 100, min = 10, step = 10),
-      numericInput("seed", "Random Seed (reproducible bootstrap)", value = 123, min = 1, step = 1)
-    ),
-
-    # Action button to trigger fitting
-    actionButton("fit_btn", "Fit MAIHDA Model", class = "btn-primary")
+    # Primary action, pinned to the bottom of the sidebar so it stays visible
+    # regardless of how far the controls scroll. input_task_button shows a busy
+    # state and disables itself while a fit is in flight (driven from the server).
+    div(
+      class = "maihda-fit-wrap",
+      input_task_button("fit_btn", "Fit MAIHDA Model", icon = icon("play"),
+                        label_busy = "Fitting…", auto_reset = FALSE)
+    )
   ),
 
-  navset_card_tab(
-    id = "main_tabs",
-    nav_panel("Data View",
-              shinycssloaders::withSpinner(DTOutput("data_table"))),
-    nav_panel("Model Summary",
-              uiOutput("model_summary_ui")),
-    nav_panel("PCV Results",
-              uiOutput("pvc_summary_ui")),
-    nav_panel("Stepwise PCV",
-              uiOutput("stepwise_pcv_ui")),
-    nav_panel("Model Comparison",
-              MAIHDA:::mod_compare_ui("compare")),
-    nav_panel("Visualizations",
-              MAIHDA:::mod_visualizations_ui("viz")),
-    nav_panel("Interactive Explorer",
-              MAIHDA:::mod_explorer_ui("explorer"))
-  )
+  # ---- Tabs (results-first), then a spacer and right-aligned utilities -------
+  nav_panel("Overview", value = "overview", icon = icon("house"),
+            uiOutput("overview_ui")),
+  nav_panel("Model Summary", value = "model_summary", icon = icon("clipboard-list"),
+            uiOutput("model_summary_ui")),
+  nav_panel("PCV Results", value = "pcv", icon = icon("arrow-down-wide-short"),
+            navset_pill(
+              nav_panel("PCV summary", uiOutput("pvc_summary_ui")),
+              nav_panel("Stepwise decomposition", uiOutput("stepwise_pcv_ui"))
+            )),
+  nav_panel("Model Comparison", value = "compare", icon = icon("code-compare"),
+            MAIHDA:::mod_compare_ui("compare")),
+  nav_panel("Visualizations", value = "viz", icon = icon("chart-column"),
+            MAIHDA:::mod_visualizations_ui("viz")),
+  nav_panel("Interactive Explorer", value = "explorer", icon = icon("compass"),
+            MAIHDA:::mod_explorer_ui("explorer")),
+  nav_panel("Data View", value = "data", icon = icon("table"),
+            shinycssloaders::withSpinner(DTOutput("data_table"))),
+
+  nav_spacer(),
+  nav_item(input_dark_mode(id = "dark_mode")),
+  nav_item(actionLink("help", tagList(icon("circle-question"), "Help"),
+                      `aria-label` = "Open help and glossary")),
+  nav_item(actionLink("show_code", tagList(icon("code"), "Reproduce in R"),
+                      `aria-label` = "Show the reproducible R script for this analysis")),
+  nav_item(bookmarkButton(label = "Bookmark",
+                          title = "Save this analysis configuration to a shareable URL (built-in data + selections)."))
 )
 
 server <- function(input, output, session) {
@@ -95,7 +138,8 @@ server <- function(input, output, session) {
   # upload (an uploaded file cannot be restored from a URL) and the action controls
   # (so a restored bookmark never auto-triggers a fit). Module run-buttons are
   # excluded inside their own modules.
-  setBookmarkExclude(c("upload", "fit_btn", "help", "show_code"))
+  setBookmarkExclude(c("upload", "fit_btn", "help", "show_code",
+                       "overview_start", "overview_help"))
 
   # Load data: built-in PISA / NHANES datasets, or an uploaded file
   reactive_data <- reactive({
@@ -179,8 +223,10 @@ server <- function(input, output, session) {
     }
   })
 
-  observeEvent(input$help, {
-    showModal(modalDialog(
+  # The Help / Glossary modal is reachable from both the navbar link and the
+  # Overview tab's call-to-action, so build it once and show it from either.
+  maihda_help_modal <- function() {
+    modalDialog(
       title = "MAIHDA Dashboard -- Help & Glossary",
       easyClose = TRUE,
       size = "l",
@@ -212,7 +258,61 @@ server <- function(input, output, session) {
 *See the package vignettes for worked examples and the statistical details.*"
       ),
       footer = modalButton("Close")
-    ))
+    )
+  }
+  observeEvent(input$help, showModal(maihda_help_modal()))
+  observeEvent(input$overview_help, showModal(maihda_help_modal()))
+
+  # Welcome / Overview landing (the default tab on load).
+  output$overview_ui <- renderUI({
+    tagList(
+      div(
+        class = "maihda-hero mb-4",
+        h1("MAIHDA Analysis Dashboard"),
+        p(class = "maihda-hero-lead",
+          "A no-code interface for Multilevel Analysis of Individual Heterogeneity
+           and Discriminatory Accuracy -- build intersectional strata, fit the null
+           and adjusted multilevel models, and read off the variance partition
+           coefficient and its proportional change."),
+        layout_columns(
+          col_widths = c(4, 4, 4),
+          class = "maihda-steps mt-3",
+          div(class = "maihda-step",
+              icon("table", class = "maihda-step-icon"),
+              h6("1 · Choose data"),
+              p("Pick a built-in PISA or NHANES example, or upload your own CSV/DTA/SAV.")),
+          div(class = "maihda-step",
+              icon("sitemap", class = "maihda-step-icon"),
+              h6("2 · Define strata"),
+              p("Select an outcome and 2+ grouping variables; their combinations form the intersectional strata.")),
+          div(class = "maihda-step",
+              icon("play", class = "maihda-step-icon"),
+              h6("3 · Fit & explore"),
+              p("Click Fit MAIHDA Model -- results populate the tabs above."))
+        ),
+        div(class = "mt-4 d-flex gap-2 flex-wrap",
+            actionButton("overview_start", tagList(icon("arrow-right"), "Get started"),
+                         class = "btn-light"),
+            actionButton("overview_help", tagList(icon("circle-question"), "What do VPC & PCV mean?"),
+                         class = "btn-outline-light"))
+      ),
+      card(
+        class = "maihda-overview-note",
+        card_body(
+          markdown(
+            "**MAIHDA** partitions outcome variation into a *between-strata* share
+            (the **VPC / ICC**) and shows how that share changes once additive main
+            effects are added (the **PCV**). A high VPC need not imply high
+            individual-level *discriminatory accuracy* -- the cautionary core of the
+            method. Open **Help** in the top bar for the full glossary.")
+        )
+      )
+    )
+  })
+
+  # "Get started" jumps to the data view, where the sidebar workflow is in reach.
+  observeEvent(input$overview_start, {
+    nav_select("main_tabs", "data")
   })
 
   output$data_table <- renderDT({
@@ -256,7 +356,7 @@ server <- function(input, output, session) {
     # competing fit whose (possibly out-of-order) result would clobber this one.
     this_fit <- fit_id() + 1
     fit_id(this_fit)
-    shinyjs::disable("fit_btn")
+    bslib::update_task_button("fit_btn", state = "busy")
 
     # Remember exactly what this fit used so the "Reproduce in R" dialog mirrors it,
     # independent of any later sidebar edits.
@@ -302,7 +402,7 @@ server <- function(input, output, session) {
         # A newer fit has superseded this one: drop the stale result and leave the
         # button for the newer fit to re-enable when it finishes.
         if (!identical(this_fit, fit_id())) return(invisible(NULL))
-        shinyjs::enable("fit_btn")
+        bslib::update_task_button("fit_btn", state = "ready")
 
         model_results(res$model)
         fitted_family(res$family_used)
@@ -338,31 +438,28 @@ server <- function(input, output, session) {
             type = "warning", duration = 12
           )
         }
-        nav_select("main_tabs", "PCV Results")
+        nav_select("main_tabs", "model_summary")
       }) %...!% (function(err) {
         removeNotification(id)
         if (!identical(this_fit, fit_id())) return(invisible(NULL))
-        shinyjs::enable("fit_btn")
+        bslib::update_task_button("fit_btn", state = "ready")
         showNotification(paste("Error fitting model:", err$message), type = "error", duration = 15)
       })
   })
 
   output$model_summary_ui <- renderUI({
     if (is.null(summary_results())) {
-      return(card(
-        card_header("Getting started"),
-        card_body(markdown(
-          "No model fitted yet. **1.** Pick a dataset, **2.** choose an outcome and
-          **2+ grouping variables**, then **3.** click *Fit MAIHDA Model* in the
-          sidebar. Need definitions? Open **Help / Glossary** at the top of the
-          sidebar."))
-      ))
+      return(MAIHDA:::maihda_app_empty_state(
+        "No model fitted yet",
+        "**1.** Pick a dataset, **2.** choose an outcome and **2+ grouping
+        variables**, then **3.** click *Fit MAIHDA Model* in the sidebar.
+        Need definitions? Open **Help** in the top bar."))
     }
     res <- summary_results()
 
     vpc <- res$vpc
     vpc_interval <- if (MAIHDA:::maihda_vpc_has_interval(vpc)) {
-      div(class = "text-muted",
+      div(class = "small",
           sprintf("[%.2f%%, %.2f%%] %s",
                   vpc$ci_lower * 100, vpc$ci_upper * 100,
                   MAIHDA:::maihda_vpc_interval_label(vpc)))
@@ -371,7 +468,7 @@ server <- function(input, output, session) {
     }
 
     family_line <- if (!is.null(fitted_family())) {
-      div(class = "text-muted small", sprintf("Fitted with family = '%s'", fitted_family()))
+      div(class = "small", sprintf("Fitted with family = '%s'", fitted_family()))
     } else {
       NULL
     }
@@ -384,7 +481,7 @@ server <- function(input, output, session) {
       rv <- tryCatch(MAIHDA::maihda_vpc_response(model_results(), seed = seed_val),
                      error = function(e) NULL)
       if (!is.null(rv) && is.finite(rv$estimate)) {
-        div(class = "text-muted small",
+        div(class = "small",
             sprintf("Response-scale VPC: %.2f%% (simulation method; latent-scale shown above)",
                     rv$estimate * 100))
       } else {
@@ -437,16 +534,27 @@ server <- function(input, output, session) {
     da_card <- if (!is.null(da) && (!is.null(da$null) || !is.null(da$adjusted))) {
       card(
         card_header("Discriminatory Accuracy (binary outcome)"),
-        div(class = "d-flex justify-content-around text-center",
-            div(h5("AUC -- strata only"),
-                h3(fmt_metric(if (!is.null(da$null)) da$null$auc else NA)),
-                p(class = "text-muted mb-0", "C-statistic of the intersectional strata alone")),
-            div(h5("AUC -- adjusted"),
-                h3(fmt_metric(if (!is.null(da$adjusted)) da$adjusted$auc else NA)),
-                p(class = "text-muted mb-0", "With individual covariates added")),
-            div(h5("Median Odds Ratio"),
-                h3(fmt_metric(if (!is.null(da$null)) da$null$mor else NA, 2)),
-                p(class = "text-muted mb-0", "Between-stratum heterogeneity on the odds-ratio scale"))
+        layout_columns(
+          col_widths = c(4, 4, 4),
+          class = "maihda-metric-row",
+          value_box(
+            title = "AUC — strata only",
+            value = fmt_metric(if (!is.null(da$null)) da$null$auc else NA),
+            showcase = icon("bullseye"), theme = "info",
+            p(class = "mb-0", "C-statistic of the intersectional strata alone")
+          ),
+          value_box(
+            title = "AUC — adjusted",
+            value = fmt_metric(if (!is.null(da$adjusted)) da$adjusted$auc else NA),
+            showcase = icon("bullseye"), theme = "primary",
+            p(class = "mb-0", "With individual covariates added")
+          ),
+          value_box(
+            title = "Median Odds Ratio",
+            value = fmt_metric(if (!is.null(da$null)) da$null$mor else NA, 2),
+            showcase = icon("scale-balanced"), theme = "secondary",
+            p(class = "mb-0", "Between-stratum heterogeneity on the odds-ratio scale")
+          )
         ),
         div(class = "small text-muted mt-2",
             "AUC = 0.5 is chance. A high between-stratum VPC can still translate into only modest individual-level discriminatory accuracy -- the cautionary message at the heart of the 'DA' in MAIHDA.")
@@ -456,19 +564,25 @@ server <- function(input, output, session) {
     }
 
     tagList(
-      card(
-        card_header(tagList("Variance Partition Coefficient (VPC) / ICC ",
-                            tooltip(icon("info-circle"),
-                                    "Share of outcome variation that lies between strata. For binary/count outcomes this is on the model's latent scale."))),
-        h3(HTML(sprintf("<span class='text-primary'>%.2f%%</span>", vpc$estimate * 100))),
-        vpc_interval,
-        family_line,
-        response_vpc_line
-      ),
-      card(
-        card_header("Fit diagnostics & strata overview"),
-        diag_ui,
-        strata_ui
+      layout_columns(
+        col_widths = c(5, 7),
+        class = "maihda-metric-row",
+        value_box(
+          title = tagList("Variance Partition Coefficient (VPC) / ICC ",
+                          tooltip(icon("info-circle"),
+                                  "Share of outcome variation that lies between strata. For binary/count outcomes this is on the model's latent scale.")),
+          value = sprintf("%.2f%%", vpc$estimate * 100),
+          showcase = icon("layer-group"),
+          theme = "primary",
+          vpc_interval,
+          family_line,
+          response_vpc_line
+        ),
+        card(
+          card_header("Fit diagnostics & strata overview"),
+          diag_ui,
+          strata_ui
+        )
       ),
       da_card,
       layout_columns(
@@ -504,8 +618,12 @@ server <- function(input, output, session) {
   })
 
   output$pvc_summary_ui <- renderUI({
-    req(pvc_results())
-    req(model_results())
+    if (is.null(pvc_results()) || is.null(model_results())) {
+      return(MAIHDA:::maihda_app_empty_state(
+        "No PCV results yet",
+        "Fit a MAIHDA model from the sidebar to see the proportional change in
+        between-stratum variance between the null and adjusted models."))
+    }
 
     pvc <- pvc_results()
     mod <- model_results()
@@ -533,43 +651,43 @@ server <- function(input, output, session) {
     card(
       card_header("Proportional Change in Variance (PCV)"),
       card_body(
-        div(class = "d-flex justify-content-around text-center mb-4",
-          div(
-            h5("Null Model (Model 1)"),
-            tags$code(null_formula),
-            br(),br(),
-            h5("Variance:"),
-            h4(if (!is.null(pvc$var_model1) && is.finite(pvc$var_model1)) sprintf("%.4f", pvc$var_model1) else "N/A")
+        layout_columns(
+          col_widths = c(4, 4, 4),
+          class = "maihda-metric-row mb-2",
+          value_box(
+            title = "Null model variance",
+            value = if (!is.null(pvc$var_model1) && is.finite(pvc$var_model1)) sprintf("%.4f", pvc$var_model1) else "N/A",
+            showcase = icon("seedling"), theme = "secondary",
+            p(class = "mb-0", "Model 1: strata only")
           ),
-          div(
-            h5("Adjusted Model (Model 2)"),
-            tags$code(paste(adjusted_formula, collapse = "")),
-            br(),br(),
-            h5("Variance:"),
-            h4(if (!is.null(pvc$var_model2) && is.finite(pvc$var_model2)) sprintf("%.4f", pvc$var_model2) else "N/A")
+          value_box(
+            title = "Adjusted model variance",
+            value = if (!is.null(pvc$var_model2) && is.finite(pvc$var_model2)) sprintf("%.4f", pvc$var_model2) else "N/A",
+            showcase = icon("layer-group"), theme = "info",
+            p(class = "mb-0", "Model 2: + main effects")
+          ),
+          value_box(
+            title = tagList("Estimated PCV ",
+                            tooltip(
+                              shiny::icon("info-circle"),
+                              "PCV is the proportional change in between-stratum variance from the Null to the Adjusted model. A high PCV means the between-stratum variance is much smaller after adding the additive main effects; a low or negative PCV means little change (or an increase). This is a model-dependent change, not proof that inequality was causally 'explained away' -- it can also reflect suppression, rescaling, sample composition, or uncertainty, not interaction alone.")),
+            value = if (is.finite(pvc$pvc)) sprintf("%.2f%%", pvc$pvc * 100) else "N/A",
+            showcase = icon("arrow-down-wide-short"),
+            theme = if (is.finite(pvc$pvc)) "success" else "warning",
+            p(class = "mb-0",
+              if (is.finite(pvc$pvc)) "Proportional change vs the null model" else "Undefined for this fit")
           )
         ),
-        hr(),
-        div(class = "text-center",
-          h3(
-            "Estimated PCV ",
-            tooltip(
-              shiny::icon("info-circle"),
-              "PCV is the proportional change in between-stratum variance from the Null to the Adjusted model. A high PCV means the between-stratum variance is much smaller after adding the additive main effects; a low or negative PCV means little change (or an increase). This is a model-dependent change, not proof that inequality was causally 'explained away' -- it can also reflect suppression, rescaling, sample composition, or uncertainty, not interaction alone."
-            )
-          ),
-          if (is.finite(pvc$pvc)) {
-            h2(class = "text-success", sprintf("%.2f%%", pvc$pvc * 100))
-          } else {
-            tagList(
-              h2(class = "text-muted", "N/A"),
-              div(class = "alert alert-warning text-start",
-                  tags$strong("PCV could not be calculated. "),
-                  if (!is.null(pvc$message)) pvc$message else
-                    "The baseline between-stratum variance is zero, so the proportional change is undefined. The model fit, VPC and visualizations above remain valid.")
-            )
-          }
-        ),
+        div(class = "small text-muted mb-3",
+            tagList("Null: ", tags$code(null_formula),
+                    HTML("&nbsp;&bull;&nbsp;"),
+                    "Adjusted: ", tags$code(paste(adjusted_formula, collapse = "")))),
+        if (!is.finite(pvc$pvc)) {
+          div(class = "alert alert-warning",
+              tags$strong("PCV could not be calculated. "),
+              if (!is.null(pvc$message)) pvc$message else
+                "The baseline between-stratum variance is zero, so the proportional change is undefined. The model fit, VPC and visualizations above remain valid.")
+        } else NULL,
         bootstrap_ui
       )
     )

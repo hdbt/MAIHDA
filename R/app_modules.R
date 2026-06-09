@@ -8,6 +8,25 @@
 # inside server-side renderUI() are namespaced with session$ns(), as Shiny does
 # not auto-namespace dynamically generated UI.
 
+# --- Shared empty-state card -------------------------------------------------
+# A friendly placeholder shown on a results surface *before* a model is fitted,
+# instead of a blank panel. Centralised here so every tab/module shows the same
+# styling (.maihda-empty in inst/shiny/www/custom.css) and a consistent nudge
+# back to the sidebar workflow.
+
+#' @noRd
+maihda_app_empty_state <- function(title, message,
+                                   icon_name = "wand-magic-sparkles") {
+  bslib::card(
+    class = "maihda-empty text-center",
+    bslib::card_body(
+      shiny::icon(icon_name, class = "maihda-empty-icon"),
+      shiny::h5(title, class = "mt-2"),
+      shiny::div(class = "text-muted", shiny::markdown(message))
+    )
+  )
+}
+
 # --- Visualizations tab ------------------------------------------------------
 # Static plot-type picker + download button + a wrapper that swaps a static
 # ggplot output for an interactive plotly one (the ternary view). Depends only on
@@ -63,6 +82,12 @@ mod_visualizations_server <- function(id, model_results) {
     })
 
     output$maihda_plot_wrapper <- shiny::renderUI({
+      if (is.null(model_results())) {
+        return(maihda_app_empty_state(
+          "No plots yet",
+          "Fit a MAIHDA model from the sidebar, then pick a plot type above to
+           visualise the strata effects."))
+      }
       if (input$plot_type == "ternary") {
         shinycssloaders::withSpinner(plotly::plotlyOutput(ns("maihda_plotly"), height = "500px"))
       } else {
@@ -118,7 +143,13 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
     ns <- session$ns
 
     output$interactive_explorer_ui <- shiny::renderUI({
-      shiny::req(model_results(), null_summary_results(), summary_results(), pvc_results())
+      if (is.null(model_results()) || is.null(null_summary_results()) ||
+          is.null(summary_results()) || is.null(pvc_results())) {
+        return(maihda_app_empty_state(
+          "Nothing to explore yet",
+          "Fit a MAIHDA model from the sidebar to unlock the interactive strata
+           explorer, key metrics and filtered data export."))
+      }
       null_res <- null_summary_results()
       res <- summary_results()
       pvc <- pvc_results()
@@ -139,12 +170,32 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
         col_widths = c(12, 12),
         bslib::card(
           bslib::card_header("HUD: Key MAIHDA Metrics"),
-          shiny::div(class = "d-flex justify-content-around text-center",
-              shiny::div(shiny::h4("VPC (Null)"), shiny::h3(paste0(vpc_val, "%")),
-                  shiny::p(class = "text-muted mb-0", "Total Variance b/w Strata"),
-                  if (!is.null(vpc_ci_text)) shiny::p(class = "text-muted small mb-0", vpc_ci_text) else NULL),
-              shiny::div(shiny::h4("PCV (Adjusted)"), shiny::h3(pvc_val_display), shiny::p(class = "text-muted", "Between-Stratum Variance Change with Main Effects")),
-              shiny::div(shiny::h4(pvc_display$label), shiny::h3(pvc_display$value), shiny::p(class = "text-muted", pvc_display$description))
+          bslib::layout_columns(
+            col_widths = c(4, 4, 4),
+            class = "maihda-metric-row",
+            bslib::value_box(
+              title = "VPC (Null)",
+              value = paste0(vpc_val, "%"),
+              showcase = shiny::icon("layer-group"),
+              theme = "primary",
+              shiny::p(class = "mb-0", "Total variance between strata"),
+              if (!is.null(vpc_ci_text)) shiny::p(class = "small mb-0", vpc_ci_text) else NULL
+            ),
+            bslib::value_box(
+              title = "PCV (Adjusted)",
+              value = pvc_val_display,
+              showcase = shiny::icon("arrow-down-wide-short"),
+              theme = "info",
+              shiny::p(class = "mb-0", "Between-stratum variance change with main effects")
+            ),
+            bslib::value_box(
+              title = pvc_display$label,
+              value = pvc_display$value,
+              showcase = shiny::icon("chart-pie"),
+              theme = switch(pvc_display$status,
+                             negative = "warning", unknown = "secondary", "success"),
+              shiny::p(class = "mb-0", pvc_display$description)
+            )
           ),
           shiny::markdown("
           **Interpretation Guide**:
@@ -203,7 +254,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
       if (!is.null(mod$data)) {
         pred_vals <- tryCatch({
           pred <- predict_maihda(mod)
-          agg <- aggregate(pred ~ stratum, data = mod$data, FUN = mean)
+          agg <- stats::aggregate()(pred ~ stratum, data = mod$data, FUN = mean)
           names(agg)[2] <- "abs_pred"
           agg
         }, error = function(e) NULL)
@@ -393,7 +444,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
         df <- hud_plot_data()
         cols_to_drop <- c("tooltip", "display_label")
         df <- df[, !names(df) %in% cols_to_drop]
-        write.csv(df, file, row.names = FALSE)
+        utils::write.csv()(df, file, row.names = FALSE)
       }
     )
 
@@ -421,8 +472,7 @@ mod_compare_ui <- function(id) {
           "Compares the between-stratum VPC of the **null** (strata-only) model with
           the **adjusted** model (main effects added) -- computed automatically from
           your last fit."),
-        DT::DTOutput(ns("nested_table")),
-        shinycssloaders::withSpinner(shiny::plotOutput(ns("nested_plot"), height = "320px"))
+        shiny::uiOutput(ns("nested_ui"))
       )
     ),
     bslib::card(
@@ -466,6 +516,23 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
     }
 
     # ---- Nested comparison (auto, from the last fit) ----
+    # Swap a friendly empty state for the table/plot until a fit exists. The
+    # nested_table / nested_plot renderers below stay defined unconditionally
+    # (testServer accesses output$nested_table directly), so this only governs
+    # what is *mounted* in the UI.
+    output$nested_ui <- shiny::renderUI({
+      if (is.null(comparison_results())) {
+        return(maihda_app_empty_state(
+          "No comparison yet",
+          "Fit a MAIHDA model from the sidebar; the null-vs-adjusted VPC
+           comparison is computed automatically from that fit."))
+      }
+      shiny::tagList(
+        DT::DTOutput(ns("nested_table")),
+        shinycssloaders::withSpinner(shiny::plotOutput(ns("nested_plot"), height = "320px"))
+      )
+    })
+
     output$nested_table <- DT::renderDT({
       shiny::req(comparison_results())
       DT::datatable(round_numeric(as.data.frame(comparison_results())),

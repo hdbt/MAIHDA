@@ -21,7 +21,10 @@ maihda_app_default_vars <- function(dataset, data) {
   known <- switch(
     as.character(dataset),
     pisa = list(outcome = "math", groups = c("gender", "ses")),
-    health = list(outcome = "Obese", groups = c("Gender", "Race")),
+    # Gender x Race x Age (Age autobinned to tertiles) -> 30 well-sized strata
+    # with a non-singular adjusted fit and a visible intersectional residual
+    # (PCV ~72%), a far better headline MAIHDA showcase than a 2-dimension default.
+    health = list(outcome = "Obese", groups = c("Gender", "Race", "Age")),
     list(outcome = NULL, groups = character(0))
   )
 

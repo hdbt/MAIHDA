@@ -1,0 +1,129 @@
+/* ===========================================================================
+   MAIHDA Analysis Dashboard -- redesign stylesheet
+   Loaded by inst/shiny/app.R via <link rel="stylesheet" href="custom.css">.
+   Layout/colour come from the bslib bs_theme(); this file adds the bespoke
+   pieces the theme cannot express: the brand, the welcome hero, card depth,
+   the sticky fit button, value-box polish and the empty-state placeholder.
+   Every custom colour has a dark-mode variant keyed off [data-bs-theme="dark"]
+   so the navbar dark-mode toggle restyles these elements too.
+   ========================================================================= */
+
+/* ---- Brand (navbar title) ------------------------------------------------ */
+.maihda-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  font-weight: 600;
+  letter-spacing: .2px;
+}
+.maihda-brand .fa,
+.maihda-brand svg { color: var(--bs-info); }
+
+/* Right-aligned navbar utility links (Help / Reproduce / Bookmark). */
+.navbar .nav-item .action-button,
+.navbar .nav-item .btn-bookmark {
+  white-space: nowrap;
+}
+
+/* ---- Welcome hero -------------------------------------------------------- */
+.maihda-hero {
+  color: #fff;
+  background: linear-gradient(135deg, var(--bs-primary) 0%, var(--bs-info) 100%);
+  border: 0;
+  border-radius: 1rem;
+  padding: 2.25rem 2rem;
+  box-shadow: 0 .75rem 1.75rem rgba(0, 0, 0, .18);
+}
+.maihda-hero h1,
+.maihda-hero h2 { font-weight: 700; }
+.maihda-hero .maihda-hero-lead {
+  font-size: 1.1rem;
+  opacity: .92;
+  max-width: 60ch;
+}
+.maihda-hero .btn-light { font-weight: 600; }
+
+/* "How it works" steps inside the hero / overview. */
+.maihda-steps { gap: 1rem; }
+.maihda-step {
+  background: rgba(255, 255, 255, .12);
+  border: 1px solid rgba(255, 255, 255, .25);
+  border-radius: .75rem;
+  padding: 1.1rem 1rem;
+  height: 100%;
+}
+.maihda-step .maihda-step-icon {
+  font-size: 1.5rem;
+  margin-bottom: .35rem;
+  display: block;
+}
+.maihda-step h6 { font-weight: 700; margin-bottom: .25rem; }
+.maihda-step p { margin-bottom: 0; opacity: .9; font-size: .9rem; }
+
+/* A plain (non-hero) info card used for the glossary blurb under the hero. */
+.maihda-overview-note { border-left: 4px solid var(--bs-info); }
+
+/* ---- Cards: a little more depth than stock bslib ------------------------- */
+.card {
+  border: 1px solid rgba(0, 0, 0, .06);
+  box-shadow: 0 .125rem .5rem rgba(0, 0, 0, .06);
+}
+.card .card-header { font-weight: 600; }
+
+/* ---- Sidebar ------------------------------------------------------------- */
+.sidebar .accordion { --bs-accordion-btn-padding-y: .6rem; }
+.sidebar .accordion-button { font-weight: 600; }
+.sidebar .accordion-body { padding-top: .75rem; }
+
+/* Sticky, always-visible primary action at the bottom of the sidebar. */
+.maihda-fit-wrap {
+  position: sticky;
+  bottom: 0;
+  margin: .5rem -.5rem -.5rem;
+  padding: .75rem .5rem;
+  background: var(--bs-body-bg);
+  border-top: 1px solid var(--bs-border-color);
+  z-index: 3;
+}
+.maihda-fit-wrap .btn { width: 100%; font-weight: 600; }
+
+/* ---- Value boxes (HUD / Model Summary / PCV metrics) --------------------- */
+.bslib-value-box { border-radius: .75rem; }
+.maihda-metric-row .bslib-value-box .value-box-showcase { opacity: .85; }
+.maihda-metric-row .bslib-value-box .value-box-title { font-weight: 600; }
+
+/* ---- Empty-state placeholder -------------------------------------------- */
+.maihda-empty {
+  border: 1px dashed var(--bs-border-color);
+  box-shadow: none;
+  background: var(--bs-body-bg);
+}
+.maihda-empty .card-body { padding: 2.5rem 1.5rem; }
+.maihda-empty-icon {
+  font-size: 2.6rem;
+  color: var(--bs-primary);
+  opacity: .45;
+}
+.maihda-empty h5 { font-weight: 600; }
+.maihda-empty p { max-width: 46ch; margin: .25rem auto 0; }
+
+/* ---- Responsive tweaks --------------------------------------------------- */
+@media (max-width: 575.98px) {
+  .maihda-hero { padding: 1.5rem 1.25rem; border-radius: .75rem; }
+  .maihda-hero .maihda-hero-lead { font-size: 1rem; }
+}
+
+/* ===========================================================================
+   Dark-mode overrides (navbar input_dark_mode toggle -> [data-bs-theme=dark])
+   ========================================================================= */
+[data-bs-theme="dark"] .card {
+  border-color: rgba(255, 255, 255, .08);
+  box-shadow: 0 .125rem .5rem rgba(0, 0, 0, .45);
+}
+[data-bs-theme="dark"] .maihda-hero {
+  box-shadow: 0 .75rem 1.75rem rgba(0, 0, 0, .55);
+}
+[data-bs-theme="dark"] .maihda-empty {
+  border-color: rgba(255, 255, 255, .14);
+}
+[data-bs-theme="dark"] .maihda-empty-icon { opacity: .55; }
