@@ -207,8 +207,8 @@ test_that("Shiny server loads the selected built-in dataset", {
   app_env <- maihda_source_app_for_test()
 
   shiny::testServer(app_env$server, {
-    session$setInputs(dataset = "sim")
-    expect_equal(nrow(reactive_data()), nrow(MAIHDA::maihda_sim_data))
+    session$setInputs(dataset = "pisa")
+    expect_equal(nrow(reactive_data()), nrow(MAIHDA::maihda_country_data))
 
     session$setInputs(dataset = "health")
     expect_equal(nrow(reactive_data()), nrow(MAIHDA::maihda_health_data))
@@ -219,7 +219,7 @@ test_that("A single grouping variable triggers the non-intersectional hint", {
   app_env <- maihda_source_app_for_test()
 
   shiny::testServer(app_env$server, {
-    session$setInputs(dataset = "sim", group_vars = "gender")
+    session$setInputs(dataset = "pisa", group_vars = "gender")
     hint_one <- paste(unlist(output$group_var_hint), collapse = " ")
     expect_match(hint_one, "intersectional", ignore.case = TRUE)
 
@@ -261,6 +261,9 @@ test_that("Explorer module derives HUD plot data from real results", {
       expect_true(all(c("display_label", "deviant", "random_effect") %in% names(hud)))
       expect_false("stratum.1" %in% names(hud))
       expect_true(any(hud$display_label != paste0("Stratum ", hud$stratum)))
+
+      # The deviance plot (colour + shape -> plotly) builds without error.
+      expect_no_error(output$interactive_plot)
     }
   )
 })
@@ -313,23 +316,23 @@ test_that("maihda_app_fit_models reports the resolved family and auto-switch fla
 
 test_that("Reproducible code export mirrors the fitted model specification", {
   code <- MAIHDA:::maihda_app_generate_code(
-    outcome_var = "health_outcome",
-    grouping_vars = c("gender", "race"),
-    additional_covars = "age",
-    family = "binomial",
+    outcome_var = "math",
+    grouping_vars = c("gender", "ses"),
+    additional_covars = "escs",
+    family = "gaussian",
     autobin = TRUE, use_boot = TRUE, n_boot = 200, seed = 7,
-    dataset = "sim"
+    dataset = "pisa"
   )
-  expect_true(grepl("data <- MAIHDA::maihda_sim_data", code, fixed = TRUE))
-  expect_true(grepl('make_strata(data, vars = c("gender", "race"), autobin = TRUE)', code, fixed = TRUE))
+  expect_true(grepl("data <- MAIHDA::maihda_country_data", code, fixed = TRUE))
+  expect_true(grepl('make_strata(data, vars = c("gender", "ses"), autobin = TRUE)', code, fixed = TRUE))
   # The adjusted model carries the grouping vars AND the covariate as fixed
   # effects -- exactly what maihda_app_fit_models() fits.
-  expect_true(grepl("health_outcome ~ gender + race + age + (1 | stratum)", code, fixed = TRUE))
-  expect_true(grepl("health_outcome ~ (1 | stratum)", code, fixed = TRUE))
-  expect_true(grepl('family = "binomial"', code, fixed = TRUE))
+  expect_true(grepl("math ~ gender + ses + escs + (1 | stratum)", code, fixed = TRUE))
+  expect_true(grepl("math ~ (1 | stratum)", code, fixed = TRUE))
+  expect_true(grepl('family = "gaussian"', code, fixed = TRUE))
   expect_true(grepl("set.seed(7)", code, fixed = TRUE))
   expect_true(grepl("bootstrap = TRUE, n_boot = 200", code, fixed = TRUE))
-  expect_true(grepl('stepwise_pcv(data, outcome = "health_outcome", vars = c("gender", "race", "age"))',
+  expect_true(grepl('stepwise_pcv(data, outcome = "math", vars = c("gender", "ses", "escs"))',
                     code, fixed = TRUE))
 })
 
@@ -389,4 +392,62 @@ test_that("Model-comparison module renders the nested null-vs-adjusted compariso
       expect_no_error(output$nested_table)
     }
   )
+})
+
+test_that("maihda_app_default_vars gives dataset-aware defaults and a heuristic fallback", {
+  pisa <- MAIHDA:::maihda_app_default_vars("pisa", MAIHDA::maihda_country_data)
+  expect_equal(pisa$outcome, "math")
+  expect_equal(pisa$groups, c("gender", "ses"))
+
+  health <- MAIHDA:::maihda_app_default_vars("health", MAIHDA::maihda_health_data)
+  expect_equal(health$outcome, "Obese")
+  expect_equal(health$groups, c("Gender", "Race"))
+
+  # Upload / unknown dataset: first column as outcome, first two categorical-ish
+  # columns as strata (continuous columns are not strata candidates).
+  up <- data.frame(
+    y = rnorm(20),
+    region = rep(c("N", "S"), 10),
+    sex = rep(c("F", "M"), 10),
+    income = rnorm(20)
+  )
+  res <- MAIHDA:::maihda_app_default_vars("upload", up)
+  expect_equal(res$outcome, "y")
+  expect_equal(res$groups, c("region", "sex"))
+
+  expect_equal(MAIHDA:::maihda_app_default_vars("upload", data.frame()),
+               list(outcome = NULL, groups = character(0)))
+})
+
+test_that("Selecting the NHANES dataset yields fittable defaults (outcome + 2 strata)", {
+  app_env <- maihda_source_app_for_test()
+  shiny::testServer(app_env$server, {
+    session$setInputs(dataset = "health")
+    expect_equal(nrow(reactive_data()), nrow(MAIHDA::maihda_health_data))
+    spec <- MAIHDA:::maihda_app_default_vars("health", reactive_data())
+    expect_equal(spec$outcome, "Obese")
+    expect_gte(length(spec$groups), 2)
+  })
+})
+
+test_that("The reproducible-code output mirrors the last fit (Reproduce in R)", {
+  app_env <- maihda_source_app_for_test()
+
+  shiny::testServer(app_env$server, {
+    session$setInputs(dataset = "pisa")
+    # repro_code_text() needs these three reactiveVals non-NULL; the script content
+    # is built from fit_params + the resolved family (no fitted model object needed).
+    model_results(list(placeholder = TRUE))
+    fitted_family("gaussian")
+    fit_params(list(
+      dataset = "pisa", upload_name = NULL, outcome = "math",
+      grouping_vars = c("gender", "ses"), covariates = "escs",
+      autobin = TRUE, use_boot = FALSE, n_boot = 100, seed = NULL
+    ))
+
+    code <- repro_code_text()
+    expect_match(code, "fit_maihda", fixed = TRUE)
+    expect_match(code, "MAIHDA::maihda_country_data", fixed = TRUE)
+    expect_match(code, "math ~ gender + ses + escs + (1 | stratum)", fixed = TRUE)
+  })
 })

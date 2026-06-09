@@ -3,6 +3,50 @@ maihda_app_required_packages <- function() {
     "shinycssloaders")
 }
 
+# Sensible default outcome + grouping variables for the dashboard's variable
+# pickers. Built-in datasets get curated defaults (validated against the data's
+# actual columns); anything else -- uploads, or a built-in whose columns changed --
+# falls back to a heuristic: the first column as the outcome and the first two
+# "categorical-ish" columns (factor/character/logical, or numeric with <= 10
+# distinct values) as the strata. This replaces the previous logic, which hardcoded
+# the simulated dataset's lowercase names ("health_outcome", "gender", "race") and
+# therefore left the NHANES dataset (Obese, Gender, Race, ...) with no usable
+# defaults, disabling the Fit button.
+maihda_app_default_vars <- function(dataset, data) {
+  if (!is.data.frame(data) || ncol(data) == 0) {
+    return(list(outcome = NULL, groups = character(0)))
+  }
+  cols <- names(data)
+
+  known <- switch(
+    as.character(dataset),
+    pisa = list(outcome = "math", groups = c("gender", "ses")),
+    health = list(outcome = "Obese", groups = c("Gender", "Race")),
+    list(outcome = NULL, groups = character(0))
+  )
+
+  outcome <- if (!is.null(known$outcome) && known$outcome %in% cols) known$outcome else NULL
+  groups <- intersect(known$groups, cols)
+
+  if (is.null(outcome)) {
+    outcome <- cols[1]
+  }
+
+  # Top up the strata defaults to two from categorical-ish columns when the curated
+  # names did not supply them (covers uploads and unknown datasets).
+  if (length(groups) < 2) {
+    candidates <- setdiff(cols, c(outcome, groups))
+    is_catish <- vapply(candidates, function(cn) {
+      x <- data[[cn]]
+      is.factor(x) || is.character(x) || is.logical(x) ||
+        (is.numeric(x) && length(unique(x[!is.na(x)])) <= 10)
+    }, logical(1))
+    groups <- utils::head(c(groups, candidates[is_catish]), 2)
+  }
+
+  list(outcome = outcome, groups = groups)
+}
+
 maihda_app_pvc_display <- function(pvc_percent) {
   pvc_percent <- suppressWarnings(as.numeric(pvc_percent)[1])
   fmt_percent <- function(x) paste0(round(x, 2), "%")
@@ -305,7 +349,7 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
                                      additional_covars = character(),
                                      family = "gaussian", autobin = TRUE,
                                      use_boot = FALSE, n_boot = 100, seed = NULL,
-                                     dataset = c("sim", "health", "upload"),
+                                     dataset = c("pisa", "health", "upload"),
                                      upload_name = NULL) {
   dataset <- match.arg(dataset)
   additional_covars <- if (is.null(additional_covars)) character() else additional_covars
@@ -321,7 +365,7 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
   )
 
   data_line <- switch(dataset,
-    sim    = "data <- MAIHDA::maihda_sim_data",
+    pisa   = "data <- MAIHDA::maihda_country_data",
     health = "data <- MAIHDA::maihda_health_data",
     upload = sprintf('data <- read.csv("%s")  # adjust path/reader for your file',
                      if (is.null(upload_name)) "your_data.csv" else upload_name)

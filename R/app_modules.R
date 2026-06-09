@@ -33,7 +33,8 @@ mod_visualizations_ui <- function(id) {
       ),
       shiny::div(
         class = "mb-3",
-        shiny::downloadButton(ns("download_plot"), "Download Plot", class = "btn-secondary")
+        shiny::downloadButton(ns("download_plot"), "Download Plot", class = "btn-secondary",
+                              `aria-label` = "Download the current plot as a PNG image")
       )
     ),
     shiny::uiOutput(ns("maihda_plot_wrapper"))
@@ -69,9 +70,13 @@ mod_visualizations_server <- function(id, model_results) {
       }
     })
 
-    output$maihda_plot <- shiny::renderPlot({
-      current_plot()
-    })
+    output$maihda_plot <- shiny::renderPlot(
+      current_plot(),
+      alt = function() {
+        paste0("MAIHDA ", if (!is.null(input$plot_type)) input$plot_type else "",
+               " plot for the fitted model; see the accompanying tables for exact values.")
+      }
+    )
 
     output$maihda_plotly <- plotly::renderPlotly({
       shiny::req(model_results())
@@ -171,7 +176,8 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
         ),
         bslib::card(
           bslib::card_header("Filtered Strata Data Export"),
-          shiny::div(class = "mb-3", shiny::downloadButton(ns("download_hud_data"), "Download Highlighted Data (CSV)", class = "btn-secondary")),
+          shiny::div(class = "mb-3", shiny::downloadButton(ns("download_hud_data"), "Download Highlighted Data (CSV)", class = "btn-secondary",
+                              `aria-label` = "Download the highlighted strata as a CSV file")),
           DT::DTOutput(ns("interactive_table"))
         )
       )
@@ -253,9 +259,19 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
       color_var <- if (!is.null(input$hud_color_var)) input$hud_color_var else "deviant"
       size_mapped <- "n" %in% names(stratum_df)
 
-      p <- ggplot2::ggplot(stratum_df, ggplot2::aes(x = .data$random_effect, y = .data$display_label,
-                                  color = .data[[color_var]],
-                                  text = .data$tooltip)) +
+      # When colouring by conditional-interval status, encode it by shape as well
+      # as colour so the signal is not conveyed by colour alone (colourblind-safe).
+      deviant_mode <- identical(color_var, "deviant")
+      point_aes <- if (deviant_mode) {
+        ggplot2::aes(x = .data$random_effect, y = .data$display_label,
+                     color = .data[[color_var]], shape = .data[[color_var]],
+                     text = .data$tooltip)
+      } else {
+        ggplot2::aes(x = .data$random_effect, y = .data$display_label,
+                     color = .data[[color_var]], text = .data$tooltip)
+      }
+
+      p <- ggplot2::ggplot(stratum_df, point_aes) +
         ggplot2::geom_vline(xintercept = 0, linetype = "dashed", color = "grey50")
 
       if (size_mapped) {
@@ -267,12 +283,15 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
       p <- p + ggplot2::geom_errorbar(ggplot2::aes(xmin = .data$lower_95, xmax = .data$upper_95), width = 0.2, orientation = "y") +
         ggplot2::theme_minimal() +
         ggplot2::labs(x = "Intersectional Intercept / Effect (Deviation)",
-             y = "Stratum", color = tools::toTitleCase(color_var), size = "Sample Size (N)") +
+             y = "Stratum", color = tools::toTitleCase(color_var),
+             shape = tools::toTitleCase(color_var), size = "Sample Size (N)") +
         ggplot2::theme(axis.text.y = ggplot2::element_text(size = 8))
 
-      # If using standard deviant coloring, retain manual scale
-      if (color_var == "deviant") {
-        p <- p + ggplot2::scale_color_manual(values = c("Excludes zero" = "#E74C3C", "Includes zero" = "#34495E"))
+      # Colourblind-safe (Okabe-Ito) colours + distinct shapes for the deviant flag.
+      if (deviant_mode) {
+        p <- p +
+          ggplot2::scale_color_manual(values = c("Excludes zero" = "#D55E00", "Includes zero" = "#0072B2")) +
+          ggplot2::scale_shape_manual(values = c("Excludes zero" = 17, "Includes zero" = 16))
       }
 
       # Disable tooltip for size parameter so it doesn't double-up and break Plotly's rendering gracefully
@@ -437,6 +456,9 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
+    # Don't let a restored bookmark auto-launch the (slow) group comparison.
+    shiny::setBookmarkExclude("run_group")
+
     round_numeric <- function(df, digits = 4) {
       num <- vapply(df, is.numeric, logical(1))
       df[num] <- lapply(df[num], round, digits)
@@ -450,10 +472,13 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
                     options = list(dom = "t", paging = FALSE), rownames = FALSE)
     })
 
-    output$nested_plot <- shiny::renderPlot({
-      shiny::req(comparison_results())
-      plot(comparison_results())
-    })
+    output$nested_plot <- shiny::renderPlot(
+      {
+        shiny::req(comparison_results())
+        plot(comparison_results())
+      },
+      alt = "Forest plot comparing the between-stratum VPC of the null and adjusted models."
+    )
 
     # ---- Group-variable choices: data columns minus outcome + strata + covars ----
     shiny::observe({
@@ -520,9 +545,15 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
                     options = list(pageLength = 15, scrollX = TRUE), rownames = FALSE)
     })
 
-    output$group_plot <- shiny::renderPlot({
-      shiny::req(group_cmp())
-      plot(group_cmp(), type = input$plot_type)
-    })
+    output$group_plot <- shiny::renderPlot(
+      {
+        shiny::req(group_cmp())
+        plot(group_cmp(), type = input$plot_type)
+      },
+      alt = function() {
+        paste0("MAIHDA group-comparison plot (", input$plot_type,
+               ") across levels of the selected grouping variable.")
+      }
+    )
   })
 }

@@ -25,8 +25,15 @@ ui <- page_sidebar(
 
   sidebar = sidebar(
     title = "Controls",
+    actionLink("help", tagList(icon("circle-question"), "Help / Glossary"),
+               `aria-label` = "Open help and glossary"),
+    actionLink("show_code", tagList(icon("code"), "Reproduce in R"),
+               `aria-label` = "Show the reproducible R script for this analysis"),
+    bookmarkButton(label = "Bookmark / share",
+                   title = "Save this analysis configuration to a shareable URL (built-in data + selections)."),
+    tags$hr(class = "my-1"),
     selectInput("dataset", "1. Select Dataset:",
-                choices = c("Built-in: Simulated Data" = "sim",
+                choices = c("Built-in: PISA Country Data" = "pisa",
                             "Built-in: NHANES Health Data" = "health",
                             "Upload Custom Data" = "upload")),
     conditionalPanel(
@@ -35,8 +42,16 @@ ui <- page_sidebar(
     ),
 
     # Model specification
-    selectizeInput("outcome", "Outcome Variable", choices = NULL),
-    selectizeInput("group_vars", "Strata Grouping Variables", choices = NULL, multiple = TRUE),
+    selectizeInput("outcome",
+                   tagList("Outcome Variable ",
+                           tooltip(icon("info-circle"),
+                                   "The variable whose inequality you're analysing. A two-level outcome is fitted as logistic automatically.")),
+                   choices = NULL),
+    selectizeInput("group_vars",
+                   tagList("Strata Grouping Variables ",
+                           tooltip(icon("info-circle"),
+                                   "Pick 2 or more variables (e.g. gender and race). Their combinations define the intersectional strata.")),
+                   choices = NULL, multiple = TRUE),
     uiOutput("group_var_hint"),
     checkboxInput("autobin", "Auto-bin continuous strata vars (>10 unique values) into 3 groups", value = TRUE),
     selectizeInput("covariates", "Additional Covariates (Fixed Effects)", choices = NULL, multiple = TRUE),
@@ -69,34 +84,26 @@ ui <- page_sidebar(
     nav_panel("Visualizations",
               MAIHDA:::mod_visualizations_ui("viz")),
     nav_panel("Interactive Explorer",
-              MAIHDA:::mod_explorer_ui("explorer")),
-    nav_panel("Reproduce in R",
-              card(
-                card_header("Reproducible R script for this analysis"),
-                card_body(
-                  markdown(
-                    "Copy or download the script below to reproduce this dashboard
-                    analysis from the R console. It uses the variables, family and
-                    settings of your **last model fit**, so re-running it gives the
-                    same models, VPC and PCV (the random seed makes the bootstrap
-                    intervals reproducible)."
-                  ),
-                  div(class = "mb-3",
-                      downloadButton("download_code", "Download .R Script", class = "btn-secondary")),
-                  verbatimTextOutput("repro_code")
-                )
-              ))
+              MAIHDA:::mod_explorer_ui("explorer"))
   )
 )
 
 server <- function(input, output, session) {
 
-  # Load data: if no file, use maihda_sim_data
+  # URL bookmarking captures the analysis *configuration* (built-in dataset +
+  # variable/family/seed selections), not the fitted results. Exclude the file
+  # upload (an uploaded file cannot be restored from a URL) and the action controls
+  # (so a restored bookmark never auto-triggers a fit). Module run-buttons are
+  # excluded inside their own modules.
+  setBookmarkExclude(c("upload", "fit_btn", "help", "show_code"))
+
+  # Load data: built-in PISA / NHANES datasets, or an uploaded file
   reactive_data <- reactive({
-    if (input$dataset == "sim") {
-      return(MAIHDA::maihda_sim_data)
+    if (input$dataset == "pisa") {
+      # PISA: math/reading scores by gender x SES across countries
+      return(MAIHDA::maihda_country_data)
     } else if (input$dataset == "health") {
-      # Use the new real-world health dataset
+      # Real-world NHANES health dataset
       return(MAIHDA::maihda_health_data)
     } else if (input$dataset == "upload" && !is.null(input$upload)) {
       ext <- tolower(tools::file_ext(input$upload$name))
@@ -137,8 +144,11 @@ server <- function(input, output, session) {
     curr_group <- isolate(input$group_vars)
     curr_covars <- isolate(input$covariates)
 
-    new_outcome <- ifelse(!is.null(curr_outcome) && curr_outcome %in% cols, curr_outcome, ifelse("health_outcome" %in% cols, "health_outcome", cols[1]))
-    new_group <- if(!is.null(curr_group) && all(curr_group %in% cols)) curr_group else intersect(c("gender", "race"), cols)
+    # Dataset-aware defaults (fixes the NHANES dataset, whose columns are
+    # capitalised); preserve the user's current selections when still valid.
+    spec <- MAIHDA:::maihda_app_default_vars(input$dataset, reactive_data())
+    new_outcome <- if (!is.null(curr_outcome) && curr_outcome %in% cols) curr_outcome else spec$outcome
+    new_group <- if (!is.null(curr_group) && all(curr_group %in% cols)) curr_group else spec$groups
 
     # Calculate available covariates by excluding outcome and strata variables
     used_vars <- c(new_outcome, new_group)
@@ -169,6 +179,42 @@ server <- function(input, output, session) {
     }
   })
 
+  observeEvent(input$help, {
+    showModal(modalDialog(
+      title = "MAIHDA Dashboard -- Help & Glossary",
+      easyClose = TRUE,
+      size = "l",
+      markdown(
+        "### How to use this dashboard
+1. **Select a dataset** -- a built-in example or your own CSV/DTA/SAV upload.
+2. **Choose an outcome** and **two or more grouping variables**; their
+   combinations form the intersectional *strata*.
+3. *(Optional)* add covariates, pick a family, enable bootstrap CIs.
+4. Click **Fit MAIHDA Model** -- results populate the tabs across the top.
+
+### Glossary
+- **Strata** -- the intersectional groups formed by combining the grouping
+  variables (e.g. *Female x Black x Low-education*).
+- **VPC / ICC** -- Variance Partition Coefficient: the share of outcome variation
+  that lies *between* strata. For binary/count outcomes it is on the model's
+  latent scale.
+- **PCV** -- Proportional Change in Variance: how much the between-stratum variance
+  shrinks once the additive main effects are added (a model-dependent comparison,
+  not proof that inequality was 'explained away').
+- **MAIHDA** -- Multilevel Analysis of Individual Heterogeneity and Discriminatory
+  Accuracy.
+- **Discriminatory accuracy** (binary outcomes):
+    - **AUC / C-statistic** -- how well stratum membership predicts the individual
+      outcome (0.5 = chance). A high VPC can still go with only modest AUC.
+    - **MOR** (Median Odds Ratio) -- the typical change in odds between a higher-
+      and a lower-risk stratum; 1 means no between-stratum heterogeneity.
+
+*See the package vignettes for worked examples and the statistical details.*"
+      ),
+      footer = modalButton("Close")
+    ))
+  })
+
   output$data_table <- renderDT({
     datatable(reactive_data(), options = list(pageLength = 10, scrollX = TRUE))
   })
@@ -180,7 +226,7 @@ server <- function(input, output, session) {
   pvc_results <- reactiveVal(NULL)
   stepwise_results <- reactiveVal(NULL)
   fitted_family <- reactiveVal(NULL)   # resolved family of the last fit (for display)
-  fit_params <- reactiveVal(NULL)      # inputs of the last fit (for the "Reproduce in R" tab)
+  fit_params <- reactiveVal(NULL)      # inputs of the last fit (for the "Reproduce in R" dialog)
   da_results <- reactiveVal(NULL)      # discriminatory accuracy (binomial only): null + adjusted
   comparison_results <- reactiveVal(NULL)  # nested-model VPC comparison (null vs adjusted)
 
@@ -212,7 +258,7 @@ server <- function(input, output, session) {
     fit_id(this_fit)
     shinyjs::disable("fit_btn")
 
-    # Remember exactly what this fit used so the "Reproduce in R" tab mirrors it,
+    # Remember exactly what this fit used so the "Reproduce in R" dialog mirrors it,
     # independent of any later sidebar edits.
     fit_params(list(
       dataset = input$dataset,
@@ -302,7 +348,16 @@ server <- function(input, output, session) {
   })
 
   output$model_summary_ui <- renderUI({
-    req(summary_results())
+    if (is.null(summary_results())) {
+      return(card(
+        card_header("Getting started"),
+        card_body(markdown(
+          "No model fitted yet. **1.** Pick a dataset, **2.** choose an outcome and
+          **2+ grouping variables**, then **3.** click *Fit MAIHDA Model* in the
+          sidebar. Need definitions? Open **Help / Glossary** at the top of the
+          sidebar."))
+      ))
+    }
     res <- summary_results()
 
     vpc <- res$vpc
@@ -317,6 +372,24 @@ server <- function(input, output, session) {
 
     family_line <- if (!is.null(fitted_family())) {
       div(class = "text-muted small", sprintf("Fitted with family = '%s'", fitted_family()))
+    } else {
+      NULL
+    }
+
+    # For binomial fits the headline VPC is latent-scale; also show the response
+    # (probability) scale VPC as an interpretable complement. Seeded so the
+    # simulation-based value is stable across re-renders.
+    response_vpc_line <- if (identical(fitted_family(), "binomial")) {
+      seed_val <- if (!is.null(fit_params()) && !is.null(fit_params()$seed)) fit_params()$seed else 1L
+      rv <- tryCatch(MAIHDA::maihda_vpc_response(model_results(), seed = seed_val),
+                     error = function(e) NULL)
+      if (!is.null(rv) && is.finite(rv$estimate)) {
+        div(class = "text-muted small",
+            sprintf("Response-scale VPC: %.2f%% (simulation method; latent-scale shown above)",
+                    rv$estimate * 100))
+      } else {
+        NULL
+      }
     } else {
       NULL
     }
@@ -384,10 +457,13 @@ server <- function(input, output, session) {
 
     tagList(
       card(
-        card_header("Variance Partition Coefficient (VPC) / ICC"),
+        card_header(tagList("Variance Partition Coefficient (VPC) / ICC ",
+                            tooltip(icon("info-circle"),
+                                    "Share of outcome variation that lies between strata. For binary/count outcomes this is on the model's latent scale."))),
         h3(HTML(sprintf("<span class='text-primary'>%.2f%%</span>", vpc$estimate * 100))),
         vpc_interval,
-        family_line
+        family_line,
+        response_vpc_line
       ),
       card(
         card_header("Fit diagnostics & strata overview"),
@@ -590,8 +666,26 @@ server <- function(input, output, session) {
   )
 
   # --- Reproduce in R: a console script mirroring the last fit ----------------
+  # Accessed via a small sidebar link that opens a modal (rather than a full tab).
   # Reads the stored parameters of the last fit (not the live sidebar) and the
   # resolved family, so the emitted script reproduces the model actually fitted.
+  observeEvent(input$show_code, {
+    showModal(modalDialog(
+      title = "Reproduce this analysis in R",
+      easyClose = TRUE,
+      size = "l",
+      markdown(
+        "Copy or download the script below to reproduce your **last model fit** from
+        the R console -- same models, VPC and PCV (the random seed makes the bootstrap
+        intervals reproducible)."),
+      div(class = "mb-2",
+          downloadButton("download_code", "Download .R Script", class = "btn-secondary",
+                         `aria-label` = "Download the reproducible R script")),
+      verbatimTextOutput("repro_code"),
+      footer = modalButton("Close")
+    ))
+  })
+
   repro_code_text <- reactive({
     req(model_results(), fit_params(), fitted_family())
     p <- fit_params()
@@ -624,4 +718,4 @@ server <- function(input, output, session) {
   )
 }
 
-shinyApp(ui = ui, server = server)
+shinyApp(ui = ui, server = server, enableBookmarking = "url")
