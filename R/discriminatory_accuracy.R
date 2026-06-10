@@ -137,14 +137,21 @@ maihda_mor <- function(model) {
 #' Odds Ratio is reported only for the logit link and is \code{NA} otherwise (e.g.
 #' for a probit fit), since the MOR is an odds-ratio-scale quantity.
 #'
+#' Aggregated-binomial fits (an lme4 \code{cbind(success, failure)} response) are
+#' supported: the AUC is the count-weighted C-statistic over the implied
+#' individual-level 0/1 data, and \code{n_case} / \code{n_control} are the total
+#' successes / failures.
+#'
 #' @param model A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
-#'   \code{binomial} family (lme4) or the \code{bernoulli} family a binary 0/1
-#'   outcome is fit with under \code{engine = "brms"}.
+#'   \code{binomial} family (lme4, including an aggregated \code{cbind(success,
+#'   failure)} response) or the \code{bernoulli} family a binary 0/1 outcome is fit
+#'   with under \code{engine = "brms"}.
 #'
 #' @return An object of class \code{maihda_da}: a list with \code{auc}, \code{mor},
 #'   \code{n_case}, \code{n_control}, \code{family}, \code{link} and \code{engine}.
 #'   \code{mor} is \code{NA} for a non-logit binomial link, where the AUC is still
-#'   reported.
+#'   reported. For an aggregated-binomial fit \code{n_case} / \code{n_control} are
+#'   the total successes / failures.
 #'
 #' @references
 #' Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
@@ -179,9 +186,28 @@ maihda_discriminatory_accuracy <- function(model) {
   }
 
   prob <- predict_maihda(model, type = "individual", scale = "response")
-  y <- maihda_da_observed_response(model)
+  resp <- maihda_da_observed_response(model)
 
-  auc <- maihda_auc(prob, y)
+  # fit_maihda() supports aggregated-binomial responses (cbind(success, failure) or
+  # `y | trials(n)`). For an lme4 aggregated fit getME(, "y") returns success
+  # PROPORTIONS rather than 0/1, and the per-row trial counts live in the prior
+  # weights. Detect that case and compute a count-weighted AUC over the implied
+  # individual-level 0/1 data, instead of passing a non-0/1 response to maihda_auc()
+  # (which errors). A true Bernoulli fit takes the ordinary rank-based path.
+  aggregated <- identical(model$engine, "lme4") &&
+    !all(resp %in% c(0, 1) | is.na(resp))
+  if (aggregated) {
+    trials <- maihda_da_trial_counts(model$model, length(resp))
+    successes <- round(resp * trials)
+    auc <- maihda_auc_weighted(prob, successes, trials)
+    n_case <- sum(successes, na.rm = TRUE)
+    n_control <- sum(trials - successes, na.rm = TRUE)
+  } else {
+    auc <- maihda_auc(prob, resp)
+    n_case <- sum(resp == 1, na.rm = TRUE)
+    n_control <- sum(resp == 0, na.rm = TRUE)
+  }
+
   # The AUC is link-agnostic (rank-based on predicted probabilities), but the MOR is
   # defined only for the logit link. For other binomial links (e.g. probit) report
   # the AUC with mor = NA rather than an odds ratio that is off the model's scale.
@@ -192,8 +218,8 @@ maihda_discriminatory_accuracy <- function(model) {
     list(
       auc = auc,
       mor = mor,
-      n_case = sum(y == 1, na.rm = TRUE),
-      n_control = sum(y == 0, na.rm = TRUE),
+      n_case = n_case,
+      n_control = n_control,
       family = fam,
       link = link,
       engine = model$engine
@@ -272,4 +298,58 @@ maihda_da_observed_response <- function(model) {
     return(as.integer(y) - 1L)
   }
   as.numeric(y)
+}
+
+# Per-row binomial TRIAL counts for an aggregated-binomial lme4 fit. glmer stores a
+# cbind(success, failure) response internally as success proportions with the trial
+# totals as the prior weights, so weights(, "prior") recovers the counts. (This is
+# deliberately distinct from maihda_prior_weights(), which returns unit weights for
+# aggregated binomial to avoid double-counting in stratum-level plot aggregation --
+# here we WANT the raw trial counts.) Falls back to unit counts when the accessor is
+# unavailable or the length is unexpected.
+maihda_da_trial_counts <- function(fitted_model, n) {
+  w <- tryCatch(as.numeric(stats::weights(fitted_model, type = "prior")),
+                error = function(e) NULL)
+  if (is.null(w) || length(w) != n || any(!is.finite(w))) {
+    return(rep(1, n))
+  }
+  w
+}
+
+# Count-weighted AUC / C-statistic for an aggregated-binomial fit. Each row i carries
+# a shared predicted probability prob_i with successes_i observed cases and
+# (trials_i - successes_i) controls. This equals the Mann-Whitney AUC of the expanded
+# individual-level 0/1 data -- P(case score > control score), ties counted as one
+# half -- computed by grouping cases/controls at each distinct probability level
+# rather than materialising the expansion.
+maihda_auc_weighted <- function(prob, successes, trials) {
+  failures <- trials - successes
+  keep <- is.finite(prob) & is.finite(successes) & is.finite(failures) &
+    (successes + failures) > 0
+  prob <- prob[keep]
+  successes <- successes[keep]
+  failures <- failures[keep]
+
+  n1 <- sum(successes)
+  n0 <- sum(failures)
+  if (n1 == 0 || n0 == 0) {
+    return(NA_real_)
+  }
+
+  ord <- order(prob)
+  prob <- prob[ord]
+  successes <- successes[ord]
+  failures <- failures[ord]
+
+  # Group rows sharing a probability so ties (all individuals in a row, and rows with
+  # equal fitted probabilities) are handled together.
+  level <- cumsum(c(TRUE, diff(prob) > 0))
+  c_k <- as.numeric(tapply(successes, level, sum))
+  d_k <- as.numeric(tapply(failures, level, sum))
+
+  # Controls strictly below each probability level (concordant with a case there),
+  # plus half the same-level controls (ties).
+  controls_below <- cumsum(c(0, d_k[-length(d_k)]))
+  concordant <- sum(c_k * controls_below) + 0.5 * sum(c_k * d_k)
+  concordant / (n1 * n0)
 }

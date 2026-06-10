@@ -101,6 +101,65 @@ test_that("maihda_discriminatory_accuracy rejects non-binomial models", {
   expect_error(maihda_discriminatory_accuracy(g$model), "binomial")
 })
 
+test_that("maihda_auc_weighted equals the rank AUC on the expanded 0/1 data", {
+  # Three probability levels with shared cases/controls; ties at equal probability
+  # are counted as one half, exactly as maihda_auc() does on the expanded vectors.
+  prob <- c(0.2, 0.5, 0.8)
+  successes <- c(1, 2, 4)
+  trials <- c(3, 4, 5)
+  failures <- trials - successes
+
+  expanded_prob <- unlist(Map(function(p, s, f) rep(p, s + f), prob, successes, failures))
+  expanded_y <- unlist(Map(function(s, f) c(rep(1, s), rep(0, f)), successes, failures))
+
+  expect_equal(MAIHDA:::maihda_auc_weighted(prob, successes, trials),
+               maihda_auc(expanded_prob, expanded_y))
+
+  # A degenerate class (no failures anywhere) yields NA, like maihda_auc().
+  expect_true(is.na(MAIHDA:::maihda_auc_weighted(prob, trials, trials)))
+})
+
+test_that("maihda_discriminatory_accuracy computes a count-weighted AUC for aggregated binomial", {
+  skip_on_cran()
+  set.seed(202)
+  n <- 1500
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- stats::rbinom(n, 1, stats::plogis(stats::rnorm(nlevels(sk), sd = 0.8)[sk]))
+  strata <- make_strata(d, vars = c("gender", "race"))
+  d$stratum <- strata$data$stratum
+  d <- d[!is.na(d$stratum), , drop = FALSE]
+
+  # Aggregate the Bernoulli rows to per-stratum success/failure counts and fit the
+  # SAME logistic MAIHDA as a cbind(success, failure) binomial model.
+  agg <- stats::aggregate(y ~ stratum, data = d,
+                          FUN = function(z) c(success = sum(z), failure = sum(1 - z)))
+  agg <- data.frame(stratum = agg$stratum,
+                    success = agg$y[, "success"],
+                    failure = agg$y[, "failure"])
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(cbind(success, failure) ~ (1 | stratum), data = agg, family = "binomial")
+  ))
+
+  da <- maihda_discriminatory_accuracy(m)
+  expect_s3_class(da, "maihda_da")
+  expect_true(is.finite(da$auc) && da$auc >= 0 && da$auc <= 1)
+  # Cases / controls are the TOTAL successes / failures, not the row count.
+  expect_equal(da$n_case, sum(agg$success))
+  expect_equal(da$n_control, sum(agg$failure))
+  # The MOR is still defined for an aggregated logit fit.
+  expect_true(is.finite(da$mor) && da$mor >= 1)
+
+  # The reported AUC matches the rank AUC on the implied individual-level 0/1 data.
+  prob <- predict_maihda(m, type = "individual", scale = "response")
+  expanded_prob <- unlist(Map(function(p, s, f) rep(p, s + f), prob, agg$success, agg$failure))
+  expanded_y <- unlist(Map(function(s, f) c(rep(1, s), rep(0, f)), agg$success, agg$failure))
+  expect_equal(da$auc, maihda_auc(expanded_prob, expanded_y))
+})
+
 test_that("DA helpers accept a brms Bernoulli family (not only 'binomial')", {
   # fit_maihda(engine = "brms") fits a binary 0/1 outcome with bernoulli(); the DA
   # helpers must treat that as a logistic MAIHDA model. Relabel a real lme4 binomial

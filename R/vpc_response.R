@@ -37,6 +37,11 @@
 #' conditional on the average covariate profile rather than as a covariate-averaged
 #' (marginal) VPC.
 #'
+#' The method is binomial-link agnostic: it maps the simulated stratum effects through
+#' whichever inverse link the model uses (logit, probit, cloglog, ...), so a non-logit
+#' binomial fit is computed on its own scale rather than rejected. Only the family is
+#' required to be binomial.
+#'
 #' @param model A binomial \code{maihda_model} (lme4 engine) from
 #'   \code{\link{fit_maihda}}.
 #' @param n_sim Number of Monte-Carlo draws of the stratum random effect (>= 100).
@@ -74,8 +79,8 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
   }
   fam <- maihda_model_family_name(model)
   if (!identical(fam, "binomial")) {
-    stop("The response-scale VPC is only defined for binomial (logistic) MAIHDA ",
-         "models; this model uses family = '", fam, "'.", call. = FALSE)
+    stop("The response-scale VPC is only defined for binomial MAIHDA models ",
+         "(any binomial link); this model uses family = '", fam, "'.", call. = FALSE)
   }
   if (!is.numeric(n_sim) || length(n_sim) != 1 || !is.finite(n_sim) || n_sim < 100) {
     stop("'n_sim' must be a single number >= 100.", call. = FALSE)
