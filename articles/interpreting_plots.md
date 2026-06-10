@@ -160,10 +160,11 @@ points to delete.
 
 When you fit across a higher-level grouping variable with
 [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
-(or `maihda(group = ...)`), two extra plot types become available –
-`group_vpc` and `group_components` (also reachable as `type = "vpc"` and
-`type = "components"` on the comparison object). Those are covered in
-the [group comparison
+(or `maihda(group = ...)`), extra plot types become available –
+`group_vpc`, `group_components`, `group_between_variance`, and
+`group_pcv` (also reachable as `type = "vpc"`, `"components"`,
+`"between_variance"`, and `"pcv"` on the comparison object). Those are
+covered in the [group comparison
 vignette](https://hdbt.github.io/MAIHDA/articles/group_comparison.md).
 
 ## See also

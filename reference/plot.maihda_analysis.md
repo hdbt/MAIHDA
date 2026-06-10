@@ -1,9 +1,15 @@
 # Plot a MAIHDA Analysis
 
-Dispatches to the model's plots (see
-[`plot.maihda_model`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md))
-for the model-level `type`s, and to the group comparison for
-`"group_vpc"`, `"group_components"`, and `"group_between_variance"` when
+Dispatches each `type` to the model it is valid on. The VPC and
+shrinkage views (`"vpc"`, `"obs_vs_shrunken"`, `"predicted"`) use the
+**null** model. The additive-vs-intersectional views
+(`"risk_vs_effect"`, `"effect_decomp"`, `"ternary"`,
+`"prediction_deviation"`) use the **adjusted** model, whose fixed
+effects carry the dimensions' additive part so the stratum random effect
+is the pure interaction; with fewer than two dimensions (no adjusted
+model) they fall back to the null model. Group types (`"group_vpc"`,
+`"group_components"`, `"group_between_variance"`, `"group_pcv"`) use the
+group comparison when
 [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) was called
 with a `group`.
 
@@ -23,12 +29,10 @@ plot(x, type = "all", ...)
 
 - type:
 
-  One of the
-  [`plot.maihda_model`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)
-  types ("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
-  "effect_decomp", "ternary", "prediction_deviation") or a group type
-  ("group_vpc", "group_components", "group_between_variance"). Default
-  "all".
+  One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
+  "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation")
+  or a group type ("group_vpc", "group_components",
+  "group_between_variance", "group_pcv"). Default "all".
 
 - ...:
 

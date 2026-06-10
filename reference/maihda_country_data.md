@@ -97,13 +97,24 @@ analysis <- maihda(
   data = maihda_country_data,
   group = "country"
 )
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
 analysis
 #> MAIHDA Analysis
 #> ===============
 #> 
-#> Formula: math ~ (1 | stratum) 
+#> Null formula:    math ~ (1 | stratum)
+#> Adjusted formula:math ~ (1 | stratum) + gender + ses
 #> Engine: lme4 | Family: gaussian
-#> VPC/ICC: 0.1493
+#> VPC/ICC (null): 0.1493
+#> PCV (null -> adjusted): 1.0000
+#> Between-stratum variance: 1352.2436 (null) -> 0.0000 (adjusted)
+#>   ~100.0% of the between-stratum variance is additive (the dimensions' main
+#>   effects); the remainder reflects intersectional interaction.
 #> Strata: 6
 #> 
 #> Group comparison by 'country':
@@ -113,13 +124,20 @@ analysis
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
 #> 
-#>           group   n n_strata     vpc var_between var_other var_residual status
-#>         Finland 600        6 0.10994       785.8         0         6361     ok
-#>         Germany 600        6 0.14448      1271.6         0         7529     ok
-#>           Italy 600        6 0.11890      1065.3         0         7895     ok
-#>           Japan 600        6 0.13344      1032.3         0         6704     ok
-#>          Mexico 600        6 0.13649       771.5         0         4881     ok
-#>  United Kingdom 600        6 0.06011       470.5         0         7357     ok
+#>           group   n n_strata     vpc var_between var_other var_residual    pcv
+#>         Finland 600        6 0.10994       785.8         0         6361 1.0000
+#>         Germany 600        6 0.14448      1271.6         0         7529 1.0000
+#>           Italy 600        6 0.11890      1065.3         0         7895 1.0000
+#>           Japan 600        6 0.13344      1032.3         0         6704 0.9266
+#>          Mexico 600        6 0.13649       771.5         0         4881 1.0000
+#>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000
+#>  var_between_adjusted status
+#>                  0.00     ok
+#>                  0.00     ok
+#>                  0.00     ok
+#>                 75.78     ok
+#>                  0.00     ok
+#>                  0.00     ok
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
 plot(analysis, type = "group_vpc")

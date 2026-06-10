@@ -8,7 +8,10 @@ result instead, e.g. `plot(cmp, type = "vpc")`.
 ## Usage
 
 ``` r
-plot_group_comparison(x, type = c("vpc", "components", "between_variance"))
+plot_group_comparison(
+  x,
+  type = c("vpc", "components", "between_variance", "pcv")
+)
 ```
 
 ## Arguments
@@ -19,7 +22,7 @@ plot_group_comparison(x, type = c("vpc", "components", "between_variance"))
 
 - type:
 
-  One of "vpc" (default), "components", or "between_variance".
+  One of "vpc" (default), "components", "between_variance", or "pcv".
 
 ## Value
 

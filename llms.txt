@@ -22,8 +22,9 @@ socioeconomic status).
 
 - **One-call Workflow**:
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) fits
-  the model, summarises the VPC/ICC, and (optionally) compares across a
-  higher-level group in a single call
+  the null *and* adjusted models, summarises the VPC/ICC and the PCV
+  decomposition (additive vs. intersectional), and (optionally) compares
+  across a higher-level group in a single call
 - **Create Intersectional Strata**: Automatically generate strata from
   multiple categorical variables
 - **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**: A
@@ -80,11 +81,16 @@ install.packages("MAIHDA")
 library(MAIHDA)
 data("maihda_health_data")
 
-# Everything in one call: fit + VPC/ICC summary (+ optional group comparison)
+# Everything in one call: null + adjusted fit, VPC/ICC summary, and PCV decomposition
 analysis <- maihda(BMI ~ Age + (1 | Gender:Race:Education), data = maihda_health_data)
-analysis                       # concise report
+analysis                       # VPC/ICC (null) and PCV (null -> adjusted)
 summary(analysis)              # variance components
-plot(analysis, type = "vpc")   # any model plot type works here
+analysis$pcv                   # proportional change in between-stratum variance
+
+# plot() routes each view to the right model: the VPC/shrinkage views use the null
+# model; the additive-vs-intersectional views use the adjusted model.
+plot(analysis, type = "vpc")
+plot(analysis, type = "effect_decomp")
 ```
 
 Prefer the individual building blocks? They are all still available:
@@ -108,13 +114,21 @@ plot(model)
 
 ### `maihda()`
 
-A single high-level entry point that runs the standard workflow: fits
-the model, summarises the VPC/ICC and variance components, and – when a
-`group` is supplied – also compares intersectional inequality across
-that grouping variable. Returns one `maihda_analysis` object with
-[`print()`](https://rdrr.io/r/base/print.html),
+A single high-level entry point that runs the standard two-model MAIHDA
+workflow: it fits the **null** model (your formula) and the **adjusted**
+model (plus the dimensions’ additive main effects), summarises the
+null-model VPC/ICC, and reports the **PCV** (the additive share of the
+intersectional inequality). When a `group` is supplied it also runs this
+decomposition within each group. Returns one `maihda_analysis` object
+with [`print()`](https://rdrr.io/r/base/print.html),
 [`summary()`](https://rdrr.io/r/base/summary.html), and
-[`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods.
+[`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods
+([`plot()`](https://rdrr.io/r/graphics/plot.default.html) routes the
+VPC/shrinkage views to the null model and the additive-vs-intersectional
+views to the adjusted model). It is intrinsically a decomposition and
+has no single-model mode – use
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+for a single fit.
 
 ### `make_strata()`
 

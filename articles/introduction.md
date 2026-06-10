@@ -35,27 +35,41 @@ install.packages("MAIHDA")
 
 If you just want the standard analysis,
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) runs the
-whole pipeline in a single call – it fits the model, summarises the
-VPC/ICC and variance components, and (optionally) compares
-intersectional inequality across a higher-level grouping variable. It
-returns one object with [`print()`](https://rdrr.io/r/base/print.html),
+whole pipeline in a single call. It is intrinsically a **two-model**
+decomposition: it fits the **null** model (the formula you supply) *and*
+the **adjusted** model (the same model plus the additive main effects of
+the stratum dimensions), summarises the null model’s VPC/ICC, and
+reports the **PCV** – the proportional change in between-stratum
+variance from null to adjusted, i.e. the additive share of the
+intersectional inequality. It can also compare this decomposition across
+a higher-level grouping variable. It returns one object with
+[`print()`](https://rdrr.io/r/base/print.html),
 [`summary()`](https://rdrr.io/r/base/summary.html), and
-[`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods.
+[`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods. (For a
+single model – e.g. just the null-model VPC – call
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+directly; the sections below also walk through the pipeline step by
+step.)
 
 ``` r
 
 library(MAIHDA)
 data("maihda_health_data")
 
-# Fit + variance summary in one call
+# Null + adjusted fit, VPC summary, and PCV decomposition in one call
 analysis <- maihda(BMI ~ Age + (1 | Gender:Race:Education), data = maihda_health_data)
-analysis                      # concise report (VPC/ICC, #strata)
+analysis                      # VPC/ICC (null) and PCV (null -> adjusted)
 #> MAIHDA Analysis
 #> ===============
 #> 
-#> Formula: BMI ~ Age + (1 | stratum) 
+#> Null formula:    BMI ~ Age + (1 | stratum)
+#> Adjusted formula:BMI ~ Age + (1 | stratum) + Gender + Race + Education
 #> Engine: lme4 | Family: gaussian
-#> VPC/ICC: 0.0627
+#> VPC/ICC (null): 0.0627
+#> PCV (null -> adjusted): 0.5957
+#> Between-stratum variance: 2.9001 (null) -> 1.1724 (adjusted)
+#>   ~59.6% of the between-stratum variance is additive (the dimensions' main
+#>   effects); the remainder reflects intersectional interaction.
 #> Strata: 50
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
@@ -101,10 +115,36 @@ summary(analysis)             # full variance components
 #>  -0.49833  1.86859
 #>  -1.80812  2.38217
 #>   ... and 40 more strata
-plot(analysis, type = "vpc")  # any plot.maihda_model type works here
+analysis$pcv                  # proportional change in between-stratum variance
+#> Proportional Change in Variance (PCV)
+#> =====================================
+#> 
+#> PCV: 0.5957
+#> 
+#> Between-stratum variance:
+#>   Model 1: 2.900100
+#>   Model 2: 1.172430
+#>   Change:  1.727670 (59.57%)
+#> 
+#> Interpretation (PCV is the proportional change in between-stratum
+#> variance between the models; it is variance 'explained' only when Model 2
+#> nests Model 1 by adding predictors on the same outcome, sample and strata):
+#>   Between-stratum variance is 59.6% lower in Model 2 than in Model 1.
+
+# The VPC/shrinkage views use the null model; the additive-vs-intersectional views
+# (effect_decomp, risk_vs_effect, ternary) use the adjusted model -- plot() routes
+# each type to the right model automatically.
+plot(analysis, type = "vpc")
 ```
 
 ![](introduction_files/figure-html/quickstart-1.png)
+
+``` r
+
+plot(analysis, type = "effect_decomp")
+```
+
+![](introduction_files/figure-html/quickstart-2.png)
 
 You can add a higher-level grouping variable to also compare across its
 levels. `maihda_country_data` (PISA 2018) has a real country grouping;
@@ -398,6 +438,11 @@ group_cmp <- compare_maihda_groups(
   data  = maihda_country_data,
   group = "country"
 )
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
 group_cmp
 #> MAIHDA Group Comparison
 #> =======================
@@ -405,13 +450,20 @@ group_cmp
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
 #> 
-#>           group   n n_strata     vpc var_between var_other var_residual status
-#>         Finland 600        6 0.10994       785.8         0         6361     ok
-#>         Germany 600        6 0.14448      1271.6         0         7529     ok
-#>           Italy 600        6 0.11890      1065.3         0         7895     ok
-#>           Japan 600        6 0.13344      1032.3         0         6704     ok
-#>          Mexico 600        6 0.13649       771.5         0         4881     ok
-#>  United Kingdom 600        6 0.06011       470.5         0         7357     ok
+#>           group   n n_strata     vpc var_between var_other var_residual    pcv
+#>         Finland 600        6 0.10994       785.8         0         6361 1.0000
+#>         Germany 600        6 0.14448      1271.6         0         7529 1.0000
+#>           Italy 600        6 0.11890      1065.3         0         7895 1.0000
+#>           Japan 600        6 0.13344      1032.3         0         6704 0.9266
+#>          Mexico 600        6 0.13649       771.5         0         4881 1.0000
+#>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000
+#>  var_between_adjusted status
+#>                  0.00     ok
+#>                  0.00     ok
+#>                  0.00     ok
+#>                 75.78     ok
+#>                  0.00     ok
+#>                  0.00     ok
 
 # VPC by country (add bootstrap = TRUE for per-group confidence intervals)
 plot(group_cmp, type = "vpc")

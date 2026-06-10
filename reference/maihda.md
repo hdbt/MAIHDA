@@ -1,10 +1,15 @@
 # Run a Complete MAIHDA Analysis
 
-A single high-level entry point that runs the standard MAIHDA workflow
-and returns one bundled object: it fits the multilevel model, summarises
-the variance partition (VPC/ICC) and components, and – when a
-higher-level grouping variable is supplied – also compares
-intersectional inequality across that variable's levels.
+A single high-level entry point that runs the standard two-model MAIHDA
+workflow and returns one bundled object. It fits the **null** model (the
+formula you supply: covariates plus the intersectional random intercept)
+and the **adjusted** model (the same model plus the additive main
+effects of the stratum-defining dimensions), summarises the variance
+partition (VPC/ICC) of the null model, and reports the **PCV** – the
+proportional change in between-stratum variance from the null to the
+adjusted model, i.e. the additive share of the intersectional
+inequality. When a higher-level grouping variable is supplied it also
+compares this decomposition across that variable's levels.
 
 ## Usage
 
@@ -104,18 +109,35 @@ An object of class `maihda_analysis`: a list with
 
 - model:
 
-  the fitted `maihda_model` (see
-  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md))
+  the fitted **null** `maihda_model` (see
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md));
+  the VPC/ICC and discriminatory-accuracy source
 
 - summary:
 
-  the `maihda_summary` (VPC/ICC, variance components, stratum estimates)
+  the null model's `maihda_summary` (VPC/ICC, variance components,
+  stratum estimates)
+
+- model_adjusted:
+
+  the fitted **adjusted** `maihda_model` (null plus the dimensions'
+  additive main effects), or `NULL` with fewer than two dimensions
+
+- summary_adjusted:
+
+  the adjusted model's `maihda_summary` (its residual VPC), or `NULL`
+
+- pcv:
+
+  the `pvc_result` from
+  [`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  (null vs adjusted between-stratum variance), or `NULL`
 
 - groups:
 
   a `maihda_group_comparison` when `group` is supplied, otherwise `NULL`
 
-- formula, group_var, call:
+- formula, adjusted_formula, group_var, call:
 
   bookkeeping for printing
 
@@ -123,12 +145,30 @@ An object of class `maihda_analysis`: a list with
 
 This is a convenience wrapper around
 [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+[`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md),
 [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
 and
-[`compare_maihda_groups`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md);
-it always returns the same `maihda_analysis` structure (the `groups`
-slot is simply `NULL` when `group` is not given), so downstream code
-never has to branch on the return type.
+[`compare_maihda_groups`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md).
+It is *intrinsically* a two-model decomposition and has no single-model
+mode – for a single fit (e.g. just the null-model VPC / discriminatory
+accuracy), call
+[`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+directly.
+
+The dimension main effects are read from the random term. The shorthand
+`(1 | var1:var2)` and
+[`make_strata`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+both record the stratum-defining variables, so they decompose normally;
+a numeric dimension that
+[`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+auto-binned enters the adjusted model as its reconstructed tertile
+factor (matching the strata), not as a linear term. Because `maihda()`
+is intrinsically a decomposition, it **errors** (rather than returning a
+null-only result) when it cannot build the adjusted model – when the
+dimensions cannot be recovered (a hand-built `stratum` column records
+none) or there is only one dimension (no intersection to decompose). Use
+[`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+for those single-model fits.
 
 ## See also
 
@@ -145,19 +185,44 @@ for the variance summary.
 # \donttest{
 data(maihda_health_data)
 
-# One call: fit + VPC summary
+# One call: null + adjusted fit, VPC summary, and PCV decomposition
 a <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data)
-a
+a                              # VPC (null) and PCV (null -> adjusted)
 #> MAIHDA Analysis
 #> ===============
 #> 
-#> Formula: BMI ~ Age + (1 | stratum) 
+#> Null formula:    BMI ~ Age + (1 | stratum)
+#> Adjusted formula:BMI ~ Age + (1 | stratum) + Gender + Race
 #> Engine: lme4 | Family: gaussian
-#> VPC/ICC: 0.0585
+#> VPC/ICC (null): 0.0585
+#> PCV (null -> adjusted): 0.4963
+#> Between-stratum variance: 2.7383 (null) -> 1.3792 (adjusted)
+#>   ~49.6% of the between-stratum variance is additive (the dimensions' main
+#>   effects); the remainder reflects intersectional interaction.
 #> Strata: 10
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
-plot(a, type = "vpc")
+a$pcv                          # proportional change in between-stratum variance
+#> Proportional Change in Variance (PCV)
+#> =====================================
+#> 
+#> PCV: 0.4963
+#> 
+#> Between-stratum variance:
+#>   Model 1: 2.738282
+#>   Model 2: 1.379216
+#>   Change:  1.359066 (49.63%)
+#> 
+#> Interpretation (PCV is the proportional change in between-stratum
+#> variance between the models; it is variance 'explained' only when Model 2
+#> nests Model 1 by adding predictors on the same outcome, sample and strata):
+#>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
+a$model_adjusted$formula       # null formula + Gender + Race main effects
+#> BMI ~ Age + (1 | stratum) + Gender + Race
+#> <environment: 0x55fb4d04bc10>
+plot(a, type = "vpc")          # null model
+
+plot(a, type = "effect_decomp")# adjusted model (additive vs intersectional)
 
 
 # Add a higher-level grouping variable to also compare across its levels.
@@ -165,13 +230,24 @@ plot(a, type = "vpc")
 data(maihda_country_data)
 a2 <- maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data,
              group = "country")
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
 a2
 #> MAIHDA Analysis
 #> ===============
 #> 
-#> Formula: math ~ (1 | stratum) 
+#> Null formula:    math ~ (1 | stratum)
+#> Adjusted formula:math ~ (1 | stratum) + gender + ses
 #> Engine: lme4 | Family: gaussian
-#> VPC/ICC: 0.1493
+#> VPC/ICC (null): 0.1493
+#> PCV (null -> adjusted): 1.0000
+#> Between-stratum variance: 1352.2436 (null) -> 0.0000 (adjusted)
+#>   ~100.0% of the between-stratum variance is additive (the dimensions' main
+#>   effects); the remainder reflects intersectional interaction.
 #> Strata: 6
 #> 
 #> Group comparison by 'country':
@@ -181,16 +257,25 @@ a2
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
 #> 
-#>           group   n n_strata     vpc var_between var_other var_residual status
-#>         Finland 600        6 0.10994       785.8         0         6361     ok
-#>         Germany 600        6 0.14448      1271.6         0         7529     ok
-#>           Italy 600        6 0.11890      1065.3         0         7895     ok
-#>           Japan 600        6 0.13344      1032.3         0         6704     ok
-#>          Mexico 600        6 0.13649       771.5         0         4881     ok
-#>  United Kingdom 600        6 0.06011       470.5         0         7357     ok
+#>           group   n n_strata     vpc var_between var_other var_residual    pcv
+#>         Finland 600        6 0.10994       785.8         0         6361 1.0000
+#>         Germany 600        6 0.14448      1271.6         0         7529 1.0000
+#>           Italy 600        6 0.11890      1065.3         0         7895 1.0000
+#>           Japan 600        6 0.13344      1032.3         0         6704 0.9266
+#>          Mexico 600        6 0.13649       771.5         0         4881 1.0000
+#>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000
+#>  var_between_adjusted status
+#>                  0.00     ok
+#>                  0.00     ok
+#>                  0.00     ok
+#>                 75.78     ok
+#>                  0.00     ok
+#>                  0.00     ok
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
 plot(a2, type = "group_vpc")
+
+plot(a2, type = "group_pcv")
 
 # }
 ```

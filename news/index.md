@@ -5,13 +5,36 @@
 ### New Features
 
 - Added [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md),
-  a single high-level entry point that runs the standard workflow in one
-  call: it fits the model, summarises the VPC/ICC and variance
-  components, and – when a `group` is supplied – also compares
-  intersectional inequality across that grouping variable. It returns
-  one consistent `maihda_analysis` object (with `print`, `summary`, and
-  `plot` methods); the `groups` slot is simply `NULL` when no grouping
-  variable is given.
+  a single high-level entry point that runs the standard two-model
+  MAIHDA workflow in one call. It fits the **null** model (the formula
+  you supply) and the **adjusted** model (the same model plus the
+  additive main effects of the stratum dimensions), summarises the null
+  model’s VPC/ICC, and reports the **PCV** – the proportional change in
+  between-stratum variance from null to adjusted (the additive share of
+  the intersectional inequality). When a `group` is supplied it also
+  runs this decomposition within each group (the
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  result gains a `pcv` column). It returns one consistent
+  `maihda_analysis` object with new
+  `model_adjusted`/`summary_adjusted`/`pcv` slots (alongside the
+  unchanged null-model `model`/`summary`), and `print`, `summary`, and
+  `plot` methods;
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) routes the
+  VPC/shrinkage views to the null model and the
+  additive-vs-intersectional views (`effect_decomp`, `risk_vs_effect`,
+  `ternary`) to the adjusted model, and gains `type = "group_pcv"`.
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) is
+  intrinsically a decomposition and has no single-model mode – use
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  for a single fit. A numeric dimension auto-binned for the strata
+  enters the adjusted model as its reconstructed tertile factor (not a
+  linear term). Because it cannot decompose without an intersection,
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) errors
+  (rather than returning a half-result) when the stratum-defining
+  variables are unidentifiable (e.g. a hand-built `stratum` column) or
+  define only one dimension; the shorthand `(1 | var1:var2)` and
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  paths both record the dimensions and decompose normally.
 - Added the `maihda_country_data` dataset (OECD PISA 2018, accessed via
   the `learningtower` package): 3,600 students across six countries with
   gender x socioeconomic-status strata and mathematics-achievement

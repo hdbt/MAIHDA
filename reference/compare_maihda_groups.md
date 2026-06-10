@@ -5,7 +5,11 @@ effects; any fixed-effect covariates in `formula` are still used) within
 each level of a higher-level grouping variable (for example country,
 region, or survey wave) and reports how the variance partition
 coefficient (VPC/ICC) and the between-/within-stratum variance
-components differ across those groups.
+components differ across those groups. When the strata are defined by at
+least two dimensions it also fits the adjusted model (the dimensions'
+additive main effects) within each group and reports the per-group `pcv`
+– the proportional change in between-stratum variance, i.e. the additive
+share of that group's intersectional inequality.
 
 ## Usage
 
@@ -108,13 +112,19 @@ compare_maihda_groups(
 A `data.frame` of class `maihda_group_comparison` with one row per group
 and columns `group`, `n`, `n_strata`, `vpc`, `var_between`, `var_other`,
 `var_residual`, `status` (and `ci_lower`/`ci_upper` when
-`bootstrap = TRUE`). `n` is the analytic sample size used by the model
-(after dropping rows with a missing outcome/covariate) for both fitted
-and skipped groups, falling back to the raw row count only when the
-model frame cannot be built. `var_other` is the variance of any
-additional random effects and is 0 for the canonical single-stratum
-model. Groups that were skipped or failed have `NA` metrics and an
-explanatory `status`.
+`bootstrap = TRUE`). When the strata are defined by at least two
+dimensions, two further columns report the per-group null -\> adjusted
+decomposition: `pcv` (proportional change in between-stratum variance
+when the dimensions' additive main effects are added) and
+`var_between_adjusted` (the adjusted model's between-stratum variance);
+both are `NA` for a group whose adjusted fit failed, and the columns are
+omitted entirely when the strata have a single dimension. `n` is the
+analytic sample size used by the model (after dropping rows with a
+missing outcome/covariate) for both fitted and skipped groups, falling
+back to the raw row count only when the model frame cannot be built.
+`var_other` is the variance of any additional random effects and is 0
+for the canonical single-stratum model. Groups that were skipped or
+failed have `NA` metrics and an explanatory `status`.
 
 ## Details
 
@@ -177,6 +187,11 @@ cmp <- compare_maihda_groups(
   data = maihda_country_data,
   group = "country"
 )
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
 print(cmp)
 #> MAIHDA Group Comparison
 #> =======================
@@ -184,13 +199,20 @@ print(cmp)
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
 #> 
-#>           group   n n_strata     vpc var_between var_other var_residual status
-#>         Finland 600        6 0.10994       785.8         0         6361     ok
-#>         Germany 600        6 0.14448      1271.6         0         7529     ok
-#>           Italy 600        6 0.11890      1065.3         0         7895     ok
-#>           Japan 600        6 0.13344      1032.3         0         6704     ok
-#>          Mexico 600        6 0.13649       771.5         0         4881     ok
-#>  United Kingdom 600        6 0.06011       470.5         0         7357     ok
+#>           group   n n_strata     vpc var_between var_other var_residual    pcv
+#>         Finland 600        6 0.10994       785.8         0         6361 1.0000
+#>         Germany 600        6 0.14448      1271.6         0         7529 1.0000
+#>           Italy 600        6 0.11890      1065.3         0         7895 1.0000
+#>           Japan 600        6 0.13344      1032.3         0         6704 0.9266
+#>          Mexico 600        6 0.13649       771.5         0         4881 1.0000
+#>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000
+#>  var_between_adjusted status
+#>                  0.00     ok
+#>                  0.00     ok
+#>                  0.00     ok
+#>                 75.78     ok
+#>                  0.00     ok
+#>                  0.00     ok
 plot(cmp, type = "vpc")
 
 # }

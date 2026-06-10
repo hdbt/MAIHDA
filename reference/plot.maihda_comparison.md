@@ -43,6 +43,9 @@ comparison <- compare_maihda(null_model, adj_model, bootstrap = TRUE)
 #> boundary (singular) fit: see help('isSingular')
 #> boundary (singular) fit: see help('isSingular')
 #> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
 plot(comparison)
 
 # }

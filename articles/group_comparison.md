@@ -51,9 +51,14 @@ table(maihda_country_data$gender, maihda_country_data$ses)
 ## One-call workflow
 
 Use [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) when
-you want the usual model summary and the group comparison in one object.
+you want the full decomposition and the group comparison in one object.
 The formula below defines six intersectional strata (`gender:ses`) and
-asks for a separate VPC/ICC estimate within each country.
+asks for a separate decomposition within each country. Because
+[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) is a
+two-model workflow, it fits both the null and the adjusted model overall
+*and* within each country, so the group table also carries a per-country
+**PCV** (the additive share of that country’s intersectional
+inequality).
 
 ``` r
 
@@ -62,14 +67,25 @@ analysis <- maihda(
   data = maihda_country_data,
   group = "country"
 )
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
+#> boundary (singular) fit: see help('isSingular')
 
 analysis
 #> MAIHDA Analysis
 #> ===============
 #> 
-#> Formula: math ~ (1 | stratum) 
+#> Null formula:    math ~ (1 | stratum)
+#> Adjusted formula:math ~ (1 | stratum) + gender + ses
 #> Engine: lme4 | Family: gaussian
-#> VPC/ICC: 0.1493
+#> VPC/ICC (null): 0.1493
+#> PCV (null -> adjusted): 1.0000
+#> Between-stratum variance: 1352.2436 (null) -> 0.0000 (adjusted)
+#>   ~100.0% of the between-stratum variance is additive (the dimensions' main
+#>   effects); the remainder reflects intersectional interaction.
 #> Strata: 6
 #> 
 #> Group comparison by 'country':
@@ -79,18 +95,25 @@ analysis
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
 #> 
-#>           group   n n_strata     vpc var_between var_other var_residual status
-#>         Finland 600        6 0.10994       785.8         0         6361     ok
-#>         Germany 600        6 0.14448      1271.6         0         7529     ok
-#>           Italy 600        6 0.11890      1065.3         0         7895     ok
-#>           Japan 600        6 0.13344      1032.3         0         6704     ok
-#>          Mexico 600        6 0.13649       771.5         0         4881     ok
-#>  United Kingdom 600        6 0.06011       470.5         0         7357     ok
+#>           group   n n_strata     vpc var_between var_other var_residual    pcv
+#>         Finland 600        6 0.10994       785.8         0         6361 1.0000
+#>         Germany 600        6 0.14448      1271.6         0         7529 1.0000
+#>           Italy 600        6 0.11890      1065.3         0         7895 1.0000
+#>           Japan 600        6 0.13344      1032.3         0         6704 0.9266
+#>          Mexico 600        6 0.13649       771.5         0         4881 1.0000
+#>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000
+#>  var_between_adjusted status
+#>                  0.00     ok
+#>                  0.00     ok
+#>                  0.00     ok
+#>                 75.78     ok
+#>                  0.00     ok
+#>                  0.00     ok
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
 ```
 
-The printed report includes the overall VPC/ICC first, then the
+The printed report includes the overall VPC/ICC and PCV first, then the
 country-level comparison. The group comparison is also stored in
 `analysis$groups`, so it can be inspected or saved as a regular data
 frame.
@@ -100,20 +123,30 @@ frame.
 group_results <- as.data.frame(analysis$groups)
 group_results[order(group_results$vpc, decreasing = TRUE),
               c("group", "n", "n_strata", "vpc", "var_between",
-                "var_residual", "status")]
-#>            group   n n_strata        vpc var_between var_residual status
-#> 2        Germany 600        6 0.14448319   1271.5810     7529.311     ok
-#> 5         Mexico 600        6 0.13649162    771.5419     4881.127     ok
-#> 4          Japan 600        6 0.13344144   1032.3346     6703.902     ok
-#> 3          Italy 600        6 0.11889899   1065.3186     7894.544     ok
-#> 1        Finland 600        6 0.10994297    785.7610     6361.226     ok
-#> 6 United Kingdom 600        6 0.06011138    470.5471     7357.372     ok
+                "var_residual", "pcv", "status")]
+#>            group   n n_strata        vpc var_between var_residual      pcv
+#> 2        Germany 600        6 0.14448319   1271.5810     7529.311 1.000000
+#> 5         Mexico 600        6 0.13649162    771.5419     4881.127 1.000000
+#> 4          Japan 600        6 0.13344144   1032.3346     6703.902 0.926596
+#> 3          Italy 600        6 0.11889899   1065.3186     7894.544 1.000000
+#> 1        Finland 600        6 0.10994297    785.7610     6361.226 1.000000
+#> 6 United Kingdom 600        6 0.06011138    470.5471     7357.372 1.000000
+#>   status
+#> 2     ok
+#> 5     ok
+#> 4     ok
+#> 3     ok
+#> 1     ok
+#> 6     ok
 ```
 
 In this example all countries have 600 students and all six
 gender-by-SES strata are populated. Higher VPC/ICC values indicate that
 a larger share of mathematics score variation lies between the
-intersectional strata within that country.
+intersectional strata within that country; the `pcv` column shows how
+much of each country’s between-stratum variance is the additive sum of
+the gender and SES main effects (so a lower PCV flags inequality that is
+more intersection-specific).
 
 ## Visualizing the comparison
 
@@ -162,12 +195,30 @@ plot(analysis, type = "group_between_variance")
 For non-Gaussian models this variance is on the model (link) scale, and
 unlike the VPC it is not normalised by the residual variance.
 
+## Additive share (PCV) by group
+
+The `"group_pcv"` view bars each country’s PCV – the proportional drop
+in between-stratum variance once the gender and SES main effects are
+added. A high bar means that country’s intersectional inequality is
+largely the additive sum of its parts; a low (or negative) bar flags
+inequality that is more intersection-specific. (With strata defined by a
+single dimension there is no intersection to decompose, so this view and
+the `pcv` column are unavailable.)
+
+``` r
+
+plot(analysis, type = "group_pcv")
+```
+
+![](group_comparison_files/figure-html/group-pcv-plot-1.png)
+
 ## Direct group comparison
 
 If you only need the group comparison table and plots, call
 [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
-directly. This fits the same stratified per-country models used by
-`maihda(group = "country")`.
+directly. This fits the same per-country null and adjusted models used
+by `maihda(group = "country")` (the `pcv` column appears when the strata
+have at least two dimensions).
 
 ``` r
 
@@ -180,6 +231,7 @@ group_cmp <- compare_maihda_groups(
 group_cmp
 plot(group_cmp, type = "vpc")
 plot(group_cmp, type = "components")
+plot(group_cmp, type = "pcv")
 ```
 
 By default, `shared_strata = TRUE`. That means the `gender:ses` strata
