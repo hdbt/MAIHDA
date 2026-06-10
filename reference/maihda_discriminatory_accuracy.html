@@ -5,13 +5,17 @@ probabilities separate cases from non-cases) and the Median Odds Ratio. Applied
 to a strata-only (null) model, the AUC is the discriminatory accuracy of the
 intersectional strata themselves – Merlo's central quantity; comparing it with
 an adjusted model shows whether individual covariates beyond stratum membership
-sharpen classification."><meta property="og:description" content="Bundles the individual-level discriminatory-accuracy summaries for a binomial
+sharpen classification. The AUC is computed for any binomial link; the Median
+Odds Ratio is reported only for the logit link and is NA otherwise (e.g.
+for a probit fit), since the MOR is an odds-ratio-scale quantity."><meta property="og:description" content="Bundles the individual-level discriminatory-accuracy summaries for a binomial
 MAIHDA model: the AUC / C-statistic (how well the model's predicted
 probabilities separate cases from non-cases) and the Median Odds Ratio. Applied
 to a strata-only (null) model, the AUC is the discriminatory accuracy of the
 intersectional strata themselves – Merlo's central quantity; comparing it with
 an adjusted model shows whether individual covariates beyond stratum membership
-sharpen classification."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
+sharpen classification. The AUC is computed for any binomial link; the Median
+Odds Ratio is reported only for the logit link and is NA otherwise (e.g.
+for a probit fit), since the MOR is an odds-ratio-scale quantity."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -65,7 +69,9 @@ probabilities separate cases from non-cases) and the Median Odds Ratio. Applied
 to a strata-only (null) model, the AUC is the discriminatory accuracy of the
 intersectional strata themselves – Merlo's central quantity; comparing it with
 an adjusted model shows whether individual covariates beyond stratum membership
-sharpen classification.</p>
+sharpen classification. The AUC is computed for any binomial link; the Median
+Odds Ratio is reported only for the logit link and is <code>NA</code> otherwise (e.g.
+for a probit fit), since the MOR is an odds-ratio-scale quantity.</p>
     </div>
 
     <div class="section level2">
@@ -85,7 +91,9 @@ sharpen classification.</p>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An object of class <code>maihda_da</code>: a list with <code>auc</code>, <code>mor</code>,
-  <code>n_case</code>, <code>n_control</code>, <code>family</code> and <code>engine</code>.</p>
+  <code>n_case</code>, <code>n_control</code>, <code>family</code>, <code>link</code> and <code>engine</code>.
+  <code>mor</code> is <code>NA</code> for a non-logit binomial link, where the AUC is still
+  reported.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

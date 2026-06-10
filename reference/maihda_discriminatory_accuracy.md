@@ -7,7 +7,9 @@ Odds Ratio. Applied to a strata-only (null) model, the AUC is the
 discriminatory accuracy of the intersectional strata themselves –
 Merlo's central quantity; comparing it with an adjusted model shows
 whether individual covariates beyond stratum membership sharpen
-classification.
+classification. The AUC is computed for any binomial link; the Median
+Odds Ratio is reported only for the logit link and is `NA` otherwise
+(e.g. for a probit fit), since the MOR is an odds-ratio-scale quantity.
 
 ## Usage
 
@@ -26,7 +28,8 @@ maihda_discriminatory_accuracy(model)
 ## Value
 
 An object of class `maihda_da`: a list with `auc`, `mor`, `n_case`,
-`n_control`, `family` and `engine`.
+`n_control`, `family`, `link` and `engine`. `mor` is `NA` for a
+non-logit binomial link, where the AUC is still reported.
 
 ## References
 

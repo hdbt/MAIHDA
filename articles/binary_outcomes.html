@@ -213,6 +213,19 @@ the Gaussian case, the stratum random effects capture the
 isolate the <em>pure</em> intersectional (interaction) component only
 once the additive main effects of the strata variables are in the
 model.</p>
+<p>For an interpretable <strong>probability-scale</strong> complement to
+the latent-scale VPC, the package provides
+<code><a href="../reference/maihda_vpc_response.html">maihda_vpc_response()</a></code>, which estimates the response-scale
+VPC by simulation (Goldstein, Browne &amp; Rasbash 2002):</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/maihda_vpc_response.html">maihda_vpc_response</a></span><span class="op">(</span><span class="va">model_null</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Response-scale VPC (simulation method)</span></span>
+<span><span class="co">#&gt;   VPC: 0.0478</span></span>
+<span><span class="co">#&gt;   10000 simulated stratum effects; between-stratum variance 0.2227 (latent scale).</span></span></code></pre></div>
+<p>Report it <em>alongside</em> – not instead of – the latent-scale VPC:
+it depends on the overall prevalence, and for adjusted models it is
+evaluated at the mean covariate profile, so it is best read from the
+null model.</p>
 </div>
 <div class="section level2">
 <h2 id="adjusted-model-and-pcv">Adjusted model and PCV<a class="anchor" aria-label="anchor" href="#adjusted-model-and-pcv"></a>
@@ -223,7 +236,7 @@ on the <strong>same analytic sample and strata</strong> as the null
 model, and compare with <code><a href="../reference/calculate_pvc.html">calculate_pvc()</a></code>. PCV compares
 variances across models, so both must use the same complete-case
 sample:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">health_complete</span> <span class="op">&lt;-</span> <span class="va">maihda_health_data</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/stats/complete.cases.html" class="external-link">complete.cases</a></span><span class="op">(</span></span>
 <span>  <span class="va">maihda_health_data</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Obese"</span>, <span class="st">"Age"</span>, <span class="st">"Gender"</span>, <span class="st">"Race"</span>, <span class="st">"Education"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="op">)</span>, <span class="op">]</span></span>
@@ -276,41 +289,44 @@ helps.</p>
 </blockquote>
 </div>
 <div class="section level2">
-<h2 id="discriminatory-accuracy-auc-c-statistic">Discriminatory accuracy (AUC / C-statistic)<a class="anchor" aria-label="anchor" href="#discriminatory-accuracy-auc-c-statistic"></a>
+<h2 id="discriminatory-accuracy-auc-and-median-odds-ratio">Discriminatory accuracy (AUC and Median Odds Ratio)<a class="anchor" aria-label="anchor" href="#discriminatory-accuracy-auc-and-median-odds-ratio"></a>
 </h2>
 <p>The VPC summarises <em>variation</em>; discriminatory accuracy
-summarises <em>prediction</em>. The package does <strong>not</strong>
-ship an AUC or median-odds-ratio helper, but the AUC is a one-liner from
-the model’s predicted probabilities. The AUC equals the Mann-Whitney U
-statistic, so it needs no extra package:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Rank-based AUC (C-statistic): P(prob for a case &gt; prob for a non-case)</span></span>
-<span><span class="va">maihda_auc</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">prob</span>, <span class="va">y</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">y</span><span class="op">)</span></span>
-<span>  <span class="va">n1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">y</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>; <span class="va">n0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">y</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
-<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">n1</span> <span class="op">==</span> <span class="fl">0</span> <span class="op">||</span> <span class="va">n0</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="cn">NA_real_</span><span class="op">)</span></span>
-<span>  <span class="va">r</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rank.html" class="external-link">rank</a></span><span class="op">(</span><span class="va">prob</span><span class="op">)</span></span>
-<span>  <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">r</span><span class="op">[</span><span class="va">y</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span> <span class="op">-</span> <span class="va">n1</span> <span class="op">*</span> <span class="op">(</span><span class="va">n1</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span> <span class="op">/</span> <span class="op">(</span><span class="va">n1</span> <span class="op">*</span> <span class="va">n0</span><span class="op">)</span></span>
-<span><span class="op">}</span></span></code></pre></div>
-<p>Compute it from the predicted probabilities
-(<code>scale = "response"</code>) and the 0/1 outcome stored in the
-fitted model frame. The strata-only model’s AUC is the discriminatory
-accuracy of the intersectional strata <em>themselves</em> – Merlo’s
-central quantity. Comparing it with the adjusted model shows whether
-individual information beyond stratum membership sharpens
-classification:</p>
+summarises <em>prediction</em>. The package ships
+<code><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy()</a></code>, which bundles the two
+individual-level summaries for a logistic MAIHDA model: the <strong>AUC
+/ C-statistic</strong> (how well the predicted probabilities separate
+cases from non-cases) and the <strong>Median Odds Ratio (MOR)</strong>
+(the between-stratum heterogeneity expressed on the odds-ratio scale).
+The strata-only model’s AUC is the discriminatory accuracy of the
+intersectional strata <em>themselves</em> – Merlo’s central quantity.
+Comparing it with the adjusted model shows whether individual
+information beyond stratum membership sharpens classification:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">y_obs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">lme4</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/lme4/man/getME.html" class="external-link">getME</a></span><span class="op">(</span><span class="va">model_null2</span><span class="op">$</span><span class="va">model</span>, <span class="st">"y"</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">da_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></span><span class="op">(</span><span class="va">model_null2</span><span class="op">)</span></span>
+<span><span class="va">da_adj</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></span><span class="op">(</span><span class="va">model_adj</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">prob_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_maihda.html">predict_maihda</a></span><span class="op">(</span><span class="va">model_null2</span>, type <span class="op">=</span> <span class="st">"individual"</span>, scale <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span>
-<span><span class="va">prob_adj</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_maihda.html">predict_maihda</a></span><span class="op">(</span><span class="va">model_adj</span>,  type <span class="op">=</span> <span class="st">"individual"</span>, scale <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span>
+<span><span class="va">da_null</span></span>
+<span><span class="co">#&gt; Discriminatory accuracy (binomial MAIHDA)</span></span>
+<span><span class="co">#&gt;   AUC (C-statistic): 0.626</span></span>
+<span><span class="co">#&gt;   Median Odds Ratio: 1.568</span></span>
+<span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span>
+<span><span class="va">da_adj</span></span>
+<span><span class="co">#&gt; Discriminatory accuracy (binomial MAIHDA)</span></span>
+<span><span class="co">#&gt;   AUC (C-statistic): 0.628</span></span>
+<span><span class="co">#&gt;   Median Odds Ratio: 1.563</span></span>
+<span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span></code></pre></div>
+<p>You can also call the pieces directly:
+<code>maihda_auc(prob, y)</code> on any vector of predicted
+probabilities and 0/1 outcomes (it equals the Mann-Whitney U statistic,
+so it needs no extra package), and <code>maihda_mor(model)</code> for
+the Median Odds Ratio.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">prob_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_maihda.html">predict_maihda</a></span><span class="op">(</span><span class="va">model_null2</span>, type <span class="op">=</span> <span class="st">"individual"</span>, scale <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span>
+<span><span class="va">y_obs</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">lme4</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/lme4/man/getME.html" class="external-link">getME</a></span><span class="op">(</span><span class="va">model_null2</span><span class="op">$</span><span class="va">model</span>, <span class="st">"y"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  AUC_strata_only <span class="op">=</span> <span class="fu"><a href="../reference/maihda_auc.html">maihda_auc</a></span><span class="op">(</span><span class="va">prob_null</span>, <span class="va">y_obs</span><span class="op">)</span>,</span>
-<span>  AUC_adjusted    <span class="op">=</span> <span class="fu"><a href="../reference/maihda_auc.html">maihda_auc</a></span><span class="op">(</span><span class="va">prob_adj</span>,  <span class="va">y_obs</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="co">#&gt; AUC_strata_only    AUC_adjusted </span></span>
-<span><span class="co">#&gt;       0.6261898       0.6282023</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/maihda_auc.html">maihda_auc</a></span><span class="op">(</span><span class="va">prob_null</span>, <span class="va">y_obs</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0.6261898</span></span></code></pre></div>
 <p>An AUC of 0.5 is chance. Here both models sit around 0.6: even a
 non-trivial between-stratum VPC translates into only
 <strong>modest</strong> accuracy at the <em>individual</em> level –
@@ -319,21 +335,30 @@ reporting in MAIHDA. Note the adjusted model barely moves the AUC: the
 categorical covariates that <em>define</em> the strata are already
 captured by stratum membership, so only the continuous covariate
 (<code>Age</code>) adds genuinely new individual-level information.</p>
+<blockquote>
+<p><strong>The MOR needs the logit link.</strong> The Median Odds Ratio
+is an odds-ratio-scale quantity, so it is defined only for
+<code>binomial(link = "logit")</code> (the default). For a
+<code>binomial(link = "probit")</code> fit, <code><a href="../reference/maihda_mor.html">maihda_mor()</a></code>
+errors and <code><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy()</a></code> reports the AUC
+with <code>mor = NA</code> – the AUC, being rank-based, is
+link-agnostic.</p>
+</blockquote>
 </div>
 <div class="section level2">
 <h2 id="plots-adapt-to-the-binomial-family">Plots adapt to the binomial family<a class="anchor" aria-label="anchor" href="#plots-adapt-to-the-binomial-family"></a>
 </h2>
 <p>The standard plots recognise the binomial family and switch to the
 probability scale and to deviance-based diagnostics automatically:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Predicted probabilities per stratum with intervals</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="binary_outcomes_files/figure-html/plot-predicted-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Latent-scale variance partition</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="binary_outcomes_files/figure-html/plot-vpc-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># For binomial fits the dashboard highlights the largest absolute</span></span>
 <span><span class="co"># deviance residuals rather than raw deviations from the mean.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"prediction_deviation"</span><span class="op">)</span></span></code></pre></div>

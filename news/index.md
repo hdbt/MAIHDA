@@ -45,6 +45,42 @@
 
 ### Improvements
 
+- [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
+  now requires the **logit** link, not merely the binomial family. The
+  Median Odds Ratio is an odds-ratio-scale quantity derived from the
+  logistic latent variance, so applying its
+  `exp(sqrt(2 * V_A) * qnorm(0.75))` formula to a
+  `binomial(link = "probit")` fit returned a number that was not on the
+  model’s scale.
+  [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
+  now errors for a non-logit binomial link, and
+  [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+  reports the (link-agnostic) AUC with `mor = NA` for such fits,
+  recording the link and explaining the `NA` in its
+  [`print()`](https://rdrr.io/r/base/print.html) method.
+- Clarified that
+  [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
+  collapses the fixed part to its mean linear predictor before
+  simulating, so for an adjusted (covariate) model the response-scale
+  VPC is a conditional-at-mean estimate (evaluated at the average
+  covariate profile), not one marginalised over the covariate
+  distribution. It is exact for the canonical null/strata-only model;
+  the documentation now states this and recommends reading it from the
+  null model.
+- Updated the “MAIHDA for binary outcomes” vignette, which still claimed
+  the package shipped no AUC/MOR helper and defined a local one. It now
+  uses the exported
+  [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md),
+  [`maihda_auc()`](https://hdbt.github.io/MAIHDA/reference/maihda_auc.md),
+  and
+  [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md),
+  and points to
+  [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
+  for the response-scale VPC.
+- Added the missing `shinycssloaders` dependency to the README’s
+  interactive-dashboard list (it is in `DESCRIPTION` Suggests and used
+  by
+  [`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md)).
 - Plotting is now unified under the base
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html) generic.
   [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)

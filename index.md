@@ -375,8 +375,8 @@ vignette("introduction", package = "MAIHDA")
 
 - brms (\>= 2.15.0) - for Bayesian models
 - ggtern - for ternary diagrams
-- shiny, bslib, DT, plotly, shinyjs, future, promises - for the
-  interactive dashboard
+- shiny, bslib, DT, plotly, shinyjs, shinycssloaders, future, promises -
+  for the interactive dashboard
   ([`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
 - haven - for uploading SPSS (.sav) / Stata (.dta) files in the
   dashboard

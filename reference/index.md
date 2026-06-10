@@ -23,7 +23,7 @@
 - [`maihda_health_data`](https://hdbt.github.io/MAIHDA/reference/maihda_health_data.md)
   : NHANES Health Data Subset for MAIHDA Use
 - [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
-  : Median Odds Ratio (MOR) for a binomial MAIHDA model
+  : Median Odds Ratio (MOR) for a logistic MAIHDA model
 - [`maihda_sim_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.md)
   : Simulated Health Data for MAIHDA Use
 - [`maihda_ternary_plot()`](https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.md)

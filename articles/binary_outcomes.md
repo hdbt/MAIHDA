@@ -140,6 +140,25 @@ interaction differences across strata; they isolate the *pure*
 intersectional (interaction) component only once the additive main
 effects of the strata variables are in the model.
 
+For an interpretable **probability-scale** complement to the
+latent-scale VPC, the package provides
+[`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md),
+which estimates the response-scale VPC by simulation (Goldstein, Browne
+& Rasbash 2002):
+
+``` r
+
+maihda_vpc_response(model_null, seed = 1)
+#> Response-scale VPC (simulation method)
+#>   VPC: 0.0478
+#>   10000 simulated stratum effects; between-stratum variance 0.2227 (latent scale).
+```
+
+Report it *alongside* – not instead of – the latent-scale VPC: it
+depends on the overall prevalence, and for adjusted models it is
+evaluated at the mean covariate profile, so it is best read from the
+null model.
+
 ## Adjusted model and PCV
 
 A “Model 2” adds individual-level covariates to ask how much of the
@@ -205,46 +224,49 @@ decomposition.
 > covariates and using
 > `control = lme4::glmerControl(optimizer = "bobyqa")` usually helps.
 
-## Discriminatory accuracy (AUC / C-statistic)
+## Discriminatory accuracy (AUC and Median Odds Ratio)
 
 The VPC summarises *variation*; discriminatory accuracy summarises
-*prediction*. The package does **not** ship an AUC or median-odds-ratio
-helper, but the AUC is a one-liner from the model’s predicted
-probabilities. The AUC equals the Mann-Whitney U statistic, so it needs
-no extra package:
+*prediction*. The package ships
+[`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md),
+which bundles the two individual-level summaries for a logistic MAIHDA
+model: the **AUC / C-statistic** (how well the predicted probabilities
+separate cases from non-cases) and the **Median Odds Ratio (MOR)** (the
+between-stratum heterogeneity expressed on the odds-ratio scale). The
+strata-only model’s AUC is the discriminatory accuracy of the
+intersectional strata *themselves* – Merlo’s central quantity. Comparing
+it with the adjusted model shows whether individual information beyond
+stratum membership sharpens classification:
 
 ``` r
 
-# Rank-based AUC (C-statistic): P(prob for a case > prob for a non-case)
-maihda_auc <- function(prob, y) {
-  y <- as.numeric(y)
-  n1 <- sum(y == 1); n0 <- sum(y == 0)
-  if (n1 == 0 || n0 == 0) return(NA_real_)
-  r <- rank(prob)
-  (sum(r[y == 1]) - n1 * (n1 + 1) / 2) / (n1 * n0)
-}
+da_null <- maihda_discriminatory_accuracy(model_null2)
+da_adj  <- maihda_discriminatory_accuracy(model_adj)
+
+da_null
+#> Discriminatory accuracy (binomial MAIHDA)
+#>   AUC (C-statistic): 0.626
+#>   Median Odds Ratio: 1.568
+#>   Cases / controls:  1077 / 1923
+da_adj
+#> Discriminatory accuracy (binomial MAIHDA)
+#>   AUC (C-statistic): 0.628
+#>   Median Odds Ratio: 1.563
+#>   Cases / controls:  1077 / 1923
 ```
 
-Compute it from the predicted probabilities (`scale = "response"`) and
-the 0/1 outcome stored in the fitted model frame. The strata-only
-model’s AUC is the discriminatory accuracy of the intersectional strata
-*themselves* – Merlo’s central quantity. Comparing it with the adjusted
-model shows whether individual information beyond stratum membership
-sharpens classification:
+You can also call the pieces directly: `maihda_auc(prob, y)` on any
+vector of predicted probabilities and 0/1 outcomes (it equals the
+Mann-Whitney U statistic, so it needs no extra package), and
+`maihda_mor(model)` for the Median Odds Ratio.
 
 ``` r
 
-y_obs <- as.numeric(lme4::getME(model_null2$model, "y"))
-
 prob_null <- predict_maihda(model_null2, type = "individual", scale = "response")
-prob_adj  <- predict_maihda(model_adj,  type = "individual", scale = "response")
+y_obs     <- as.numeric(lme4::getME(model_null2$model, "y"))
 
-c(
-  AUC_strata_only = maihda_auc(prob_null, y_obs),
-  AUC_adjusted    = maihda_auc(prob_adj,  y_obs)
-)
-#> AUC_strata_only    AUC_adjusted 
-#>       0.6261898       0.6282023
+maihda_auc(prob_null, y_obs)
+#> [1] 0.6261898
 ```
 
 An AUC of 0.5 is chance. Here both models sit around 0.6: even a
@@ -255,6 +277,16 @@ model barely moves the AUC: the categorical covariates that *define* the
 strata are already captured by stratum membership, so only the
 continuous covariate (`Age`) adds genuinely new individual-level
 information.
+
+> **The MOR needs the logit link.** The Median Odds Ratio is an
+> odds-ratio-scale quantity, so it is defined only for
+> `binomial(link = "logit")` (the default). For a
+> `binomial(link = "probit")` fit,
+> [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
+> errors and
+> [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+> reports the AUC with `mor = NA` – the AUC, being rank-based, is
+> link-agnostic.
 
 ## Plots adapt to the binomial family
 

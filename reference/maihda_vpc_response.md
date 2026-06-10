@@ -43,6 +43,21 @@ An object of class `maihda_vpc_response`: a list with `estimate`,
 (the latent-scale between-stratum variance) and `lp_fixed` (the mean
 fixed-part linear predictor).
 
+## Details
+
+The fixed part \\\eta\\ is collapsed to a single value – the mean linear
+predictor \\\bar\eta\\ over the analytic sample – before the random
+effect is simulated around it. The result is therefore a VPC *evaluated
+at the mean covariate profile* (a conditional-at-mean estimate), not one
+marginalised over the empirical covariate distribution. For the
+canonical strata-only (null) model \\\eta\\ is constant (the intercept),
+so the two coincide and the value is exact. For an *adjusted* model (one
+with covariates) they can differ, because the inverse link is nonlinear
+and \\g^{-1}(\bar\eta) \neq \overline{g^{-1}(\eta)}\\: read the
+response-scale VPC from the null model, or interpret an adjusted value
+as conditional on the average covariate profile rather than as a
+covariate-averaged (marginal) VPC.
+
 ## References
 
 Goldstein, H., Browne, W., & Rasbash, J. (2002). Partitioning variation
