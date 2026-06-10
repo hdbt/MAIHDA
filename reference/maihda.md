@@ -219,7 +219,7 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$model_adjusted$formula       # null formula + Gender + Race main effects
 #> BMI ~ Age + (1 | stratum) + Gender + Race
-#> <environment: 0x55fb4d04bc10>
+#> <environment: 0x558a62638720>
 plot(a, type = "vpc")          # null model
 
 plot(a, type = "effect_decomp")# adjusted model (additive vs intersectional)
