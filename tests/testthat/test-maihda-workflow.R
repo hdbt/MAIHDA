@@ -14,7 +14,7 @@ make_workflow_data <- function(seed = 4001, n = 360) {
 
 test_that("maihda() returns a consistent bundle; groups NULL without group", {
   d <- make_workflow_data()
-  a <- maihda(y ~ age + (1 | gender:race), data = d)
+  a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
 
   expect_s3_class(a, "maihda_analysis")
   expect_s3_class(a$model, "maihda_model")
@@ -28,7 +28,7 @@ test_that("maihda() returns a consistent bundle; groups NULL without group", {
 
 test_that("maihda() with group attaches a comparison equal to compare_maihda_groups()", {
   d <- make_workflow_data(4002)
-  a <- maihda(y ~ age + (1 | gender:race), data = d, group = "country")
+  a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d, group = "country"))
 
   expect_s3_class(a$groups, "maihda_group_comparison")
   expect_setequal(a$groups$group, c("A", "B", "C"))
@@ -43,8 +43,8 @@ test_that("maihda() forwards comparison-only args without leaking them into lmer
   # min_group_n and shared_strata are compare_maihda_groups args, not lmer args;
   # they must not be passed through to the model fitter.
   expect_no_error(
-    a <- maihda(y ~ age + (1 | gender:race), data = d, group = "country",
-                min_group_n = 10, shared_strata = TRUE)
+    a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d, group = "country",
+                min_group_n = 10, shared_strata = TRUE))
   )
   expect_s3_class(a$groups, "maihda_group_comparison")
 })
@@ -52,7 +52,7 @@ test_that("maihda() forwards comparison-only args without leaking them into lmer
 test_that("maihda() auto-detects a binary outcome consistently for model and groups", {
   d <- make_workflow_data(4003)
   expect_warning(
-    a <- maihda(bin ~ age + (1 | gender:race), data = d, group = "country"),
+    a <- suppressMessages(maihda(bin ~ age + (1 | gender:race), data = d, group = "country")),
     "binary", ignore.case = TRUE
   )
   expect_equal(a$model$family$family, "binomial")
@@ -62,7 +62,7 @@ test_that("maihda() auto-detects a binary outcome consistently for model and gro
 
 test_that("print and summary methods work for maihda_analysis", {
   d <- make_workflow_data(4004)
-  a <- maihda(y ~ age + (1 | gender:race), data = d, group = "country")
+  a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d, group = "country"))
 
   expect_output(print(a), "MAIHDA Analysis")
   expect_output(print(a), "VPC/ICC")
@@ -75,7 +75,7 @@ test_that("print and summary methods work for maihda_analysis", {
 
 test_that("plot.maihda_analysis dispatches to model and group plots", {
   d <- make_workflow_data(4005)
-  a <- maihda(y ~ age + (1 | gender:race), data = d, group = "country")
+  a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d, group = "country"))
 
   expect_s3_class(plot(a, type = "vpc"), "ggplot")
   expect_s3_class(plot(a, type = "predicted"), "ggplot")
@@ -83,7 +83,7 @@ test_that("plot.maihda_analysis dispatches to model and group plots", {
   expect_s3_class(plot(a, type = "group_components"), "ggplot")
 
   # group plots require a group argument
-  a_nogroup <- maihda(y ~ age + (1 | gender:race), data = d)
+  a_nogroup <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
   expect_error(plot(a_nogroup, type = "group_vpc"), "group", ignore.case = TRUE)
 })
 
@@ -101,7 +101,7 @@ test_that("compute_maihda_ternary_data is classed and plots via plot()", {
 
 test_that("maihda() fits the adjusted model and reports a PCV", {
   d <- make_workflow_data(4101)
-  a <- maihda(y ~ age + (1 | gender:race), data = d)
+  a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
 
   expect_s3_class(a$model_adjusted, "maihda_model")
   expect_s3_class(a$summary_adjusted, "maihda_summary")
@@ -122,7 +122,7 @@ test_that("maihda() fits the adjusted model and reports a PCV", {
 
 test_that("maihda() print and summary surface the PCV and adjusted model", {
   d <- make_workflow_data(4102)
-  a <- maihda(y ~ age + (1 | gender:race), data = d)
+  a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
 
   expect_output(print(a), "PCV \\(null -> adjusted\\)")
   expect_output(print(a), "Adjusted formula")
@@ -176,7 +176,7 @@ test_that("maihda() errors when the stratum dimensions are unidentifiable", {
 
 test_that("plot.maihda_analysis routes decomposition types to the adjusted model", {
   d <- make_workflow_data(4105)
-  a <- maihda(y ~ age + (1 | gender:race), data = d)
+  a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
 
   p_analysis <- plot(a, type = "effect_decomp")
   p_adjusted <- plot(a$model_adjusted, type = "effect_decomp",
@@ -185,4 +185,73 @@ test_that("plot.maihda_analysis routes decomposition types to the adjusted model
   # Same plot as drawing effect_decomp on the adjusted model directly
   expect_equal(p_analysis$labels$title, p_adjusted$labels$title)
   expect_equal(nrow(p_analysis$data), nrow(p_adjusted$data))
+})
+
+# Capture messages from an expression without letting them print.
+maihda_capture_messages <- function(expr) {
+  msgs <- character(0)
+  val <- withCallingHandlers(
+    expr,
+    message = function(m) {
+      msgs <<- c(msgs, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    }
+  )
+  list(value = val, messages = msgs)
+}
+
+test_that("maihda() accepts the dimensions' main effects in the formula (no PCV-of-0 bug)", {
+  d <- make_workflow_data(4201)
+  # Fully-specified adjusted form: the dimensions are written as additive fixed
+  # effects. This must NOT collapse the null and adjusted into the same model (the old
+  # behaviour gave PCV = 0 and a mislabelled VPC); maihda() derives the null by
+  # dropping the dimension main effects.
+  res <- maihda_capture_messages(
+    maihda(y ~ age + gender + race + (1 | gender:race), data = d))
+  b <- res$value
+  expect_false(any(grepl("added the additive main effect", res$messages)))  # nothing auto-added
+
+  null_terms <- attr(stats::terms(reformulas::nobars(b$formula)), "term.labels")
+  adj_terms  <- attr(stats::terms(reformulas::nobars(b$adjusted_formula)), "term.labels")
+  expect_false(any(c("gender", "race") %in% null_terms))   # null excludes the dimensions
+  expect_true(all(c("gender", "race") %in% adj_terms))      # adjusted includes them
+  expect_true(is.finite(b$pcv$pvc) && b$pcv$pvc != 0)
+
+  # Equivalent to omitting the main effects (the legacy form): identical null VPC + PCV.
+  a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
+  expect_equal(b$pcv$pvc, a$pcv$pvc, tolerance = 1e-8)
+  expect_equal(b$summary$vpc$estimate, a$summary$vpc$estimate, tolerance = 1e-8)
+})
+
+test_that("maihda() adds the dimensions' main effects with a message when omitted", {
+  d <- make_workflow_data(4202)
+  expect_message(
+    maihda(y ~ age + (1 | gender:race), data = d),
+    "added the additive main effect"
+  )
+})
+
+test_that("maihda() handles a partially-specified formula (some dimensions present)", {
+  d <- make_workflow_data(4203)
+  res <- maihda_capture_messages(
+    maihda(y ~ age + gender + (1 | gender:race), data = d))
+  cc <- res$value
+  # The message names only the MISSING dimension (race), not the supplied one (gender).
+  expect_true(any(grepl("race", res$messages)))
+  expect_false(any(grepl("gender", res$messages)))
+
+  null_terms <- attr(stats::terms(reformulas::nobars(cc$formula)), "term.labels")
+  adj_terms  <- attr(stats::terms(reformulas::nobars(cc$adjusted_formula)), "term.labels")
+  expect_false(any(c("gender", "race") %in% null_terms))   # null excludes ALL dimensions
+  expect_true(all(c("gender", "race") %in% adj_terms))      # adjusted includes ALL of them
+})
+
+test_that("maihda() group decomposition is the same with or without dims in the formula", {
+  d <- make_workflow_data(4204)
+  g_dims   <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d,
+                                      group = "country", min_group_n = 10))
+  g_nodims <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d,
+                                      group = "country", min_group_n = 10))
+  expect_equal(g_dims$groups$vpc, g_nodims$groups$vpc, tolerance = 1e-8)
+  expect_equal(g_dims$groups$pcv, g_nodims$groups$pcv, tolerance = 1e-8)
 })
