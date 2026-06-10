@@ -54,9 +54,12 @@ table(maihda_country_data$gender, maihda_country_data$ses)
 
 ## One-call workflow
 
-Use `maihda()` when you want the usual model summary and the group comparison in
+Use `maihda()` when you want the full decomposition and the group comparison in
 one object. The formula below defines six intersectional strata
-(`gender:ses`) and asks for a separate VPC/ICC estimate within each country.
+(`gender:ses`) and asks for a separate decomposition within each country. Because
+`maihda()` is a two-model workflow, it fits both the null and the adjusted model
+overall *and* within each country, so the group table also carries a per-country
+**PCV** (the additive share of that country's intersectional inequality).
 
 ```{r one-call}
 analysis <- maihda(
@@ -68,20 +71,23 @@ analysis <- maihda(
 analysis
 ```
 
-The printed report includes the overall VPC/ICC first, then the country-level
-comparison. The group comparison is also stored in `analysis$groups`, so it can
-be inspected or saved as a regular data frame.
+The printed report includes the overall VPC/ICC and PCV first, then the
+country-level comparison. The group comparison is also stored in `analysis$groups`,
+so it can be inspected or saved as a regular data frame.
 
 ```{r group-table}
 group_results <- as.data.frame(analysis$groups)
 group_results[order(group_results$vpc, decreasing = TRUE),
               c("group", "n", "n_strata", "vpc", "var_between",
-                "var_residual", "status")]
+                "var_residual", "pcv", "status")]
 ```
 
 In this example all countries have 600 students and all six gender-by-SES strata
 are populated. Higher VPC/ICC values indicate that a larger share of mathematics
-score variation lies between the intersectional strata within that country.
+score variation lies between the intersectional strata within that country; the
+`pcv` column shows how much of each country's between-stratum variance is the
+additive sum of the gender and SES main effects (so a lower PCV flags inequality
+that is more intersection-specific).
 
 ## Visualizing the comparison
 
@@ -120,11 +126,25 @@ plot(analysis, type = "group_between_variance")
 For non-Gaussian models this variance is on the model (link) scale, and unlike the
 VPC it is not normalised by the residual variance.
 
+## Additive share (PCV) by group
+
+The `"group_pcv"` view bars each country's PCV -- the proportional drop in
+between-stratum variance once the gender and SES main effects are added. A high
+bar means that country's intersectional inequality is largely the additive sum of
+its parts; a low (or negative) bar flags inequality that is more
+intersection-specific. (With strata defined by a single dimension there is no
+intersection to decompose, so this view and the `pcv` column are unavailable.)
+
+```{r group-pcv-plot}
+plot(analysis, type = "group_pcv")
+```
+
 ## Direct group comparison
 
 If you only need the group comparison table and plots, call
-`compare_maihda_groups()` directly. This fits the same stratified per-country
-models used by `maihda(group = "country")`.
+`compare_maihda_groups()` directly. This fits the same per-country null and
+adjusted models used by `maihda(group = "country")` (the `pcv` column appears when
+the strata have at least two dimensions).
 
 ```{r direct-workflow, eval = FALSE}
 group_cmp <- compare_maihda_groups(
@@ -136,6 +156,7 @@ group_cmp <- compare_maihda_groups(
 group_cmp
 plot(group_cmp, type = "vpc")
 plot(group_cmp, type = "components")
+plot(group_cmp, type = "pcv")
 ```
 
 By default, `shared_strata = TRUE`. That means the `gender:ses` strata are

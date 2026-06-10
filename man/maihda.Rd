@@ -61,35 +61,61 @@ Default FALSE.}
 }
 \value{
 An object of class \code{maihda_analysis}: a list with
-  \item{model}{the fitted \code{maihda_model} (see \code{\link{fit_maihda}})}
-  \item{summary}{the \code{maihda_summary} (VPC/ICC, variance components,
-    stratum estimates)}
+  \item{model}{the fitted \strong{null} \code{maihda_model} (see
+    \code{\link{fit_maihda}}); the VPC/ICC and discriminatory-accuracy source}
+  \item{summary}{the null model's \code{maihda_summary} (VPC/ICC, variance
+    components, stratum estimates)}
+  \item{model_adjusted}{the fitted \strong{adjusted} \code{maihda_model} (null plus
+    the dimensions' additive main effects), or \code{NULL} with fewer than two
+    dimensions}
+  \item{summary_adjusted}{the adjusted model's \code{maihda_summary} (its residual
+    VPC), or \code{NULL}}
+  \item{pcv}{the \code{pvc_result} from \code{\link{calculate_pvc}} (null vs
+    adjusted between-stratum variance), or \code{NULL}}
   \item{groups}{a \code{maihda_group_comparison} when \code{group} is supplied,
     otherwise \code{NULL}}
-  \item{formula, group_var, call}{bookkeeping for printing}
+  \item{formula, adjusted_formula, group_var, call}{bookkeeping for printing}
 }
 \description{
-A single high-level entry point that runs the standard MAIHDA workflow and
-returns one bundled object: it fits the multilevel model, summarises the
-variance partition (VPC/ICC) and components, and -- when a higher-level
-grouping variable is supplied -- also compares intersectional inequality across
-that variable's levels.
+A single high-level entry point that runs the standard two-model MAIHDA workflow
+and returns one bundled object. It fits the \strong{null} model (the formula you
+supply: covariates plus the intersectional random intercept) and the
+\strong{adjusted} model (the same model plus the additive main effects of the
+stratum-defining dimensions), summarises the variance partition (VPC/ICC) of the
+null model, and reports the \strong{PCV} -- the proportional change in
+between-stratum variance from the null to the adjusted model, i.e. the additive
+share of the intersectional inequality. When a higher-level grouping variable is
+supplied it also compares this decomposition across that variable's levels.
 }
 \details{
 This is a convenience wrapper around \code{\link{fit_maihda}},
-\code{\link{summary.maihda_model}} and \code{\link{compare_maihda_groups}}; it
-always returns the same \code{maihda_analysis} structure (the \code{groups}
-slot is simply \code{NULL} when \code{group} is not given), so downstream code
-never has to branch on the return type.
+\code{\link{calculate_pvc}}, \code{\link{summary.maihda_model}} and
+\code{\link{compare_maihda_groups}}. It is \emph{intrinsically} a two-model
+decomposition and has no single-model mode -- for a single fit (e.g. just the
+null-model VPC / discriminatory accuracy), call \code{\link{fit_maihda}} directly.
+
+The dimension main effects are read from the random term. The shorthand
+\code{(1 | var1:var2)} and \code{\link{make_strata}} both record the
+stratum-defining variables, so they decompose normally; a numeric dimension that
+\code{make_strata()} auto-binned enters the adjusted model as its reconstructed
+tertile factor (matching the strata), not as a linear term. Because \code{maihda()}
+is intrinsically a decomposition, it \strong{errors} (rather than returning a
+null-only result) when it cannot build the adjusted model -- when the dimensions
+cannot be recovered (a hand-built \code{stratum} column records none) or there is
+only one dimension (no intersection to decompose). Use \code{\link{fit_maihda}} for
+those single-model fits.
 }
 \examples{
 \donttest{
 data(maihda_health_data)
 
-# One call: fit + VPC summary
+# One call: null + adjusted fit, VPC summary, and PCV decomposition
 a <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data)
-a
-plot(a, type = "vpc")
+a                              # VPC (null) and PCV (null -> adjusted)
+a$pcv                          # proportional change in between-stratum variance
+a$model_adjusted$formula       # null formula + Gender + Race main effects
+plot(a, type = "vpc")          # null model
+plot(a, type = "effect_decomp")# adjusted model (additive vs intersectional)
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):
@@ -98,6 +124,7 @@ a2 <- maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data,
              group = "country")
 a2
 plot(a2, type = "group_vpc")
+plot(a2, type = "group_pcv")
 }
 
 }

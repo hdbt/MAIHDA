@@ -514,15 +514,25 @@ test_that("maihda() resolves caller-local weights/subset through the data mask",
   # caller-local variable were lost because ... forwarding became ..1 promises.
   run <- function() {
     set.seed(2110)
-    n <- 200
-    d <- data.frame(stratum = factor(rep(seq_len(8), each = 25)), x = rnorm(n))
-    d$y <- 1 + 0.4 * d$x + rnorm(8, sd = 0.6)[d$stratum] + rnorm(n, sd = 0.3)
+    n <- 240
+    d <- data.frame(
+      gender = sample(c("F", "M"), n, replace = TRUE),
+      race   = sample(c("X", "Y"), n, replace = TRUE),
+      x = rnorm(n)
+    )
+    sk <- interaction(d$gender, d$race, drop = TRUE)
+    d$y <- 1 + 0.4 * d$x + rnorm(4, sd = 0.6)[sk] + rnorm(n, sd = 0.3)
     w_local <- runif(n, 0.5, 1.5)       # caller-local, NOT a column of d
     keep_local <- d$x > 0               # caller-local logical
-    a <- maihda(y ~ x + (1 | stratum), data = d, weights = w_local)
+
+    # The forwarding must reach BOTH the null and the adjusted fit maihda() builds.
+    a <- maihda(y ~ x + (1 | gender:race), data = d, weights = w_local)
     expect_equal(unname(stats::weights(a$model$model, type = "prior")), w_local)
-    b <- maihda(y ~ x + (1 | stratum), data = d, subset = keep_local)
+    expect_equal(unname(stats::weights(a$model_adjusted$model, type = "prior")), w_local)
+
+    b <- maihda(y ~ x + (1 | gender:race), data = d, subset = keep_local)
     expect_equal(as.integer(stats::nobs(b$model$model)), sum(keep_local))
+    expect_equal(as.integer(stats::nobs(b$model_adjusted$model)), sum(keep_local))
   }
   run()
 })

@@ -9,10 +9,10 @@
 \arguments{
 \item{x}{A \code{maihda_analysis} object from \code{\link{maihda}}.}
 
-\item{type}{One of the \code{\link{plot.maihda_model}} types ("all", "vpc",
-"obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp", "ternary",
-"prediction_deviation") or a group type ("group_vpc", "group_components",
-"group_between_variance"). Default "all".}
+\item{type}{One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
+"risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation") or a group
+type ("group_vpc", "group_components", "group_between_variance", "group_pcv").
+Default "all".}
 
 \item{...}{Additional arguments passed to the underlying plot method.}
 }
@@ -20,8 +20,14 @@
 A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
 }
 \description{
-Dispatches to the model's plots (see \code{\link{plot.maihda_model}}) for the
-model-level \code{type}s, and to the group comparison for \code{"group_vpc"},
-\code{"group_components"}, and \code{"group_between_variance"} when
-\code{\link{maihda}} was called with a \code{group}.
+Dispatches each \code{type} to the model it is valid on. The VPC and shrinkage
+views (\code{"vpc"}, \code{"obs_vs_shrunken"}, \code{"predicted"}) use the
+\strong{null} model. The additive-vs-intersectional views (\code{"risk_vs_effect"},
+\code{"effect_decomp"}, \code{"ternary"}, \code{"prediction_deviation"}) use the
+\strong{adjusted} model, whose fixed effects carry the dimensions' additive part so
+the stratum random effect is the pure interaction; with fewer than two dimensions
+(no adjusted model) they fall back to the null model. Group types
+(\code{"group_vpc"}, \code{"group_components"}, \code{"group_between_variance"},
+\code{"group_pcv"}) use the group comparison when \code{\link{maihda}} was called
+with a \code{group}.
 }

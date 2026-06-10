@@ -4,18 +4,20 @@
 \alias{plot.maihda_group_comparison}
 \title{Plot a MAIHDA Group Comparison}
 \usage{
-\method{plot}{maihda_group_comparison}(x, type = c("vpc", "components", "between_variance"), ...)
+\method{plot}{maihda_group_comparison}(x, type = c("vpc", "components", "between_variance", "pcv"), ...)
 }
 \arguments{
 \item{x}{A \code{maihda_group_comparison} object from
 \code{\link{compare_maihda_groups}}.}
 
 \item{type}{One of "vpc" (default) for VPC by group with optional bootstrap
-confidence intervals, "components" for stacked variance proportions, or
-"between_variance" for the absolute between-stratum variance by group. The VPC
-is a \emph{share} of the unexplained variance; "between_variance" shows the
-\emph{magnitude} the ratio cannot convey (two groups with very different VPCs
-can share a between-stratum variance, and vice versa).}
+confidence intervals, "components" for stacked variance proportions,
+"between_variance" for the absolute between-stratum variance by group, or "pcv"
+for the additive share (null -> adjusted proportional change in between-stratum
+variance) by group. The VPC is a \emph{share} of the unexplained variance;
+"between_variance" shows the \emph{magnitude} the ratio cannot convey (two groups
+with very different VPCs can share a between-stratum variance, and vice versa);
+"pcv" requires strata defined by at least two dimensions.}
 
 \item{...}{Additional arguments (not used).}
 }
@@ -25,9 +27,9 @@ A ggplot2 object.
 \description{
 Visualises the output of \code{\link{compare_maihda_groups}} as a point/forest
 plot of the VPC/ICC by group, as stacked variance-composition bars (between- vs
-within-stratum share) by group, or as bars of the absolute between-stratum
-(intersectional) variance by group. Dispatched via \code{plot()} on the classed
-result.
+within-stratum share) by group, as bars of the absolute between-stratum
+(intersectional) variance by group, or as bars of the additive share (PCV) by
+group. Dispatched via \code{plot()} on the classed result.
 }
 \examples{
 \donttest{
