@@ -56,14 +56,18 @@ step.)
 library(MAIHDA)
 data("maihda_health_data")
 
-# Null + adjusted fit, VPC summary, and PCV decomposition in one call
-analysis <- maihda(BMI ~ Age + (1 | Gender:Race:Education), data = maihda_health_data)
+# Null + adjusted fit, VPC summary, and PCV decomposition in one call. Write the
+# strata variables (Gender, Race, Education) as additive fixed effects -- the
+# fully-specified adjusted model; maihda() derives the null by dropping them. (Omit
+# them and maihda() adds them for you, with a message.)
+analysis <- maihda(BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
+                   data = maihda_health_data)
 analysis                      # VPC/ICC (null) and PCV (null -> adjusted)
 #> MAIHDA Analysis
 #> ===============
 #> 
 #> Null formula:    BMI ~ Age + (1 | stratum)
-#> Adjusted formula:BMI ~ Age + (1 | stratum) + Gender + Race + Education
+#> Adjusted formula:BMI ~ Age + Gender + Race + Education + (1 | stratum)
 #> Engine: lme4 | Family: gaussian
 #> VPC/ICC (null): 0.0627
 #> PCV (null -> adjusted): 0.5957
@@ -157,7 +161,7 @@ so here we just point to it:
 ``` r
 
 data("maihda_country_data")
-by_country <- maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data,
+by_country <- maihda(math ~ gender + ses + (1 | gender:ses), data = maihda_country_data,
                      group = "country")
 by_country
 plot(by_country, type = "group_vpc")

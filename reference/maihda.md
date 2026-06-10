@@ -1,15 +1,16 @@
 # Run a Complete MAIHDA Analysis
 
 A single high-level entry point that runs the standard two-model MAIHDA
-workflow and returns one bundled object. It fits the **null** model (the
-formula you supply: covariates plus the intersectional random intercept)
-and the **adjusted** model (the same model plus the additive main
-effects of the stratum-defining dimensions), summarises the variance
-partition (VPC/ICC) of the null model, and reports the **PCV** – the
-proportional change in between-stratum variance from the null to the
-adjusted model, i.e. the additive share of the intersectional
-inequality. When a higher-level grouping variable is supplied it also
-compares this decomposition across that variable's levels.
+workflow and returns one bundled object. It fits the **null** model
+(covariates plus the intersectional random intercept, *excluding* the
+stratum dimensions' main effects) and the **adjusted** model (the null
+plus the additive main effects of the stratum-defining dimensions),
+summarises the variance partition (VPC/ICC) of the null model, and
+reports the **PCV** – the proportional change in between-stratum
+variance from the null to the adjusted model, i.e. the additive share of
+the intersectional inequality. When a higher-level grouping variable is
+supplied it also compares this decomposition across that variable's
+levels.
 
 ## Usage
 
@@ -38,6 +39,9 @@ maihda(
   `outcome ~ covars + (1 | var1:var2)` or `... + (1 | stratum)` when
   `data` already has a `stratum` column from
   [`make_strata`](https://hdbt.github.io/MAIHDA/reference/make_strata.md).
+  The dimensions' additive main effects may be listed (the
+  fully-specified adjusted model) or omitted (added automatically, with
+  a message); see Details.
 
 - data:
 
@@ -155,11 +159,18 @@ accuracy), call
 [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
 directly.
 
-The dimension main effects are read from the random term. The shorthand
-`(1 | var1:var2)` and
+**The dimensions' additive main effects.** You may write them in the
+formula – the fully-specified, lme4-native adjusted model
+`outcome ~ covars + var1 + var2 + (1 | var1:var2)` – or omit them.
+Either way the null *excludes* the dimension main effects and the
+adjusted *includes* them: when the formula already lists them it is
+taken as the adjusted model and the null is derived by dropping them;
+when they are missing `maihda()` adds them to the adjusted model and
+emits a [`message()`](https://rdrr.io/r/base/message.html) so the
+decomposition stays explicit. The dimensions themselves are read from
+the random term: the shorthand `(1 | var1:var2)` and
 [`make_strata`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
-both record the stratum-defining variables, so they decompose normally;
-a numeric dimension that
+both record them, and a numeric dimension that
 [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
 auto-binned enters the adjusted model as its reconstructed tertile
 factor (matching the strata), not as a linear term. Because `maihda()`
@@ -185,14 +196,16 @@ for the variance summary.
 # \donttest{
 data(maihda_health_data)
 
-# One call: null + adjusted fit, VPC summary, and PCV decomposition
-a <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data)
+# One call: null + adjusted fit, VPC summary, and PCV decomposition. Writing the
+# dimensions' additive main effects (Gender + Race) gives the fully-specified
+# adjusted model; maihda() derives the null by dropping them.
+a <- maihda(BMI ~ Age + Gender + Race + (1 | Gender:Race), data = maihda_health_data)
 a                              # VPC (null) and PCV (null -> adjusted)
 #> MAIHDA Analysis
 #> ===============
 #> 
 #> Null formula:    BMI ~ Age + (1 | stratum)
-#> Adjusted formula:BMI ~ Age + (1 | stratum) + Gender + Race
+#> Adjusted formula:BMI ~ Age + Gender + Race + (1 | stratum)
 #> Engine: lme4 | Family: gaussian
 #> VPC/ICC (null): 0.0585
 #> PCV (null -> adjusted): 0.4963
@@ -219,9 +232,18 @@ a$pcv                          # proportional change in between-stratum variance
 #> variance between the models; it is variance 'explained' only when Model 2
 #> nests Model 1 by adding predictors on the same outcome, sample and strata):
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
-a$model_adjusted$formula       # null formula + Gender + Race main effects
-#> BMI ~ Age + (1 | stratum) + Gender + Race
-#> <environment: 0x55c151adb978>
+a$formula                      # null:     BMI ~ Age + (1 | stratum)
+#> BMI ~ Age + (1 | stratum)
+#> <environment: 0x556ab5355878>
+a$adjusted_formula             # adjusted: null + Gender + Race main effects
+#> BMI ~ Age + Gender + Race + (1 | stratum)
+#> <environment: 0x556aaafebd38>
+
+# Omitting them is equivalent -- maihda() adds them to the adjusted model and
+# emits a message; the null and PCV are identical to the explicit form above.
+a0 <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data)
+#> maihda(): added the additive main effect(s) of the stratum dimension(s) Gender, Race to the adjusted model; the null model excludes them. List them in the formula to specify the adjusted model explicitly.
+
 plot(a, type = "vpc")          # null model
 
 plot(a, type = "effect_decomp")# adjusted model (additive vs intersectional)
@@ -233,6 +255,7 @@ data(maihda_country_data)
 a2 <- maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data,
              group = "country")
 #> boundary (singular) fit: see help('isSingular')
+#> maihda(): added the additive main effect(s) of the stratum dimension(s) gender, ses to the adjusted model; the null model excludes them. List them in the formula to specify the adjusted model explicitly.
 #> boundary (singular) fit: see help('isSingular')
 #> boundary (singular) fit: see help('isSingular')
 #> boundary (singular) fit: see help('isSingular')

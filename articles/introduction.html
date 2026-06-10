@@ -133,14 +133,18 @@ the pipeline step by step.)</p>
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Null + adjusted fit, VPC summary, and PCV decomposition in one call</span></span>
-<span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span>
+<span><span class="co"># Null + adjusted fit, VPC summary, and PCV decomposition in one call. Write the</span></span>
+<span><span class="co"># strata variables (Gender, Race, Education) as additive fixed effects -- the</span></span>
+<span><span class="co"># fully-specified adjusted model; maihda() derives the null by dropping them. (Omit</span></span>
+<span><span class="co"># them and maihda() adds them for you, with a message.)</span></span>
+<span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
+<span>                   data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span>
 <span><span class="va">analysis</span>                      <span class="co"># VPC/ICC (null) and PCV (null -&gt; adjusted)</span></span>
 <span><span class="co">#&gt; MAIHDA Analysis</span></span>
 <span><span class="co">#&gt; ===============</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Null formula:    BMI ~ Age + (1 | stratum)</span></span>
-<span><span class="co">#&gt; Adjusted formula:BMI ~ Age + (1 | stratum) + Gender + Race + Education</span></span>
+<span><span class="co">#&gt; Adjusted formula:BMI ~ Age + Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; Engine: lme4 | Family: gaussian</span></span>
 <span><span class="co">#&gt; VPC/ICC (null): 0.0627</span></span>
 <span><span class="co">#&gt; PCV (null -&gt; adjusted): 0.5957</span></span>
@@ -224,7 +228,7 @@ country grouping; this workflow has its own <a href="group_comparison.html">grou
 just point to it:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
-<span><span class="va">by_country</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_country_data</span>,</span>
+<span><span class="va">by_country</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">math</span> <span class="op">~</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">ses</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_country_data</span>,</span>
 <span>                     group <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span>
 <span><span class="va">by_country</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">by_country</span>, type <span class="op">=</span> <span class="st">"group_vpc"</span><span class="op">)</span></span></code></pre></div>

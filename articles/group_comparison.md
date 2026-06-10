@@ -62,8 +62,10 @@ inequality).
 
 ``` r
 
+# gender + ses are written as additive fixed effects (the adjusted model); maihda()
+# derives the null by dropping them, both overall and within each country.
 analysis <- maihda(
-  math ~ 1 + (1 | gender:ses),
+  math ~ gender + ses + (1 | gender:ses),
   data = maihda_country_data,
   group = "country"
 )
@@ -79,7 +81,7 @@ analysis
 #> ===============
 #> 
 #> Null formula:    math ~ (1 | stratum)
-#> Adjusted formula:math ~ (1 | stratum) + gender + ses
+#> Adjusted formula:math ~ gender + ses + (1 | stratum)
 #> Engine: lme4 | Family: gaussian
 #> VPC/ICC (null): 0.1493
 #> PCV (null -> adjusted): 1.0000

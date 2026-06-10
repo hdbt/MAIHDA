@@ -98,6 +98,7 @@ analysis <- maihda(
   group = "country"
 )
 #> boundary (singular) fit: see help('isSingular')
+#> maihda(): added the additive main effect(s) of the stratum dimension(s) gender, ses to the adjusted model; the null model excludes them. List them in the formula to specify the adjusted model explicitly.
 #> boundary (singular) fit: see help('isSingular')
 #> boundary (singular) fit: see help('isSingular')
 #> boundary (singular) fit: see help('isSingular')

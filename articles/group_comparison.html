@@ -140,8 +140,10 @@ two-model workflow, it fits both the null and the adjusted model overall
 per-country <strong>PCV</strong> (the additive share of that country’s
 intersectional inequality).</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span>
+<code class="sourceCode R"><span><span class="co"># gender + ses are written as additive fixed effects (the adjusted model); maihda()</span></span>
+<span><span class="co"># derives the null by dropping them, both overall and within each country.</span></span>
+<span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span></span>
+<span>  <span class="va">math</span> <span class="op">~</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">ses</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">maihda_country_data</span>,</span>
 <span>  group <span class="op">=</span> <span class="st">"country"</span></span>
 <span><span class="op">)</span></span>
@@ -157,7 +159,7 @@ intersectional inequality).</p>
 <span><span class="co">#&gt; ===============</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Null formula:    math ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; Adjusted formula:math ~ (1 | stratum) + gender + ses</span></span>
+<span><span class="co">#&gt; Adjusted formula:math ~ gender + ses + (1 | stratum)</span></span>
 <span><span class="co">#&gt; Engine: lme4 | Family: gaussian</span></span>
 <span><span class="co">#&gt; VPC/ICC (null): 0.1493</span></span>
 <span><span class="co">#&gt; PCV (null -&gt; adjusted): 1.0000</span></span>

@@ -122,9 +122,16 @@
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Everything in one call: null + adjusted fit, VPC/ICC summary, and PCV decomposition</span></span>
-<span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span>
+<span><span class="co"># Everything in one call: null + adjusted fit, VPC/ICC summary, and PCV decomposition.</span></span>
+<span><span class="co"># Write the strata variables as additive fixed effects -- the lme4-native, fully-</span></span>
+<span><span class="co"># specified ADJUSTED model. maihda() uses that as the adjusted model and derives the</span></span>
+<span><span class="co"># NULL by dropping those main effects. (Omit them and maihda() adds them for you,</span></span>
+<span><span class="co"># printing a message; the result is identical.)</span></span>
+<span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
+<span>                   data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span>
 <span><span class="va">analysis</span>                       <span class="co"># VPC/ICC (null) and PCV (null -&gt; adjusted)</span></span>
+<span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>               <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span>
+<span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>      <span class="co"># adjusted: BMI ~ Age + Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span>              <span class="co"># variance components</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">pcv</span>                   <span class="co"># proportional change in between-stratum variance</span></span>
 <span></span>
@@ -153,7 +160,7 @@
 <h3 id="maihda">
 <code>maihda()</code><a class="anchor" aria-label="anchor" href="#maihda"></a>
 </h3>
-<p>A single high-level entry point that runs the standard two-model MAIHDA workflow: it fits the <strong>null</strong> model (your formula) and the <strong>adjusted</strong> model (plus the dimensions’ additive main effects), summarises the null-model VPC/ICC, and reports the <strong>PCV</strong> (the additive share of the intersectional inequality). When a <code>group</code> is supplied it also runs this decomposition within each group. Returns one <code>maihda_analysis</code> object with <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, and <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> methods (<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> routes the VPC/shrinkage views to the null model and the additive-vs-intersectional views to the adjusted model). It is intrinsically a decomposition and has no single-model mode – use <code><a href="reference/fit_maihda.html">fit_maihda()</a></code> for a single fit.</p>
+<p>A single high-level entry point that runs the standard two-model MAIHDA workflow: it fits the <strong>null</strong> model (covariates only) and the <strong>adjusted</strong> model (plus the dimensions’ additive main effects – write them in the formula, or let <code><a href="reference/maihda.html">maihda()</a></code> add them with a message), summarises the null-model VPC/ICC, and reports the <strong>PCV</strong> (the additive share of the intersectional inequality). When a <code>group</code> is supplied it also runs this decomposition within each group. Returns one <code>maihda_analysis</code> object with <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, and <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> methods (<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> routes the VPC/shrinkage views to the null model and the additive-vs-intersectional views to the adjusted model). It is intrinsically a decomposition and has no single-model mode – use <code><a href="reference/fit_maihda.html">fit_maihda()</a></code> for a single fit.</p>
 </div>
 <div class="section level3">
 <h3 id="make_strata">
@@ -278,6 +285,16 @@
 <span><span class="co"># interaction differences across strata; it represents the *pure* intersectional</span></span>
 <span><span class="co"># (interaction) effect only once the additive main effects of the strata variables</span></span>
 <span><span class="co"># are added to the model.</span></span>
+<span></span>
+<span><span class="co"># To get that pure intersectional part, fit the ADJUSTED model -- the same model PLUS</span></span>
+<span><span class="co"># the strata variables as additive fixed effects -- and read the PCV (the additive</span></span>
+<span><span class="co"># share of the intersectional inequality). The one-call maihda() does this for you;</span></span>
+<span><span class="co"># here it is spelled out with the building blocks.</span></span>
+<span><span class="va">adjusted</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
+<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">maihda_health_data</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model</span>, <span class="va">adjusted</span><span class="op">)</span>  <span class="co"># null -&gt; adjusted: proportional change in variance</span></span>
 <span></span>
 <span><span class="co"># Visualize which strata have higher/lower outcomes using new advanced plots</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span>
