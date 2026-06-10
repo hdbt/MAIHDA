@@ -234,7 +234,9 @@ those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> PCV (null -&gt; adjusted): 0.4963</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance: 2.7383 (null) -&gt; 1.3792 (adjusted)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   ~49.6% of the between-stratum variance is additive (the dimensions' main</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder reflects intersectional interaction.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity, often interpreted as</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   intersectional interaction, but interpret it cautiously.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 10</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for variance components and plot(type = ...) for figures.</span>
@@ -255,7 +257,7 @@ those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">model_adjusted</span><span class="op">$</span><span class="va">formula</span>       <span class="co"># null formula + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum) + Gender + Race</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x556bbe9d9ec8&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55c151adb978&gt;</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span>          <span class="co"># null model</span></span></span>
 <span class="r-plt img"><img src="maihda-1.png" alt="" width="700" height="433"></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span><span class="co"># adjusted model (additive vs intersectional)</span></span></span>
@@ -283,7 +285,9 @@ those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> PCV (null -&gt; adjusted): 1.0000</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance: 1352.2436 (null) -&gt; 0.0000 (adjusted)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   ~100.0% of the between-stratum variance is additive (the dimensions' main</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder reflects intersectional interaction.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity, often interpreted as</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   intersectional interaction, but interpret it cautiously.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 6</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Group comparison by 'country':</span>

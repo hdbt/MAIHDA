@@ -40,7 +40,8 @@ Shiny Dashboard
 - **Upload Own Data:** Easily upload datasets in `.csv`, Stata (`.dta`),
   or SPSS (`.sav`) formats.
 - **Use Included Data:** Try out the app instantly by selecting the
-  pre-loaded `maihda_health_data` or `maihda_sim_data`.
+  pre-loaded built-in **NHANES health data** (`maihda_health_data`) or
+  **PISA country data** (`maihda_country_data`).
 - **View Data:** The app includes an interactive data table letting you
   sort, filter, and inspect variables before analyzing.
 

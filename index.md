@@ -243,7 +243,7 @@ summary <- summary(model, bootstrap = TRUE, n_boot = 1000)
 # The VPC is the share of the *unexplained* (between-stratum + residual) variance
 # that lies between strata -- here conditional on Age, and on the latent scale for
 # non-Gaussian models (e.g. logistic uses pi^2/3 as the level-1 variance). Read
-# from the null model `outcome ~ 1 + (1 | strata)` it is the total between-stratum
+# from the null model `outcome ~ 1 + (1 | stratum)` it is the total between-stratum
 # share. NOTE: the between-stratum variation reflects the combined additive +
 # interaction differences across strata; it represents the *pure* intersectional
 # (interaction) effect only once the additive main effects of the strata variables

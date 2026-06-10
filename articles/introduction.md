@@ -69,7 +69,9 @@ analysis                      # VPC/ICC (null) and PCV (null -> adjusted)
 #> PCV (null -> adjusted): 0.5957
 #> Between-stratum variance: 2.9001 (null) -> 1.1724 (adjusted)
 #>   ~59.6% of the between-stratum variance is additive (the dimensions' main
-#>   effects); the remainder reflects intersectional interaction.
+#>   effects); the remainder is the between-stratum variance remaining after the
+#>   additive main effects -- a model-dependent quantity, often interpreted as
+#>   intersectional interaction, but interpret it cautiously.
 #> Strata: 50
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.

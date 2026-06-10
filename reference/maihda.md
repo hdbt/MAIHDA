@@ -198,7 +198,9 @@ a                              # VPC (null) and PCV (null -> adjusted)
 #> PCV (null -> adjusted): 0.4963
 #> Between-stratum variance: 2.7383 (null) -> 1.3792 (adjusted)
 #>   ~49.6% of the between-stratum variance is additive (the dimensions' main
-#>   effects); the remainder reflects intersectional interaction.
+#>   effects); the remainder is the between-stratum variance remaining after the
+#>   additive main effects -- a model-dependent quantity, often interpreted as
+#>   intersectional interaction, but interpret it cautiously.
 #> Strata: 10
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
@@ -219,7 +221,7 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$model_adjusted$formula       # null formula + Gender + Race main effects
 #> BMI ~ Age + (1 | stratum) + Gender + Race
-#> <environment: 0x556bbe9d9ec8>
+#> <environment: 0x55c151adb978>
 plot(a, type = "vpc")          # null model
 
 plot(a, type = "effect_decomp")# adjusted model (additive vs intersectional)
@@ -247,7 +249,9 @@ a2
 #> PCV (null -> adjusted): 1.0000
 #> Between-stratum variance: 1352.2436 (null) -> 0.0000 (adjusted)
 #>   ~100.0% of the between-stratum variance is additive (the dimensions' main
-#>   effects); the remainder reflects intersectional interaction.
+#>   effects); the remainder is the between-stratum variance remaining after the
+#>   additive main effects -- a model-dependent quantity, often interpreted as
+#>   intersectional interaction, but interpret it cautiously.
 #> Strata: 6
 #> 
 #> Group comparison by 'country':

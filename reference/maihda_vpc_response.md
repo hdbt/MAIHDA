@@ -58,6 +58,11 @@ response-scale VPC from the null model, or interpret an adjusted value
 as conditional on the average covariate profile rather than as a
 covariate-averaged (marginal) VPC.
 
+The method is binomial-link agnostic: it maps the simulated stratum
+effects through whichever inverse link the model uses (logit, probit,
+cloglog, ...), so a non-logit binomial fit is computed on its own scale
+rather than rejected. Only the family is required to be binomial.
+
 ## References
 
 Goldstein, H., Browne, W., & Rasbash, J. (2002). Partitioning variation

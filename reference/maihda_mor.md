@@ -23,7 +23,8 @@ maihda_mor(model)
 
   A `maihda_model` from
   [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  fitted with a `binomial` family and a **logit** link.
+  fitted with a `binomial` (lme4) or `bernoulli` (brms) family and a
+  **logit** link.
 
 ## Value
 
