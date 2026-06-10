@@ -4,3 +4,6 @@ shiny.dcf
 # Rendered vignette outputs are build artifacts (R CMD build / pkgdown generate
 # them from the .Rmd sources); do not commit them, or they go stale.
 vignettes/*.html
+# Editor config is personal and should not be tracked (.vscode is already in
+# .Rbuildignore, so this only affects version control, not the package build).
+.vscode/
