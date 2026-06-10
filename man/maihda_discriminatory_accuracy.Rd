@@ -12,7 +12,9 @@ maihda_discriminatory_accuracy(model)
 }
 \value{
 An object of class \code{maihda_da}: a list with \code{auc}, \code{mor},
-  \code{n_case}, \code{n_control}, \code{family} and \code{engine}.
+  \code{n_case}, \code{n_control}, \code{family}, \code{link} and \code{engine}.
+  \code{mor} is \code{NA} for a non-logit binomial link, where the AUC is still
+  reported.
 }
 \description{
 Bundles the individual-level discriminatory-accuracy summaries for a binomial
@@ -21,7 +23,9 @@ probabilities separate cases from non-cases) and the Median Odds Ratio. Applied
 to a strata-only (null) model, the AUC is the discriminatory accuracy of the
 intersectional strata themselves -- Merlo's central quantity; comparing it with
 an adjusted model shows whether individual covariates beyond stratum membership
-sharpen classification.
+sharpen classification. The AUC is computed for any binomial link; the Median
+Odds Ratio is reported only for the logit link and is \code{NA} otherwise (e.g.
+for a probit fit), since the MOR is an odds-ratio-scale quantity.
 }
 \examples{
 \dontrun{

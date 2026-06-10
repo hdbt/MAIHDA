@@ -45,6 +45,27 @@ test_that("maihda_mor equals exp(sqrt(2 * V_A) * qnorm(0.75)) for a logistic fit
   expect_gte(maihda_mor(m), 1)  # MOR is >= 1 by construction
 })
 
+test_that("maihda_mor errors for a non-logit binomial link (probit)", {
+  # The MOR is an odds-ratio-scale quantity defined only for the logit link; a probit
+  # fit must be rejected rather than returning exp(...) off the model's scale.
+  m <- maihda_da_test_model(family = stats::binomial("probit"))
+  expect_identical(MAIHDA:::maihda_model_link_name(m), "probit")
+  expect_error(maihda_mor(m), "logit link")
+})
+
+test_that("maihda_discriminatory_accuracy reports AUC with mor = NA for a probit fit", {
+  m <- maihda_da_test_model(family = stats::binomial("probit"))
+  da <- maihda_discriminatory_accuracy(m)
+
+  expect_s3_class(da, "maihda_da")
+  expect_true(is.finite(da$auc) && da$auc >= 0 && da$auc <= 1)  # AUC is link-agnostic
+  expect_true(is.na(da$mor))                                    # MOR undefined for probit
+  expect_identical(da$link, "probit")
+  expect_identical(da$family, "binomial")
+  # print() explains WHY the MOR is NA rather than showing a bare NA
+  expect_output(print(da), "requires the logit link")
+})
+
 test_that("maihda_mor errors for non-binomial models", {
   g <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
     MAIHDA::maihda_sim_data[seq_len(120), ],
