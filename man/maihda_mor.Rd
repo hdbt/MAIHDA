@@ -8,7 +8,8 @@ maihda_mor(model)
 }
 \arguments{
 \item{model}{A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
-\code{binomial} family and a \strong{logit} link.}
+\code{binomial} (lme4) or \code{bernoulli} (brms) family and a \strong{logit}
+link.}
 }
 \value{
 A single number (the MOR, \eqn{\ge 1}), or \code{NA_real_} if the

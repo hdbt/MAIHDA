@@ -8,7 +8,8 @@ maihda_discriminatory_accuracy(model)
 }
 \arguments{
 \item{model}{A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
-\code{binomial} family (lme4 engine).}
+\code{binomial} family (lme4) or the \code{bernoulli} family a binary 0/1
+outcome is fit with under \code{engine = "brms"}.}
 }
 \value{
 An object of class \code{maihda_da}: a list with \code{auc}, \code{mor},

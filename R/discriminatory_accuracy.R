@@ -81,7 +81,8 @@ maihda_auc <- function(prob, y) {
 #' different scale and the \code{exp(...)} above would not be an odds ratio.
 #'
 #' @param model A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
-#'   \code{binomial} family and a \strong{logit} link.
+#'   \code{binomial} (lme4) or \code{bernoulli} (brms) family and a \strong{logit}
+#'   link.
 #'
 #' @return A single number (the MOR, \eqn{\ge 1}), or \code{NA_real_} if the
 #'   between-stratum variance is unavailable.
@@ -99,9 +100,12 @@ maihda_mor <- function(model) {
     stop("'model' must be a maihda_model object from fit_maihda().", call. = FALSE)
   }
   fam <- maihda_model_family_name(model)
-  if (!identical(fam, "binomial")) {
-    stop("The Median Odds Ratio is only defined for binomial (logistic) MAIHDA ",
-         "models; this model uses family = '", fam, "'.", call. = FALSE)
+  # Accept both the lme4 "binomial" family and the brms "bernoulli" family a binary
+  # 0/1 outcome is fit with (fit_maihda(engine = "brms") routes Bernoulli data to
+  # bernoulli()); both describe a logistic MAIHDA model.
+  if (!isTRUE(fam %in% c("binomial", "bernoulli"))) {
+    stop("The Median Odds Ratio is only defined for binomial/Bernoulli (logistic) ",
+         "MAIHDA models; this model uses family = '", fam, "'.", call. = FALSE)
   }
   link <- maihda_model_link_name(model)
   if (!identical(link, "logit")) {
@@ -134,7 +138,8 @@ maihda_mor <- function(model) {
 #' for a probit fit), since the MOR is an odds-ratio-scale quantity.
 #'
 #' @param model A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
-#'   \code{binomial} family (lme4 engine).
+#'   \code{binomial} family (lme4) or the \code{bernoulli} family a binary 0/1
+#'   outcome is fit with under \code{engine = "brms"}.
 #'
 #' @return An object of class \code{maihda_da}: a list with \code{auc}, \code{mor},
 #'   \code{n_case}, \code{n_control}, \code{family}, \code{link} and \code{engine}.
@@ -164,8 +169,11 @@ maihda_discriminatory_accuracy <- function(model) {
     stop("'model' must be a maihda_model object from fit_maihda().", call. = FALSE)
   }
   fam <- maihda_model_family_name(model)
-  if (!identical(fam, "binomial")) {
-    stop("Discriminatory accuracy (AUC / MOR) is only defined for binomial ",
+  # Accept both the lme4 "binomial" family and the brms "bernoulli" family a binary
+  # 0/1 outcome is fit with (see fit_maihda(engine = "brms")); both are logistic
+  # MAIHDA models for which AUC / MOR are defined.
+  if (!isTRUE(fam %in% c("binomial", "bernoulli"))) {
+    stop("Discriminatory accuracy (AUC / MOR) is only defined for binomial/Bernoulli ",
          "(logistic) MAIHDA models; this model uses family = '", fam, "'.",
          call. = FALSE)
   }

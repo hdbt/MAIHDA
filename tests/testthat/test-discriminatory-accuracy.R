@@ -100,3 +100,23 @@ test_that("maihda_discriminatory_accuracy rejects non-binomial models", {
   )))
   expect_error(maihda_discriminatory_accuracy(g$model), "binomial")
 })
+
+test_that("DA helpers accept a brms Bernoulli family (not only 'binomial')", {
+  # fit_maihda(engine = "brms") fits a binary 0/1 outcome with bernoulli(); the DA
+  # helpers must treat that as a logistic MAIHDA model. Relabel a real lme4 binomial
+  # fit's stored family to the bernoulli/logit object brms would carry, so the family
+  # gate is exercised without compiling a Stan model.
+  m <- maihda_da_test_model()
+  m$family <- stats::binomial()      # baseline: a finite MOR / AUC under "binomial"
+  ref_mor <- maihda_mor(m)
+  ref_da <- maihda_discriminatory_accuracy(m)
+
+  m$family <- structure(list(family = "bernoulli", link = "logit"), class = "family")
+  expect_equal(maihda_mor(m), ref_mor)
+
+  da <- maihda_discriminatory_accuracy(m)
+  expect_s3_class(da, "maihda_da")
+  expect_identical(da$family, "bernoulli")
+  expect_equal(da$auc, ref_da$auc)
+  expect_equal(da$mor, ref_mor)
+})
