@@ -67,7 +67,7 @@ maihda_auc <- function(prob, y) {
   (sum(r[y == 1]) - n1 * (n1 + 1) / 2) / (n1 * n0)
 }
 
-#' Median Odds Ratio (MOR) for a binomial MAIHDA model
+#' Median Odds Ratio (MOR) for a logistic MAIHDA model
 #'
 #' @description
 #' The Median Odds Ratio translates the between-stratum variance of a logistic
@@ -75,10 +75,13 @@ maihda_auc <- function(prob, y) {
 #' of the outcome when comparing two individuals from randomly chosen strata
 #' (higher- vs lower-risk). \code{MOR = exp(sqrt(2 * V_A) * qnorm(0.75))}, where
 #' \code{V_A} is the between-stratum (latent, logit-scale) variance. An MOR of 1
-#' indicates no between-stratum heterogeneity.
+#' indicates no between-stratum heterogeneity. The MOR is defined only for the
+#' \strong{logit} link (it is the median \emph{odds} ratio); a non-logit binomial
+#' fit such as \code{probit} is rejected, because its latent variance is on a
+#' different scale and the \code{exp(...)} above would not be an odds ratio.
 #'
 #' @param model A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
-#'   \code{binomial} family.
+#'   \code{binomial} family and a \strong{logit} link.
 #'
 #' @return A single number (the MOR, \eqn{\ge 1}), or \code{NA_real_} if the
 #'   between-stratum variance is unavailable.
@@ -100,6 +103,14 @@ maihda_mor <- function(model) {
     stop("The Median Odds Ratio is only defined for binomial (logistic) MAIHDA ",
          "models; this model uses family = '", fam, "'.", call. = FALSE)
   }
+  link <- maihda_model_link_name(model)
+  if (!identical(link, "logit")) {
+    stop("The Median Odds Ratio is defined only for the logit link -- it is the ",
+         "median *odds* ratio, derived from the logistic latent variance -- but this ",
+         "model uses a binomial '", link, "' link, whose latent variance is on a ",
+         "different scale. Use maihda_auc() / maihda_discriminatory_accuracy() for ",
+         "link-agnostic discriminatory accuracy.", call. = FALSE)
+  }
 
   v_a <- tryCatch(extract_between_variance(model), error = function(e) NA_real_)
   if (!is.numeric(v_a) || length(v_a) != 1 || !is.finite(v_a) || v_a < 0) {
@@ -118,13 +129,17 @@ maihda_mor <- function(model) {
 #' to a strata-only (null) model, the AUC is the discriminatory accuracy of the
 #' intersectional strata themselves -- Merlo's central quantity; comparing it with
 #' an adjusted model shows whether individual covariates beyond stratum membership
-#' sharpen classification.
+#' sharpen classification. The AUC is computed for any binomial link; the Median
+#' Odds Ratio is reported only for the logit link and is \code{NA} otherwise (e.g.
+#' for a probit fit), since the MOR is an odds-ratio-scale quantity.
 #'
 #' @param model A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
 #'   \code{binomial} family (lme4 engine).
 #'
 #' @return An object of class \code{maihda_da}: a list with \code{auc}, \code{mor},
-#'   \code{n_case}, \code{n_control}, \code{family} and \code{engine}.
+#'   \code{n_case}, \code{n_control}, \code{family}, \code{link} and \code{engine}.
+#'   \code{mor} is \code{NA} for a non-logit binomial link, where the AUC is still
+#'   reported.
 #'
 #' @references
 #' Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
@@ -159,7 +174,11 @@ maihda_discriminatory_accuracy <- function(model) {
   y <- maihda_da_observed_response(model)
 
   auc <- maihda_auc(prob, y)
-  mor <- maihda_mor(model)
+  # The AUC is link-agnostic (rank-based on predicted probabilities), but the MOR is
+  # defined only for the logit link. For other binomial links (e.g. probit) report
+  # the AUC with mor = NA rather than an odds ratio that is off the model's scale.
+  link <- maihda_model_link_name(model)
+  mor <- if (identical(link, "logit")) maihda_mor(model) else NA_real_
 
   structure(
     list(
@@ -168,6 +187,7 @@ maihda_discriminatory_accuracy <- function(model) {
       n_case = sum(y == 1, na.rm = TRUE),
       n_control = sum(y == 0, na.rm = TRUE),
       family = fam,
+      link = link,
       engine = model$engine
     ),
     class = "maihda_da"
@@ -179,8 +199,14 @@ print.maihda_da <- function(x, ...) {
   cat("Discriminatory accuracy (binomial MAIHDA)\n")
   cat(sprintf("  AUC (C-statistic): %s\n",
               if (is.finite(x$auc)) sprintf("%.3f", x$auc) else "NA"))
-  cat(sprintf("  Median Odds Ratio: %s\n",
-              if (is.finite(x$mor)) sprintf("%.3f", x$mor) else "NA"))
+  mor_str <- if (is.finite(x$mor)) {
+    sprintf("%.3f", x$mor)
+  } else if (!is.null(x$link) && !identical(x$link, "logit")) {
+    sprintf("NA (requires the logit link; model uses '%s')", x$link)
+  } else {
+    "NA"
+  }
+  cat(sprintf("  Median Odds Ratio: %s\n", mor_str))
   cat(sprintf("  Cases / controls:  %d / %d\n", x$n_case, x$n_control))
   invisible(x)
 }
@@ -201,6 +227,21 @@ maihda_model_family_name <- function(model) {
   ff <- tryCatch(maihda_family(model$model), error = function(e) NULL)
   if (!is.null(ff) && !is.null(ff$family)) {
     return(ff$family)
+  }
+  NA_character_
+}
+
+# Resolve the link name ("logit"/"probit"/...) of a maihda_model, preferring the
+# stored family object and falling back to the fitted model's family. Used to gate
+# the Median Odds Ratio, which is defined only for the logit link.
+maihda_model_link_name <- function(model) {
+  fam <- model$family
+  if (is.list(fam) && !is.null(fam$link)) {
+    return(fam$link)
+  }
+  ff <- tryCatch(maihda_family(model$model), error = function(e) NULL)
+  if (!is.null(ff) && !is.null(ff$link)) {
+    return(ff$link)
   }
   NA_character_
 }

@@ -34,6 +34,19 @@ Unlike the latent-scale VPC (fixed level-1 variance \eqn{\pi^2/3} for the logit)
 the response-scale VPC depends on the overall outcome prevalence, so report it as
 a complement to -- not a replacement for -- the latent-scale value.
 }
+\details{
+The fixed part \eqn{\eta} is collapsed to a single value -- the mean linear
+predictor \eqn{\bar\eta} over the analytic sample -- before the random effect is
+simulated around it. The result is therefore a VPC \emph{evaluated at the mean
+covariate profile} (a conditional-at-mean estimate), not one marginalised over the
+empirical covariate distribution. For the canonical strata-only (null) model
+\eqn{\eta} is constant (the intercept), so the two coincide and the value is
+exact. For an \emph{adjusted} model (one with covariates) they can differ, because
+the inverse link is nonlinear and \eqn{g^{-1}(\bar\eta) \neq \overline{g^{-1}(\eta)}}:
+read the response-scale VPC from the null model, or interpret an adjusted value as
+conditional on the average covariate profile rather than as a covariate-averaged
+(marginal) VPC.
+}
 \examples{
 \dontrun{
 strata <- make_strata(maihda_health_data, vars = c("Gender", "Race"))

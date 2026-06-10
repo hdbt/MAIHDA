@@ -277,7 +277,7 @@ vignette("introduction", package = "MAIHDA")
 
 - brms (>= 2.15.0) - for Bayesian models
 - ggtern - for ternary diagrams
-- shiny, bslib, DT, plotly, shinyjs, future, promises - for the interactive dashboard (`run_maihda_app()`)
+- shiny, bslib, DT, plotly, shinyjs, shinycssloaders, future, promises - for the interactive dashboard (`run_maihda_app()`)
 - haven - for uploading SPSS (.sav) / Stata (.dta) files in the dashboard
 
 Bootstrap confidence intervals use a parametric bootstrap via `lme4::simulate()` /

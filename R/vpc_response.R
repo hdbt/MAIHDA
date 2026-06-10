@@ -24,6 +24,19 @@
 #' the response-scale VPC depends on the overall outcome prevalence, so report it as
 #' a complement to -- not a replacement for -- the latent-scale value.
 #'
+#' @details
+#' The fixed part \eqn{\eta} is collapsed to a single value -- the mean linear
+#' predictor \eqn{\bar\eta} over the analytic sample -- before the random effect is
+#' simulated around it. The result is therefore a VPC \emph{evaluated at the mean
+#' covariate profile} (a conditional-at-mean estimate), not one marginalised over the
+#' empirical covariate distribution. For the canonical strata-only (null) model
+#' \eqn{\eta} is constant (the intercept), so the two coincide and the value is
+#' exact. For an \emph{adjusted} model (one with covariates) they can differ, because
+#' the inverse link is nonlinear and \eqn{g^{-1}(\bar\eta) \neq \overline{g^{-1}(\eta)}}:
+#' read the response-scale VPC from the null model, or interpret an adjusted value as
+#' conditional on the average covariate profile rather than as a covariate-averaged
+#' (marginal) VPC.
+#'
 #' @param model A binomial \code{maihda_model} (lme4 engine) from
 #'   \code{\link{fit_maihda}}.
 #' @param n_sim Number of Monte-Carlo draws of the stratum random effect (>= 100).
@@ -79,9 +92,12 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
 
   fitted_model <- model$model
   linkinv <- stats::family(fitted_model)$linkinv
-  # Fixed-part linear predictor (random effects excluded). For the canonical null /
-  # strata-only model this is just the intercept; with covariates it averages the
-  # fixed linear predictor across the analytic sample.
+  # Fixed-part linear predictor (random effects excluded), collapsed to its sample
+  # mean. For the canonical null / strata-only model this is exactly the intercept,
+  # so the VPC below is exact; with covariates this is the mean fixed linear
+  # predictor, so the VPC is a conditional-at-mean estimate (evaluated at the average
+  # covariate profile) rather than one integrated over the covariate distribution --
+  # see the @details section of the function documentation.
   lp_fixed <- mean(stats::predict(fitted_model, re.form = NA, type = "link"), na.rm = TRUE)
 
   if (!is.null(seed)) {

@@ -2,13 +2,13 @@
 % Please edit documentation in R/discriminatory_accuracy.R
 \name{maihda_mor}
 \alias{maihda_mor}
-\title{Median Odds Ratio (MOR) for a binomial MAIHDA model}
+\title{Median Odds Ratio (MOR) for a logistic MAIHDA model}
 \usage{
 maihda_mor(model)
 }
 \arguments{
 \item{model}{A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
-\code{binomial} family.}
+\code{binomial} family and a \strong{logit} link.}
 }
 \value{
 A single number (the MOR, \eqn{\ge 1}), or \code{NA_real_} if the
@@ -20,7 +20,10 @@ MAIHDA model onto the odds-ratio scale: the median relative change in the odds
 of the outcome when comparing two individuals from randomly chosen strata
 (higher- vs lower-risk). \code{MOR = exp(sqrt(2 * V_A) * qnorm(0.75))}, where
 \code{V_A} is the between-stratum (latent, logit-scale) variance. An MOR of 1
-indicates no between-stratum heterogeneity.
+indicates no between-stratum heterogeneity. The MOR is defined only for the
+\strong{logit} link (it is the median \emph{odds} ratio); a non-logit binomial
+fit such as \code{probit} is rejected, because its latent variance is on a
+different scale and the \code{exp(...)} above would not be an odds ratio.
 }
 \references{
 Larsen, K., & Merlo, J. (2005). Appropriate assessment of neighborhood effects

@@ -7,6 +7,10 @@
 
 ## Improvements
 
+* `maihda_mor()` now requires the **logit** link, not merely the binomial family. The Median Odds Ratio is an odds-ratio-scale quantity derived from the logistic latent variance, so applying its `exp(sqrt(2 * V_A) * qnorm(0.75))` formula to a `binomial(link = "probit")` fit returned a number that was not on the model's scale. `maihda_mor()` now errors for a non-logit binomial link, and `maihda_discriminatory_accuracy()` reports the (link-agnostic) AUC with `mor = NA` for such fits, recording the link and explaining the `NA` in its `print()` method.
+* Clarified that `maihda_vpc_response()` collapses the fixed part to its mean linear predictor before simulating, so for an adjusted (covariate) model the response-scale VPC is a conditional-at-mean estimate (evaluated at the average covariate profile), not one marginalised over the covariate distribution. It is exact for the canonical null/strata-only model; the documentation now states this and recommends reading it from the null model.
+* Updated the "MAIHDA for binary outcomes" vignette, which still claimed the package shipped no AUC/MOR helper and defined a local one. It now uses the exported `maihda_discriminatory_accuracy()`, `maihda_auc()`, and `maihda_mor()`, and points to `maihda_vpc_response()` for the response-scale VPC.
+* Added the missing `shinycssloaders` dependency to the README's interactive-dashboard list (it is in `DESCRIPTION` Suggests and used by `run_maihda_app()`).
 * Plotting is now unified under the base `plot()` generic. `compare_maihda()` and `compute_maihda_ternary_data()` now return classed objects, so `plot()` dispatches automatically:
   * `plot()` on a `compare_maihda()` result (was `plot_comparison()`)
   * `plot()` on a `compare_maihda_groups()` result, with `type = "vpc"`/"components" (was `plot_group_comparison()`)
