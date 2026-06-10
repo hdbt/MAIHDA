@@ -268,6 +268,14 @@ test_that("Explorer module derives HUD plot data from real results", {
 
       # The deviance plot (colour + shape -> plotly) builds without error.
       expect_no_error(output$interactive_plot)
+
+      # The highlighted-strata CSV export runs end-to-end: accessing the download
+      # output invokes the handler's write.csv() content path and returns the file.
+      csv_path <- output$download_hud_data
+      expect_true(file.exists(csv_path))
+      exported <- utils::read.csv(csv_path)
+      expect_false(any(c("tooltip", "display_label") %in% names(exported)))
+      expect_equal(nrow(exported), nrow(hud))
     }
   )
 })
