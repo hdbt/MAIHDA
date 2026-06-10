@@ -526,11 +526,11 @@ test_that("maihda() resolves caller-local weights/subset through the data mask",
     keep_local <- d$x > 0               # caller-local logical
 
     # The forwarding must reach BOTH the null and the adjusted fit maihda() builds.
-    a <- maihda(y ~ x + (1 | gender:race), data = d, weights = w_local)
+    a <- suppressMessages(maihda(y ~ x + (1 | gender:race), data = d, weights = w_local))
     expect_equal(unname(stats::weights(a$model$model, type = "prior")), w_local)
     expect_equal(unname(stats::weights(a$model_adjusted$model, type = "prior")), w_local)
 
-    b <- maihda(y ~ x + (1 | gender:race), data = d, subset = keep_local)
+    b <- suppressMessages(maihda(y ~ x + (1 | gender:race), data = d, subset = keep_local))
     expect_equal(as.integer(stats::nobs(b$model$model)), sum(keep_local))
     expect_equal(as.integer(stats::nobs(b$model_adjusted$model)), sum(keep_local))
   }

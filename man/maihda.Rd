@@ -22,7 +22,9 @@ maihda(
 \arguments{
 \item{formula}{A model formula, using either the intersectional shorthand
 \code{outcome ~ covars + (1 | var1:var2)} or \code{... + (1 | stratum)} when
-\code{data} already has a \code{stratum} column from \code{\link{make_strata}}.}
+\code{data} already has a \code{stratum} column from \code{\link{make_strata}}.
+The dimensions' additive main effects may be listed (the fully-specified adjusted
+model) or omitted (added automatically, with a message); see Details.}
 
 \item{data}{A data frame with the model variables (and the \code{group}
 variable, if used).}
@@ -78,10 +80,10 @@ An object of class \code{maihda_analysis}: a list with
 }
 \description{
 A single high-level entry point that runs the standard two-model MAIHDA workflow
-and returns one bundled object. It fits the \strong{null} model (the formula you
-supply: covariates plus the intersectional random intercept) and the
-\strong{adjusted} model (the same model plus the additive main effects of the
-stratum-defining dimensions), summarises the variance partition (VPC/ICC) of the
+and returns one bundled object. It fits the \strong{null} model (covariates plus
+the intersectional random intercept, \emph{excluding} the stratum dimensions' main
+effects) and the \strong{adjusted} model (the null plus the additive main effects of
+the stratum-defining dimensions), summarises the variance partition (VPC/ICC) of the
 null model, and reports the \strong{PCV} -- the proportional change in
 between-stratum variance from the null to the adjusted model, i.e. the additive
 share of the intersectional inequality. When a higher-level grouping variable is
@@ -94,26 +96,40 @@ This is a convenience wrapper around \code{\link{fit_maihda}},
 decomposition and has no single-model mode -- for a single fit (e.g. just the
 null-model VPC / discriminatory accuracy), call \code{\link{fit_maihda}} directly.
 
-The dimension main effects are read from the random term. The shorthand
-\code{(1 | var1:var2)} and \code{\link{make_strata}} both record the
-stratum-defining variables, so they decompose normally; a numeric dimension that
-\code{make_strata()} auto-binned enters the adjusted model as its reconstructed
-tertile factor (matching the strata), not as a linear term. Because \code{maihda()}
-is intrinsically a decomposition, it \strong{errors} (rather than returning a
-null-only result) when it cannot build the adjusted model -- when the dimensions
-cannot be recovered (a hand-built \code{stratum} column records none) or there is
-only one dimension (no intersection to decompose). Use \code{\link{fit_maihda}} for
-those single-model fits.
+\strong{The dimensions' additive main effects.} You may write them in the formula --
+the fully-specified, lme4-native adjusted model
+\code{outcome ~ covars + var1 + var2 + (1 | var1:var2)} -- or omit them. Either way
+the null \emph{excludes} the dimension main effects and the adjusted \emph{includes}
+them: when the formula already lists them it is taken as the adjusted model and the
+null is derived by dropping them; when they are missing \code{maihda()} adds them to
+the adjusted model and emits a \code{message()} so the decomposition stays explicit.
+The dimensions themselves are read from the random term: the shorthand
+\code{(1 | var1:var2)} and \code{\link{make_strata}} both record them, and a numeric
+dimension that \code{make_strata()} auto-binned enters the adjusted model as its
+reconstructed tertile factor (matching the strata), not as a linear term. Because
+\code{maihda()} is intrinsically a decomposition, it \strong{errors} (rather than
+returning a null-only result) when it cannot build the adjusted model -- when the
+dimensions cannot be recovered (a hand-built \code{stratum} column records none) or
+there is only one dimension (no intersection to decompose). Use \code{\link{fit_maihda}}
+for those single-model fits.
 }
 \examples{
 \donttest{
 data(maihda_health_data)
 
-# One call: null + adjusted fit, VPC summary, and PCV decomposition
-a <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data)
+# One call: null + adjusted fit, VPC summary, and PCV decomposition. Writing the
+# dimensions' additive main effects (Gender + Race) gives the fully-specified
+# adjusted model; maihda() derives the null by dropping them.
+a <- maihda(BMI ~ Age + Gender + Race + (1 | Gender:Race), data = maihda_health_data)
 a                              # VPC (null) and PCV (null -> adjusted)
 a$pcv                          # proportional change in between-stratum variance
-a$model_adjusted$formula       # null formula + Gender + Race main effects
+a$formula                      # null:     BMI ~ Age + (1 | stratum)
+a$adjusted_formula             # adjusted: null + Gender + Race main effects
+
+# Omitting them is equivalent -- maihda() adds them to the adjusted model and
+# emits a message; the null and PCV are identical to the explicit form above.
+a0 <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data)
+
 plot(a, type = "vpc")          # null model
 plot(a, type = "effect_decomp")# adjusted model (additive vs intersectional)
 

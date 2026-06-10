@@ -62,8 +62,10 @@ overall *and* within each country, so the group table also carries a per-country
 **PCV** (the additive share of that country's intersectional inequality).
 
 ```{r one-call}
+# gender + ses are written as additive fixed effects (the adjusted model); maihda()
+# derives the null by dropping them, both overall and within each country.
 analysis <- maihda(
-  math ~ 1 + (1 | gender:ses),
+  math ~ gender + ses + (1 | gender:ses),
   data = maihda_country_data,
   group = "country"
 )

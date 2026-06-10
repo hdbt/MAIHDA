@@ -593,13 +593,13 @@ test_that("plot.maihda_analysis dispatches group_between_variance", {
   sk <- interaction(d$gender, d$ses, drop = TRUE)
   d$math <- 1 + rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
 
-  a <- suppressWarnings(
+  a <- suppressWarnings(suppressMessages(
     maihda(math ~ 1 + (1 | gender:ses), data = d, group = "country")
-  )
+  ))
   expect_s3_class(plot(a, type = "group_between_variance"), "ggplot")
 
   # Without a group, the group types error rather than silently no-op.
-  a_nogroup <- suppressWarnings(maihda(math ~ 1 + (1 | gender:ses), data = d))
+  a_nogroup <- suppressWarnings(suppressMessages(maihda(math ~ 1 + (1 | gender:ses), data = d)))
   expect_error(plot(a_nogroup, type = "group_between_variance"),
                "No group comparison")
 })

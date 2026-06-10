@@ -43,9 +43,16 @@ install.packages("MAIHDA")
 library(MAIHDA)
 data("maihda_health_data")
 
-# Everything in one call: null + adjusted fit, VPC/ICC summary, and PCV decomposition
-analysis <- maihda(BMI ~ Age + (1 | Gender:Race:Education), data = maihda_health_data)
+# Everything in one call: null + adjusted fit, VPC/ICC summary, and PCV decomposition.
+# Write the strata variables as additive fixed effects -- the lme4-native, fully-
+# specified ADJUSTED model. maihda() uses that as the adjusted model and derives the
+# NULL by dropping those main effects. (Omit them and maihda() adds them for you,
+# printing a message; the result is identical.)
+analysis <- maihda(BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
+                   data = maihda_health_data)
 analysis                       # VPC/ICC (null) and PCV (null -> adjusted)
+analysis$formula               # null:     BMI ~ Age + (1 | stratum)
+analysis$adjusted_formula      # adjusted: BMI ~ Age + Gender + Race + Education + (1 | stratum)
 summary(analysis)              # variance components
 analysis$pcv                   # proportional change in between-stratum variance
 
@@ -75,8 +82,9 @@ plot(model)
 
 ### `maihda()`
 A single high-level entry point that runs the standard two-model MAIHDA workflow: it
-fits the **null** model (your formula) and the **adjusted** model (plus the dimensions'
-additive main effects), summarises the null-model VPC/ICC, and reports the **PCV** (the
+fits the **null** model (covariates only) and the **adjusted** model (plus the
+dimensions' additive main effects -- write them in the formula, or let `maihda()` add
+them with a message), summarises the null-model VPC/ICC, and reports the **PCV** (the
 additive share of the intersectional inequality). When a `group` is supplied it also
 runs this decomposition within each group. Returns one `maihda_analysis` object with
 `print()`, `summary()`, and `plot()` methods (`plot()` routes the VPC/shrinkage views to
@@ -158,6 +166,16 @@ summary <- summary(model, bootstrap = TRUE, n_boot = 1000)
 # interaction differences across strata; it represents the *pure* intersectional
 # (interaction) effect only once the additive main effects of the strata variables
 # are added to the model.
+
+# To get that pure intersectional part, fit the ADJUSTED model -- the same model PLUS
+# the strata variables as additive fixed effects -- and read the PCV (the additive
+# share of the intersectional inequality). The one-call maihda() does this for you;
+# here it is spelled out with the building blocks.
+adjusted <- fit_maihda(
+  BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
+  data = maihda_health_data
+)
+calculate_pvc(model, adjusted)  # null -> adjusted: proportional change in variance
 
 # Visualize which strata have higher/lower outcomes using new advanced plots
 plot(model, type = "predicted")

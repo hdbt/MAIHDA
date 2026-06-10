@@ -1,10 +1,10 @@
 #' Run a Complete MAIHDA Analysis
 #'
 #' A single high-level entry point that runs the standard two-model MAIHDA workflow
-#' and returns one bundled object. It fits the \strong{null} model (the formula you
-#' supply: covariates plus the intersectional random intercept) and the
-#' \strong{adjusted} model (the same model plus the additive main effects of the
-#' stratum-defining dimensions), summarises the variance partition (VPC/ICC) of the
+#' and returns one bundled object. It fits the \strong{null} model (covariates plus
+#' the intersectional random intercept, \emph{excluding} the stratum dimensions' main
+#' effects) and the \strong{adjusted} model (the null plus the additive main effects of
+#' the stratum-defining dimensions), summarises the variance partition (VPC/ICC) of the
 #' null model, and reports the \strong{PCV} -- the proportional change in
 #' between-stratum variance from the null to the adjusted model, i.e. the additive
 #' share of the intersectional inequality. When a higher-level grouping variable is
@@ -16,20 +16,28 @@
 #' decomposition and has no single-model mode -- for a single fit (e.g. just the
 #' null-model VPC / discriminatory accuracy), call \code{\link{fit_maihda}} directly.
 #'
-#' The dimension main effects are read from the random term. The shorthand
-#' \code{(1 | var1:var2)} and \code{\link{make_strata}} both record the
-#' stratum-defining variables, so they decompose normally; a numeric dimension that
-#' \code{make_strata()} auto-binned enters the adjusted model as its reconstructed
-#' tertile factor (matching the strata), not as a linear term. Because \code{maihda()}
-#' is intrinsically a decomposition, it \strong{errors} (rather than returning a
-#' null-only result) when it cannot build the adjusted model -- when the dimensions
-#' cannot be recovered (a hand-built \code{stratum} column records none) or there is
-#' only one dimension (no intersection to decompose). Use \code{\link{fit_maihda}} for
-#' those single-model fits.
+#' \strong{The dimensions' additive main effects.} You may write them in the formula --
+#' the fully-specified, lme4-native adjusted model
+#' \code{outcome ~ covars + var1 + var2 + (1 | var1:var2)} -- or omit them. Either way
+#' the null \emph{excludes} the dimension main effects and the adjusted \emph{includes}
+#' them: when the formula already lists them it is taken as the adjusted model and the
+#' null is derived by dropping them; when they are missing \code{maihda()} adds them to
+#' the adjusted model and emits a \code{message()} so the decomposition stays explicit.
+#' The dimensions themselves are read from the random term: the shorthand
+#' \code{(1 | var1:var2)} and \code{\link{make_strata}} both record them, and a numeric
+#' dimension that \code{make_strata()} auto-binned enters the adjusted model as its
+#' reconstructed tertile factor (matching the strata), not as a linear term. Because
+#' \code{maihda()} is intrinsically a decomposition, it \strong{errors} (rather than
+#' returning a null-only result) when it cannot build the adjusted model -- when the
+#' dimensions cannot be recovered (a hand-built \code{stratum} column records none) or
+#' there is only one dimension (no intersection to decompose). Use \code{\link{fit_maihda}}
+#' for those single-model fits.
 #'
 #' @param formula A model formula, using either the intersectional shorthand
 #'   \code{outcome ~ covars + (1 | var1:var2)} or \code{... + (1 | stratum)} when
 #'   \code{data} already has a \code{stratum} column from \code{\link{make_strata}}.
+#'   The dimensions' additive main effects may be listed (the fully-specified adjusted
+#'   model) or omitted (added automatically, with a message); see Details.
 #' @param data A data frame with the model variables (and the \code{group}
 #'   variable, if used).
 #' @param group Optional character string naming a higher-level grouping variable
@@ -79,11 +87,19 @@
 #' \donttest{
 #' data(maihda_health_data)
 #'
-#' # One call: null + adjusted fit, VPC summary, and PCV decomposition
-#' a <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data)
+#' # One call: null + adjusted fit, VPC summary, and PCV decomposition. Writing the
+#' # dimensions' additive main effects (Gender + Race) gives the fully-specified
+#' # adjusted model; maihda() derives the null by dropping them.
+#' a <- maihda(BMI ~ Age + Gender + Race + (1 | Gender:Race), data = maihda_health_data)
 #' a                              # VPC (null) and PCV (null -> adjusted)
 #' a$pcv                          # proportional change in between-stratum variance
-#' a$model_adjusted$formula       # null formula + Gender + Race main effects
+#' a$formula                      # null:     BMI ~ Age + (1 | stratum)
+#' a$adjusted_formula             # adjusted: null + Gender + Race main effects
+#'
+#' # Omitting them is equivalent -- maihda() adds them to the adjusted model and
+#' # emits a message; the null and PCV are identical to the explicit form above.
+#' a0 <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data)
+#'
 #' plot(a, type = "vpc")          # null model
 #' plot(a, type = "effect_decomp")# adjusted model (additive vs intersectional)
 #'
@@ -104,10 +120,12 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
                    n_boot = 1000, conf_level = 0.95, ...) {
   call <- match.call()
 
-  # Fit the null (discriminatory-accuracy) model first. When the user leaves
-  # 'family' at the default we omit it so fit_maihda() can auto-detect a binary
-  # outcome; we then reuse whatever family it resolved for the adjusted model and
-  # the group comparison so every model agrees.
+  # Fit the supplied formula first -- this resolves the stratum dimensions (and the
+  # stratum column) and the family. Depending on whether the formula already lists the
+  # dimensions' additive main effects, it serves as either the null or the adjusted
+  # model below. When the user leaves 'family' at the default we omit it so fit_maihda()
+  # can auto-detect a binary outcome, then reuse the resolved family for every model so
+  # they agree.
   if (missing(family)) {
     model <- fit_maihda(formula, data, engine = engine, autobin = autobin, ...)
   } else {
@@ -138,22 +156,73 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
          "fit_maihda() for a single-dimension random-intercept fit.", call. = FALSE)
   }
 
-  # Adjusted model: the null formula plus the additive main effects of the stratum
-  # dimensions (an auto-binned numeric dimension enters as its reconstructed tertile
-  # factor, matching the strata -- see maihda_adjusted_terms()). The PCV is the
-  # proportional change in between-stratum variance from null to adjusted.
-  af <- maihda_adjusted_formula(model$formula, strata_vars,
-                                model$strata_autobin_info, model$original_data)
-  adjusted_formula <- af$formula
-  adjusted_model <- fit_maihda(af$formula, af$data, engine = engine,
-                               family = family_used, ...)
+  # --- Null and adjusted models ------------------------------------------------
+  # The stratum dimensions' additive main effects belong in the ADJUSTED model. They
+  # may be written explicitly in the formula (the fully-specified, lme4-native form)
+  # or omitted; either way the null model excludes them and the adjusted includes
+  # them. maihda_adjusted_terms() gives the correct term per dimension -- an
+  # auto-binned numeric dimension enters as its reconstructed tertile factor
+  # (.maihda_dim_*), matching the strata, not the raw column.
+  dim_terms <- maihda_adjusted_terms(strata_vars, model$strata_autobin_info,
+                                     model$original_data)$terms
+  supplied_fixed <- attr(stats::terms(reformulas::nobars(model$formula)), "term.labels")
+  present_terms <- intersect(dim_terms, supplied_fixed)
+  missing_vars <- strata_vars[!(dim_terms %in% supplied_fixed)]
+
+  remove_terms <- function(f, terms) {
+    stats::update(f, stats::as.formula(
+      paste(". ~ . -", paste(sprintf("`%s`", terms), collapse = " - "))))
+  }
+
+  if (length(present_terms) == 0) {
+    # No dimension main effects in the formula: the supplied fit IS the null; build
+    # the adjusted by adding the dimensions' additive main effects.
+    null_model <- model
+    af <- maihda_adjusted_formula(null_model$formula, strata_vars,
+                                  null_model$strata_autobin_info,
+                                  null_model$original_data)
+    adjusted_model <- fit_maihda(af$formula, af$data, engine = engine,
+                                 family = family_used, ...)
+    adjusted_formula <- af$formula
+  } else if (length(missing_vars) == 0) {
+    # Every dimension main effect is already present (the fully-specified adjusted
+    # model): the supplied fit IS the adjusted; derive the null by removing them.
+    adjusted_model <- model
+    adjusted_formula <- model$formula
+    null_model <- fit_maihda(remove_terms(model$formula, present_terms),
+                             model$original_data, engine = engine,
+                             family = family_used, ...)
+  } else {
+    # Some dimension main effects present, some missing: fit a clean null (covariates
+    # only) and a clean adjusted (all dimension main effects).
+    null_model <- fit_maihda(remove_terms(model$formula, present_terms),
+                             model$original_data, engine = engine,
+                             family = family_used, ...)
+    af <- maihda_adjusted_formula(null_model$formula, strata_vars,
+                                  null_model$strata_autobin_info,
+                                  null_model$original_data)
+    adjusted_model <- fit_maihda(af$formula, af$data, engine = engine,
+                                 family = family_used, ...)
+    adjusted_formula <- af$formula
+  }
+
+  # When maihda() supplied any dimension main effects itself, say so -- the
+  # decomposition stays explicit rather than silent. Listing them in the formula (the
+  # lme4-native form) makes the adjusted model self-documenting and suppresses this.
+  if (length(missing_vars) > 0) {
+    message("maihda(): added the additive main effect(s) of the stratum dimension(s) ",
+            paste(missing_vars, collapse = ", "),
+            " to the adjusted model; the null model excludes them. List them in the ",
+            "formula to specify the adjusted model explicitly.")
+  }
+
   summary_adj <- summary(adjusted_model, bootstrap = bootstrap, n_boot = n_boot,
                          conf_level = conf_level)
   # A successfully fitted pair can still leave the PCV undefined when the null model
   # has zero between-stratum variance (a boundary/singular fit); keep both models and
   # warn rather than aborting in that numerical edge case.
   pcv <- tryCatch(
-    calculate_pvc(model, adjusted_model, bootstrap = bootstrap, n_boot = n_boot,
+    calculate_pvc(null_model, adjusted_model, bootstrap = bootstrap, n_boot = n_boot,
                   conf_level = conf_level),
     error = function(e) {
       warning("maihda(): the PCV could not be computed (", conditionMessage(e),
@@ -162,13 +231,17 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
       NULL
     })
 
-  summary_obj <- summary(model, bootstrap = bootstrap, n_boot = n_boot,
+  summary_obj <- summary(null_model, bootstrap = bootstrap, n_boot = n_boot,
                          conf_level = conf_level)
 
   groups <- NULL
   if (!is.null(group)) {
+    # Strip any dimension main effects the user wrote so the per-group decomposition
+    # matches the overall one: each group's null excludes them and its adjusted adds
+    # them. (compare_maihda_groups() builds the per-group strata and adjusted itself.)
+    group_formula <- if (length(present_terms) > 0) remove_terms(formula, present_terms) else formula
     groups <- compare_maihda_groups(
-      formula, data, group = group, engine = engine, family = family_used,
+      group_formula, data, group = group, engine = engine, family = family_used,
       shared_strata = shared_strata, min_group_n = min_group_n,
       autobin = autobin, bootstrap = bootstrap, n_boot = n_boot,
       conf_level = conf_level, ...
@@ -177,13 +250,13 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
 
   structure(
     list(
-      model = model,
+      model = null_model,
       summary = summary_obj,
       model_adjusted = adjusted_model,
       summary_adjusted = summary_adj,
       pcv = pcv,
       groups = groups,
-      formula = model$formula,
+      formula = null_model$formula,
       adjusted_formula = adjusted_formula,
       group_var = group,
       call = call
