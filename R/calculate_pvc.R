@@ -411,6 +411,22 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     attr(data, "strata_autobin_info") <- strata_autobin_info
   }
 
+  # Reconstruct auto-binned stratum dimensions so each step enters the SAME tertile
+  # factor that defines the strata (matching the adjusted model and core maihda()),
+  # rather than a raw linear term for an auto-binned numeric dimension. The displayed
+  # "Added_Variable" keeps the original variable name; only the model term changes.
+  model_terms <- vars
+  if (length(vars) > 0 && !is.null(strata_autobin_info) &&
+      length(strata_autobin_info) > 0 && any(vars %in% names(strata_autobin_info))) {
+    adj <- maihda_adjusted_terms(vars, strata_autobin_info, data)
+    data <- adj$data
+    attr(data, "strata_info") <- strata_info
+    attr(data, "strata_vars") <- strata_vars
+    attr(data, "strata_sep") <- strata_sep
+    attr(data, "strata_autobin_info") <- strata_autobin_info
+    model_terms <- adj$terms
+  }
+
   # Auto-detect a binary outcome when family is left at the default, mirroring
   # fit_maihda()/maihda(). Otherwise a binary outcome would silently be fit on the
   # Gaussian (linear) scale for numeric 0/1, or error for a factor.
@@ -447,14 +463,14 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
 
   prev_var <- null_var
 
-  # Sequentially add variables
-  current_vars <- c()
+  # Sequentially add variables (using the reconstructed model term for any auto-binned
+  # dimension, while reporting the original variable name in the table).
+  current_terms <- character(0)
 
   for (i in seq_along(vars)) {
-    var <- vars[i]
-    current_vars <- c(current_vars, var)
+    current_terms <- c(current_terms, model_terms[i])
 
-    fmla <- maihda_formula_with_stratum(outcome, current_vars)
+    fmla <- maihda_formula_with_stratum(outcome, current_terms)
     mod <- fit_maihda(fmla, data, engine = engine, family = family)
 
     curr_var <- extract_between_variance(mod)
@@ -465,7 +481,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     results[i + 1, ] <- list(
       Step = i,
       Model = sprintf("Model %d", i),
-      Added_Variable = var,
+      Added_Variable = vars[i],
       Variance = curr_var,
       Step_PCV = step_pcv,
       Total_PCV = total_pcv

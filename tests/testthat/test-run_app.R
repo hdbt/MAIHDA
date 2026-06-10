@@ -261,9 +261,21 @@ test_that("Explorer module derives HUD plot data from real results", {
       expect_true(all(c("display_label", "deviant", "random_effect") %in% names(hud)))
       expect_false("stratum.1" %in% names(hud))
       expect_true(any(hud$display_label != paste0("Stratum ", hud$stratum)))
+      # The per-stratum absolute predicted outcome is aggregated and merged in (it
+      # feeds the plot tooltip); a broken aggregate() call would silently drop it.
+      expect_true("abs_pred" %in% names(hud))
+      expect_true(all(is.finite(hud$abs_pred)))
 
       # The deviance plot (colour + shape -> plotly) builds without error.
       expect_no_error(output$interactive_plot)
+
+      # The highlighted-strata CSV export runs end-to-end: accessing the download
+      # output invokes the handler's write.csv() content path and returns the file.
+      csv_path <- output$download_hud_data
+      expect_true(file.exists(csv_path))
+      exported <- utils::read.csv(csv_path)
+      expect_false(any(c("tooltip", "display_label") %in% names(exported)))
+      expect_equal(nrow(exported), nrow(hud))
     }
   )
 })
@@ -314,6 +326,27 @@ test_that("maihda_app_fit_models reports the resolved family and auto-switch fla
   expect_false(res2$family_autoswitched)
 })
 
+test_that("maihda_app_fit_models bins an auto-binned numeric stratum dimension in the adjusted model", {
+  skip_on_cran()
+  set.seed(1)
+  d <- MAIHDA::maihda_health_data
+  d <- d[sample(nrow(d), min(500L, nrow(d))), , drop = FALSE]
+
+  # Gender x Race x Age, with Age (numeric) auto-binned into tertiles to define the
+  # strata. The adjusted model's main effect for Age must be that SAME tertile factor
+  # (.maihda_dim_Age), not a raw linear Age term -- matching core maihda().
+  res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
+    dat = d, outcome_var = "Obese",
+    grouping_vars = c("Gender", "Race", "Age"),
+    family = "gaussian", autobin = TRUE, engine = "lme4"
+  )))
+
+  fixed_labels <- attr(stats::terms(reformulas::nobars(res$model$formula)), "term.labels")
+  expect_true(".maihda_dim_Age" %in% fixed_labels)
+  expect_false("Age" %in% fixed_labels)
+  expect_true(".maihda_dim_Age" %in% names(res$model$data))
+})
+
 test_that("Reproducible code export mirrors the fitted model specification", {
   code <- MAIHDA:::maihda_app_generate_code(
     outcome_var = "math",
@@ -324,15 +357,30 @@ test_that("Reproducible code export mirrors the fitted model specification", {
     dataset = "pisa"
   )
   expect_true(grepl("data <- MAIHDA::maihda_country_data", code, fixed = TRUE))
+  # Complete-case preprocessing mirrors maihda_app_fit_models() and precedes
+  # make_strata() so the auto-bin cut-points match the dashboard's fit.
+  expect_true(grepl('model_vars <- c("math", "gender", "ses", "escs")', code, fixed = TRUE))
+  expect_true(grepl("data <- data[complete.cases(data[, model_vars, drop = FALSE]), , drop = FALSE]",
+                    code, fixed = TRUE))
   expect_true(grepl('make_strata(data, vars = c("gender", "ses"), autobin = TRUE)', code, fixed = TRUE))
-  # The adjusted model carries the grouping vars AND the covariate as fixed
-  # effects -- exactly what maihda_app_fit_models() fits.
-  expect_true(grepl("math ~ gender + ses + escs + (1 | stratum)", code, fixed = TRUE))
-  expect_true(grepl("math ~ (1 | stratum)", code, fixed = TRUE))
+  # Keeping make_strata()'s returned data carries the auto-bin recipe forward.
+  expect_true(grepl("data <- strata$data", code, fixed = TRUE))
+  # The make_strata() complete-case step must come before strata construction.
+  expect_lt(regexpr("complete.cases", code, fixed = TRUE),
+            regexpr("make_strata", code, fixed = TRUE))
+  # With >= 2 grouping vars the script delegates the two-model decomposition to
+  # maihda(): the formula's fixed part is the covariate (the null model), and the
+  # stratum dimensions' additive main effects (incl. any auto-binned tertile factor)
+  # are added by maihda() for the adjusted model -- so covariates are held in BOTH.
+  expect_true(grepl('analysis <- maihda(math ~ escs + (1 | stratum), data = data, family = "gaussian", bootstrap = TRUE, n_boot = 200)',
+                    code, fixed = TRUE))
+  # No hand-rolled raw-term adjusted formula (the source of the binning mismatch).
+  expect_false(grepl("math ~ gender + ses + escs + (1 | stratum)", code, fixed = TRUE))
   expect_true(grepl('family = "gaussian"', code, fixed = TRUE))
   expect_true(grepl("set.seed(7)", code, fixed = TRUE))
-  expect_true(grepl("bootstrap = TRUE, n_boot = 200", code, fixed = TRUE))
-  expect_true(grepl('stepwise_pcv(data, outcome = "math", vars = c("gender", "ses", "escs"))',
+  # The stepwise PCV must rerun under the same family as the dashboard fit (a
+  # Poisson/binomial app fit would otherwise reproduce as Gaussian).
+  expect_true(grepl('stepwise_pcv(data, outcome = "math", vars = c("gender", "ses", "escs"), family = "gaussian")',
                     code, fixed = TRUE))
 })
 
@@ -344,10 +392,16 @@ test_that("Reproducible code export omits seed/bootstrap when unused and handles
   )
   expect_true(grepl('read.csv("mydata.csv")', code, fixed = TRUE))
   expect_true(grepl("autobin = FALSE", code, fixed = TRUE))
+  expect_true(grepl("data <- strata$data", code, fixed = TRUE))
   expect_false(grepl("set.seed", code, fixed = TRUE))
-  expect_true(grepl("calculate_pvc(null_model, adjusted_model)", code, fixed = TRUE))
   expect_false(grepl("bootstrap = TRUE", code, fixed = TRUE))
-  expect_true(grepl("y ~ g1 + (1 | stratum)", code, fixed = TRUE))
+  # A single grouping variable is not an intersectional MAIHDA, so there is no
+  # additive/intersectional decomposition: fall back to a single strata-only fit.
+  expect_false(grepl("analysis <- maihda(", code, fixed = TRUE))
+  expect_true(grepl('model <- fit_maihda(y ~ 1 + (1 | stratum), data = data, family = "gaussian")',
+                    code, fixed = TRUE))
+  expect_true(grepl('stepwise_pcv(data, outcome = "y", vars = c("g1"), family = "gaussian")',
+                    code, fixed = TRUE))
 })
 
 test_that("A fixed seed makes the bootstrap intervals reproducible across fits", {
@@ -446,8 +500,10 @@ test_that("The reproducible-code output mirrors the last fit (Reproduce in R)", 
     ))
 
     code <- repro_code_text()
-    expect_match(code, "fit_maihda", fixed = TRUE)
     expect_match(code, "MAIHDA::maihda_country_data", fixed = TRUE)
-    expect_match(code, "math ~ gender + ses + escs + (1 | stratum)", fixed = TRUE)
+    # >= 2 grouping vars -> maihda() decomposition; covariate in the null formula,
+    # stratum main effects added by maihda() for the adjusted model.
+    expect_match(code, 'analysis <- maihda(math ~ escs + (1 | stratum), data = data, family = "gaussian")',
+                 fixed = TRUE)
   })
 })

@@ -186,7 +186,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
               value = pvc_val_display,
               showcase = shiny::icon("arrow-down-wide-short"),
               theme = "info",
-              shiny::p(class = "mb-0", "Between-stratum variance change with main effects")
+              shiny::p(class = "mb-0", "Between-stratum variance change from the strata's additive main effects (covariates held in both models)")
             ),
             bslib::value_box(
               title = pvc_display$label,
@@ -200,7 +200,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
           shiny::markdown("
           **Interpretation Guide**:
           - **VPC** (Variance Partition Coefficient) measures the share of the unexplained outcome variance that lies between strata.
-          - **PCV** (Proportional Change in Variance) is the proportional change in between-stratum variance when the additive main effects are added. It is a model-dependent comparison, not a causal measure of variance 'explained'.
+          - **PCV** (Proportional Change in Variance) is the proportional change in between-stratum variance when the strata dimensions' additive main effects are added (any selected covariates are held in both the null and adjusted models). It is a model-dependent comparison, not a causal measure of variance 'explained'.
           - The remaining between-stratum variation is often read as the intersectional component, but it is model-dependent and should be interpreted cautiously (a negative PCV does not by itself prove hidden structural inequality).
           "),
           shiny::uiOutput(ns("dynamic_interpretation"))
@@ -254,7 +254,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
       if (!is.null(mod$data)) {
         pred_vals <- tryCatch({
           pred <- predict_maihda(mod)
-          agg <- stats::aggregate()(pred ~ stratum, data = mod$data, FUN = mean)
+          agg <- stats::aggregate(pred, by = list(stratum = mod$data$stratum), FUN = mean)
           names(agg)[2] <- "abs_pred"
           agg
         }, error = function(e) NULL)
@@ -386,7 +386,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
       pvc_display <- maihda_app_pvc_display(pvc_val)
       pvc_interpretation <- if (identical(pvc_display$status, "negative")) {
         shiny::tagList(
-          "After adding the selected main effects, between-strata variance increases by ",
+          "After adding the strata's additive main effects, between-strata variance increases by ",
           shiny::tags$strong(pvc_display$value),
           ", a suppression or unmasking pattern. The adjusted model therefore has ",
           shiny::tags$strong(pvc_display$remaining_value),
@@ -399,7 +399,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
         )
       } else {
         shiny::tagList(
-          "After adding the simple additive (main) effects, the between-strata variance is ",
+          "After adding the strata's additive (main) effects to the model (which already holds any selected covariates), the between-strata variance is ",
           shiny::tags$strong(paste0(pvc_val, "%")),
           " smaller, leaving ",
           shiny::tags$strong(pvc_display$remaining_value),
@@ -444,7 +444,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
         df <- hud_plot_data()
         cols_to_drop <- c("tooltip", "display_label")
         df <- df[, !names(df) %in% cols_to_drop]
-        utils::write.csv()(df, file, row.names = FALSE)
+        utils::write.csv(df, file, row.names = FALSE)
       }
     )
 
@@ -480,8 +480,9 @@ mod_compare_ui <- function(id) {
       bslib::card_body(
         shiny::markdown(
           "Fits a *separate* MAIHDA within each level of a higher-level group
-          (e.g. country, region) and compares the between-stratum VPC across groups.
-          This refits a model per group, so it can be slow."),
+          (e.g. country, region) and compares the between-stratum VPC across groups,
+          using the same outcome, strata and covariates as your last fit. This refits
+          a model per group, so it can be slow."),
         bslib::layout_columns(
           col_widths = c(5, 4, 3),
           shiny::selectInput(ns("group_var"), "Group by:", choices = NULL),
@@ -568,12 +569,20 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
       fam <- if (!is.null(fitted_family())) fitted_family() else "gaussian"
       autobin_opt <- isTRUE(p$autobin)
 
-      # Build outcome ~ 1 + (1 | g1:g2:...); compare_maihda_groups() forms strata
-      # itself. Detach the formula environment so the future does not serialise the
-      # whole reactive context.
+      # Build outcome ~ <covariates> + (1 | g1:g2:...); compare_maihda_groups() forms
+      # the strata itself and keeps the fixed-effect covariates, so each per-group VPC
+      # (and per-group PCV) is adjusted for the SAME covariates as the dashboard's last
+      # fit rather than being an unadjusted comparison. Detach the formula environment
+      # so the future does not serialise the whole reactive context.
       rand <- paste(vapply(p$grouping_vars, maihda_quote_name, character(1)), collapse = ":")
+      covars <- p$covariates
+      fixed_rhs <- if (length(covars) > 0) {
+        paste(vapply(covars, maihda_quote_name, character(1)), collapse = " + ")
+      } else {
+        "1"
+      }
       fml <- stats::as.formula(
-        paste0(maihda_quote_name(p$outcome), " ~ 1 + (1 | ", rand, ")")
+        paste0(maihda_quote_name(p$outcome), " ~ ", fixed_rhs, " + (1 | ", rand, ")")
       )
       environment(fml) <- globalenv()
 

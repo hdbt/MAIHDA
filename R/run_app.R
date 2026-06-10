@@ -277,6 +277,16 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
   strata_dat <- make_strata(complete_dat, vars = grouping_vars, autobin = autobin)
   model_dat <- complete_dat
   model_dat$stratum <- strata_dat$data$stratum
+
+  # Reconstruct the adjusted-model main-effect terms for the stratum dimensions. A
+  # numeric dimension that make_strata() auto-binned (e.g. Age tertiles) defines the
+  # strata via a binned factor while the original column stays numeric, so its
+  # additive main effect must be that SAME binned factor (.maihda_dim_*), not a raw
+  # linear term -- mirroring core maihda()/maihda_adjusted_terms(). Covariates are not
+  # stratum dimensions and enter as their raw columns (appended below).
+  adj_terms <- maihda_adjusted_terms(grouping_vars, strata_dat$autobin_info, model_dat)
+  model_dat <- adj_terms$data
+
   attr(model_dat, "strata_info") <- strata_dat$strata_info
   attr(model_dat, "strata_vars") <- strata_dat$vars
   attr(model_dat, "strata_sep") <- strata_dat$sep
@@ -300,8 +310,14 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
     family_autoswitched <- TRUE
   }
 
-  adjusted_fmla <- maihda_formula_with_stratum(outcome_var, c(grouping_vars, additional_covars))
-  null_fmla <- maihda_formula_with_stratum(outcome_var)
+  # PCV decomposition (mirrors core maihda()): the null model carries any selected
+  # covariates alongside the intersectional random intercept, and the adjusted model
+  # ADDS only the stratum dimensions' additive main effects. Holding the covariates in
+  # BOTH models means the PCV isolates the additive share of the stratum dimensions,
+  # rather than conflating covariate adjustment with the additive-vs-intersectional
+  # split. With no covariates selected the null is the usual strata-only model.
+  null_fmla <- maihda_formula_with_stratum(outcome_var, additional_covars)
+  adjusted_fmla <- maihda_formula_with_stratum(outcome_var, c(adj_terms$terms, additional_covars))
 
   null_model <- fit_maihda(formula = null_fmla, data = model_dat, engine = engine, family = family)
   adjusted_model <- fit_maihda(formula = adjusted_fmla, data = model_dat, engine = engine, family = family)
@@ -320,6 +336,10 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
   pvc <- maihda_app_calculate_pvc_safe(null_model, adjusted_model, use_boot, n_boot)
   vpc_ci <- maihda_app_bootstrap_vpc_cis(null_model, adjusted_model, use_boot, n_boot)
 
+  # Stepwise PCV: pass the raw grouping/covariate names. model_dat carries the
+  # strata auto-bin recipe (strata_autobin_info), so stepwise_pcv() reconstructs an
+  # auto-binned numeric dimension as the SAME tertile factor used by the adjusted
+  # model (.maihda_dim_*), keeping the sequential decomposition consistent with it.
   stepwise <- stepwise_pcv(
     model_dat,
     outcome = outcome_var,
@@ -342,12 +362,20 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
 }
 
 # Build a runnable R script that reproduces, from the console, the analysis the
-# dashboard just performed. It is a pure string builder (no Shiny, no fitting) so
-# it can be unit-tested directly, and it reuses maihda_quote_name() -- the same
-# helper maihda_formula_with_stratum() uses -- so the emitted formulas match what
+# dashboard just performed. It is a pure string builder (no Shiny, no fitting) so it
+# can be unit-tested directly, and it reuses maihda_quote_name() -- the same helper
+# maihda_formula_with_stratum() uses -- so the emitted formula matches what
 # maihda_app_fit_models() actually fits. `family` should be the *resolved* family
 # (e.g. the binomial an auto-switched binary outcome was fit with), so the script
 # reproduces the real fit rather than the originally selected family.
+#
+# For the canonical intersectional case (>= 2 grouping variables) it delegates the
+# two-model decomposition to maihda(): that puts any covariates in BOTH the null and
+# adjusted models (so the PCV isolates the stratum dimensions' additive share) and
+# enters an auto-binned numeric dimension as its reconstructed tertile factor --
+# exactly what the dashboard fits -- without the script needing the (data-dependent)
+# cut-points. With a single grouping variable there is no intersection to decompose,
+# so it falls back to a single strata-only (plus covariate) fit_maihda() fit.
 maihda_app_generate_code <- function(outcome_var, grouping_vars,
                                      additional_covars = character(),
                                      family = "gaussian", autobin = TRUE,
@@ -361,11 +389,15 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
   as_char_vec <- function(x) paste0("c(", paste0('"', x, '"', collapse = ", "), ")")
   fixed_terms <- c(grouping_vars, additional_covars)
 
-  null_fmla <- paste0(maihda_quote_name(outcome_var), " ~ (1 | stratum)")
-  adj_fmla <- paste0(
-    maihda_quote_name(outcome_var), " ~ ",
-    paste(c(quote_names(fixed_terms), "(1 | stratum)"), collapse = " + ")
-  )
+  # The model formula's fixed part is any selected covariates (the null model); the
+  # stratum dimensions' additive main effects are added by maihda() for the adjusted
+  # model, so they are NOT listed here.
+  covar_rhs <- if (length(additional_covars) > 0) {
+    paste(quote_names(additional_covars), collapse = " + ")
+  } else {
+    "1"
+  }
+  model_fmla <- paste0(maihda_quote_name(outcome_var), " ~ ", covar_rhs, " + (1 | stratum)")
 
   data_line <- switch(dataset,
     pisa   = "data <- MAIHDA::maihda_country_data",
@@ -373,6 +405,8 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
     upload = sprintf('data <- read.csv("%s")  # adjust path/reader for your file',
                      if (is.null(upload_name)) "your_data.csv" else upload_name)
   )
+
+  model_vars <- unique(c(outcome_var, fixed_terms))
 
   lines <- c(
     "# Reproducible MAIHDA analysis script",
@@ -382,37 +416,58 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
     "# 1. Load the data",
     data_line,
     "",
-    "# 2. Build intersectional strata from the grouping variables",
+    "# 2. Keep complete cases on the model variables before building strata, so the",
+    "#    auto-bin cut-points match the dashboard (which fits the complete cases).",
+    sprintf("model_vars <- %s", as_char_vec(model_vars)),
+    "data <- data[complete.cases(data[, model_vars, drop = FALSE]), , drop = FALSE]",
+    "",
+    "# 3. Build intersectional strata. Keeping make_strata()'s returned data carries",
+    "#    both the stratum column and the auto-bin recipe, so an auto-binned numeric",
+    "#    dimension (e.g. Age tertiles) enters the adjusted model as that SAME factor.",
     sprintf("strata <- make_strata(data, vars = %s, autobin = %s)",
             as_char_vec(grouping_vars), if (isTRUE(autobin)) "TRUE" else "FALSE"),
-    "data$stratum <- strata$data$stratum",
-    "",
-    "# 3. Fit the null and adjusted MAIHDA models",
-    sprintf('null_model     <- fit_maihda(%s, data = data, family = "%s")',
-            null_fmla, family),
-    sprintf('adjusted_model <- fit_maihda(%s, data = data, family = "%s")',
-            adj_fmla, family),
-    "",
-    "# 4. Variance partition coefficient, fixed effects and stratum estimates",
-    "summary(adjusted_model)",
-    "",
-    "# 5. Proportional change in variance (PCV)"
+    "data <- strata$data",
+    ""
   )
 
-  if (!is.null(seed)) {
-    lines <- c(lines, sprintf("set.seed(%s)", seed))
-  }
-  lines <- c(lines,
-    if (isTRUE(use_boot)) {
-      sprintf("calculate_pvc(null_model, adjusted_model, bootstrap = TRUE, n_boot = %s)",
-              n_boot)
+  if (length(grouping_vars) >= 2) {
+    lines <- c(lines,
+      "# 4. Two-model MAIHDA decomposition via maihda(): it fits the null model (any",
+      "#    covariates + the intersectional random intercept) and the adjusted model",
+      "#    (null + the stratum dimensions' additive main effects), holding the",
+      "#    covariates in BOTH so the PCV isolates the dimensions' additive share."
+    )
+    if (!is.null(seed)) {
+      lines <- c(lines, sprintf("set.seed(%s)", seed))
+    }
+    maihda_call <- if (isTRUE(use_boot)) {
+      sprintf('analysis <- maihda(%s, data = data, family = "%s", bootstrap = TRUE, n_boot = %s)',
+              model_fmla, family, n_boot)
     } else {
-      "calculate_pvc(null_model, adjusted_model)"
-    },
+      sprintf('analysis <- maihda(%s, data = data, family = "%s")', model_fmla, family)
+    }
+    lines <- c(lines,
+      maihda_call,
+      "analysis                          # VPC (null) and PCV (null -> adjusted)",
+      "summary(analysis$model_adjusted)  # adjusted-model variance components",
+      "analysis$pcv                      # proportional change in between-stratum variance"
+    )
+  } else {
+    lines <- c(lines,
+      "# 4. A single grouping variable is an ordinary multilevel model, not an",
+      "#    intersectional MAIHDA, so there is no additive-vs-intersectional",
+      "#    decomposition. Fit the strata-only (plus any covariate) model and read its VPC.",
+      sprintf('model <- fit_maihda(%s, data = data, family = "%s")', model_fmla, family),
+      "summary(model)"
+    )
+  }
+
+  lines <- c(lines,
     "",
-    "# 6. Stepwise PCV decomposition",
-    sprintf('stepwise_pcv(data, outcome = "%s", vars = %s)',
-            outcome_var, as_char_vec(fixed_terms))
+    "# 5. Stepwise PCV decomposition: adds each grouping dimension, then any covariates,",
+    "#    one at a time (an auto-binned dimension enters as its tertile factor).",
+    sprintf('stepwise_pcv(data, outcome = "%s", vars = %s, family = "%s")',
+            outcome_var, as_char_vec(fixed_terms), family)
   )
 
   paste(lines, collapse = "\n")

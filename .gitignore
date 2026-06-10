@@ -7,3 +7,7 @@ vignettes/*.html
 # Editor config is personal and should not be tracked (.vscode is already in
 # .Rbuildignore, so this only affects version control, not the package build).
 .vscode/
+# R CMD check / build artifacts; never commit them. Matches MAIHDA.Rcheck/, the
+# stray ..Rcheck/, and built source tarballs at the repo root.
+*.Rcheck/
+/*.tar.gz

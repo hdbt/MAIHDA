@@ -226,8 +226,10 @@ print.maihda_analysis <- function(x, ...) {
                 pcv$var_model1, pcv$var_model2))
     if (pcv$pvc >= 0) {
       cat(sprintf(paste0("  ~%.1f%% of the between-stratum variance is additive (the ",
-                         "dimensions' main\n  effects); the remainder reflects ",
-                         "intersectional interaction.\n"),
+                         "dimensions' main\n  effects); the remainder is the between-stratum ",
+                         "variance remaining after the\n  additive main effects -- a ",
+                         "model-dependent quantity, often interpreted as\n  intersectional ",
+                         "interaction, but interpret it cautiously.\n"),
                   pcv$pvc * 100))
     } else {
       cat("  PCV < 0: the additive main effects do not account for the between-stratum\n",

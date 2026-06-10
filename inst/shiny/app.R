@@ -630,8 +630,13 @@ server <- function(input, output, session) {
 
     adjusted_formula <- deparse(mod$formula)
     outcome_var <- all.vars(mod$formula)[1]
+    # The null model carries any selected covariates alongside the random intercept
+    # (the adjusted model adds the stratum dimensions' main effects), so the displayed
+    # null formula must include those covariates to match the fitted model.
+    null_covars <- if (!is.null(fit_params())) fit_params()$covariates else character()
     null_formula <- paste(
-      deparse(MAIHDA:::maihda_formula_with_stratum(outcome_var)),
+      deparse(MAIHDA:::maihda_formula_with_stratum(
+        outcome_var, if (is.null(null_covars)) character() else null_covars)),
       collapse = ""
     )
 
@@ -658,19 +663,19 @@ server <- function(input, output, session) {
             title = "Null model variance",
             value = if (!is.null(pvc$var_model1) && is.finite(pvc$var_model1)) sprintf("%.4f", pvc$var_model1) else "N/A",
             showcase = icon("seedling"), theme = "secondary",
-            p(class = "mb-0", "Model 1: strata only")
+            p(class = "mb-0", "Model 1: null (strata + any covariates)")
           ),
           value_box(
             title = "Adjusted model variance",
             value = if (!is.null(pvc$var_model2) && is.finite(pvc$var_model2)) sprintf("%.4f", pvc$var_model2) else "N/A",
             showcase = icon("layer-group"), theme = "info",
-            p(class = "mb-0", "Model 2: + main effects")
+            p(class = "mb-0", "Model 2: + strata main effects")
           ),
           value_box(
             title = tagList("Estimated PCV ",
                             tooltip(
                               shiny::icon("info-circle"),
-                              "PCV is the proportional change in between-stratum variance from the Null to the Adjusted model. A high PCV means the between-stratum variance is much smaller after adding the additive main effects; a low or negative PCV means little change (or an increase). This is a model-dependent change, not proof that inequality was causally 'explained away' -- it can also reflect suppression, rescaling, sample composition, or uncertainty, not interaction alone.")),
+                              "PCV is the proportional change in between-stratum variance from the Null to the Adjusted model. The two models hold any selected covariates fixed and differ only by the strata dimensions' additive main effects, so the PCV is the additive share of those dimensions. A high PCV means the between-stratum variance is much smaller after adding those main effects; a low or negative PCV means little change (or an increase). This is a model-dependent change, not proof that inequality was causally 'explained away' -- it can also reflect suppression, rescaling, sample composition, or uncertainty, not interaction alone.")),
             value = if (is.finite(pvc$pvc)) sprintf("%.2f%%", pvc$pvc * 100) else "N/A",
             showcase = icon("arrow-down-wide-short"),
             theme = if (is.finite(pvc$pvc)) "success" else "warning",
