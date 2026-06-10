@@ -42,19 +42,31 @@ install.packages("MAIHDA")
 ## Quick Start: the `maihda()` one-call workflow
 
 If you just want the standard analysis, `maihda()` runs the whole pipeline in a
-single call -- it fits the model, summarises the VPC/ICC and variance components,
-and (optionally) compares intersectional inequality across a higher-level grouping
-variable. It returns one object with `print()`, `summary()`, and `plot()` methods.
+single call. It is intrinsically a **two-model** decomposition: it fits the **null**
+model (the formula you supply) *and* the **adjusted** model (the same model plus the
+additive main effects of the stratum dimensions), summarises the null model's VPC/ICC,
+and reports the **PCV** -- the proportional change in between-stratum variance from
+null to adjusted, i.e. the additive share of the intersectional inequality. It can
+also compare this decomposition across a higher-level grouping variable. It returns one
+object with `print()`, `summary()`, and `plot()` methods. (For a single model -- e.g.
+just the null-model VPC -- call `fit_maihda()` directly; the sections below also walk
+through the pipeline step by step.)
 
 ```{r quickstart}
 library(MAIHDA)
 data("maihda_health_data")
 
-# Fit + variance summary in one call
+# Null + adjusted fit, VPC summary, and PCV decomposition in one call
 analysis <- maihda(BMI ~ Age + (1 | Gender:Race:Education), data = maihda_health_data)
-analysis                      # concise report (VPC/ICC, #strata)
+analysis                      # VPC/ICC (null) and PCV (null -> adjusted)
 summary(analysis)             # full variance components
-plot(analysis, type = "vpc")  # any plot.maihda_model type works here
+analysis$pcv                  # proportional change in between-stratum variance
+
+# The VPC/shrinkage views use the null model; the additive-vs-intersectional views
+# (effect_decomp, risk_vs_effect, ternary) use the adjusted model -- plot() routes
+# each type to the right model automatically.
+plot(analysis, type = "vpc")
+plot(analysis, type = "effect_decomp")
 ```
 
 You can add a higher-level grouping variable to also compare across its levels.

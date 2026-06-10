@@ -537,6 +537,51 @@ test_that("plot() notes omitted groups in the caption instead of dropping silent
   }
 })
 
+test_that("compare_maihda_groups reports a per-group PCV with >= 2 dimensions", {
+  set.seed(3301)
+  n <- 480
+  d <- data.frame(
+    country = rep(c("A", "B", "C"), length.out = n),
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race = sample(c("X", "Y"), n, replace = TRUE),
+    age = rnorm(n)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- 1 + 0.4 * d$age + rnorm(nlevels(sk), sd = 1.0)[sk] + rnorm(n, sd = 0.5)
+
+  cmp <- suppressWarnings(
+    compare_maihda_groups(y ~ age + (1 | gender:race), data = d, group = "country")
+  )
+  expect_true(all(c("pcv", "var_between_adjusted") %in% names(cmp)))
+  ok <- cmp$status == "ok"
+  expect_true(all(is.finite(cmp$pcv[ok])))
+  expect_true(all(is.finite(cmp$var_between_adjusted[ok])))
+  # The per-group PCV equals the proportional change in between-stratum variance from
+  # the null to the adjusted model (a negative PCV is possible -- suppression -- so
+  # we check the identity, not a sign/monotonicity).
+  expect_equal(cmp$pcv[ok],
+               (cmp$var_between[ok] - cmp$var_between_adjusted[ok]) / cmp$var_between[ok],
+               tolerance = 1e-8)
+  expect_s3_class(plot(cmp, type = "pcv"), "ggplot")
+})
+
+test_that("compare_maihda_groups omits the PCV columns with a single dimension", {
+  set.seed(3302)
+  n <- 300
+  d <- data.frame(
+    country = rep(c("A", "B"), each = n / 2),
+    gender = sample(c("F", "M"), n, replace = TRUE)
+  )
+  d$y <- rnorm(2, sd = 0.6)[as.integer(factor(d$gender))] + rnorm(n, sd = 0.4)
+
+  cmp <- suppressWarnings(
+    compare_maihda_groups(y ~ 1 + (1 | gender), data = d, group = "country")
+  )
+  expect_false("pcv" %in% names(cmp))
+  expect_false("var_between_adjusted" %in% names(cmp))
+  expect_error(plot(cmp, type = "pcv"), "fewer than two")
+})
+
 test_that("plot.maihda_analysis dispatches group_between_variance", {
   set.seed(3202)
   n <- 240

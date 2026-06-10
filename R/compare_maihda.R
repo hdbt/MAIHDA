@@ -271,7 +271,11 @@ plot_comparison <- function(comparison_df) {
 #' effects; any fixed-effect covariates in \code{formula} are still used) within
 #' each level of a higher-level grouping variable (for example country, region, or
 #' survey wave) and reports how the variance partition coefficient (VPC/ICC) and
-#' the between-/within-stratum variance components differ across those groups.
+#' the between-/within-stratum variance components differ across those groups. When
+#' the strata are defined by at least two dimensions it also fits the adjusted model
+#' (the dimensions' additive main effects) within each group and reports the per-group
+#' \code{pcv} -- the proportional change in between-stratum variance, i.e. the additive
+#' share of that group's intersectional inequality.
 #'
 #' It estimates one VPC per group as a stratified analysis: each group is modelled
 #' independently. It is \emph{not} a cross-classified model and does not adjust the
@@ -333,7 +337,13 @@ plot_comparison <- function(comparison_df) {
 #'   row per group and columns \code{group}, \code{n}, \code{n_strata},
 #'   \code{vpc}, \code{var_between}, \code{var_other}, \code{var_residual},
 #'   \code{status} (and \code{ci_lower}/\code{ci_upper} when
-#'   \code{bootstrap = TRUE}). \code{n} is the analytic sample size used by the
+#'   \code{bootstrap = TRUE}). When the strata are defined by at least two
+#'   dimensions, two further columns report the per-group null -> adjusted
+#'   decomposition: \code{pcv} (proportional change in between-stratum variance when
+#'   the dimensions' additive main effects are added) and \code{var_between_adjusted}
+#'   (the adjusted model's between-stratum variance); both are \code{NA} for a group
+#'   whose adjusted fit failed, and the columns are omitted entirely when the strata
+#'   have a single dimension. \code{n} is the analytic sample size used by the
 #'   model (after dropping rows with a missing outcome/covariate) for both fitted
 #'   and skipped groups, falling back to the raw row count only when the model
 #'   frame cannot be built. \code{var_other} is the variance of any additional
@@ -483,6 +493,13 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   data <- prepared$data
   fit_formula <- prepared$formula
 
+  # Whether to run the per-group null -> adjusted PCV decomposition. It needs at
+  # least two stratum dimensions (with one dimension there is no intersection to
+  # decompose, and the single main effect would render the stratum random intercept
+  # redundant). When FALSE the pcv columns are dropped from the result below.
+  decomp_vars <- prepared$strata_vars
+  do_decomp <- !is.null(decomp_vars) && length(decomp_vars) >= 2
+
   strata_attr_names <- c("strata_info", "strata_vars", "strata_sep", "strata_autobin_info")
   carried_attrs <- stats::setNames(
     lapply(strata_attr_names, function(a) attr(data, a)),
@@ -530,6 +547,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       group = g, n = n_g, n_strata = NA_integer_,
       vpc = NA_real_, var_between = NA_real_, var_other = NA_real_,
       var_residual = NA_real_,
+      pcv = NA_real_, var_between_adjusted = NA_real_,
       ci_lower = NA_real_, ci_upper = NA_real_,
       status = NA_character_, stringsAsFactors = FALSE
     )
@@ -604,6 +622,32 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     populated_strata[[g]] <- group_strata
     row$status <- "ok"
 
+    # Per-group PCV decomposition: fit the adjusted model (null + the dimensions'
+    # additive main effects) on this group's same sample/strata and record the
+    # proportional change in between-stratum variance. The adjusted formula uses the
+    # global (shared) auto-bin recipe carried on the fitted model, so binned factors
+    # match across groups. A failure here (a singular adjusted fit, or zero null
+    # between-variance) leaves pcv as NA without aborting the comparison.
+    if (do_decomp) {
+      af <- maihda_adjusted_formula(fit_obj$model$formula, fit_obj$model$strata_vars,
+                                    fit_obj$model$strata_autobin_info,
+                                    fit_obj$model$original_data)
+      if (!is.null(af)) {
+        pcv_obj <- tryCatch({
+          adj_model <- do.call(
+            fit_maihda,
+            c(list(af$formula, af$data, engine = engine, family = family),
+              slice_dots_for_group(idx))
+          )
+          calculate_pvc(fit_obj$model, adj_model)
+        }, error = function(e) NULL)
+        if (!is.null(pcv_obj)) {
+          row$pcv <- pcv_obj$pvc
+          row$var_between_adjusted <- pcv_obj$var_model2
+        }
+      }
+    }
+
     # Flag fit-quality problems (singular / non-converged) for an aggregated
     # warning. The fit still "succeeded" (status stays "ok"), but the VPC may be
     # unreliable -- a singular fit typically pins the stratum variance at 0.
@@ -665,6 +709,12 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   if (all(is.na(out$ci_lower)) && all(is.na(out$ci_upper))) {
     out$ci_lower <- NULL
     out$ci_upper <- NULL
+  }
+  # Drop the decomposition columns entirely when no group could be decomposed
+  # (fewer than two dimensions), keeping the plain VPC-comparison schema.
+  if (!do_decomp) {
+    out$pcv <- NULL
+    out$var_between_adjusted <- NULL
   }
   rownames(out) <- NULL
 
@@ -798,18 +848,20 @@ maihda_compose_caption <- function(...) {
 #'
 #' Visualises the output of \code{\link{compare_maihda_groups}} as a point/forest
 #' plot of the VPC/ICC by group, as stacked variance-composition bars (between- vs
-#' within-stratum share) by group, or as bars of the absolute between-stratum
-#' (intersectional) variance by group. Dispatched via \code{plot()} on the classed
-#' result.
+#' within-stratum share) by group, as bars of the absolute between-stratum
+#' (intersectional) variance by group, or as bars of the additive share (PCV) by
+#' group. Dispatched via \code{plot()} on the classed result.
 #'
 #' @param x A \code{maihda_group_comparison} object from
 #'   \code{\link{compare_maihda_groups}}.
 #' @param type One of "vpc" (default) for VPC by group with optional bootstrap
-#'   confidence intervals, "components" for stacked variance proportions, or
-#'   "between_variance" for the absolute between-stratum variance by group. The VPC
-#'   is a \emph{share} of the unexplained variance; "between_variance" shows the
-#'   \emph{magnitude} the ratio cannot convey (two groups with very different VPCs
-#'   can share a between-stratum variance, and vice versa).
+#'   confidence intervals, "components" for stacked variance proportions,
+#'   "between_variance" for the absolute between-stratum variance by group, or "pcv"
+#'   for the additive share (null -> adjusted proportional change in between-stratum
+#'   variance) by group. The VPC is a \emph{share} of the unexplained variance;
+#'   "between_variance" shows the \emph{magnitude} the ratio cannot convey (two groups
+#'   with very different VPCs can share a between-stratum variance, and vice versa);
+#'   "pcv" requires strata defined by at least two dimensions.
 #' @param ... Additional arguments (not used).
 #'
 #' @return A ggplot2 object.
@@ -827,7 +879,7 @@ maihda_compose_caption <- function(...) {
 #' @export
 #' @import ggplot2
 #' @importFrom rlang .data
-plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "between_variance"), ...) {
+plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "between_variance", "pcv"), ...) {
   if (!inherits(x, "maihda_group_comparison")) {
     stop("'x' must be a maihda_group_comparison object from compare_maihda_groups().",
          call. = FALSE)
@@ -926,6 +978,48 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
     )
   }
 
+  if (type == "pcv") {
+    # Additive share by group: the proportional change in between-stratum variance
+    # from the null to the adjusted (dimension main effects) model.
+    if (!"pcv" %in% names(df)) {
+      stop("No PCV available to plot: this comparison has fewer than two stratum ",
+           "dimensions, so there is no additive-vs-intersectional decomposition.",
+           call. = FALSE)
+    }
+    df_pcv <- df[is.finite(df$pcv), , drop = FALSE]
+    if (nrow(df_pcv) == 0) {
+      stop("No groups with an estimable PCV to plot.", call. = FALSE)
+    }
+    df_pcv <- df_pcv[order(df_pcv$pcv), , drop = FALSE]
+    df_pcv$group <- factor(df_pcv$group, levels = df_pcv$group)
+
+    pcv_caption <- maihda_compose_caption(
+      paste("PCV = proportional change in between-stratum variance from the null to the",
+            "adjusted (dimension main effects) model -- the additive share of the",
+            "intersectional inequality. A negative PCV means the additive main effects",
+            "do not reduce the between-stratum variance (suppression/rescaling)."),
+      omit_note
+    )
+
+    return(
+      ggplot(df_pcv, aes(x = .data$group, y = .data$pcv)) +
+        geom_col(fill = "#CC79A7") +
+        geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+        labs(
+          title = "Additive share (PCV) by group",
+          x = group_var,
+          y = "PCV (null -> adjusted)",
+          caption = pcv_caption
+        ) +
+        theme_minimal() +
+        theme(
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
+          axis.text.x = element_text(angle = 45, hjust = 1)
+        )
+    )
+  }
+
   # type == "components": stacked variance proportions per group. Include any
   # "Other random effects" variance so the slices match the VPC denominator
   # (between + other + residual). var_other is 0 for the canonical single
@@ -988,11 +1082,11 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
 #' result instead, e.g. \code{plot(cmp, type = "vpc")}.
 #'
 #' @param x A \code{maihda_group_comparison} object.
-#' @param type One of "vpc" (default), "components", or "between_variance".
+#' @param type One of "vpc" (default), "components", "between_variance", or "pcv".
 #' @return A ggplot2 object.
 #' @keywords internal
 #' @export
-plot_group_comparison <- function(x, type = c("vpc", "components", "between_variance")) {
+plot_group_comparison <- function(x, type = c("vpc", "components", "between_variance", "pcv")) {
   .Deprecated("plot", msg = paste(
     "'plot_group_comparison()' is deprecated.",
     "Use plot() on the compare_maihda_groups() result, e.g. plot(cmp, type = 'vpc')."

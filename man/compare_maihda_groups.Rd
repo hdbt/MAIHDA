@@ -72,7 +72,13 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   row per group and columns \code{group}, \code{n}, \code{n_strata},
   \code{vpc}, \code{var_between}, \code{var_other}, \code{var_residual},
   \code{status} (and \code{ci_lower}/\code{ci_upper} when
-  \code{bootstrap = TRUE}). \code{n} is the analytic sample size used by the
+  \code{bootstrap = TRUE}). When the strata are defined by at least two
+  dimensions, two further columns report the per-group null -> adjusted
+  decomposition: \code{pcv} (proportional change in between-stratum variance when
+  the dimensions' additive main effects are added) and \code{var_between_adjusted}
+  (the adjusted model's between-stratum variance); both are \code{NA} for a group
+  whose adjusted fit failed, and the columns are omitted entirely when the strata
+  have a single dimension. \code{n} is the analytic sample size used by the
   model (after dropping rows with a missing outcome/covariate) for both fitted
   and skipped groups, falling back to the raw row count only when the model
   frame cannot be built. \code{var_other} is the variance of any additional
@@ -85,7 +91,11 @@ Fits a separate random-intercept MAIHDA model (intercept-only \emph{random}
 effects; any fixed-effect covariates in \code{formula} are still used) within
 each level of a higher-level grouping variable (for example country, region, or
 survey wave) and reports how the variance partition coefficient (VPC/ICC) and
-the between-/within-stratum variance components differ across those groups.
+the between-/within-stratum variance components differ across those groups. When
+the strata are defined by at least two dimensions it also fits the adjusted model
+(the dimensions' additive main effects) within each group and reports the per-group
+\code{pcv} -- the proportional change in between-stratum variance, i.e. the additive
+share of that group's intersectional inequality.
 }
 \details{
 It estimates one VPC per group as a stratified analysis: each group is modelled
