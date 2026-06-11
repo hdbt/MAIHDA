@@ -138,13 +138,15 @@ mod_explorer_ui <- function(id) {
 
 #' @noRd
 mod_explorer_server <- function(id, model_results, null_summary_results,
-                                summary_results, pvc_results, group_vars) {
+                                summary_results, pvc_results, group_vars,
+                                decomposition_results = function() NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     output$interactive_explorer_ui <- shiny::renderUI({
       if (is.null(model_results()) || is.null(null_summary_results()) ||
-          is.null(summary_results()) || is.null(pvc_results())) {
+          is.null(summary_results()) ||
+          (is.null(pvc_results()) && is.null(decomposition_results()))) {
         return(maihda_app_empty_state(
           "Nothing to explore yet",
           "Fit a MAIHDA model from the sidebar to unlock the interactive strata
@@ -152,7 +154,6 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
       }
       null_res <- null_summary_results()
       res <- summary_results()
-      pvc <- pvc_results()
 
       # Extract metrics for HUD
       null_vpc <- null_res$vpc
@@ -162,47 +163,89 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
       } else {
         NULL
       }
-      pvc_val <- round(pvc$pvc * 100, 2)
-      pvc_val_display <- if (is.finite(pvc_val)) paste0(pvc_val, "%") else "N/A"
-      pvc_display <- maihda_app_pvc_display(pvc_val)
+
+      cc_mode <- !is.null(decomposition_results())
+      if (cc_mode) {
+        # Cross-classified: additive vs. interaction shares from the single model.
+        d <- decomposition_results()
+        metric_boxes <- bslib::layout_columns(
+          col_widths = c(4, 4, 4),
+          class = "maihda-metric-row",
+          bslib::value_box(
+            title = "VPC",
+            value = paste0(vpc_val, "%"),
+            showcase = shiny::icon("layer-group"),
+            theme = "primary",
+            shiny::p(class = "mb-0", "Total variance between strata"),
+            if (!is.null(vpc_ci_text)) shiny::p(class = "small mb-0", vpc_ci_text) else NULL
+          ),
+          bslib::value_box(
+            title = "Additive share",
+            value = sprintf("%.2f%%", d$additive_share * 100),
+            showcase = shiny::icon("arrow-down-wide-short"),
+            theme = "info",
+            shiny::p(class = "mb-0", "Share of between-strata variance from the dimensions' additive main effects")
+          ),
+          bslib::value_box(
+            title = "Interaction share",
+            value = sprintf("%.2f%%", d$interaction_share * 100),
+            showcase = shiny::icon("diagram-project"),
+            theme = "success",
+            shiny::p(class = "mb-0", "Share attributable to the intersectional interaction")
+          )
+        )
+        interpretation_md <- shiny::markdown("
+        **Interpretation Guide**:
+        - **VPC** (Variance Partition Coefficient) measures the share of the unexplained outcome variance that lies between strata.
+        - **Additive share** is the dimensions' additive main-effect variance as a fraction of the total between-strata variance, estimated from the single cross-classified model (the analogue of the PCV).
+        - **Interaction share** is the complement -- the intersectional interaction beyond the additive parts. Interpret it cautiously; dimensions with few levels are poorly identified.
+        ")
+      } else {
+        pvc <- pvc_results()
+        pvc_val <- round(pvc$pvc * 100, 2)
+        pvc_val_display <- if (is.finite(pvc_val)) paste0(pvc_val, "%") else "N/A"
+        pvc_display <- maihda_app_pvc_display(pvc_val)
+        metric_boxes <- bslib::layout_columns(
+          col_widths = c(4, 4, 4),
+          class = "maihda-metric-row",
+          bslib::value_box(
+            title = "VPC (Null)",
+            value = paste0(vpc_val, "%"),
+            showcase = shiny::icon("layer-group"),
+            theme = "primary",
+            shiny::p(class = "mb-0", "Total variance between strata"),
+            if (!is.null(vpc_ci_text)) shiny::p(class = "small mb-0", vpc_ci_text) else NULL
+          ),
+          bslib::value_box(
+            title = "PCV (Adjusted)",
+            value = pvc_val_display,
+            showcase = shiny::icon("arrow-down-wide-short"),
+            theme = "info",
+            shiny::p(class = "mb-0", "Between-stratum variance change from the strata's additive main effects (covariates held in both models)")
+          ),
+          bslib::value_box(
+            title = pvc_display$label,
+            value = pvc_display$value,
+            showcase = shiny::icon("chart-pie"),
+            theme = switch(pvc_display$status,
+                           negative = "warning", unknown = "secondary", "success"),
+            shiny::p(class = "mb-0", pvc_display$description)
+          )
+        )
+        interpretation_md <- shiny::markdown("
+        **Interpretation Guide**:
+        - **VPC** (Variance Partition Coefficient) measures the share of the unexplained outcome variance that lies between strata.
+        - **PCV** (Proportional Change in Variance) is the proportional change in between-stratum variance when the strata dimensions' additive main effects are added (any selected covariates are held in both the null and adjusted models). It is a model-dependent comparison, not a causal measure of variance 'explained'.
+        - The remaining between-stratum variation is often read as the intersectional component, but it is model-dependent and should be interpreted cautiously (a negative PCV does not by itself prove hidden structural inequality).
+        ")
+      }
 
       bslib::layout_columns(
         col_widths = c(12, 12),
         bslib::card(
           bslib::card_header("HUD: Key MAIHDA Metrics"),
-          bslib::layout_columns(
-            col_widths = c(4, 4, 4),
-            class = "maihda-metric-row",
-            bslib::value_box(
-              title = "VPC (Null)",
-              value = paste0(vpc_val, "%"),
-              showcase = shiny::icon("layer-group"),
-              theme = "primary",
-              shiny::p(class = "mb-0", "Total variance between strata"),
-              if (!is.null(vpc_ci_text)) shiny::p(class = "small mb-0", vpc_ci_text) else NULL
-            ),
-            bslib::value_box(
-              title = "PCV (Adjusted)",
-              value = pvc_val_display,
-              showcase = shiny::icon("arrow-down-wide-short"),
-              theme = "info",
-              shiny::p(class = "mb-0", "Between-stratum variance change from the strata's additive main effects (covariates held in both models)")
-            ),
-            bslib::value_box(
-              title = pvc_display$label,
-              value = pvc_display$value,
-              showcase = shiny::icon("chart-pie"),
-              theme = switch(pvc_display$status,
-                             negative = "warning", unknown = "secondary", "success"),
-              shiny::p(class = "mb-0", pvc_display$description)
-            )
-          ),
-          shiny::markdown("
-          **Interpretation Guide**:
-          - **VPC** (Variance Partition Coefficient) measures the share of the unexplained outcome variance that lies between strata.
-          - **PCV** (Proportional Change in Variance) is the proportional change in between-stratum variance when the strata dimensions' additive main effects are added (any selected covariates are held in both the null and adjusted models). It is a model-dependent comparison, not a causal measure of variance 'explained'.
-          - The remaining between-stratum variation is often read as the intersectional component, but it is model-dependent and should be interpreted cautiously (a negative PCV does not by itself prove hidden structural inequality).
-          "),
+          metric_boxes,
+          interpretation_md,
           shiny::uiOutput(ns("dynamic_interpretation"))
         ),
         bslib::card(
@@ -350,12 +393,13 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
     })
 
     output$dynamic_interpretation <- shiny::renderUI({
-      shiny::req(null_summary_results(), summary_results(), pvc_results())
+      shiny::req(null_summary_results(), summary_results())
+      cc_mode <- !is.null(decomposition_results())
+      if (!cc_mode) shiny::req(pvc_results())
 
       # Grab data
       null_res <- null_summary_results()
       res <- summary_results()
-      pvc <- pvc_results()
       df <- as.data.frame(res$stratum_estimates)
       strata_info <- model_results()$strata_info
 
@@ -382,30 +426,46 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
 
       # Extract metrics
       vpc_val <- round(null_res$vpc$estimate * 100, 2)
-      pvc_val <- round(pvc$pvc * 100, 2)
-      pvc_display <- maihda_app_pvc_display(pvc_val)
-      pvc_interpretation <- if (identical(pvc_display$status, "negative")) {
-        shiny::tagList(
-          "After adding the strata's additive main effects, between-strata variance increases by ",
-          shiny::tags$strong(pvc_display$value),
-          ", a suppression or unmasking pattern. The adjusted model therefore has ",
-          shiny::tags$strong(pvc_display$remaining_value),
-          " of the null between-strata variance, rather than an explained-away share. "
-        )
-      } else if (identical(pvc_display$status, "unknown")) {
-        shiny::tagList(
-          "The proportional change in variance could not be summarized for this fit, ",
-          "so the adjusted-model share of between-strata variance is not available. "
+      if (cc_mode) {
+        # Cross-classified: split the between-strata variance into additive and
+        # interaction shares read off the single model.
+        d <- decomposition_results()
+        pvc_interpretation <- shiny::tagList(
+          "Of that between-strata variance, ",
+          shiny::tags$strong(sprintf("%.1f%%", d$additive_share * 100)),
+          " is additive (the dimensions' main effects, entered as random intercepts) and ",
+          shiny::tags$strong(sprintf("%.1f%%", d$interaction_share * 100)),
+          " is the intersectional interaction beyond additive -- both estimated jointly ",
+          "from the single cross-classified model. Interpret the interaction share ",
+          "cautiously; dimensions with few levels are poorly identified. "
         )
       } else {
-        shiny::tagList(
-          "After adding the strata's additive (main) effects to the model (which already holds any selected covariates), the between-strata variance is ",
-          shiny::tags$strong(paste0(pvc_val, "%")),
-          " smaller, leaving ",
-          shiny::tags$strong(pvc_display$remaining_value),
-          " of the original between-strata variance in the adjusted model. This is a ",
-          "model-dependent change, not necessarily variance causally explained by those effects. "
-        )
+        pvc <- pvc_results()
+        pvc_val <- round(pvc$pvc * 100, 2)
+        pvc_display <- maihda_app_pvc_display(pvc_val)
+        pvc_interpretation <- if (identical(pvc_display$status, "negative")) {
+          shiny::tagList(
+            "After adding the strata's additive main effects, between-strata variance increases by ",
+            shiny::tags$strong(pvc_display$value),
+            ", a suppression or unmasking pattern. The adjusted model therefore has ",
+            shiny::tags$strong(pvc_display$remaining_value),
+            " of the null between-strata variance, rather than an explained-away share. "
+          )
+        } else if (identical(pvc_display$status, "unknown")) {
+          shiny::tagList(
+            "The proportional change in variance could not be summarized for this fit, ",
+            "so the adjusted-model share of between-strata variance is not available. "
+          )
+        } else {
+          shiny::tagList(
+            "After adding the strata's additive (main) effects to the model (which already holds any selected covariates), the between-strata variance is ",
+            shiny::tags$strong(paste0(pvc_val, "%")),
+            " smaller, leaving ",
+            shiny::tags$strong(pvc_display$remaining_value),
+            " of the original between-strata variance in the adjusted model. This is a ",
+            "model-dependent change, not necessarily variance causally explained by those effects. "
+          )
+        }
       }
 
       # Construct the summary paragraph dynamically
@@ -523,6 +583,15 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
     # what is *mounted* in the UI.
     output$nested_ui <- shiny::renderUI({
       if (is.null(comparison_results())) {
+        p <- fit_params()
+        if (!is.null(p) && identical(p$decomposition, "cross-classified")) {
+          return(maihda_app_empty_state(
+            "Not applicable in cross-classified mode",
+            "The nested null-vs-adjusted VPC comparison is a **two-model** view. Your
+             last fit used the **cross-classified** decomposition -- see the additive
+             and interaction shares on the **PCV Results** tab. The stratified
+             group comparison below still works."))
+        }
         return(maihda_app_empty_state(
           "No comparison yet",
           "Fit a MAIHDA model from the sidebar; the null-vs-adjusted VPC
@@ -568,6 +637,9 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
 
       fam <- if (!is.null(fitted_family())) fitted_family() else "gaussian"
       autobin_opt <- isTRUE(p$autobin)
+      # Mirror the dashboard's decomposition choice per group: cross-classified yields
+      # per-group additive/interaction shares, two-model the per-group PCV.
+      decomp_opt <- if (!is.null(p$decomposition)) p$decomposition else "two-model"
 
       # Build outcome ~ <covariates> + (1 | g1:g2:...); compare_maihda_groups() forms
       # the strata itself and keeps the fixed-effect covariates, so each per-group VPC
@@ -600,7 +672,8 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
       promises::then(
         promises::future_promise({
           compare_maihda_groups(formula = fml, data = dat, group = grp,
-                                family = fam, autobin = autobin_opt)
+                                family = fam, autobin = autobin_opt,
+                                decomposition = decomp_opt)
         }, seed = TRUE),
         onFulfilled = function(res) {
           finish()
@@ -613,6 +686,20 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
             type = "error", duration = 12)
         }
       )
+    })
+
+    # Offer the cross-classified additive-share view once a cross-classified group
+    # comparison is available (its result carries an additive_share column).
+    shiny::observe({
+      cmp <- group_cmp()
+      choices <- c("VPC by group" = "vpc",
+                   "Variance components" = "components",
+                   "Between-stratum variance" = "between_variance")
+      if (!is.null(cmp) && "additive_share" %in% names(cmp)) {
+        choices <- c(choices, "Additive share by group" = "additive_share")
+      }
+      shiny::updateSelectInput(session, "plot_type", choices = choices,
+                               selected = shiny::isolate(input$plot_type))
     })
 
     output$group_table <- DT::renderDT({

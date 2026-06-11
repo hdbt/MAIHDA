@@ -141,6 +141,19 @@ compute_maihda_ternary_data <- function(
   re_idx <- match(as.character(pred_data$stratum), as.character(re_df$stratum))
   u_by_row <- re_df$u_j[re_idx]
 
+  # Cross-classified model: fold the dimension random effects into the additive
+  # baseline so the "additive signal" reflects the dimensions' (random) main effects,
+  # not just the fixed covariates. fe_link becomes fixed + dimension REs =
+  # eta(all REs) - u_stratum; the interaction signal (u_j, the stratum RE) is unchanged.
+  if (!is.null(model$cc_info)) {
+    total_link <- if (engine == "brms" || inherits(fitted_mod, "brmsfit")) {
+      brms::posterior_linpred(fitted_mod, newdata = pred_data, summary = TRUE)[, "Estimate"]
+    } else {
+      stats::predict(fitted_mod, newdata = pred_data, type = "link")
+    }
+    fe_link <- as.numeric(total_link) - u_by_row
+  }
+
   if (scale == "response") {
     additive_values <- linkinv(fe_link)
     full_values <- linkinv(fe_link + u_by_row)

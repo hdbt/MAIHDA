@@ -52,6 +52,12 @@ object with `print()`, `summary()`, and `plot()` methods. (For a single model --
 just the null-model VPC -- call `fit_maihda()` directly; the sections below also walk
 through the pipeline step by step.)
 
+`maihda()` also offers a **cross-classified** decomposition
+(`decomposition = "cross-classified"`) that estimates the additive and interaction
+parts from a *single* model -- entering each dimension's main effect as a random
+intercept -- instead of the two-model PCV. See
+`vignette("cross_classified", package = "MAIHDA")`.
+
 ```{r quickstart}
 library(MAIHDA)
 data("maihda_health_data")

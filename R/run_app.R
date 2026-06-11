@@ -250,7 +250,9 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
                                   additional_covars = character(),
                                   family = "gaussian", use_boot = FALSE,
                                   n_boot = 100, autobin = TRUE,
-                                  engine = "lme4", seed = NULL) {
+                                  engine = "lme4", seed = NULL,
+                                  decomposition = c("two-model", "cross-classified")) {
+  decomposition <- match.arg(decomposition)
   if (!is.data.frame(dat)) {
     stop("'dat' must be a data frame.", call. = FALSE)
   }
@@ -310,6 +312,44 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
     family_autoswitched <- TRUE
   }
 
+  # Cross-classified decomposition: a SINGLE model that enters each stratum dimension's
+  # additive main effect as a random intercept (its variance is that dimension's
+  # additive contribution) plus the intersection random intercept (the interaction).
+  # The additive/interaction shares come straight off this one fit. Bootstrap CIs (when
+  # requested) are computed here, in the worker, via the cross-classified summary path.
+  if (decomposition == "cross-classified") {
+    if (length(grouping_vars) < 2) {
+      stop("Cross-classified decomposition needs at least two grouping variables.",
+           call. = FALSE)
+    }
+    cc_null_fmla <- maihda_formula_with_stratum(outcome_var, additional_covars)
+    cc <- maihda_cross_classified_formula(cc_null_fmla, grouping_vars,
+                                          strata_dat$autobin_info, model_dat)
+    cc_model <- fit_maihda(formula = cc$formula, data = cc$data,
+                           engine = engine, family = family)
+    cc_model$cc_info <- list(dim_groups = cc$dim_groups,
+                             interaction_group = cc$interaction_group,
+                             dim_labels = grouping_vars)
+    if (!is.null(seed)) {
+      set.seed(seed)
+    }
+    cc_summary <- summary(cc_model, bootstrap = use_boot, n_boot = n_boot)
+    return(list(
+      null_model = cc_model,
+      model = cc_model,
+      summary_obj = cc_summary,
+      decomposition = cc_summary$decomposition,
+      pvc = NULL,
+      stepwise = NULL,
+      vpc_ci_null = NULL,
+      vpc_ci_adjusted = NULL,
+      family_used = family,
+      family_requested = family_requested,
+      family_autoswitched = family_autoswitched,
+      decomposition_mode = "cross-classified"
+    ))
+  }
+
   # PCV decomposition (mirrors core maihda()): the null model carries any selected
   # covariates alongside the intersectional random intercept, and the adjusted model
   # ADDS only the stratum dimensions' additive main effects. Holding the covariates in
@@ -357,7 +397,8 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
     vpc_ci_adjusted = vpc_ci$adjusted,
     family_used = family,
     family_requested = family_requested,
-    family_autoswitched = family_autoswitched
+    family_autoswitched = family_autoswitched,
+    decomposition_mode = "two-model"
   )
 }
 
@@ -381,8 +422,10 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
                                      family = "gaussian", autobin = TRUE,
                                      use_boot = FALSE, n_boot = 100, seed = NULL,
                                      dataset = c("pisa", "health", "upload"),
-                                     upload_name = NULL) {
+                                     upload_name = NULL,
+                                     decomposition = c("two-model", "cross-classified")) {
   dataset <- match.arg(dataset)
+  decomposition <- match.arg(decomposition)
   additional_covars <- if (is.null(additional_covars)) character() else additional_covars
 
   quote_names <- function(x) vapply(x, maihda_quote_name, character(1))
@@ -430,7 +473,35 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
     ""
   )
 
-  if (length(grouping_vars) >= 2) {
+  emit_stepwise <- TRUE
+  if (length(grouping_vars) >= 2 && decomposition == "cross-classified") {
+    # Cross-classified: a single model with each dimension's main effect as a random
+    # intercept plus the intersection random intercept; the additive/interaction
+    # shares are read off this one fit (no separate null/adjusted, no stepwise PCV).
+    lines <- c(lines,
+      "# 4. Cross-classified MAIHDA via maihda(decomposition = 'cross-classified'): a",
+      "#    single model entering each stratum dimension's additive main effect as a",
+      "#    random intercept plus the intersection random intercept. The additive and",
+      "#    interaction shares of the between-strata variance come straight off this fit."
+    )
+    if (!is.null(seed)) {
+      lines <- c(lines, sprintf("set.seed(%s)", seed))
+    }
+    maihda_call <- if (isTRUE(use_boot)) {
+      sprintf('analysis <- maihda(%s, data = data, family = "%s", decomposition = "cross-classified", bootstrap = TRUE, n_boot = %s)',
+              model_fmla, family, n_boot)
+    } else {
+      sprintf('analysis <- maihda(%s, data = data, family = "%s", decomposition = "cross-classified")',
+              model_fmla, family)
+    }
+    lines <- c(lines,
+      maihda_call,
+      "analysis                              # VPC and additive/interaction shares",
+      "summary(analysis$model)               # cross-classified variance components",
+      "analysis$decomposition$additive_share # additive share of between-strata variance"
+    )
+    emit_stepwise <- FALSE
+  } else if (length(grouping_vars) >= 2) {
     lines <- c(lines,
       "# 4. Two-model MAIHDA decomposition via maihda(): it fits the null model (any",
       "#    covariates + the intersectional random intercept) and the adjusted model",
@@ -462,13 +533,15 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
     )
   }
 
-  lines <- c(lines,
-    "",
-    "# 5. Stepwise PCV decomposition: adds each grouping dimension, then any covariates,",
-    "#    one at a time (an auto-binned dimension enters as its tertile factor).",
-    sprintf('stepwise_pcv(data, outcome = "%s", vars = %s, family = "%s")',
-            outcome_var, as_char_vec(fixed_terms), family)
-  )
+  if (emit_stepwise) {
+    lines <- c(lines,
+      "",
+      "# 5. Stepwise PCV decomposition: adds each grouping dimension, then any covariates,",
+      "#    one at a time (an auto-binned dimension enters as its tertile factor).",
+      sprintf('stepwise_pcv(data, outcome = "%s", vars = %s, family = "%s")',
+              outcome_var, as_char_vec(fixed_terms), family)
+    )
+  }
 
   paste(lines, collapse = "\n")
 }

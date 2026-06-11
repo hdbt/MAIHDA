@@ -758,6 +758,136 @@ maihda_variance_components_table <- function(var_stratum, var_other_random, var_
   )
 }
 
+# ---- Cross-classified (group-aware) variance partition ---------------------
+# These generalise the single-"stratum" extractors above to a model with several
+# crossed intercept-only random effects, as fitted by the cross-classified MAIHDA
+# decomposition: outcome ~ covars + (1 | dim1) + ... + (1 | stratum). Each dimension
+# RE variance is that dimension's ADDITIVE main-effect variance; the intersection
+# ("stratum") RE variance is the INTERACTION beyond additive. The default
+# single-stratum path is untouched -- these are only reached when maihda() tags a
+# model with $cc_info.
+
+# Named numeric vector of every grouping factor's intercept variance (lme4). Unlike
+# maihda_stratum_variance_lme4(), which returns only the "stratum" component, this
+# returns one entry per random effect, keyed by the grouping-factor name.
+maihda_random_variances_lme4 <- function(model) {
+  vc <- lme4::VarCorr(model)
+  vapply(names(vc), function(g) {
+    group_mat <- as.matrix(vc[[g]])
+    nm <- rownames(group_mat)
+    icn <- intersect(c("(Intercept)", "Intercept"), nm)
+    if (length(icn) == 0) NA_real_ else as.numeric(group_mat[icn[1], icn[1]])
+  }, numeric(1))
+}
+
+# Per-draw intercept variances for every grouping factor (brms). Returns a named
+# list of equal-length numeric vectors (one per random effect). brms names a
+# group-level SD column sd_<group>__<coef>; the group name is the text before the
+# first "__" (so dimension names containing "_" such as .maihda_dim_age are handled),
+# and an intercept-only MAIHDA model contributes exactly one column per group.
+maihda_group_variance_draws_brms <- function(draws) {
+  if (!is.data.frame(draws)) {
+    stop("'draws' must be a data frame of posterior draws.", call. = FALSE)
+  }
+  sd_cols <- grep("^sd_", names(draws), value = TRUE)
+  if (length(sd_cols) == 0) {
+    stop("No random-effect standard-deviation draws (sd_*) found in the brms posterior.")
+  }
+  bodies <- sub("^sd_", "", sd_cols)
+  groups <- sub("__.*$", "", bodies)
+  out <- list()
+  for (g in unique(groups)) {
+    cols_g <- sd_cols[groups == g]
+    if (length(cols_g) > 1L) {
+      stop("The '", g, "' random effect must include only an intercept for MAIHDA ",
+           "variance calculations (found multiple sd_", g,
+           "__* draws, suggesting random slopes).", call. = FALSE)
+    }
+    out[[g]] <- as.numeric(draws[[cols_g]])^2
+  }
+  out
+}
+
+# Named numeric vector of posterior-mean intercept variances per group (brms),
+# mirroring maihda_random_variances_lme4() for the point summary.
+maihda_random_variances_brms <- function(model) {
+  draws <- maihda_posterior_draws_brms(model)
+  gv <- maihda_group_variance_draws_brms(draws)
+  vapply(gv, mean, numeric(1))
+}
+
+# Split a named variance vector into additive (sum of the dimension REs), the
+# interaction (the intersection RE), and the per-dimension vector relabelled by the
+# human dimension name. dim_groups maps each strata_var to its RE grouping-factor
+# name; interaction_group is the intersection RE name (usually "stratum"). Works on a
+# named numeric vector (lme4 point) -- the per-draw brms path computes the same split
+# directly from the draws list.
+maihda_cc_variance_split <- function(var_named, dim_groups, interaction_group) {
+  dim_re <- unname(dim_groups)
+  needed <- c(dim_re, interaction_group)
+  missing_re <- setdiff(needed, names(var_named))
+  if (length(missing_re) > 0) {
+    stop("Cross-classified variance partition is missing the random effect(s): ",
+         paste(missing_re, collapse = ", "),
+         ". Expected one intercept per dimension plus the intersection effect.",
+         call. = FALSE)
+  }
+  per_dim <- var_named[dim_re]
+  names(per_dim) <- names(dim_groups)
+  list(
+    per_dim = per_dim,
+    additive = sum(per_dim),
+    interaction = unname(var_named[interaction_group])
+  )
+}
+
+# The cross-classified partition arithmetic. Elementwise, so it serves the lme4
+# point estimate (scalars), the lme4 bootstrap, and the brms posterior (per-draw
+# vectors) identically. between = additive + interaction (total between-strata
+# variance); vpc = between / (between + within); additive/interaction shares are the
+# split of the between-strata variance (the cross-classified analogue of the PCV).
+maihda_cc_partition <- function(additive, interaction, within) {
+  between <- additive + interaction
+  total <- between + within
+  list(
+    additive = additive,
+    interaction = interaction,
+    between = between,
+    within = within,
+    vpc = between / total,
+    additive_share = additive / between,
+    interaction_share = interaction / between
+  )
+}
+
+# Variance-components table for a cross-classified summary: one (non-overlapping)
+# row per dimension, then the intersection, the within-stratum (residual) term, and
+# the total, so the proportions sum to 1 and plot_vpc() can read it directly. The
+# additive subtotal and the shares live on the summary's $decomposition, not here, to
+# avoid double counting. The table is tagged so plot_vpc() colours it as a CC split.
+maihda_cc_components_table <- function(per_dim, interaction_var, within_var) {
+  components <- c(sprintf("Additive: %s", names(per_dim)),
+                  "Intersectional interaction",
+                  "Within-stratum (residual)")
+  variances <- c(unname(per_dim), interaction_var, within_var)
+  total_variance <- sum(variances)
+  proportions <- if (is.finite(total_variance) && total_variance > 0) {
+    variances / total_variance
+  } else {
+    rep(NA_real_, length(variances))
+  }
+  out <- data.frame(
+    component = c(components, "Total"),
+    variance = c(variances, total_variance),
+    sd = sqrt(c(variances, total_variance)),
+    proportion = c(proportions, 1.0),
+    stringsAsFactors = FALSE
+  )
+  attr(out, "kind") <- "cross_classified"
+  attr(out, "n_dimensions") <- length(per_dim)
+  out
+}
+
 maihda_stratum_ranef_lme4 <- function(model, group = "stratum") {
   re <- lme4::ranef(model, condVar = TRUE)
   if (!group %in% names(re)) {
@@ -1221,12 +1351,25 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
     if (scale == "response") linkinv(eta) else eta
   }
 
+  # Baseline the intersection (stratum) random effect is added to. For the canonical
+  # single-stratum model this is the fixed-only linear predictor. For a
+  # cross-classified model it must also carry the dimension random effects (the
+  # additive part) so the stratum prediction includes ALL random effects, not just
+  # the interaction: eta_base = eta(all REs) - u_stratum.
+  eta_base <- eta_fixed
+  if (!is.null(object$cc_info)) {
+    eta_allre <- stats::predict(model, newdata = data, type = "link")
+    u_row <- stratum_est$random_effect[idx]
+    u_row[is.na(u_row)] <- 0
+    eta_base <- as.numeric(eta_allre) - u_row
+  }
+
   pred_df <- data.frame(
     stratum = key,
-    predicted_row = transform_eta(eta_fixed + stratum_est$random_effect[idx]),
-    lower_row = transform_eta(eta_fixed + stratum_est$lower_95[idx]),
-    upper_row = transform_eta(eta_fixed + stratum_est$upper_95[idx]),
-    fixed_row = transform_eta(eta_fixed),
+    predicted_row = transform_eta(eta_base + stratum_est$random_effect[idx]),
+    lower_row = transform_eta(eta_base + stratum_est$lower_95[idx]),
+    upper_row = transform_eta(eta_base + stratum_est$upper_95[idx]),
+    fixed_row = transform_eta(eta_base),
     weight = prior_w,
     stringsAsFactors = FALSE
   )
@@ -1416,12 +1559,24 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
     if (scale == "response") linkinv(eta) else eta
   }
 
+  # See the lme4 sibling: in a cross-classified model the stratum prediction must
+  # also include the dimension random effects (the additive part). eta_base =
+  # eta(all REs) - u_stratum, so adding the stratum RE recovers the full prediction.
+  eta_base <- eta_fixed
+  if (!is.null(object$cc_info)) {
+    eta_allre <- brms::posterior_linpred(model, newdata = data,
+                                         summary = TRUE)[, "Estimate"]
+    u_row <- stratum_est$random_effect[idx]
+    u_row[is.na(u_row)] <- 0
+    eta_base <- as.numeric(eta_allre) - u_row
+  }
+
   pred_df <- data.frame(
     stratum = key,
-    predicted_row = transform_eta(eta_fixed + stratum_est$random_effect[idx]),
-    lower_row = transform_eta(eta_fixed + stratum_est$lower_95[idx]),
-    upper_row = transform_eta(eta_fixed + stratum_est$upper_95[idx]),
-    fixed_row = transform_eta(eta_fixed),
+    predicted_row = transform_eta(eta_base + stratum_est$random_effect[idx]),
+    lower_row = transform_eta(eta_base + stratum_est$lower_95[idx]),
+    upper_row = transform_eta(eta_base + stratum_est$upper_95[idx]),
+    fixed_row = transform_eta(eta_base),
     weight = prior_w,
     stringsAsFactors = FALSE
   )
