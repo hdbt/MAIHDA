@@ -100,6 +100,11 @@ random effects capture the *combined* additive + interaction differences across
 strata; they isolate the *pure* intersectional (interaction) component only once
 the additive main effects of the strata variables are in the model.
 
+> For a binomial model `summary()` now reports the discriminatory accuracy (AUC /
+> Median Odds Ratio) automatically, so the printed summary above already carries that
+> block -- the [Discriminatory accuracy](#discriminatory-accuracy-auc-and-median-odds-ratio)
+> section below explains how to read it and how to obtain the pieces on their own.
+
 For an interpretable **probability-scale** complement to the latent-scale VPC, the
 package provides `maihda_vpc_response()`, which estimates the response-scale VPC by
 simulation (Goldstein, Browne & Rasbash 2002):
@@ -158,14 +163,17 @@ change, not a causal decomposition.
 ## Discriminatory accuracy (AUC and Median Odds Ratio)
 
 The VPC summarises *variation*; discriminatory accuracy summarises *prediction*.
-The package ships `maihda_discriminatory_accuracy()`, which bundles the two
-individual-level summaries for a logistic MAIHDA model: the **AUC / C-statistic**
-(how well the predicted probabilities separate cases from non-cases) and the
-**Median Odds Ratio (MOR)** (the between-stratum heterogeneity expressed on the
-odds-ratio scale). The strata-only model's AUC is the discriminatory accuracy of
-the intersectional strata *themselves* -- Merlo's central quantity. Comparing it
-with the adjusted model shows whether individual information beyond stratum
-membership sharpens classification:
+For a binomial model this is reported **automatically**: `summary()` of a binomial
+`maihda_model` carries a `discriminatory_accuracy` slot, and `maihda(...,
+family = "binomial")` surfaces it on its summaries and headline `print()`. The
+explicit `maihda_discriminatory_accuracy()` below is the same quantity on its own --
+it bundles the two individual-level summaries for a logistic MAIHDA model: the
+**AUC / C-statistic** (how well the predicted probabilities separate cases from
+non-cases) and the **Median Odds Ratio (MOR)** (the between-stratum heterogeneity
+expressed on the odds-ratio scale). The strata-only model's AUC is the
+discriminatory accuracy of the intersectional strata *themselves* -- Merlo's central
+quantity. Comparing it with the adjusted model shows whether individual information
+beyond stratum membership sharpens classification:
 
 ```{r da}
 da_null <- maihda_discriminatory_accuracy(model_null2)

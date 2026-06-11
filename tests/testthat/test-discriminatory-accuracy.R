@@ -179,3 +179,90 @@ test_that("DA helpers accept a brms Bernoulli family (not only 'binomial')", {
   expect_equal(da$auc, ref_da$auc)
   expect_equal(da$mor, ref_mor)
 })
+
+# ---- summary() integration: DA + response-scale VPC as model summary slots --------
+
+test_that("summary() attaches discriminatory accuracy for a binomial model", {
+  m <- maihda_da_test_model()
+  s <- summary(m)
+
+  expect_s3_class(s$discriminatory_accuracy, "maihda_da")
+  # Identical to calling the helper directly -- summary() just bundles it, no refit.
+  expect_equal(s$discriminatory_accuracy$auc, maihda_discriminatory_accuracy(m)$auc)
+  expect_equal(s$discriminatory_accuracy$mor, maihda_mor(m))
+  # The response-scale VPC is opt-in: off by default.
+  expect_null(s$vpc_response)
+  expect_output(print(s), "Discriminatory accuracy")
+})
+
+test_that("summary(response_vpc = TRUE) attaches a reproducible response-scale VPC", {
+  m <- maihda_da_test_model()
+  s <- summary(m, response_vpc = TRUE, seed = 1)
+
+  expect_s3_class(s$vpc_response, "maihda_vpc_response")
+  expect_true(is.finite(s$vpc_response$estimate))
+  # Seeded, so it reproduces the standalone helper exactly.
+  expect_equal(s$vpc_response$estimate, maihda_vpc_response(m, seed = 1)$estimate)
+  expect_output(print(s), "Response-scale VPC")
+})
+
+test_that("summary() attaches no DA / response VPC for a gaussian model", {
+  set.seed(11)
+  n <- 400
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE)
+  )
+  d$y <- stats::rnorm(n)
+  strata <- make_strata(d, vars = c("gender", "race"))
+  d$stratum <- strata$data$stratum
+  g <- fit_maihda(y ~ (1 | stratum), data = d)
+
+  s <- summary(g)
+  expect_null(s$discriminatory_accuracy)
+  expect_null(s$vpc_response)
+  # Even when explicitly requested, response VPC is silently skipped off-family.
+  expect_null(summary(g, response_vpc = TRUE, seed = 1)$vpc_response)
+})
+
+test_that("maihda() surfaces discriminatory accuracy on the null and adjusted summaries", {
+  skip_on_cran()
+  set.seed(7)
+  n <- 1500
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE),
+    age    = stats::rnorm(n)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  lp <- stats::rnorm(nlevels(sk), sd = 0.8)[sk] + 0.3 * d$age
+  d$y <- stats::rbinom(n, 1, stats::plogis(lp))
+
+  a <- suppressWarnings(suppressMessages(
+    maihda(y ~ age + (1 | gender:race), data = d, family = "binomial")
+  ))
+
+  expect_s3_class(a$summary$discriminatory_accuracy, "maihda_da")
+  expect_s3_class(a$summary_adjusted$discriminatory_accuracy, "maihda_da")
+  # The headline print shows the null-model DA line (with the adjusted AUC alongside).
+  expect_output(print(a), "Discriminatory accuracy \\(null model\\)")
+})
+
+test_that("maihda(response_vpc = TRUE) attaches the response-scale VPC to the null summary", {
+  skip_on_cran()
+  set.seed(8)
+  n <- 1500
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- stats::rbinom(n, 1, stats::plogis(stats::rnorm(nlevels(sk), sd = 0.8)[sk]))
+
+  a <- suppressWarnings(suppressMessages(
+    maihda(y ~ (1 | gender:race), data = d, family = "binomial",
+           response_vpc = TRUE, seed = 1)
+  ))
+  expect_s3_class(a$summary$vpc_response, "maihda_vpc_response")
+  expect_true(is.finite(a$summary$vpc_response$estimate))
+})

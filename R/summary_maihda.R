@@ -53,6 +53,13 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
 #' @param conf_level Confidence level for the VPC/ICC interval -- the lme4
 #'   bootstrap CI or the brms posterior credible interval. Default is 0.95.
+#' @param response_vpc Logical; for a binomial (lme4) model, also compute the
+#'   response-scale VPC (\code{\link{maihda_vpc_response}}) and attach it as the
+#'   \code{vpc_response} slot. It is estimated by simulation, so it is opt-in (default
+#'   \code{FALSE}) and uses \code{seed} for reproducibility. Ignored for other
+#'   families/engines.
+#' @param seed Optional integer seed for the response-scale VPC simulation when
+#'   \code{response_vpc = TRUE}.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return A maihda_summary object containing:
@@ -60,6 +67,13 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'     \code{bootstrap = TRUE} and for all brms models this includes
 #'     \code{ci_lower}/\code{ci_upper}/\code{conf_level}}
 #'   \item{variance_components}{Data frame of variance components}
+#'   \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
+#'     \code{maihda_da} object (AUC + MOR) from
+#'     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise (and for a
+#'     cross-classified fit, whose single-stratum between-variance the MOR needs is
+#'     not defined across crossed random effects)}
+#'   \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
+#'     \code{response_vpc = TRUE} for a binomial lme4 model; \code{NULL} otherwise}
 #'   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
 #'   \item{fixed_effects}{Fixed effects estimates}
 #'   \item{model_summary}{Original model summary}
@@ -94,7 +108,7 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' @export
 #' @importFrom lme4 VarCorr fixef ranef
 summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
-                          conf_level = 0.95, ...) {
+                          conf_level = 0.95, response_vpc = FALSE, seed = NULL, ...) {
   if (!inherits(object, "maihda_model")) {
     stop("'object' must be a maihda_model object from fit_maihda()")
   }
@@ -228,12 +242,37 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     model_summary <- summary(model)
   }
 
+  # Family-defined companions to the VPC for a binomial/Bernoulli outcome: the
+  # discriminatory accuracy (AUC + MOR) -- the "DA" in MAIHDA -- always, and the
+  # response-scale VPC on request (it is a simulation, hence opt-in and seeded).
+  # Both summarise the single fitted model with no refit, mirroring how the
+  # cross-classified additive/interaction `decomposition` slot above is computed in
+  # this same summary layer so that fit_maihda() and maihda() share the logic.
+  # Skipped for a cross-classified fit (its MOR / response-VPC need a single-stratum
+  # between-variance that is not defined across crossed random effects) and wrapped so
+  # a bonus summary never breaks the core VPC.
+  discriminatory_accuracy <- NULL
+  vpc_response <- NULL
+  fam_name <- tryCatch(maihda_model_family_name(object),
+                       error = function(e) NA_character_)
+  if (is.null(cc) && isTRUE(fam_name %in% c("binomial", "bernoulli"))) {
+    discriminatory_accuracy <- tryCatch(
+      maihda_discriminatory_accuracy(object), error = function(e) NULL)
+    if (isTRUE(response_vpc) && identical(engine, "lme4") &&
+        identical(fam_name, "binomial")) {
+      vpc_response <- tryCatch(
+        maihda_vpc_response(object, seed = seed), error = function(e) NULL)
+    }
+  }
+
   # Create summary object
   result <- structure(
     list(
       vpc = vpc_result,
       variance_components = variance_components,
       decomposition = decomposition,
+      discriminatory_accuracy = discriminatory_accuracy,
+      vpc_response = vpc_response,
       stratum_estimates = stratum_estimates,
       fixed_effects = fixed_effects,
       model_summary = model_summary,
@@ -543,6 +582,17 @@ print.maihda_summary <- function(x, ...) {
 
   if (!is.null(x$decomposition)) {
     maihda_print_cc_decomposition(x$decomposition)
+  }
+
+  # Discriminatory accuracy (AUC + MOR) and, when requested, the response-scale VPC --
+  # the binomial companions to the latent-scale VPC. Reuse their own print methods.
+  if (!is.null(x$discriminatory_accuracy)) {
+    print(x$discriminatory_accuracy)
+    cat("\n")
+  }
+  if (!is.null(x$vpc_response)) {
+    print(x$vpc_response)
+    cat("\n")
   }
 
   cat("Fixed Effects:\n")

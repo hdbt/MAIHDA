@@ -10,6 +10,13 @@
 #' share of the intersectional inequality. When a higher-level grouping variable is
 #' supplied it also compares this decomposition across that variable's levels.
 #'
+#' \strong{Binomial companions.} For a binary outcome the model summaries also carry
+#' the discriminatory accuracy (AUC / C-statistic and Median Odds Ratio) -- the "DA"
+#' in MAIHDA -- automatically, so the null model's strata-only AUC sits alongside its
+#' VPC; set \code{response_vpc = TRUE} to add the (simulation-based) response-scale
+#' VPC as well. These are read from \code{summary(x)} and the attached
+#' \code{summary_adjusted}, and the headline \code{print()} shows the null-model AUC.
+#'
 #' This is a convenience wrapper around \code{\link{fit_maihda}},
 #' \code{\link{calculate_pvc}}, \code{\link{summary.maihda_model}} and
 #' \code{\link{compare_maihda_groups}}. It is \emph{intrinsically} a two-model
@@ -76,6 +83,12 @@
 #'   Default FALSE.
 #' @param n_boot Number of bootstrap samples when \code{bootstrap = TRUE}.
 #' @param conf_level Confidence level for bootstrap intervals. Default 0.95.
+#' @param response_vpc Logical; for a binomial (lme4) outcome, also attach the
+#'   response-scale VPC (\code{\link{maihda_vpc_response}}) to the model summaries.
+#'   It is estimated by simulation, so it is opt-in (default \code{FALSE}) and uses
+#'   \code{seed}. The discriminatory accuracy (AUC + MOR) is attached automatically
+#'   for a binomial/Bernoulli outcome regardless of this flag (see Details).
+#' @param seed Optional integer seed for the response-scale VPC simulation.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'
@@ -148,7 +161,8 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
                    decomposition = c("two-model", "cross-classified"),
                    autobin = TRUE, shared_strata = TRUE,
                    min_group_n = 30, bootstrap = FALSE,
-                   n_boot = 1000, conf_level = 0.95, ...) {
+                   n_boot = 1000, conf_level = 0.95,
+                   response_vpc = FALSE, seed = NULL, ...) {
   call <- match.call()
   decomposition <- match.arg(decomposition)
 
@@ -228,7 +242,8 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
                              interaction_group = cc$interaction_group,
                              dim_labels = strata_vars)
     summary_obj <- summary(cc_model, bootstrap = bootstrap, n_boot = n_boot,
-                           conf_level = conf_level)
+                           conf_level = conf_level, response_vpc = response_vpc,
+                           seed = seed)
 
     groups <- NULL
     if (!is.null(group)) {
@@ -307,7 +322,8 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
   }
 
   summary_adj <- summary(adjusted_model, bootstrap = bootstrap, n_boot = n_boot,
-                         conf_level = conf_level)
+                         conf_level = conf_level, response_vpc = response_vpc,
+                         seed = seed)
   # A successfully fitted pair can still leave the PCV undefined when the null model
   # has zero between-stratum variance (a boundary/singular fit); keep both models and
   # warn rather than aborting in that numerical edge case.
@@ -322,7 +338,8 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
     })
 
   summary_obj <- summary(null_model, bootstrap = bootstrap, n_boot = n_boot,
-                         conf_level = conf_level)
+                         conf_level = conf_level, response_vpc = response_vpc,
+                         seed = seed)
 
   groups <- NULL
   if (!is.null(group)) {
@@ -357,6 +374,30 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
   )
 }
 
+# Compact discriminatory-accuracy line for the analysis headline: the null /
+# strata-only model's AUC + MOR (Merlo's central DA quantity), the adjusted model's
+# AUC for comparison, and the response-scale VPC when present. A no-op for a
+# non-binomial outcome, where the summaries carry no `discriminatory_accuracy`.
+maihda_print_analysis_da <- function(summary_obj, summary_adjusted = NULL) {
+  da <- summary_obj$discriminatory_accuracy
+  if (is.null(da)) return(invisible(NULL))
+  fmt <- function(v, d = 3) {
+    if (isTRUE(is.finite(v))) formatC(v, format = "f", digits = d) else "NA"
+  }
+  cat("\nDiscriminatory accuracy (null model):\n")
+  cat(sprintf("  AUC: %s | MOR: %s | cases/controls: %d/%d\n",
+              fmt(da$auc), fmt(da$mor), da$n_case, da$n_control))
+  da_adj <- if (!is.null(summary_adjusted)) summary_adjusted$discriminatory_accuracy else NULL
+  if (!is.null(da_adj) && isTRUE(is.finite(da_adj$auc))) {
+    cat(sprintf("  Adjusted-model AUC: %s\n", fmt(da_adj$auc)))
+  }
+  vr <- summary_obj$vpc_response
+  if (!is.null(vr) && isTRUE(is.finite(vr$estimate))) {
+    cat(sprintf("  Response-scale VPC (null): %s\n", fmt(vr$estimate, 4)))
+  }
+  invisible(NULL)
+}
+
 #' Print a MAIHDA Analysis
 #'
 #' @param x A \code{maihda_analysis} object from \code{\link{maihda}}.
@@ -385,6 +426,7 @@ print.maihda_analysis <- function(x, ...) {
       cat("\n")
       maihda_print_cc_decomposition(x$decomposition)
     }
+    maihda_print_analysis_da(x$summary, x$summary_adjusted)
     if (!is.null(x$summary$stratum_estimates)) {
       cat("Strata: ", nrow(x$summary$stratum_estimates), "\n", sep = "")
     }
@@ -431,6 +473,8 @@ print.maihda_analysis <- function(x, ...) {
           "  variance (possible suppression/rescaling) -- interpret cautiously.\n", sep = "")
     }
   }
+
+  maihda_print_analysis_da(x$summary, x$summary_adjusted)
 
   if (!is.null(x$summary$stratum_estimates)) {
     cat("Strata: ", nrow(x$summary$stratum_estimates), "\n", sep = "")

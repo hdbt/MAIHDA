@@ -4,7 +4,15 @@
 \alias{summary.maihda_model}
 \title{Summarize MAIHDA Model}
 \usage{
-\method{summary}{maihda_model}(object, bootstrap = FALSE, n_boot = 1000, conf_level = 0.95, ...)
+\method{summary}{maihda_model}(
+  object,
+  bootstrap = FALSE,
+  n_boot = 1000,
+  conf_level = 0.95,
+  response_vpc = FALSE,
+  seed = NULL,
+  ...
+)
 }
 \arguments{
 \item{object}{A maihda_model object from \code{fit_maihda()}.}
@@ -19,6 +27,15 @@ models only; \code{brms} models always return a posterior credible interval
 \item{conf_level}{Confidence level for the VPC/ICC interval -- the lme4
 bootstrap CI or the brms posterior credible interval. Default is 0.95.}
 
+\item{response_vpc}{Logical; for a binomial (lme4) model, also compute the
+response-scale VPC (\code{\link{maihda_vpc_response}}) and attach it as the
+\code{vpc_response} slot. It is estimated by simulation, so it is opt-in (default
+\code{FALSE}) and uses \code{seed} for reproducibility. Ignored for other
+families/engines.}
+
+\item{seed}{Optional integer seed for the response-scale VPC simulation when
+\code{response_vpc = TRUE}.}
+
 \item{...}{Additional arguments (not currently used).}
 }
 \value{
@@ -27,6 +44,13 @@ A maihda_summary object containing:
     \code{bootstrap = TRUE} and for all brms models this includes
     \code{ci_lower}/\code{ci_upper}/\code{conf_level}}
   \item{variance_components}{Data frame of variance components}
+  \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
+    \code{maihda_da} object (AUC + MOR) from
+    \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise (and for a
+    cross-classified fit, whose single-stratum between-variance the MOR needs is
+    not defined across crossed random effects)}
+  \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
+    \code{response_vpc = TRUE} for a binomial lme4 model; \code{NULL} otherwise}
   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
   \item{fixed_effects}{Fixed effects estimates}
   \item{model_summary}{Original model summary}

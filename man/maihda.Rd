@@ -17,6 +17,8 @@ maihda(
   bootstrap = FALSE,
   n_boot = 1000,
   conf_level = 0.95,
+  response_vpc = FALSE,
+  seed = NULL,
   ...
 )
 }
@@ -76,6 +78,14 @@ Default FALSE.}
 
 \item{conf_level}{Confidence level for bootstrap intervals. Default 0.95.}
 
+\item{response_vpc}{Logical; for a binomial (lme4) outcome, also attach the
+response-scale VPC (\code{\link{maihda_vpc_response}}) to the model summaries.
+It is estimated by simulation, so it is opt-in (default \code{FALSE}) and uses
+\code{seed}. The discriminatory accuracy (AUC + MOR) is attached automatically
+for a binomial/Bernoulli outcome regardless of this flag (see Details).}
+
+\item{seed}{Optional integer seed for the response-scale VPC simulation.}
+
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
 \code{lmer}/\code{glmer}).}
 }
@@ -112,6 +122,13 @@ share of the intersectional inequality. When a higher-level grouping variable is
 supplied it also compares this decomposition across that variable's levels.
 }
 \details{
+\strong{Binomial companions.} For a binary outcome the model summaries also carry
+the discriminatory accuracy (AUC / C-statistic and Median Odds Ratio) -- the "DA"
+in MAIHDA -- automatically, so the null model's strata-only AUC sits alongside its
+VPC; set \code{response_vpc = TRUE} to add the (simulation-based) response-scale
+VPC as well. These are read from \code{summary(x)} and the attached
+\code{summary_adjusted}, and the headline \code{print()} shows the null-model AUC.
+
 This is a convenience wrapper around \code{\link{fit_maihda}},
 \code{\link{calculate_pvc}}, \code{\link{summary.maihda_model}} and
 \code{\link{compare_maihda_groups}}. It is \emph{intrinsically} a two-model
