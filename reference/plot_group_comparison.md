@@ -10,7 +10,7 @@ result instead, e.g. `plot(cmp, type = "vpc")`.
 ``` r
 plot_group_comparison(
   x,
-  type = c("vpc", "components", "between_variance", "pcv")
+  type = c("vpc", "components", "between_variance", "pcv", "additive_share")
 )
 ```
 

@@ -11,6 +11,8 @@
   Accuracy)](https://hdbt.github.io/MAIHDA/articles/binary_outcomes.md):
 - [Comparing Intersectional Inequality Across
   Groups](https://hdbt.github.io/MAIHDA/articles/group_comparison.md):
+- [Cross-classified MAIHDA: additive vs. interaction in one
+  model](https://hdbt.github.io/MAIHDA/articles/cross_classified.md):
 
 ### Interpretation
 

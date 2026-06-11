@@ -7,7 +7,15 @@ coefficients (VPC/ICC) and stratum-specific estimates.
 
 ``` r
 # S3 method for class 'maihda_model'
-summary(object, bootstrap = FALSE, n_boot = 1000, conf_level = 0.95, ...)
+summary(
+  object,
+  bootstrap = FALSE,
+  n_boot = 1000,
+  conf_level = 0.95,
+  response_vpc = FALSE,
+  seed = NULL,
+  ...
+)
 ```
 
 ## Arguments
@@ -33,6 +41,20 @@ summary(object, bootstrap = FALSE, n_boot = 1000, conf_level = 0.95, ...)
   Confidence level for the VPC/ICC interval – the lme4 bootstrap CI or
   the brms posterior credible interval. Default is 0.95.
 
+- response_vpc:
+
+  Logical; for a binomial (lme4) model, also compute the response-scale
+  VPC
+  ([`maihda_vpc_response`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md))
+  and attach it as the `vpc_response` slot. It is estimated by
+  simulation, so it is opt-in (default `FALSE`) and uses `seed` for
+  reproducibility. Ignored for other families/engines.
+
+- seed:
+
+  Optional integer seed for the response-scale VPC simulation when
+  `response_vpc = TRUE`.
+
 - ...:
 
   Additional arguments (not currently used).
@@ -50,6 +72,20 @@ A maihda_summary object containing:
 - variance_components:
 
   Data frame of variance components
+
+- discriminatory_accuracy:
+
+  For a binomial/Bernoulli outcome, the `maihda_da` object (AUC + MOR)
+  from
+  [`maihda_discriminatory_accuracy`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md);
+  `NULL` otherwise (and for a cross-classified fit, whose single-stratum
+  between-variance the MOR needs is not defined across crossed random
+  effects)
+
+- vpc_response:
+
+  The response-scale VPC (`maihda_vpc_response`) when
+  `response_vpc = TRUE` for a binomial lme4 model; `NULL` otherwise
 
 - stratum_estimates:
 

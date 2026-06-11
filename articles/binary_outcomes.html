@@ -43,6 +43,7 @@
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+    <li><a class="dropdown-item" href="../articles/cross_classified.html">Cross-classified MAIHDA: additive vs. interaction in one model</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -74,7 +75,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-06-10</h4>
+            <h4 data-toc-skip class="date">2026-06-11</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/binary_outcomes.Rmd" class="external-link"><code>vignettes/binary_outcomes.Rmd</code></a></small>
       <div class="d-none name"><code>binary_outcomes.Rmd</code></div>
@@ -178,6 +179,11 @@ underlying latent scale, not on the probability scale.</p>
 <span><span class="co">#&gt;  Within-stratum (residual)   3.2899 1.8138    0.93661</span></span>
 <span><span class="co">#&gt;                      Total   3.5125 1.8742    1.00000</span></span>
 <span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Discriminatory accuracy (binomial MAIHDA)</span></span>
+<span><span class="co">#&gt;   AUC (C-statistic): 0.626</span></span>
+<span><span class="co">#&gt;   Median Odds Ratio: 1.568</span></span>
+<span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span>
+<span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Fixed Effects:</span></span>
 <span><span class="co">#&gt;         term estimate</span></span>
 <span><span class="co">#&gt;  (Intercept)   -0.616</span></span>
@@ -213,6 +219,13 @@ the Gaussian case, the stratum random effects capture the
 isolate the <em>pure</em> intersectional (interaction) component only
 once the additive main effects of the strata variables are in the
 model.</p>
+<blockquote>
+<p>For a binomial model <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> now reports the
+discriminatory accuracy (AUC / Median Odds Ratio) automatically, so the
+printed summary above already carries that block – the <a href="#discriminatory-accuracy-auc-and-median-odds-ratio">Discriminatory
+accuracy</a> section below explains how to read it and how to obtain the
+pieces on their own.</p>
+</blockquote>
 <p>For an interpretable <strong>probability-scale</strong> complement to
 the latent-scale VPC, the package provides
 <code><a href="../reference/maihda_vpc_response.html">maihda_vpc_response()</a></code>, which estimates the response-scale
@@ -292,16 +305,21 @@ helps.</p>
 <h2 id="discriminatory-accuracy-auc-and-median-odds-ratio">Discriminatory accuracy (AUC and Median Odds Ratio)<a class="anchor" aria-label="anchor" href="#discriminatory-accuracy-auc-and-median-odds-ratio"></a>
 </h2>
 <p>The VPC summarises <em>variation</em>; discriminatory accuracy
-summarises <em>prediction</em>. The package ships
-<code><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy()</a></code>, which bundles the two
-individual-level summaries for a logistic MAIHDA model: the <strong>AUC
-/ C-statistic</strong> (how well the predicted probabilities separate
-cases from non-cases) and the <strong>Median Odds Ratio (MOR)</strong>
-(the between-stratum heterogeneity expressed on the odds-ratio scale).
-The strata-only model’s AUC is the discriminatory accuracy of the
-intersectional strata <em>themselves</em> – Merlo’s central quantity.
-Comparing it with the adjusted model shows whether individual
-information beyond stratum membership sharpens classification:</p>
+summarises <em>prediction</em>. For a binomial model this is reported
+<strong>automatically</strong>: <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> of a binomial
+<code>maihda_model</code> carries a <code>discriminatory_accuracy</code>
+slot, and <code>maihda(..., family = "binomial")</code> surfaces it on
+its summaries and headline <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>. The explicit
+<code><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy()</a></code> below is the same quantity
+on its own – it bundles the two individual-level summaries for a
+logistic MAIHDA model: the <strong>AUC / C-statistic</strong> (how well
+the predicted probabilities separate cases from non-cases) and the
+<strong>Median Odds Ratio (MOR)</strong> (the between-stratum
+heterogeneity expressed on the odds-ratio scale). The strata-only
+model’s AUC is the discriminatory accuracy of the intersectional strata
+<em>themselves</em> – Merlo’s central quantity. Comparing it with the
+adjusted model shows whether individual information beyond stratum
+membership sharpens classification:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">da_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></span><span class="op">(</span><span class="va">model_null2</span><span class="op">)</span></span>
 <span><span class="va">da_adj</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></span><span class="op">(</span><span class="va">model_adj</span><span class="op">)</span></span>

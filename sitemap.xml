@@ -2,6 +2,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/404.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/LICENSE-text.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/articles/binary_outcomes.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/articles/cross_classified.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/articles/group_comparison.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/articles/index.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/articles/interactive_app.html</loc></url>
@@ -12,6 +13,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/news/index.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/MAIHDA-package.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/add_stratum_labels.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_cc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_pvc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_vpc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/calculate_pvc.html</loc></url>
@@ -25,12 +27,16 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_adjusted_formula.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_adjusted_terms.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_auc.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_cc_summary_brms.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_cc_summary_lme4.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_compose_caption.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_country_data.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_cross_classified_formula.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_health_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_mor.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_prepare_group_strata.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_print_cc_decomposition.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.html</loc></url>

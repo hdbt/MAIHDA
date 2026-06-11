@@ -42,6 +42,32 @@
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   / `maihda(group = "country")`, since intersectional inequality
   (VPC/ICC) genuinely differs across the countries.
+- [`summary()`](https://rdrr.io/r/base/summary.html) of a
+  binomial/Bernoulli MAIHDA model – and therefore
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md), whose
+  summaries it builds – now reports the **discriminatory accuracy**
+  automatically: the AUC / C-statistic and Median Odds Ratio (the “DA”
+  in MAIHDA), as a new `discriminatory_accuracy` slot shown by the
+  [`print()`](https://rdrr.io/r/base/print.html) methods, so the
+  strata’s discriminatory accuracy sits alongside the VPC without a
+  separate call. For
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md), the
+  headline [`print()`](https://rdrr.io/r/base/print.html) shows the null
+  model’s AUC/MOR with the adjusted model’s AUC for comparison. The
+  response-scale (probability-scale) VPC is attached on request via
+  `summary(model, response_vpc = TRUE, seed = )` or
+  `maihda(..., response_vpc = TRUE, seed = )` (it is simulation-based,
+  hence opt-in and seeded). Both are computed from the already-fitted
+  model with no refit, and are skipped for non-binomial outcomes and for
+  the cross-classified fit (whose single-stratum between-variance the
+  MOR/response-VPC require is not defined across crossed random
+  effects). The standalone
+  [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md),
+  [`maihda_auc()`](https://hdbt.github.io/MAIHDA/reference/maihda_auc.md),
+  [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md),
+  and
+  [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
+  are unchanged.
 
 ### Improvements
 

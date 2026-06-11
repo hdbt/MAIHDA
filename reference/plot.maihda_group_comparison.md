@@ -13,7 +13,11 @@ result.
 
 ``` r
 # S3 method for class 'maihda_group_comparison'
-plot(x, type = c("vpc", "components", "between_variance", "pcv"), ...)
+plot(
+  x,
+  type = c("vpc", "components", "between_variance", "pcv", "additive_share"),
+  ...
+)
 ```
 
 ## Arguments
@@ -26,10 +30,13 @@ plot(x, type = c("vpc", "components", "between_variance", "pcv"), ...)
 - type:
 
   One of "vpc" (default) for VPC by group with optional bootstrap
-  confidence intervals, "components" for stacked variance proportions,
-  "between_variance" for the absolute between-stratum variance by group,
-  or "pcv" for the additive share (null -\> adjusted proportional change
-  in between-stratum variance) by group. The VPC is a *share* of the
+  confidence intervals, "components" for stacked variance proportions
+  (additive / interaction / residual for a cross-classified comparison,
+  between / other / residual otherwise), "between_variance" for the
+  absolute between-stratum variance by group, "pcv" for the two-model
+  additive share (null -\> adjusted proportional change in
+  between-stratum variance) by group, or "additive_share" for the
+  cross-classified additive share by group. The VPC is a *share* of the
   unexplained variance; "between_variance" shows the *magnitude* the
   ratio cannot convey (two groups with very different VPCs can share a
   between-stratum variance, and vice versa); "pcv" requires strata

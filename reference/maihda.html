@@ -39,6 +39,7 @@ supplied it also compares this decomposition across that variable's levels."><me
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+    <li><a class="dropdown-item" href="../articles/cross_classified.html">Cross-classified MAIHDA: additive vs. interaction in one model</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -82,12 +83,15 @@ supplied it also compares this decomposition across that variable's levels.</p>
 <span>  group <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  engine <span class="op">=</span> <span class="st">"lme4"</span>,</span>
 <span>  family <span class="op">=</span> <span class="st">"gaussian"</span>,</span>
+<span>  decomposition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"two-model"</span>, <span class="st">"cross-classified"</span><span class="op">)</span>,</span>
 <span>  autobin <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  shared_strata <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  min_group_n <span class="op">=</span> <span class="fl">30</span>,</span>
 <span>  bootstrap <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_boot <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
+<span>  response_vpc <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -126,6 +130,25 @@ and the same resolved family is then used for the group comparison so all
 models agree.</p></dd>
 
 
+<dt id="arg-decomposition">decomposition<a class="anchor" aria-label="anchor" href="#arg-decomposition"></a></dt>
+<dd><p>How to decompose the intersectional inequality into additive
+and interaction parts. <code>"two-model"</code> (default) is the classic MAIHDA
+approach: a null model and an adjusted model (the dimensions' additive main
+effects as <em>fixed</em> effects), with the additive share read from the PCV
+(proportional change in between-stratum variance). <code>"cross-classified"</code>
+fits a <strong>single</strong> model that enters each dimension's additive main effect as
+a <em>random</em> intercept – <code>outcome ~ covars + (1 | dim1) + ... +
+(1 | stratum)</code> – so each dimension's RE variance is its additive contribution and
+the intersection (<code>stratum</code>) RE variance is the interaction beyond additive;
+the additive and interaction <em>shares</em> of the total between-strata variance are
+read directly from that one fit. The two modes target the same scientific question
+with different estimators, so their additive shares are conceptually parallel but
+not numerically identical. The cross-classified additive share is a partial-pooling
+estimate: dimensions with few levels (e.g. a binary sex variable, whose variance is
+estimated from two groups) are poorly identified and often give a singular lme4 fit
+– the <code>brms</code> engine handles this better. See Details.</p></dd>
+
+
 <dt id="arg-autobin">autobin<a class="anchor" aria-label="anchor" href="#arg-autobin"></a></dt>
 <dd><p>Logical passed to <code><a href="make_strata.html">make_strata</a></code>; tertile-bins numeric
 grouping variables. Default TRUE.</p></dd>
@@ -156,6 +179,18 @@ Default FALSE.</p></dd>
 <dd><p>Confidence level for bootstrap intervals. Default 0.95.</p></dd>
 
 
+<dt id="arg-response-vpc">response_vpc<a class="anchor" aria-label="anchor" href="#arg-response-vpc"></a></dt>
+<dd><p>Logical; for a binomial (lme4) outcome, also attach the
+response-scale VPC (<code><a href="maihda_vpc_response.html">maihda_vpc_response</a></code>) to the model summaries.
+It is estimated by simulation, so it is opt-in (default <code>FALSE</code>) and uses
+<code>seed</code>. The discriminatory accuracy (AUC + MOR) is attached automatically
+for a binomial/Bernoulli outcome regardless of this flag (see Details).</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Optional integer seed for the response-scale VPC simulation.</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code><a href="fit_maihda.html">fit_maihda</a></code> (and on to
 <code>lmer</code>/<code>glmer</code>).</p></dd>
@@ -165,29 +200,37 @@ Default FALSE.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An object of class <code>maihda_analysis</code>: a list with</p>
 <dl><dt>model</dt>
-<dd><p>the fitted <strong>null</strong> <code>maihda_model</code> (see
-    <code><a href="fit_maihda.html">fit_maihda</a></code>); the VPC/ICC and discriminatory-accuracy source</p></dd>
+<dd><p>the fitted <code>maihda_model</code> (see <code><a href="fit_maihda.html">fit_maihda</a></code>); the
+    <strong>null</strong> model in <code>"two-model"</code> mode, or the single
+    <strong>cross-classified</strong> model in <code>"cross-classified"</code> mode</p></dd>
 
   <dt>summary</dt>
-<dd><p>the null model's <code>maihda_summary</code> (VPC/ICC, variance
-    components, stratum estimates)</p></dd>
+<dd><p>the model's <code>maihda_summary</code> (VPC/ICC, variance components,
+    stratum estimates; plus the additive/interaction <code>decomposition</code> in
+    cross-classified mode)</p></dd>
 
   <dt>model_adjusted</dt>
-<dd><p>the fitted <strong>adjusted</strong> <code>maihda_model</code> (null plus
-    the dimensions' additive main effects), or <code>NULL</code> with fewer than two
-    dimensions</p></dd>
+<dd><p>the fitted <strong>adjusted</strong> <code>maihda_model</code>
+    (<code>"two-model"</code> mode only; <code>NULL</code> otherwise)</p></dd>
 
   <dt>summary_adjusted</dt>
-<dd><p>the adjusted model's <code>maihda_summary</code> (its residual
-    VPC), or <code>NULL</code></p></dd>
+<dd><p>the adjusted model's <code>maihda_summary</code>, or <code>NULL</code></p></dd>
 
   <dt>pcv</dt>
-<dd><p>the <code>pvc_result</code> from <code><a href="calculate_pvc.html">calculate_pvc</a></code> (null vs
-    adjusted between-stratum variance), or <code>NULL</code></p></dd>
+<dd><p>the <code>pvc_result</code> from <code><a href="calculate_pvc.html">calculate_pvc</a></code>
+    (<code>"two-model"</code> mode only; <code>NULL</code> otherwise)</p></dd>
+
+  <dt>decomposition</dt>
+<dd><p>the additive/interaction partition (additive and interaction
+    variances and shares, per-dimension variances; <code>"cross-classified"</code> mode
+    only, <code>NULL</code> otherwise)</p></dd>
 
   <dt>groups</dt>
 <dd><p>a <code>maihda_group_comparison</code> when <code>group</code> is supplied,
     otherwise <code>NULL</code></p></dd>
+
+  <dt>mode</dt>
+<dd><p><code>"two-model"</code> or <code>"cross-classified"</code></p></dd>
 
   <dt>formula, adjusted_formula, group_var, call</dt>
 <dd><p>bookkeeping for printing</p></dd>
@@ -195,7 +238,13 @@ Default FALSE.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>This is a convenience wrapper around <code><a href="fit_maihda.html">fit_maihda</a></code>,
+    <p><strong>Binomial companions.</strong> For a binary outcome the model summaries also carry
+the discriminatory accuracy (AUC / C-statistic and Median Odds Ratio) – the "DA"
+in MAIHDA – automatically, so the null model's strata-only AUC sits alongside its
+VPC; set <code>response_vpc = TRUE</code> to add the (simulation-based) response-scale
+VPC as well. These are read from <code>summary(x)</code> and the attached
+<code>summary_adjusted</code>, and the headline <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows the null-model AUC.</p>
+<p>This is a convenience wrapper around <code><a href="fit_maihda.html">fit_maihda</a></code>,
 <code><a href="calculate_pvc.html">calculate_pvc</a></code>, <code><a href="summary.maihda_model.html">summary.maihda_model</a></code> and
 <code><a href="compare_maihda_groups.html">compare_maihda_groups</a></code>. It is <em>intrinsically</em> a two-model
 decomposition and has no single-model mode – for a single fit (e.g. just the
@@ -267,10 +316,10 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x556ab5355878&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x563738ed6110&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x556aaafebd38&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x56373b08a1f0&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -281,6 +330,49 @@ for those single-model fits.</p>
 <span class="r-plt img"><img src="maihda-1.png" alt="" width="700" height="433"></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span><span class="co"># adjusted model (additive vs intersectional)</span></span></span>
 <span class="r-plt img"><img src="maihda-2.png" alt="" width="700" height="433"></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Cross-classified decomposition: one model, the dimensions' main effects entered as</span></span></span>
+<span class="r-in"><span><span class="co"># RANDOM intercepts. The additive and interaction shares of the between-strata</span></span></span>
+<span class="r-in"><span><span class="co"># variance are read directly from the single fit (no null/adjusted pair).</span></span></span>
+<span class="r-in"><span><span class="va">cc</span> <span class="op">&lt;-</span> <span class="fu">maihda</span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span></span>
+<span class="r-in"><span>             decomposition <span class="op">=</span> <span class="st">"cross-classified"</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> boundary (singular) fit: see help('isSingular')</span>
+<span class="r-in"><span><span class="va">cc</span>                                    <span class="co"># VPC and additive/interaction shares</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> MAIHDA Analysis</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ===============</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Decomposition:   cross-classified (single model)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Formula:         BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Engine: lme4 | Family: gaussian</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Fit diagnostics:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Singular fit: at least one variance component is estimated at (or near) zero.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     The between-stratum variance and any VPC/PCV derived from it may be unreliable.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Convergence warnings reported by lme4:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     - boundary (singular) fit: see help('isSingular')</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> VPC/ICC: 0.0637</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Additive vs. Intersectional Decomposition (cross-classified):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Additive (sum of dimension main effects) variance: 1.8415</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Intersectional interaction variance:               1.1593</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Total between-strata variance:                     3.0008</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Additive share of between-strata variance:    61.4%</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Interaction share of between-strata variance: 38.6%</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Per-dimension additive variance:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     Gender: 0.0000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     Race: 1.8415</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Note: the additive share is the cross-classified analogue of the PCV but a</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   different estimator; interpret the interaction share cautiously.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for variance components and plot(type = ...) for figures.</span>
+<span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">decomposition</span><span class="op">$</span><span class="va">additive_share</span>       <span class="co"># cross-classified analogue of the PCV</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
+<span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x563739b05898&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>

@@ -21,12 +21,15 @@ maihda(
   group = NULL,
   engine = "lme4",
   family = "gaussian",
+  decomposition = c("two-model", "cross-classified"),
   autobin = TRUE,
   shared_strata = TRUE,
   min_group_n = 30,
   bootstrap = FALSE,
   n_boot = 1000,
   conf_level = 0.95,
+  response_vpc = FALSE,
+  seed = NULL,
   ...
 )
 ```
@@ -67,6 +70,28 @@ maihda(
   default, and the same resolved family is then used for the group
   comparison so all models agree.
 
+- decomposition:
+
+  How to decompose the intersectional inequality into additive and
+  interaction parts. `"two-model"` (default) is the classic MAIHDA
+  approach: a null model and an adjusted model (the dimensions' additive
+  main effects as *fixed* effects), with the additive share read from
+  the PCV (proportional change in between-stratum variance).
+  `"cross-classified"` fits a **single** model that enters each
+  dimension's additive main effect as a *random* intercept –
+  `outcome ~ covars + (1 | dim1) + ... + (1 | stratum)` – so each
+  dimension's RE variance is its additive contribution and the
+  intersection (`stratum`) RE variance is the interaction beyond
+  additive; the additive and interaction *shares* of the total
+  between-strata variance are read directly from that one fit. The two
+  modes target the same scientific question with different estimators,
+  so their additive shares are conceptually parallel but not numerically
+  identical. The cross-classified additive share is a partial-pooling
+  estimate: dimensions with few levels (e.g. a binary sex variable,
+  whose variance is estimated from two groups) are poorly identified and
+  often give a singular lme4 fit – the `brms` engine handles this
+  better. See Details.
+
 - autobin:
 
   Logical passed to
@@ -101,6 +126,20 @@ maihda(
 
   Confidence level for bootstrap intervals. Default 0.95.
 
+- response_vpc:
+
+  Logical; for a binomial (lme4) outcome, also attach the response-scale
+  VPC
+  ([`maihda_vpc_response`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md))
+  to the model summaries. It is estimated by simulation, so it is opt-in
+  (default `FALSE`) and uses `seed`. The discriminatory accuracy (AUC +
+  MOR) is attached automatically for a binomial/Bernoulli outcome
+  regardless of this flag (see Details).
+
+- seed:
+
+  Optional integer seed for the response-scale VPC simulation.
+
 - ...:
 
   Additional arguments passed to
@@ -113,39 +152,59 @@ An object of class `maihda_analysis`: a list with
 
 - model:
 
-  the fitted **null** `maihda_model` (see
+  the fitted `maihda_model` (see
   [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md));
-  the VPC/ICC and discriminatory-accuracy source
+  the **null** model in `"two-model"` mode, or the single
+  **cross-classified** model in `"cross-classified"` mode
 
 - summary:
 
-  the null model's `maihda_summary` (VPC/ICC, variance components,
-  stratum estimates)
+  the model's `maihda_summary` (VPC/ICC, variance components, stratum
+  estimates; plus the additive/interaction `decomposition` in
+  cross-classified mode)
 
 - model_adjusted:
 
-  the fitted **adjusted** `maihda_model` (null plus the dimensions'
-  additive main effects), or `NULL` with fewer than two dimensions
+  the fitted **adjusted** `maihda_model` (`"two-model"` mode only;
+  `NULL` otherwise)
 
 - summary_adjusted:
 
-  the adjusted model's `maihda_summary` (its residual VPC), or `NULL`
+  the adjusted model's `maihda_summary`, or `NULL`
 
 - pcv:
 
   the `pvc_result` from
   [`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
-  (null vs adjusted between-stratum variance), or `NULL`
+  (`"two-model"` mode only; `NULL` otherwise)
+
+- decomposition:
+
+  the additive/interaction partition (additive and interaction variances
+  and shares, per-dimension variances; `"cross-classified"` mode only,
+  `NULL` otherwise)
 
 - groups:
 
   a `maihda_group_comparison` when `group` is supplied, otherwise `NULL`
+
+- mode:
+
+  `"two-model"` or `"cross-classified"`
 
 - formula, adjusted_formula, group_var, call:
 
   bookkeeping for printing
 
 ## Details
+
+**Binomial companions.** For a binary outcome the model summaries also
+carry the discriminatory accuracy (AUC / C-statistic and Median Odds
+Ratio) – the "DA" in MAIHDA – automatically, so the null model's
+strata-only AUC sits alongside its VPC; set `response_vpc = TRUE` to add
+the (simulation-based) response-scale VPC as well. These are read from
+`summary(x)` and the attached `summary_adjusted`, and the headline
+[`print()`](https://rdrr.io/r/base/print.html) shows the null-model AUC.
 
 This is a convenience wrapper around
 [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
@@ -234,10 +293,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x556ab5355878>
+#> <environment: 0x563738ed6110>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x556aaafebd38>
+#> <environment: 0x56373b08a1f0>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -248,6 +307,49 @@ plot(a, type = "vpc")          # null model
 
 plot(a, type = "effect_decomp")# adjusted model (additive vs intersectional)
 
+
+# Cross-classified decomposition: one model, the dimensions' main effects entered as
+# RANDOM intercepts. The additive and interaction shares of the between-strata
+# variance are read directly from the single fit (no null/adjusted pair).
+cc <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data,
+             decomposition = "cross-classified")
+#> boundary (singular) fit: see help('isSingular')
+cc                                    # VPC and additive/interaction shares
+#> MAIHDA Analysis
+#> ===============
+#> 
+#> Decomposition:   cross-classified (single model)
+#> Formula:         BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
+#> Engine: lme4 | Family: gaussian
+#> Fit diagnostics:
+#>   Singular fit: at least one variance component is estimated at (or near) zero.
+#>     The between-stratum variance and any VPC/PCV derived from it may be unreliable.
+#>   Convergence warnings reported by lme4:
+#>     - boundary (singular) fit: see help('isSingular')
+#> 
+#> 
+#> VPC/ICC: 0.0637
+#> 
+#> Additive vs. Intersectional Decomposition (cross-classified):
+#>   Additive (sum of dimension main effects) variance: 1.8415
+#>   Intersectional interaction variance:               1.1593
+#>   Total between-strata variance:                     3.0008
+#>   Additive share of between-strata variance:    61.4%
+#>   Interaction share of between-strata variance: 38.6%
+#>   Per-dimension additive variance:
+#>     Gender: 0.0000
+#>     Race: 1.8415
+#>   Note: the additive share is the cross-classified analogue of the PCV but a
+#>   different estimator; interpret the interaction share cautiously.
+#> 
+#> Strata: 10
+#> 
+#> Use summary() for variance components and plot(type = ...) for figures.
+cc$decomposition$additive_share       # cross-classified analogue of the PCV
+#> [1] 0.6136712
+cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
+#> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
+#> <environment: 0x563739b05898>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

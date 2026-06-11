@@ -26,6 +26,7 @@ compare_maihda_groups(
   n_boot = 1000,
   conf_level = 0.95,
   autobin = TRUE,
+  decomposition = c("two-model", "cross-classified"),
   ...
 )
 ```
@@ -100,6 +101,19 @@ compare_maihda_groups(
   [`make_strata`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   controlling tertile binning of numeric grouping variables. Default
   TRUE.
+
+- decomposition:
+
+  Per-group additive-vs-interaction decomposition: the two-model null
+  -\> adjusted PCV (`"two-model"`, default) or the single
+  cross-classified model (`"cross-classified"`). The cross-classified
+  form requires `shared_strata = TRUE` and at least two stratum
+  dimensions, and adds the `var_additive`, `var_interaction`,
+  `additive_share` and `interaction_share` columns (in place of `pcv` /
+  `var_between_adjusted`); `var_between` is then the total
+  between-strata variance (additive + interaction). See
+  [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) for the
+  underlying model and its caveats.
 
 - ...:
 

@@ -39,6 +39,7 @@ share of that group's intersectional inequality."><meta property="og:image" cont
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+    <li><a class="dropdown-item" href="../articles/cross_classified.html">Cross-classified MAIHDA: additive vs. interaction in one model</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -88,6 +89,7 @@ share of that group's intersectional inequality.</p>
 <span>  n_boot <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
 <span>  autobin <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  decomposition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"two-model"</span>, <span class="st">"cross-classified"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -160,6 +162,18 @@ Default 1000.</p></dd>
 <dt id="arg-autobin">autobin<a class="anchor" aria-label="anchor" href="#arg-autobin"></a></dt>
 <dd><p>Logical passed to <code><a href="make_strata.html">make_strata</a></code> controlling tertile
 binning of numeric grouping variables. Default TRUE.</p></dd>
+
+
+<dt id="arg-decomposition">decomposition<a class="anchor" aria-label="anchor" href="#arg-decomposition"></a></dt>
+<dd><p>Per-group additive-vs-interaction decomposition: the two-model
+null -&gt; adjusted PCV (<code>"two-model"</code>, default) or the single cross-classified
+model (<code>"cross-classified"</code>). The cross-classified form requires
+<code>shared_strata = TRUE</code> and at least two stratum dimensions, and adds the
+<code>var_additive</code>, <code>var_interaction</code>, <code>additive_share</code> and
+<code>interaction_share</code> columns (in place of <code>pcv</code> /
+<code>var_between_adjusted</code>); <code>var_between</code> is then the total between-strata
+variance (additive + interaction). See <code><a href="maihda.html">maihda</a></code> for the underlying
+model and its caveats.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

@@ -25,6 +25,7 @@
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+    <li><a class="dropdown-item" href="../articles/cross_classified.html">Cross-classified MAIHDA: additive vs. interaction in one model</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -56,7 +57,15 @@
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="co"># S3 method for class 'maihda_model'</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">object</span>, bootstrap <span class="op">=</span> <span class="cn">FALSE</span>, n_boot <span class="op">=</span> <span class="fl">1000</span>, conf_level <span class="op">=</span> <span class="fl">0.95</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span></span>
+<span>  <span class="va">object</span>,</span>
+<span>  bootstrap <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  n_boot <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
+<span>  response_vpc <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -83,6 +92,19 @@ models only; <code>brms</code> models always return a posterior credible interva
 bootstrap CI or the brms posterior credible interval. Default is 0.95.</p></dd>
 
 
+<dt id="arg-response-vpc">response_vpc<a class="anchor" aria-label="anchor" href="#arg-response-vpc"></a></dt>
+<dd><p>Logical; for a binomial (lme4) model, also compute the
+response-scale VPC (<code><a href="maihda_vpc_response.html">maihda_vpc_response</a></code>) and attach it as the
+<code>vpc_response</code> slot. It is estimated by simulation, so it is opt-in (default
+<code>FALSE</code>) and uses <code>seed</code> for reproducibility. Ignored for other
+families/engines.</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Optional integer seed for the response-scale VPC simulation when
+<code>response_vpc = TRUE</code>.</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments (not currently used).</p></dd>
 
@@ -97,6 +119,17 @@ bootstrap CI or the brms posterior credible interval. Default is 0.95.</p></dd>
 
   <dt>variance_components</dt>
 <dd><p>Data frame of variance components</p></dd>
+
+  <dt>discriminatory_accuracy</dt>
+<dd><p>For a binomial/Bernoulli outcome, the
+    <code>maihda_da</code> object (AUC + MOR) from
+    <code><a href="maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></code>; <code>NULL</code> otherwise (and for a
+    cross-classified fit, whose single-stratum between-variance the MOR needs is
+    not defined across crossed random effects)</p></dd>
+
+  <dt>vpc_response</dt>
+<dd><p>The response-scale VPC (<code>maihda_vpc_response</code>) when
+    <code>response_vpc = TRUE</code> for a binomial lme4 model; <code>NULL</code> otherwise</p></dd>
 
   <dt>stratum_estimates</dt>
 <dd><p>Data frame of stratum-specific random effects with labels if available</p></dd>
