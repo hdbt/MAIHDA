@@ -329,6 +329,14 @@ test_that("predict_maihda(type = 'strata') respects newdata", {
     predict_maihda(model, newdata = nd_unknown, type = "strata"),
     "not present in the fitted model", fixed = TRUE
   )
+
+  # A stratum column that is present but entirely missing names no training
+  # stratum, so the result is empty -- not silently every training stratum.
+  nd_all_na <- nd
+  nd_all_na$stratum <- NA_character_
+  empty <- predict_maihda(model, newdata = nd_all_na, type = "strata")
+  expect_equal(nrow(empty), 0L)
+  expect_equal(names(empty), names(all_strata))
 })
 
 test_that("predict_maihda rebuilds automatic strata for raw newdata", {

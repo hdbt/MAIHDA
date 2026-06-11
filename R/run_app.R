@@ -429,7 +429,12 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
   additional_covars <- if (is.null(additional_covars)) character() else additional_covars
 
   quote_names <- function(x) vapply(x, maihda_quote_name, character(1))
-  as_char_vec <- function(x) paste0("c(", paste0('"', x, '"', collapse = ", "), ")")
+  # String literals emitted into the script (column names, the upload filename) are
+  # escaped with encodeString(quote = '"') so a name containing a double quote or
+  # backslash produces a valid, self-contained R literal rather than breaking the
+  # downloaded script or injecting code when it is sourced.
+  quote_string <- function(x) encodeString(x, quote = '"')
+  as_char_vec <- function(x) paste0("c(", paste0(quote_string(x), collapse = ", "), ")")
   fixed_terms <- c(grouping_vars, additional_covars)
 
   # The model formula's fixed part is any selected covariates (the null model); the
@@ -445,8 +450,8 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
   data_line <- switch(dataset,
     pisa   = "data <- MAIHDA::maihda_country_data",
     health = "data <- MAIHDA::maihda_health_data",
-    upload = sprintf('data <- read.csv("%s")  # adjust path/reader for your file',
-                     if (is.null(upload_name)) "your_data.csv" else upload_name)
+    upload = sprintf('data <- read.csv(%s)  # adjust path/reader for your file',
+                     quote_string(if (is.null(upload_name)) "your_data.csv" else upload_name))
   )
 
   model_vars <- unique(c(outcome_var, fixed_terms))
@@ -538,8 +543,8 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
       "",
       "# 5. Stepwise PCV decomposition: adds each grouping dimension, then any covariates,",
       "#    one at a time (an auto-binned dimension enters as its tertile factor).",
-      sprintf('stepwise_pcv(data, outcome = "%s", vars = %s, family = "%s")',
-              outcome_var, as_char_vec(fixed_terms), family)
+      sprintf('stepwise_pcv(data, outcome = %s, vars = %s, family = "%s")',
+              quote_string(outcome_var), as_char_vec(fixed_terms), family)
     )
   }
 

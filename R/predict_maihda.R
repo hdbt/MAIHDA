@@ -109,7 +109,9 @@ predict_maihda <- function(object, newdata = NULL,
 # type = "strata" respects newdata the way type = "individual" does (instead of
 # always returning every training stratum). A stratum in newdata that the model
 # never saw is an error, matching the individual path. When newdata carries no
-# stratum column the table is returned unchanged.
+# stratum column the table is returned unchanged. When it carries a stratum column
+# whose values are all missing it names no training stratum to keep, so the result
+# is empty -- not silently every training stratum.
 maihda_filter_strata_predictions <- function(result, newdata) {
   if (is.null(newdata) || !"stratum" %in% names(newdata)) {
     return(result)
@@ -117,7 +119,7 @@ maihda_filter_strata_predictions <- function(result, newdata) {
   wanted <- unique(as.character(newdata$stratum))
   wanted <- wanted[!is.na(wanted)]
   if (length(wanted) == 0) {
-    return(result)
+    return(result[0, , drop = FALSE])
   }
   known <- as.character(result$stratum)
   unknown <- setdiff(wanted, known)

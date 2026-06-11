@@ -404,6 +404,32 @@ test_that("Reproducible code export omits seed/bootstrap when unused and handles
                     code, fixed = TRUE))
 })
 
+test_that("Reproducible code export escapes string literals in names and uploads", {
+  # Column names / upload filenames are user-controlled and may contain a double
+  # quote. A naive paste would break the script (or inject code when sourced), so
+  # every emitted literal must be escaped with encodeString(quote = '"').
+  evil_outcome <- 'y"); system("oops"); read.csv("x'
+  code <- MAIHDA:::maihda_app_generate_code(
+    outcome_var = evil_outcome,
+    grouping_vars = c('g"1', "g2"),
+    additional_covars = character(),
+    family = "gaussian", autobin = FALSE, use_boot = FALSE, seed = NULL,
+    dataset = "upload", upload_name = 'a"b.csv'
+  )
+
+  # The generated script is still valid, self-contained R (no broken/injected
+  # literals from the embedded quotes).
+  expect_silent(parse(text = code))
+
+  # Each literal appears in its properly escaped form...
+  expect_true(grepl(encodeString('a"b.csv', quote = '"'), code, fixed = TRUE))
+  expect_true(grepl(encodeString('g"1', quote = '"'), code, fixed = TRUE))
+  expect_true(grepl(encodeString(evil_outcome, quote = '"'), code, fixed = TRUE))
+
+  # ...and never in the unescaped form that would close the literal early.
+  expect_false(grepl('read.csv("a"b.csv")', code, fixed = TRUE))
+})
+
 test_that("A fixed seed makes the bootstrap intervals reproducible across fits", {
   skip_on_cran()
   fit <- function() suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
