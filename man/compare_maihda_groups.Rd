@@ -16,6 +16,7 @@ compare_maihda_groups(
   n_boot = 1000,
   conf_level = 0.95,
   autobin = TRUE,
+  decomposition = c("two-model", "cross-classified"),
   ...
 )
 }
@@ -63,6 +64,16 @@ Default 1000.}
 
 \item{autobin}{Logical passed to \code{\link{make_strata}} controlling tertile
 binning of numeric grouping variables. Default TRUE.}
+
+\item{decomposition}{Per-group additive-vs-interaction decomposition: the two-model
+null -> adjusted PCV (\code{"two-model"}, default) or the single cross-classified
+model (\code{"cross-classified"}). The cross-classified form requires
+\code{shared_strata = TRUE} and at least two stratum dimensions, and adds the
+\code{var_additive}, \code{var_interaction}, \code{additive_share} and
+\code{interaction_share} columns (in place of \code{pcv} /
+\code{var_between_adjusted}); \code{var_between} is then the total between-strata
+variance (additive + interaction). See \code{\link{maihda}} for the underlying
+model and its caveats.}
 
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
 \code{lmer}/\code{glmer}).}

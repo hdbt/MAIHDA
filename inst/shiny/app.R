@@ -84,6 +84,13 @@ ui <- page_navbar(
       accordion_panel(
         "3 · Options", value = "step-options", icon = icon("sliders"),
         selectInput("family", "Family", choices = c("gaussian", "binomial", "poisson"), selected = "gaussian"),
+        radioButtons("decomposition",
+                     tagList("Additive vs. interaction decomposition ",
+                             tooltip(icon("info-circle"),
+                                     "Two-model: fit a null and an adjusted model and read the additive share from the PCV. Cross-classified: a single model entering each dimension's additive main effect as a random intercept and the intersection as the interaction, with the additive/interaction shares read off that one fit.")),
+                     choices = c("Two-model (null vs adjusted, PCV)" = "two-model",
+                                 "Cross-classified (single model)" = "cross-classified"),
+                     selected = "two-model"),
         checkboxInput("use_boot", "Compute Bootstrap CIs (Slower)", value = FALSE),
         conditionalPanel(
           condition = "input.use_boot == true",
@@ -329,6 +336,8 @@ server <- function(input, output, session) {
   fit_params <- reactiveVal(NULL)      # inputs of the last fit (for the "Reproduce in R" dialog)
   da_results <- reactiveVal(NULL)      # discriminatory accuracy (binomial only): null + adjusted
   comparison_results <- reactiveVal(NULL)  # nested-model VPC comparison (null vs adjusted)
+  decomposition_results <- reactiveVal(NULL)  # cross-classified additive/interaction partition
+  decomposition_mode <- reactiveVal("two-model")  # "two-model" or "cross-classified"
 
   # Monotonic request token: each fit increments it, so a slower superseded future
   # can recognise it is stale and discard its result rather than overwriting a
@@ -350,6 +359,7 @@ server <- function(input, output, session) {
     use_boot <- input$use_boot
     n_boot <- input$n_boot
     autobin_opt <- input$autobin
+    decomp_opt <- input$decomposition
     seed_opt <- if (isTRUE(use_boot)) input$seed else NULL
 
     # Claim a request token and lock the button so a second click cannot launch a
@@ -369,7 +379,8 @@ server <- function(input, output, session) {
       autobin = autobin_opt,
       use_boot = use_boot,
       n_boot = n_boot,
-      seed = seed_opt
+      seed = seed_opt,
+      decomposition = decomp_opt
     ))
 
     # Reset old results
@@ -381,6 +392,7 @@ server <- function(input, output, session) {
     fitted_family(NULL)
     da_results(NULL)
     comparison_results(NULL)
+    decomposition_results(NULL)
 
     id <- showNotification("Creating strata & Fitting Models (May take a moment)...", duration = NULL, type = "message")
 
@@ -395,7 +407,8 @@ server <- function(input, output, session) {
           n_boot = n_boot,
           autobin = autobin_opt,
           engine = eng,
-          seed = seed_opt
+          seed = seed_opt,
+          decomposition = decomp_opt
         )
       }, seed = TRUE) %...>% (function(res) {
         removeNotification(id)
@@ -406,31 +419,53 @@ server <- function(input, output, session) {
 
         model_results(res$model)
         fitted_family(res$family_used)
-        # Dispatch summary() in the main thread, where the MAIHDA S3 method is
-        # reliably found, then merge in the VPC/ICC bootstrap intervals computed
-        # in the background worker (see maihda_app_bootstrap_vpc_cis()).
-        null_summary_results(MAIHDA:::maihda_app_attach_vpc_ci(summary(res$null_model), res$vpc_ci_null))
-        summary_results(MAIHDA:::maihda_app_attach_vpc_ci(summary(res$model), res$vpc_ci_adjusted))
-        pvc_results(res$pvc)
-        stepwise_results(res$stepwise)
-        # Discriminatory accuracy is only defined for binomial fits. Compute AUC/MOR
-        # for the strata-only (null) and adjusted models in the main thread (fast --
-        # predict + rank, no refit).
-        if (identical(res$family_used, "binomial")) {
-          da_results(list(
-            null = tryCatch(MAIHDA::maihda_discriminatory_accuracy(res$null_model),
-                            error = function(e) NULL),
-            adjusted = tryCatch(MAIHDA::maihda_discriminatory_accuracy(res$model),
-                                error = function(e) NULL)
+        decomposition_mode(res$decomposition_mode)
+
+        if (identical(res$decomposition_mode, "cross-classified")) {
+          # Single cross-classified model: the additive/interaction partition (with
+          # bootstrap share CIs when requested) was computed in the worker. There is no
+          # separate null/adjusted pair, PCV, stepwise or nested comparison.
+          summary_results(res$summary_obj)
+          null_summary_results(res$summary_obj)
+          pvc_results(NULL)
+          stepwise_results(NULL)
+          decomposition_results(res$decomposition)
+          comparison_results(NULL)
+          if (identical(res$family_used, "binomial")) {
+            da_results(list(
+              null = tryCatch(MAIHDA::maihda_discriminatory_accuracy(res$model),
+                              error = function(e) NULL),
+              adjusted = NULL
+            ))
+          }
+        } else {
+          # Dispatch summary() in the main thread, where the MAIHDA S3 method is
+          # reliably found, then merge in the VPC/ICC bootstrap intervals computed
+          # in the background worker (see maihda_app_bootstrap_vpc_cis()).
+          null_summary_results(MAIHDA:::maihda_app_attach_vpc_ci(summary(res$null_model), res$vpc_ci_null))
+          summary_results(MAIHDA:::maihda_app_attach_vpc_ci(summary(res$model), res$vpc_ci_adjusted))
+          pvc_results(res$pvc)
+          stepwise_results(res$stepwise)
+          decomposition_results(NULL)
+          # Discriminatory accuracy is only defined for binomial fits. Compute AUC/MOR
+          # for the strata-only (null) and adjusted models in the main thread (fast --
+          # predict + rank, no refit).
+          if (identical(res$family_used, "binomial")) {
+            da_results(list(
+              null = tryCatch(MAIHDA::maihda_discriminatory_accuracy(res$null_model),
+                              error = function(e) NULL),
+              adjusted = tryCatch(MAIHDA::maihda_discriminatory_accuracy(res$model),
+                                  error = function(e) NULL)
+            ))
+          }
+          # Nested-model VPC comparison (null vs adjusted) for the Model Comparison
+          # tab -- pure (reads VPCs from the already-fitted models), so main-thread.
+          comparison_results(tryCatch(
+            MAIHDA::compare_maihda(res$null_model, res$model,
+                                   model_names = c("Model 1: Null", "Model 2: Adjusted")),
+            error = function(e) NULL
           ))
         }
-        # Nested-model VPC comparison (null vs adjusted) for the Model Comparison
-        # tab -- pure (reads VPCs from the already-fitted models), so main-thread.
-        comparison_results(tryCatch(
-          MAIHDA::compare_maihda(res$null_model, res$model,
-                                 model_names = c("Model 1: Null", "Model 2: Adjusted")),
-          error = function(e) NULL
-        ))
         if (isTRUE(res$family_autoswitched)) {
           showNotification(
             sprintf("Outcome '%s' is binary -- fitted as 'binomial' (not the selected 'gaussian').",
@@ -475,8 +510,11 @@ server <- function(input, output, session) {
 
     # For binomial fits the headline VPC is latent-scale; also show the response
     # (probability) scale VPC as an interpretable complement. Seeded so the
-    # simulation-based value is stable across re-renders.
-    response_vpc_line <- if (identical(fitted_family(), "binomial")) {
+    # simulation-based value is stable across re-renders. Skipped in cross-classified
+    # mode, where the simulation helper reads only the interaction variance (not the
+    # full additive+interaction between-strata variance) and would understate it.
+    response_vpc_line <- if (identical(fitted_family(), "binomial") &&
+                             !identical(decomposition_mode(), "cross-classified")) {
       seed_val <- if (!is.null(fit_params()) && !is.null(fit_params()$seed)) fit_params()$seed else 1L
       rv <- tryCatch(MAIHDA::maihda_vpc_response(model_results(), seed = seed_val),
                      error = function(e) NULL)
@@ -618,6 +656,78 @@ server <- function(input, output, session) {
   })
 
   output$pvc_summary_ui <- renderUI({
+    # Cross-classified mode: show the additive/interaction partition read off the
+    # single model instead of the two-model PCV.
+    if (identical(decomposition_mode(), "cross-classified")) {
+      if (is.null(decomposition_results()) || is.null(summary_results())) {
+        return(MAIHDA:::maihda_app_empty_state(
+          "No decomposition yet",
+          "Fit a cross-classified MAIHDA model from the sidebar to see the additive
+          (per-dimension) vs. intersectional-interaction split of the between-strata
+          variance."))
+      }
+      d <- decomposition_results()
+      fmt_share <- function(est, ci) {
+        base <- sprintf("%.2f%%", est * 100)
+        if (!is.null(ci) && length(ci) == 2 && all(is.finite(ci))) {
+          paste0(base, sprintf(" [%.1f%%, %.1f%%]", ci[1] * 100, ci[2] * 100))
+        } else {
+          base
+        }
+      }
+      per_dim_df <- data.frame(
+        Dimension = names(d$per_dim),
+        `Additive variance` = as.numeric(d$per_dim),
+        `Share of between-strata` = sprintf("%.1f%%",
+                                            as.numeric(d$per_dim) / d$between_var * 100),
+        check.names = FALSE
+      )
+      return(card(
+        card_header("Additive vs. Intersectional Decomposition (cross-classified)"),
+        card_body(
+          layout_columns(
+            col_widths = c(4, 4, 4),
+            class = "maihda-metric-row mb-2",
+            value_box(
+              title = "Additive variance",
+              value = sprintf("%.4f", d$additive_var),
+              showcase = icon("layer-group"), theme = "secondary",
+              p(class = "mb-0", "Sum of the dimensions' main-effect random variances")
+            ),
+            value_box(
+              title = "Interaction variance",
+              value = sprintf("%.4f", d$interaction_var),
+              showcase = icon("diagram-project"), theme = "info",
+              p(class = "mb-0", "Intersection random effect (interaction beyond additive)")
+            ),
+            value_box(
+              title = tagList("Additive share ",
+                              tooltip(shiny::icon("info-circle"),
+                                      "The additive (dimension main-effect) variance as a fraction of the total between-strata variance. This is the cross-classified analogue of the PCV, but a different (partial-pooling) estimator; the complement is the intersectional interaction share.")),
+              value = fmt_share(d$additive_share, d$additive_share_ci),
+              showcase = icon("arrow-down-wide-short"),
+              theme = "success",
+              p(class = "mb-0",
+                sprintf("Interaction share: %s", fmt_share(d$interaction_share, d$interaction_share_ci)))
+            )
+          ),
+          div(class = "small text-muted mb-3",
+              "Total between-strata variance: ",
+              tags$strong(sprintf("%.4f", d$between_var)),
+              HTML("&nbsp;&bull;&nbsp;"),
+              "Model: ",
+              tags$code(paste(deparse(model_results()$formula), collapse = ""))),
+          h6("Per-dimension additive variance"),
+          DT::datatable(per_dim_df, options = list(dom = "t", paging = FALSE),
+                        rownames = FALSE),
+          div(class = "small text-muted mt-3",
+              "Dimensions with few levels (e.g. a binary variable) are poorly identified ",
+              "and often give a singular fit -- their additive variance can be unstable. ",
+              "See the Model Summary tab for fit diagnostics.")
+        )
+      ))
+    }
+
     if (is.null(pvc_results()) || is.null(model_results())) {
       return(MAIHDA:::maihda_app_empty_state(
         "No PCV results yet",
@@ -699,6 +809,13 @@ server <- function(input, output, session) {
   })
 
   output$stepwise_pcv_ui <- renderUI({
+    if (identical(decomposition_mode(), "cross-classified")) {
+      return(MAIHDA:::maihda_app_empty_state(
+        "Stepwise PCV not used here",
+        "The stepwise PCV decomposition belongs to the **two-model** workflow. In
+        cross-classified mode the additive and interaction shares are read directly
+        from the single model -- see the **PCV summary** sub-tab."))
+    }
     req(stepwise_results())
 
     card(
@@ -776,7 +893,8 @@ server <- function(input, output, session) {
     null_summary_results = null_summary_results,
     summary_results = summary_results,
     pvc_results = pvc_results,
-    group_vars = reactive(input$group_vars)
+    group_vars = reactive(input$group_vars),
+    decomposition_results = decomposition_results
   )
 
   # Model Comparison tab: nested null-vs-adjusted VPC + stratified-by-group MAIHDA.
@@ -822,7 +940,8 @@ server <- function(input, output, session) {
       n_boot = p$n_boot,
       seed = p$seed,
       dataset = p$dataset,
-      upload_name = p$upload_name
+      upload_name = p$upload_name,
+      decomposition = if (!is.null(p$decomposition)) p$decomposition else "two-model"
     )
   })
 

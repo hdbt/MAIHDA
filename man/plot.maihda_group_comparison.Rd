@@ -4,17 +4,24 @@
 \alias{plot.maihda_group_comparison}
 \title{Plot a MAIHDA Group Comparison}
 \usage{
-\method{plot}{maihda_group_comparison}(x, type = c("vpc", "components", "between_variance", "pcv"), ...)
+\method{plot}{maihda_group_comparison}(
+  x,
+  type = c("vpc", "components", "between_variance", "pcv", "additive_share"),
+  ...
+)
 }
 \arguments{
 \item{x}{A \code{maihda_group_comparison} object from
 \code{\link{compare_maihda_groups}}.}
 
 \item{type}{One of "vpc" (default) for VPC by group with optional bootstrap
-confidence intervals, "components" for stacked variance proportions,
-"between_variance" for the absolute between-stratum variance by group, or "pcv"
-for the additive share (null -> adjusted proportional change in between-stratum
-variance) by group. The VPC is a \emph{share} of the unexplained variance;
+confidence intervals, "components" for stacked variance proportions (additive /
+interaction / residual for a cross-classified comparison, between / other /
+residual otherwise), "between_variance" for the absolute between-stratum variance
+by group, "pcv" for the two-model additive share (null -> adjusted proportional
+change in between-stratum variance) by group, or "additive_share" for the
+cross-classified additive share by group. The VPC is a \emph{share} of the
+unexplained variance;
 "between_variance" shows the \emph{magnitude} the ratio cannot convey (two groups
 with very different VPCs can share a between-stratum variance, and vice versa);
 "pcv" requires strata defined by at least two dimensions.}

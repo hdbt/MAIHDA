@@ -53,6 +53,13 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
 #' @param conf_level Confidence level for the VPC/ICC interval -- the lme4
 #'   bootstrap CI or the brms posterior credible interval. Default is 0.95.
+#' @param response_vpc Logical; for a binomial (lme4) model, also compute the
+#'   response-scale VPC (\code{\link{maihda_vpc_response}}) and attach it as the
+#'   \code{vpc_response} slot. It is estimated by simulation, so it is opt-in (default
+#'   \code{FALSE}) and uses \code{seed} for reproducibility. Ignored for other
+#'   families/engines.
+#' @param seed Optional integer seed for the response-scale VPC simulation when
+#'   \code{response_vpc = TRUE}.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return A maihda_summary object containing:
@@ -60,6 +67,13 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'     \code{bootstrap = TRUE} and for all brms models this includes
 #'     \code{ci_lower}/\code{ci_upper}/\code{conf_level}}
 #'   \item{variance_components}{Data frame of variance components}
+#'   \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
+#'     \code{maihda_da} object (AUC + MOR) from
+#'     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise (and for a
+#'     cross-classified fit, whose single-stratum between-variance the MOR needs is
+#'     not defined across crossed random effects)}
+#'   \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
+#'     \code{response_vpc = TRUE} for a binomial lme4 model; \code{NULL} otherwise}
 #'   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
 #'   \item{fixed_effects}{Fixed effects estimates}
 #'   \item{model_summary}{Original model summary}
@@ -94,7 +108,7 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' @export
 #' @importFrom lme4 VarCorr fixef ranef
 summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
-                          conf_level = 0.95, ...) {
+                          conf_level = 0.95, response_vpc = FALSE, seed = NULL, ...) {
   if (!inherits(object, "maihda_model")) {
     stop("'object' must be a maihda_model object from fit_maihda()")
   }
@@ -110,42 +124,55 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
 
   engine <- object$engine
   model <- object$model
+  # A cross-classified model (tagged by maihda(decomposition = "cross-classified"))
+  # has several crossed REs: each dimension carries its additive main-effect variance
+  # and the intersection ("stratum") RE the interaction. When absent, the variance
+  # path below is identical to the historical single-stratum summary.
+  cc <- object$cc_info
+  decomposition <- NULL
 
   # Extract variance components and calculate VPC
   if (engine == "lme4") {
     # Extract variance components
     vc <- lme4::VarCorr(model)
-    var_random <- maihda_stratum_variance_lme4(model)
-    var_total_random <- maihda_total_random_variance_lme4(model)
-    var_other_random <- max(0, var_total_random - var_random)
-    var_residual <- maihda_residual_variance_lme4(model, vc)
-
-    # Calculate VPC (ICC)
-    vpc <- var_random / (var_random + var_other_random + var_residual)
-
-    # Create variance components data frame
-    variance_components <- maihda_variance_components_table(
-      var_random, var_other_random, var_residual
-    )
-
-    # Bootstrap confidence intervals for VPC if requested
-    if (bootstrap) {
-      vpc_ci <- bootstrap_vpc(model, object$data, object$formula, n_boot, conf_level)
-      vpc_result <- list(
-        estimate = vpc,
-        ci_lower = vpc_ci[1],
-        ci_upper = vpc_ci[2],
-        conf_level = conf_level,
-        bootstrap = TRUE,
-        method = "bootstrap",
-        n_boot_ok = attr(vpc_ci, "n_ok"),
-        mc_se = attr(vpc_ci, "mc_se")
-      )
+    if (!is.null(cc)) {
+      cc_res <- maihda_cc_summary_lme4(object, cc, vc, bootstrap, n_boot, conf_level)
+      variance_components <- cc_res$variance_components
+      vpc_result <- cc_res$vpc_result
+      decomposition <- cc_res$decomposition
     } else {
-      vpc_result <- list(
-        estimate = vpc,
-        bootstrap = FALSE
+      var_random <- maihda_stratum_variance_lme4(model)
+      var_total_random <- maihda_total_random_variance_lme4(model)
+      var_other_random <- max(0, var_total_random - var_random)
+      var_residual <- maihda_residual_variance_lme4(model, vc)
+
+      # Calculate VPC (ICC)
+      vpc <- var_random / (var_random + var_other_random + var_residual)
+
+      # Create variance components data frame
+      variance_components <- maihda_variance_components_table(
+        var_random, var_other_random, var_residual
       )
+
+      # Bootstrap confidence intervals for VPC if requested
+      if (bootstrap) {
+        vpc_ci <- bootstrap_vpc(model, object$data, object$formula, n_boot, conf_level)
+        vpc_result <- list(
+          estimate = vpc,
+          ci_lower = vpc_ci[1],
+          ci_upper = vpc_ci[2],
+          conf_level = conf_level,
+          bootstrap = TRUE,
+          method = "bootstrap",
+          n_boot_ok = attr(vpc_ci, "n_ok"),
+          mc_se = attr(vpc_ci, "mc_se")
+        )
+      } else {
+        vpc_result <- list(
+          estimate = vpc,
+          bootstrap = FALSE
+        )
+      }
     }
 
     # Extract fixed effects
@@ -155,7 +182,11 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       row.names = NULL
     )
 
-    stratum_estimates <- maihda_stratum_ranef_lme4(model)
+    # Stratum (intersection) random-effect estimates -- the interaction residuals in
+    # the cross-classified model (the named interaction group), or the single stratum
+    # RE otherwise.
+    interaction_group <- if (!is.null(cc)) cc$interaction_group else "stratum"
+    stratum_estimates <- maihda_stratum_ranef_lme4(model, group = interaction_group)
     stratum_estimates <- add_stratum_labels(stratum_estimates, object$strata_info)
 
     # Get model summary
@@ -176,31 +207,62 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
 
     conf_level <- maihda_validate_conf_level(conf_level)
 
-    # Summarise the VPC/ICC from posterior draws (E[sd^2], with a credible
-    # interval) rather than from the posterior summary SDs (E[sd]^2, no interval).
-    vpc_draws <- maihda_vpc_draws_brms(model, conf_level = conf_level)
+    if (!is.null(cc)) {
+      cc_res <- maihda_cc_summary_brms(object, cc, conf_level)
+      variance_components <- cc_res$variance_components
+      vpc_result <- cc_res$vpc_result
+      decomposition <- cc_res$decomposition
+    } else {
+      # Summarise the VPC/ICC from posterior draws (E[sd^2], with a credible
+      # interval) rather than from the posterior summary SDs (E[sd]^2, no interval).
+      vpc_draws <- maihda_vpc_draws_brms(model, conf_level = conf_level)
 
-    # Components table reports the posterior-mean variance of each component.
-    variance_components <- maihda_variance_components_table(
-      vpc_draws$var_stratum, vpc_draws$var_other_random, vpc_draws$var_residual
-    )
+      # Components table reports the posterior-mean variance of each component.
+      variance_components <- maihda_variance_components_table(
+        vpc_draws$var_stratum, vpc_draws$var_other_random, vpc_draws$var_residual
+      )
 
-    vpc_result <- list(
-      estimate = vpc_draws$vpc$estimate,
-      ci_lower = vpc_draws$vpc$ci_lower,
-      ci_upper = vpc_draws$vpc$ci_upper,
-      conf_level = conf_level,
-      bootstrap = FALSE,
-      method = "posterior"
-    )
+      vpc_result <- list(
+        estimate = vpc_draws$vpc$estimate,
+        ci_lower = vpc_draws$vpc$ci_lower,
+        ci_upper = vpc_draws$vpc$ci_upper,
+        conf_level = conf_level,
+        bootstrap = FALSE,
+        method = "posterior"
+      )
+    }
 
     # Extract fixed effects
     fixed_effects <- brms::fixef(model)
 
-    stratum_estimates <- maihda_stratum_ranef_brms(model)
+    interaction_group <- if (!is.null(cc)) cc$interaction_group else "stratum"
+    stratum_estimates <- maihda_stratum_ranef_brms(model, group = interaction_group)
     stratum_estimates <- add_stratum_labels(stratum_estimates, object$strata_info)
 
     model_summary <- summary(model)
+  }
+
+  # Family-defined companions to the VPC for a binomial/Bernoulli outcome: the
+  # discriminatory accuracy (AUC + MOR) -- the "DA" in MAIHDA -- always, and the
+  # response-scale VPC on request (it is a simulation, hence opt-in and seeded).
+  # Both summarise the single fitted model with no refit, mirroring how the
+  # cross-classified additive/interaction `decomposition` slot above is computed in
+  # this same summary layer so that fit_maihda() and maihda() share the logic.
+  # Skipped for a cross-classified fit (its MOR / response-VPC need a single-stratum
+  # between-variance that is not defined across crossed random effects) and wrapped so
+  # a bonus summary never breaks the core VPC.
+  discriminatory_accuracy <- NULL
+  vpc_response <- NULL
+  fam_name <- tryCatch(maihda_model_family_name(object),
+                       error = function(e) NA_character_)
+  if (is.null(cc) && isTRUE(fam_name %in% c("binomial", "bernoulli"))) {
+    discriminatory_accuracy <- tryCatch(
+      maihda_discriminatory_accuracy(object), error = function(e) NULL)
+    if (isTRUE(response_vpc) && identical(engine, "lme4") &&
+        identical(fam_name, "binomial")) {
+      vpc_response <- tryCatch(
+        maihda_vpc_response(object, seed = seed), error = function(e) NULL)
+    }
   }
 
   # Create summary object
@@ -208,16 +270,205 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     list(
       vpc = vpc_result,
       variance_components = variance_components,
+      decomposition = decomposition,
+      discriminatory_accuracy = discriminatory_accuracy,
+      vpc_response = vpc_response,
       stratum_estimates = stratum_estimates,
       fixed_effects = fixed_effects,
       model_summary = model_summary,
       engine = engine,
+      cc_info = cc,
       diagnostics = object$diagnostics
     ),
     class = "maihda_summary"
   )
 
   return(result)
+}
+
+#' Cross-classified variance summary (lme4)
+#'
+#' Internal helper for \code{\link{summary.maihda_model}} when the model is a
+#' cross-classified MAIHDA fit (\code{object$cc_info} set). Partitions the crossed
+#' random-effect variances into the additive (sum of the dimension REs) and
+#' interaction (intersection RE) components, builds the variance-components table and
+#' the VPC, and -- when \code{bootstrap = TRUE} -- adds parametric-bootstrap intervals
+#' for the VPC and the additive/interaction shares.
+#'
+#' @param object A \code{maihda_model} (cross-classified).
+#' @param cc The \code{cc_info} list (\code{dim_groups}, \code{interaction_group}).
+#' @param vc The model's \code{VarCorr}.
+#' @param bootstrap,n_boot,conf_level Bootstrap controls.
+#' @return A list with \code{variance_components}, \code{vpc_result}, \code{decomposition}.
+#' @keywords internal
+maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level) {
+  model <- object$model
+  var_named <- maihda_random_variances_lme4(model)
+  var_within <- maihda_residual_variance_lme4(model, vc)
+  split <- maihda_cc_variance_split(var_named, cc$dim_groups, cc$interaction_group)
+  part <- maihda_cc_partition(split$additive, split$interaction, var_within)
+
+  variance_components <- maihda_cc_components_table(split$per_dim, split$interaction,
+                                                   var_within)
+
+  decomposition <- list(
+    additive_var = split$additive,
+    interaction_var = split$interaction,
+    between_var = part$between,
+    within_var = var_within,
+    additive_share = part$additive_share,
+    interaction_share = part$interaction_share,
+    per_dim = split$per_dim,
+    bootstrap = FALSE
+  )
+
+  if (bootstrap) {
+    boot <- bootstrap_cc(model, cc, n_boot, conf_level)
+    vpc_result <- list(
+      estimate = part$vpc,
+      ci_lower = boot$vpc[1],
+      ci_upper = boot$vpc[2],
+      conf_level = conf_level,
+      bootstrap = TRUE,
+      method = "bootstrap",
+      n_boot_ok = attr(boot$vpc, "n_ok"),
+      mc_se = attr(boot$vpc, "mc_se")
+    )
+    decomposition$bootstrap <- TRUE
+    decomposition$conf_level <- conf_level
+    decomposition$additive_share_ci <- c(boot$additive_share[1], boot$additive_share[2])
+    decomposition$interaction_share_ci <- c(boot$interaction_share[1],
+                                            boot$interaction_share[2])
+  } else {
+    vpc_result <- list(estimate = part$vpc, bootstrap = FALSE)
+  }
+
+  list(variance_components = variance_components, vpc_result = vpc_result,
+       decomposition = decomposition)
+}
+
+#' Cross-classified variance summary (brms)
+#'
+#' brms counterpart of \code{\link{maihda_cc_summary_lme4}}: computes the additive /
+#' interaction partition per posterior draw and returns posterior point estimates with
+#' credible intervals for the VPC and the shares (no bootstrap -- the posterior already
+#' supplies the interval).
+#'
+#' @param object A \code{maihda_model} (cross-classified, brms engine).
+#' @param cc The \code{cc_info} list.
+#' @param conf_level Credible-interval level.
+#' @param point Posterior point estimate, "median" (default) or "mean".
+#' @return A list with \code{variance_components}, \code{vpc_result}, \code{decomposition}.
+#' @keywords internal
+maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "mean")) {
+  point <- match.arg(point)
+  model <- object$model
+  draws <- maihda_posterior_draws_brms(model)
+  gv <- maihda_group_variance_draws_brms(draws)
+  within_draws <- maihda_residual_variance_draws_brms(model, draws)
+
+  dim_re <- unname(cc$dim_groups)
+  missing_re <- setdiff(c(dim_re, cc$interaction_group), names(gv))
+  if (length(missing_re) > 0) {
+    stop("Cross-classified brms summary is missing the random effect(s): ",
+         paste(missing_re, collapse = ", "), ".", call. = FALSE)
+  }
+
+  additive_draws <- Reduce(`+`, gv[dim_re])
+  interaction_draws <- gv[[cc$interaction_group]]
+  part <- maihda_cc_partition(additive_draws, interaction_draws, within_draws)
+
+  summ <- function(v) {
+    v <- v[is.finite(v)]
+    if (length(v) == 0) {
+      return(list(estimate = NA_real_, ci_lower = NA_real_, ci_upper = NA_real_))
+    }
+    a <- 1 - conf_level
+    pt <- if (point == "median") stats::median(v) else mean(v)
+    ci <- stats::quantile(v, probs = c(a / 2, 1 - a / 2), names = FALSE)
+    list(estimate = pt, ci_lower = ci[1], ci_upper = ci[2])
+  }
+  vpc_s <- summ(part$vpc)
+  add_s <- summ(part$additive_share)
+  int_s <- summ(part$interaction_share)
+
+  per_dim_mean <- vapply(dim_re, function(g) mean(gv[[g]]), numeric(1))
+  names(per_dim_mean) <- names(cc$dim_groups)
+  interaction_mean <- mean(interaction_draws)
+  within_mean <- mean(within_draws)
+
+  variance_components <- maihda_cc_components_table(per_dim_mean, interaction_mean,
+                                                   within_mean)
+
+  vpc_result <- list(
+    estimate = vpc_s$estimate,
+    ci_lower = vpc_s$ci_lower,
+    ci_upper = vpc_s$ci_upper,
+    conf_level = conf_level,
+    bootstrap = FALSE,
+    method = "posterior"
+  )
+
+  decomposition <- list(
+    additive_var = mean(additive_draws),
+    interaction_var = interaction_mean,
+    between_var = mean(part$between),
+    within_var = within_mean,
+    additive_share = add_s$estimate,
+    interaction_share = int_s$estimate,
+    additive_share_ci = c(add_s$ci_lower, add_s$ci_upper),
+    interaction_share_ci = c(int_s$ci_lower, int_s$ci_upper),
+    per_dim = per_dim_mean,
+    bootstrap = FALSE,
+    method = "posterior",
+    conf_level = conf_level
+  )
+
+  list(variance_components = variance_components, vpc_result = vpc_result,
+       decomposition = decomposition)
+}
+
+#' Bootstrap a cross-classified MAIHDA partition (lme4)
+#'
+#' Parametric bootstrap (simulate from the fitted model, refit) of the
+#' cross-classified VPC and the additive / interaction shares, returning a percentile
+#' interval for each via \code{maihda_bootstrap_ci}. lme4 only -- brms returns
+#' posterior credible intervals directly.
+#'
+#' @param model The underlying lme4 model object.
+#' @param cc The \code{cc_info} list.
+#' @param n_boot Number of bootstrap samples.
+#' @param conf_level Confidence level.
+#' @return A list with \code{vpc}, \code{additive_share}, \code{interaction_share},
+#'   each a length-2 interval carrying \code{n_ok}/\code{mc_se} attributes.
+#' @keywords internal
+#' @importFrom lme4 refit
+bootstrap_cc <- function(model, cc, n_boot, conf_level) {
+  vpc_boot <- rep(NA_real_, n_boot)
+  additive_boot <- rep(NA_real_, n_boot)
+  interaction_boot <- rep(NA_real_, n_boot)
+  sim_data <- stats::simulate(model, nsim = n_boot)
+
+  for (i in seq_len(n_boot)) {
+    tryCatch({
+      boot_model <- lme4::refit(model, newresp = sim_data[[i]])
+      var_named <- maihda_random_variances_lme4(boot_model)
+      var_within <- maihda_residual_variance_lme4(boot_model)
+      split <- maihda_cc_variance_split(var_named, cc$dim_groups, cc$interaction_group)
+      part <- maihda_cc_partition(split$additive, split$interaction, var_within)
+      vpc_boot[i] <- part$vpc
+      additive_boot[i] <- part$additive_share
+      interaction_boot[i] <- part$interaction_share
+    }, error = function(e) NULL)
+  }
+
+  list(
+    vpc = maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC"),
+    additive_share = maihda_bootstrap_ci(additive_boot, n_boot, conf_level,
+                                         "additive share"),
+    interaction_share = maihda_bootstrap_ci(interaction_boot, n_boot, conf_level,
+                                            "interaction share")
+  )
 }
 
 #' Bootstrap VPC/ICC
@@ -262,6 +513,43 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
   return(ci)
 }
 
+#' Print the additive vs. intersectional decomposition of a cross-classified summary
+#'
+#' @param d The \code{decomposition} list from a cross-classified
+#'   \code{\link{summary.maihda_model}}.
+#' @return No return value, called for side effects.
+#' @keywords internal
+maihda_print_cc_decomposition <- function(d) {
+  fmt_share <- function(est, ci) {
+    if (!is.null(ci) && length(ci) == 2L && all(is.finite(ci))) {
+      sprintf("%.1f%% [%.1f%%, %.1f%%]", est * 100, ci[1] * 100, ci[2] * 100)
+    } else {
+      sprintf("%.1f%%", est * 100)
+    }
+  }
+  cat("Additive vs. Intersectional Decomposition (cross-classified):\n")
+  cat(sprintf("  Additive (sum of dimension main effects) variance: %.4f\n",
+              d$additive_var))
+  cat(sprintf("  Intersectional interaction variance:               %.4f\n",
+              d$interaction_var))
+  cat(sprintf("  Total between-strata variance:                     %.4f\n",
+              d$between_var))
+  cat(sprintf("  Additive share of between-strata variance:    %s\n",
+              fmt_share(d$additive_share, d$additive_share_ci)))
+  cat(sprintf("  Interaction share of between-strata variance: %s\n",
+              fmt_share(d$interaction_share, d$interaction_share_ci)))
+  per_dim <- d$per_dim
+  if (!is.null(per_dim) && length(per_dim) > 0) {
+    cat("  Per-dimension additive variance:\n")
+    for (nm in names(per_dim)) {
+      cat(sprintf("    %s: %.4f\n", nm, per_dim[[nm]]))
+    }
+  }
+  cat("  Note: the additive share is the cross-classified analogue of the PCV but a\n",
+      "  different estimator; interpret the interaction share cautiously.\n\n", sep = "")
+  invisible(NULL)
+}
+
 #' Print method for maihda_summary objects
 #'
 #' @param x A maihda_summary object
@@ -291,6 +579,21 @@ print.maihda_summary <- function(x, ...) {
   cat("Variance Components:\n")
   print(x$variance_components, row.names = FALSE, digits = 4)
   cat("\n")
+
+  if (!is.null(x$decomposition)) {
+    maihda_print_cc_decomposition(x$decomposition)
+  }
+
+  # Discriminatory accuracy (AUC + MOR) and, when requested, the response-scale VPC --
+  # the binomial companions to the latent-scale VPC. Reuse their own print methods.
+  if (!is.null(x$discriminatory_accuracy)) {
+    print(x$discriminatory_accuracy)
+    cat("\n")
+  }
+  if (!is.null(x$vpc_response)) {
+    print(x$vpc_response)
+    cat("\n")
+  }
 
   cat("Fixed Effects:\n")
   print(x$fixed_effects, row.names = FALSE, digits = 4)

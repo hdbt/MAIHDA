@@ -120,17 +120,42 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
 #' @keywords internal
 #' @import ggplot2
 plot_vpc <- function(summary_obj) {
-  vpc_data <- summary_obj$variance_components[
-    summary_obj$variance_components$component != "Total", , drop = FALSE
-  ]
-  component_colors <- c(
-    "Between-stratum (random)" = "#E69F00",
-    "Other random effects" = "#009E73",
-    "Within-stratum (residual)" = "#56B4E9"
-  )
-  missing_colors <- setdiff(vpc_data$component, names(component_colors))
-  if (length(missing_colors) > 0) {
-    component_colors[missing_colors] <- "#999999"
+  vc <- summary_obj$variance_components
+  vpc_data <- vc[vc$component != "Total", , drop = FALSE]
+  is_cc <- identical(attr(vc, "kind"), "cross_classified")
+
+  if (is_cc) {
+    # Cross-classified split: one slice per dimension (additive), one for the
+    # interaction, one for the residual. Colour the additive dimensions from a
+    # qualitative palette, the interaction in orange (it is the "new between"), the
+    # residual in blue. The component order in the table drives the stack.
+    add_comps <- vpc_data$component[grepl("^Additive: ", vpc_data$component)]
+    dim_palette <- c("#CC79A7", "#009E73", "#0072B2", "#D55E00", "#117733",
+                     "#882255", "#44AA99", "#332288")
+    component_colors <- stats::setNames(rep("#999999", nrow(vpc_data)),
+                                        vpc_data$component)
+    if (length(add_comps) > 0) {
+      component_colors[add_comps] <-
+        dim_palette[((seq_along(add_comps) - 1) %% length(dim_palette)) + 1]
+    }
+    component_colors["Intersectional interaction"] <- "#E69F00"
+    component_colors["Within-stratum (residual)"] <- "#56B4E9"
+    plot_title <- sprintf("Variance Partition (cross-classified), VPC/ICC = %.3f",
+                          summary_obj$vpc$estimate)
+    # Keep the table's component ordering (additive dims, interaction, residual).
+    vpc_data$component <- factor(vpc_data$component, levels = vpc_data$component)
+  } else {
+    component_colors <- c(
+      "Between-stratum (random)" = "#E69F00",
+      "Other random effects" = "#009E73",
+      "Within-stratum (residual)" = "#56B4E9"
+    )
+    missing_colors <- setdiff(vpc_data$component, names(component_colors))
+    if (length(missing_colors) > 0) {
+      component_colors[missing_colors] <- "#999999"
+    }
+    plot_title <- sprintf("Variance Partition Coefficient (VPC/ICC) = %.3f",
+                          summary_obj$vpc$estimate)
   }
 
   # Create plot
@@ -139,8 +164,7 @@ plot_vpc <- function(summary_obj) {
     coord_flip() +
     scale_fill_manual(values = component_colors) +
     labs(
-      title = sprintf("Variance Partition Coefficient (VPC/ICC) = %.3f",
-                     summary_obj$vpc$estimate),
+      title = plot_title,
       x = "",
       y = "Proportion of Variance",
       fill = "Component"
@@ -630,6 +654,12 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     stop("'stratum' variable not found in data. Make sure to use data from make_strata().")
   }
 
+  # Cross-classified model: the additive part is carried by the dimension random
+  # effects (not the fixed effects), so the additive component is computed from the
+  # total deviation minus the stratum (interaction) random effect, rather than from
+  # the fixed-only prediction.
+  cc_mode <- !is.null(object$cc_info)
+
   # Compute full and fixed-only predictions on the LINK scale. The additive
   # decomposition (total = additive + intersectional) is only exact on the model
   # scale: eta = X*beta + u_stratum. On the response scale, for non-identity links
@@ -689,14 +719,27 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
   stratum_means$intersectional_dev <- unname(re_map[stratum_means$stratum])
   stratum_means$intersectional_dev[is.na(stratum_means$intersectional_dev)] <- 0
 
+  # additive_dev = total deviation minus the intersectional (stratum) component.
+  # Two-model: the additive part is the fixed-effect deviation (mean_fixed - global).
+  # Cross-classified: the dimension main effects are random, so the additive part is
+  # the total stratum deviation (mean_total - global) net of the interaction RE; this
+  # absorbs the dimension REs (plus any covariate deviation), keeping
+  # total = additive + interaction in both modes.
   stratum_means <- stratum_means |>
     dplyr::mutate(
-      additive_dev = .data$mean_fixed - global_mean,
+      additive_dev = if (cc_mode) {
+        .data$mean_total - global_mean - .data$intersectional_dev
+      } else {
+        .data$mean_fixed - global_mean
+      },
       total_dev = .data$additive_dev + .data$intersectional_dev,
       abs_total_dev = abs(.data$total_dev)
     ) |>
     dplyr::arrange(.data$total_dev) |>
     dplyr::mutate(rank = dplyr::row_number())
+
+  additive_label <- if (cc_mode) "Additive (dimension random effects)" else "Fixed-effect component"
+  interaction_label <- if (cc_mode) "Intersectional interaction" else "Stratum random-effect component"
 
   # Create segment definitions for stacking
   # Additive goes from 0 -> additive_dev
@@ -705,7 +748,7 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     data.frame(
       rank = stratum_means$rank,
       label = stratum_means$label,
-      Component = "Fixed-effect component",
+      Component = additive_label,
       y_start = 0,
       y_end = stratum_means$additive_dev,
       abs_total_dev = stratum_means$abs_total_dev
@@ -713,7 +756,7 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     data.frame(
       rank = stratum_means$rank,
       label = stratum_means$label,
-      Component = "Stratum random-effect component",
+      Component = interaction_label,
       y_start = stratum_means$additive_dev,
       y_end = stratum_means$total_dev,
       abs_total_dev = stratum_means$abs_total_dev
@@ -721,12 +764,34 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
   )
 
   # Set component ordering so Additive is handled first
-  seg_data$Component <- factor(seg_data$Component, levels = c("Fixed-effect component", "Stratum random-effect component"))
+  seg_data$Component <- factor(seg_data$Component, levels = c(additive_label, interaction_label))
 
   # Label the most extreme overall cases
   label_data <- stratum_means |>
     dplyr::arrange(dplyr::desc(.data$abs_total_dev)) |>
     utils::head(top_n_labels)
+
+  seg_colors <- stats::setNames(c("gray60", "#D55E00"), c(additive_label, interaction_label))
+  plot_subtitle <- if (cc_mode) {
+    paste0(
+      "Stratum deviation split into the additive (dimension random effects) and the ",
+      "intersectional interaction (stratum\nrandom effect), on the model (link) scale. ",
+      "The black dot is their sum. Both come from the single cross-classified fit."
+    )
+  } else {
+    paste0(
+      "Stratum deviation split into the fixed-effect component and the stratum ",
+      "random effect (BLUP), on the model (link) scale.\nThe black dot is their ",
+      "sum; any other random effects (e.g. (1 | site)) are not included. The ",
+      "stratum component is the pure intersectional (interaction) effect only when ",
+      "the strata main effects are in the model; otherwise it also absorbs them."
+    )
+  }
+  plot_title <- if (cc_mode) {
+    "Deviation Decomposition: Additive vs. Interaction (cross-classified)"
+  } else {
+    "Deviation Decomposition: Fixed vs. Stratum-Random Components"
+  }
 
   p <- ggplot2::ggplot() +
     ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
@@ -736,16 +801,10 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     ggplot2::geom_point(data = stratum_means, ggplot2::aes(x = .data$rank, y = .data$total_dev), size = 1.5, color = "black") +
     # Label extremes
     ggrepel::geom_label_repel(data = label_data, ggplot2::aes(x = .data$rank, y = .data$total_dev, label = .data$label), size = 3, min.segment.length = 0) +
-    ggplot2::scale_color_manual(values = c("Fixed-effect component" = "gray60", "Stratum random-effect component" = "#D55E00")) +
+    ggplot2::scale_color_manual(values = seg_colors) +
     ggplot2::labs(
-      title = "Deviation Decomposition: Fixed vs. Stratum-Random Components",
-      subtitle = paste0(
-        "Stratum deviation split into the fixed-effect component and the stratum ",
-        "random effect (BLUP), on the model (link) scale.\nThe black dot is their ",
-        "sum; any other random effects (e.g. (1 | site)) are not included. The ",
-        "stratum component is the pure intersectional (interaction) effect only when ",
-        "the strata main effects are in the model; otherwise it also absorbs them."
-      ),
+      title = plot_title,
+      subtitle = plot_subtitle,
       x = "Stratum Rank (Ordered by Total Predicted Deviation)",
       y = "Deviation from Global Mean (link scale)",
       color = "Effect Component"

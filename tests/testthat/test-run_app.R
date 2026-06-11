@@ -404,6 +404,32 @@ test_that("Reproducible code export omits seed/bootstrap when unused and handles
                     code, fixed = TRUE))
 })
 
+test_that("Reproducible code export escapes string literals in names and uploads", {
+  # Column names / upload filenames are user-controlled and may contain a double
+  # quote. A naive paste would break the script (or inject code when sourced), so
+  # every emitted literal must be escaped with encodeString(quote = '"').
+  evil_outcome <- 'y"); system("oops"); read.csv("x'
+  code <- MAIHDA:::maihda_app_generate_code(
+    outcome_var = evil_outcome,
+    grouping_vars = c('g"1', "g2"),
+    additional_covars = character(),
+    family = "gaussian", autobin = FALSE, use_boot = FALSE, seed = NULL,
+    dataset = "upload", upload_name = 'a"b.csv'
+  )
+
+  # The generated script is still valid, self-contained R (no broken/injected
+  # literals from the embedded quotes).
+  expect_silent(parse(text = code))
+
+  # Each literal appears in its properly escaped form...
+  expect_true(grepl(encodeString('a"b.csv', quote = '"'), code, fixed = TRUE))
+  expect_true(grepl(encodeString('g"1', quote = '"'), code, fixed = TRUE))
+  expect_true(grepl(encodeString(evil_outcome, quote = '"'), code, fixed = TRUE))
+
+  # ...and never in the unescaped form that would close the literal early.
+  expect_false(grepl('read.csv("a"b.csv")', code, fixed = TRUE))
+})
+
 test_that("A fixed seed makes the bootstrap intervals reproducible across fits", {
   skip_on_cran()
   fit <- function() suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
@@ -481,6 +507,114 @@ test_that("Selecting the NHANES dataset yields fittable defaults (outcome + 2 st
     spec <- MAIHDA:::maihda_app_default_vars("health", reactive_data())
     expect_equal(spec$outcome, "Obese")
     expect_gte(length(spec$groups), 2)
+  })
+})
+
+test_that("maihda_app_fit_models supports the cross-classified decomposition", {
+  dat <- MAIHDA::maihda_sim_data[seq_len(300), ]
+  res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
+    dat = dat, outcome_var = "health_outcome",
+    grouping_vars = c("gender", "race", "education"),
+    family = "gaussian", decomposition = "cross-classified"
+  )))
+  expect_identical(res$decomposition_mode, "cross-classified")
+  expect_false(is.null(res$model$cc_info))
+  expect_s3_class(res$summary_obj, "maihda_summary")
+  expect_null(res$pvc)
+  expect_null(res$stepwise)
+  d <- res$decomposition
+  expect_false(is.null(d))
+  expect_equal(d$additive_share + d$interaction_share, 1, tolerance = 1e-8)
+  expect_equal(d$additive_var + d$interaction_var, d$between_var, tolerance = 1e-8)
+})
+
+test_that("the two-model app fit still tags decomposition_mode", {
+  res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
+    MAIHDA::maihda_sim_data[seq_len(150), ],
+    outcome_var = "health_outcome", grouping_vars = c("gender", "race"),
+    family = "gaussian"
+  )))
+  expect_identical(res$decomposition_mode, "two-model")
+  expect_s3_class(res$pvc, "pvc_result")
+})
+
+test_that("cross-classified app fit needs at least two grouping variables", {
+  dat <- MAIHDA::maihda_sim_data[seq_len(120), ]
+  expect_error(
+    MAIHDA:::maihda_app_fit_models(
+      dat, outcome_var = "health_outcome", grouping_vars = "gender",
+      family = "gaussian", decomposition = "cross-classified"),
+    "two grouping")
+})
+
+test_that("Reproducible code mirrors the cross-classified decomposition", {
+  code <- MAIHDA:::maihda_app_generate_code(
+    outcome_var = "math", grouping_vars = c("gender", "ses"),
+    additional_covars = "escs", family = "gaussian",
+    autobin = TRUE, use_boot = FALSE, seed = NULL, dataset = "pisa",
+    decomposition = "cross-classified"
+  )
+  expect_true(grepl('decomposition = "cross-classified"', code, fixed = TRUE))
+  expect_true(grepl("analysis$decomposition$additive_share", code, fixed = TRUE))
+  # Cross-classified mode has no two-model PCV or stepwise step.
+  expect_false(grepl("analysis$pcv", code, fixed = TRUE))
+  expect_false(grepl("stepwise_pcv(", code, fixed = TRUE))
+})
+
+test_that("Explorer renders in cross-classified mode from the decomposition", {
+  for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
+  dat <- MAIHDA::maihda_sim_data[seq_len(300), ]
+  res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
+    dat = dat, outcome_var = "health_outcome",
+    grouping_vars = c("gender", "race", "education"),
+    family = "gaussian", decomposition = "cross-classified")))
+
+  shiny::testServer(
+    MAIHDA:::mod_explorer_server,
+    args = list(
+      model_results = shiny::reactiveVal(res$model),
+      null_summary_results = shiny::reactiveVal(res$summary_obj),
+      summary_results = shiny::reactiveVal(res$summary_obj),
+      pvc_results = shiny::reactiveVal(NULL),
+      group_vars = shiny::reactiveVal(c("gender", "race", "education")),
+      decomposition_results = shiny::reactiveVal(res$decomposition)
+    ),
+    expr = {
+      session$setInputs(hud_top_n = 5, hud_sort_var = "effect", hud_color_var = "deviant")
+      ui_txt <- paste(unlist(output$interactive_explorer_ui), collapse = " ")
+      expect_false(grepl("Nothing to explore yet", ui_txt))
+      expect_match(ui_txt, "Additive share")
+      expect_no_error(hud_plot_data())
+    }
+  )
+})
+
+test_that("Full server renders the cross-classified decomposition on the PCV tab", {
+  for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
+  app_env <- maihda_source_app_for_test()
+  dat <- MAIHDA::maihda_sim_data[seq_len(300), ]
+  res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
+    dat = dat, outcome_var = "health_outcome",
+    grouping_vars = c("gender", "race", "education"),
+    family = "gaussian", decomposition = "cross-classified")))
+
+  shiny::testServer(app_env$server, {
+    session$setInputs(dataset = "pisa")
+    model_results(res$model)
+    summary_results(res$summary_obj)
+    null_summary_results(res$summary_obj)
+    decomposition_results(res$decomposition)
+    decomposition_mode("cross-classified")
+    pvc_results(NULL)
+    stepwise_results(NULL)
+    session$flushReact()
+
+    pcv_txt <- paste(unlist(output$pvc_summary_ui), collapse = " ")
+    expect_match(pcv_txt, "Additive vs. Intersectional Decomposition")
+    expect_match(pcv_txt, "Additive share")
+
+    step_txt <- paste(unlist(output$stepwise_pcv_ui), collapse = " ")
+    expect_match(step_txt, "Stepwise PCV not used here")
   })
 })
 

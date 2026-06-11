@@ -1,0 +1,163 @@
+---
+title: "Cross-classified MAIHDA: additive vs. interaction in one model"
+author: "Hamid Bulut"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Cross-classified MAIHDA: additive vs. interaction in one model}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+```
+
+## Two ways to split intersectional inequality
+
+Intersectional MAIHDA asks how much of the variation in an outcome lies *between*
+intersectional strata, and how much of that between-stratum variation is **additive**
+(explained by the constituent dimensions' main effects) versus a genuinely
+**intersectional interaction** (over and above the additive parts).
+
+The package offers two estimators for that split, selected with the `decomposition`
+argument of `maihda()`:
+
+* **`"two-model"` (default)** -- the classic approach. Fit a *null* model and an
+  *adjusted* model that adds the dimensions' additive main effects as **fixed**
+  effects, and read the additive share from the **PCV** (the proportional change in
+  between-stratum variance). See `vignette("introduction", package = "MAIHDA")`.
+* **`"cross-classified"`** -- a **single** model that enters each dimension's additive
+  main effect as a **random** intercept:
+
+  $$y_i = \beta_0 + \mathbf{x}_i\boldsymbol\beta
+    + u^{(1)}_{d_1[i]} + \dots + u^{(K)}_{d_K[i]} + u^{(\text{stratum})}_{s[i]} + e_i.$$
+
+  Each dimension's random-effect variance is its additive contribution, and the full
+  intersection (`stratum`) random-effect variance is the interaction *beyond* additive.
+  The additive and interaction shares of the total between-strata variance are read
+  directly from this one fit.
+
+This is exactly the cross-classified random-effects design used in the published
+cross-classified MAIHDA studies. It is fit with ordinary multilevel software --
+`lme4` for a frequentist fit or `brms` for a Bayesian one -- so it does **not** require
+any special toolchain.
+
+## Running a cross-classified analysis
+
+```{r fit}
+library(MAIHDA)
+data("maihda_health_data")
+
+cc <- maihda(
+  BMI ~ Age + (1 | Gender:Race:Education),
+  data = maihda_health_data,
+  decomposition = "cross-classified"
+)
+cc
+```
+
+`maihda()` builds the cross-classified model for you from the intersectional shorthand:
+it reads the dimensions (`Gender`, `Race`, `Education`) from the grouping term, adds one
+additive random intercept per dimension plus the intersection random intercept, and
+fits the single model:
+
+```{r formula}
+cc$formula
+```
+
+The partition is on `cc$decomposition` (and printed above):
+
+```{r decomposition}
+cc$decomposition$additive_var        # sum of the dimension random-effect variances
+cc$decomposition$interaction_var     # the intersection random-effect variance
+cc$decomposition$additive_share      # additive share of the between-strata variance
+cc$decomposition$interaction_share   # the complement: the interaction share
+cc$decomposition$per_dim             # additive variance per dimension
+```
+
+`summary()` shows the full variance-components table (one row per dimension, the
+interaction, and the residual) alongside the decomposition:
+
+```{r summary}
+summary(cc$model)
+```
+
+### Figures
+
+The variance-partition and decomposition figures are cross-classified-aware: the VPC
+plot shows one additive slice per dimension plus the interaction and residual, and the
+deviation decomposition splits each stratum's deviation into its additive
+(dimension random effects) and interaction (intersection random effect) parts.
+
+```{r plots, eval = FALSE}
+plot(cc, type = "vpc")            # per-dimension additive + interaction + residual
+plot(cc, type = "effect_decomp")  # additive vs. interaction, per stratum
+plot(cc, type = "ternary")        # additive / interaction / uncertainty per stratum
+```
+
+## Comparing across a higher-level group
+
+Pass a `group` to decompose within each level of a higher-level variable -- here, how
+the additive-vs-interaction split differs across countries in the PISA data:
+
+```{r groups, eval = FALSE}
+data("maihda_country_data")
+cc_grp <- maihda(
+  math ~ 1 + (1 | gender:ses),
+  data = maihda_country_data,
+  group = "country",
+  decomposition = "cross-classified"
+)
+plot(cc_grp, type = "group_additive_share")  # additive share by country
+plot(cc_grp, type = "group_components")       # additive / interaction / residual
+```
+
+## A Bayesian fit
+
+Set `engine = "brms"` for a Bayesian cross-classified fit; the additive and interaction
+shares then carry posterior **credible** intervals (no bootstrap needed). This is the
+recommended engine when dimensions have few levels (see the caveats below).
+
+```{r brms, eval = FALSE}
+cc_b <- maihda(
+  BMI ~ Age + (1 | Gender:Race:Education),
+  data = maihda_health_data,
+  engine = "brms",
+  decomposition = "cross-classified"
+)
+cc_b$decomposition$additive_share_ci
+```
+
+## Two important caveats
+
+1. **The additive share is not the PCV.** The two-model PCV and the cross-classified
+   additive share target the same idea -- how much of the between-strata variance is
+   additive -- but with **different estimators** (fixed main effects across two models
+   vs. a single model's random main-effect variances, which are partially pooled). They
+   will be close but not numerically identical; do not treat one as a check on the
+   other.
+
+2. **Few-level dimensions are poorly identified.** A dimension's additive variance is
+   estimated from its handful of levels. A binary dimension (e.g. a two-level sex
+   variable) contributes a variance estimated from just two groups, which `lme4` will
+   often pin at the boundary (a *singular fit*), inflating the additive share and
+   shrinking the interaction toward zero. Watch for the singular-fit note in the
+   output, and prefer `engine = "brms"`, whose weakly-informative priors regularise
+   these variances, when dimensions are few-levelled.
+
+## Genuinely cross-classified *data*
+
+The same machinery also serves a genuinely cross-classified data structure -- where
+units belong to two non-nested higher-level groupings (for example strata crossed with
+region, or an age--period--cohort design). Build the model with `fit_maihda()` using a
+`stratum` column from `make_strata()` plus the extra grouping factor, e.g.
+`outcome ~ covars + (1 | stratum) + (1 | region)`, and `summary()` reports each
+grouping factor's variance component. The `decomposition = "cross-classified"` mode of
+`maihda()` is the *additive/interaction* special case of this, where the extra grouping
+factors are the strata's own dimensions.

@@ -330,6 +330,15 @@ plot_comparison <- function(comparison_df) {
 #' @param conf_level Confidence level for bootstrap intervals. Default 0.95.
 #' @param autobin Logical passed to \code{\link{make_strata}} controlling tertile
 #'   binning of numeric grouping variables. Default TRUE.
+#' @param decomposition Per-group additive-vs-interaction decomposition: the two-model
+#'   null -> adjusted PCV (\code{"two-model"}, default) or the single cross-classified
+#'   model (\code{"cross-classified"}). The cross-classified form requires
+#'   \code{shared_strata = TRUE} and at least two stratum dimensions, and adds the
+#'   \code{var_additive}, \code{var_interaction}, \code{additive_share} and
+#'   \code{interaction_share} columns (in place of \code{pcv} /
+#'   \code{var_between_adjusted}); \code{var_between} is then the total between-strata
+#'   variance (additive + interaction). See \code{\link{maihda}} for the underlying
+#'   model and its caveats.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'
@@ -392,10 +401,18 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                                   family = "gaussian", shared_strata = TRUE,
                                   min_group_n = 30, bootstrap = FALSE,
                                   n_boot = 1000, conf_level = 0.95,
-                                  autobin = TRUE, ...) {
+                                  autobin = TRUE,
+                                  decomposition = c("two-model", "cross-classified"),
+                                  ...) {
+  decomposition <- match.arg(decomposition)
   # ---- input validation ----
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a formula object", call. = FALSE)
+  }
+  if (decomposition == "cross-classified" && !isTRUE(shared_strata)) {
+    stop("decomposition = \"cross-classified\" requires shared_strata = TRUE so the ",
+         "stratum dimensions are recorded once on the full data and the cross-classified ",
+         "model can be built per group.", call. = FALSE)
   }
   if (!is.data.frame(data)) {
     stop("'data' must be a data frame", call. = FALSE)
@@ -493,12 +510,19 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   data <- prepared$data
   fit_formula <- prepared$formula
 
-  # Whether to run the per-group null -> adjusted PCV decomposition. It needs at
-  # least two stratum dimensions (with one dimension there is no intersection to
-  # decompose, and the single main effect would render the stratum random intercept
-  # redundant). When FALSE the pcv columns are dropped from the result below.
+  # Whether to run a per-group additive-vs-interaction decomposition. Both forms need
+  # at least two stratum dimensions (with one dimension there is no intersection to
+  # decompose). do_decomp = the two-model null -> adjusted PCV; do_cc = the single
+  # cross-classified model. When neither runs the decomposition columns are dropped.
   decomp_vars <- prepared$strata_vars
-  do_decomp <- !is.null(decomp_vars) && length(decomp_vars) >= 2
+  has_two_dims <- !is.null(decomp_vars) && length(decomp_vars) >= 2
+  if (decomposition == "cross-classified" && !has_two_dims) {
+    stop("decomposition = \"cross-classified\" needs at least two stratum dimensions, ",
+         "but the strata are defined by a single dimension (",
+         paste(decomp_vars, collapse = ", "), ").", call. = FALSE)
+  }
+  do_cc <- decomposition == "cross-classified" && has_two_dims
+  do_decomp <- decomposition == "two-model" && has_two_dims
 
   strata_attr_names <- c("strata_info", "strata_vars", "strata_sep", "strata_autobin_info")
   carried_attrs <- stats::setNames(
@@ -548,6 +572,8 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       vpc = NA_real_, var_between = NA_real_, var_other = NA_real_,
       var_residual = NA_real_,
       pcv = NA_real_, var_between_adjusted = NA_real_,
+      var_additive = NA_real_, var_interaction = NA_real_,
+      additive_share = NA_real_, interaction_share = NA_real_,
       ci_lower = NA_real_, ci_upper = NA_real_,
       status = NA_character_, stringsAsFactors = FALSE
     )
@@ -581,15 +607,31 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       next
     }
 
+    # Fit the per-group model. In cross-classified mode this is the single
+    # cross-classified model (dimension REs + intersection RE); otherwise the
+    # canonical single-stratum model. Both share the fit/summary/error plumbing.
     fit_obj <- tryCatch(
       {
         # Pass the per-group SLICED dot values (not the raw full-length `...`) so
         # weights/subset/offset align with this group's rows.
-        model <- do.call(
-          fit_maihda,
-          c(list(fit_formula, sub, engine = engine, family = family),
-            slice_dots_for_group(idx))
-        )
+        if (do_cc) {
+          cc <- maihda_cross_classified_formula(
+            fit_formula, decomp_vars, carried_attrs[["strata_autobin_info"]], sub)
+          model <- do.call(
+            fit_maihda,
+            c(list(cc$formula, cc$data, engine = engine, family = family),
+              slice_dots_for_group(idx))
+          )
+          model$cc_info <- list(dim_groups = cc$dim_groups,
+                                interaction_group = cc$interaction_group,
+                                dim_labels = decomp_vars)
+        } else {
+          model <- do.call(
+            fit_maihda,
+            c(list(fit_formula, sub, engine = engine, family = family),
+              slice_dots_for_group(idx))
+          )
+        }
         summ <- summary(model, bootstrap = bootstrap, n_boot = n_boot,
                         conf_level = conf_level)
         list(model = model, summ = summ, error = NULL)
@@ -604,15 +646,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       next
     }
 
-    vc <- fit_obj$summ$variance_components
     row$vpc <- fit_obj$summ$vpc$estimate
-    row$var_between <- vc$variance[vc$component == "Between-stratum (random)"][1]
-    row$var_residual <- vc$variance[vc$component == "Within-stratum (residual)"][1]
-    # Variance of any additional random effects (0 for the canonical single
-    # stratum model). Captured so the VPC, the variance columns, and the
-    # components plot stay mutually consistent when extra random effects exist.
-    other_var <- vc$variance[vc$component == "Other random effects"]
-    row$var_other <- if (length(other_var) > 0) sum(other_var) else 0
     # Report the analytic sample size actually used by the model (lme4 drops rows
     # with missing outcome/covariates), not the raw group row count.
     analytic_n <- maihda_nobs(fit_obj$model$model)
@@ -622,28 +656,51 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     populated_strata[[g]] <- group_strata
     row$status <- "ok"
 
-    # Per-group PCV decomposition: fit the adjusted model (null + the dimensions'
-    # additive main effects) on this group's same sample/strata and record the
-    # proportional change in between-stratum variance. The adjusted formula uses the
-    # global (shared) auto-bin recipe carried on the fitted model, so binned factors
-    # match across groups. A failure here (a singular adjusted fit, or zero null
-    # between-variance) leaves pcv as NA without aborting the comparison.
-    if (do_decomp) {
-      af <- maihda_adjusted_formula(fit_obj$model$formula, fit_obj$model$strata_vars,
-                                    fit_obj$model$strata_autobin_info,
-                                    fit_obj$model$original_data)
-      if (!is.null(af)) {
-        pcv_obj <- tryCatch({
-          adj_model <- do.call(
-            fit_maihda,
-            c(list(af$formula, af$data, engine = engine, family = family),
-              slice_dots_for_group(idx))
-          )
-          calculate_pvc(fit_obj$model, adj_model)
-        }, error = function(e) NULL)
-        if (!is.null(pcv_obj)) {
-          row$pcv <- pcv_obj$pvc
-          row$var_between_adjusted <- pcv_obj$var_model2
+    if (do_cc) {
+      # Cross-classified partition read from the single fit: var_between is the total
+      # between-strata variance (additive + interaction); the additive share is the
+      # cross-classified analogue of the PCV.
+      dcmp <- fit_obj$summ$decomposition
+      row$var_between <- dcmp$between_var
+      row$var_residual <- dcmp$within_var
+      row$var_other <- 0
+      row$var_additive <- dcmp$additive_var
+      row$var_interaction <- dcmp$interaction_var
+      row$additive_share <- dcmp$additive_share
+      row$interaction_share <- dcmp$interaction_share
+    } else {
+      vc <- fit_obj$summ$variance_components
+      row$var_between <- vc$variance[vc$component == "Between-stratum (random)"][1]
+      row$var_residual <- vc$variance[vc$component == "Within-stratum (residual)"][1]
+      # Variance of any additional random effects (0 for the canonical single
+      # stratum model). Captured so the VPC, the variance columns, and the
+      # components plot stay mutually consistent when extra random effects exist.
+      other_var <- vc$variance[vc$component == "Other random effects"]
+      row$var_other <- if (length(other_var) > 0) sum(other_var) else 0
+
+      # Per-group PCV decomposition: fit the adjusted model (null + the dimensions'
+      # additive main effects) on this group's same sample/strata and record the
+      # proportional change in between-stratum variance. The adjusted formula uses the
+      # global (shared) auto-bin recipe carried on the fitted model, so binned factors
+      # match across groups. A failure here (a singular adjusted fit, or zero null
+      # between-variance) leaves pcv as NA without aborting the comparison.
+      if (do_decomp) {
+        af <- maihda_adjusted_formula(fit_obj$model$formula, fit_obj$model$strata_vars,
+                                      fit_obj$model$strata_autobin_info,
+                                      fit_obj$model$original_data)
+        if (!is.null(af)) {
+          pcv_obj <- tryCatch({
+            adj_model <- do.call(
+              fit_maihda,
+              c(list(af$formula, af$data, engine = engine, family = family),
+                slice_dots_for_group(idx))
+            )
+            calculate_pvc(fit_obj$model, adj_model)
+          }, error = function(e) NULL)
+          if (!is.null(pcv_obj)) {
+            row$pcv <- pcv_obj$pvc
+            row$var_between_adjusted <- pcv_obj$var_model2
+          }
         }
       }
     }
@@ -710,11 +767,19 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     out$ci_lower <- NULL
     out$ci_upper <- NULL
   }
-  # Drop the decomposition columns entirely when no group could be decomposed
-  # (fewer than two dimensions), keeping the plain VPC-comparison schema.
+  # Keep only the decomposition columns for the mode that ran: the two-model PCV
+  # columns (pcv, var_between_adjusted) in "two-model" mode, the cross-classified
+  # columns (var_additive, var_interaction, additive_share, interaction_share) in
+  # "cross-classified" mode; drop both when no decomposition ran (single dimension).
   if (!do_decomp) {
     out$pcv <- NULL
     out$var_between_adjusted <- NULL
+  }
+  if (!do_cc) {
+    out$var_additive <- NULL
+    out$var_interaction <- NULL
+    out$additive_share <- NULL
+    out$interaction_share <- NULL
   }
   rownames(out) <- NULL
 
@@ -722,6 +787,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   attr(out, "engine") <- engine
   attr(out, "family") <- if (is.character(family)) family else family$family
   attr(out, "shared_strata") <- shared_strata
+  attr(out, "decomposition") <- decomposition
   class(out) <- c("maihda_group_comparison", "data.frame")
   out
 }
@@ -855,10 +921,13 @@ maihda_compose_caption <- function(...) {
 #' @param x A \code{maihda_group_comparison} object from
 #'   \code{\link{compare_maihda_groups}}.
 #' @param type One of "vpc" (default) for VPC by group with optional bootstrap
-#'   confidence intervals, "components" for stacked variance proportions,
-#'   "between_variance" for the absolute between-stratum variance by group, or "pcv"
-#'   for the additive share (null -> adjusted proportional change in between-stratum
-#'   variance) by group. The VPC is a \emph{share} of the unexplained variance;
+#'   confidence intervals, "components" for stacked variance proportions (additive /
+#'   interaction / residual for a cross-classified comparison, between / other /
+#'   residual otherwise), "between_variance" for the absolute between-stratum variance
+#'   by group, "pcv" for the two-model additive share (null -> adjusted proportional
+#'   change in between-stratum variance) by group, or "additive_share" for the
+#'   cross-classified additive share by group. The VPC is a \emph{share} of the
+#'   unexplained variance;
 #'   "between_variance" shows the \emph{magnitude} the ratio cannot convey (two groups
 #'   with very different VPCs can share a between-stratum variance, and vice versa);
 #'   "pcv" requires strata defined by at least two dimensions.
@@ -879,7 +948,7 @@ maihda_compose_caption <- function(...) {
 #' @export
 #' @import ggplot2
 #' @importFrom rlang .data
-plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "between_variance", "pcv"), ...) {
+plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "between_variance", "pcv", "additive_share"), ...) {
   if (!inherits(x, "maihda_group_comparison")) {
     stop("'x' must be a maihda_group_comparison object from compare_maihda_groups().",
          call. = FALSE)
@@ -1020,10 +1089,96 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
     )
   }
 
-  # type == "components": stacked variance proportions per group. Include any
-  # "Other random effects" variance so the slices match the VPC denominator
-  # (between + other + residual). var_other is 0 for the canonical single
-  # stratum model and the slice is omitted when no group has additional REs.
+  if (type == "additive_share") {
+    # Cross-classified additive share by group (parallel to the two-model "pcv").
+    if (!"additive_share" %in% names(df)) {
+      stop("No additive share to plot: this comparison was not run with ",
+           "decomposition = \"cross-classified\".", call. = FALSE)
+    }
+    df_as <- df[is.finite(df$additive_share), , drop = FALSE]
+    if (nrow(df_as) == 0) {
+      stop("No groups with an estimable additive share to plot.", call. = FALSE)
+    }
+    df_as <- df_as[order(df_as$additive_share), , drop = FALSE]
+    df_as$group <- factor(df_as$group, levels = df_as$group)
+
+    as_caption <- maihda_compose_caption(
+      paste("Additive share = additive (dimension main-effect) variance as a fraction of",
+            "the total between-strata variance, from the single cross-classified model.",
+            "The complement is the intersectional interaction share. A partial-pooling",
+            "estimate -- dimensions with few levels are poorly identified."),
+      omit_note
+    )
+
+    return(
+      ggplot(df_as, aes(x = .data$group, y = .data$additive_share)) +
+        geom_col(fill = "#CC79A7") +
+        labs(
+          title = "Additive share by group (cross-classified)",
+          x = group_var,
+          y = "Additive share of between-strata variance",
+          caption = as_caption
+        ) +
+        theme_minimal() +
+        theme(
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
+          axis.text.x = element_text(angle = 45, hjust = 1)
+        ) +
+        coord_cartesian(ylim = c(0, 1))
+    )
+  }
+
+  # type == "components": stacked variance proportions per group. In cross-classified
+  # mode the between-strata variance is itself split into the additive (dimension main
+  # effects) and intersectional interaction parts; otherwise it is the single
+  # between-stratum component plus any "Other random effects" (0 for the canonical
+  # single-stratum model). Either way the slices sum to the VPC denominator.
+  if ("var_additive" %in% names(df) && "var_interaction" %in% names(df)) {
+    var_add <- df$var_additive; var_add[is.na(var_add)] <- 0
+    var_int <- df$var_interaction; var_int[is.na(var_int)] <- 0
+    totals <- var_add + var_int + df$var_residual
+    comp <- rbind(
+      data.frame(group = df$group, component = "Additive (dimension main effects)",
+                 variance = var_add, stringsAsFactors = FALSE),
+      data.frame(group = df$group, component = "Intersectional interaction",
+                 variance = var_int, stringsAsFactors = FALSE),
+      data.frame(group = df$group, component = "Within-stratum (residual)",
+                 variance = df$var_residual, stringsAsFactors = FALSE)
+    )
+    total_map <- stats::setNames(totals, as.character(df$group))
+    comp$proportion <- comp$variance / total_map[as.character(comp$group)]
+    comp$group <- factor(comp$group, levels = df$group[order(df$vpc)])
+    comp$component <- factor(
+      comp$component,
+      levels = c("Additive (dimension main effects)", "Intersectional interaction",
+                 "Within-stratum (residual)")
+    )
+    cc_colors <- c(
+      "Additive (dimension main effects)" = "#CC79A7",
+      "Intersectional interaction" = "#E69F00",
+      "Within-stratum (residual)" = "#56B4E9"
+    )
+    return(
+      ggplot(comp, aes(x = .data$group, y = .data$proportion, fill = .data$component)) +
+        geom_bar(stat = "identity", color = "white") +
+        scale_fill_manual(values = cc_colors) +
+        labs(
+          title = "Variance Composition by Group (cross-classified)",
+          x = group_var,
+          y = "Proportion of Variance",
+          fill = "Component",
+          caption = maihda_compose_caption(omit_note)
+        ) +
+        theme_minimal() +
+        theme(
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
+          axis.text.x = element_text(angle = 45, hjust = 1)
+        )
+    )
+  }
+
   var_other <- if ("var_other" %in% names(df)) df$var_other else rep(0, nrow(df))
   var_other[is.na(var_other)] <- 0
   totals <- df$var_between + var_other + df$var_residual
@@ -1086,7 +1241,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
 #' @return A ggplot2 object.
 #' @keywords internal
 #' @export
-plot_group_comparison <- function(x, type = c("vpc", "components", "between_variance", "pcv")) {
+plot_group_comparison <- function(x, type = c("vpc", "components", "between_variance", "pcv", "additive_share")) {
   .Deprecated("plot", msg = paste(
     "'plot_group_comparison()' is deprecated.",
     "Use plot() on the compare_maihda_groups() result, e.g. plot(cmp, type = 'vpc')."
