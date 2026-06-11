@@ -18,6 +18,7 @@ articles:
     contents:
       - binary_outcomes
       - group_comparison
+      - cross_classified
   - title: Interpretation
     navbar: Interpretation
     contents:
