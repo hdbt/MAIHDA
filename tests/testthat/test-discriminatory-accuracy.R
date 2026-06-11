@@ -265,4 +265,28 @@ test_that("maihda(response_vpc = TRUE) attaches the response-scale VPC to the nu
   ))
   expect_s3_class(a$summary$vpc_response, "maihda_vpc_response")
   expect_true(is.finite(a$summary$vpc_response$estimate))
+  # The headline print() renders the response-scale VPC line.
+  expect_output(print(a), "Response-scale VPC \\(null\\)")
+})
+
+test_that("maihda() headline DA shows MOR = NA for a non-logit (probit) binomial fit", {
+  skip_on_cran()
+  set.seed(9)
+  n <- 1500
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- stats::rbinom(n, 1, stats::pnorm(stats::rnorm(nlevels(sk), sd = 0.5)[sk]))
+
+  a <- suppressWarnings(suppressMessages(
+    maihda(y ~ (1 | gender:race), data = d, family = stats::binomial("probit"))
+  ))
+  da <- a$summary$discriminatory_accuracy
+  expect_s3_class(da, "maihda_da")
+  expect_true(is.finite(da$auc))   # AUC is link-agnostic
+  expect_true(is.na(da$mor))       # MOR undefined for a probit link
+  # The headline print renders the NA MOR via the fmt() NA branch.
+  expect_output(print(a), "MOR: NA")
 })
