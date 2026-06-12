@@ -119,10 +119,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> Use summary() for variance components and plot(type = ...) for figures.
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x55c7904e3070>
+#> <environment: 0x55ad246be5a0>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x55c78ced3cf8>
+#> <environment: 0x55ad210ca5d8>
 ```
 
 The returned object carries everything: the full variance components,
