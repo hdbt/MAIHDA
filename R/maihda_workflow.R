@@ -49,7 +49,22 @@
 #'   variable, if used).
 #' @param group Optional character string naming a higher-level grouping variable
 #'   (e.g. \code{"country"}). When supplied, \code{\link{compare_maihda_groups}}
-#'   is run and attached to the result.
+#'   is run and attached to the result. \code{group} runs a \emph{stratified}
+#'   analysis (one independent model per level); to instead model a higher level
+#'   \emph{jointly}, crossed with the strata, use \code{context}. The two are
+#'   different designs, so supplying both errors.
+#' @param context Optional character vector naming higher-level \emph{context}
+#'   column(s) in \code{data} (e.g. \code{"school"}, \code{"hospital"},
+#'   \code{"region"}), forwarded to \code{\link{fit_maihda}}. Each context enters
+#'   every fitted model as a crossed random intercept --
+#'   \code{outcome ~ covars + (1 | stratum) + (1 | context)} -- the
+#'   \emph{contextual cross-classified MAIHDA} of the literature. The summaries
+#'   then partition the unexplained variance into between-stratum vs.
+#'   between-context vs. residual, the headline VPC/ICC becomes the between-stratum
+#'   share \emph{net of} the context, and the PCV decomposition is computed with the
+#'   context partialled out (the context random intercept is carried by both the
+#'   null and the adjusted model). Cannot be combined with \code{group}; a context
+#'   with few levels weakly identifies its variance (consider \code{engine = "brms"}).
 #' @param engine Modeling engine, "lme4" (default) or "brms".
 #' @param family Model family. Default "gaussian". As in \code{\link{fit_maihda}},
 #'   a binary outcome is auto-detected when \code{family} is left at the default,
@@ -59,7 +74,7 @@
 #'   and interaction parts. \code{"two-model"} (default) is the classic MAIHDA
 #'   approach: a null model and an adjusted model (the dimensions' additive main
 #'   effects as \emph{fixed} effects), with the additive share read from the PCV
-#'   (proportional change in between-stratum variance). \code{"cross-classified"}
+#'   (proportional change in between-stratum variance). \code{"crossed-dimensions"}
 #'   fits a \strong{single} model that enters each dimension's additive main effect as
 #'   a \emph{random} intercept -- \code{outcome ~ covars + (1 | dim1) + ... +
 #'   (1 | stratum)} -- so each dimension's RE variance is its additive contribution and
@@ -67,10 +82,14 @@
 #'   the additive and interaction \emph{shares} of the total between-strata variance are
 #'   read directly from that one fit. The two modes target the same scientific question
 #'   with different estimators, so their additive shares are conceptually parallel but
-#'   not numerically identical. The cross-classified additive share is a partial-pooling
+#'   not numerically identical. The crossed-dimensions additive share is a partial-pooling
 #'   estimate: dimensions with few levels (e.g. a binary sex variable, whose variance is
 #'   estimated from two groups) are poorly identified and often give a singular lme4 fit
 #'   -- the \code{brms} engine handles this better. See Details.
+#'   (\code{"cross-classified"} is accepted as a deprecated alias for
+#'   \code{"crossed-dimensions"}, with a warning: in the MAIHDA literature
+#'   \dQuote{cross-classified} refers to the contextual stratum-by-place model,
+#'   which this package fits via \code{context}.)
 #' @param autobin Logical passed to \code{\link{make_strata}}; tertile-bins numeric
 #'   grouping variables. Default TRUE.
 #' @param shared_strata Logical, forwarded to \code{\link{compare_maihda_groups}}
@@ -95,21 +114,24 @@
 #' @return An object of class \code{maihda_analysis}: a list with
 #'   \item{model}{the fitted \code{maihda_model} (see \code{\link{fit_maihda}}); the
 #'     \strong{null} model in \code{"two-model"} mode, or the single
-#'     \strong{cross-classified} model in \code{"cross-classified"} mode}
+#'     \strong{crossed-dimensions} model in \code{"crossed-dimensions"} mode}
 #'   \item{summary}{the model's \code{maihda_summary} (VPC/ICC, variance components,
 #'     stratum estimates; plus the additive/interaction \code{decomposition} in
-#'     cross-classified mode)}
+#'     crossed-dimensions mode, and the stratum-vs-context \code{context} partition
+#'     when \code{context} is supplied)}
 #'   \item{model_adjusted}{the fitted \strong{adjusted} \code{maihda_model}
 #'     (\code{"two-model"} mode only; \code{NULL} otherwise)}
 #'   \item{summary_adjusted}{the adjusted model's \code{maihda_summary}, or \code{NULL}}
 #'   \item{pcv}{the \code{pvc_result} from \code{\link{calculate_pvc}}
 #'     (\code{"two-model"} mode only; \code{NULL} otherwise)}
 #'   \item{decomposition}{the additive/interaction partition (additive and interaction
-#'     variances and shares, per-dimension variances; \code{"cross-classified"} mode
+#'     variances and shares, per-dimension variances; \code{"crossed-dimensions"} mode
 #'     only, \code{NULL} otherwise)}
 #'   \item{groups}{a \code{maihda_group_comparison} when \code{group} is supplied,
 #'     otherwise \code{NULL}}
-#'   \item{mode}{\code{"two-model"} or \code{"cross-classified"}}
+#'   \item{mode}{\code{"two-model"} or \code{"crossed-dimensions"}}
+#'   \item{context_vars}{the context variable name(s) when \code{context} was
+#'     supplied, otherwise \code{NULL}}
 #'   \item{formula, adjusted_formula, group_var, call}{bookkeeping for printing}
 #'
 #' @seealso \code{\link{fit_maihda}} for the single-model fitter,
@@ -136,13 +158,13 @@
 #' plot(a, type = "vpc")          # null model
 #' plot(a, type = "effect_decomp")# adjusted model (additive vs intersectional)
 #'
-#' # Cross-classified decomposition: one model, the dimensions' main effects entered as
-#' # RANDOM intercepts. The additive and interaction shares of the between-strata
+#' # Crossed-dimensions decomposition: one model, the dimensions' main effects entered
+#' # as RANDOM intercepts. The additive and interaction shares of the between-strata
 #' # variance are read directly from the single fit (no null/adjusted pair).
 #' cc <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data,
-#'              decomposition = "cross-classified")
+#'              decomposition = "crossed-dimensions")
 #' cc                                    # VPC and additive/interaction shares
-#' cc$decomposition$additive_share       # cross-classified analogue of the PCV
+#' cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #' cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #'
 #' # Add a higher-level grouping variable to also compare across its levels.
@@ -153,18 +175,37 @@
 #' a2
 #' plot(a2, type = "group_vpc")
 #' plot(a2, type = "group_pcv")
+#'
+#' # Contextual cross-classified MAIHDA: instead of one model per country (group=),
+#' # model the strata CROSSED with country in a single fit. The summary partitions
+#' # the unexplained variance into between-stratum vs. between-country vs. residual,
+#' # and the PCV is computed with country partialled out.
+#' a3 <- maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data,
+#'              context = "country")
+#' a3
+#' a3$summary$context$vpc_context_total  # the country (general contextual) share
+#' plot(a3, type = "context_vpc")
 #' }
 #'
 #' @export
-maihda <- function(formula, data, group = NULL, engine = "lme4",
+maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
                    family = "gaussian",
-                   decomposition = c("two-model", "cross-classified"),
+                   decomposition = c("two-model", "crossed-dimensions"),
                    autobin = TRUE, shared_strata = TRUE,
                    min_group_n = 30, bootstrap = FALSE,
                    n_boot = 1000, conf_level = 0.95,
                    response_vpc = FALSE, seed = NULL, ...) {
   call <- match.call()
-  decomposition <- match.arg(decomposition)
+  decomposition <- maihda_resolve_decomposition(decomposition)
+
+  # group= (stratified: one independent model per level) and context= (joint:
+  # strata crossed with the higher level in ONE model) are different designs for
+  # bringing in a higher level; combining them is ambiguous, so error early.
+  if (!is.null(group) && !is.null(context)) {
+    stop("Supply either 'group' (stratified comparison: one independent model per ",
+         "level) or 'context' (contextual cross-classified model: strata crossed ",
+         "with the higher level in one fit), not both.", call. = FALSE)
+  }
 
   # Fit the supplied formula first -- this resolves the stratum dimensions (and the
   # stratum column) and the family. Depending on whether the formula already lists the
@@ -173,10 +214,11 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
   # can auto-detect a binary outcome, then reuse the resolved family for every model so
   # they agree.
   if (missing(family)) {
-    model <- fit_maihda(formula, data, engine = engine, autobin = autobin, ...)
+    model <- fit_maihda(formula, data, engine = engine, autobin = autobin,
+                        context = context, ...)
   } else {
     model <- fit_maihda(formula, data, engine = engine, family = family,
-                        autobin = autobin, ...)
+                        autobin = autobin, context = context, ...)
   }
   family_used <- model$family
 
@@ -220,13 +262,13 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
       paste(". ~ . -", paste(sprintf("`%s`", terms), collapse = " - "))))
   }
 
-  # --- Cross-classified decomposition ------------------------------------------
+  # --- Crossed-dimensions decomposition -----------------------------------------
   # A single model that estimates each dimension's additive main effect as a RANDOM
   # intercept (its variance is that dimension's additive contribution) and the
-  # intersection as the interaction RE. This is the cross-classified alternative to
-  # the two-model fixed-effects PCV below. Any dimension main effects the user wrote
-  # as fixed terms are stripped first -- here they enter as random effects.
-  if (decomposition == "cross-classified") {
+  # intersection as the interaction RE. This is the crossed-dimensions alternative
+  # to the two-model fixed-effects PCV below. Any dimension main effects the user
+  # wrote as fixed terms are stripped first -- here they enter as random effects.
+  if (decomposition == "crossed-dimensions") {
     base_formula <- if (length(present_terms) > 0) {
       remove_terms(model$formula, present_terms)
     } else {
@@ -235,8 +277,11 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
     cc <- maihda_cross_classified_formula(base_formula, strata_vars,
                                           model$strata_autobin_info,
                                           model$original_data)
+    # The formula builder strips ALL random effects before adding the dimension +
+    # intersection intercepts; passing `context` again re-appends (and re-tags) any
+    # contextual random intercept, so the two structures compose in one fit.
     cc_model <- fit_maihda(cc$formula, cc$data, engine = engine,
-                           family = family_used, ...)
+                           family = family_used, context = context, ...)
     # Tag the fit so summary()/plot() read the additive-vs-interaction partition.
     cc_model$cc_info <- list(dim_groups = cc$dim_groups,
                              interaction_group = cc$interaction_group,
@@ -256,7 +301,7 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
         group_formula, data, group = group, engine = engine, family = family_used,
         shared_strata = shared_strata, min_group_n = min_group_n,
         autobin = autobin, bootstrap = bootstrap, n_boot = n_boot,
-        conf_level = conf_level, decomposition = "cross-classified", ...
+        conf_level = conf_level, decomposition = "crossed-dimensions", ...
       )
     }
 
@@ -272,13 +317,20 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
         formula = cc_model$formula,
         adjusted_formula = NULL,
         group_var = group,
-        mode = "cross-classified",
+        mode = "crossed-dimensions",
+        context_vars = context,
         call = call
       ),
       class = "maihda_analysis"
     ))
   }
 
+  # In the branches below every derived formula already carries any contextual
+  # random intercept (it is part of model$formula and survives remove_terms /
+  # maihda_adjusted_formula); passing `context` again is idempotent in
+  # fit_maihda() -- it only re-tags the fit so the summaries report the
+  # stratum-vs-context partition. The null and adjusted models therefore share the
+  # same context structure and the PCV is computed with the context partialled out.
   if (length(present_terms) == 0) {
     # No dimension main effects in the formula: the supplied fit IS the null; build
     # the adjusted by adding the dimensions' additive main effects.
@@ -287,7 +339,7 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
                                   null_model$strata_autobin_info,
                                   null_model$original_data)
     adjusted_model <- fit_maihda(af$formula, af$data, engine = engine,
-                                 family = family_used, ...)
+                                 family = family_used, context = context, ...)
     adjusted_formula <- af$formula
   } else if (length(missing_vars) == 0) {
     # Every dimension main effect is already present (the fully-specified adjusted
@@ -296,18 +348,18 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
     adjusted_formula <- model$formula
     null_model <- fit_maihda(remove_terms(model$formula, present_terms),
                              model$original_data, engine = engine,
-                             family = family_used, ...)
+                             family = family_used, context = context, ...)
   } else {
     # Some dimension main effects present, some missing: fit a clean null (covariates
     # only) and a clean adjusted (all dimension main effects).
     null_model <- fit_maihda(remove_terms(model$formula, present_terms),
                              model$original_data, engine = engine,
-                             family = family_used, ...)
+                             family = family_used, context = context, ...)
     af <- maihda_adjusted_formula(null_model$formula, strata_vars,
                                   null_model$strata_autobin_info,
                                   null_model$original_data)
     adjusted_model <- fit_maihda(af$formula, af$data, engine = engine,
-                                 family = family_used, ...)
+                                 family = family_used, context = context, ...)
     adjusted_formula <- af$formula
   }
 
@@ -368,6 +420,7 @@ maihda <- function(formula, data, group = NULL, engine = "lme4",
       adjusted_formula = adjusted_formula,
       group_var = group,
       mode = "two-model",
+      context_vars = context,
       call = call
     ),
     class = "maihda_analysis"
@@ -408,12 +461,16 @@ print.maihda_analysis <- function(x, ...) {
   cat("MAIHDA Analysis\n")
   cat("===============\n\n")
 
-  # Cross-classified mode: one model, additive (dimension REs) vs interaction
+  # Crossed-dimensions mode: one model, additive (dimension REs) vs interaction
   # (intersection RE) read directly. Distinct layout from the two-model PCV below.
-  if (identical(x$mode, "cross-classified")) {
-    cat("Decomposition:   cross-classified (single model)\n")
+  if (identical(x$mode, "crossed-dimensions")) {
+    cat("Decomposition:   crossed-dimensions (single model)\n")
     cat("Formula:         ", paste(deparse(x$formula), collapse = " "), "\n", sep = "")
     cat("Engine: ", x$model$engine, " | Family: ", x$model$family$family, "\n", sep = "")
+    if (!is.null(x$context_vars)) {
+      cat("Context:         ", paste(x$context_vars, collapse = ", "),
+          " (crossed contextual random intercept)\n", sep = "")
+    }
     maihda_print_fit_diagnostics(x$model$diagnostics)
 
     vpc <- x$summary$vpc
@@ -425,6 +482,9 @@ print.maihda_analysis <- function(x, ...) {
     if (!is.null(x$decomposition)) {
       cat("\n")
       maihda_print_cc_decomposition(x$decomposition)
+    }
+    if (!is.null(x$summary$context)) {
+      maihda_print_context_partition(x$summary$context)
     }
     maihda_print_analysis_da(x$summary, x$summary_adjusted)
     if (!is.null(x$summary$stratum_estimates)) {
@@ -443,12 +503,22 @@ print.maihda_analysis <- function(x, ...) {
     cat("Adjusted formula:", paste(deparse(x$adjusted_formula), collapse = " "), "\n", sep = "")
   }
   cat("Engine: ", x$model$engine, " | Family: ", x$model$family$family, "\n", sep = "")
+  if (!is.null(x$context_vars)) {
+    cat("Context: ", paste(x$context_vars, collapse = ", "),
+        " (crossed contextual random intercept in the null and adjusted models)\n",
+        sep = "")
+  }
 
   vpc <- x$summary$vpc
   if (maihda_vpc_has_interval(vpc)) {
     cat(sprintf("VPC/ICC (null): %.4f [%.4f, %.4f]\n", vpc$estimate, vpc$ci_lower, vpc$ci_upper))
   } else {
     cat(sprintf("VPC/ICC (null): %.4f\n", vpc$estimate))
+  }
+  if (!is.null(x$summary$context)) {
+    ctx <- x$summary$context
+    cat(sprintf("Context share (null): %.4f (between-%s share of unexplained variance)\n",
+                ctx$vpc_context_total, paste(ctx$context_vars, collapse = "/")))
   }
 
   if (!is.null(x$pcv)) {
@@ -522,19 +592,25 @@ summary.maihda_analysis <- function(object, ...) {
 #'
 #' @param x A \code{maihda_analysis} object from \code{\link{maihda}}.
 #' @param type One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
-#'   "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation") or a group
-#'   type ("group_vpc", "group_components", "group_between_variance", "group_pcv").
-#'   Default "all".
+#'   "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation"), the
+#'   contextual type ("context_vpc", a stratum-vs-context variance bar; requires
+#'   \code{maihda(context = )}), or a group type ("group_vpc", "group_components",
+#'   "group_between_variance", "group_pcv"). Default "all".
 #' @param ... Additional arguments passed to the underlying plot method.
 #' @return A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
 #' @export
 plot.maihda_analysis <- function(x, type = "all", ...) {
   type <- match.arg(type, c(
     "all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
-    "effect_decomp", "ternary", "prediction_deviation",
+    "effect_decomp", "ternary", "prediction_deviation", "context_vpc",
     "group_vpc", "group_components", "group_between_variance", "group_pcv",
     "group_additive_share"
   ))
+
+  if (type == "context_vpc" && is.null(x$context_vars)) {
+    stop("No contextual partition is available. Call maihda() with a 'context' ",
+         "argument (the contextual cross-classified model).", call. = FALSE)
+  }
 
   group_types <- c("group_vpc", "group_components", "group_between_variance",
                    "group_pcv", "group_additive_share")
@@ -549,10 +625,11 @@ plot.maihda_analysis <- function(x, type = "all", ...) {
 
   # The additive-vs-intersectional views are only interpretable on the adjusted
   # model -- its fixed effects (two-model) or dimension random effects
-  # (cross-classified) carry the dimensions' additive part, so the stratum random
-  # effect is the pure interaction. The VPC and shrinkage views belong to the null /
-  # cross-classified model. In cross-classified mode there is no separate adjusted
-  # model, so all views use x$model (which already carries the additive structure).
+  # (crossed-dimensions) carry the dimensions' additive part, so the stratum random
+  # effect is the pure interaction. The VPC, shrinkage, and context views belong to
+  # the null / crossed-dimensions model. In crossed-dimensions mode there is no
+  # separate adjusted model, so all views use x$model (which already carries the
+  # additive structure).
   adjusted_types <- c("risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation")
   adj_model <- if (!is.null(x$model_adjusted)) x$model_adjusted else x$model
   adj_summary <- if (!is.null(x$model_adjusted)) x$summary_adjusted else x$summary
@@ -565,6 +642,11 @@ plot.maihda_analysis <- function(x, type = "all", ...) {
     null_plots$predicted <- tryCatch(
       plot(x$model, type = "predicted", summary_obj = x$summary, ...),
       error = function(e) NULL)
+    if (!is.null(x$context_vars)) {
+      null_plots$context_vpc <- tryCatch(
+        plot(x$model, type = "context_vpc", summary_obj = x$summary, ...),
+        error = function(e) NULL)
+    }
 
     adj_plots <- list()
     for (t in adjusted_types) {

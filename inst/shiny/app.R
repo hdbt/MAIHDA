@@ -87,9 +87,9 @@ ui <- page_navbar(
         radioButtons("decomposition",
                      tagList("Additive vs. interaction decomposition ",
                              tooltip(icon("info-circle"),
-                                     "Two-model: fit a null and an adjusted model and read the additive share from the PCV. Cross-classified: a single model entering each dimension's additive main effect as a random intercept and the intersection as the interaction, with the additive/interaction shares read off that one fit.")),
+                                     "Two-model: fit a null and an adjusted model and read the additive share from the PCV. Crossed-dimensions: a single model entering each dimension's additive main effect as a random intercept and the intersection as the interaction, with the additive/interaction shares read off that one fit.")),
                      choices = c("Two-model (null vs adjusted, PCV)" = "two-model",
-                                 "Cross-classified (single model)" = "cross-classified"),
+                                 "Crossed-dimensions (single model)" = "crossed-dimensions"),
                      selected = "two-model"),
         checkboxInput("use_boot", "Compute Bootstrap CIs (Slower)", value = FALSE),
         conditionalPanel(
@@ -336,8 +336,8 @@ server <- function(input, output, session) {
   fit_params <- reactiveVal(NULL)      # inputs of the last fit (for the "Reproduce in R" dialog)
   da_results <- reactiveVal(NULL)      # discriminatory accuracy (binomial only): null + adjusted
   comparison_results <- reactiveVal(NULL)  # nested-model VPC comparison (null vs adjusted)
-  decomposition_results <- reactiveVal(NULL)  # cross-classified additive/interaction partition
-  decomposition_mode <- reactiveVal("two-model")  # "two-model" or "cross-classified"
+  decomposition_results <- reactiveVal(NULL)  # crossed-dimensions additive/interaction partition
+  decomposition_mode <- reactiveVal("two-model")  # "two-model" or "crossed-dimensions"
 
   # Monotonic request token: each fit increments it, so a slower superseded future
   # can recognise it is stale and discard its result rather than overwriting a
@@ -421,8 +421,8 @@ server <- function(input, output, session) {
         fitted_family(res$family_used)
         decomposition_mode(res$decomposition_mode)
 
-        if (identical(res$decomposition_mode, "cross-classified")) {
-          # Single cross-classified model: the additive/interaction partition (with
+        if (identical(res$decomposition_mode, "crossed-dimensions")) {
+          # Single crossed-dimensions model: the additive/interaction partition (with
           # bootstrap share CIs when requested) was computed in the worker. There is no
           # separate null/adjusted pair, PCV, stepwise or nested comparison.
           summary_results(res$summary_obj)
@@ -510,11 +510,11 @@ server <- function(input, output, session) {
 
     # For binomial fits the headline VPC is latent-scale; also show the response
     # (probability) scale VPC as an interpretable complement. Seeded so the
-    # simulation-based value is stable across re-renders. Skipped in cross-classified
+    # simulation-based value is stable across re-renders. Skipped in crossed-dimensions
     # mode, where the simulation helper reads only the interaction variance (not the
     # full additive+interaction between-strata variance) and would understate it.
     response_vpc_line <- if (identical(fitted_family(), "binomial") &&
-                             !identical(decomposition_mode(), "cross-classified")) {
+                             !identical(decomposition_mode(), "crossed-dimensions")) {
       seed_val <- if (!is.null(fit_params()) && !is.null(fit_params()$seed)) fit_params()$seed else 1L
       rv <- tryCatch(MAIHDA::maihda_vpc_response(model_results(), seed = seed_val),
                      error = function(e) NULL)
@@ -656,13 +656,13 @@ server <- function(input, output, session) {
   })
 
   output$pvc_summary_ui <- renderUI({
-    # Cross-classified mode: show the additive/interaction partition read off the
+    # Crossed-dimensions mode: show the additive/interaction partition read off the
     # single model instead of the two-model PCV.
-    if (identical(decomposition_mode(), "cross-classified")) {
+    if (identical(decomposition_mode(), "crossed-dimensions")) {
       if (is.null(decomposition_results()) || is.null(summary_results())) {
         return(MAIHDA:::maihda_app_empty_state(
           "No decomposition yet",
-          "Fit a cross-classified MAIHDA model from the sidebar to see the additive
+          "Fit a crossed-dimensions MAIHDA model from the sidebar to see the additive
           (per-dimension) vs. intersectional-interaction split of the between-strata
           variance."))
       }
@@ -683,7 +683,7 @@ server <- function(input, output, session) {
         check.names = FALSE
       )
       return(card(
-        card_header("Additive vs. Intersectional Decomposition (cross-classified)"),
+        card_header("Additive vs. Intersectional Decomposition (crossed-dimensions)"),
         card_body(
           layout_columns(
             col_widths = c(4, 4, 4),
@@ -703,7 +703,7 @@ server <- function(input, output, session) {
             value_box(
               title = tagList("Additive share ",
                               tooltip(shiny::icon("info-circle"),
-                                      "The additive (dimension main-effect) variance as a fraction of the total between-strata variance. This is the cross-classified analogue of the PCV, but a different (partial-pooling) estimator; the complement is the intersectional interaction share.")),
+                                      "The additive (dimension main-effect) variance as a fraction of the total between-strata variance. This is the crossed-dimensions analogue of the PCV, but a different (partial-pooling) estimator; the complement is the intersectional interaction share.")),
               value = fmt_share(d$additive_share, d$additive_share_ci),
               showcase = icon("arrow-down-wide-short"),
               theme = "success",
@@ -809,11 +809,11 @@ server <- function(input, output, session) {
   })
 
   output$stepwise_pcv_ui <- renderUI({
-    if (identical(decomposition_mode(), "cross-classified")) {
+    if (identical(decomposition_mode(), "crossed-dimensions")) {
       return(MAIHDA:::maihda_app_empty_state(
         "Stepwise PCV not used here",
         "The stepwise PCV decomposition belongs to the **two-model** workflow. In
-        cross-classified mode the additive and interaction shares are read directly
+        crossed-dimensions mode the additive and interaction shares are read directly
         from the single model -- see the **PCV summary** sub-tab."))
     }
     req(stepwise_results())

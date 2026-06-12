@@ -77,15 +77,15 @@ test_that("maihda_cross_classified_formula builds dimension REs + intersection R
                                               list(), s$data))
 })
 
-# ---- maihda() cross-classified mode -----------------------------------------
+# ---- maihda() crossed-dimensions mode -----------------------------------------
 
-test_that("maihda(decomposition = 'cross-classified') returns a coherent partition", {
+test_that("maihda(decomposition = 'crossed-dimensions') returns a coherent partition", {
   d <- make_cc_data()
   cc <- suppressWarnings(suppressMessages(
-    maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "cross-classified")))
+    maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "crossed-dimensions")))
 
   expect_s3_class(cc, "maihda_analysis")
-  expect_identical(cc$mode, "cross-classified")
+  expect_identical(cc$mode, "crossed-dimensions")
   expect_null(cc$pcv)
   expect_null(cc$model_adjusted)
   expect_s3_class(cc$model, "maihda_model")
@@ -109,10 +109,10 @@ test_that("maihda(decomposition = 'cross-classified') returns a coherent partiti
   expect_lt(dcmp$interaction_share, 1)
 })
 
-test_that("the cross-classified formula carries dimension REs + the intersection RE", {
+test_that("the crossed-dimensions formula carries dimension REs + the intersection RE", {
   d <- make_cc_data()
   cc <- suppressWarnings(suppressMessages(
-    maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "cross-classified")))
+    maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "crossed-dimensions")))
   rhs <- paste(deparse(cc$formula), collapse = " ")
   expect_true(grepl("1 | a", rhs, fixed = TRUE))
   expect_true(grepl("1 | b", rhs, fixed = TRUE))
@@ -120,10 +120,10 @@ test_that("the cross-classified formula carries dimension REs + the intersection
   expect_true(grepl("1 | stratum", rhs, fixed = TRUE))
 })
 
-test_that("the cross-classified summary table has one row per dimension + interaction", {
+test_that("the crossed-dimensions summary table has one row per dimension + interaction", {
   d <- make_cc_data()
   cc <- suppressWarnings(suppressMessages(
-    maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "cross-classified")))
+    maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "crossed-dimensions")))
   vc <- cc$summary$variance_components
   expect_identical(attr(vc, "kind"), "cross_classified")
   expect_equal(sum(grepl("^Additive: ", vc$component)), 3L)
@@ -134,20 +134,20 @@ test_that("the cross-classified summary table has one row per dimension + intera
   expect_equal(sum(non_total$proportion), 1, tolerance = 1e-8)
 })
 
-test_that("cross-classified mode needs at least two dimensions", {
+test_that("crossed-dimensions mode needs at least two dimensions", {
   d <- make_cc_data()
   expect_error(
     suppressWarnings(suppressMessages(
-      maihda(y ~ x + (1 | a), data = d, decomposition = "cross-classified"))),
+      maihda(y ~ x + (1 | a), data = d, decomposition = "crossed-dimensions"))),
     "two stratum dimensions|single dimension")
 })
 
 # ---- bootstrap --------------------------------------------------------------
 
-test_that("cross-classified bootstrap returns finite VPC and share intervals", {
+test_that("crossed-dimensions bootstrap returns finite VPC and share intervals", {
   d <- make_cc_data()
   cc <- suppressWarnings(suppressMessages(
-    maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "cross-classified")))
+    maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "crossed-dimensions")))
   sb <- suppressWarnings(summary(cc$model, bootstrap = TRUE, n_boot = 25))
   expect_true(is.finite(sb$vpc$ci_lower) && is.finite(sb$vpc$ci_upper))
   expect_true(sb$vpc$ci_lower <= sb$vpc$estimate &&
@@ -159,11 +159,11 @@ test_that("cross-classified bootstrap returns finite VPC and share intervals", {
 
 # ---- plots ------------------------------------------------------------------
 
-test_that("cross-classified plots render", {
+test_that("crossed-dimensions plots render", {
   skip_if_not_installed("ggplot2")
   d <- make_cc_data()
   cc <- suppressWarnings(suppressMessages(
-    maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "cross-classified")))
+    maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "crossed-dimensions")))
   expect_s3_class(plot(cc, type = "vpc"), "ggplot")
   expect_s3_class(suppressWarnings(plot(cc, type = "effect_decomp")), "ggplot")
   expect_s3_class(suppressWarnings(plot(cc, type = "predicted")), "ggplot")
@@ -171,31 +171,31 @@ test_that("cross-classified plots render", {
 
 # ---- group comparison -------------------------------------------------------
 
-test_that("compare_maihda_groups(decomposition = 'cross-classified') reports shares", {
+test_that("compare_maihda_groups(decomposition = 'crossed-dimensions') reports shares", {
   d <- make_cc_data()
   g <- suppressWarnings(suppressMessages(
     compare_maihda_groups(y ~ x + (1 | a:b:cc), data = d, group = "grp",
-                          decomposition = "cross-classified")))
+                          decomposition = "crossed-dimensions")))
   expect_s3_class(g, "maihda_group_comparison")
   expect_true(all(c("var_additive", "var_interaction", "additive_share",
                     "interaction_share") %in% names(g)))
   expect_false(any(c("pcv", "var_between_adjusted") %in% names(g)))
   ok <- g[g$status == "ok", ]
   expect_true(all(ok$additive_share >= -1e-8 & ok$additive_share <= 1 + 1e-8))
-  expect_identical(attr(g, "decomposition"), "cross-classified")
+  expect_identical(attr(g, "decomposition"), "crossed-dimensions")
 })
 
-test_that("cross-classified group comparison requires shared_strata = TRUE", {
+test_that("crossed-dimensions group comparison requires shared_strata = TRUE", {
   d <- make_cc_data()
   expect_error(
     compare_maihda_groups(y ~ x + (1 | a:b:cc), data = d, group = "grp",
-                          shared_strata = FALSE, decomposition = "cross-classified"),
+                          shared_strata = FALSE, decomposition = "crossed-dimensions"),
     "shared_strata")
 })
 
 # ---- brms parity ------------------------------------------------------------
 
-test_that("cross-classified brms summary returns posterior shares with intervals", {
+test_that("crossed-dimensions brms summary returns posterior shares with intervals", {
   # Compiles a Stan model, so OPT-IN (set MAIHDA_TEST_BRMS=true). The draws-based
   # partition logic is covered Stan-free by the helper test above.
   skip_on_cran()
@@ -206,7 +206,7 @@ test_that("cross-classified brms summary returns posterior shares with intervals
   d <- make_cc_data(seed = 7100, n = 900)
   cc <- suppressWarnings(suppressMessages(
     maihda(y ~ x + (1 | a:b:cc), data = d, engine = "brms",
-           decomposition = "cross-classified",
+           decomposition = "crossed-dimensions",
            chains = 2, iter = 500, refresh = 0, seed = 1)))
 
   dcmp <- cc$decomposition
@@ -235,4 +235,26 @@ test_that("default compare_maihda_groups() keeps the two-model PCV schema", {
     compare_maihda_groups(y ~ x + (1 | a:b:cc), data = d, group = "grp")))
   expect_true("pcv" %in% names(g))
   expect_false("additive_share" %in% names(g))
+})
+
+# ---- deprecated alias --------------------------------------------------------
+
+test_that("decomposition = 'cross-classified' warns and maps to 'crossed-dimensions'", {
+  d <- make_cc_data()
+  # capture_warnings() so the deprecation warning can be asserted while incidental
+  # lme4 fit warnings (singular dimension REs) are tolerated.
+  w1 <- capture_warnings(
+    a <- suppressMessages(
+      maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "cross-classified")))
+  expect_true(any(grepl("renamed.*crossed-dimensions", w1)))
+  expect_identical(a$mode, "crossed-dimensions")
+  expect_false(is.null(a$decomposition))
+
+  w2 <- capture_warnings(
+    g <- suppressMessages(
+      compare_maihda_groups(y ~ x + (1 | a:b:cc), data = d, group = "grp",
+                            decomposition = "cross-classified")))
+  expect_true(any(grepl("renamed.*crossed-dimensions", w2)))
+  expect_identical(attr(g, "decomposition"), "crossed-dimensions")
+  expect_true("additive_share" %in% names(g))
 })

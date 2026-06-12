@@ -16,7 +16,7 @@ compare_maihda_groups(
   n_boot = 1000,
   conf_level = 0.95,
   autobin = TRUE,
-  decomposition = c("two-model", "cross-classified"),
+  decomposition = c("two-model", "crossed-dimensions"),
   ...
 )
 }
@@ -66,8 +66,9 @@ Default 1000.}
 binning of numeric grouping variables. Default TRUE.}
 
 \item{decomposition}{Per-group additive-vs-interaction decomposition: the two-model
-null -> adjusted PCV (\code{"two-model"}, default) or the single cross-classified
-model (\code{"cross-classified"}). The cross-classified form requires
+null -> adjusted PCV (\code{"two-model"}, default) or the single crossed-dimensions
+model (\code{"crossed-dimensions"}; \code{"cross-classified"} is a deprecated
+alias that warns). The crossed-dimensions form requires
 \code{shared_strata = TRUE} and at least two stratum dimensions, and adds the
 \code{var_additive}, \code{var_interaction}, \code{additive_share} and
 \code{interaction_share} columns (in place of \code{pcv} /

@@ -10,9 +10,10 @@
 \item{x}{A \code{maihda_analysis} object from \code{\link{maihda}}.}
 
 \item{type}{One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
-"risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation") or a group
-type ("group_vpc", "group_components", "group_between_variance", "group_pcv").
-Default "all".}
+"risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation"), the
+contextual type ("context_vpc", a stratum-vs-context variance bar; requires
+\code{maihda(context = )}), or a group type ("group_vpc", "group_components",
+"group_between_variance", "group_pcv"). Default "all".}
 
 \item{...}{Additional arguments passed to the underlying plot method.}
 }

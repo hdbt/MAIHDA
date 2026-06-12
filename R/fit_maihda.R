@@ -37,6 +37,23 @@
 #' @param autobin Logical indicating whether numeric variables used only for
 #'   automatic strata creation should be binned by \code{\link{make_strata}}.
 #'   Default is TRUE.
+#' @param context Optional character vector naming one or more higher-level
+#'   \emph{context} columns in \code{data} (e.g. \code{"school"},
+#'   \code{"hospital"}, \code{"region"}). Each enters the model as a crossed
+#'   intercept-only random effect alongside the intersectional stratum effect --
+#'   \code{outcome ~ covars + (1 | stratum) + (1 | context)} -- giving the
+#'   \emph{contextual cross-classified MAIHDA} of the literature (individuals
+#'   cross-classified by stratum and place/institution). \code{\link{summary.maihda_model}}
+#'   then partitions the unexplained variance into between-stratum vs.
+#'   between-context vs. residual, and the headline VPC/ICC remains the
+#'   between-stratum share (now net of the context). A context variable may not be
+#'   a stratum dimension or \code{"stratum"} itself, and may not already appear as
+#'   a fixed-effect term (its variance would then be absorbed by the fixed part).
+#'   A context with few levels (say < 10) weakly identifies its variance and often
+#'   yields a singular lme4 fit; the \code{brms} engine handles this better.
+#'   Writing the random effect directly in the formula (\code{... + (1 | school)})
+#'   fits the same model but is summarised generically as "Other random effects";
+#'   only \code{context =} activates the labelled contextual partition.
 #' @param ... Additional arguments passed to \code{lmer}/\code{glmer} (lme4) or
 #'   \code{brm} (brms).
 #'
@@ -47,6 +64,8 @@
 #'   \item{data}{The data used for fitting}
 #'   \item{family}{The family used}
 #'   \item{strata_info}{The strata information from make_strata() if available, NULL otherwise}
+#'   \item{context_vars}{The context variable name(s) when \code{context} was
+#'     supplied, NULL otherwise}
 #'   \item{response_recoding}{For a recoded two-level outcome, a data frame mapping
 #'     each original level to its 0/1 value and role (reference/event); NULL when no
 #'     recoding occurred}
@@ -66,6 +85,14 @@
 #' model2 <- fit_maihda(health_outcome ~ age + (1 | gender:race:education),
 #'                      data = maihda_sim_data,
 #'                      engine = "lme4")
+#'
+#' # Contextual cross-classified MAIHDA: strata crossed with a higher-level
+#' # context (here country) -- the literature's cross-classified MAIHDA.
+#' data(maihda_country_data)
+#' model3 <- fit_maihda(math ~ 1 + (1 | gender:ses),
+#'                      data = maihda_country_data,
+#'                      context = "country")
+#' summary(model3)  # between-stratum vs. between-country vs. residual
 #' }
 #'
 #' @export
@@ -74,7 +101,7 @@
 #' @importFrom rlang enquos eval_tidy
 #' @importFrom stats gaussian binomial poisson
 fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
-                       autobin = TRUE, ...) {
+                       autobin = TRUE, context = NULL, ...) {
   # Input validation
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a formula object")
@@ -87,6 +114,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   if (!is.character(engine) || length(engine) != 1 || !engine %in% c("lme4", "brms")) {
     stop("'engine' should be one of: lme4, brms", call. = FALSE)
   }
+
+  context <- maihda_validate_context(context, data)
 
   # Capture the forwarded engine arguments as quosures (each keeps its expression
   # AND its environment) and evaluate them once, here, against the data. Plain
@@ -184,6 +213,51 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       fixed_formula <- reformulas::nobars(formula)
       formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
     }
+  }
+
+  # Contextual cross-classified MAIHDA: append the higher-level context random
+  # intercept(s) AFTER the stratum random effect is resolved, so the shorthand
+  # (1 | var1:var2) path and the pre-built (1 | stratum) path both end up with
+  # outcome ~ covars + (1 | stratum) + (1 | context). Idempotent: a context that
+  # is already a random-effect grouping (e.g. when maihda() refits a derived
+  # formula that carries the context term) is validated and tagged but not
+  # appended again.
+  context_info <- NULL
+  if (!is.null(context)) {
+    re_terms_now <- reformulas::findbars(formula)
+    grouping_vars_now <- unique(unlist(
+      lapply(re_terms_now, function(x) all.vars(x[[3]])), use.names = FALSE))
+    if (!"stratum" %in% grouping_vars_now) {
+      stop("'context' adds a crossed contextual random effect alongside the ",
+           "intersectional stratum effect, but the formula has no stratum random ",
+           "effect. Use the shorthand (1 | var1:var2) or include (1 | stratum).",
+           call. = FALSE)
+    }
+    clash_dims <- intersect(context, strata_vars)
+    if (length(clash_dims) > 0) {
+      stop("Context variable(s) ", paste(clash_dims, collapse = ", "),
+           " also define the intersectional strata. A variable cannot be both a ",
+           "stratum dimension and a higher-level context; remove it from one of ",
+           "the two roles.", call. = FALSE)
+    }
+    clash_fixed <- intersect(context, all.vars(reformulas::nobars(formula)[[3]]))
+    if (length(clash_fixed) > 0) {
+      stop("Context variable(s) ", paste(clash_fixed, collapse = ", "),
+           " already appear in the fixed part of the formula, which would absorb ",
+           "the context variance the contextual partition is meant to estimate. ",
+           "Supply the context only via 'context', or only as a fixed effect, ",
+           "not both.", call. = FALSE)
+    }
+    context_to_add <- setdiff(context, grouping_vars_now)
+    if (length(context_to_add) > 0) {
+      re_add <- paste(
+        sprintf("(1 | %s)",
+                vapply(context_to_add, maihda_quote_name, character(1))),
+        collapse = " + ")
+      formula <- stats::update(formula,
+                               stats::as.formula(paste(". ~ . +", re_add)))
+    }
+    context_info <- list(context_vars = context)
   }
 
   # Convert family to family object if it's a string or constructor function
@@ -293,6 +367,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       strata_vars = strata_vars,
       strata_sep = strata_sep,
       strata_autobin_info = strata_autobin_info,
+      context_vars = context,
+      context_info = context_info,
       response_recoding = response_recoding,
       diagnostics = diagnostics
     ),
@@ -313,7 +389,12 @@ print.maihda_model <- function(x, ...) {
   cat("============\n\n")
   cat("Engine:", x$engine, "\n")
   cat("Family:", x$family$family, "\n")
-  cat("Formula:", deparse(x$formula), "\n\n")
+  cat("Formula:", deparse(x$formula), "\n")
+  if (!is.null(x$context_vars)) {
+    cat("Context:", paste(x$context_vars, collapse = ", "),
+        "(crossed contextual random intercept)\n")
+  }
+  cat("\n")
   maihda_print_fit_diagnostics(x$diagnostics)
   cat("Underlying model:\n")
   print(x$model, ...)

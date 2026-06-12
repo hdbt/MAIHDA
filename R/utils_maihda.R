@@ -841,35 +841,49 @@ maihda_cc_variance_split <- function(var_named, dim_groups, interaction_group) {
   )
 }
 
-# The cross-classified partition arithmetic. Elementwise, so it serves the lme4
+# The crossed-dimensions partition arithmetic. Elementwise, so it serves the lme4
 # point estimate (scalars), the lme4 bootstrap, and the brms posterior (per-draw
 # vectors) identically. between = additive + interaction (total between-strata
-# variance); vpc = between / (between + within); additive/interaction shares are the
-# split of the between-strata variance (the cross-classified analogue of the PCV).
-maihda_cc_partition <- function(additive, interaction, within) {
+# variance); vpc = between / (between + within + other); additive/interaction shares
+# are the split of the between-strata variance (the crossed-dimensions analogue of
+# the PCV). 'other' carries any random-effect variance outside the stratum structure
+# -- e.g. a contextual (1 | school) intercept from fit_maihda(context = ) -- so the
+# VPC stays the between-strata share of ALL unexplained variance, consistent with
+# the single-stratum summary; it defaults to 0 for the plain decomposition.
+maihda_cc_partition <- function(additive, interaction, within, other = 0) {
   between <- additive + interaction
-  total <- between + within
+  total <- between + within + other
   list(
     additive = additive,
     interaction = interaction,
     between = between,
     within = within,
+    other = other,
+    total = total,
     vpc = between / total,
     additive_share = additive / between,
     interaction_share = interaction / between
   )
 }
 
-# Variance-components table for a cross-classified summary: one (non-overlapping)
-# row per dimension, then the intersection, the within-stratum (residual) term, and
-# the total, so the proportions sum to 1 and plot_vpc() can read it directly. The
-# additive subtotal and the shares live on the summary's $decomposition, not here, to
-# avoid double counting. The table is tagged so plot_vpc() colours it as a CC split.
-maihda_cc_components_table <- function(per_dim, interaction_var, within_var) {
+# Variance-components table for a crossed-dimensions summary: one (non-overlapping)
+# row per dimension, then the intersection, any contextual random intercepts, the
+# within-stratum (residual) term, and the total, so the proportions sum to 1 and
+# plot_vpc() can read it directly. The additive subtotal and the shares live on the
+# summary's $decomposition, not here, to avoid double counting. The table is tagged
+# so plot_vpc() colours it as a crossed-dimensions split. (The attr value keeps the
+# historical "cross_classified" spelling for compatibility with stored objects.)
+maihda_cc_components_table <- function(per_dim, interaction_var, within_var,
+                                       per_context = NULL) {
   components <- c(sprintf("Additive: %s", names(per_dim)),
-                  "Intersectional interaction",
-                  "Within-stratum (residual)")
-  variances <- c(unname(per_dim), interaction_var, within_var)
+                  "Intersectional interaction")
+  variances <- c(unname(per_dim), interaction_var)
+  if (!is.null(per_context) && length(per_context) > 0) {
+    components <- c(components, sprintf("Context: %s", names(per_context)))
+    variances <- c(variances, unname(per_context))
+  }
+  components <- c(components, "Within-stratum (residual)")
+  variances <- c(variances, within_var)
   total_variance <- sum(variances)
   proportions <- if (is.finite(total_variance) && total_variance > 0) {
     variances / total_variance
@@ -885,7 +899,123 @@ maihda_cc_components_table <- function(per_dim, interaction_var, within_var) {
   )
   attr(out, "kind") <- "cross_classified"
   attr(out, "n_dimensions") <- length(per_dim)
+  attr(out, "n_contexts") <- if (is.null(per_context)) 0L else length(per_context)
   out
+}
+
+# ---- Contextual cross-classified MAIHDA (stratum x place/institution) -------
+# These support fit_maihda(context = ): individuals cross-classified by their
+# intersectional stratum AND one or more higher-level contexts (school, hospital,
+# region, ...), outcome ~ covars + (1 | stratum) + (1 | context). This is the
+# literature's "cross-classified MAIHDA" (e.g. hospitals in Wemrell & Merlo's AMI
+# study; schools in Prior et al.'s London students study) -- distinct from the
+# crossed-DIMENSIONS decomposition above, which crosses the stratum dimensions'
+# own main effects. The partition splits the unexplained variance into
+# between-stratum vs. between-context vs. residual.
+
+# Validate the `context` argument against the data: a character vector of existing
+# column names, none of which may be (or collide with) the stratum machinery.
+# Returns the validated (de-duplicated) vector, or NULL.
+maihda_validate_context <- function(context, data) {
+  if (is.null(context)) {
+    return(NULL)
+  }
+  if (!is.character(context) || length(context) == 0 || anyNA(context) ||
+      any(!nzchar(context))) {
+    stop("'context' must be a character vector of column names in 'data' (e.g. ",
+         "context = \"school\").", call. = FALSE)
+  }
+  context <- unique(context)
+  missing_cols <- setdiff(context, names(data))
+  if (length(missing_cols) > 0) {
+    stop("Context variable(s) not found in data: ",
+         paste(missing_cols, collapse = ", "), call. = FALSE)
+  }
+  if ("stratum" %in% context) {
+    stop("'context' cannot include \"stratum\": the stratum random intercept is the ",
+         "intersectional effect itself. Name the higher-level context column(s) ",
+         "(e.g. school, hospital, region) instead.", call. = FALSE)
+  }
+  context
+}
+
+# The contextual partition arithmetic. Elementwise like maihda_cc_partition(), so
+# it serves the lme4 point estimate (scalars), the lme4 bootstrap, and the brms
+# posterior (per-draw vectors) identically. var_context is a NAMED list (or vector)
+# with one element per context variable; var_other carries any further random
+# effects outside stratum/context so the total still spans all unexplained variance.
+# vpc_stratum is the headline MAIHDA VPC/ICC (the between-stratum share);
+# vpc_context_total is the contexts' share (the general contextual effect).
+maihda_context_partition <- function(var_stratum, var_context, var_residual,
+                                     var_other = 0) {
+  context_list <- if (is.list(var_context)) var_context else as.list(var_context)
+  context_total <- Reduce(`+`, context_list)
+  total <- var_stratum + context_total + var_residual + var_other
+  list(
+    stratum = var_stratum,
+    context = context_list,
+    context_total = context_total,
+    residual = var_residual,
+    other = var_other,
+    total = total,
+    vpc_stratum = var_stratum / total,
+    vpc_context = lapply(context_list, function(v) v / total),
+    vpc_context_total = context_total / total
+  )
+}
+
+# Variance-components table for a contextual summary: the between-stratum row, one
+# "Context: <name>" row per context, any other random effects, the residual, and
+# the total. Keeps the canonical "Between-stratum (random)" / "Within-stratum
+# (residual)" labels so existing consumers (compare_maihda_groups, plot_vpc) that
+# match on them keep working; tagged kind = "contextual" for the plot layer.
+maihda_context_components_table <- function(var_stratum, per_context,
+                                            var_other_random, var_residual) {
+  var_other_random <- max(0, var_other_random, na.rm = TRUE)
+  components <- c("Between-stratum (random)",
+                  sprintf("Context: %s", names(per_context)))
+  variances <- c(var_stratum, unname(per_context))
+  if (is.finite(var_other_random) && var_other_random > sqrt(.Machine$double.eps)) {
+    components <- c(components, "Other random effects")
+    variances <- c(variances, var_other_random)
+  }
+  components <- c(components, "Within-stratum (residual)")
+  variances <- c(variances, var_residual)
+  total_variance <- sum(variances)
+  proportions <- if (is.finite(total_variance) && total_variance > 0) {
+    variances / total_variance
+  } else {
+    rep(NA_real_, length(variances))
+  }
+  out <- data.frame(
+    component = c(components, "Total"),
+    variance = c(variances, total_variance),
+    sd = sqrt(c(variances, total_variance)),
+    proportion = c(proportions, 1.0),
+    stringsAsFactors = FALSE
+  )
+  attr(out, "kind") <- "contextual"
+  attr(out, "n_contexts") <- length(per_context)
+  out
+}
+
+# Normalize the user-facing `decomposition` argument shared by maihda() and
+# compare_maihda_groups(). The value "cross-classified" historically named the
+# crossed-DIMENSIONS decomposition; it was renamed "crossed-dimensions" when the
+# contextual cross-classified model (fit_maihda(context = ), the literature's
+# cross-classified MAIHDA) was added, to free the term. The old value still works
+# as a deprecated alias, with a one-time warning per call.
+maihda_resolve_decomposition <- function(decomposition) {
+  if (identical(decomposition, "cross-classified")) {
+    warning("decomposition = \"cross-classified\" has been renamed ",
+            "\"crossed-dimensions\" (it crosses the stratum dimensions' main ",
+            "effects as random intercepts). The old value still works but is ",
+            "deprecated -- \"cross-classified MAIHDA\" now refers to the ",
+            "contextual stratum-by-place model fitted via the 'context' argument.",
+            call. = FALSE)
+    decomposition <- "crossed-dimensions"
+  }
+  match.arg(decomposition, c("two-model", "crossed-dimensions"))
 }
 
 maihda_stratum_ranef_lme4 <- function(model, group = "stratum") {
