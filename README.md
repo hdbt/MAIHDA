@@ -17,6 +17,7 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 - **Create Intersectional Strata**: Automatically generate strata from multiple categorical variables
 - **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**: A fully-featured Shiny application (`run_maihda_app()`) for no-code exploratory data analysis and model fitting
 - **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
+- **Design-Weighted MAIHDA**: Survey/sampling weights via `sampling_weights` -- weighted pseudo-maximum-likelihood through the `WeMix` engine (or likelihood weights under brms) for complex-survey data such as NHANES or PISA, with design-consistent fixed-effect standard errors and a design-weighted VPC, PCV, stratum summaries and AUC
 - **Summaries & Decompositions**: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)
 - **Multiple Prediction Types**: Individual-level and stratum-level predictions
 - **Visualizations**: Predicted stratum values, VPC visualizations, mean-prediction vs. stratum-effect diagnostics, and observed vs. shrunken estimates
@@ -100,7 +101,7 @@ single fit.
 Creates intersectional strata from multiple categorical variables with optional minimum count filtering.
 
 ### `fit_maihda()`
-Fits multilevel models using either lme4 (default) or brms engine. Supports various families including gaussian, binomial, and poisson.
+Fits multilevel models using the lme4 (default), brms, or WeMix (design-weighted, via `sampling_weights`) engine. Supports various families including gaussian, binomial, and poisson.
 
 ### Contextual cross-classified MAIHDA (`context =`)
 The MAIHDA literature's *cross-classified* design crosses individuals' intersectional
@@ -229,6 +230,42 @@ model_brms <- fit_maihda(
 summary_brms <- summary(model_brms)
 ```
 
+## Design-Weighted MAIHDA (Survey Data)
+
+For complex-survey data (NHANES, PISA, ...), pass the sampling-weight column via
+`sampling_weights`. Survey weights are **not** lme4 `weights=` (those are precision
+weights), so the fit routes through `WeMix::mix()` -- weighted
+pseudo-maximum-likelihood (Rabe-Hesketh & Skrondal 2006) -- and `engine = "lme4"`
+with sampling weights is an error rather than a silent misfit.
+
+```r
+# One call: design-weighted null + adjusted models and PCV. The engine switches
+# to "wemix" automatically (install WeMix from CRAN).
+analysis <- maihda(
+  outcome ~ age + (1 | gender:race:education),
+  data = survey_data,
+  sampling_weights = "person_weight"
+)
+analysis            # design-weighted VPC/ICC and PCV
+summary(analysis)   # design-consistent (sandwich) SEs for the fixed effects
+
+# Works across the toolkit: stepwise PCV, group comparison, prediction, plots,
+# and the design-weighted AUC for binary outcomes.
+stepwise_pcv(strata_data, "outcome", c("gender", "race", "education"),
+             sampling_weights = "person_weight")
+
+# Bayesian alternative: weights enter as likelihood weights (pseudo-posterior --
+# point estimates are design-consistent; credible intervals are not design-based).
+fit_maihda(outcome ~ age + (1 | gender:race:education), data = survey_data,
+           engine = "brms", sampling_weights = "person_weight")
+```
+
+Limitations (explicit, not silent): the wemix engine covers the canonical
+`gaussian(identity)` / `binomial(logit)` MAIHDA with a single `(1 | stratum)`
+intercept; crossed random effects (`context =`, `decomposition =
+"crossed-dimensions"`) and bootstrap intervals require lme4/brms. A design-based
+interval would need replicate weights, which is a possible future extension.
+
 ## Model Comparison with Bootstrap
 
 ```r
@@ -320,6 +357,7 @@ vignette("introduction", package = "MAIHDA")
 **Optional:**
 
 - brms (>= 2.15.0) - for Bayesian models
+- WeMix (>= 4.0.0) - for design-weighted (survey) models via `sampling_weights`
 - ggtern - for ternary diagrams
 - shiny, bslib, DT, plotly, shinyjs, shinycssloaders, future, promises - for the interactive dashboard (`run_maihda_app()`)
 - haven - for uploading SPSS (.sav) / Stata (.dta) files in the dashboard

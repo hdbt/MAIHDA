@@ -20,6 +20,7 @@ maihda(
   conf_level = 0.95,
   response_vpc = FALSE,
   seed = NULL,
+  sampling_weights = NULL,
   ...
 )
 }
@@ -53,7 +54,10 @@ context partialled out (the context random intercept is carried by both the
 null and the adjusted model). Cannot be combined with \code{group}; a context
 with few levels weakly identifies its variance (consider \code{engine = "brms"}).}
 
-\item{engine}{Modeling engine, "lme4" (default) or "brms".}
+\item{engine}{Modeling engine, "lme4" (default), "brms", or "wemix" (the
+design-weighted pseudo-maximum-likelihood fit; requires
+\code{sampling_weights} and is selected automatically when they are supplied
+with the default engine).}
 
 \item{family}{Model family. Default "gaussian". As in \code{\link{fit_maihda}},
 a binary outcome is auto-detected when \code{family} is left at the default,
@@ -106,6 +110,15 @@ It is estimated by simulation, so it is opt-in (default \code{FALSE}) and uses
 for a binomial/Bernoulli outcome regardless of this flag (see Details).}
 
 \item{seed}{Optional integer seed for the response-scale VPC simulation.}
+
+\item{sampling_weights}{Optional name of a sampling-weight column for a
+\strong{design-weighted MAIHDA} on complex-survey data; see
+\code{\link{fit_maihda}} for the full semantics (engine selection, the
+pseudo-likelihood weighting, and what is/is not design-based). Both the null
+and the adjusted model (and any per-group fits) use the same weights, so the
+PCV is a design-weighted decomposition. Not compatible with
+\code{engine = "lme4"}, \code{decomposition = "crossed-dimensions"} under
+the wemix engine, or \code{bootstrap = TRUE}.}
 
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
 \code{lmer}/\code{glmer}).}

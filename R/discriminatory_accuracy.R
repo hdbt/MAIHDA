@@ -196,12 +196,24 @@ maihda_discriminatory_accuracy <- function(model) {
   # (which errors). A true Bernoulli fit takes the ordinary rank-based path.
   aggregated <- identical(model$engine, "lme4") &&
     !all(resp %in% c(0, 1) | is.na(resp))
+  # Design-weighted fit (sampling_weights supplied): compute the design-weighted
+  # AUC, where each observation contributes its sampling weight as case (y = 1) or
+  # control (y = 0) mass -- the weighted Mann-Whitney concordance, estimating the
+  # POPULATION discriminatory accuracy rather than the sample's. The reported
+  # case/control totals stay unweighted observation counts.
+  sw <- if (!is.null(model$sampling_weights)) maihda_prior_weights(model) else NULL
+  design_weighted <- !is.null(sw) && length(sw) == length(prob) &&
+    any(is.finite(sw)) && !isTRUE(all(abs(sw - 1) < sqrt(.Machine$double.eps)))
   if (aggregated) {
     trials <- maihda_da_trial_counts(model$model, length(resp))
     successes <- round(resp * trials)
     auc <- maihda_auc_weighted(prob, successes, trials)
     n_case <- sum(successes, na.rm = TRUE)
     n_control <- sum(trials - successes, na.rm = TRUE)
+  } else if (design_weighted) {
+    auc <- maihda_auc_weighted(prob, successes = sw * resp, trials = sw)
+    n_case <- sum(resp == 1, na.rm = TRUE)
+    n_control <- sum(resp == 0, na.rm = TRUE)
   } else {
     auc <- maihda_auc(prob, resp)
     n_case <- sum(resp == 1, na.rm = TRUE)
@@ -222,7 +234,8 @@ maihda_discriminatory_accuracy <- function(model) {
       n_control = n_control,
       family = fam,
       link = link,
-      engine = model$engine
+      engine = model$engine,
+      weighted = design_weighted
     ),
     class = "maihda_da"
   )
@@ -242,6 +255,10 @@ print.maihda_da <- function(x, ...) {
   }
   cat(sprintf("  Median Odds Ratio: %s\n", mor_str))
   cat(sprintf("  Cases / controls:  %d / %d\n", x$n_case, x$n_control))
+  if (isTRUE(x$weighted)) {
+    cat("  (AUC is design-weighted: each observation contributes its sampling\n",
+        "  weight; cases/controls are unweighted counts.)\n", sep = "")
+  }
   invisible(x)
 }
 

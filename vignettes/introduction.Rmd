@@ -177,6 +177,30 @@ between-stratum vs. between-context vs. residual, and the headline VPC/ICC becom
 the between-stratum share net of the context. Also covered in
 `vignette("cross_classified", package = "MAIHDA")`.
 
+### Design-weighted MAIHDA (survey data)
+
+For complex-survey data (NHANES, PISA, ...), pass the sampling-weight column via
+`sampling_weights`. Survey weights are **not** lme4's `weights=` (those are
+precision weights, which rescale the residual variance), so the fit routes through
+`WeMix::mix()` -- weighted pseudo-maximum-likelihood -- and `engine = "lme4"` with
+sampling weights is an error rather than a silent misfit. The whole workflow
+(VPC/ICC, PCV, stratum summaries, prediction, plots, and the AUC for binary
+outcomes) is then design-weighted, with design-consistent standard errors for the
+fixed effects:
+
+```{r maihda-weighted, eval=FALSE}
+weighted <- maihda(outcome ~ age + (1 | gender:race:education),
+                   data = survey_data, sampling_weights = "person_weight")
+weighted
+```
+
+The wemix engine covers the canonical `gaussian(identity)` / `binomial(logit)`
+MAIHDA with the single `(1 | stratum)` intercept; crossed random effects
+(`context =`, `decomposition = "crossed-dimensions"`) and bootstrap intervals
+require lme4/brms. `engine = "brms"` also accepts `sampling_weights`, as
+likelihood weights (a *pseudo-posterior*: design-consistent point estimates, but
+credible intervals that are not design-based).
+
 ### Comparing across groups
 
 Add a higher-level grouping variable and `maihda()` also compares the

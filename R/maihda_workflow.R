@@ -65,7 +65,10 @@
 #'   context partialled out (the context random intercept is carried by both the
 #'   null and the adjusted model). Cannot be combined with \code{group}; a context
 #'   with few levels weakly identifies its variance (consider \code{engine = "brms"}).
-#' @param engine Modeling engine, "lme4" (default) or "brms".
+#' @param engine Modeling engine, "lme4" (default), "brms", or "wemix" (the
+#'   design-weighted pseudo-maximum-likelihood fit; requires
+#'   \code{sampling_weights} and is selected automatically when they are supplied
+#'   with the default engine).
 #' @param family Model family. Default "gaussian". As in \code{\link{fit_maihda}},
 #'   a binary outcome is auto-detected when \code{family} is left at the default,
 #'   and the same resolved family is then used for the group comparison so all
@@ -108,6 +111,14 @@
 #'   \code{seed}. The discriminatory accuracy (AUC + MOR) is attached automatically
 #'   for a binomial/Bernoulli outcome regardless of this flag (see Details).
 #' @param seed Optional integer seed for the response-scale VPC simulation.
+#' @param sampling_weights Optional name of a sampling-weight column for a
+#'   \strong{design-weighted MAIHDA} on complex-survey data; see
+#'   \code{\link{fit_maihda}} for the full semantics (engine selection, the
+#'   pseudo-likelihood weighting, and what is/is not design-based). Both the null
+#'   and the adjusted model (and any per-group fits) use the same weights, so the
+#'   PCV is a design-weighted decomposition. Not compatible with
+#'   \code{engine = "lme4"}, \code{decomposition = "crossed-dimensions"} under
+#'   the wemix engine, or \code{bootstrap = TRUE}.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'
@@ -194,7 +205,8 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
                    autobin = TRUE, shared_strata = TRUE,
                    min_group_n = 30, bootstrap = FALSE,
                    n_boot = 1000, conf_level = 0.95,
-                   response_vpc = FALSE, seed = NULL, ...) {
+                   response_vpc = FALSE, seed = NULL,
+                   sampling_weights = NULL, ...) {
   call <- match.call()
   decomposition <- maihda_resolve_decomposition(decomposition)
 
@@ -207,6 +219,37 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
          "with the higher level in one fit), not both.", call. = FALSE)
   }
 
+  # Sampling weights select the design-weighted engine, mirroring fit_maihda():
+  # the default engine switches to "wemix" (with a message), an explicit lme4 is
+  # an error, and the wemix-incompatible workflow options fail early with
+  # targeted messages instead of mid-decomposition.
+  if (!is.null(sampling_weights)) {
+    sampling_weights <- maihda_validate_sampling_weights(sampling_weights, data)
+    if (missing(engine)) {
+      engine <- "wemix"
+      message("maihda(): 'sampling_weights' supplied; using engine = \"wemix\" ",
+              "(design-weighted pseudo-maximum-likelihood via WeMix). Set 'engine' ",
+              "explicitly to silence this message or to choose engine = \"brms\".")
+    } else if (identical(engine, "lme4")) {
+      stop("Sampling weights are not supported by engine = \"lme4\" (lme4's ",
+           "weights are precision weights, not sampling weights). Use ",
+           "engine = \"wemix\" or \"brms\".", call. = FALSE)
+    }
+  }
+  if (identical(engine, "wemix")) {
+    if (identical(decomposition, "crossed-dimensions")) {
+      stop("decomposition = \"crossed-dimensions\" needs crossed random effects, ",
+           "which WeMix does not fit. Use the default two-model decomposition ",
+           "with engine = \"wemix\", or engine = \"brms\" for the ",
+           "crossed-dimensions form.", call. = FALSE)
+    }
+    if (isTRUE(bootstrap)) {
+      stop("Bootstrap intervals are not available for engine = \"wemix\" (a ",
+           "design-based interval would require replicate weights). Set ",
+           "bootstrap = FALSE.", call. = FALSE)
+    }
+  }
+
   # Fit the supplied formula first -- this resolves the stratum dimensions (and the
   # stratum column) and the family. Depending on whether the formula already lists the
   # dimensions' additive main effects, it serves as either the null or the adjusted
@@ -215,10 +258,12 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # they agree.
   if (missing(family)) {
     model <- fit_maihda(formula, data, engine = engine, autobin = autobin,
-                        context = context, ...)
+                        context = context, sampling_weights = sampling_weights,
+                        ...)
   } else {
     model <- fit_maihda(formula, data, engine = engine, family = family,
-                        autobin = autobin, context = context, ...)
+                        autobin = autobin, context = context,
+                        sampling_weights = sampling_weights, ...)
   }
   family_used <- model$family
 
@@ -281,7 +326,8 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     # intersection intercepts; passing `context` again re-appends (and re-tags) any
     # contextual random intercept, so the two structures compose in one fit.
     cc_model <- fit_maihda(cc$formula, cc$data, engine = engine,
-                           family = family_used, context = context, ...)
+                           family = family_used, context = context,
+                           sampling_weights = sampling_weights, ...)
     # Tag the fit so summary()/plot() read the additive-vs-interaction partition.
     cc_model$cc_info <- list(dim_groups = cc$dim_groups,
                              interaction_group = cc$interaction_group,
@@ -301,7 +347,8 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
         group_formula, data, group = group, engine = engine, family = family_used,
         shared_strata = shared_strata, min_group_n = min_group_n,
         autobin = autobin, bootstrap = bootstrap, n_boot = n_boot,
-        conf_level = conf_level, decomposition = "crossed-dimensions", ...
+        conf_level = conf_level, decomposition = "crossed-dimensions",
+        sampling_weights = sampling_weights, ...
       )
     }
 
@@ -339,7 +386,8 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
                                   null_model$strata_autobin_info,
                                   null_model$original_data)
     adjusted_model <- fit_maihda(af$formula, af$data, engine = engine,
-                                 family = family_used, context = context, ...)
+                                 family = family_used, context = context,
+                                 sampling_weights = sampling_weights, ...)
     adjusted_formula <- af$formula
   } else if (length(missing_vars) == 0) {
     # Every dimension main effect is already present (the fully-specified adjusted
@@ -348,18 +396,21 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     adjusted_formula <- model$formula
     null_model <- fit_maihda(remove_terms(model$formula, present_terms),
                              model$original_data, engine = engine,
-                             family = family_used, context = context, ...)
+                             family = family_used, context = context,
+                             sampling_weights = sampling_weights, ...)
   } else {
     # Some dimension main effects present, some missing: fit a clean null (covariates
     # only) and a clean adjusted (all dimension main effects).
     null_model <- fit_maihda(remove_terms(model$formula, present_terms),
                              model$original_data, engine = engine,
-                             family = family_used, context = context, ...)
+                             family = family_used, context = context,
+                             sampling_weights = sampling_weights, ...)
     af <- maihda_adjusted_formula(null_model$formula, strata_vars,
                                   null_model$strata_autobin_info,
                                   null_model$original_data)
     adjusted_model <- fit_maihda(af$formula, af$data, engine = engine,
-                                 family = family_used, context = context, ...)
+                                 family = family_used, context = context,
+                                 sampling_weights = sampling_weights, ...)
     adjusted_formula <- af$formula
   }
 
@@ -403,7 +454,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
       group_formula, data, group = group, engine = engine, family = family_used,
       shared_strata = shared_strata, min_group_n = min_group_n,
       autobin = autobin, bootstrap = bootstrap, n_boot = n_boot,
-      conf_level = conf_level, ...
+      conf_level = conf_level, sampling_weights = sampling_weights, ...
     )
   }
 

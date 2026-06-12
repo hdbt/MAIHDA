@@ -46,9 +46,12 @@
 #'
 #' @note
 #' This is a teaching/illustration dataset only. It uses a single PISA plausible
-#' value for each score and the analysis functions ignore the PISA survey weights
-#' and complex sampling design, so results are \strong{not} survey-representative
-#' and should not be used for substantive cross-national inference.
+#' value for each score and does \strong{not} carry the PISA survey weights or
+#' complex sampling design, so results are \strong{not} survey-representative and
+#' should not be used for substantive cross-national inference. (For your own
+#' survey data, the package supports design-weighted MAIHDA via the
+#' \code{sampling_weights} argument of \code{\link{fit_maihda}} /
+#' \code{\link{maihda}}.)
 #'
 #' @examples
 #' \donttest{

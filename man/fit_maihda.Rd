@@ -11,6 +11,7 @@ fit_maihda(
   family = "gaussian",
   autobin = TRUE,
   context = NULL,
+  sampling_weights = NULL,
   ...
 )
 }
@@ -25,8 +26,11 @@ updated.}
 
 \item{data}{A data frame containing the variables in the formula.}
 
-\item{engine}{Character string specifying which engine to use: "lme4" (default)
-or "brms".}
+\item{engine}{Character string specifying which engine to use: "lme4"
+(default), "brms", or "wemix" (design-weighted pseudo-maximum-likelihood via
+\code{WeMix::mix()}; requires \code{sampling_weights}). When
+\code{sampling_weights} is supplied and \code{engine} is left at its
+default, the engine switches to "wemix" automatically (with a message).}
 
 \item{family}{Character string, family object, or family function specifying
 the model family. Common options: "gaussian", "binomial", "poisson".
@@ -70,15 +74,47 @@ A context with few levels (say < 10) weakly identifies its variance and often
 yields a singular lme4 fit; the \code{brms} engine handles this better.
 Writing the random effect directly in the formula (\code{... + (1 | school)})
 fits the same model but is summarised generically as "Other random effects";
-only \code{context =} activates the labelled contextual partition.}
+only \code{context =} activates the labelled contextual partition.
+Not supported by the \code{wemix} engine.}
 
-\item{...}{Additional arguments passed to \code{lmer}/\code{glmer} (lme4) or
-\code{brm} (brms).}
+\item{sampling_weights}{Optional single character string naming a numeric
+column of \code{data} holding individual \emph{sampling} (survey/design)
+weights, for a \strong{design-weighted MAIHDA} on complex-survey data
+(e.g. NHANES, PISA). Sampling weights are not the same thing as lme4's
+\code{weights=} (precision weights, which rescale the residual variance), so
+combining \code{sampling_weights} with \code{engine = "lme4"} is an error.
+Two engines support them:
+\itemize{
+  \item \code{engine = "wemix"} (chosen automatically when \code{engine} is
+    left at its default): weighted pseudo-maximum-likelihood via
+    \code{WeMix::mix()} (Rabe-Hesketh & Skrondal 2006), the estimator used
+    for NAEP/PISA analysis. The individual weights enter at level 1
+    unchanged and the level-2 (stratum) weights are 1, because
+    intersectional strata are exhaustive population cells included with
+    certainty. Supports \code{gaussian(identity)} and
+    \code{binomial(logit)} models with the canonical single
+    \code{(1 | stratum)} random intercept. Fixed-effect standard errors are
+    design-consistent (sandwich); the VPC/PCV are reported as point
+    estimates (no bootstrap -- see \code{\link{summary.maihda_model}}).
+  \item \code{engine = "brms"}: the weights enter the model as likelihood
+    weights (\code{y | weights(w)}), normalized to mean 1, giving a
+    \emph{pseudo-posterior}: point estimates are design-consistent but
+    credible intervals are not design-based -- interpret them cautiously.
+}
+Rows with a missing or non-positive sampling weight are dropped with a
+warning. Default \code{NULL} (unweighted).}
+
+\item{...}{Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
+\code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},
+\code{fast}). The lme4-style \code{weights}/\code{subset}/\code{offset}
+arguments are not supported by the wemix engine.}
 }
 \value{
 A maihda_model object containing:
-  \item{model}{The fitted model object (lme4 or brms)}
-  \item{engine}{The engine used ("lme4" or "brms")}
+  \item{model}{The fitted model object (lme4, brms, or WeMix)}
+  \item{engine}{The engine used ("lme4", "brms", or "wemix")}
+  \item{sampling_weights}{The sampling-weight column name when supplied,
+    NULL otherwise}
   \item{formula}{The model formula}
   \item{data}{The data used for fitting}
   \item{family}{The family used}
@@ -93,7 +129,8 @@ A maihda_model object containing:
 }
 \description{
 Fits a multilevel model for MAIHDA (Multilevel Analysis of Individual
-Heterogeneity and Discriminatory Accuracy) using either lme4 or brms.
+Heterogeneity and Discriminatory Accuracy) using lme4, brms, or -- for
+design-weighted (survey) data -- WeMix.
 }
 \examples{
 \donttest{

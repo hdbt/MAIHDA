@@ -47,6 +47,18 @@ maihda_fit_diagnostics <- function(model) {
     msgs <- msgs[nzchar(msgs)]
     diagnostics$messages <- msgs
     diagnostics$converged <- length(msgs) == 0
+  } else if (inherits(model, "WeMixResults")) {
+    diagnostics$engine <- "wemix"
+    # WeMix raises a hard error when optimisation fails, so a returned fit has
+    # converged; flag a boundary (zero between-stratum variance) fit the same way
+    # lme4's isSingular() does, since it makes the VPC unreliable in exactly the
+    # same way.
+    diagnostics$converged <- TRUE
+    diagnostics$singular <- tryCatch({
+      vd <- model$varDF
+      s <- as.numeric(vd$vcov[vd$grp == "stratum"][1])
+      is.finite(s) && s < 1e-8
+    }, error = function(e) NA)
   } else if (inherits(model, "brmsfit")) {
     diagnostics$engine <- "brms"
     # Stan/brms convergence is not flagged at fit time the way lme4 surfaces
@@ -1414,6 +1426,27 @@ maihda_vpc_interval_label <- function(vpc) {
 # results are not survey-representative.
 maihda_prior_weights <- function(object) {
   n <- nrow(object$data)
+  # Design-weighted fits (sampling_weights supplied): aggregate with the SAMPLING
+  # weights, so stratum-level summaries are population-representative under the
+  # weights. The wemix analytic frame keeps the original weight column; a brms
+  # fit's model frame instead carries the normalized .maihda_sw column (mean-1
+  # scaling does not change weighted means).
+  if (!is.null(object$sampling_weights)) {
+    sw_col <- if (object$sampling_weights %in% names(object$data)) {
+      object$sampling_weights
+    } else if (".maihda_sw" %in% names(object$data)) {
+      ".maihda_sw"
+    } else {
+      NULL
+    }
+    if (!is.null(sw_col)) {
+      w <- as.numeric(object$data[[sw_col]])
+      if (length(w) == n) {
+        w[!is.finite(w)] <- NA_real_
+        return(w)
+      }
+    }
+  }
   # Aggregated binomial responses (cbind(success, failure) / `y | trials(n)`)
   # report the binomial TRIALS through weights(type = "prior"); those are already
   # encoded in the response denominator, so multiplying by them would double-count.

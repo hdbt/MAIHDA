@@ -4,7 +4,14 @@
 \alias{stepwise_pcv}
 \title{Stepwise Proportional Change in Variance (PCV)}
 \usage{
-stepwise_pcv(data, outcome, vars, engine = "lme4", family = "gaussian")
+stepwise_pcv(
+  data,
+  outcome,
+  vars,
+  engine = "lme4",
+  family = "gaussian",
+  sampling_weights = NULL
+)
 }
 \arguments{
 \item{data}{Data frame with observations. Ensure `make_strata()` was run first
@@ -15,9 +22,15 @@ so the `stratum` variable exists.}
 \item{vars}{Character vector; predictors (strata groupings & covariates) to
 add sequentially to the model.}
 
-\item{engine}{Modeling engine ("lme4" or "brms"). Default is "lme4".}
+\item{engine}{Modeling engine ("lme4", "brms", or "wemix"). Default is "lme4";
+switches to "wemix" automatically when \code{sampling_weights} is supplied.}
 
 \item{family}{Error distribution and link function. Default is "gaussian".}
+
+\item{sampling_weights}{Optional name of a sampling-weight column for
+design-weighted stepwise fits; see \code{\link{fit_maihda}}. The weight
+column joins the complete-case filter so every step uses the same analytic
+sample.}
 }
 \value{
 A data.frame showing the sequential models, the between-stratum

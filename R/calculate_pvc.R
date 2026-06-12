@@ -142,6 +142,12 @@ extract_between_variance <- function(model) {
     )
     return(maihda_stratum_variance_lme4(fitted_model))
 
+  } else if (engine == "wemix") {
+    # The wemix engine only ever fits the canonical single intercept-only
+    # (1 | stratum) structure (enforced at fit time), so no random-slope
+    # validation is needed here.
+    return(maihda_wemix_variances(model)$stratum)
+
   } else if (engine == "brms") {
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("Package 'brms' is required to work with brms models. Please install it with: install.packages('brms')")
@@ -168,6 +174,10 @@ validate_pvc_models <- function(model1, model2) {
 
   fam1 <- maihda_family(model1$model)
   fam2 <- maihda_family(model2$model)
+  # stats::family() is undefined for WeMixResults; fall back to the family the
+  # wrapper recorded at fit time so the family/link guard still applies.
+  if (is.null(fam1) && is.list(model1$family)) fam1 <- model1$family
+  if (is.null(fam2) && is.list(model2$family)) fam2 <- model2$family
   fam_key1 <- c(
     family = if (!is.null(fam1$family)) fam1$family else NA_character_,
     link = if (!is.null(fam1$link)) fam1$link else NA_character_
@@ -185,6 +195,10 @@ validate_pvc_models <- function(model1, model2) {
 
   n1 <- maihda_nobs(model1$model)
   n2 <- maihda_nobs(model2$model)
+  # nobs() is undefined for WeMixResults; the wrapper's analytic frame holds the
+  # fitted rows, so its row count is the analytic n.
+  if (!is.finite(n1) && is.data.frame(model1$data)) n1 <- nrow(model1$data)
+  if (!is.finite(n2) && is.data.frame(model2$data)) n2 <- nrow(model2$data)
   if (is.finite(n1) && is.finite(n2) && n1 != n2) {
     stop("PVC requires both models to use the same analytic sample. ",
          "Model 1 used ", n1, " observations and Model 2 used ", n2, ".",
@@ -214,6 +228,17 @@ validate_pvc_models <- function(model1, model2) {
                  maihda_weight_fingerprint(model2$model))) {
     stop("PVC requires both models to use the same prior weights; the two models ",
          "were fit with different weights.", call. = FALSE)
+  }
+
+  # Same idea for SAMPLING weights (design-weighted fits): a PCV across fits that
+  # used different design weights -- or one weighted and one unweighted fit --
+  # would compare incomparable variance estimates. The fingerprint covers the
+  # column name and its values on the analytic rows.
+  if (!identical(maihda_sampling_weight_fingerprint(model1),
+                 maihda_sampling_weight_fingerprint(model2))) {
+    stop("PVC requires both models to use the same sampling weights; the two ",
+         "models were fit with different (or differently specified) ",
+         "sampling weights.", call. = FALSE)
   }
 
   if (!"stratum" %in% names(model1$data) || !"stratum" %in% names(model2$data)) {
@@ -365,8 +390,13 @@ print.pvc_result <- function(x, ...) {
 #' @param outcome Character string; the dependent variable.
 #' @param vars Character vector; predictors (strata groupings & covariates) to
 #'   add sequentially to the model.
-#' @param engine Modeling engine ("lme4" or "brms"). Default is "lme4".
+#' @param engine Modeling engine ("lme4", "brms", or "wemix"). Default is "lme4";
+#'   switches to "wemix" automatically when \code{sampling_weights} is supplied.
 #' @param family Error distribution and link function. Default is "gaussian".
+#' @param sampling_weights Optional name of a sampling-weight column for
+#'   design-weighted stepwise fits; see \code{\link{fit_maihda}}. The weight
+#'   column joins the complete-case filter so every step uses the same analytic
+#'   sample.
 #'
 #' @return A data.frame showing the sequential models, the between-stratum
 #'   variance at each step, and both the step-specific and total PCV.
@@ -383,12 +413,28 @@ print.pvc_result <- function(x, ...) {
 #' }
 #'
 #' @export
-stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussian") {
+stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussian",
+                         sampling_weights = NULL) {
 
   if (!"stratum" %in% names(data)) {
     stop("Variable 'stratum' not found in data. Please run make_strata() first.")
   }
-  required_vars <- unique(c(outcome, "stratum", vars))
+  # Sampling weights select the design-weighted engine, mirroring fit_maihda();
+  # the weight column joins the complete-case filter below so all steps share one
+  # analytic sample.
+  if (!is.null(sampling_weights)) {
+    sampling_weights <- maihda_validate_sampling_weights(sampling_weights, data)
+    if (missing(engine)) {
+      engine <- "wemix"
+      message("stepwise_pcv(): 'sampling_weights' supplied; using engine = \"wemix\" ",
+              "(design-weighted pseudo-maximum-likelihood via WeMix).")
+    } else if (identical(engine, "lme4")) {
+      stop("Sampling weights are not supported by engine = \"lme4\" (lme4's ",
+           "weights are precision weights, not sampling weights). Use ",
+           "engine = \"wemix\" or \"brms\".", call. = FALSE)
+    }
+  }
+  required_vars <- unique(c(outcome, "stratum", vars, sampling_weights))
   missing_vars <- setdiff(required_vars, names(data))
   if (length(missing_vars) > 0) {
     stop("Variables not found in data: ", paste(missing_vars, collapse = ", "))
@@ -449,7 +495,8 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
 
   # Model 0: Null Model
   null_fmla <- maihda_formula_with_stratum(outcome)
-  null_mod <- fit_maihda(null_fmla, data, engine = engine, family = family)
+  null_mod <- fit_maihda(null_fmla, data, engine = engine, family = family,
+                         sampling_weights = sampling_weights)
   null_var <- extract_between_variance(null_mod)
 
   results[1, ] <- list(
@@ -471,7 +518,8 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     current_terms <- c(current_terms, model_terms[i])
 
     fmla <- maihda_formula_with_stratum(outcome, current_terms)
-    mod <- fit_maihda(fmla, data, engine = engine, family = family)
+    mod <- fit_maihda(fmla, data, engine = engine, family = family,
+                      sampling_weights = sampling_weights)
 
     curr_var <- extract_between_variance(mod)
 

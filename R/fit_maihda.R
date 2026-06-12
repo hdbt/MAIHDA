@@ -1,7 +1,8 @@
 #' Fit MAIHDA Model
 #'
 #' Fits a multilevel model for MAIHDA (Multilevel Analysis of Individual
-#' Heterogeneity and Discriminatory Accuracy) using either lme4 or brms.
+#' Heterogeneity and Discriminatory Accuracy) using lme4, brms, or -- for
+#' design-weighted (survey) data -- WeMix.
 #'
 #' @param formula A formula specifying the model. Can include a random effect
 #'   for stratum (e.g., \code{outcome ~ fixed_vars + (1 | stratum)}) or can
@@ -11,8 +12,11 @@
 #'   will be called internally to compute the strata and the formula will be
 #'   updated.
 #' @param data A data frame containing the variables in the formula.
-#' @param engine Character string specifying which engine to use: "lme4" (default)
-#'   or "brms".
+#' @param engine Character string specifying which engine to use: "lme4"
+#'   (default), "brms", or "wemix" (design-weighted pseudo-maximum-likelihood via
+#'   \code{WeMix::mix()}; requires \code{sampling_weights}). When
+#'   \code{sampling_weights} is supplied and \code{engine} is left at its
+#'   default, the engine switches to "wemix" automatically (with a message).
 #' @param family Character string, family object, or family function specifying
 #'   the model family. Common options: "gaussian", "binomial", "poisson".
 #'   Default is "gaussian".
@@ -54,12 +58,43 @@
 #'   Writing the random effect directly in the formula (\code{... + (1 | school)})
 #'   fits the same model but is summarised generically as "Other random effects";
 #'   only \code{context =} activates the labelled contextual partition.
-#' @param ... Additional arguments passed to \code{lmer}/\code{glmer} (lme4) or
-#'   \code{brm} (brms).
+#'   Not supported by the \code{wemix} engine.
+#' @param sampling_weights Optional single character string naming a numeric
+#'   column of \code{data} holding individual \emph{sampling} (survey/design)
+#'   weights, for a \strong{design-weighted MAIHDA} on complex-survey data
+#'   (e.g. NHANES, PISA). Sampling weights are not the same thing as lme4's
+#'   \code{weights=} (precision weights, which rescale the residual variance), so
+#'   combining \code{sampling_weights} with \code{engine = "lme4"} is an error.
+#'   Two engines support them:
+#'   \itemize{
+#'     \item \code{engine = "wemix"} (chosen automatically when \code{engine} is
+#'       left at its default): weighted pseudo-maximum-likelihood via
+#'       \code{WeMix::mix()} (Rabe-Hesketh & Skrondal 2006), the estimator used
+#'       for NAEP/PISA analysis. The individual weights enter at level 1
+#'       unchanged and the level-2 (stratum) weights are 1, because
+#'       intersectional strata are exhaustive population cells included with
+#'       certainty. Supports \code{gaussian(identity)} and
+#'       \code{binomial(logit)} models with the canonical single
+#'       \code{(1 | stratum)} random intercept. Fixed-effect standard errors are
+#'       design-consistent (sandwich); the VPC/PCV are reported as point
+#'       estimates (no bootstrap -- see \code{\link{summary.maihda_model}}).
+#'     \item \code{engine = "brms"}: the weights enter the model as likelihood
+#'       weights (\code{y | weights(w)}), normalized to mean 1, giving a
+#'       \emph{pseudo-posterior}: point estimates are design-consistent but
+#'       credible intervals are not design-based -- interpret them cautiously.
+#'   }
+#'   Rows with a missing or non-positive sampling weight are dropped with a
+#'   warning. Default \code{NULL} (unweighted).
+#' @param ... Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
+#'   \code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},
+#'   \code{fast}). The lme4-style \code{weights}/\code{subset}/\code{offset}
+#'   arguments are not supported by the wemix engine.
 #'
 #' @return A maihda_model object containing:
-#'   \item{model}{The fitted model object (lme4 or brms)}
-#'   \item{engine}{The engine used ("lme4" or "brms")}
+#'   \item{model}{The fitted model object (lme4, brms, or WeMix)}
+#'   \item{engine}{The engine used ("lme4", "brms", or "wemix")}
+#'   \item{sampling_weights}{The sampling-weight column name when supplied,
+#'     NULL otherwise}
 #'   \item{formula}{The model formula}
 #'   \item{data}{The data used for fitting}
 #'   \item{family}{The family used}
@@ -101,7 +136,8 @@
 #' @importFrom rlang enquos eval_tidy
 #' @importFrom stats gaussian binomial poisson
 fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
-                       autobin = TRUE, context = NULL, ...) {
+                       autobin = TRUE, context = NULL, sampling_weights = NULL,
+                       ...) {
   # Input validation
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a formula object")
@@ -111,11 +147,45 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     stop("'data' must be a data frame")
   }
 
-  if (!is.character(engine) || length(engine) != 1 || !engine %in% c("lme4", "brms")) {
-    stop("'engine' should be one of: lme4, brms", call. = FALSE)
+  # Sampling (design) weights select the design-weighted engine. lme4 weights are
+  # PRECISION weights -- feeding survey weights to lmer/glmer maximises the wrong
+  # objective -- so an explicit engine = "lme4" with sampling_weights is an error
+  # rather than a silent misfit; the default engine switches to "wemix".
+  if (!is.null(sampling_weights)) {
+    sampling_weights <- maihda_validate_sampling_weights(sampling_weights, data)
+    if (missing(engine)) {
+      engine <- "wemix"
+      message("fit_maihda(): 'sampling_weights' supplied; using engine = \"wemix\" ",
+              "(design-weighted pseudo-maximum-likelihood via WeMix). Set 'engine' ",
+              "explicitly to silence this message or to choose engine = \"brms\".")
+    } else if (identical(engine, "lme4")) {
+      stop("Sampling weights are not supported by engine = \"lme4\": lme4's ",
+           "weights are precision weights (they rescale the residual variance), ",
+           "not sampling weights, so survey weights would give invalid estimates. ",
+           "Use engine = \"wemix\" (pseudo-maximum-likelihood, recommended) or ",
+           "engine = \"brms\" (pseudo-posterior).", call. = FALSE)
+    }
+  }
+
+  if (!is.character(engine) || length(engine) != 1 ||
+      !engine %in% c("lme4", "brms", "wemix")) {
+    stop("'engine' should be one of: lme4, brms, wemix", call. = FALSE)
   }
 
   context <- maihda_validate_context(context, data)
+
+  if (identical(engine, "wemix")) {
+    if (is.null(sampling_weights)) {
+      stop("engine = \"wemix\" is the design-weighted MAIHDA fit and requires ",
+           "'sampling_weights' (the sampling-weight column). For an unweighted ",
+           "fit use engine = \"lme4\" or \"brms\".", call. = FALSE)
+    }
+    if (!is.null(context)) {
+      stop("engine = \"wemix\" does not support 'context' (WeMix fits no crossed ",
+           "random effects). Use engine = \"lme4\" or \"brms\" for a contextual ",
+           "cross-classified model.", call. = FALSE)
+    }
+  }
 
   # Capture the forwarded engine arguments as quosures (each keeps its expression
   # AND its environment) and evaluate them once, here, against the data. Plain
@@ -130,6 +200,28 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   subset_value <- dot_vals[["subset"]]
   weights_value <- dot_vals[["weights"]]
 
+  if (!is.null(sampling_weights) && "weights" %in% names(dot_vals)) {
+    stop("Supply either 'sampling_weights' (design weights) or 'weights' ",
+         "(precision weights), not both.", call. = FALSE)
+  }
+  if (identical(engine, "wemix")) {
+    unsupported_dots <- intersect(c("weights", "subset", "offset"), names(dot_vals))
+    if (length(unsupported_dots) > 0) {
+      stop("Argument(s) not supported by engine = \"wemix\": ",
+           paste(unsupported_dots, collapse = ", "),
+           ". Subset or transform the data before fitting.", call. = FALSE)
+    }
+  }
+
+  # Rows with a missing sampling weight are dropped by the weighted engines, so
+  # base the binary-outcome detection (and any 0/1 recoding) on the same rows by
+  # passing the sampling weights through the detector's missing-weight handling.
+  detect_weights <- if (!is.null(sampling_weights)) {
+    data[[sampling_weights]]
+  } else {
+    weights_value
+  }
+
   # Automatically switch to binomial for binary outcomes if family is default.
   # Detect on the analytic sample lme4/brms will actually fit -- the model frame
   # after transformations, NA-dropping, any `subset`, and dropping rows with a
@@ -138,7 +230,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   if (missing(family)) {
     is_binary <- tryCatch(
       maihda_response_is_binary(formula, data, subset = subset_value,
-                                weights = weights_value),
+                                weights = detect_weights),
       error = function(e) FALSE)
     if (isTRUE(is_binary)) {
       warning("The outcome variable appears to be binary. Automatically switching to family = 'binomial'. To fit a Linear Probability Model, explicitly specify family = 'gaussian'.", call. = FALSE)
@@ -282,14 +374,28 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   is_binomial_family <- family$family %in% c("binomial", "quasibinomial")
   response_is_binary <- is_binomial_family &&
     maihda_response_is_binary(formula, data, subset = subset_value,
-                              weights = weights_value)
+                              weights = detect_weights)
   response_recoding <- NULL
   if (response_is_binary) {
     data <- maihda_prepare_binomial_response(data, formula, subset = subset_value,
-                                             weights = weights_value)
+                                             weights = detect_weights)
     # Mapping of original outcome levels to 0/1 (which level is the modeled event),
     # captured so it is inspectable on the returned model object.
     response_recoding <- attr(data, "response_recoding")
+  }
+
+  if (identical(engine, "wemix")) {
+    # WeMix supports linear and binomial-logit models with the canonical single
+    # (1 | stratum) intercept; reject anything else with a targeted message before
+    # touching the engine. An aggregated binomial response (cbind / trials) has no
+    # WeMix representation either.
+    maihda_wemix_check_family(family)
+    maihda_wemix_check_formula(formula)
+    if (is_binomial_family && !response_is_binary) {
+      stop("engine = \"wemix\" supports a binary (Bernoulli) 0/1 outcome only; ",
+           "aggregated binomial responses (cbind(success, failure) or trials) ",
+           "are not supported. Use engine = \"lme4\" or \"brms\".", call. = FALSE)
+    }
   }
 
   # Build the engine call from the already-evaluated `...` values. Each value is
@@ -299,6 +405,19 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # longer depends on the (now recoded) response. The formula's environment is
   # pointed at this env so that lme4/brms, which evaluate `weights`/`subset` against
   # the formula's environment, find the bound values (and the `data` symbol).
+  if (engine == "wemix") {
+    # Design-weighted pseudo-ML fit. The guard above bans data-masked engine
+    # arguments (weights/subset/offset) for wemix, so the remaining dots are plain
+    # values WeMix::mix() takes directly -- the fit_env machinery the other
+    # engines need is unnecessary here. maihda_fit_wemix() also pre-builds the
+    # analytic sample (complete cases, positive weights), so the `data` it
+    # returns matches the rows actually fitted.
+    maihda_require_wemix()
+    wemix_fit <- maihda_fit_wemix(formula, data, family, sampling_weights, dot_vals)
+    model <- wemix_fit$model
+    data <- wemix_fit$data
+  } else {
+
   fit_env <- new.env(parent = environment(formula))
   fit_env$data <- data
   dot_args <- list()
@@ -326,6 +445,22 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       stop("Package 'brms' is required but not installed. Please install it with: install.packages('brms')")
     }
 
+    # Sampling weights enter the brms model as likelihood weights, which gives a
+    # PSEUDO-posterior: point estimates are design-consistent, intervals are not
+    # design-based. The weights are normalized to mean 1 so expansion weights do
+    # not inflate the effective sample size, and rows with missing/non-positive
+    # weights are dropped here so the stored data matches the fitted rows.
+    if (!is.null(sampling_weights)) {
+      prep <- maihda_prepare_brms_sampling_weights(data, formula, sampling_weights)
+      data <- prep$data
+      formula <- prep$formula
+      fit_env$data <- data
+      message("fit_maihda(): sampling weights enter the brms model as likelihood ",
+              "weights (normalized to mean 1), giving a pseudo-posterior: point ",
+              "estimates are design-consistent, but credible intervals are not ",
+              "design-based -- interpret them cautiously.")
+    }
+
     # brms models a 0/1 response with bernoulli(); passing binomial() would
     # require a trials specification and errors on Bernoulli data. Only rewrite
     # when the response really is a two-level vector -- aggregated binomial
@@ -342,13 +477,21 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   fit_call <- as.call(c(list(fit_fun), fit_args, dot_args))
   model <- eval(fit_call, fit_env)
 
+  }
+
   # Capture fit-quality diagnostics (singular fit / non-convergence) so they can
   # be reported by print()/summary(); lme4 surfaces these only once at fit time.
   diagnostics <- maihda_fit_diagnostics(model)
 
   # Store the actual analytic model frame so downstream calculations use the
-  # same rows as lme4/brms after their NA handling.
-  model_data <- maihda_model_frame(model, fallback = data)
+  # same rows as lme4/brms after their NA handling. The wemix path pre-built its
+  # analytic sample above (complete cases, positive weights), so `data` already
+  # IS the fitted frame -- and model.frame() is undefined for WeMixResults.
+  model_data <- if (engine == "wemix") {
+    data
+  } else {
+    maihda_model_frame(model, fallback = data)
+  }
   strata_info <- maihda_refresh_strata_counts(strata_info, model_data)
   attr(model_data, "strata_info") <- strata_info
   attr(model_data, "strata_vars") <- strata_vars
@@ -369,6 +512,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       strata_autobin_info = strata_autobin_info,
       context_vars = context,
       context_info = context_info,
+      sampling_weights = sampling_weights,
       response_recoding = response_recoding,
       diagnostics = diagnostics
     ),
@@ -393,6 +537,14 @@ print.maihda_model <- function(x, ...) {
   if (!is.null(x$context_vars)) {
     cat("Context:", paste(x$context_vars, collapse = ", "),
         "(crossed contextual random intercept)\n")
+  }
+  if (!is.null(x$sampling_weights)) {
+    cat("Sampling weights:", x$sampling_weights,
+        if (identical(x$engine, "wemix")) {
+          "(design-weighted pseudo-maximum-likelihood)"
+        } else {
+          "(likelihood weights; pseudo-posterior)"
+        }, "\n")
   }
   cat("\n")
   maihda_print_fit_diagnostics(x$diagnostics)

@@ -340,6 +340,8 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
       maihda_stratum_predictions_lme4(object, summary_obj, scale = "response")
     } else if (object$engine == "brms") {
       maihda_stratum_predictions_brms(object, summary_obj, scale = "response")
+    } else if (object$engine == "wemix") {
+      maihda_stratum_predictions_wemix(object, summary_obj, scale = "response")
     } else {
       stop("Unsupported engine: ", object$engine)
     }
@@ -501,6 +503,8 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
     maihda_stratum_predictions_lme4(object, summary_obj, scale = scale)
   } else if (object$engine == "brms") {
     maihda_stratum_predictions_brms(object, summary_obj, scale = scale)
+  } else if (object$engine == "wemix") {
+    maihda_stratum_predictions_wemix(object, summary_obj, scale = scale)
   } else {
     stop("Unsupported engine: ", object$engine)
   }
@@ -607,7 +611,13 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
   # Safe approach matching what's used in plot_prediction_deviation_panels
   model_type <- object$family$family
 
-  if (object$engine == "brms" || inherits(object$model, "brmsfit")) {
+  if (object$engine == "wemix") {
+    # Fixed-part prediction on the response scale, built from coef (WeMix's own
+    # predict() has no fixed-only form).
+    preds <- maihda_linkinv(object$family)(
+      maihda_wemix_linpred(object, include_re = FALSE)
+    )
+  } else if (object$engine == "brms" || inherits(object$model, "brmsfit")) {
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("Package 'brms' is required to plot the mean prediction vs. stratum ",
            "random effect for brms models.", call. = FALSE)
@@ -771,6 +781,9 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
   } else if (object$engine == "brms") {
     preds_total <- tryCatch(brms::posterior_linpred(object$model, summary = TRUE)[, "Estimate"], error = function(e) rep(NA, nrow(data)))
     preds_fixed <- tryCatch(brms::posterior_linpred(object$model, re_formula = NA, summary = TRUE)[, "Estimate"], error = function(e) rep(NA, nrow(data)))
+  } else if (object$engine == "wemix") {
+    preds_total <- tryCatch(maihda_wemix_linpred(object, include_re = TRUE), error = function(e) rep(NA, nrow(data)))
+    preds_fixed <- tryCatch(maihda_wemix_linpred(object, include_re = FALSE), error = function(e) rep(NA, nrow(data)))
   } else {
     stop("Engine not supported for effect decomposition.")
   }
