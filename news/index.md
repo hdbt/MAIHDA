@@ -4,6 +4,54 @@
 
 ### New Features
 
+- Added the **contextual cross-classified MAIHDA** – the
+  “cross-classified MAIHDA” of the literature (e.g. patients
+  cross-classified by intersectional stratum and *hospital*, or students
+  by stratum and *school*) – via a new `context` argument on
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  and [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md).
+  `context = "school"` (one or more column names) enters each context as
+  a crossed random intercept alongside the intersectional stratum
+  effect, `outcome ~ covars + (1 | stratum) + (1 | school)`, and the
+  summaries then partition the unexplained variance into
+  **between-stratum vs. between-context vs. residual**: the headline
+  VPC/ICC becomes the between-stratum share *net of* the context, each
+  context gets its own `Context: <name>` row in the variance-components
+  table, and a new `$context` summary element carries the per-context
+  variances and shares (with parametric-bootstrap intervals for lme4 via
+  `bootstrap = TRUE`, and posterior credible intervals for brms). In
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) the
+  context random intercept is carried by *both* the null and the
+  adjusted model, so the PCV is computed with the context partialled
+  out; `context` also composes with
+  `decomposition = "crossed-dimensions"` (the context variance then
+  enters the single fit and its VPC denominator). A new plot type
+  `"context_vpc"` (on both `maihda_model` and `maihda_analysis`) bars
+  the stratum vs. context variances with their shares, and
+  `plot(type = "vpc")` renders the contextual split automatically.
+  `context` cannot be combined with `group` (a *stratified* per-level
+  comparison vs. a *joint* crossed model are different designs;
+  supplying both errors), a context variable may not be a stratum
+  dimension or appear as a fixed effect, and a context with few levels
+  weakly identifies its variance (consider `engine = "brms"`). A
+  manually written `... + (1 | school)` still fits and is summarised
+  generically as “Other random effects”; only `context =` activates the
+  labelled partition.
+- **Renamed** the `decomposition` value `"cross-classified"` to
+  **`"crossed-dimensions"`** in
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  (and in the Shiny app’s decomposition toggle), because that mode
+  crosses the stratum *dimensions’* main effects as random intercepts –
+  whereas “cross-classified MAIHDA” in the literature means the
+  contextual stratum-by-place model now fitted via `context` (see
+  above). The old value is accepted as a **deprecated alias** that warns
+  and maps to `"crossed-dimensions"`. Note for code that inspects
+  results: a `maihda_analysis` from this mode now has
+  `mode = "crossed-dimensions"` (was `"cross-classified"`), and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  results carry `attr(, "decomposition") == "crossed-dimensions"`;
+  printed output and plot titles say “crossed-dimensions” accordingly.
 - Added [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md),
   a single high-level entry point that runs the standard two-model
   MAIHDA workflow in one call. It fits the **null** model (the formula

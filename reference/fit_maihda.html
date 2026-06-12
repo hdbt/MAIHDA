@@ -25,7 +25,7 @@ Heterogeneity and Discriminatory Accuracy) using either lme4 or brms."><meta pro
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
-    <li><a class="dropdown-item" href="../articles/cross_classified.html">Cross-classified MAIHDA: additive vs. interaction in one model</a></li>
+    <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -62,6 +62,7 @@ Heterogeneity and Discriminatory Accuracy) using either lme4 or brms.</p>
 <span>  engine <span class="op">=</span> <span class="st">"lme4"</span>,</span>
 <span>  family <span class="op">=</span> <span class="st">"gaussian"</span>,</span>
 <span>  autobin <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  context <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -119,6 +120,26 @@ automatic strata creation should be binned by <code><a href="make_strata.html">m
 Default is TRUE.</p></dd>
 
 
+<dt id="arg-context">context<a class="anchor" aria-label="anchor" href="#arg-context"></a></dt>
+<dd><p>Optional character vector naming one or more higher-level
+<em>context</em> columns in <code>data</code> (e.g. <code>"school"</code>,
+<code>"hospital"</code>, <code>"region"</code>). Each enters the model as a crossed
+intercept-only random effect alongside the intersectional stratum effect –
+<code>outcome ~ covars + (1 | stratum) + (1 | context)</code> – giving the
+<em>contextual cross-classified MAIHDA</em> of the literature (individuals
+cross-classified by stratum and place/institution). <code><a href="summary.maihda_model.html">summary.maihda_model</a></code>
+then partitions the unexplained variance into between-stratum vs.
+between-context vs. residual, and the headline VPC/ICC remains the
+between-stratum share (now net of the context). A context variable may not be
+a stratum dimension or <code>"stratum"</code> itself, and may not already appear as
+a fixed-effect term (its variance would then be absorbed by the fixed part).
+A context with few levels (say &lt; 10) weakly identifies its variance and often
+yields a singular lme4 fit; the <code>brms</code> engine handles this better.
+Writing the random effect directly in the formula (<code>... + (1 | school)</code>)
+fits the same model but is summarised generically as "Other random effects";
+only <code>context =</code> activates the labelled contextual partition.</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code>lmer</code>/<code>glmer</code> (lme4) or
 <code>brm</code> (brms).</p></dd>
@@ -145,6 +166,10 @@ Default is TRUE.</p></dd>
   <dt>strata_info</dt>
 <dd><p>The strata information from make_strata() if available, NULL otherwise</p></dd>
 
+  <dt>context_vars</dt>
+<dd><p>The context variable name(s) when <code>context</code> was
+    supplied, NULL otherwise</p></dd>
+
   <dt>response_recoding</dt>
 <dd><p>For a recoded two-level outcome, a data frame mapping
     each original level to its 0/1 value and role (reference/event); NULL when no
@@ -170,6 +195,46 @@ Default is TRUE.</p></dd>
 <span class="r-in"><span><span class="va">model2</span> <span class="op">&lt;-</span> <span class="fu">fit_maihda</span><span class="op">(</span><span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                     data <span class="op">=</span> <span class="va">maihda_sim_data</span>,</span></span>
 <span class="r-in"><span>                     engine <span class="op">=</span> <span class="st">"lme4"</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Contextual cross-classified MAIHDA: strata crossed with a higher-level</span></span></span>
+<span class="r-in"><span><span class="co"># context (here country) -- the literature's cross-classified MAIHDA.</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">maihda_country_data</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">model3</span> <span class="op">&lt;-</span> <span class="fu">fit_maihda</span><span class="op">(</span><span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                     data <span class="op">=</span> <span class="va">maihda_country_data</span>,</span></span>
+<span class="r-in"><span>                     context <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model3</span><span class="op">)</span>  <span class="co"># between-stratum vs. between-country vs. residual</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> MAIHDA Model Summary</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ====================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Variance Partition Coefficient (VPC/ICC):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Estimate: 0.1032</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Variance Components:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                  component variance    sd proportion</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum (random)    915.2 30.25     0.1032</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>           Context: country   1137.1 33.72     0.1283</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  Within-stratum (residual)   6813.0 82.54     0.7685</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                      Total   8865.3 94.16     1.0000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Contextual Cross-Classified Partition (stratum x context):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum (intersectional) variance: 915.2323 (share 10.3%)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Context 'country' variance: 1137.1067 (share 12.8%)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Note: the headline VPC/ICC is the between-stratum share net of the</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   context(s) -- intersectional clustering not attributable to shared place</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   or institution. The context share is the general contextual effect.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Fixed Effects:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         term estimate</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  (Intercept)    492.3</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Stratum Estimates (first 10):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  stratum stratum_id           label random_effect    se lower_95 upper_95</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        1          1   male × Medium         7.404 9.689   -11.59   26.396</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        2          2 female × Medium        -7.027 9.740   -26.12   12.063</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        3          3   female × High        30.825 9.729    11.76   49.894</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        4          4      male × Low       -28.600 9.741   -47.69   -9.508</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        5          5    female × Low       -37.651 9.724   -56.71  -18.592</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        6          6     male × High        35.048 9.713    16.01   54.085</span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

@@ -41,7 +41,7 @@ with a group."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
-    <li><a class="dropdown-item" href="../articles/cross_classified.html">Cross-classified MAIHDA: additive vs. interaction in one model</a></li>
+    <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -94,9 +94,10 @@ with a <code>group</code>.</p>
 
 <dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
 <dd><p>One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
-"risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation") or a group
-type ("group_vpc", "group_components", "group_between_variance", "group_pcv").
-Default "all".</p></dd>
+"risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation"), the
+contextual type ("context_vpc", a stratum-vs-context variance bar; requires
+<code>maihda(context = )</code>), or a group type ("group_vpc", "group_components",
+"group_between_variance", "group_pcv"). Default "all".</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

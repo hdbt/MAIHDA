@@ -119,10 +119,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> Use summary() for variance components and plot(type = ...) for figures.
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x557c42590948>
+#> <environment: 0x564db25b8850>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x557c3dd507f0>
+#> <environment: 0x564daded5908>
 ```
 
 The returned object carries everything: the full variance components,
@@ -265,15 +265,31 @@ plot(analysis, type = "ternary")
 
 ![](introduction_files/figure-html/maihda-plot-ternary-1.png)
 
-### A cross-classified alternative
+### A crossed-dimensions alternative
 
 Alongside the two-model PCV,
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) offers a
-**cross-classified** decomposition
-(`decomposition = "cross-classified"`) that estimates the additive and
-interaction parts from a *single* model – entering each dimension’s main
-effect as a random intercept rather than a fixed effect. The two modes
-target the same question with different estimators. See
+**crossed-dimensions** decomposition
+(`decomposition = "crossed-dimensions"`; formerly called
+`"cross-classified"`, which still works as a deprecated alias) that
+estimates the additive and interaction parts from a *single* model –
+entering each dimension’s main effect as a random intercept rather than
+a fixed effect. The two modes target the same question with different
+estimators. See
+[`vignette("cross_classified", package = "MAIHDA")`](https://hdbt.github.io/MAIHDA/articles/cross_classified.md).
+
+### A contextual cross-classified model
+
+To model the strata *crossed with* a higher-level place or institution –
+the literature’s **cross-classified MAIHDA** (patients within strata and
+hospitals, students within strata and schools) – pass
+`context = "school"` to
+[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) or
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md).
+The summary then partitions the unexplained variance into
+between-stratum vs. between-context vs. residual, and the headline
+VPC/ICC becomes the between-stratum share net of the context. Also
+covered in
 [`vignette("cross_classified", package = "MAIHDA")`](https://hdbt.github.io/MAIHDA/articles/cross_classified.md).
 
 ### Comparing across groups
@@ -508,10 +524,12 @@ This vignette is the hub for the rest of the documentation:
   – the full `maihda(group = ...)` /
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   workflow.
-- **[Cross-classified
-  decomposition](https://hdbt.github.io/MAIHDA/articles/cross_classified.md)**
-  – the single-model additive-vs-interaction alternative to the
-  two-model PCV.
+- **[Crossed random effects: dimensions and
+  contexts](https://hdbt.github.io/MAIHDA/articles/cross_classified.md)**
+  – the single-model additive-vs-interaction (crossed-dimensions)
+  alternative to the two-model PCV, and the contextual cross-classified
+  MAIHDA (strata crossed with schools, hospitals, regions) via
+  `context =`.
 - **[Interactive data
   analysis](https://hdbt.github.io/MAIHDA/articles/interactive_app.md)**
   – the no-code Shiny dashboard.

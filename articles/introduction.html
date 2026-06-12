@@ -43,7 +43,7 @@
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
-    <li><a class="dropdown-item" href="../articles/cross_classified.html">Cross-classified MAIHDA: additive vs. interaction in one model</a></li>
+    <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -75,7 +75,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-06-11</h4>
+            <h4 data-toc-skip class="date">2026-06-12</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
@@ -190,10 +190,10 @@ sample</strong>, so the PCV is always a like-for-like comparison.</p>
 <span><span class="co">#&gt; Use summary() for variance components and plot(type = ...) for figures.</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>        <span class="co"># null:     BMI ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x557c42590948&gt;</span></span>
+<span><span class="co">#&gt; &lt;environment: 0x564db25b8850&gt;</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>  <span class="co"># adjusted: BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x557c3dd507f0&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x564daded5908&gt;</span></span></code></pre></div>
 <p>The returned object carries everything: the full variance components,
 the PCV decomposition, and both fitted models.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -306,15 +306,29 @@ package, so it is only drawn when that package is installed:</p>
 <p><img src="introduction_files/figure-html/maihda-plot-ternary-1.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level3">
-<h3 id="a-cross-classified-alternative">A cross-classified alternative<a class="anchor" aria-label="anchor" href="#a-cross-classified-alternative"></a>
+<h3 id="a-crossed-dimensions-alternative">A crossed-dimensions alternative<a class="anchor" aria-label="anchor" href="#a-crossed-dimensions-alternative"></a>
 </h3>
 <p>Alongside the two-model PCV, <code><a href="../reference/maihda.html">maihda()</a></code> offers a
-<strong>cross-classified</strong> decomposition
-(<code>decomposition = "cross-classified"</code>) that estimates the
-additive and interaction parts from a <em>single</em> model – entering
-each dimension’s main effect as a random intercept rather than a fixed
-effect. The two modes target the same question with different
-estimators. See
+<strong>crossed-dimensions</strong> decomposition
+(<code>decomposition = "crossed-dimensions"</code>; formerly called
+<code>"cross-classified"</code>, which still works as a deprecated
+alias) that estimates the additive and interaction parts from a
+<em>single</em> model – entering each dimension’s main effect as a
+random intercept rather than a fixed effect. The two modes target the
+same question with different estimators. See
+<code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>.</p>
+</div>
+<div class="section level3">
+<h3 id="a-contextual-cross-classified-model">A contextual cross-classified model<a class="anchor" aria-label="anchor" href="#a-contextual-cross-classified-model"></a>
+</h3>
+<p>To model the strata <em>crossed with</em> a higher-level place or
+institution – the literature’s <strong>cross-classified MAIHDA</strong>
+(patients within strata and hospitals, students within strata and
+schools) – pass <code>context = "school"</code> to <code><a href="../reference/maihda.html">maihda()</a></code>
+or <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code>. The summary then partitions the
+unexplained variance into between-stratum vs. between-context
+vs. residual, and the headline VPC/ICC becomes the between-stratum share
+net of the context. Also covered in
 <code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>.</p>
 </div>
 <div class="section level3">
@@ -528,9 +542,12 @@ inequality across groups</a></strong> – the full
 <code>maihda(group = ...)</code> / <code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code>
 workflow.</li>
 <li>
-<strong><a href="cross_classified.html">Cross-classified
-decomposition</a></strong> – the single-model additive-vs-interaction
-alternative to the two-model PCV.</li>
+<strong><a href="cross_classified.html">Crossed random effects:
+dimensions and contexts</a></strong> – the single-model
+additive-vs-interaction (crossed-dimensions) alternative to the
+two-model PCV, and the contextual cross-classified MAIHDA (strata
+crossed with schools, hospitals, regions) via
+<code>context =</code>.</li>
 <li>
 <strong><a href="interactive_app.html">Interactive data
 analysis</a></strong> – the no-code Shiny dashboard.</li>

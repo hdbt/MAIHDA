@@ -25,7 +25,7 @@
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
-    <li><a class="dropdown-item" href="../articles/cross_classified.html">Cross-classified MAIHDA: additive vs. interaction in one model</a></li>
+    <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -115,10 +115,21 @@ families/engines.</p></dd>
 <dl><dt>vpc</dt>
 <dd><p>Variance Partition Coefficient (ICC); for lme4 with
     <code>bootstrap = TRUE</code> and for all brms models this includes
-    <code>ci_lower</code>/<code>ci_upper</code>/<code>conf_level</code></p></dd>
+    <code>ci_lower</code>/<code>ci_upper</code>/<code>conf_level</code>. For a contextual
+    cross-classified fit this is the <em>between-stratum</em> share of all
+    unexplained variance (net of the context)</p></dd>
 
   <dt>variance_components</dt>
-<dd><p>Data frame of variance components</p></dd>
+<dd><p>Data frame of variance components. For a
+    contextual cross-classified fit (<code>fit_maihda(context = )</code>) each
+    context appears as its own <code>Context: &lt;name&gt;</code> row</p></dd>
+
+  <dt>context</dt>
+<dd><p>For a contextual cross-classified fit, the stratum vs.
+    context partition: per-context variances and shares, the contexts' total
+    share (<code>vpc_context_total</code>, with an interval when bootstrapped or for
+    brms), and the between-stratum share (<code>vpc_stratum</code>); <code>NULL</code>
+    otherwise</p></dd>
 
   <dt>discriminatory_accuracy</dt>
 <dd><p>For a binomial/Bernoulli outcome, the

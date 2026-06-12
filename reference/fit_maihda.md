@@ -12,6 +12,7 @@ fit_maihda(
   engine = "lme4",
   family = "gaussian",
   autobin = TRUE,
+  context = NULL,
   ...
 )
 ```
@@ -70,6 +71,28 @@ fit_maihda(
   [`make_strata`](https://hdbt.github.io/MAIHDA/reference/make_strata.md).
   Default is TRUE.
 
+- context:
+
+  Optional character vector naming one or more higher-level *context*
+  columns in `data` (e.g. `"school"`, `"hospital"`, `"region"`). Each
+  enters the model as a crossed intercept-only random effect alongside
+  the intersectional stratum effect –
+  `outcome ~ covars + (1 | stratum) + (1 | context)` – giving the
+  *contextual cross-classified MAIHDA* of the literature (individuals
+  cross-classified by stratum and place/institution).
+  [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
+  then partitions the unexplained variance into between-stratum vs.
+  between-context vs. residual, and the headline VPC/ICC remains the
+  between-stratum share (now net of the context). A context variable may
+  not be a stratum dimension or `"stratum"` itself, and may not already
+  appear as a fixed-effect term (its variance would then be absorbed by
+  the fixed part). A context with few levels (say \< 10) weakly
+  identifies its variance and often yields a singular lme4 fit; the
+  `brms` engine handles this better. Writing the random effect directly
+  in the formula (`... + (1 | school)`) fits the same model but is
+  summarised generically as "Other random effects"; only `context =`
+  activates the labelled contextual partition.
+
 - ...:
 
   Additional arguments passed to `lmer`/`glmer` (lme4) or `brm` (brms).
@@ -102,6 +125,11 @@ A maihda_model object containing:
 
   The strata information from make_strata() if available, NULL otherwise
 
+- context_vars:
+
+  The context variable name(s) when `context` was supplied, NULL
+  otherwise
+
 - response_recoding:
 
   For a recoded two-level outcome, a data frame mapping each original
@@ -128,5 +156,45 @@ model <- fit_maihda(health_outcome ~ age + (1 | stratum),
 model2 <- fit_maihda(health_outcome ~ age + (1 | gender:race:education),
                      data = maihda_sim_data,
                      engine = "lme4")
+
+# Contextual cross-classified MAIHDA: strata crossed with a higher-level
+# context (here country) -- the literature's cross-classified MAIHDA.
+data(maihda_country_data)
+model3 <- fit_maihda(math ~ 1 + (1 | gender:ses),
+                     data = maihda_country_data,
+                     context = "country")
+summary(model3)  # between-stratum vs. between-country vs. residual
+#> MAIHDA Model Summary
+#> ====================
+#> 
+#> Variance Partition Coefficient (VPC/ICC):
+#>   Estimate: 0.1032
+#> 
+#> Variance Components:
+#>                  component variance    sd proportion
+#>   Between-stratum (random)    915.2 30.25     0.1032
+#>           Context: country   1137.1 33.72     0.1283
+#>  Within-stratum (residual)   6813.0 82.54     0.7685
+#>                      Total   8865.3 94.16     1.0000
+#> 
+#> Contextual Cross-Classified Partition (stratum x context):
+#>   Between-stratum (intersectional) variance: 915.2323 (share 10.3%)
+#>   Context 'country' variance: 1137.1067 (share 12.8%)
+#>   Note: the headline VPC/ICC is the between-stratum share net of the
+#>   context(s) -- intersectional clustering not attributable to shared place
+#>   or institution. The context share is the general contextual effect.
+#> 
+#> Fixed Effects:
+#>         term estimate
+#>  (Intercept)    492.3
+#> 
+#> Stratum Estimates (first 10):
+#>  stratum stratum_id           label random_effect    se lower_95 upper_95
+#>        1          1   male × Medium         7.404 9.689   -11.59   26.396
+#>        2          2 female × Medium        -7.027 9.740   -26.12   12.063
+#>        3          3   female × High        30.825 9.729    11.76   49.894
+#>        4          4      male × Low       -28.600 9.741   -47.69   -9.508
+#>        5          5    female × Low       -37.651 9.724   -56.71  -18.592
+#>        6          6     male × High        35.048 9.713    16.01   54.085
 # }
 ```

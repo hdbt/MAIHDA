@@ -46,10 +46,17 @@ socioeconomic status).
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   contrasts intersectional inequality (VPC/ICC) across levels of a
   higher-level variable such as country or region
+- **Contextual Cross-Classified MAIHDA**: `context = "school"` crosses
+  the intersectional strata with a place/institution level (school,
+  hospital, region) in one model and partitions the unexplained variance
+  into between-stratum vs. between-context vs. residual – the
+  cross-classified MAIHDA of the literature
 - **Proportional Change in Variance (PCV)**: Quantify the proportional
   change in between-stratum variance when additional predictors are
   added (it is variance “explained” only when the models are nested;
-  otherwise it is a model-dependent change)
+  otherwise it is a model-dependent change), or read the
+  additive/interaction split off a single model with
+  `decomposition = "crossed-dimensions"`
 
 ## Installation
 
@@ -129,7 +136,10 @@ them in the formula, or let
 with a message), summarises the null-model VPC/ICC, and reports the
 **PCV** (the additive share of the intersectional inequality). When a
 `group` is supplied it also runs this decomposition within each group.
-Returns one `maihda_analysis` object with
+Alternatively, `decomposition = "crossed-dimensions"` reads the
+additive/interaction split off a *single* model that enters each
+dimension’s main effect as a random intercept. Returns one
+`maihda_analysis` object with
 [`print()`](https://rdrr.io/r/base/print.html),
 [`summary()`](https://rdrr.io/r/base/summary.html), and
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods
@@ -149,6 +159,35 @@ optional minimum count filtering.
 
 Fits multilevel models using either lme4 (default) or brms engine.
 Supports various families including gaussian, binomial, and poisson.
+
+### Contextual cross-classified MAIHDA (`context =`)
+
+The MAIHDA literature’s *cross-classified* design crosses individuals’
+intersectional strata with a higher-level **context** – hospitals
+(patient survival), schools (student achievement), neighbourhoods. Pass
+`context = "school"` to
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+or [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) to
+fit `outcome ~ covars + (1 | stratum) + (1 | school)` in one model; the
+summary then splits the unexplained variance into **between-stratum**
+(intersectional, net of the context), **between-context** (the general
+contextual effect), and **residual**, and `plot(type = "context_vpc")`
+visualises the partition.
+
+``` r
+
+data(maihda_country_data)
+# Strata (gender x SES) crossed with country in ONE model -- contrast with
+# group = "country", which instead fits an independent model per country.
+a <- maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data,
+            context = "country")
+a$summary$context$vpc_context_total  # the country share of unexplained variance
+plot(a, type = "context_vpc")
+```
+
+A context with few levels (like these 6 countries) weakly identifies its
+variance; prefer many-level contexts or `engine = "brms"` for serious
+use.
 
 ### `summary()`
 

@@ -46,7 +46,7 @@
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
-    <li><a class="dropdown-item" href="articles/cross_classified.html">Cross-classified MAIHDA: additive vs. interaction in one model</a></li>
+    <li><a class="dropdown-item" href="articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -103,7 +103,10 @@
 <li>
 <strong>Group Comparison</strong>: <code><a href="reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> contrasts intersectional inequality (VPC/ICC) across levels of a higher-level variable such as country or region</li>
 <li>
-<strong>Proportional Change in Variance (PCV)</strong>: Quantify the proportional change in between-stratum variance when additional predictors are added (it is variance “explained” only when the models are nested; otherwise it is a model-dependent change)</li>
+<strong>Contextual Cross-Classified MAIHDA</strong>: <code>context = "school"</code> crosses the intersectional strata with a place/institution level (school, hospital, region) in one model and partitions the unexplained variance into between-stratum vs. between-context vs. residual – the cross-classified MAIHDA of the literature</li>
+<li>
+<strong>Proportional Change in Variance (PCV)</strong>: Quantify the proportional change in between-stratum variance when additional predictors are added (it is variance “explained” only when the models are nested; otherwise it is a model-dependent change), or read the additive/interaction split off a single model with <code>decomposition = "crossed-dimensions"</code>
+</li>
 </ul>
 </div>
 <div class="section level2">
@@ -161,7 +164,7 @@
 <h3 id="maihda">
 <code>maihda()</code><a class="anchor" aria-label="anchor" href="#maihda"></a>
 </h3>
-<p>A single high-level entry point that runs the standard two-model MAIHDA workflow: it fits the <strong>null</strong> model (covariates only) and the <strong>adjusted</strong> model (plus the dimensions’ additive main effects – write them in the formula, or let <code><a href="reference/maihda.html">maihda()</a></code> add them with a message), summarises the null-model VPC/ICC, and reports the <strong>PCV</strong> (the additive share of the intersectional inequality). When a <code>group</code> is supplied it also runs this decomposition within each group. Returns one <code>maihda_analysis</code> object with <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, and <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> methods (<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> routes the VPC/shrinkage views to the null model and the additive-vs-intersectional views to the adjusted model). It is intrinsically a decomposition and has no single-model mode – use <code><a href="reference/fit_maihda.html">fit_maihda()</a></code> for a single fit.</p>
+<p>A single high-level entry point that runs the standard two-model MAIHDA workflow: it fits the <strong>null</strong> model (covariates only) and the <strong>adjusted</strong> model (plus the dimensions’ additive main effects – write them in the formula, or let <code><a href="reference/maihda.html">maihda()</a></code> add them with a message), summarises the null-model VPC/ICC, and reports the <strong>PCV</strong> (the additive share of the intersectional inequality). When a <code>group</code> is supplied it also runs this decomposition within each group. Alternatively, <code>decomposition = "crossed-dimensions"</code> reads the additive/interaction split off a <em>single</em> model that enters each dimension’s main effect as a random intercept. Returns one <code>maihda_analysis</code> object with <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, and <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> methods (<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> routes the VPC/shrinkage views to the null model and the additive-vs-intersectional views to the adjusted model). It is intrinsically a decomposition and has no single-model mode – use <code><a href="reference/fit_maihda.html">fit_maihda()</a></code> for a single fit.</p>
 </div>
 <div class="section level3">
 <h3 id="make_strata">
@@ -174,6 +177,20 @@
 <code>fit_maihda()</code><a class="anchor" aria-label="anchor" href="#fit_maihda"></a>
 </h3>
 <p>Fits multilevel models using either lme4 (default) or brms engine. Supports various families including gaussian, binomial, and poisson.</p>
+</div>
+<div class="section level3">
+<h3 id="contextual-cross-classified-maihda-context-">Contextual cross-classified MAIHDA (<code>context =</code>)<a class="anchor" aria-label="anchor" href="#contextual-cross-classified-maihda-context-"></a>
+</h3>
+<p>The MAIHDA literature’s <em>cross-classified</em> design crosses individuals’ intersectional strata with a higher-level <strong>context</strong> – hospitals (patient survival), schools (student achievement), neighbourhoods. Pass <code>context = "school"</code> to <code><a href="reference/fit_maihda.html">fit_maihda()</a></code> or <code><a href="reference/maihda.html">maihda()</a></code> to fit <code>outcome ~ covars + (1 | stratum) + (1 | school)</code> in one model; the summary then splits the unexplained variance into <strong>between-stratum</strong> (intersectional, net of the context), <strong>between-context</strong> (the general contextual effect), and <strong>residual</strong>, and <code>plot(type = "context_vpc")</code> visualises the partition.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">maihda_country_data</span><span class="op">)</span></span>
+<span><span class="co"># Strata (gender x SES) crossed with country in ONE model -- contrast with</span></span>
+<span><span class="co"># group = "country", which instead fits an independent model per country.</span></span>
+<span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_country_data</span>,</span>
+<span>            context <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span>
+<span><span class="va">a</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">context</span><span class="op">$</span><span class="va">vpc_context_total</span>  <span class="co"># the country share of unexplained variance</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"context_vpc"</span><span class="op">)</span></span></code></pre></div>
+<p>A context with few levels (like these 6 countries) weakly identifies its variance; prefer many-level contexts or <code>engine = "brms"</code> for serious use.</p>
 </div>
 <div class="section level3">
 <h3 id="summary">
@@ -268,7 +285,7 @@
 <div class="section level2">
 <h2 id="example-intersectional-health-inequalities">Example: Intersectional Health Inequalities<a class="anchor" aria-label="anchor" href="#example-intersectional-health-inequalities"></a>
 </h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit model adjusting for age, automatically creating strata from gender, race, and education</span></span>
 <span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
@@ -310,7 +327,7 @@
 <div class="section level2">
 <h2 id="using-brms-for-bayesian-inference">Using brms for Bayesian Inference<a class="anchor" aria-label="anchor" href="#using-brms-for-bayesian-inference"></a>
 </h2>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Requires brms package</span></span>
 <span><span class="va">model_brms</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
@@ -325,7 +342,7 @@
 <div class="section level2">
 <h2 id="model-comparison-with-bootstrap">Model Comparison with Bootstrap<a class="anchor" aria-label="anchor" href="#model-comparison-with-bootstrap"></a>
 </h2>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Compare nested models on the SAME data and strata (null vs covariate-adjusted).</span></span>
 <span><span class="co"># VPCs are only comparable when models share an outcome, family/link, analytic</span></span>
 <span><span class="co"># sample (the same rows), and strata; compare_maihda() warns otherwise.</span></span>
@@ -347,7 +364,7 @@
 <div class="section level2">
 <h2 id="calculating-proportional-change-in-variance-pcv">Calculating Proportional Change in Variance (PCV)<a class="anchor" aria-label="anchor" href="#calculating-proportional-change-in-variance-pcv"></a>
 </h2>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit baseline model</span></span>
 <span><span class="va">model1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span><span class="op">)</span></span>
 <span></span>
@@ -370,7 +387,7 @@
 <div class="section level2">
 <h2 id="stepwise-proportional-change-in-variance-pcv">Stepwise Proportional Change in Variance (PCV)<a class="anchor" aria-label="anchor" href="#stepwise-proportional-change-in-variance-pcv"></a>
 </h2>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Incrementally track the explained variables interactively</span></span>
 <span><span class="va">stepwise_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/stepwise_pcv.html">stepwise_pcv</a></span><span class="op">(</span></span>
 <span>  data <span class="op">=</span> <span class="va">data</span>,</span>
@@ -384,7 +401,7 @@
 </h2>
 <p>You can access a live, cloud-hosted version of the MAIHDA interactive dashboard directly in your browser without installing R: <strong><a href="https://hdbt.shinyapps.io/shiny/" class="external-link">https://hdbt.shinyapps.io/shiny/</a></strong></p>
 <p>Alternatively, you can run all analyses described above in the browser locally by typing:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -392,7 +409,7 @@
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
 </h2>
 <p>For detailed documentation and examples, see the package vignette:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/vignette.html" class="external-link">vignette</a></span><span class="op">(</span><span class="st">"introduction"</span>, package <span class="op">=</span> <span class="st">"MAIHDA"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -440,14 +457,14 @@
 <p>If you use this package in your research, please cite:</p>
 <pre class="text"><code>Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.11, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA</code></pre>
 <p>A BibTeX entry for LaTeX users is:</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="va">@Manual</span>{<span class="ot">Bulut2025MAIHDA</span>,</span>
-<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="dt">title</span>  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},</span>
-<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="dt">author</span> = {Hamid Bulut},</span>
-<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>  <span class="dt">year</span>   = {2025},</span>
-<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.1.11},</span>
-<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  <span class="dt">url</span>    = {https://github.com/hdbt/MAIHDA},</span>
-<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>  <span class="dt">doi</span>    = {10.32614/CRAN.package.MAIHDA}</span>
-<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="va">@Manual</span>{<span class="ot">Bulut2025MAIHDA</span>,</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="dt">title</span>  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="dt">author</span> = {Hamid Bulut},</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>  <span class="dt">year</span>   = {2025},</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.1.11},</span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>  <span class="dt">url</span>    = {https://github.com/hdbt/MAIHDA},</span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>  <span class="dt">doi</span>    = {10.32614/CRAN.package.MAIHDA}</span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>}</span></code></pre></div>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">

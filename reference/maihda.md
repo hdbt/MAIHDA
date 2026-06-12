@@ -19,9 +19,10 @@ maihda(
   formula,
   data,
   group = NULL,
+  context = NULL,
   engine = "lme4",
   family = "gaussian",
-  decomposition = c("two-model", "cross-classified"),
+  decomposition = c("two-model", "crossed-dimensions"),
   autobin = TRUE,
   shared_strata = TRUE,
   min_group_n = 30,
@@ -56,7 +57,26 @@ maihda(
   Optional character string naming a higher-level grouping variable
   (e.g. `"country"`). When supplied,
   [`compare_maihda_groups`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
-  is run and attached to the result.
+  is run and attached to the result. `group` runs a *stratified*
+  analysis (one independent model per level); to instead model a higher
+  level *jointly*, crossed with the strata, use `context`. The two are
+  different designs, so supplying both errors.
+
+- context:
+
+  Optional character vector naming higher-level *context* column(s) in
+  `data` (e.g. `"school"`, `"hospital"`, `"region"`), forwarded to
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md).
+  Each context enters every fitted model as a crossed random intercept –
+  `outcome ~ covars + (1 | stratum) + (1 | context)` – the *contextual
+  cross-classified MAIHDA* of the literature. The summaries then
+  partition the unexplained variance into between-stratum vs.
+  between-context vs. residual, the headline VPC/ICC becomes the
+  between-stratum share *net of* the context, and the PCV decomposition
+  is computed with the context partialled out (the context random
+  intercept is carried by both the null and the adjusted model). Cannot
+  be combined with `group`; a context with few levels weakly identifies
+  its variance (consider `engine = "brms"`).
 
 - engine:
 
@@ -77,7 +97,7 @@ maihda(
   approach: a null model and an adjusted model (the dimensions' additive
   main effects as *fixed* effects), with the additive share read from
   the PCV (proportional change in between-stratum variance).
-  `"cross-classified"` fits a **single** model that enters each
+  `"crossed-dimensions"` fits a **single** model that enters each
   dimension's additive main effect as a *random* intercept –
   `outcome ~ covars + (1 | dim1) + ... + (1 | stratum)` – so each
   dimension's RE variance is its additive contribution and the
@@ -86,11 +106,14 @@ maihda(
   between-strata variance are read directly from that one fit. The two
   modes target the same scientific question with different estimators,
   so their additive shares are conceptually parallel but not numerically
-  identical. The cross-classified additive share is a partial-pooling
+  identical. The crossed-dimensions additive share is a partial-pooling
   estimate: dimensions with few levels (e.g. a binary sex variable,
   whose variance is estimated from two groups) are poorly identified and
   often give a singular lme4 fit – the `brms` engine handles this
-  better. See Details.
+  better. See Details. (`"cross-classified"` is accepted as a deprecated
+  alias for `"crossed-dimensions"`, with a warning: in the MAIHDA
+  literature “cross-classified” refers to the contextual
+  stratum-by-place model, which this package fits via `context`.)
 
 - autobin:
 
@@ -155,13 +178,14 @@ An object of class `maihda_analysis`: a list with
   the fitted `maihda_model` (see
   [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md));
   the **null** model in `"two-model"` mode, or the single
-  **cross-classified** model in `"cross-classified"` mode
+  **crossed-dimensions** model in `"crossed-dimensions"` mode
 
 - summary:
 
   the model's `maihda_summary` (VPC/ICC, variance components, stratum
   estimates; plus the additive/interaction `decomposition` in
-  cross-classified mode)
+  crossed-dimensions mode, and the stratum-vs-context `context`
+  partition when `context` is supplied)
 
 - model_adjusted:
 
@@ -181,7 +205,7 @@ An object of class `maihda_analysis`: a list with
 - decomposition:
 
   the additive/interaction partition (additive and interaction variances
-  and shares, per-dimension variances; `"cross-classified"` mode only,
+  and shares, per-dimension variances; `"crossed-dimensions"` mode only,
   `NULL` otherwise)
 
 - groups:
@@ -190,7 +214,12 @@ An object of class `maihda_analysis`: a list with
 
 - mode:
 
-  `"two-model"` or `"cross-classified"`
+  `"two-model"` or `"crossed-dimensions"`
+
+- context_vars:
+
+  the context variable name(s) when `context` was supplied, otherwise
+  `NULL`
 
 - formula, adjusted_formula, group_var, call:
 
@@ -293,10 +322,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x563738ed6110>
+#> <environment: 0x55b7ba7bed30>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x56373b08a1f0>
+#> <environment: 0x55b7b00e27e8>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -308,17 +337,17 @@ plot(a, type = "vpc")          # null model
 plot(a, type = "effect_decomp")# adjusted model (additive vs intersectional)
 
 
-# Cross-classified decomposition: one model, the dimensions' main effects entered as
-# RANDOM intercepts. The additive and interaction shares of the between-strata
+# Crossed-dimensions decomposition: one model, the dimensions' main effects entered
+# as RANDOM intercepts. The additive and interaction shares of the between-strata
 # variance are read directly from the single fit (no null/adjusted pair).
 cc <- maihda(BMI ~ Age + (1 | Gender:Race), data = maihda_health_data,
-             decomposition = "cross-classified")
+             decomposition = "crossed-dimensions")
 #> boundary (singular) fit: see help('isSingular')
 cc                                    # VPC and additive/interaction shares
 #> MAIHDA Analysis
 #> ===============
 #> 
-#> Decomposition:   cross-classified (single model)
+#> Decomposition:   crossed-dimensions (single model)
 #> Formula:         BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
 #> Engine: lme4 | Family: gaussian
 #> Fit diagnostics:
@@ -330,7 +359,7 @@ cc                                    # VPC and additive/interaction shares
 #> 
 #> VPC/ICC: 0.0637
 #> 
-#> Additive vs. Intersectional Decomposition (cross-classified):
+#> Additive vs. Intersectional Decomposition (crossed-dimensions):
 #>   Additive (sum of dimension main effects) variance: 1.8415
 #>   Intersectional interaction variance:               1.1593
 #>   Total between-strata variance:                     3.0008
@@ -339,17 +368,17 @@ cc                                    # VPC and additive/interaction shares
 #>   Per-dimension additive variance:
 #>     Gender: 0.0000
 #>     Race: 1.8415
-#>   Note: the additive share is the cross-classified analogue of the PCV but a
-#>   different estimator; interpret the interaction share cautiously.
+#>   Note: the additive share is the crossed-dimensions analogue of the PCV but
+#>   a different estimator; interpret the interaction share cautiously.
 #> 
 #> Strata: 10
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
-cc$decomposition$additive_share       # cross-classified analogue of the PCV
+cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x563739b05898>
+#> <environment: 0x55b7b88d7e00>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):
@@ -405,6 +434,37 @@ a2
 plot(a2, type = "group_vpc")
 
 plot(a2, type = "group_pcv")
+
+
+# Contextual cross-classified MAIHDA: instead of one model per country (group=),
+# model the strata CROSSED with country in a single fit. The summary partitions
+# the unexplained variance into between-stratum vs. between-country vs. residual,
+# and the PCV is computed with country partialled out.
+a3 <- maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data,
+             context = "country")
+#> maihda(): added the additive main effect(s) of the stratum dimension(s) gender, ses to the adjusted model; the null model excludes them. List them in the formula to specify the adjusted model explicitly.
+a3
+#> MAIHDA Analysis
+#> ===============
+#> 
+#> Null formula:    math ~ (1 | stratum) + (1 | country)
+#> Adjusted formula:math ~ (1 | stratum) + (1 | country) + gender + ses
+#> Engine: lme4 | Family: gaussian
+#> Context: country (crossed contextual random intercept in the null and adjusted models)
+#> VPC/ICC (null): 0.1032
+#> Context share (null): 0.1283 (between-country share of unexplained variance)
+#> PCV (null -> adjusted): 0.9978
+#> Between-stratum variance: 915.2323 (null) -> 1.9877 (adjusted)
+#>   ~99.8% of the between-stratum variance is additive (the dimensions' main
+#>   effects); the remainder is the between-stratum variance remaining after the
+#>   additive main effects -- a model-dependent quantity, often interpreted as
+#>   intersectional interaction, but interpret it cautiously.
+#> Strata: 6
+#> 
+#> Use summary() for variance components and plot(type = ...) for figures.
+a3$summary$context$vpc_context_total  # the country (general contextual) share
+#> [1] 0.1282643
+plot(a3, type = "context_vpc")
 
 # }
 ```

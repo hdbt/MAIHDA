@@ -31,13 +31,13 @@ plot(
 
   One of "vpc" (default) for VPC by group with optional bootstrap
   confidence intervals, "components" for stacked variance proportions
-  (additive / interaction / residual for a cross-classified comparison,
-  between / other / residual otherwise), "between_variance" for the
-  absolute between-stratum variance by group, "pcv" for the two-model
-  additive share (null -\> adjusted proportional change in
+  (additive / interaction / residual for a crossed-dimensions
+  comparison, between / other / residual otherwise), "between_variance"
+  for the absolute between-stratum variance by group, "pcv" for the
+  two-model additive share (null -\> adjusted proportional change in
   between-stratum variance) by group, or "additive_share" for the
-  cross-classified additive share by group. The VPC is a *share* of the
-  unexplained variance; "between_variance" shows the *magnitude* the
+  crossed-dimensions additive share by group. The VPC is a *share* of
+  the unexplained variance; "between_variance" shows the *magnitude* the
   ratio cannot convey (two groups with very different VPCs can share a
   between-stratum variance, and vice versa); "pcv" requires strata
   defined by at least two dimensions.

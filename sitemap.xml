@@ -14,6 +14,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/MAIHDA-package.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/add_stratum_labels.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_cc.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_context.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_pvc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_vpc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/calculate_pvc.html</loc></url>
@@ -30,6 +31,8 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_cc_summary_brms.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_cc_summary_lme4.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_compose_caption.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_context_summary_brms.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_context_summary_lme4.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_country_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_cross_classified_formula.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.html</loc></url>
@@ -37,6 +40,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_mor.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_prepare_group_strata.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_print_cc_decomposition.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_print_context_partition.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.html</loc></url>
@@ -47,6 +51,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_ternary.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_comparison.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/plot_context_vpc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_effect_decomposition.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_maihda_ternary.html</loc></url>

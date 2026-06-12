@@ -31,7 +31,7 @@ group. Dispatched via plot() on the classed result."><meta property="og:image" c
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
-    <li><a class="dropdown-item" href="../articles/cross_classified.html">Cross-classified MAIHDA: additive vs. interaction in one model</a></li>
+    <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -85,11 +85,11 @@ group. Dispatched via <code><a href="https://rdrr.io/r/graphics/plot.default.htm
 <dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
 <dd><p>One of "vpc" (default) for VPC by group with optional bootstrap
 confidence intervals, "components" for stacked variance proportions (additive /
-interaction / residual for a cross-classified comparison, between / other /
+interaction / residual for a crossed-dimensions comparison, between / other /
 residual otherwise), "between_variance" for the absolute between-stratum variance
 by group, "pcv" for the two-model additive share (null -&gt; adjusted proportional
 change in between-stratum variance) by group, or "additive_share" for the
-cross-classified additive share by group. The VPC is a <em>share</em> of the
+crossed-dimensions additive share by group. The VPC is a <em>share</em> of the
 unexplained variance;
 "between_variance" shows the <em>magnitude</em> the ratio cannot convey (two groups
 with very different VPCs can share a between-stratum variance, and vice versa);

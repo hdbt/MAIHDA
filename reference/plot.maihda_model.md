@@ -11,7 +11,7 @@ estimates, and predicted subgroup values with confidence intervals.
 plot(
   x,
   type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
-    "effect_decomp", "ternary", "prediction_deviation"),
+    "effect_decomp", "ternary", "prediction_deviation", "context_vpc"),
   summary_obj = NULL,
   n_strata = 50,
   ...
@@ -52,6 +52,9 @@ plot(
 
   - "prediction_deviation": Detailed deviation panels for individuals or
     strata
+
+  - "context_vpc": Stratum vs. context variance bars for a contextual
+    cross-classified fit (`fit_maihda(context = )`); errors otherwise
 
   - "all": Generate all available plots (default if not specified)
 

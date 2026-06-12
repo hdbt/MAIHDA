@@ -67,11 +67,22 @@ A maihda_summary object containing:
 
   Variance Partition Coefficient (ICC); for lme4 with `bootstrap = TRUE`
   and for all brms models this includes
-  `ci_lower`/`ci_upper`/`conf_level`
+  `ci_lower`/`ci_upper`/`conf_level`. For a contextual cross-classified
+  fit this is the *between-stratum* share of all unexplained variance
+  (net of the context)
 
 - variance_components:
 
-  Data frame of variance components
+  Data frame of variance components. For a contextual cross-classified
+  fit (`fit_maihda(context = )`) each context appears as its own
+  `Context: <name>` row
+
+- context:
+
+  For a contextual cross-classified fit, the stratum vs. context
+  partition: per-context variances and shares, the contexts' total share
+  (`vpc_context_total`, with an interval when bootstrapped or for brms),
+  and the between-stratum share (`vpc_stratum`); `NULL` otherwise
 
 - discriminatory_accuracy:
 

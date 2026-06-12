@@ -1,14 +1,15 @@
-# Build the cross-classified-model formula and data for a MAIHDA decomposition
+# Build the crossed-dimensions-model formula and data for a MAIHDA decomposition
 
-The cross-classified alternative to the two-model (fixed-effects PCV)
-decomposition. Given a null model's formula (in `(1 | stratum)` form,
+The crossed-dimensions alternative to the two-model (fixed-effects PCV)
+decomposition (the function name keeps the historical "cross_classified"
+spelling). Given a null model's formula (in `(1 | stratum)` form,
 carrying only the covariates) and the stratum metadata, returns the
-single cross-classified formula – the covariates plus an *additive
-random intercept for each stratum dimension* plus the intersection
-(`stratum`) random intercept – together with the data carrying any
-reconstructed binned factors. In the fitted model each dimension's RE
-variance is that dimension's additive main-effect variance and the
-`stratum` RE variance is the interaction beyond additive; see
+single crossed formula – the covariates plus an *additive random
+intercept for each stratum dimension* plus the intersection (`stratum`)
+random intercept – together with the data carrying any reconstructed
+binned factors. In the fitted model each dimension's RE variance is that
+dimension's additive main-effect variance and the `stratum` RE variance
+is the interaction beyond additive; see
 [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md).
 
 ## Usage
