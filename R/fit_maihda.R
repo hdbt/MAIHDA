@@ -18,8 +18,15 @@
 #'   \code{sampling_weights} is supplied and \code{engine} is left at its
 #'   default, the engine switches to "wemix" automatically (with a message).
 #' @param family Character string, family object, or family function specifying
-#'   the model family. Common options: "gaussian", "binomial", "poisson".
-#'   Default is "gaussian".
+#'   the model family. Common options: "gaussian", "binomial", "poisson",
+#'   "negbinomial". Default is "gaussian".
+#'   \code{family = "negbinomial"} fits an overdispersed count model with the
+#'   dispersion parameter theta \emph{estimated} from the data: lme4 via
+#'   \code{lme4::glmer.nb()} and brms via its \code{shape} parameter (log link
+#'   only; not supported by the wemix engine). A fixed-theta
+#'   \code{MASS::negative.binomial(theta)} family object is also accepted with
+#'   \code{engine = "lme4"} and is fitted with \code{glmer()}, honouring the
+#'   supplied theta.
 #'   If the outcome variable appears to be binary and the default family is used,
 #'   the function will automatically switch to "binomial", recode two-level
 #'   responses to 0/1 for \code{glmer()}, and issue a warning.
@@ -34,10 +41,11 @@
 #'   Although any valid family object is accepted for fitting, the MAIHDA variance
 #'   summaries (\code{\link{summary.maihda_model}}, VPC/ICC, PCV) are only defined
 #'   for \code{gaussian("identity")}, the binomial/Bernoulli families with a logit
-#'   or probit link, and \code{poisson("log")}. Other families (for example
-#'   \code{Gamma(link = "log")}) will fit, but \code{summary()} and the VPC/PCV
-#'   helpers will stop with an "not implemented" error because no level-1 variance
-#'   is defined for them.
+#'   or probit link, \code{poisson("log")}, and the negative binomial with a log
+#'   link (level-1 variance \code{log(1 + 1/mu + 1/theta)}; Nakagawa, Johnson &
+#'   Schielzeth 2017). Other families (for example \code{Gamma(link = "log")})
+#'   will fit, but \code{summary()} and the VPC/PCV helpers will stop with an
+#'   "not implemented" error because no level-1 variance is defined for them.
 #' @param autobin Logical indicating whether numeric variables used only for
 #'   automatic strata creation should be binned by \code{\link{make_strata}}.
 #'   Default is TRUE.
@@ -352,12 +360,17 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     context_info <- list(context_vars = context)
   }
 
-  # Convert family to family object if it's a string or constructor function
+  # Convert family to family object if it's a string or constructor function.
+  # "negbinomial" (the brms spelling) resolves to a plain marker list rather
+  # than a stats family object: there is no theta-free negative-binomial family
+  # constructor in stats -- lme4 estimates theta itself via glmer.nb() and brms
+  # via its 'shape' parameter, so no theta is needed (or wanted) here.
   if (is.character(family)) {
     family <- switch(family,
                      gaussian = gaussian(),
                      binomial = binomial(),
                      poisson = poisson(),
+                     negbinomial = list(family = "negbinomial", link = "log"),
                      stop("Unsupported family: ", family))
   } else if (is.function(family)) {
     family <- family()
@@ -366,6 +379,19 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   if (!is.list(family) || is.null(family$family) || is.null(family$link)) {
     stop("'family' must be a family name, family object, or family function.",
          call. = FALSE)
+  }
+
+  # Negative binomial in any accepted form: the "negbinomial" marker from the
+  # string path, brms::negbinomial (function or object), or a fixed-theta
+  # MASS::negative.binomial(theta) object, whose label "Negative Binomial(<theta>)"
+  # the normalizer maps to the canonical name. Only the log link is supported:
+  # the latent-scale level-1 variance underlying the VPC (log1p(1/mu + 1/theta))
+  # is derived for the log link, mirroring the poisson("log") restriction.
+  is_negbin <- identical(maihda_normalize_family_name(family$family), "negbinomial")
+  if (is_negbin && !identical(family$link, "log")) {
+    stop("The negative-binomial family is only supported with the log link ",
+         "(the latent-scale level-1 variance behind the VPC/ICC is defined for ",
+         "it); this model uses link = '", family$link, "'.", call. = FALSE)
   }
 
   # Recode a two-level (Bernoulli) response to 0/1 (glmer and brms bernoulli both
@@ -428,16 +454,35 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   }
   environment(formula) <- fit_env
 
+  # A negative-binomial request without a theta (the "negbinomial" marker from
+  # the family string, or brms::negbinomial) means theta is to be ESTIMATED:
+  # lme4 does that in glmer.nb(), brms via its 'shape' parameter. A fixed-theta
+  # MASS::negative.binomial(theta) object instead is a complete GLM family that
+  # plain glmer() accepts, so it takes the ordinary glmer path below, honouring
+  # the user's theta.
+  negbin_estimate_theta <- is_negbin &&
+    identical(family$family, "negbinomial")
+
   if (engine == "lme4") {
-    # Use lmer only for Gaussian with the identity link -- lmer takes no family
-    # argument and silently ignores a non-identity link. Route a non-identity
-    # Gaussian (e.g. gaussian(link = "log")) through glmer() so the link is
-    # actually honoured, consistent with the family reported on the result.
-    use_lmer <- family$family == "gaussian" && family$link == "identity"
-    fit_fun <- if (use_lmer) quote(lme4::lmer) else quote(lme4::glmer)
-    fit_args <- list(formula = formula, data = quote(data))
-    if (!use_lmer) {
-      fit_args$family <- family
+    if (negbin_estimate_theta) {
+      # glmer.nb() takes NO family argument -- it fits a Poisson glmer first,
+      # ML-estimates theta, and refits with negative.binomial(theta). Its `...`
+      # is forwarded to glmer(), so the bound dot_args (weights/subset/offset/
+      # control, plus glmer.nb's own interval/tol/nb.control) pass through
+      # unchanged via the fit_call below.
+      fit_fun <- quote(lme4::glmer.nb)
+      fit_args <- list(formula = formula, data = quote(data))
+    } else {
+      # Use lmer only for Gaussian with the identity link -- lmer takes no family
+      # argument and silently ignores a non-identity link. Route a non-identity
+      # Gaussian (e.g. gaussian(link = "log")) through glmer() so the link is
+      # actually honoured, consistent with the family reported on the result.
+      use_lmer <- family$family == "gaussian" && family$link == "identity"
+      fit_fun <- if (use_lmer) quote(lme4::lmer) else quote(lme4::glmer)
+      fit_args <- list(formula = formula, data = quote(data))
+      if (!use_lmer) {
+        fit_args$family <- family
+      }
     }
   } else if (engine == "brms") {
     # Check if brms is installed
@@ -467,6 +512,20 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     # (cbind / trials) must stay binomial().
     if (response_is_binary) {
       family <- brms::bernoulli(link = family$link)
+    }
+
+    if (is_negbin) {
+      if (!negbin_estimate_theta) {
+        # A fixed-theta MASS::negative.binomial(theta) object has no brms
+        # counterpart (brms always estimates its 'shape' = theta).
+        stop("A fixed-theta negative.binomial(theta) family object is only ",
+             "supported by engine = \"lme4\". For brms, use family = ",
+             "\"negbinomial\" (theta is estimated as the 'shape' parameter).",
+             call. = FALSE)
+      }
+      # Convert the plain marker list from the family-string path into the
+      # proper brmsfamily; a user-supplied brms::negbinomial object already is one.
+      family <- brms::negbinomial(link = family$link)
     }
 
     fit_fun <- quote(brms::brm)

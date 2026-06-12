@@ -1164,6 +1164,29 @@ maihda_gaussian_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(mod
   sigma2 * mean(1 / w)
 }
 
+# Theta (the negative-binomial size/dispersion parameter) of an lme4 NB fit.
+# glmer.nb() stores its ML estimate retrievably via getME(); a fixed-theta
+# glmer(family = MASS::negative.binomial(theta)) fit has no such slot, so fall
+# back to parsing theta out of the family label "Negative Binomial(<theta>)"
+# (read RAW via stats::family() -- maihda_family() would normalize the label
+# away). Var(Y|u) = mu + mu^2/theta, so larger theta means less overdispersion.
+maihda_negbin_theta_lme4 <- function(model) {
+  th <- tryCatch(lme4::getME(model, "glmer.nb.theta"), error = function(e) NULL)
+  if (is.numeric(th) && length(th) == 1 && is.finite(th) && th > 0) {
+    return(th)
+  }
+  raw <- tryCatch(stats::family(model)$family, error = function(e) NULL)
+  if (is.character(raw) && length(raw) == 1) {
+    th <- suppressWarnings(
+      as.numeric(sub("^Negative Binomial\\(([^)]+)\\)$", "\\1", raw)))
+    if (is.finite(th) && th > 0) {
+      return(th)
+    }
+  }
+  stop("Could not recover the negative-binomial theta from the lme4 fit.",
+       call. = FALSE)
+}
+
 maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
   fam <- maihda_family(model)
   if (is.null(fam)) {
@@ -1194,6 +1217,17 @@ maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
     mu <- stats::fitted(model)
     mu <- pmax(as.numeric(mu), .Machine$double.eps)
     return(mean(log1p(1 / mu), na.rm = TRUE))
+  }
+  if (fam$family == "negbinomial" && fam$link == "log") {
+    # Negative-binomial analogue of the Poisson approximation above: the
+    # lognormal latent-scale level-1 variance ln(1 + 1/mu + 1/theta) of
+    # Nakagawa, Johnson & Schielzeth (2017, J R Soc Interface 14:20170213).
+    # The extra 1/theta term carries the overdispersion, so it reduces to the
+    # Stryhn Poisson form as theta -> Inf.
+    mu <- stats::fitted(model)
+    mu <- pmax(as.numeric(mu), .Machine$double.eps)
+    theta <- maihda_negbin_theta_lme4(model)
+    return(mean(log1p(1 / mu + 1 / theta), na.rm = TRUE))
   }
 
   stop("VPC residual variance is not implemented for family '", fam$family,
@@ -1247,6 +1281,21 @@ maihda_residual_variance_brms <- function(model) {
     mu <- stats::fitted(model, summary = TRUE)[, "Estimate"]
     mu <- pmax(as.numeric(mu), .Machine$double.eps)
     return(mean(log1p(1 / mu), na.rm = TRUE))
+  }
+  if (fam$family == "negbinomial" && fam$link == "log") {
+    # Nakagawa, Johnson & Schielzeth (2017) lognormal latent-scale level-1
+    # variance ln(1 + 1/mu + 1/theta); brms's 'shape' parameter IS theta.
+    # Evaluated at the posterior-mean fitted means and posterior-mean shape
+    # (see maihda_residual_variance_draws_brms for the per-draw treatment).
+    mu <- stats::fitted(model, summary = TRUE)[, "Estimate"]
+    mu <- pmax(as.numeric(mu), .Machine$double.eps)
+    draws <- maihda_posterior_draws_brms(model)
+    if (!"shape" %in% names(draws)) {
+      stop("Could not extract the negative-binomial 'shape' (theta) draws from ",
+           "the brms posterior.")
+    }
+    shape <- mean(as.numeric(draws[["shape"]]), na.rm = TRUE)
+    return(mean(log1p(1 / mu + 1 / shape), na.rm = TRUE))
   }
 
   stop("VPC residual variance is not implemented for brms family '", fam$family,
@@ -1329,8 +1378,12 @@ maihda_random_variance_draws_brms <- function(draws, group = "stratum") {
 #                     prohibitively expensive; the random-effect SD draws (the
 #                     dominant source of VPC uncertainty) are still propagated --
 #                     only the small level-1 term is held at its posterior mean.
-# Takes the model (for the family and, for poisson, the fitted means) and the
-# draws data frame (for the sigma draws and the draw count).
+#   negbinomial(log) -> mean(log1p(1 / mu + 1 / shape_d)) per draw d: the
+#                     'shape' (= theta) draws are propagated, while mu is held
+#                     at the posterior-mean fitted means for the same cost
+#                     reason as the poisson case.
+# Takes the model (for the family and, for poisson/negbinomial, the fitted
+# means) and the draws data frame (for the sigma/shape draws and the draw count).
 maihda_residual_variance_draws_brms <- function(model, draws) {
   fam <- maihda_family(model)
   if (is.null(fam)) {
@@ -1363,6 +1416,21 @@ maihda_residual_variance_draws_brms <- function(model, draws) {
     mu <- stats::fitted(model, summary = TRUE)[, "Estimate"]
     mu <- pmax(as.numeric(mu), .Machine$double.eps)
     return(rep(mean(log1p(1 / mu), na.rm = TRUE), n))
+  }
+  if (fam$family == "negbinomial" && fam$link == "log") {
+    # Nakagawa et al. (2017) ln(1 + 1/mu + 1/theta), theta = brms 'shape'.
+    # The shape draws are propagated; mu is held at the posterior-mean fitted
+    # means (see the header comment).
+    mu <- stats::fitted(model, summary = TRUE)[, "Estimate"]
+    mu <- pmax(as.numeric(mu), .Machine$double.eps)
+    if (!"shape" %in% names(draws)) {
+      stop("Could not extract the negative-binomial 'shape' (theta) draws from ",
+           "the brms posterior.")
+    }
+    shape_d <- as.numeric(draws[["shape"]])
+    return(vapply(shape_d,
+                  function(s) mean(log1p(1 / mu + 1 / s), na.rm = TRUE),
+                  numeric(1)))
   }
 
   stop("VPC residual variance is not implemented for brms family '", fam$family,

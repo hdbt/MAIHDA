@@ -36,7 +36,10 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'   on them. It is most commonly read from the null model
 #'   \code{outcome ~ 1 + (1 | stratum)}, where it is the total between-stratum
 #'   share. For non-Gaussian families the level-1 (residual) variance uses a
-#'   latent/distributional approximation (e.g. \eqn{\pi^2/3} for logistic), so the
+#'   latent/distributional approximation (\eqn{\pi^2/3} for logistic,
+#'   \eqn{\log(1 + 1/\mu)} for Poisson per Stryhn et al. 2006, and
+#'   \eqn{\log(1 + 1/\mu + 1/\theta)} for the negative binomial per Nakagawa,
+#'   Johnson & Schielzeth 2017), so the
 #'   VPC is on that latent scale; for a \emph{weighted} Gaussian model the level-1
 #'   variance is the mean conditional residual variance,
 #'   \eqn{\bar{\sigma^2 / w_i}}, since the per-observation residual variance is
@@ -50,6 +53,10 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'   confidence intervals for VPC/ICC. Default is FALSE. Supported for lme4
 #'   models only; \code{brms} models always return a posterior credible interval
 #'   (see Details), so \code{bootstrap = TRUE} is rejected for them.
+#'   For a negative-binomial model (\code{glmer.nb}) the bootstrap refits via
+#'   \code{lme4::refit()}, which holds the dispersion parameter theta fixed at
+#'   its original estimate, so the interval is conditional on the estimated
+#'   theta (theta's own sampling uncertainty is not propagated).
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
 #' @param conf_level Confidence level for the VPC/ICC interval -- the lme4
 #'   bootstrap CI or the brms posterior credible interval. Default is 0.95.
