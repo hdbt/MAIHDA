@@ -59,6 +59,10 @@ test_that("maihda_context_components_table rows are labelled and sum to 1", {
 
   tab2 <- maihda_context_components_table(2, c(site = 1), 0.5, 4)
   expect_true("Other random effects" %in% tab2$component)
+
+  # A degenerate all-zero partition has no defined proportions (0/0), not zeros.
+  tab0 <- maihda_context_components_table(0, c(site = 0), 0, 0)
+  expect_true(all(is.na(tab0$proportion[tab0$component != "Total"])))
 })
 
 test_that("maihda_validate_context rejects bad input", {
@@ -184,6 +188,25 @@ test_that("contextual bootstrap returns intervals for both shares", {
   expect_true(sb$context$bootstrap)
 })
 
+test_that("maihda_context_summary_lme4 errors when the context RE is absent", {
+  # A model tagged for a context whose random effect is not in the fit (only
+  # reachable through internal misuse, but the guard must name the missing RE).
+  d <- make_context_data(n = 600, n_sites = 10)
+  m <- fit_maihda(y ~ x + (1 | g1:g2), data = d)
+  expect_error(
+    maihda_context_summary_lme4(m, list(context_vars = "site"),
+                                lme4::VarCorr(m$model), FALSE, 10, 0.95),
+    "missing the random effect")
+})
+
+test_that("an explicit family is threaded through maihda(context = )", {
+  d <- make_context_data(n = 900, n_sites = 15)
+  a <- suppressMessages(maihda(y ~ x + (1 | g1:g2), data = d, context = "site",
+                               family = "gaussian"))
+  expect_identical(a$context_vars, "site")
+  expect_false(is.null(a$summary$context))
+})
+
 test_that("print methods surface the contextual partition", {
   d <- make_context_data()
   m <- fit_maihda(y ~ x + (1 | g1:g2), data = d, context = "site")
@@ -248,7 +271,41 @@ test_that("maihda(decomposition = 'crossed-dimensions', context = ) composes", {
                tolerance = 1e-8)
 })
 
+test_that("crossed-dimensions + context: print, vpc plot, and bootstrap intervals", {
+  d <- make_context_data(n = 900, n_sites = 15)
+  cc <- suppressWarnings(suppressMessages(
+    maihda(y ~ x + (1 | g1:g2), data = d,
+           decomposition = "crossed-dimensions", context = "site")))
+
+  expect_output(print(cc), "crossed-dimensions \\(single model\\)")
+  expect_output(print(cc), "Context:")
+  expect_output(print(cc), "Contextual Cross-Classified Partition")
+  expect_output(print(cc$summary), "Contextual Cross-Classified Partition")
+
+  skip_if_not_installed("ggplot2")
+  # The cc VPC bar gains green context slice(s).
+  p <- plot(cc$model, type = "vpc", summary_obj = cc$summary)
+  expect_s3_class(p, "ggplot")
+
+  # The cc parametric bootstrap also intervals the context share.
+  sb <- suppressWarnings(summary(cc$model, bootstrap = TRUE, n_boot = 15))
+  expect_true(sb$context$bootstrap)
+  expect_length(sb$context$vpc_context_total_ci, 2)
+})
+
 # ---- plots ---------------------------------------------------------------------
+
+test_that("plot(type = 'all') includes the context_vpc view for a contextual fit", {
+  skip_if_not_installed("ggplot2")
+  d <- make_context_data(n = 900, n_sites = 15)
+  a <- suppressMessages(maihda(y ~ x + (1 | g1:g2), data = d, context = "site"))
+  grDevices::pdf(NULL)
+  on.exit(grDevices::dev.off())
+  plots <- suppressWarnings(plot(a, type = "all"))
+  expect_s3_class(plots$context_vpc, "ggplot")
+  m_plots <- suppressWarnings(plot(a$model, summary_obj = a$summary))
+  expect_s3_class(m_plots$context_vpc, "ggplot")
+})
 
 test_that("contextual plots render", {
   skip_if_not_installed("ggplot2")
@@ -268,6 +325,142 @@ test_that("context_vpc errors without a contextual fit", {
   expect_error(plot(m, type = "context_vpc"), "No contextual partition")
   a <- suppressMessages(maihda(y ~ x + (1 | g1:g2), data = d))
   expect_error(plot(a, type = "context_vpc"), "No contextual partition")
+})
+
+# ---- brms contextual summary (Stan-free) -----------------------------------------
+# maihda_context_summary_brms() is a pure function of the posterior draws once
+# maihda_posterior_draws_brms() is mocked: everything downstream
+# (maihda_group_variance_draws_brms, maihda_residual_variance_draws_brms on a
+# gaussian stub, the partition and table builders) needs no fitted Stan model.
+# Mirrors the brmsfit-stub pattern in test-summary_variance.R.
+
+make_context_brms_stub <- function() {
+  structure(
+    list(formula = y ~ x + (1 | stratum) + (1 | site),
+         family = list(family = "gaussian", link = "identity")),
+    class = "brmsfit"
+  )
+}
+
+test_that("maihda_context_summary_brms partitions per draw (Stan-free)", {
+  set.seed(4711)
+  n <- 500
+  draws <- data.frame(
+    sd_stratum__Intercept = sqrt(1.0 + 0.2 * runif(n)),
+    sd_site__Intercept    = sqrt(0.8 + 0.2 * runif(n)),
+    sigma                 = sqrt(1.4 + 0.2 * runif(n))
+  )
+  object <- list(model = make_context_brms_stub(), engine = "brms")
+  local_mocked_bindings(maihda_posterior_draws_brms = function(model) draws)
+
+  res <- maihda_context_summary_brms(object, list(context_vars = "site"),
+                                     conf_level = 0.9)
+
+  v_s <- draws$sd_stratum__Intercept^2
+  v_c <- draws$sd_site__Intercept^2
+  v_e <- draws$sigma^2
+  vpc_draws <- v_s / (v_s + v_c + v_e)
+  expect_equal(res$vpc_result$estimate, stats::median(vpc_draws))
+  expect_equal(res$vpc_result$ci_lower,
+               stats::quantile(vpc_draws, 0.05, names = FALSE))
+  expect_equal(res$vpc_result$ci_upper,
+               stats::quantile(vpc_draws, 0.95, names = FALSE))
+  expect_identical(res$vpc_result$method, "posterior")
+
+  ctx_draws <- v_c / (v_s + v_c + v_e)
+  expect_equal(res$context$vpc_context_total, stats::median(ctx_draws))
+  expect_equal(res$context$vpc_context_total_ci,
+               stats::quantile(ctx_draws, c(0.05, 0.95), names = FALSE))
+  expect_identical(res$context$method, "posterior")
+  expect_equal(res$context$var_stratum, mean(v_s))
+  expect_equal(unname(res$context$per_context["site"]), mean(v_c))
+  expect_equal(res$context$within_var, mean(v_e))
+
+  tab <- res$variance_components
+  expect_identical(attr(tab, "kind"), "contextual")
+  expect_true("Context: site" %in% tab$component)
+  expect_false("Other random effects" %in% tab$component)
+  expect_equal(sum(tab$proportion[tab$component != "Total"]), 1, tolerance = 1e-8)
+})
+
+test_that("maihda_context_summary_brms keeps extra REs in the denominator; point = 'mean'", {
+  set.seed(4712)
+  n <- 300
+  draws <- data.frame(
+    sd_stratum__Intercept = sqrt(1.0 + 0.2 * runif(n)),
+    sd_site__Intercept    = sqrt(0.8 + 0.2 * runif(n)),
+    sd_extra__Intercept   = sqrt(0.3 + 0.2 * runif(n)),
+    sigma                 = sqrt(1.4 + 0.2 * runif(n))
+  )
+  object <- list(model = make_context_brms_stub(), engine = "brms")
+  local_mocked_bindings(maihda_posterior_draws_brms = function(model) draws)
+
+  res <- maihda_context_summary_brms(object, list(context_vars = "site"),
+                                     conf_level = 0.95, point = "mean")
+
+  v_s <- draws$sd_stratum__Intercept^2
+  v_c <- draws$sd_site__Intercept^2
+  v_x <- draws$sd_extra__Intercept^2
+  v_e <- draws$sigma^2
+  expect_equal(res$vpc_result$estimate, mean(v_s / (v_s + v_c + v_x + v_e)))
+  expect_equal(res$context$other_var, mean(v_x))
+  expect_true("Other random effects" %in% res$variance_components$component)
+  tab <- res$variance_components
+  expect_equal(sum(tab$proportion[tab$component != "Total"]), 1, tolerance = 1e-8)
+})
+
+test_that("maihda_context_summary_brms reports NA when no draw is finite", {
+  # All-zero variances make every per-draw share 0/0 = NaN; the summariser must
+  # come back NA rather than erroring.
+  draws <- data.frame(
+    sd_stratum__Intercept = c(0, 0),
+    sd_site__Intercept = c(0, 0),
+    sigma = c(0, 0)
+  )
+  object <- list(model = make_context_brms_stub(), engine = "brms")
+  local_mocked_bindings(maihda_posterior_draws_brms = function(model) draws)
+  res <- maihda_context_summary_brms(object, list(context_vars = "site"), 0.95)
+  expect_true(is.na(res$vpc_result$estimate))
+  expect_true(is.na(res$context$vpc_context_total))
+})
+
+test_that("maihda_context_summary_brms errors when an RE is missing from the draws", {
+  draws <- data.frame(sd_stratum__Intercept = c(1, 1.1), sigma = c(1.2, 1.3))
+  object <- list(model = make_context_brms_stub(), engine = "brms")
+  local_mocked_bindings(maihda_posterior_draws_brms = function(model) draws)
+  expect_error(
+    maihda_context_summary_brms(object, list(context_vars = "site"), 0.95),
+    "missing the random effect")
+})
+
+# ---- print branches of the contextual partition ----------------------------------
+
+test_that("maihda_print_context_partition prints multi-context and interval branches", {
+  shared <- list(
+    var_stratum = 1, within_var = 2, other_var = 0, vpc_stratum = 1 / 4.2,
+    bootstrap = FALSE
+  )
+  ctx_multi <- c(shared, list(
+    context_vars = c("site", "region"),
+    per_context = c(site = 0.8, region = 0.4),
+    context_var_total = 1.2,
+    vpc_context = c(site = 0.8 / 4.2, region = 0.4 / 4.2),
+    vpc_context_total = 1.2 / 4.2,
+    vpc_context_total_ci = c(0.2, 0.35)
+  ))
+  expect_output(maihda_print_context_partition(ctx_multi), "All contexts combined")
+  expect_output(maihda_print_context_partition(ctx_multi), "Context 'region'")
+
+  ctx_single_ci <- c(shared, list(
+    context_vars = "site",
+    per_context = c(site = 0.8),
+    context_var_total = 0.8,
+    vpc_context = c(site = 0.8 / 3.8),
+    vpc_context_total = 0.8 / 3.8,
+    vpc_context_total_ci = c(0.15, 0.3)
+  ))
+  expect_output(maihda_print_context_partition(ctx_single_ci),
+                "Context share interval")
 })
 
 # ---- brms parity -----------------------------------------------------------------

@@ -258,3 +258,140 @@ test_that("decomposition = 'cross-classified' warns and maps to 'crossed-dimensi
   expect_identical(attr(g, "decomposition"), "crossed-dimensions")
   expect_true("additive_share" %in% names(g))
 })
+
+# ---- brms crossed-dimensions summary with a context (Stan-free) ---------------
+# maihda_cc_summary_brms() is a pure function of the posterior draws once
+# maihda_posterior_draws_brms() is mocked (the same pattern as the contextual
+# brms tests in test-contextual.R), so the context-aware partition is testable
+# without compiling a Stan model.
+
+test_that("maihda_cc_summary_brms folds a context into the partition (Stan-free)", {
+  set.seed(7311)
+  n <- 400
+  draws <- data.frame(
+    sd_a__Intercept = sqrt(0.9 + 0.2 * runif(n)),
+    sd_b__Intercept = sqrt(0.6 + 0.2 * runif(n)),
+    sd_stratum__Intercept = sqrt(0.7 + 0.2 * runif(n)),
+    sd_site__Intercept = sqrt(0.5 + 0.2 * runif(n)),
+    sigma = sqrt(1.1 + 0.2 * runif(n))
+  )
+  stub <- structure(
+    list(formula = y ~ x + (1 | a) + (1 | b) + (1 | stratum) + (1 | site),
+         family = list(family = "gaussian", link = "identity")),
+    class = "brmsfit")
+  object <- list(model = stub, engine = "brms",
+                 context_info = list(context_vars = "site"))
+  cc_info <- list(dim_groups = c(a = "a", b = "b"), interaction_group = "stratum")
+  local_mocked_bindings(maihda_posterior_draws_brms = function(model) draws)
+
+  res <- maihda_cc_summary_brms(object, cc_info, conf_level = 0.9)
+
+  v_a <- draws$sd_a__Intercept^2
+  v_b <- draws$sd_b__Intercept^2
+  v_s <- draws$sd_stratum__Intercept^2
+  v_c <- draws$sd_site__Intercept^2
+  v_e <- draws$sigma^2
+  between <- v_a + v_b + v_s
+  total <- between + v_c + v_e
+  expect_equal(res$vpc_result$estimate, stats::median(between / total))
+  expect_equal(res$decomposition$additive_share,
+               stats::median((v_a + v_b) / between))
+
+  # The context element mirrors the contextual summary.
+  expect_identical(res$context$context_vars, "site")
+  expect_equal(res$context$vpc_context_total, stats::median(v_c / total))
+  expect_length(res$context$vpc_context_total_ci, 2)
+  expect_equal(unname(res$context$per_context["site"]), mean(v_c))
+
+  tab <- res$variance_components
+  expect_true("Context: site" %in% tab$component)
+  expect_equal(sum(tab$proportion[tab$component != "Total"]), 1, tolerance = 1e-8)
+})
+
+test_that("maihda_cc_summary_brms names a context RE missing from the draws", {
+  draws <- data.frame(
+    sd_a__Intercept = c(1, 1.1),
+    sd_b__Intercept = c(0.8, 0.9),
+    sd_stratum__Intercept = c(0.7, 0.8),
+    sigma = c(1, 1.1)
+  )
+  stub <- structure(
+    list(formula = y ~ 1, family = list(family = "gaussian", link = "identity")),
+    class = "brmsfit")
+  object <- list(model = stub, engine = "brms",
+                 context_info = list(context_vars = "site"))
+  cc_info <- list(dim_groups = c(a = "a", b = "b"), interaction_group = "stratum")
+  local_mocked_bindings(maihda_posterior_draws_brms = function(model) draws)
+  expect_error(maihda_cc_summary_brms(object, cc_info, 0.9),
+               "missing the random effect")
+})
+
+# ---- decomposition print paths -------------------------------------------------
+
+test_that("maihda_print_cc_decomposition prints shares, per-dim variances, and CIs", {
+  d <- list(
+    additive_var = 1.5, interaction_var = 0.5, between_var = 2, within_var = 2,
+    additive_share = 0.75, interaction_share = 0.25,
+    per_dim = c(a = 1, b = 0.5),
+    additive_share_ci = NULL, interaction_share_ci = NULL
+  )
+  expect_output(maihda_print_cc_decomposition(d), "crossed-dimensions")
+  expect_output(maihda_print_cc_decomposition(d), "different estimator")
+  expect_output(maihda_print_cc_decomposition(d), "b: 0.5000")
+
+  d$additive_share_ci <- c(0.6, 0.9)
+  d$interaction_share_ci <- c(0.1, 0.4)
+  expect_output(maihda_print_cc_decomposition(d), "[60.0%, 90.0%]", fixed = TRUE)
+})
+
+# ---- per-group crossed-dimensions via maihda(group = ) --------------------------
+
+test_that("maihda(crossed-dimensions, group = ) attaches the per-group decomposition", {
+  d <- make_cc_data(n = 1200)
+  cc <- suppressWarnings(suppressMessages(
+    maihda(y ~ x + (1 | a:b), data = d, decomposition = "crossed-dimensions",
+           group = "grp")))
+  expect_s3_class(cc$groups, "maihda_group_comparison")
+  expect_true(all(c("additive_share", "interaction_share") %in% names(cc$groups)))
+
+  skip_if_not_installed("ggplot2")
+  expect_s3_class(plot(cc$groups, type = "additive_share"), "ggplot")
+  expect_s3_class(plot(cc$groups, type = "components"), "ggplot")
+})
+
+test_that("plot(type = 'additive_share') errors on a two-model group comparison", {
+  d <- make_cc_data(n = 800)
+  g <- suppressWarnings(suppressMessages(
+    compare_maihda_groups(y ~ x + (1 | a:b), data = d, group = "grp")))
+  expect_error(plot(g, type = "additive_share"), "crossed-dimensions")
+})
+
+test_that("compare_maihda_groups(crossed-dimensions) needs two stratum dimensions", {
+  d <- make_cc_data(n = 800)
+  expect_error(
+    suppressWarnings(compare_maihda_groups(
+      y ~ x + (1 | a), data = d, group = "grp",
+      decomposition = "crossed-dimensions")),
+    "at least two stratum dimensions")
+})
+
+test_that("maihda_cc_summary_brms without a context returns context = NULL", {
+  set.seed(7312)
+  n <- 200
+  draws <- data.frame(
+    sd_a__Intercept = sqrt(0.9 + 0.2 * runif(n)),
+    sd_b__Intercept = sqrt(0.6 + 0.2 * runif(n)),
+    sd_stratum__Intercept = sqrt(0.7 + 0.2 * runif(n)),
+    sigma = sqrt(1.1 + 0.2 * runif(n))
+  )
+  stub <- structure(
+    list(formula = y ~ 1, family = list(family = "gaussian", link = "identity")),
+    class = "brmsfit")
+  object <- list(model = stub, engine = "brms")
+  cc_info <- list(dim_groups = c(a = "a", b = "b"), interaction_group = "stratum")
+  local_mocked_bindings(maihda_posterior_draws_brms = function(model) draws)
+
+  res <- maihda_cc_summary_brms(object, cc_info, conf_level = 0.95)
+  expect_null(res$context)
+  expect_false(any(grepl("^Context: ", res$variance_components$component)))
+})

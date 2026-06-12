@@ -384,6 +384,18 @@ test_that("Reproducible code export mirrors the fitted model specification", {
                     code, fixed = TRUE))
 })
 
+test_that("Reproducible code export covers crossed-dimensions with bootstrap", {
+  code <- MAIHDA:::maihda_app_generate_code(
+    outcome_var = "math", grouping_vars = c("gender", "ses"),
+    additional_covars = character(),
+    family = "gaussian", autobin = TRUE, use_boot = TRUE, n_boot = 50,
+    seed = NULL, dataset = "pisa", decomposition = "crossed-dimensions"
+  )
+  expect_true(grepl(
+    'decomposition = "crossed-dimensions", bootstrap = TRUE, n_boot = 50',
+    code, fixed = TRUE))
+})
+
 test_that("Reproducible code export omits seed/bootstrap when unused and handles uploads", {
   code <- MAIHDA:::maihda_app_generate_code(
     outcome_var = "y", grouping_vars = "g1", additional_covars = character(),
@@ -470,6 +482,26 @@ test_that("Model-comparison module renders the nested null-vs-adjusted compariso
     expr = {
       # The nested comparison table renders from the precomputed result.
       expect_no_error(output$nested_table)
+    }
+  )
+})
+
+test_that("compare tab shows the crossed-dimensions empty state before a comparison", {
+  shiny::testServer(
+    MAIHDA:::mod_compare_server,
+    args = list(
+      comparison_results = shiny::reactiveVal(NULL),
+      reactive_data = shiny::reactiveVal(MAIHDA::maihda_sim_data),
+      fit_params = shiny::reactiveVal(list(
+        outcome = "health_outcome", grouping_vars = c("gender", "race"),
+        covariates = character(), autobin = TRUE,
+        decomposition = "crossed-dimensions")),
+      fitted_family = shiny::reactiveVal("gaussian")
+    ),
+    expr = {
+      # The nested null-vs-adjusted view does not apply to a crossed-dimensions
+      # fit; the empty state must say so rather than ask for a fit.
+      expect_match(output$nested_ui$html, "Not applicable in crossed-dimensions mode")
     }
   )
 })
