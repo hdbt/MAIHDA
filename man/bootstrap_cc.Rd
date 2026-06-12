@@ -2,9 +2,9 @@
 % Please edit documentation in R/summary_maihda.R
 \name{bootstrap_cc}
 \alias{bootstrap_cc}
-\title{Bootstrap a cross-classified MAIHDA partition (lme4)}
+\title{Bootstrap a crossed-dimensions MAIHDA partition (lme4)}
 \usage{
-bootstrap_cc(model, cc, n_boot, conf_level)
+bootstrap_cc(model, cc, n_boot, conf_level, ctx_vars = character(0))
 }
 \arguments{
 \item{model}{The underlying lme4 model object.}
@@ -14,15 +14,20 @@ bootstrap_cc(model, cc, n_boot, conf_level)
 \item{n_boot}{Number of bootstrap samples.}
 
 \item{conf_level}{Confidence level.}
+
+\item{ctx_vars}{Character vector of contextual grouping factors (may be empty).}
 }
 \value{
-A list with \code{vpc}, \code{additive_share}, \code{interaction_share},
-  each a length-2 interval carrying \code{n_ok}/\code{mc_se} attributes.
+A list with \code{vpc}, \code{additive_share}, \code{interaction_share}
+  (and \code{context_vpc} when \code{ctx_vars} is non-empty), each a length-2
+  interval carrying \code{n_ok}/\code{mc_se} attributes.
 }
 \description{
 Parametric bootstrap (simulate from the fitted model, refit) of the
-cross-classified VPC and the additive / interaction shares, returning a percentile
-interval for each via \code{maihda_bootstrap_ci}. lme4 only -- brms returns
-posterior credible intervals directly.
+crossed-dimensions VPC and the additive / interaction shares, returning a
+percentile interval for each via \code{maihda_bootstrap_ci}. lme4 only -- brms
+returns posterior credible intervals directly. When \code{ctx_vars} names
+contextual random intercepts, their variance enters each refit's VPC denominator
+and a \code{context_vpc} interval (the contexts' total share) is returned too.
 }
 \keyword{internal}

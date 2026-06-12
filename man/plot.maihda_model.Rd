@@ -7,7 +7,7 @@
 \method{plot}{maihda_model}(
   x,
   type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
-    "effect_decomp", "ternary", "prediction_deviation"),
+    "effect_decomp", "ternary", "prediction_deviation", "context_vpc"),
   summary_obj = NULL,
   n_strata = 50,
   ...
@@ -29,6 +29,8 @@
   \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
   \item "ternary": Ternary diagnostic of the relative additive, intersectional, and uncertainty signals per stratum (a normalized-magnitude diagnostic, not a variance decomposition)
   \item "prediction_deviation": Detailed deviation panels for individuals or strata
+  \item "context_vpc": Stratum vs. context variance bars for a contextual
+    cross-classified fit (\code{fit_maihda(context = )}); errors otherwise
   \item "all": Generate all available plots (default if not specified)
 }}
 

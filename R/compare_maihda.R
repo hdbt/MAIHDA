@@ -331,8 +331,9 @@ plot_comparison <- function(comparison_df) {
 #' @param autobin Logical passed to \code{\link{make_strata}} controlling tertile
 #'   binning of numeric grouping variables. Default TRUE.
 #' @param decomposition Per-group additive-vs-interaction decomposition: the two-model
-#'   null -> adjusted PCV (\code{"two-model"}, default) or the single cross-classified
-#'   model (\code{"cross-classified"}). The cross-classified form requires
+#'   null -> adjusted PCV (\code{"two-model"}, default) or the single crossed-dimensions
+#'   model (\code{"crossed-dimensions"}; \code{"cross-classified"} is a deprecated
+#'   alias that warns). The crossed-dimensions form requires
 #'   \code{shared_strata = TRUE} and at least two stratum dimensions, and adds the
 #'   \code{var_additive}, \code{var_interaction}, \code{additive_share} and
 #'   \code{interaction_share} columns (in place of \code{pcv} /
@@ -402,16 +403,16 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                                   min_group_n = 30, bootstrap = FALSE,
                                   n_boot = 1000, conf_level = 0.95,
                                   autobin = TRUE,
-                                  decomposition = c("two-model", "cross-classified"),
+                                  decomposition = c("two-model", "crossed-dimensions"),
                                   ...) {
-  decomposition <- match.arg(decomposition)
+  decomposition <- maihda_resolve_decomposition(decomposition)
   # ---- input validation ----
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a formula object", call. = FALSE)
   }
-  if (decomposition == "cross-classified" && !isTRUE(shared_strata)) {
-    stop("decomposition = \"cross-classified\" requires shared_strata = TRUE so the ",
-         "stratum dimensions are recorded once on the full data and the cross-classified ",
+  if (decomposition == "crossed-dimensions" && !isTRUE(shared_strata)) {
+    stop("decomposition = \"crossed-dimensions\" requires shared_strata = TRUE so the ",
+         "stratum dimensions are recorded once on the full data and the crossed-dimensions ",
          "model can be built per group.", call. = FALSE)
   }
   if (!is.data.frame(data)) {
@@ -513,15 +514,15 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # Whether to run a per-group additive-vs-interaction decomposition. Both forms need
   # at least two stratum dimensions (with one dimension there is no intersection to
   # decompose). do_decomp = the two-model null -> adjusted PCV; do_cc = the single
-  # cross-classified model. When neither runs the decomposition columns are dropped.
+  # crossed-dimensions model. When neither runs the decomposition columns are dropped.
   decomp_vars <- prepared$strata_vars
   has_two_dims <- !is.null(decomp_vars) && length(decomp_vars) >= 2
-  if (decomposition == "cross-classified" && !has_two_dims) {
-    stop("decomposition = \"cross-classified\" needs at least two stratum dimensions, ",
+  if (decomposition == "crossed-dimensions" && !has_two_dims) {
+    stop("decomposition = \"crossed-dimensions\" needs at least two stratum dimensions, ",
          "but the strata are defined by a single dimension (",
          paste(decomp_vars, collapse = ", "), ").", call. = FALSE)
   }
-  do_cc <- decomposition == "cross-classified" && has_two_dims
+  do_cc <- decomposition == "crossed-dimensions" && has_two_dims
   do_decomp <- decomposition == "two-model" && has_two_dims
 
   strata_attr_names <- c("strata_info", "strata_vars", "strata_sep", "strata_autobin_info")
@@ -607,8 +608,8 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       next
     }
 
-    # Fit the per-group model. In cross-classified mode this is the single
-    # cross-classified model (dimension REs + intersection RE); otherwise the
+    # Fit the per-group model. In crossed-dimensions mode this is the single
+    # crossed-dimensions model (dimension REs + intersection RE); otherwise the
     # canonical single-stratum model. Both share the fit/summary/error plumbing.
     fit_obj <- tryCatch(
       {
@@ -657,9 +658,9 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     row$status <- "ok"
 
     if (do_cc) {
-      # Cross-classified partition read from the single fit: var_between is the total
+      # Crossed-dimensions partition read from the single fit: var_between is the total
       # between-strata variance (additive + interaction); the additive share is the
-      # cross-classified analogue of the PCV.
+      # crossed-dimensions analogue of the PCV.
       dcmp <- fit_obj$summ$decomposition
       row$var_between <- dcmp$between_var
       row$var_residual <- dcmp$within_var
@@ -768,9 +769,9 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     out$ci_upper <- NULL
   }
   # Keep only the decomposition columns for the mode that ran: the two-model PCV
-  # columns (pcv, var_between_adjusted) in "two-model" mode, the cross-classified
+  # columns (pcv, var_between_adjusted) in "two-model" mode, the crossed-dimensions
   # columns (var_additive, var_interaction, additive_share, interaction_share) in
-  # "cross-classified" mode; drop both when no decomposition ran (single dimension).
+  # "crossed-dimensions" mode; drop both when no decomposition ran (single dimension).
   if (!do_decomp) {
     out$pcv <- NULL
     out$var_between_adjusted <- NULL
@@ -922,11 +923,11 @@ maihda_compose_caption <- function(...) {
 #'   \code{\link{compare_maihda_groups}}.
 #' @param type One of "vpc" (default) for VPC by group with optional bootstrap
 #'   confidence intervals, "components" for stacked variance proportions (additive /
-#'   interaction / residual for a cross-classified comparison, between / other /
+#'   interaction / residual for a crossed-dimensions comparison, between / other /
 #'   residual otherwise), "between_variance" for the absolute between-stratum variance
 #'   by group, "pcv" for the two-model additive share (null -> adjusted proportional
 #'   change in between-stratum variance) by group, or "additive_share" for the
-#'   cross-classified additive share by group. The VPC is a \emph{share} of the
+#'   crossed-dimensions additive share by group. The VPC is a \emph{share} of the
 #'   unexplained variance;
 #'   "between_variance" shows the \emph{magnitude} the ratio cannot convey (two groups
 #'   with very different VPCs can share a between-stratum variance, and vice versa);
@@ -1090,10 +1091,10 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
   }
 
   if (type == "additive_share") {
-    # Cross-classified additive share by group (parallel to the two-model "pcv").
+    # Crossed-dimensions additive share by group (parallel to the two-model "pcv").
     if (!"additive_share" %in% names(df)) {
       stop("No additive share to plot: this comparison was not run with ",
-           "decomposition = \"cross-classified\".", call. = FALSE)
+           "decomposition = \"crossed-dimensions\".", call. = FALSE)
     }
     df_as <- df[is.finite(df$additive_share), , drop = FALSE]
     if (nrow(df_as) == 0) {
@@ -1104,7 +1105,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
 
     as_caption <- maihda_compose_caption(
       paste("Additive share = additive (dimension main-effect) variance as a fraction of",
-            "the total between-strata variance, from the single cross-classified model.",
+            "the total between-strata variance, from the single crossed-dimensions model.",
             "The complement is the intersectional interaction share. A partial-pooling",
             "estimate -- dimensions with few levels are poorly identified."),
       omit_note
@@ -1114,7 +1115,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
       ggplot(df_as, aes(x = .data$group, y = .data$additive_share)) +
         geom_col(fill = "#CC79A7") +
         labs(
-          title = "Additive share by group (cross-classified)",
+          title = "Additive share by group (crossed-dimensions)",
           x = group_var,
           y = "Additive share of between-strata variance",
           caption = as_caption
@@ -1129,7 +1130,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
     )
   }
 
-  # type == "components": stacked variance proportions per group. In cross-classified
+  # type == "components": stacked variance proportions per group. In crossed-dimensions
   # mode the between-strata variance is itself split into the additive (dimension main
   # effects) and intersectional interaction parts; otherwise it is the single
   # between-stratum component plus any "Other random effects" (0 for the canonical
@@ -1164,7 +1165,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
         geom_bar(stat = "identity", color = "white") +
         scale_fill_manual(values = cc_colors) +
         labs(
-          title = "Variance Composition by Group (cross-classified)",
+          title = "Variance Composition by Group (crossed-dimensions)",
           x = group_var,
           y = "Proportion of Variance",
           fill = "Component",

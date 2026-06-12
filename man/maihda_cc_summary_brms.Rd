@@ -2,12 +2,12 @@
 % Please edit documentation in R/summary_maihda.R
 \name{maihda_cc_summary_brms}
 \alias{maihda_cc_summary_brms}
-\title{Cross-classified variance summary (brms)}
+\title{Crossed-dimensions variance summary (brms)}
 \usage{
 maihda_cc_summary_brms(object, cc, conf_level, point = c("median", "mean"))
 }
 \arguments{
-\item{object}{A \code{maihda_model} (cross-classified, brms engine).}
+\item{object}{A \code{maihda_model} (crossed-dimensions, brms engine).}
 
 \item{cc}{The \code{cc_info} list.}
 
@@ -16,12 +16,15 @@ maihda_cc_summary_brms(object, cc, conf_level, point = c("median", "mean"))
 \item{point}{Posterior point estimate, "median" (default) or "mean".}
 }
 \value{
-A list with \code{variance_components}, \code{vpc_result}, \code{decomposition}.
+A list with \code{variance_components}, \code{vpc_result},
+  \code{decomposition} and \code{context} (NULL without a context).
 }
 \description{
 brms counterpart of \code{\link{maihda_cc_summary_lme4}}: computes the additive /
 interaction partition per posterior draw and returns posterior point estimates with
 credible intervals for the VPC and the shares (no bootstrap -- the posterior already
-supplies the interval).
+supplies the interval). A contextual random intercept
+(\code{object$context_info} set) enters the per-draw VPC denominator and is
+reported as its own component row and \code{context} element.
 }
 \keyword{internal}

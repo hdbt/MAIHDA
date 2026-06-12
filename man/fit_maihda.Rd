@@ -10,6 +10,7 @@ fit_maihda(
   engine = "lme4",
   family = "gaussian",
   autobin = TRUE,
+  context = NULL,
   ...
 )
 }
@@ -53,6 +54,24 @@ is defined for them.}
 automatic strata creation should be binned by \code{\link{make_strata}}.
 Default is TRUE.}
 
+\item{context}{Optional character vector naming one or more higher-level
+\emph{context} columns in \code{data} (e.g. \code{"school"},
+\code{"hospital"}, \code{"region"}). Each enters the model as a crossed
+intercept-only random effect alongside the intersectional stratum effect --
+\code{outcome ~ covars + (1 | stratum) + (1 | context)} -- giving the
+\emph{contextual cross-classified MAIHDA} of the literature (individuals
+cross-classified by stratum and place/institution). \code{\link{summary.maihda_model}}
+then partitions the unexplained variance into between-stratum vs.
+between-context vs. residual, and the headline VPC/ICC remains the
+between-stratum share (now net of the context). A context variable may not be
+a stratum dimension or \code{"stratum"} itself, and may not already appear as
+a fixed-effect term (its variance would then be absorbed by the fixed part).
+A context with few levels (say < 10) weakly identifies its variance and often
+yields a singular lme4 fit; the \code{brms} engine handles this better.
+Writing the random effect directly in the formula (\code{... + (1 | school)})
+fits the same model but is summarised generically as "Other random effects";
+only \code{context =} activates the labelled contextual partition.}
+
 \item{...}{Additional arguments passed to \code{lmer}/\code{glmer} (lme4) or
 \code{brm} (brms).}
 }
@@ -64,6 +83,8 @@ A maihda_model object containing:
   \item{data}{The data used for fitting}
   \item{family}{The family used}
   \item{strata_info}{The strata information from make_strata() if available, NULL otherwise}
+  \item{context_vars}{The context variable name(s) when \code{context} was
+    supplied, NULL otherwise}
   \item{response_recoding}{For a recoded two-level outcome, a data frame mapping
     each original level to its 0/1 value and role (reference/event); NULL when no
     recoding occurred}
@@ -87,6 +108,14 @@ model <- fit_maihda(health_outcome ~ age + (1 | stratum),
 model2 <- fit_maihda(health_outcome ~ age + (1 | gender:race:education),
                      data = maihda_sim_data,
                      engine = "lme4")
+
+# Contextual cross-classified MAIHDA: strata crossed with a higher-level
+# context (here country) -- the literature's cross-classified MAIHDA.
+data(maihda_country_data)
+model3 <- fit_maihda(math ~ 1 + (1 | gender:ses),
+                     data = maihda_country_data,
+                     context = "country")
+summary(model3)  # between-stratum vs. between-country vs. residual
 }
 
 }

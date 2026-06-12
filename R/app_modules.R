@@ -197,7 +197,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
         interpretation_md <- shiny::markdown("
         **Interpretation Guide**:
         - **VPC** (Variance Partition Coefficient) measures the share of the unexplained outcome variance that lies between strata.
-        - **Additive share** is the dimensions' additive main-effect variance as a fraction of the total between-strata variance, estimated from the single cross-classified model (the analogue of the PCV).
+        - **Additive share** is the dimensions' additive main-effect variance as a fraction of the total between-strata variance, estimated from the single crossed-dimensions model (the analogue of the PCV).
         - **Interaction share** is the complement -- the intersectional interaction beyond the additive parts. Interpret it cautiously; dimensions with few levels are poorly identified.
         ")
       } else {
@@ -427,7 +427,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
       # Extract metrics
       vpc_val <- round(null_res$vpc$estimate * 100, 2)
       if (cc_mode) {
-        # Cross-classified: split the between-strata variance into additive and
+        # Crossed-dimensions: split the between-strata variance into additive and
         # interaction shares read off the single model.
         d <- decomposition_results()
         pvc_interpretation <- shiny::tagList(
@@ -436,7 +436,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
           " is additive (the dimensions' main effects, entered as random intercepts) and ",
           shiny::tags$strong(sprintf("%.1f%%", d$interaction_share * 100)),
           " is the intersectional interaction beyond additive -- both estimated jointly ",
-          "from the single cross-classified model. Interpret the interaction share ",
+          "from the single crossed-dimensions model. Interpret the interaction share ",
           "cautiously; dimensions with few levels are poorly identified. "
         )
       } else {
@@ -584,11 +584,11 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
     output$nested_ui <- shiny::renderUI({
       if (is.null(comparison_results())) {
         p <- fit_params()
-        if (!is.null(p) && identical(p$decomposition, "cross-classified")) {
+        if (!is.null(p) && identical(p$decomposition, "crossed-dimensions")) {
           return(maihda_app_empty_state(
-            "Not applicable in cross-classified mode",
+            "Not applicable in crossed-dimensions mode",
             "The nested null-vs-adjusted VPC comparison is a **two-model** view. Your
-             last fit used the **cross-classified** decomposition -- see the additive
+             last fit used the **crossed-dimensions** decomposition -- see the additive
              and interaction shares on the **PCV Results** tab. The stratified
              group comparison below still works."))
         }
@@ -637,7 +637,7 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
 
       fam <- if (!is.null(fitted_family())) fitted_family() else "gaussian"
       autobin_opt <- isTRUE(p$autobin)
-      # Mirror the dashboard's decomposition choice per group: cross-classified yields
+      # Mirror the dashboard's decomposition choice per group: crossed-dimensions yields
       # per-group additive/interaction shares, two-model the per-group PCV.
       decomp_opt <- if (!is.null(p$decomposition)) p$decomposition else "two-model"
 
@@ -688,7 +688,7 @@ mod_compare_server <- function(id, comparison_results, reactive_data, fit_params
       )
     })
 
-    # Offer the cross-classified additive-share view once a cross-classified group
+    # Offer the crossed-dimensions additive-share view once a crossed-dimensions group
     # comparison is available (its result carries an additive_share column).
     shiny::observe({
       cmp <- group_cmp()

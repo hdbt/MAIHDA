@@ -42,8 +42,17 @@ families/engines.}
 A maihda_summary object containing:
   \item{vpc}{Variance Partition Coefficient (ICC); for lme4 with
     \code{bootstrap = TRUE} and for all brms models this includes
-    \code{ci_lower}/\code{ci_upper}/\code{conf_level}}
-  \item{variance_components}{Data frame of variance components}
+    \code{ci_lower}/\code{ci_upper}/\code{conf_level}. For a contextual
+    cross-classified fit this is the \emph{between-stratum} share of all
+    unexplained variance (net of the context)}
+  \item{variance_components}{Data frame of variance components. For a
+    contextual cross-classified fit (\code{fit_maihda(context = )}) each
+    context appears as its own \code{Context: <name>} row}
+  \item{context}{For a contextual cross-classified fit, the stratum vs.
+    context partition: per-context variances and shares, the contexts' total
+    share (\code{vpc_context_total}, with an interval when bootstrapped or for
+    brms), and the between-stratum share (\code{vpc_stratum}); \code{NULL}
+    otherwise}
   \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
     \code{maihda_da} object (AUC + MOR) from
     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise (and for a

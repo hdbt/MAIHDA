@@ -2,12 +2,12 @@
 % Please edit documentation in R/summary_maihda.R
 \name{maihda_cc_summary_lme4}
 \alias{maihda_cc_summary_lme4}
-\title{Cross-classified variance summary (lme4)}
+\title{Crossed-dimensions variance summary (lme4)}
 \usage{
 maihda_cc_summary_lme4(object, cc, vc, bootstrap, n_boot, conf_level)
 }
 \arguments{
-\item{object}{A \code{maihda_model} (cross-classified).}
+\item{object}{A \code{maihda_model} (crossed-dimensions).}
 
 \item{cc}{The \code{cc_info} list (\code{dim_groups}, \code{interaction_group}).}
 
@@ -16,14 +16,18 @@ maihda_cc_summary_lme4(object, cc, vc, bootstrap, n_boot, conf_level)
 \item{bootstrap, n_boot, conf_level}{Bootstrap controls.}
 }
 \value{
-A list with \code{variance_components}, \code{vpc_result}, \code{decomposition}.
+A list with \code{variance_components}, \code{vpc_result},
+  \code{decomposition} and \code{context} (NULL without a context).
 }
 \description{
 Internal helper for \code{\link{summary.maihda_model}} when the model is a
-cross-classified MAIHDA fit (\code{object$cc_info} set). Partitions the crossed
+crossed-dimensions MAIHDA fit (\code{object$cc_info} set). Partitions the crossed
 random-effect variances into the additive (sum of the dimension REs) and
 interaction (intersection RE) components, builds the variance-components table and
 the VPC, and -- when \code{bootstrap = TRUE} -- adds parametric-bootstrap intervals
-for the VPC and the additive/interaction shares.
+for the VPC and the additive/interaction shares. When the fit also carries a
+contextual random intercept (\code{object$context_info} set), the context
+variance enters the VPC denominator and is reported as its own component row
+and \code{context} element.
 }
 \keyword{internal}

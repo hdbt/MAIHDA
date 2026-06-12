@@ -2,18 +2,18 @@
 % Please edit documentation in R/summary_maihda.R
 \name{maihda_print_cc_decomposition}
 \alias{maihda_print_cc_decomposition}
-\title{Print the additive vs. intersectional decomposition of a cross-classified summary}
+\title{Print the additive vs. intersectional decomposition of a crossed-dimensions summary}
 \usage{
 maihda_print_cc_decomposition(d)
 }
 \arguments{
-\item{d}{The \code{decomposition} list from a cross-classified
+\item{d}{The \code{decomposition} list from a crossed-dimensions
 \code{\link{summary.maihda_model}}.}
 }
 \value{
 No return value, called for side effects.
 }
 \description{
-Print the additive vs. intersectional decomposition of a cross-classified summary
+Print the additive vs. intersectional decomposition of a crossed-dimensions summary
 }
 \keyword{internal}

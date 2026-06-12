@@ -251,8 +251,8 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
                                   family = "gaussian", use_boot = FALSE,
                                   n_boot = 100, autobin = TRUE,
                                   engine = "lme4", seed = NULL,
-                                  decomposition = c("two-model", "cross-classified")) {
-  decomposition <- match.arg(decomposition)
+                                  decomposition = c("two-model", "crossed-dimensions")) {
+  decomposition <- maihda_resolve_decomposition(decomposition)
   if (!is.data.frame(dat)) {
     stop("'dat' must be a data frame.", call. = FALSE)
   }
@@ -312,14 +312,14 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
     family_autoswitched <- TRUE
   }
 
-  # Cross-classified decomposition: a SINGLE model that enters each stratum dimension's
+  # Crossed-dimensions decomposition: a SINGLE model that enters each stratum dimension's
   # additive main effect as a random intercept (its variance is that dimension's
   # additive contribution) plus the intersection random intercept (the interaction).
   # The additive/interaction shares come straight off this one fit. Bootstrap CIs (when
-  # requested) are computed here, in the worker, via the cross-classified summary path.
-  if (decomposition == "cross-classified") {
+  # requested) are computed here, in the worker, via the crossed-dimensions summary path.
+  if (decomposition == "crossed-dimensions") {
     if (length(grouping_vars) < 2) {
-      stop("Cross-classified decomposition needs at least two grouping variables.",
+      stop("Crossed-dimensions decomposition needs at least two grouping variables.",
            call. = FALSE)
     }
     cc_null_fmla <- maihda_formula_with_stratum(outcome_var, additional_covars)
@@ -346,7 +346,7 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
       family_used = family,
       family_requested = family_requested,
       family_autoswitched = family_autoswitched,
-      decomposition_mode = "cross-classified"
+      decomposition_mode = "crossed-dimensions"
     ))
   }
 
@@ -423,9 +423,9 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
                                      use_boot = FALSE, n_boot = 100, seed = NULL,
                                      dataset = c("pisa", "health", "upload"),
                                      upload_name = NULL,
-                                     decomposition = c("two-model", "cross-classified")) {
+                                     decomposition = c("two-model", "crossed-dimensions")) {
   dataset <- match.arg(dataset)
-  decomposition <- match.arg(decomposition)
+  decomposition <- maihda_resolve_decomposition(decomposition)
   additional_covars <- if (is.null(additional_covars)) character() else additional_covars
 
   quote_names <- function(x) vapply(x, maihda_quote_name, character(1))
@@ -479,13 +479,13 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
   )
 
   emit_stepwise <- TRUE
-  if (length(grouping_vars) >= 2 && decomposition == "cross-classified") {
-    # Cross-classified: a single model with each dimension's main effect as a random
+  if (length(grouping_vars) >= 2 && decomposition == "crossed-dimensions") {
+    # Crossed-dimensions: a single model with each dimension's main effect as a random
     # intercept plus the intersection random intercept; the additive/interaction
     # shares are read off this one fit (no separate null/adjusted, no stepwise PCV).
     lines <- c(lines,
-      "# 4. Cross-classified MAIHDA via maihda(decomposition = 'cross-classified'): a",
-      "#    single model entering each stratum dimension's additive main effect as a",
+      "# 4. Crossed-dimensions MAIHDA via maihda(decomposition = 'crossed-dimensions'):",
+      "#    a single model entering each stratum dimension's additive main effect as a",
       "#    random intercept plus the intersection random intercept. The additive and",
       "#    interaction shares of the between-strata variance come straight off this fit."
     )
@@ -493,16 +493,16 @@ maihda_app_generate_code <- function(outcome_var, grouping_vars,
       lines <- c(lines, sprintf("set.seed(%s)", seed))
     }
     maihda_call <- if (isTRUE(use_boot)) {
-      sprintf('analysis <- maihda(%s, data = data, family = "%s", decomposition = "cross-classified", bootstrap = TRUE, n_boot = %s)',
+      sprintf('analysis <- maihda(%s, data = data, family = "%s", decomposition = "crossed-dimensions", bootstrap = TRUE, n_boot = %s)',
               model_fmla, family, n_boot)
     } else {
-      sprintf('analysis <- maihda(%s, data = data, family = "%s", decomposition = "cross-classified")',
+      sprintf('analysis <- maihda(%s, data = data, family = "%s", decomposition = "crossed-dimensions")',
               model_fmla, family)
     }
     lines <- c(lines,
       maihda_call,
       "analysis                              # VPC and additive/interaction shares",
-      "summary(analysis$model)               # cross-classified variance components",
+      "summary(analysis$model)               # crossed-dimensions variance components",
       "analysis$decomposition$additive_share # additive share of between-strata variance"
     )
     emit_stepwise <- FALSE

@@ -62,11 +62,12 @@ maihda_adjusted_formula <- function(null_formula, strata_vars, autobin_info, dat
   list(formula = adjusted_formula, data = adj$data)
 }
 
-#' Build the cross-classified-model formula and data for a MAIHDA decomposition
+#' Build the crossed-dimensions-model formula and data for a MAIHDA decomposition
 #'
-#' The cross-classified alternative to the two-model (fixed-effects PCV) decomposition.
-#' Given a null model's formula (in \code{(1 | stratum)} form, carrying only the
-#' covariates) and the stratum metadata, returns the single cross-classified formula --
+#' The crossed-dimensions alternative to the two-model (fixed-effects PCV)
+#' decomposition (the function name keeps the historical "cross_classified"
+#' spelling). Given a null model's formula (in \code{(1 | stratum)} form, carrying
+#' only the covariates) and the stratum metadata, returns the single crossed formula --
 #' the covariates plus an \emph{additive random intercept for each stratum dimension}
 #' plus the intersection (\code{stratum}) random intercept -- together with the data
 #' carrying any reconstructed binned factors. In the fitted model each dimension's RE

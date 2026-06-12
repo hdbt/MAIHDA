@@ -384,6 +384,18 @@ test_that("Reproducible code export mirrors the fitted model specification", {
                     code, fixed = TRUE))
 })
 
+test_that("Reproducible code export covers crossed-dimensions with bootstrap", {
+  code <- MAIHDA:::maihda_app_generate_code(
+    outcome_var = "math", grouping_vars = c("gender", "ses"),
+    additional_covars = character(),
+    family = "gaussian", autobin = TRUE, use_boot = TRUE, n_boot = 50,
+    seed = NULL, dataset = "pisa", decomposition = "crossed-dimensions"
+  )
+  expect_true(grepl(
+    'decomposition = "crossed-dimensions", bootstrap = TRUE, n_boot = 50',
+    code, fixed = TRUE))
+})
+
 test_that("Reproducible code export omits seed/bootstrap when unused and handles uploads", {
   code <- MAIHDA:::maihda_app_generate_code(
     outcome_var = "y", grouping_vars = "g1", additional_covars = character(),
@@ -474,6 +486,26 @@ test_that("Model-comparison module renders the nested null-vs-adjusted compariso
   )
 })
 
+test_that("compare tab shows the crossed-dimensions empty state before a comparison", {
+  shiny::testServer(
+    MAIHDA:::mod_compare_server,
+    args = list(
+      comparison_results = shiny::reactiveVal(NULL),
+      reactive_data = shiny::reactiveVal(MAIHDA::maihda_sim_data),
+      fit_params = shiny::reactiveVal(list(
+        outcome = "health_outcome", grouping_vars = c("gender", "race"),
+        covariates = character(), autobin = TRUE,
+        decomposition = "crossed-dimensions")),
+      fitted_family = shiny::reactiveVal("gaussian")
+    ),
+    expr = {
+      # The nested null-vs-adjusted view does not apply to a crossed-dimensions
+      # fit; the empty state must say so rather than ask for a fit.
+      expect_match(output$nested_ui$html, "Not applicable in crossed-dimensions mode")
+    }
+  )
+})
+
 test_that("maihda_app_default_vars gives dataset-aware defaults and a heuristic fallback", {
   pisa <- MAIHDA:::maihda_app_default_vars("pisa", MAIHDA::maihda_country_data)
   expect_equal(pisa$outcome, "math")
@@ -510,14 +542,14 @@ test_that("Selecting the NHANES dataset yields fittable defaults (outcome + 2 st
   })
 })
 
-test_that("maihda_app_fit_models supports the cross-classified decomposition", {
+test_that("maihda_app_fit_models supports the crossed-dimensions decomposition", {
   dat <- MAIHDA::maihda_sim_data[seq_len(300), ]
   res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
     dat = dat, outcome_var = "health_outcome",
     grouping_vars = c("gender", "race", "education"),
-    family = "gaussian", decomposition = "cross-classified"
+    family = "gaussian", decomposition = "crossed-dimensions"
   )))
-  expect_identical(res$decomposition_mode, "cross-classified")
+  expect_identical(res$decomposition_mode, "crossed-dimensions")
   expect_false(is.null(res$model$cc_info))
   expect_s3_class(res$summary_obj, "maihda_summary")
   expect_null(res$pvc)
@@ -538,36 +570,36 @@ test_that("the two-model app fit still tags decomposition_mode", {
   expect_s3_class(res$pvc, "pvc_result")
 })
 
-test_that("cross-classified app fit needs at least two grouping variables", {
+test_that("crossed-dimensions app fit needs at least two grouping variables", {
   dat <- MAIHDA::maihda_sim_data[seq_len(120), ]
   expect_error(
     MAIHDA:::maihda_app_fit_models(
       dat, outcome_var = "health_outcome", grouping_vars = "gender",
-      family = "gaussian", decomposition = "cross-classified"),
+      family = "gaussian", decomposition = "crossed-dimensions"),
     "two grouping")
 })
 
-test_that("Reproducible code mirrors the cross-classified decomposition", {
+test_that("Reproducible code mirrors the crossed-dimensions decomposition", {
   code <- MAIHDA:::maihda_app_generate_code(
     outcome_var = "math", grouping_vars = c("gender", "ses"),
     additional_covars = "escs", family = "gaussian",
     autobin = TRUE, use_boot = FALSE, seed = NULL, dataset = "pisa",
-    decomposition = "cross-classified"
+    decomposition = "crossed-dimensions"
   )
-  expect_true(grepl('decomposition = "cross-classified"', code, fixed = TRUE))
+  expect_true(grepl('decomposition = "crossed-dimensions"', code, fixed = TRUE))
   expect_true(grepl("analysis$decomposition$additive_share", code, fixed = TRUE))
   # Cross-classified mode has no two-model PCV or stepwise step.
   expect_false(grepl("analysis$pcv", code, fixed = TRUE))
   expect_false(grepl("stepwise_pcv(", code, fixed = TRUE))
 })
 
-test_that("Explorer renders in cross-classified mode from the decomposition", {
+test_that("Explorer renders in crossed-dimensions mode from the decomposition", {
   for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
   dat <- MAIHDA::maihda_sim_data[seq_len(300), ]
   res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
     dat = dat, outcome_var = "health_outcome",
     grouping_vars = c("gender", "race", "education"),
-    family = "gaussian", decomposition = "cross-classified")))
+    family = "gaussian", decomposition = "crossed-dimensions")))
 
   shiny::testServer(
     MAIHDA:::mod_explorer_server,
@@ -589,14 +621,14 @@ test_that("Explorer renders in cross-classified mode from the decomposition", {
   )
 })
 
-test_that("Full server renders the cross-classified decomposition on the PCV tab", {
+test_that("Full server renders the crossed-dimensions decomposition on the PCV tab", {
   for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
   app_env <- maihda_source_app_for_test()
   dat <- MAIHDA::maihda_sim_data[seq_len(300), ]
   res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
     dat = dat, outcome_var = "health_outcome",
     grouping_vars = c("gender", "race", "education"),
-    family = "gaussian", decomposition = "cross-classified")))
+    family = "gaussian", decomposition = "crossed-dimensions")))
 
   shiny::testServer(app_env$server, {
     session$setInputs(dataset = "pisa")
@@ -604,7 +636,7 @@ test_that("Full server renders the cross-classified decomposition on the PCV tab
     summary_results(res$summary_obj)
     null_summary_results(res$summary_obj)
     decomposition_results(res$decomposition)
-    decomposition_mode("cross-classified")
+    decomposition_mode("crossed-dimensions")
     pvc_results(NULL)
     stepwise_results(NULL)
     session$flushReact()

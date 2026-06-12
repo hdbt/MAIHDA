@@ -65,8 +65,17 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' @return A maihda_summary object containing:
 #'   \item{vpc}{Variance Partition Coefficient (ICC); for lme4 with
 #'     \code{bootstrap = TRUE} and for all brms models this includes
-#'     \code{ci_lower}/\code{ci_upper}/\code{conf_level}}
-#'   \item{variance_components}{Data frame of variance components}
+#'     \code{ci_lower}/\code{ci_upper}/\code{conf_level}. For a contextual
+#'     cross-classified fit this is the \emph{between-stratum} share of all
+#'     unexplained variance (net of the context)}
+#'   \item{variance_components}{Data frame of variance components. For a
+#'     contextual cross-classified fit (\code{fit_maihda(context = )}) each
+#'     context appears as its own \code{Context: <name>} row}
+#'   \item{context}{For a contextual cross-classified fit, the stratum vs.
+#'     context partition: per-context variances and shares, the contexts' total
+#'     share (\code{vpc_context_total}, with an interval when bootstrapped or for
+#'     brms), and the between-stratum share (\code{vpc_stratum}); \code{NULL}
+#'     otherwise}
 #'   \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
 #'     \code{maihda_da} object (AUC + MOR) from
 #'     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise (and for a
@@ -124,12 +133,17 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
 
   engine <- object$engine
   model <- object$model
-  # A cross-classified model (tagged by maihda(decomposition = "cross-classified"))
-  # has several crossed REs: each dimension carries its additive main-effect variance
-  # and the intersection ("stratum") RE the interaction. When absent, the variance
-  # path below is identical to the historical single-stratum summary.
+  # A crossed-dimensions model (tagged by maihda(decomposition =
+  # "crossed-dimensions")) has several crossed REs: each dimension carries its
+  # additive main-effect variance and the intersection ("stratum") RE the
+  # interaction. A contextual cross-classified model (fit_maihda(context = )) has
+  # the stratum RE crossed with one or more higher-level context REs, and the two
+  # tags can co-occur. When neither is present, the variance path below is
+  # identical to the historical single-stratum summary.
   cc <- object$cc_info
+  ctx <- object$context_info
   decomposition <- NULL
+  context_summary <- NULL
 
   # Extract variance components and calculate VPC
   if (engine == "lme4") {
@@ -140,6 +154,13 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       variance_components <- cc_res$variance_components
       vpc_result <- cc_res$vpc_result
       decomposition <- cc_res$decomposition
+      context_summary <- cc_res$context
+    } else if (!is.null(ctx)) {
+      ctx_res <- maihda_context_summary_lme4(object, ctx, vc, bootstrap, n_boot,
+                                             conf_level)
+      variance_components <- ctx_res$variance_components
+      vpc_result <- ctx_res$vpc_result
+      context_summary <- ctx_res$context
     } else {
       var_random <- maihda_stratum_variance_lme4(model)
       var_total_random <- maihda_total_random_variance_lme4(model)
@@ -212,6 +233,12 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       variance_components <- cc_res$variance_components
       vpc_result <- cc_res$vpc_result
       decomposition <- cc_res$decomposition
+      context_summary <- cc_res$context
+    } else if (!is.null(ctx)) {
+      ctx_res <- maihda_context_summary_brms(object, ctx, conf_level)
+      variance_components <- ctx_res$variance_components
+      vpc_result <- ctx_res$vpc_result
+      context_summary <- ctx_res$context
     } else {
       # Summarise the VPC/ICC from posterior draws (E[sd^2], with a credible
       # interval) rather than from the posterior summary SDs (E[sd]^2, no interval).
@@ -271,6 +298,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       vpc = vpc_result,
       variance_components = variance_components,
       decomposition = decomposition,
+      context = context_summary,
       discriminatory_accuracy = discriminatory_accuracy,
       vpc_response = vpc_response,
       stratum_estimates = stratum_estimates,
@@ -278,6 +306,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       model_summary = model_summary,
       engine = engine,
       cc_info = cc,
+      context_info = ctx,
       diagnostics = object$diagnostics
     ),
     class = "maihda_summary"
@@ -286,30 +315,42 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
   return(result)
 }
 
-#' Cross-classified variance summary (lme4)
+#' Crossed-dimensions variance summary (lme4)
 #'
 #' Internal helper for \code{\link{summary.maihda_model}} when the model is a
-#' cross-classified MAIHDA fit (\code{object$cc_info} set). Partitions the crossed
+#' crossed-dimensions MAIHDA fit (\code{object$cc_info} set). Partitions the crossed
 #' random-effect variances into the additive (sum of the dimension REs) and
 #' interaction (intersection RE) components, builds the variance-components table and
 #' the VPC, and -- when \code{bootstrap = TRUE} -- adds parametric-bootstrap intervals
-#' for the VPC and the additive/interaction shares.
+#' for the VPC and the additive/interaction shares. When the fit also carries a
+#' contextual random intercept (\code{object$context_info} set), the context
+#' variance enters the VPC denominator and is reported as its own component row
+#' and \code{context} element.
 #'
-#' @param object A \code{maihda_model} (cross-classified).
+#' @param object A \code{maihda_model} (crossed-dimensions).
 #' @param cc The \code{cc_info} list (\code{dim_groups}, \code{interaction_group}).
 #' @param vc The model's \code{VarCorr}.
 #' @param bootstrap,n_boot,conf_level Bootstrap controls.
-#' @return A list with \code{variance_components}, \code{vpc_result}, \code{decomposition}.
+#' @return A list with \code{variance_components}, \code{vpc_result},
+#'   \code{decomposition} and \code{context} (NULL without a context).
 #' @keywords internal
 maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level) {
   model <- object$model
   var_named <- maihda_random_variances_lme4(model)
   var_within <- maihda_residual_variance_lme4(model, vc)
   split <- maihda_cc_variance_split(var_named, cc$dim_groups, cc$interaction_group)
-  part <- maihda_cc_partition(split$additive, split$interaction, var_within)
+  ctx_vars <- if (!is.null(object$context_info)) {
+    object$context_info$context_vars
+  } else {
+    character(0)
+  }
+  per_context <- if (length(ctx_vars) > 0) var_named[ctx_vars] else NULL
+  var_context_total <- if (is.null(per_context)) 0 else sum(per_context)
+  part <- maihda_cc_partition(split$additive, split$interaction, var_within,
+                              var_context_total)
 
   variance_components <- maihda_cc_components_table(split$per_dim, split$interaction,
-                                                   var_within)
+                                                   var_within, per_context)
 
   decomposition <- list(
     additive_var = split$additive,
@@ -322,8 +363,24 @@ maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level
     bootstrap = FALSE
   )
 
+  context_summary <- NULL
+  if (length(ctx_vars) > 0) {
+    context_summary <- list(
+      context_vars = ctx_vars,
+      var_stratum = part$between,
+      per_context = per_context,
+      context_var_total = var_context_total,
+      within_var = var_within,
+      other_var = 0,
+      vpc_stratum = part$vpc,
+      vpc_context = per_context / part$total,
+      vpc_context_total = var_context_total / part$total,
+      bootstrap = FALSE
+    )
+  }
+
   if (bootstrap) {
-    boot <- bootstrap_cc(model, cc, n_boot, conf_level)
+    boot <- bootstrap_cc(model, cc, n_boot, conf_level, ctx_vars = ctx_vars)
     vpc_result <- list(
       estimate = part$vpc,
       ci_lower = boot$vpc[1],
@@ -339,26 +396,35 @@ maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level
     decomposition$additive_share_ci <- c(boot$additive_share[1], boot$additive_share[2])
     decomposition$interaction_share_ci <- c(boot$interaction_share[1],
                                             boot$interaction_share[2])
+    if (!is.null(context_summary)) {
+      context_summary$bootstrap <- TRUE
+      context_summary$conf_level <- conf_level
+      context_summary$vpc_context_total_ci <- c(boot$context_vpc[1],
+                                                boot$context_vpc[2])
+    }
   } else {
     vpc_result <- list(estimate = part$vpc, bootstrap = FALSE)
   }
 
   list(variance_components = variance_components, vpc_result = vpc_result,
-       decomposition = decomposition)
+       decomposition = decomposition, context = context_summary)
 }
 
-#' Cross-classified variance summary (brms)
+#' Crossed-dimensions variance summary (brms)
 #'
 #' brms counterpart of \code{\link{maihda_cc_summary_lme4}}: computes the additive /
 #' interaction partition per posterior draw and returns posterior point estimates with
 #' credible intervals for the VPC and the shares (no bootstrap -- the posterior already
-#' supplies the interval).
+#' supplies the interval). A contextual random intercept
+#' (\code{object$context_info} set) enters the per-draw VPC denominator and is
+#' reported as its own component row and \code{context} element.
 #'
-#' @param object A \code{maihda_model} (cross-classified, brms engine).
+#' @param object A \code{maihda_model} (crossed-dimensions, brms engine).
 #' @param cc The \code{cc_info} list.
 #' @param conf_level Credible-interval level.
 #' @param point Posterior point estimate, "median" (default) or "mean".
-#' @return A list with \code{variance_components}, \code{vpc_result}, \code{decomposition}.
+#' @return A list with \code{variance_components}, \code{vpc_result},
+#'   \code{decomposition} and \code{context} (NULL without a context).
 #' @keywords internal
 maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "mean")) {
   point <- match.arg(point)
@@ -368,15 +434,22 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
   within_draws <- maihda_residual_variance_draws_brms(model, draws)
 
   dim_re <- unname(cc$dim_groups)
-  missing_re <- setdiff(c(dim_re, cc$interaction_group), names(gv))
+  ctx_vars <- if (!is.null(object$context_info)) {
+    object$context_info$context_vars
+  } else {
+    character(0)
+  }
+  missing_re <- setdiff(c(dim_re, cc$interaction_group, ctx_vars), names(gv))
   if (length(missing_re) > 0) {
-    stop("Cross-classified brms summary is missing the random effect(s): ",
+    stop("Crossed-dimensions brms summary is missing the random effect(s): ",
          paste(missing_re, collapse = ", "), ".", call. = FALSE)
   }
 
   additive_draws <- Reduce(`+`, gv[dim_re])
   interaction_draws <- gv[[cc$interaction_group]]
-  part <- maihda_cc_partition(additive_draws, interaction_draws, within_draws)
+  context_total_draws <- if (length(ctx_vars) > 0) Reduce(`+`, gv[ctx_vars]) else 0
+  part <- maihda_cc_partition(additive_draws, interaction_draws, within_draws,
+                              context_total_draws)
 
   summ <- function(v) {
     v <- v[is.finite(v)]
@@ -396,9 +469,14 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
   names(per_dim_mean) <- names(cc$dim_groups)
   interaction_mean <- mean(interaction_draws)
   within_mean <- mean(within_draws)
+  per_context_mean <- if (length(ctx_vars) > 0) {
+    vapply(ctx_vars, function(g) mean(gv[[g]]), numeric(1))
+  } else {
+    NULL
+  }
 
   variance_components <- maihda_cc_components_table(per_dim_mean, interaction_mean,
-                                                   within_mean)
+                                                   within_mean, per_context_mean)
 
   vpc_result <- list(
     estimate = vpc_s$estimate,
@@ -424,29 +502,55 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
     conf_level = conf_level
   )
 
+  context_summary <- NULL
+  if (length(ctx_vars) > 0) {
+    ctx_total_s <- summ(part$other / part$total)
+    context_summary <- list(
+      context_vars = ctx_vars,
+      var_stratum = mean(part$between),
+      per_context = per_context_mean,
+      context_var_total = mean(context_total_draws),
+      within_var = within_mean,
+      other_var = 0,
+      vpc_stratum = vpc_s$estimate,
+      vpc_context = vapply(ctx_vars, function(g) summ(gv[[g]] / part$total)$estimate,
+                           numeric(1)),
+      vpc_context_total = ctx_total_s$estimate,
+      vpc_context_total_ci = c(ctx_total_s$ci_lower, ctx_total_s$ci_upper),
+      bootstrap = FALSE,
+      method = "posterior",
+      conf_level = conf_level
+    )
+  }
+
   list(variance_components = variance_components, vpc_result = vpc_result,
-       decomposition = decomposition)
+       decomposition = decomposition, context = context_summary)
 }
 
-#' Bootstrap a cross-classified MAIHDA partition (lme4)
+#' Bootstrap a crossed-dimensions MAIHDA partition (lme4)
 #'
 #' Parametric bootstrap (simulate from the fitted model, refit) of the
-#' cross-classified VPC and the additive / interaction shares, returning a percentile
-#' interval for each via \code{maihda_bootstrap_ci}. lme4 only -- brms returns
-#' posterior credible intervals directly.
+#' crossed-dimensions VPC and the additive / interaction shares, returning a
+#' percentile interval for each via \code{maihda_bootstrap_ci}. lme4 only -- brms
+#' returns posterior credible intervals directly. When \code{ctx_vars} names
+#' contextual random intercepts, their variance enters each refit's VPC denominator
+#' and a \code{context_vpc} interval (the contexts' total share) is returned too.
 #'
 #' @param model The underlying lme4 model object.
 #' @param cc The \code{cc_info} list.
 #' @param n_boot Number of bootstrap samples.
 #' @param conf_level Confidence level.
-#' @return A list with \code{vpc}, \code{additive_share}, \code{interaction_share},
-#'   each a length-2 interval carrying \code{n_ok}/\code{mc_se} attributes.
+#' @param ctx_vars Character vector of contextual grouping factors (may be empty).
+#' @return A list with \code{vpc}, \code{additive_share}, \code{interaction_share}
+#'   (and \code{context_vpc} when \code{ctx_vars} is non-empty), each a length-2
+#'   interval carrying \code{n_ok}/\code{mc_se} attributes.
 #' @keywords internal
 #' @importFrom lme4 refit
-bootstrap_cc <- function(model, cc, n_boot, conf_level) {
+bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0)) {
   vpc_boot <- rep(NA_real_, n_boot)
   additive_boot <- rep(NA_real_, n_boot)
   interaction_boot <- rep(NA_real_, n_boot)
+  context_boot <- rep(NA_real_, n_boot)
   sim_data <- stats::simulate(model, nsim = n_boot)
 
   for (i in seq_len(n_boot)) {
@@ -455,19 +559,239 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level) {
       var_named <- maihda_random_variances_lme4(boot_model)
       var_within <- maihda_residual_variance_lme4(boot_model)
       split <- maihda_cc_variance_split(var_named, cc$dim_groups, cc$interaction_group)
-      part <- maihda_cc_partition(split$additive, split$interaction, var_within)
+      var_context <- if (length(ctx_vars) > 0) sum(var_named[ctx_vars]) else 0
+      part <- maihda_cc_partition(split$additive, split$interaction, var_within,
+                                  var_context)
       vpc_boot[i] <- part$vpc
       additive_boot[i] <- part$additive_share
       interaction_boot[i] <- part$interaction_share
+      context_boot[i] <- var_context / part$total
     }, error = function(e) NULL)
   }
 
-  list(
+  out <- list(
     vpc = maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC"),
     additive_share = maihda_bootstrap_ci(additive_boot, n_boot, conf_level,
                                          "additive share"),
     interaction_share = maihda_bootstrap_ci(interaction_boot, n_boot, conf_level,
                                             "interaction share")
+  )
+  if (length(ctx_vars) > 0) {
+    out$context_vpc <- maihda_bootstrap_ci(context_boot, n_boot, conf_level,
+                                           "context VPC")
+  }
+  out
+}
+
+#' Contextual cross-classified variance summary (lme4)
+#'
+#' Internal helper for \code{\link{summary.maihda_model}} when the model carries a
+#' contextual random intercept (\code{object$context_info} set,
+#' \code{fit_maihda(context = )}) without the crossed-dimensions decomposition.
+#' Partitions the unexplained variance into between-stratum vs. between-context
+#' (one share per context variable) vs. residual. The headline VPC stays the
+#' between-stratum share of all unexplained variance -- numerically identical to
+#' the generic single-stratum summary, which folds the context into "Other random
+#' effects" -- but the context is now named, given its own component row(s), and
+#' returned as a \code{context} element.
+#'
+#' @param object A \code{maihda_model} with \code{context_info}.
+#' @param ctx The \code{context_info} list (\code{context_vars}).
+#' @param vc The model's \code{VarCorr}.
+#' @param bootstrap,n_boot,conf_level Bootstrap controls.
+#' @return A list with \code{variance_components}, \code{vpc_result}, \code{context}.
+#' @keywords internal
+maihda_context_summary_lme4 <- function(object, ctx, vc, bootstrap, n_boot,
+                                        conf_level) {
+  model <- object$model
+  var_named <- maihda_random_variances_lme4(model)
+  var_within <- maihda_residual_variance_lme4(model, vc)
+  ctx_vars <- ctx$context_vars
+  missing_re <- setdiff(c("stratum", ctx_vars), names(var_named))
+  if (length(missing_re) > 0) {
+    stop("Contextual variance partition is missing the random effect(s): ",
+         paste(missing_re, collapse = ", "),
+         ". Expected the stratum intercept plus one intercept per context.",
+         call. = FALSE)
+  }
+  var_stratum <- unname(var_named[["stratum"]])
+  per_context <- var_named[ctx_vars]
+  # Any further random effects beyond stratum + context (rare; e.g. a manual
+  # extra grouping) stay in the denominator as "Other random effects".
+  var_other <- max(0, sum(var_named, na.rm = TRUE) - var_stratum - sum(per_context))
+  part <- maihda_context_partition(var_stratum, as.list(per_context), var_within,
+                                   var_other)
+
+  variance_components <- maihda_context_components_table(var_stratum, per_context,
+                                                         var_other, var_within)
+
+  context_summary <- list(
+    context_vars = ctx_vars,
+    var_stratum = var_stratum,
+    per_context = per_context,
+    context_var_total = part$context_total,
+    within_var = var_within,
+    other_var = var_other,
+    vpc_stratum = part$vpc_stratum,
+    vpc_context = unlist(part$vpc_context),
+    vpc_context_total = part$vpc_context_total,
+    bootstrap = FALSE
+  )
+
+  if (bootstrap) {
+    boot <- bootstrap_context(model, ctx_vars, n_boot, conf_level)
+    vpc_result <- list(
+      estimate = part$vpc_stratum,
+      ci_lower = boot$vpc[1],
+      ci_upper = boot$vpc[2],
+      conf_level = conf_level,
+      bootstrap = TRUE,
+      method = "bootstrap",
+      n_boot_ok = attr(boot$vpc, "n_ok"),
+      mc_se = attr(boot$vpc, "mc_se")
+    )
+    context_summary$bootstrap <- TRUE
+    context_summary$conf_level <- conf_level
+    context_summary$vpc_context_total_ci <- c(boot$context_vpc[1],
+                                              boot$context_vpc[2])
+  } else {
+    vpc_result <- list(estimate = part$vpc_stratum, bootstrap = FALSE)
+  }
+
+  list(variance_components = variance_components, vpc_result = vpc_result,
+       context = context_summary)
+}
+
+#' Contextual cross-classified variance summary (brms)
+#'
+#' brms counterpart of \code{\link{maihda_context_summary_lme4}}: computes the
+#' stratum / context / residual partition per posterior draw and returns posterior
+#' point estimates with credible intervals for the between-stratum VPC and the
+#' contexts' total share (no bootstrap -- the posterior supplies the interval).
+#'
+#' @param object A \code{maihda_model} with \code{context_info} (brms engine).
+#' @param ctx The \code{context_info} list.
+#' @param conf_level Credible-interval level.
+#' @param point Posterior point estimate, "median" (default) or "mean".
+#' @return A list with \code{variance_components}, \code{vpc_result}, \code{context}.
+#' @keywords internal
+maihda_context_summary_brms <- function(object, ctx, conf_level,
+                                        point = c("median", "mean")) {
+  point <- match.arg(point)
+  model <- object$model
+  draws <- maihda_posterior_draws_brms(model)
+  gv <- maihda_group_variance_draws_brms(draws)
+  within_draws <- maihda_residual_variance_draws_brms(model, draws)
+
+  ctx_vars <- ctx$context_vars
+  missing_re <- setdiff(c("stratum", ctx_vars), names(gv))
+  if (length(missing_re) > 0) {
+    stop("Contextual brms summary is missing the random effect(s): ",
+         paste(missing_re, collapse = ", "), ".", call. = FALSE)
+  }
+
+  stratum_draws <- gv[["stratum"]]
+  context_draws <- gv[ctx_vars]
+  other_groups <- setdiff(names(gv), c("stratum", ctx_vars))
+  other_draws <- if (length(other_groups) > 0) Reduce(`+`, gv[other_groups]) else 0
+  part <- maihda_context_partition(stratum_draws, context_draws, within_draws,
+                                   other_draws)
+
+  summ <- function(v) {
+    v <- v[is.finite(v)]
+    if (length(v) == 0) {
+      return(list(estimate = NA_real_, ci_lower = NA_real_, ci_upper = NA_real_))
+    }
+    a <- 1 - conf_level
+    pt <- if (point == "median") stats::median(v) else mean(v)
+    ci <- stats::quantile(v, probs = c(a / 2, 1 - a / 2), names = FALSE)
+    list(estimate = pt, ci_lower = ci[1], ci_upper = ci[2])
+  }
+  vpc_s <- summ(part$vpc_stratum)
+  ctx_total_s <- summ(part$vpc_context_total)
+
+  per_context_mean <- vapply(ctx_vars, function(g) mean(gv[[g]]), numeric(1))
+  other_mean <- if (is.numeric(other_draws) && length(other_draws) > 1) {
+    mean(other_draws)
+  } else {
+    other_draws
+  }
+  variance_components <- maihda_context_components_table(
+    mean(stratum_draws), per_context_mean, other_mean, mean(within_draws)
+  )
+
+  vpc_result <- list(
+    estimate = vpc_s$estimate,
+    ci_lower = vpc_s$ci_lower,
+    ci_upper = vpc_s$ci_upper,
+    conf_level = conf_level,
+    bootstrap = FALSE,
+    method = "posterior"
+  )
+
+  context_summary <- list(
+    context_vars = ctx_vars,
+    var_stratum = mean(stratum_draws),
+    per_context = per_context_mean,
+    context_var_total = mean(part$context_total),
+    within_var = mean(within_draws),
+    other_var = other_mean,
+    vpc_stratum = vpc_s$estimate,
+    vpc_context = vapply(ctx_vars, function(g) summ(gv[[g]] / part$total)$estimate,
+                         numeric(1)),
+    vpc_context_total = ctx_total_s$estimate,
+    vpc_context_total_ci = c(ctx_total_s$ci_lower, ctx_total_s$ci_upper),
+    bootstrap = FALSE,
+    method = "posterior",
+    conf_level = conf_level
+  )
+
+  list(variance_components = variance_components, vpc_result = vpc_result,
+       context = context_summary)
+}
+
+#' Bootstrap a contextual cross-classified MAIHDA partition (lme4)
+#'
+#' Parametric bootstrap (simulate from the fitted model, refit) of the
+#' between-stratum VPC and the contexts' total share for a contextual
+#' cross-classified fit, returning a percentile interval for each via
+#' \code{maihda_bootstrap_ci}. lme4 only -- brms returns posterior credible
+#' intervals directly.
+#'
+#' @param model The underlying lme4 model object.
+#' @param ctx_vars Character vector of context grouping factors.
+#' @param n_boot Number of bootstrap samples.
+#' @param conf_level Confidence level.
+#' @return A list with \code{vpc} (between-stratum share) and \code{context_vpc}
+#'   (contexts' total share), each a length-2 interval carrying
+#'   \code{n_ok}/\code{mc_se} attributes.
+#' @keywords internal
+#' @importFrom lme4 refit
+bootstrap_context <- function(model, ctx_vars, n_boot, conf_level) {
+  vpc_boot <- rep(NA_real_, n_boot)
+  context_boot <- rep(NA_real_, n_boot)
+  sim_data <- stats::simulate(model, nsim = n_boot)
+
+  for (i in seq_len(n_boot)) {
+    tryCatch({
+      boot_model <- lme4::refit(model, newresp = sim_data[[i]])
+      var_named <- maihda_random_variances_lme4(boot_model)
+      var_within <- maihda_residual_variance_lme4(boot_model)
+      var_stratum <- unname(var_named[["stratum"]])
+      per_context <- var_named[ctx_vars]
+      var_other <- max(0, sum(var_named, na.rm = TRUE) - var_stratum -
+                         sum(per_context))
+      part <- maihda_context_partition(var_stratum, as.list(per_context),
+                                       var_within, var_other)
+      vpc_boot[i] <- part$vpc_stratum
+      context_boot[i] <- part$vpc_context_total
+    }, error = function(e) NULL)
+  }
+
+  list(
+    vpc = maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC"),
+    context_vpc = maihda_bootstrap_ci(context_boot, n_boot, conf_level,
+                                      "context VPC")
   )
 }
 
@@ -513,9 +837,9 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
   return(ci)
 }
 
-#' Print the additive vs. intersectional decomposition of a cross-classified summary
+#' Print the additive vs. intersectional decomposition of a crossed-dimensions summary
 #'
-#' @param d The \code{decomposition} list from a cross-classified
+#' @param d The \code{decomposition} list from a crossed-dimensions
 #'   \code{\link{summary.maihda_model}}.
 #' @return No return value, called for side effects.
 #' @keywords internal
@@ -527,7 +851,7 @@ maihda_print_cc_decomposition <- function(d) {
       sprintf("%.1f%%", est * 100)
     }
   }
-  cat("Additive vs. Intersectional Decomposition (cross-classified):\n")
+  cat("Additive vs. Intersectional Decomposition (crossed-dimensions):\n")
   cat(sprintf("  Additive (sum of dimension main effects) variance: %.4f\n",
               d$additive_var))
   cat(sprintf("  Intersectional interaction variance:               %.4f\n",
@@ -545,8 +869,47 @@ maihda_print_cc_decomposition <- function(d) {
       cat(sprintf("    %s: %.4f\n", nm, per_dim[[nm]]))
     }
   }
-  cat("  Note: the additive share is the cross-classified analogue of the PCV but a\n",
-      "  different estimator; interpret the interaction share cautiously.\n\n", sep = "")
+  cat("  Note: the additive share is the crossed-dimensions analogue of the PCV but\n",
+      "  a different estimator; interpret the interaction share cautiously.\n\n", sep = "")
+  invisible(NULL)
+}
+
+#' Print the stratum vs. context partition of a contextual cross-classified summary
+#'
+#' @param ctx The \code{context} list from a contextual
+#'   \code{\link{summary.maihda_model}} (a model fitted with
+#'   \code{fit_maihda(context = )}).
+#' @return No return value, called for side effects.
+#' @keywords internal
+maihda_print_context_partition <- function(ctx) {
+  fmt_share <- function(est, ci = NULL) {
+    if (!is.null(ci) && length(ci) == 2L && all(is.finite(ci))) {
+      sprintf("%.1f%% [%.1f%%, %.1f%%]", est * 100, ci[1] * 100, ci[2] * 100)
+    } else {
+      sprintf("%.1f%%", est * 100)
+    }
+  }
+  cat("Contextual Cross-Classified Partition (stratum x context):\n")
+  cat(sprintf("  Between-stratum (intersectional) variance: %.4f (share %s)\n",
+              ctx$var_stratum, fmt_share(ctx$vpc_stratum)))
+  per_context <- ctx$per_context
+  vpc_context <- ctx$vpc_context
+  for (nm in names(per_context)) {
+    cat(sprintf("  Context '%s' variance: %.4f (share %s)\n",
+                nm, per_context[[nm]], fmt_share(vpc_context[[nm]])))
+  }
+  if (length(per_context) > 1) {
+    cat(sprintf("  All contexts combined: %.4f (share %s)\n",
+                ctx$context_var_total,
+                fmt_share(ctx$vpc_context_total, ctx$vpc_context_total_ci)))
+  } else if (!is.null(ctx$vpc_context_total_ci)) {
+    cat(sprintf("  Context share interval: %s\n",
+                fmt_share(ctx$vpc_context_total, ctx$vpc_context_total_ci)))
+  }
+  cat("  Note: the headline VPC/ICC is the between-stratum share net of the\n",
+      "  context(s) -- intersectional clustering not attributable to shared place\n",
+      "  or institution. The context share is the general contextual effect.\n\n",
+      sep = "")
   invisible(NULL)
 }
 
@@ -582,6 +945,10 @@ print.maihda_summary <- function(x, ...) {
 
   if (!is.null(x$decomposition)) {
     maihda_print_cc_decomposition(x$decomposition)
+  }
+
+  if (!is.null(x$context)) {
+    maihda_print_context_partition(x$context)
   }
 
   # Discriminatory accuracy (AUC + MOR) and, when requested, the response-scale VPC --
