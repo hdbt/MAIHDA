@@ -48,7 +48,8 @@ maihda_prediction_panel_prior_weights <- function(maihda_obj, model, data) {
 }
 
 maihda_prediction_panel_auto_type <- function(model) {
-  if (inherits(model, "polr") || inherits(model, "clm") || inherits(model, "ordinal")) {
+  if (inherits(model, "polr") || inherits(model, "clm") ||
+      inherits(model, "clmm") || inherits(model, "ordinal")) {
     return("ordinal")
   }
 
@@ -140,6 +141,44 @@ maihda_prediction_panel_fitted <- function(model, data, type) {
 }
 
 maihda_prediction_panel_ordinal_probs <- function(model, data) {
+  if (inherits(model, "clmm")) {
+    # predict.clmm does not exist: rebuild the location eta = x'beta + u from
+    # the stored components (fixed-effects-only $terms, $xlevels, $beta, and the
+    # stratum conditional modes) and difference the cumulative probabilities.
+    # Including the random effect matches the other branches of this panel,
+    # whose predict() calls include random effects by default.
+    maihda_require_ordinal()
+    tt <- stats::delete.response(model$terms)
+    mf <- stats::model.frame(tt, data, xlev = model$xlevels,
+                             na.action = stats::na.pass)
+    X <- stats::model.matrix(tt, mf)
+    beta <- model$beta
+    eta <- if (is.null(beta) || length(beta) == 0) {
+      rep(0, nrow(data))
+    } else {
+      missing_cols <- setdiff(names(beta), colnames(X))
+      if (length(missing_cols) > 0) {
+        stop("Could not rebuild the clmm design matrix; missing column(s): ",
+             paste(missing_cols, collapse = ", "), call. = FALSE)
+      }
+      drop(X[, names(beta), drop = FALSE] %*% beta)
+    }
+    re_list <- tryCatch(ordinal::ranef(model), error = function(e) NULL)
+    if (!is.null(re_list) && "stratum" %in% names(re_list) &&
+        "stratum" %in% names(data)) {
+      tab <- re_list[["stratum"]]
+      re_col <- intersect(c("(Intercept)", "Intercept"), colnames(tab))
+      if (length(re_col) > 0) {
+        u <- stats::setNames(as.numeric(tab[[re_col[1]]]), rownames(tab))
+        u <- u[as.character(data$stratum)]
+        u[is.na(u)] <- 0
+        eta <- eta + unname(u)
+      }
+    }
+    probs <- maihda_ordinal_category_probs(eta, model$alpha, model$link)
+    return(as.data.frame(probs))
+  }
+
   probs <- tryCatch(
     predict(model, newdata = data, type = "probs"),
     error = function(e) NULL

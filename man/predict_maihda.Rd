@@ -27,7 +27,10 @@ For backward compatibility, "link" or "response" may also be passed here
 and will be interpreted as individual-level predictions on that scale.}
 
 \item{scale}{Character string specifying the prediction scale for
-individual-level predictions: "response" (default) or "link".}
+individual-level predictions: "response" (default) or "link". For a
+cumulative (ordinal) model the "link" scale is the latent location
+\eqn{\eta} and the "response" scale is the \emph{expected category score}
+\eqn{\sum_k k P(Y = k)} (categories scored 1..K in their declared order).}
 
 \item{...}{Additional arguments passed to predict method of underlying model.}
 }

@@ -462,15 +462,57 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     }
   }
 
+  # Ordinal (cumulative) family <-> engine handshake, mirroring fit_maihda():
+  # the per-group fits receive 'engine' explicitly, so fit_maihda()'s own
+  # missing(engine) auto-switch could never fire through them. An ordered-factor
+  # outcome under all-default family/engine likewise selects the ordinal engine
+  # here (the per-group family resolution below then picks up the family).
+  if (missing(family) && missing(engine) && is.null(sampling_weights) &&
+      isTRUE(tryCatch(maihda_response_is_ordinal(formula, data),
+                      error = function(e) FALSE))) {
+    engine <- "ordinal"
+    message("compare_maihda_groups(): the outcome is an ordered factor; using ",
+            "the cumulative (ordinal) model with engine = \"ordinal\" ",
+            "(ordinal::clmm). Specify 'family'/'engine' explicitly to override.")
+  }
+  if (maihda_family_is_ordinal(
+    if (is.function(family)) tryCatch(family(), error = function(e) NULL) else family
+  )) {
+    if (missing(engine) && is.null(sampling_weights)) {
+      engine <- "ordinal"
+      message("compare_maihda_groups(): ordinal (cumulative) family; using ",
+              "engine = \"ordinal\" (ordinal::clmm). Set 'engine' explicitly to ",
+              "silence this message or to choose engine = \"brms\".")
+    } else if (identical(engine, "lme4")) {
+      stop("lme4 cannot fit a cumulative (ordinal) model. Use engine = ",
+           "\"ordinal\" (ordinal::clmm, the default for this family) or ",
+           "engine = \"brms\" (brms::cumulative).", call. = FALSE)
+    }
+  }
+
   if (!is.character(engine) || length(engine) != 1 ||
-      !engine %in% c("lme4", "brms", "wemix")) {
-    stop("'engine' should be one of: lme4, brms, wemix", call. = FALSE)
+      !engine %in% c("lme4", "brms", "wemix", "ordinal")) {
+    stop("'engine' should be one of: lme4, brms, wemix, ordinal", call. = FALSE)
   }
   if (identical(engine, "wemix") && decomposition == "crossed-dimensions") {
     stop("decomposition = \"crossed-dimensions\" needs crossed random effects, ",
          "which WeMix does not fit. Use the default two-model decomposition with ",
          "engine = \"wemix\", or engine = \"brms\" for the crossed-dimensions form.",
          call. = FALSE)
+  }
+  if (identical(engine, "ordinal")) {
+    if (decomposition == "crossed-dimensions") {
+      stop("decomposition = \"crossed-dimensions\" needs crossed random effects, ",
+           "which the ordinal (clmm) engine does not fit. Use the default ",
+           "two-model decomposition, or engine = \"brms\" for the ",
+           "crossed-dimensions form.", call. = FALSE)
+    }
+    if (isTRUE(bootstrap)) {
+      stop("Bootstrap intervals are not available for engine = \"ordinal\" ",
+           "(ordinal::clmm has no simulate()/refit() machinery). Set ",
+           "bootstrap = FALSE, or use engine = \"brms\" for posterior credible ",
+           "intervals.", call. = FALSE)
+    }
   }
   if (!is.logical(shared_strata) || length(shared_strata) != 1 || is.na(shared_strata)) {
     stop("'shared_strata' must be TRUE or FALSE.", call. = FALSE)
@@ -539,6 +581,14 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
               "for every group. To fit linear probability models, specify ",
               "family = 'gaussian' explicitly.", call. = FALSE)
       family <- "binomial"
+    } else if (isTRUE(tryCatch(
+      maihda_response_is_ordinal(formula, data, subset = subset_value,
+                                 weights = weights_value),
+      error = function(e) FALSE))) {
+      warning("The outcome variable is an ordered factor. Using the cumulative ",
+              "(ordinal) model, family = 'ordinal', for every group. Specify a ",
+              "family explicitly to override.", call. = FALSE)
+      family <- "ordinal"
     }
   }
 

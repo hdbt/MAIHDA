@@ -101,7 +101,7 @@ single fit.
 Creates intersectional strata from multiple categorical variables with optional minimum count filtering.
 
 ### `fit_maihda()`
-Fits multilevel models using the lme4 (default), brms, or WeMix (design-weighted, via `sampling_weights`) engine. Supports various families including gaussian, binomial, poisson, and negbinomial (overdispersed counts; theta estimated via `lme4::glmer.nb()` or brms's `shape` parameter, with the VPC using the latent-scale level-1 variance of Nakagawa, Johnson & Schielzeth 2017).
+Fits multilevel models using the lme4 (default), brms, WeMix (design-weighted, via `sampling_weights`), or ordinal (`ordinal::clmm`, selected automatically for ordered-factor outcomes) engine. Supports various families including gaussian, binomial, poisson, negbinomial (overdispersed counts; theta estimated via `lme4::glmer.nb()` or brms's `shape` parameter, with the VPC using the latent-scale level-1 variance of Nakagawa, Johnson & Schielzeth 2017), and ordinal/cumulative (proportional-odds models for ordered outcomes; latent-scale VPC with pi^2/3 logit / 1 probit level-1 variance, response-scale predictions as expected category scores).
 
 ### Contextual cross-classified MAIHDA (`context =`)
 The MAIHDA literature's *cross-classified* design crosses individuals' intersectional

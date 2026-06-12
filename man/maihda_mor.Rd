@@ -8,8 +8,8 @@ maihda_mor(model)
 }
 \arguments{
 \item{model}{A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
-\code{binomial} (lme4) or \code{bernoulli} (brms) family and a \strong{logit}
-link.}
+\code{binomial} (lme4), \code{bernoulli} (brms), or \code{cumulative}
+(ordinal) family and a \strong{logit} link.}
 }
 \value{
 A single number (the MOR, \eqn{\ge 1}), or \code{NA_real_} if the
@@ -25,6 +25,13 @@ indicates no between-stratum heterogeneity. The MOR is defined only for the
 \strong{logit} link (it is the median \emph{odds} ratio); a non-logit binomial
 fit such as \code{probit} is rejected, because its latent variance is on a
 different scale and the \code{exp(...)} above would not be an odds ratio.
+
+For a \strong{cumulative-logit} (ordinal) MAIHDA model the same formula
+applies to the latent logit-scale between-stratum variance and is the
+\emph{median cumulative odds ratio}: the median relative change in the odds
+of being at or below any given outcome category between two randomly chosen
+strata (under the model's proportional-odds assumption it is the same for
+every category split).
 }
 \references{
 Larsen, K., & Merlo, J. (2005). Appropriate assessment of neighborhood effects

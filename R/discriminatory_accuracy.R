@@ -80,9 +80,16 @@ maihda_auc <- function(prob, y) {
 #' fit such as \code{probit} is rejected, because its latent variance is on a
 #' different scale and the \code{exp(...)} above would not be an odds ratio.
 #'
+#' For a \strong{cumulative-logit} (ordinal) MAIHDA model the same formula
+#' applies to the latent logit-scale between-stratum variance and is the
+#' \emph{median cumulative odds ratio}: the median relative change in the odds
+#' of being at or below any given outcome category between two randomly chosen
+#' strata (under the model's proportional-odds assumption it is the same for
+#' every category split).
+#'
 #' @param model A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
-#'   \code{binomial} (lme4) or \code{bernoulli} (brms) family and a \strong{logit}
-#'   link.
+#'   \code{binomial} (lme4), \code{bernoulli} (brms), or \code{cumulative}
+#'   (ordinal) family and a \strong{logit} link.
 #'
 #' @return A single number (the MOR, \eqn{\ge 1}), or \code{NA_real_} if the
 #'   between-stratum variance is unavailable.
@@ -100,20 +107,21 @@ maihda_mor <- function(model) {
     stop("'model' must be a maihda_model object from fit_maihda().", call. = FALSE)
   }
   fam <- maihda_model_family_name(model)
-  # Accept both the lme4 "binomial" family and the brms "bernoulli" family a binary
-  # 0/1 outcome is fit with (fit_maihda(engine = "brms") routes Bernoulli data to
-  # bernoulli()); both describe a logistic MAIHDA model.
-  if (!isTRUE(fam %in% c("binomial", "bernoulli"))) {
+  # Accept the lme4 "binomial" family, the brms "bernoulli" family a binary 0/1
+  # outcome is fit with (fit_maihda(engine = "brms") routes Bernoulli data to
+  # bernoulli()), and the "cumulative" (ordinal) family, whose logit-scale
+  # latent variance yields the median cumulative odds ratio.
+  if (!isTRUE(fam %in% c("binomial", "bernoulli", "cumulative"))) {
     stop("The Median Odds Ratio is only defined for binomial/Bernoulli (logistic) ",
-         "MAIHDA models; this model uses family = '", fam, "'.", call. = FALSE)
+         "and cumulative-logit (ordinal) MAIHDA models; this model uses family = '",
+         fam, "'.", call. = FALSE)
   }
   link <- maihda_model_link_name(model)
   if (!identical(link, "logit")) {
     stop("The Median Odds Ratio is defined only for the logit link -- it is the ",
          "median *odds* ratio, derived from the logistic latent variance -- but this ",
-         "model uses a binomial '", link, "' link, whose latent variance is on a ",
-         "different scale. Use maihda_auc() / maihda_discriminatory_accuracy() for ",
-         "link-agnostic discriminatory accuracy.", call. = FALSE)
+         "model uses a '", fam, "' model with the '", link, "' link, whose latent ",
+         "variance is on a different scale.", call. = FALSE)
   }
 
   v_a <- tryCatch(extract_between_variance(model), error = function(e) NA_real_)

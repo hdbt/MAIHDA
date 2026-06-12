@@ -151,6 +151,11 @@ extract_between_variance <- function(model) {
     # validation is needed here.
     return(maihda_wemix_variances(model)$stratum)
 
+  } else if (engine == "ordinal") {
+    # Like wemix, the ordinal engine enforces the canonical single
+    # intercept-only (1 | stratum) structure at fit time.
+    return(maihda_clmm_variances(model)$stratum)
+
   } else if (engine == "brms") {
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("Package 'brms' is required to work with brms models. Please install it with: install.packages('brms')")
@@ -286,7 +291,9 @@ validate_pvc_models <- function(model1, model2) {
 bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
   engine <- model1$engine
   if (engine != "lme4") {
-    stop("Bootstrap is currently only supported for lme4 models.")
+    stop("Bootstrap is currently only supported for lme4 models (it relies on ",
+         "lme4's simulate()/refit()). For interval estimates with the '", engine,
+         "' engine, refit with engine = \"brms\" (posterior credible intervals).")
   }
 
   # Initialise to NA so iterations whose refit() throws — and never reach the
@@ -469,12 +476,36 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
 
   # Auto-detect a binary outcome when family is left at the default, mirroring
   # fit_maihda()/maihda(). Otherwise a binary outcome would silently be fit on the
-  # Gaussian (linear) scale for numeric 0/1, or error for a factor.
+  # Gaussian (linear) scale for numeric 0/1, or error for a factor. An ordered
+  # factor likewise selects the cumulative (ordinal) model.
   if (missing(family) && maihda_is_binary_vector(data[[outcome]])) {
     warning("The outcome variable appears to be binary. Using family = 'binomial' ",
             "for the stepwise PCV. Specify family = 'gaussian' explicitly for a ",
             "linear probability model.", call. = FALSE)
     family <- "binomial"
+  } else if (missing(family) && is.ordered(data[[outcome]]) &&
+             nlevels(droplevels(data[[outcome]])) >= 3) {
+    warning("The outcome variable is an ordered factor. Using the cumulative ",
+            "(ordinal) model, family = 'ordinal', for the stepwise PCV.",
+            call. = FALSE)
+    family <- "ordinal"
+  }
+
+  # Ordinal family <-> engine handshake, mirroring fit_maihda(): the per-step
+  # fits receive 'engine' explicitly, so fit_maihda()'s own auto-switch could
+  # never fire through them.
+  if (maihda_family_is_ordinal(
+    if (is.function(family)) tryCatch(family(), error = function(e) NULL) else family
+  )) {
+    if (missing(engine) && is.null(sampling_weights)) {
+      engine <- "ordinal"
+      message("stepwise_pcv(): ordinal (cumulative) family; using engine = ",
+              "\"ordinal\" (ordinal::clmm).")
+    } else if (identical(engine, "lme4")) {
+      stop("lme4 cannot fit a cumulative (ordinal) model. Use engine = ",
+           "\"ordinal\" (ordinal::clmm, the default for this family) or ",
+           "engine = \"brms\" (brms::cumulative).", call. = FALSE)
+    }
   }
 
   results <- data.frame(
