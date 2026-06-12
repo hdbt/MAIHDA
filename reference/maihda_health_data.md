@@ -53,10 +53,13 @@ Centers for Disease Control and Prevention (CDC).
 ## Note
 
 This is a teaching/illustration dataset only. It is a non-random
-subsample and the analysis functions ignore the NHANES survey weights
-and complex sampling design, so results are **not**
-survey-representative and should not be used for substantive population
-inference.
+subsample and does **not** carry the NHANES survey weights or complex
+sampling design, so results are **not** survey-representative and should
+not be used for substantive population inference. (For your own survey
+data, the package supports design-weighted MAIHDA via the
+`sampling_weights` argument of
+[`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md) /
+[`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md).)
 
 ## Examples
 

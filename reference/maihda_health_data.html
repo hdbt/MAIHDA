@@ -99,9 +99,11 @@ Centers for Disease Control and Prevention (CDC).</p>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
     <p>This is a teaching/illustration dataset only. It is a non-random subsample and
-the analysis functions ignore the NHANES survey weights and complex sampling
-design, so results are <strong>not</strong> survey-representative and should not be used
-for substantive population inference.</p>
+does <strong>not</strong> carry the NHANES survey weights or complex sampling design,
+so results are <strong>not</strong> survey-representative and should not be used for
+substantive population inference. (For your own survey data, the package
+supports design-weighted MAIHDA via the <code>sampling_weights</code> argument of
+<code><a href="fit_maihda.html">fit_maihda</a></code> / <code><a href="maihda.html">maihda</a></code>.)</p>
     </div>
 
     <div class="section level2">

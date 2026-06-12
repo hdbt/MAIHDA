@@ -190,10 +190,10 @@ sample</strong>, so the PCV is always a like-for-like comparison.</p>
 <span><span class="co">#&gt; Use summary() for variance components and plot(type = ...) for figures.</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>        <span class="co"># null:     BMI ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x564db25b8850&gt;</span></span>
+<span><span class="co">#&gt; &lt;environment: 0x55c7904e3070&gt;</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>  <span class="co"># adjusted: BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x564daded5908&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x55c78ced3cf8&gt;</span></span></code></pre></div>
 <p>The returned object carries everything: the full variance components,
 the PCV decomposition, and both fitted models.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -332,6 +332,33 @@ net of the context. Also covered in
 <code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>.</p>
 </div>
 <div class="section level3">
+<h3 id="design-weighted-maihda-survey-data">Design-weighted MAIHDA (survey data)<a class="anchor" aria-label="anchor" href="#design-weighted-maihda-survey-data"></a>
+</h3>
+<p>For complex-survey data (NHANES, PISA, …), pass the sampling-weight
+column via <code>sampling_weights</code>. Survey weights are
+<strong>not</strong> lme4’s <code>weights=</code> (those are precision
+weights, which rescale the residual variance), so the fit routes through
+<code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> – weighted pseudo-maximum-likelihood – and
+<code>engine = "lme4"</code> with sampling weights is an error rather
+than a silent misfit. The whole workflow (VPC/ICC, PCV, stratum
+summaries, prediction, plots, and the AUC for binary outcomes) is then
+design-weighted, with design-consistent standard errors for the fixed
+effects:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">weighted</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
+<span>                   data <span class="op">=</span> <span class="va">survey_data</span>, sampling_weights <span class="op">=</span> <span class="st">"person_weight"</span><span class="op">)</span></span>
+<span><span class="va">weighted</span></span></code></pre></div>
+<p>The wemix engine covers the canonical <code>gaussian(identity)</code>
+/ <code>binomial(logit)</code> MAIHDA with the single
+<code>(1 | stratum)</code> intercept; crossed random effects
+(<code>context =</code>,
+<code>decomposition = "crossed-dimensions"</code>) and bootstrap
+intervals require lme4/brms. <code>engine = "brms"</code> also accepts
+<code>sampling_weights</code>, as likelihood weights (a
+<em>pseudo-posterior</em>: design-consistent point estimates, but
+credible intervals that are not design-based).</p>
+</div>
+<div class="section level3">
 <h3 id="comparing-across-groups">Comparing across groups<a class="anchor" aria-label="anchor" href="#comparing-across-groups"></a>
 </h3>
 <p>Add a higher-level grouping variable and <code><a href="../reference/maihda.html">maihda()</a></code> also
@@ -341,7 +368,7 @@ grouping – it asks how much the joint <strong>gender x
 socioeconomic-status</strong> inequality in mathematics achievement
 differs across six countries. This workflow has its own <a href="group_comparison.html">group comparison vignette</a>, so here we
 just point to it:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
 <span><span class="va">by_country</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">math</span> <span class="op">~</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">ses</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span>
 <span>                     data <span class="op">=</span> <span class="va">maihda_country_data</span>, group <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span>
@@ -368,7 +395,7 @@ outcomes.</p>
 (from the <code>:</code> interaction in the random effect) and fits one
 multilevel model. Use it when you only want a single fit – for example
 the null-model VPC on its own.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">health_complete</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model_null</span><span class="op">)</span></span>
 <span><span class="co">#&gt; MAIHDA Model Summary</span></span>
@@ -423,7 +450,7 @@ not strata dimensions (here Age and Poverty) – build the two models
 yourself and compare them with <code><a href="../reference/calculate_pvc.html">calculate_pvc()</a></code>. PCV
 compares variances across models, so both must use the same sample (the
 <code>health_complete</code> data we prepared above):</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_cov</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>                        data <span class="op">=</span> <span class="va">health_complete</span><span class="op">)</span></span>
 <span></span>
@@ -447,7 +474,7 @@ Poverty account for?”, which is distinct from the additive-share PCV
 that <code><a href="../reference/maihda.html">maihda()</a></code> reports. Add <code>bootstrap = TRUE</code>
 for parametric-bootstrap confidence intervals (omitted here because it
 refits the model many times):</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model_null</span>, <span class="va">model_cov</span>, bootstrap <span class="op">=</span> <span class="cn">TRUE</span>, n_boot <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
@@ -459,7 +486,7 @@ one-by-one and tracks the between-stratum variance dynamically. It works
 on a data frame that already carries the <code>stratum</code> column –
 the <code><a href="../reference/maihda.html">maihda()</a></code> object exposes one ready to use as
 <code>analysis$model$original_data</code>:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">stepwise_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/stepwise_pcv.html">stepwise_pcv</a></span><span class="op">(</span></span>
 <span>  data    <span class="op">=</span> <span class="va">analysis</span><span class="op">$</span><span class="va">model</span><span class="op">$</span><span class="va">original_data</span>,  <span class="co"># carries the strata column</span></span>
 <span>  outcome <span class="op">=</span> <span class="st">"BMI"</span>,</span>
@@ -495,7 +522,7 @@ estimated by simulation, so it is opt-in: add
 <code>response_vpc = TRUE</code> (with a <code>seed</code>). You can
 still call the helpers directly on the fitted models when you want them
 on their own:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># A binary-outcome analysis -- DA rides along automatically; ask for the response VPC:</span></span>
 <span><span class="va">ob</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">Obese</span> <span class="op">~</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
 <span>             response_vpc <span class="op">=</span> <span class="cn">TRUE</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
@@ -517,7 +544,7 @@ this discriminatory-accuracy recipe in full.</p>
 <code>maihda(group = ...)</code> calls under the hood. Use it directly
 for the same stratified comparison without the rest of the one-call
 pipeline:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/compare_maihda_groups.html">compare_maihda_groups</a></span><span class="op">(</span><span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span>
 <span>                      data <span class="op">=</span> <span class="va">maihda_country_data</span>, group <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span></code></pre></div>
@@ -561,7 +588,7 @@ Dashboard.</p>
 <p>You can upload your own data (CSV, SPSS <code>.sav</code>, Stata
 <code>.dta</code>), dynamically select variables, and compute Stepwise
 PCV tables and prediction plots.</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Launch the interactive interface</span></span>
 <span><span class="fu"><a href="../reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>

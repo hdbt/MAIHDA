@@ -80,10 +80,13 @@ gender-by-class inequality in achievement varies between countries.
 ## Note
 
 This is a teaching/illustration dataset only. It uses a single PISA
-plausible value for each score and the analysis functions ignore the
-PISA survey weights and complex sampling design, so results are **not**
+plausible value for each score and does **not** carry the PISA survey
+weights or complex sampling design, so results are **not**
 survey-representative and should not be used for substantive
-cross-national inference.
+cross-national inference. (For your own survey data, the package
+supports design-weighted MAIHDA via the `sampling_weights` argument of
+[`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md) /
+[`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md).)
 
 ## Examples
 

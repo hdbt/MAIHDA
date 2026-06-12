@@ -1,7 +1,8 @@
 # Fit MAIHDA Model
 
 Fits a multilevel model for MAIHDA (Multilevel Analysis of Individual
-Heterogeneity and Discriminatory Accuracy) using either lme4 or brms.
+Heterogeneity and Discriminatory Accuracy) using lme4, brms, or – for
+design-weighted (survey) data – WeMix.
 
 ## Usage
 
@@ -13,6 +14,7 @@ fit_maihda(
   family = "gaussian",
   autobin = TRUE,
   context = NULL,
+  sampling_weights = NULL,
   ...
 )
 ```
@@ -36,8 +38,12 @@ fit_maihda(
 
 - engine:
 
-  Character string specifying which engine to use: "lme4" (default) or
-  "brms".
+  Character string specifying which engine to use: "lme4" (default),
+  "brms", or "wemix" (design-weighted pseudo-maximum-likelihood via
+  [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html);
+  requires `sampling_weights`). When `sampling_weights` is supplied and
+  `engine` is left at its default, the engine switches to "wemix"
+  automatically (with a message).
 
 - family:
 
@@ -91,11 +97,47 @@ fit_maihda(
   `brms` engine handles this better. Writing the random effect directly
   in the formula (`... + (1 | school)`) fits the same model but is
   summarised generically as "Other random effects"; only `context =`
-  activates the labelled contextual partition.
+  activates the labelled contextual partition. Not supported by the
+  `wemix` engine.
+
+- sampling_weights:
+
+  Optional single character string naming a numeric column of `data`
+  holding individual *sampling* (survey/design) weights, for a
+  **design-weighted MAIHDA** on complex-survey data (e.g. NHANES, PISA).
+  Sampling weights are not the same thing as lme4's `weights=`
+  (precision weights, which rescale the residual variance), so combining
+  `sampling_weights` with `engine = "lme4"` is an error. Two engines
+  support them:
+
+  - `engine = "wemix"` (chosen automatically when `engine` is left at
+    its default): weighted pseudo-maximum-likelihood via
+    [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
+    (Rabe-Hesketh & Skrondal 2006), the estimator used for NAEP/PISA
+    analysis. The individual weights enter at level 1 unchanged and the
+    level-2 (stratum) weights are 1, because intersectional strata are
+    exhaustive population cells included with certainty. Supports
+    `gaussian(identity)` and `binomial(logit)` models with the canonical
+    single `(1 | stratum)` random intercept. Fixed-effect standard
+    errors are design-consistent (sandwich); the VPC/PCV are reported as
+    point estimates (no bootstrap – see
+    [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)).
+
+  - `engine = "brms"`: the weights enter the model as likelihood weights
+    (`y | weights(w)`), normalized to mean 1, giving a
+    *pseudo-posterior*: point estimates are design-consistent but
+    credible intervals are not design-based – interpret them cautiously.
+
+  Rows with a missing or non-positive sampling weight are dropped with a
+  warning. Default `NULL` (unweighted).
 
 - ...:
 
-  Additional arguments passed to `lmer`/`glmer` (lme4) or `brm` (brms).
+  Additional arguments passed to `lmer`/`glmer` (lme4), `brm` (brms), or
+  [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
+  (wemix; e.g. `nQuad`, `fast`). The lme4-style
+  `weights`/`subset`/`offset` arguments are not supported by the wemix
+  engine.
 
 ## Value
 
@@ -103,11 +145,15 @@ A maihda_model object containing:
 
 - model:
 
-  The fitted model object (lme4 or brms)
+  The fitted model object (lme4, brms, or WeMix)
 
 - engine:
 
-  The engine used ("lme4" or "brms")
+  The engine used ("lme4", "brms", or "wemix")
+
+- sampling_weights:
+
+  The sampling-weight column name when supplied, NULL otherwise
 
 - formula:
 

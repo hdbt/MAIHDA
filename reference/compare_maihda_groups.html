@@ -90,6 +90,7 @@ share of that group's intersectional inequality.</p>
 <span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
 <span>  autobin <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  decomposition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"two-model"</span>, <span class="st">"crossed-dimensions"</span><span class="op">)</span>,</span>
+<span>  sampling_weights <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -117,7 +118,9 @@ level.</p></dd>
 
 
 <dt id="arg-engine">engine<a class="anchor" aria-label="anchor" href="#arg-engine"></a></dt>
-<dd><p>Modeling engine, "lme4" (default) or "brms".</p></dd>
+<dd><p>Modeling engine, "lme4" (default), "brms", or "wemix" (the
+design-weighted fit; requires <code>sampling_weights</code> and is selected
+automatically when they are supplied with the default engine).</p></dd>
 
 
 <dt id="arg-family">family<a class="anchor" aria-label="anchor" href="#arg-family"></a></dt>
@@ -175,6 +178,15 @@ alias that warns). The crossed-dimensions form requires
 <code>var_between_adjusted</code>); <code>var_between</code> is then the total between-strata
 variance (additive + interaction). See <code><a href="maihda.html">maihda</a></code> for the underlying
 model and its caveats.</p></dd>
+
+
+<dt id="arg-sampling-weights">sampling_weights<a class="anchor" aria-label="anchor" href="#arg-sampling-weights"></a></dt>
+<dd><p>Optional name of a sampling-weight column in
+<code>data</code> for design-weighted per-group fits; see <code><a href="fit_maihda.html">fit_maihda</a></code>.
+The column is sliced with each group's rows, so every group is fitted with
+its own members' weights. Not compatible with <code>engine = "lme4"</code>,
+<code>bootstrap = TRUE</code>, or (under the wemix engine)
+<code>decomposition = "crossed-dimensions"</code>.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

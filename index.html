@@ -93,6 +93,8 @@
 <li>
 <strong>Model Fitting</strong>: Support for both lme4 and brms (Bayesian) engines</li>
 <li>
+<strong>Design-Weighted MAIHDA</strong>: Survey/sampling weights via <code>sampling_weights</code> – weighted pseudo-maximum-likelihood through the <code>WeMix</code> engine (or likelihood weights under brms) for complex-survey data such as NHANES or PISA, with design-consistent fixed-effect standard errors and a design-weighted VPC, PCV, stratum summaries and AUC</li>
+<li>
 <strong>Summaries &amp; Decompositions</strong>: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)</li>
 <li>
 <strong>Multiple Prediction Types</strong>: Individual-level and stratum-level predictions</li>
@@ -176,7 +178,7 @@
 <h3 id="fit_maihda">
 <code>fit_maihda()</code><a class="anchor" aria-label="anchor" href="#fit_maihda"></a>
 </h3>
-<p>Fits multilevel models using either lme4 (default) or brms engine. Supports various families including gaussian, binomial, and poisson.</p>
+<p>Fits multilevel models using the lme4 (default), brms, or WeMix (design-weighted, via <code>sampling_weights</code>) engine. Supports various families including gaussian, binomial, and poisson.</p>
 </div>
 <div class="section level3">
 <h3 id="contextual-cross-classified-maihda-context-">Contextual cross-classified MAIHDA (<code>context =</code>)<a class="anchor" aria-label="anchor" href="#contextual-cross-classified-maihda-context-"></a>
@@ -340,9 +342,35 @@
 <span><span class="va">summary_brms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model_brms</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="design-weighted-maihda-survey-data">Design-Weighted MAIHDA (Survey Data)<a class="anchor" aria-label="anchor" href="#design-weighted-maihda-survey-data"></a>
+</h2>
+<p>For complex-survey data (NHANES, PISA, …), pass the sampling-weight column via <code>sampling_weights</code>. Survey weights are <strong>not</strong> lme4 <code>weights=</code> (those are precision weights), so the fit routes through <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> – weighted pseudo-maximum-likelihood (Rabe-Hesketh &amp; Skrondal 2006) – and <code>engine = "lme4"</code> with sampling weights is an error rather than a silent misfit.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># One call: design-weighted null + adjusted models and PCV. The engine switches</span></span>
+<span><span class="co"># to "wemix" automatically (install WeMix from CRAN).</span></span>
+<span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/maihda.html">maihda</a></span><span class="op">(</span></span>
+<span>  <span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">survey_data</span>,</span>
+<span>  sampling_weights <span class="op">=</span> <span class="st">"person_weight"</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">analysis</span>            <span class="co"># design-weighted VPC/ICC and PCV</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span>   <span class="co"># design-consistent (sandwich) SEs for the fixed effects</span></span>
+<span></span>
+<span><span class="co"># Works across the toolkit: stepwise PCV, group comparison, prediction, plots,</span></span>
+<span><span class="co"># and the design-weighted AUC for binary outcomes.</span></span>
+<span><span class="fu"><a href="reference/stepwise_pcv.html">stepwise_pcv</a></span><span class="op">(</span><span class="va">strata_data</span>, <span class="st">"outcome"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span>, <span class="st">"education"</span><span class="op">)</span>,</span>
+<span>             sampling_weights <span class="op">=</span> <span class="st">"person_weight"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Bayesian alternative: weights enter as likelihood weights (pseudo-posterior --</span></span>
+<span><span class="co"># point estimates are design-consistent; credible intervals are not design-based).</span></span>
+<span><span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">survey_data</span>,</span>
+<span>           engine <span class="op">=</span> <span class="st">"brms"</span>, sampling_weights <span class="op">=</span> <span class="st">"person_weight"</span><span class="op">)</span></span></code></pre></div>
+<p>Limitations (explicit, not silent): the wemix engine covers the canonical <code>gaussian(identity)</code> / <code>binomial(logit)</code> MAIHDA with a single <code>(1 | stratum)</code> intercept; crossed random effects (<code>context =</code>, <code>decomposition = "crossed-dimensions"</code>) and bootstrap intervals require lme4/brms. A design-based interval would need replicate weights, which is a possible future extension.</p>
+</div>
+<div class="section level2">
 <h2 id="model-comparison-with-bootstrap">Model Comparison with Bootstrap<a class="anchor" aria-label="anchor" href="#model-comparison-with-bootstrap"></a>
 </h2>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Compare nested models on the SAME data and strata (null vs covariate-adjusted).</span></span>
 <span><span class="co"># VPCs are only comparable when models share an outcome, family/link, analytic</span></span>
 <span><span class="co"># sample (the same rows), and strata; compare_maihda() warns otherwise.</span></span>
@@ -364,7 +392,7 @@
 <div class="section level2">
 <h2 id="calculating-proportional-change-in-variance-pcv">Calculating Proportional Change in Variance (PCV)<a class="anchor" aria-label="anchor" href="#calculating-proportional-change-in-variance-pcv"></a>
 </h2>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fit baseline model</span></span>
 <span><span class="va">model1</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">data</span><span class="op">)</span></span>
 <span></span>
@@ -387,7 +415,7 @@
 <div class="section level2">
 <h2 id="stepwise-proportional-change-in-variance-pcv">Stepwise Proportional Change in Variance (PCV)<a class="anchor" aria-label="anchor" href="#stepwise-proportional-change-in-variance-pcv"></a>
 </h2>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Incrementally track the explained variables interactively</span></span>
 <span><span class="va">stepwise_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/stepwise_pcv.html">stepwise_pcv</a></span><span class="op">(</span></span>
 <span>  data <span class="op">=</span> <span class="va">data</span>,</span>
@@ -401,7 +429,7 @@
 </h2>
 <p>You can access a live, cloud-hosted version of the MAIHDA interactive dashboard directly in your browser without installing R: <strong><a href="https://hdbt.shinyapps.io/shiny/" class="external-link">https://hdbt.shinyapps.io/shiny/</a></strong></p>
 <p>Alternatively, you can run all analyses described above in the browser locally by typing:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -409,7 +437,7 @@
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
 </h2>
 <p>For detailed documentation and examples, see the package vignette:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/vignette.html" class="external-link">vignette</a></span><span class="op">(</span><span class="st">"introduction"</span>, package <span class="op">=</span> <span class="st">"MAIHDA"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -427,6 +455,8 @@
 <p><strong>Optional:</strong></p>
 <ul>
 <li>brms (&gt;= 2.15.0) - for Bayesian models</li>
+<li>WeMix (&gt;= 4.0.0) - for design-weighted (survey) models via <code>sampling_weights</code>
+</li>
 <li>ggtern - for ternary diagrams</li>
 <li>shiny, bslib, DT, plotly, shinyjs, shinycssloaders, future, promises - for the interactive dashboard (<code><a href="reference/run_maihda_app.html">run_maihda_app()</a></code>)</li>
 <li>haven - for uploading SPSS (.sav) / Stata (.dta) files in the dashboard</li>
@@ -457,14 +487,14 @@
 <p>If you use this package in your research, please cite:</p>
 <pre class="text"><code>Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.11, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA</code></pre>
 <p>A BibTeX entry for LaTeX users is:</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="va">@Manual</span>{<span class="ot">Bulut2025MAIHDA</span>,</span>
-<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="dt">title</span>  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},</span>
-<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="dt">author</span> = {Hamid Bulut},</span>
-<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>  <span class="dt">year</span>   = {2025},</span>
-<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.1.11},</span>
-<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>  <span class="dt">url</span>    = {https://github.com/hdbt/MAIHDA},</span>
-<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>  <span class="dt">doi</span>    = {10.32614/CRAN.package.MAIHDA}</span>
-<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="va">@Manual</span>{<span class="ot">Bulut2025MAIHDA</span>,</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>  <span class="dt">title</span>  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>  <span class="dt">author</span> = {Hamid Bulut},</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>  <span class="dt">year</span>   = {2025},</span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.1.11},</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>  <span class="dt">url</span>    = {https://github.com/hdbt/MAIHDA},</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>  <span class="dt">doi</span>    = {10.32614/CRAN.package.MAIHDA}</span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>}</span></code></pre></div>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">

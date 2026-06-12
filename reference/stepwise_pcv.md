@@ -11,7 +11,14 @@ order-invariant “unique” contribution.
 ## Usage
 
 ``` r
-stepwise_pcv(data, outcome, vars, engine = "lme4", family = "gaussian")
+stepwise_pcv(
+  data,
+  outcome,
+  vars,
+  engine = "lme4",
+  family = "gaussian",
+  sampling_weights = NULL
+)
 ```
 
 ## Arguments
@@ -32,11 +39,20 @@ stepwise_pcv(data, outcome, vars, engine = "lme4", family = "gaussian")
 
 - engine:
 
-  Modeling engine ("lme4" or "brms"). Default is "lme4".
+  Modeling engine ("lme4", "brms", or "wemix"). Default is "lme4";
+  switches to "wemix" automatically when `sampling_weights` is supplied.
 
 - family:
 
   Error distribution and link function. Default is "gaussian".
+
+- sampling_weights:
+
+  Optional name of a sampling-weight column for design-weighted stepwise
+  fits; see
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md).
+  The weight column joins the complete-case filter so every step uses
+  the same analytic sample.
 
 ## Value
 

@@ -4,6 +4,60 @@
 
 ### New Features
 
+- Added **design-weighted MAIHDA** (survey/sampling weights) via a new
+  `sampling_weights` argument on
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md),
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md).
+  Sampling weights are *not* the same thing as lme4’s `weights=`
+  (precision weights, which rescale the residual variance), so feeding
+  survey weights to lmer/glmer maximises the wrong objective and gives
+  invalid population estimates; supplying `sampling_weights` with
+  `engine = "lme4"` is therefore an **error**, and supplying it with the
+  default engine switches (with a message) to the new
+  **`engine = "wemix"`**: weighted pseudo-maximum-likelihood via
+  [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
+  (Rabe-Hesketh & Skrondal 2006), the estimator built for
+  NAEP/PISA-style survey analysis. The individual weights enter at level
+  1 unchanged and the level-2 (stratum) weights are 1, because
+  intersectional strata are exhaustive population cells sampled with
+  certainty. The wemix engine supports the canonical MAIHDA structure –
+  `gaussian(identity)` or `binomial(logit)` with the single
+  `(1 | stratum)` intercept – and flows through the whole toolkit:
+  [`summary()`](https://rdrr.io/r/base/summary.html) reports the
+  design-weighted VPC/ICC (latent-scale pi^2/3 level-1 variance for
+  logistic fits, matching the other engines) and design-consistent
+  (sandwich) fixed-effect standard errors; stratum estimates carry
+  analytic conditional SEs (the design-weighted analogue of lme4’s
+  `condVar`, reducing to it at unit weights);
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md),
+  the stratum plots (aggregated with the sampling weights, so stratum
+  summaries are population-representative),
+  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  (which now also refuses to compare fits with *different* sampling
+  weights), the
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  two-model decomposition,
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  all work. For a binomial fit,
+  [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+  computes the **design-weighted AUC** (each observation contributes its
+  weight as case/control mass) and flags it in the print method.
+  Alternatively `engine = "brms"` accepts `sampling_weights` as
+  likelihood weights (`y | weights(w)`, normalized to mean 1), giving a
+  *pseudo-posterior*: point estimates are design-consistent but credible
+  intervals are not design-based (a message says so). Limitations are
+  explicit rather than silent: no parametric bootstrap for wemix (a
+  design-based interval would need replicate weights – a possible future
+  extension), and no crossed random effects, so `context =` and
+  `decomposition = "crossed-dimensions"` require lme4/brms. Rows with
+  missing or non-positive weights are dropped with a warning. A
+  unit-weight wemix fit reproduces the lme4 ML fit to numerical
+  precision. `WeMix` joins `Suggests`.
 - Added the **contextual cross-classified MAIHDA** – the
   “cross-classified MAIHDA” of the literature (e.g. patients
   cross-classified by intersectional stratum and *hospital*, or students

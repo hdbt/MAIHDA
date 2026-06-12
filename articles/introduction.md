@@ -119,10 +119,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> Use summary() for variance components and plot(type = ...) for figures.
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x564db25b8850>
+#> <environment: 0x55c7904e3070>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x564daded5908>
+#> <environment: 0x55c78ced3cf8>
 ```
 
 The returned object carries everything: the full variance components,
@@ -291,6 +291,34 @@ between-stratum vs. between-context vs. residual, and the headline
 VPC/ICC becomes the between-stratum share net of the context. Also
 covered in
 [`vignette("cross_classified", package = "MAIHDA")`](https://hdbt.github.io/MAIHDA/articles/cross_classified.md).
+
+### Design-weighted MAIHDA (survey data)
+
+For complex-survey data (NHANES, PISA, …), pass the sampling-weight
+column via `sampling_weights`. Survey weights are **not** lme4’s
+`weights=` (those are precision weights, which rescale the residual
+variance), so the fit routes through
+[`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
+– weighted pseudo-maximum-likelihood – and `engine = "lme4"` with
+sampling weights is an error rather than a silent misfit. The whole
+workflow (VPC/ICC, PCV, stratum summaries, prediction, plots, and the
+AUC for binary outcomes) is then design-weighted, with design-consistent
+standard errors for the fixed effects:
+
+``` r
+
+weighted <- maihda(outcome ~ age + (1 | gender:race:education),
+                   data = survey_data, sampling_weights = "person_weight")
+weighted
+```
+
+The wemix engine covers the canonical `gaussian(identity)` /
+`binomial(logit)` MAIHDA with the single `(1 | stratum)` intercept;
+crossed random effects (`context =`,
+`decomposition = "crossed-dimensions"`) and bootstrap intervals require
+lme4/brms. `engine = "brms"` also accepts `sampling_weights`, as
+likelihood weights (a *pseudo-posterior*: design-consistent point
+estimates, but credible intervals that are not design-based).
 
 ### Comparing across groups
 

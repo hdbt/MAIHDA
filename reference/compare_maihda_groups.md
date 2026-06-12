@@ -27,6 +27,7 @@ compare_maihda_groups(
   conf_level = 0.95,
   autobin = TRUE,
   decomposition = c("two-model", "crossed-dimensions"),
+  sampling_weights = NULL,
   ...
 )
 ```
@@ -53,7 +54,9 @@ compare_maihda_groups(
 
 - engine:
 
-  Modeling engine, "lme4" (default) or "brms".
+  Modeling engine, "lme4" (default), "brms", or "wemix" (the
+  design-weighted fit; requires `sampling_weights` and is selected
+  automatically when they are supplied with the default engine).
 
 - family:
 
@@ -115,6 +118,16 @@ compare_maihda_groups(
   between-strata variance (additive + interaction). See
   [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) for the
   underlying model and its caveats.
+
+- sampling_weights:
+
+  Optional name of a sampling-weight column in `data` for
+  design-weighted per-group fits; see
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md).
+  The column is sliced with each group's rows, so every group is fitted
+  with its own members' weights. Not compatible with `engine = "lme4"`,
+  `bootstrap = TRUE`, or (under the wemix engine)
+  `decomposition = "crossed-dimensions"`.
 
 - ...:
 
