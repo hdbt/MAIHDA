@@ -416,6 +416,13 @@ test_that("plot types build on a wemix fit", {
     p <- plot(m, type = t, summary_obj = s)
     expect_s3_class(p, "ggplot")
   }
+
+  # Stratum-level predictions on both scales; for a gaussian identity model the
+  # link and response scales coincide.
+  sp_resp <- maihda_stratum_predictions_wemix(m, s, scale = "response")
+  sp_link <- maihda_stratum_predictions_wemix(m, s, scale = "link")
+  expect_equal(sp_link$predicted_row, sp_resp$predicted_row)
+  expect_true(all(c("stratum", "predicted_row", "n", "w_sum") %in% names(sp_link)))
 })
 
 test_that("stepwise_pcv runs design-weighted steps on one analytic sample", {
@@ -477,4 +484,286 @@ test_that("summary(bootstrap = TRUE) is rejected for the wemix engine", {
     fit_maihda(y ~ age + (1 | gender:race:edu), data = d,
                engine = "wemix", sampling_weights = "w"))
   expect_error(summary(m, bootstrap = TRUE, n_boot = 10), "replicate weights")
+
+  # Crossed-dimensions / contextual partitions are undefined for wemix; a model
+  # that somehow carries those tags is rejected by summary().
+  m_cc <- m
+  m_cc$cc_info <- list(dim_groups = c(g = "g"), interaction_group = "stratum")
+  expect_error(summary(m_cc), "crossed random effects")
+  m_ctx <- m
+  m_ctx$context_info <- list(groups = "site")
+  expect_error(summary(m_ctx), "crossed random effects")
+})
+
+test_that("engine = wemix rejects aggregated binomial responses", {
+  d <- make_dw_data()
+  set.seed(1)
+  d$succ <- rbinom(nrow(d), 5, 0.4)
+  d$fail <- 5 - d$succ
+  s <- make_strata(d, vars = c("gender", "race", "edu"))
+  expect_error(
+    fit_maihda(cbind(succ, fail) ~ (1 | stratum), data = s$data,
+               engine = "wemix", family = "binomial", sampling_weights = "w"),
+    "aggregated binomial"
+  )
+})
+
+# ---- internal helper error branches (no WeMix fit required) -------------------
+
+# A minimal stand-in for a fitted wemix maihda_model, enough for the variance /
+# random-effect / prediction helpers to read.
+make_fake_wemix_model <- function(varDF = NULL, ranefMat = NULL, coef = NULL,
+                                  data = NULL, family = stats::gaussian(),
+                                  formula = y ~ x + (1 | stratum)) {
+  structure(
+    list(
+      model = structure(list(varDF = varDF, ranefMat = ranefMat, coef = coef),
+                        class = "WeMixResults"),
+      engine = "wemix",
+      formula = formula,
+      data = data,
+      family = family,
+      sampling_weights = "w"
+    ),
+    class = "maihda_model"
+  )
+}
+
+test_that("maihda_wemix_variances validates the WeMix variance table", {
+  expect_error(maihda_wemix_variances(make_fake_wemix_model(varDF = NULL)),
+               "Could not read the variance components")
+
+  no_stratum <- data.frame(grp = "Residual", var1 = NA, vcov = 1)
+  expect_error(maihda_wemix_variances(make_fake_wemix_model(varDF = no_stratum)),
+               "No 'stratum' random-effect variance")
+
+  no_resid <- data.frame(grp = "stratum", var1 = "(Intercept)", vcov = 0.5)
+  expect_error(maihda_wemix_variances(make_fake_wemix_model(varDF = no_resid)),
+               "No residual variance")
+
+  # Binomial-logit: the level-1 variance is the latent pi^2/3, no Residual row needed.
+  m_bin <- make_fake_wemix_model(varDF = no_resid,
+                                 family = stats::binomial(link = "logit"))
+  v <- maihda_wemix_variances(m_bin)
+  expect_equal(v$stratum, 0.5)
+  expect_equal(v$residual, pi^2 / 3)
+})
+
+test_that("maihda_wemix_ranef_vector validates the random-effect table", {
+  expect_error(maihda_wemix_ranef_vector(make_fake_wemix_model(ranefMat = NULL)),
+               "No 'stratum' random effects")
+
+  no_intercept <- list(stratum = data.frame(slope = c(0.1, -0.1),
+                                            row.names = c("s1", "s2")))
+  expect_error(
+    maihda_wemix_ranef_vector(make_fake_wemix_model(ranefMat = no_intercept)),
+    "must include an intercept"
+  )
+})
+
+test_that("maihda_wemix_stratum_ranef collapses the SE at a boundary fit", {
+  # Zero between-stratum variance: the conditional distribution of every stratum
+  # effect collapses on 0, so the SE is 0 rather than undefined.
+  ranefMat <- list(stratum = stats::setNames(
+    data.frame(c(0, 0), row.names = c("s1", "s2")), "(Intercept)"))
+  varDF <- data.frame(grp = c("stratum", "Residual"),
+                      var1 = c("(Intercept)", NA), vcov = c(0, 1))
+  d <- data.frame(stratum = c("s1", "s1", "s2"), w = c(1, 2, 1))
+  m <- make_fake_wemix_model(varDF = varDF, ranefMat = ranefMat, data = d)
+
+  out <- maihda_wemix_stratum_ranef(m)
+  expect_equal(out$se, c(0, 0))
+  expect_equal(out$random_effect, c(0, 0))
+})
+
+test_that("maihda_wemix_linpred errors when the design matrix cannot be rebuilt", {
+  d <- data.frame(y = rnorm(4), x = rnorm(4), stratum = c("s1", "s2", "s1", "s2"))
+  m <- make_fake_wemix_model(coef = c("(Intercept)" = 1, zzz = 2), data = d)
+  expect_error(maihda_wemix_linpred(m, include_re = FALSE),
+               "missing column")
+})
+
+test_that("maihda_fit_wemix errors when no usable rows remain", {
+  skip_if_not_installed("WeMix")
+  d <- data.frame(y = rnorm(4), stratum = c("s1", "s2", "s1", "s2"),
+                  w = c(0, -1, NA, 0))
+  expect_error(
+    maihda_fit_wemix(y ~ (1 | stratum), d, stats::gaussian(), "w", list()),
+    "No usable rows remain"
+  )
+})
+
+test_that("maihda_stratum_predictions_wemix validates its inputs", {
+  d <- data.frame(y = rnorm(4), x = rnorm(4), w = 1,
+                  stratum = c("s1", "s2", "s1", "s2"))
+  m <- make_fake_wemix_model(coef = c("(Intercept)" = 1, x = 0.5), data = d)
+  no_stratum <- m
+  no_stratum$data$stratum <- NULL
+  expect_error(
+    maihda_stratum_predictions_wemix(no_stratum, list(stratum_estimates = NULL)),
+    "'stratum' variable not found"
+  )
+  expect_error(
+    maihda_stratum_predictions_wemix(m, list(stratum_estimates = NULL)),
+    "No stratum estimates"
+  )
+})
+
+test_that("maihda_fit_diagnostics flags a boundary (singular) wemix fit", {
+  singular <- structure(
+    list(varDF = data.frame(grp = c("stratum", "Residual"),
+                            var1 = c("(Intercept)", NA), vcov = c(0, 1))),
+    class = "WeMixResults")
+  diag_s <- maihda_fit_diagnostics(singular)
+  expect_identical(diag_s$engine, "wemix")
+  expect_true(isTRUE(diag_s$converged))
+  expect_true(isTRUE(diag_s$singular))
+
+  healthy <- structure(
+    list(varDF = data.frame(grp = c("stratum", "Residual"),
+                            var1 = c("(Intercept)", NA), vcov = c(0.4, 1))),
+    class = "WeMixResults")
+  expect_false(isTRUE(maihda_fit_diagnostics(healthy)$singular))
+})
+
+test_that("print.maihda_model labels brms sampling weights as pseudo-posterior", {
+  d <- data.frame(y = rnorm(10), x = rnorm(10))
+  m <- structure(
+    list(
+      model = stats::lm(y ~ x, data = d),
+      engine = "brms",
+      formula = y ~ x + (1 | stratum),
+      family = list(family = "gaussian", link = "identity"),
+      sampling_weights = "w",
+      diagnostics = NULL
+    ),
+    class = "maihda_model"
+  )
+  out <- paste(capture.output(print(m)), collapse = "\n")
+  expect_match(out, "Sampling weights: w")
+  expect_match(out, "pseudo-posterior")
+})
+
+test_that("maihda_prior_weights resolves design weights from either column", {
+  d <- data.frame(y = rnorm(4), stratum = c("s1", "s2", "s1", "s2"),
+                  w = c(2, 3, 4, 5))
+  m <- make_fake_wemix_model(data = d)
+
+  expect_equal(maihda_prior_weights(m), c(2, 3, 4, 5))
+
+  # A brms analytic frame carries the normalized .maihda_sw column instead.
+  m_brms <- m
+  m_brms$data$w <- NULL
+  m_brms$data$.maihda_sw <- c(1, 1.5, 0.5, 1)
+  expect_equal(maihda_prior_weights(m_brms), c(1, 1.5, 0.5, 1))
+
+  # Neither column resolvable: degrade to unit weights.
+  m_none <- m
+  m_none$data$w <- NULL
+  expect_equal(maihda_prior_weights(m_none), rep(1, 4))
+})
+
+test_that("the sampling-weight fingerprint degrades when weights are unrecoverable", {
+  d <- data.frame(y = rnorm(3), stratum = c("s1", "s2", "s1"))
+  m <- make_fake_wemix_model(data = d)
+  # sampling_weights is recorded as "w" but no weight column survives in the
+  # analytic frame: fall back to the column name.
+  expect_identical(maihda_sampling_weight_fingerprint(m), "col:w")
+
+  m_unweighted <- m
+  m_unweighted$sampling_weights <- NULL
+  expect_identical(maihda_sampling_weight_fingerprint(m_unweighted), "none")
+})
+
+test_that("compare_maihda_groups rejects an unknown engine", {
+  d <- make_dw_data()
+  d$country <- sample(c("X", "Y"), nrow(d), replace = TRUE)
+  expect_error(
+    compare_maihda_groups(y ~ age + (1 | gender:race), d, group = "country",
+                          engine = "nope"),
+    "lme4, brms, wemix"
+  )
+})
+
+test_that("fit_maihda routes sampling weights into a brms fit (Stan-free)", {
+  skip_if_not_installed("brms")
+
+  d <- make_dw_data()
+  s <- make_strata(d, vars = c("gender", "race", "edu"))
+  captured <- NULL
+  local_mocked_bindings(
+    brm = function(formula, data, family, ...) {
+      captured <<- list(formula = formula, data = data, family = family)
+      structure(list(), class = "brmsfit")
+    },
+    .package = "brms"
+  )
+
+  expect_message(
+    m <- fit_maihda(y ~ age + (1 | stratum), data = s$data,
+                    engine = "brms", sampling_weights = "w"),
+    "pseudo-posterior"
+  )
+  expect_identical(m$engine, "brms")
+  expect_identical(m$sampling_weights, "w")
+  # The formula gained the weights() addition term, and the data the normalized
+  # (mean-1) weight column the term references.
+  expect_match(paste(deparse(captured$formula), collapse = " "),
+               "weights(.maihda_sw)", fixed = TRUE)
+  expect_true(".maihda_sw" %in% names(captured$data))
+  expect_equal(mean(captured$data$.maihda_sw), 1)
+  expect_equal(captured$data$.maihda_sw / captured$data$.maihda_sw[1],
+               captured$data$w / captured$data$w[1])
+})
+
+test_that("wemix individual predictions treat an unseen stratum as zero effect", {
+  ranefMat <- list(stratum = stats::setNames(
+    data.frame(c(0.5, -0.5), row.names = c("s1", "s2")), "(Intercept)"))
+  varDF <- data.frame(grp = c("stratum", "Residual"),
+                      var1 = c("(Intercept)", NA), vcov = c(0.3, 1))
+  d <- data.frame(y = rnorm(4), x = c(0, 1, 0, 1), w = 1,
+                  stratum = c("s1", "s2", "s1", "s2"))
+  m <- make_fake_wemix_model(varDF = varDF, ranefMat = ranefMat,
+                             coef = c("(Intercept)" = 2, x = 1), data = d)
+
+  nd <- data.frame(x = c(0, 0), stratum = c("s1", "unseen"))
+  eta <- maihda_wemix_linpred(m, newdata = nd, include_re = TRUE)
+  expect_equal(unname(eta), c(2.5, 2))
+})
+
+test_that("predict_maihda supplies the brms weight column for user newdata", {
+  skip_if_not_installed("brms")
+
+  ranef_table <- data.frame(
+    stratum = c("s1", "s2"),
+    stratum_id = c(1L, 2L),
+    random_effect = c(0.2, -0.2),
+    se = c(0.1, 0.1),
+    lower_95 = c(0, -0.4),
+    upper_95 = c(0.4, 0),
+    stringsAsFactors = FALSE
+  )
+  local_mocked_bindings(
+    maihda_stratum_ranef_brms = function(model, group = "stratum") ranef_table
+  )
+
+  d <- data.frame(y = rnorm(4), stratum = c("s1", "s2", "s1", "s2"),
+                  .maihda_sw = 1, check.names = FALSE)
+  m <- structure(
+    list(
+      model = structure(list(), class = "brmsfit"),
+      engine = "brms",
+      formula = y | weights(.maihda_sw) ~ (1 | stratum),
+      data = d,
+      family = list(family = "gaussian", link = "identity"),
+      sampling_weights = "w"
+    ),
+    class = "maihda_model"
+  )
+
+  # newdata lacking the internal weight column gets a unit weight injected and
+  # the strata table is filtered to the requested stratum.
+  out <- predict_maihda(m, newdata = data.frame(stratum = "s1"), type = "strata")
+  expect_equal(as.character(out$stratum), "s1")
+  expect_equal(out$predicted, 0.2)
 })
