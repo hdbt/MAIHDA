@@ -120,6 +120,13 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     weight_keys <- vapply(models, function(m) {
       maihda_weight_fingerprint(m$model)
     }, character(1))
+    # Likewise for SAMPLING weights (design-weighted fits): the prior-weight
+    # fingerprint above cannot see them (it degrades to "unit" for wemix/brms),
+    # so differing design weights -- or a weighted vs. unweighted mix -- get
+    # their own key, mirroring the calculate_pvc() guard.
+    sampling_keys <- vapply(models, function(m) {
+      maihda_sampling_weight_fingerprint(m)
+    }, character(1))
 
     issues <- character(0)
     if (length(unique(responses)) > 1) {
@@ -127,6 +134,9 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     }
     if (length(unique(stats::na.omit(weight_keys))) > 1) {
       issues <- c(issues, "prior weights")
+    }
+    if (length(unique(stats::na.omit(sampling_keys))) > 1) {
+      issues <- c(issues, "sampling weights")
     }
     if (length(unique(fam_keys)) > 1) {
       issues <- c(issues, paste0("families/links (", paste(unique(fam_keys), collapse = ", "), ")"))
@@ -306,7 +316,9 @@ plot_comparison <- function(comparison_df) {
 #' @param group Character string naming the grouping variable in \code{data}
 #'   (e.g. \code{"country"}). A separate model is fitted for each non-missing
 #'   level.
-#' @param engine Modeling engine, "lme4" (default) or "brms".
+#' @param engine Modeling engine, "lme4" (default), "brms", or "wemix" (the
+#'   design-weighted fit; requires \code{sampling_weights} and is selected
+#'   automatically when they are supplied with the default engine).
 #' @param family Model family. Default "gaussian". As in \code{\link{fit_maihda}},
 #'   a binary outcome is auto-detected once on the full data and switched to
 #'   "binomial" (with a warning) so every group uses the same family.
@@ -340,6 +352,12 @@ plot_comparison <- function(comparison_df) {
 #'   \code{var_between_adjusted}); \code{var_between} is then the total between-strata
 #'   variance (additive + interaction). See \code{\link{maihda}} for the underlying
 #'   model and its caveats.
+#' @param sampling_weights Optional name of a sampling-weight column in
+#'   \code{data} for design-weighted per-group fits; see \code{\link{fit_maihda}}.
+#'   The column is sliced with each group's rows, so every group is fitted with
+#'   its own members' weights. Not compatible with \code{engine = "lme4"},
+#'   \code{bootstrap = TRUE}, or (under the wemix engine)
+#'   \code{decomposition = "crossed-dimensions"}.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'
@@ -404,6 +422,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                                   n_boot = 1000, conf_level = 0.95,
                                   autobin = TRUE,
                                   decomposition = c("two-model", "crossed-dimensions"),
+                                  sampling_weights = NULL,
                                   ...) {
   decomposition <- maihda_resolve_decomposition(decomposition)
   # ---- input validation ----
@@ -424,8 +443,34 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   if (!group %in% names(data)) {
     stop("Group variable not found in data: ", group, call. = FALSE)
   }
-  if (!is.character(engine) || length(engine) != 1 || !engine %in% c("lme4", "brms")) {
-    stop("'engine' should be one of: lme4, brms", call. = FALSE)
+
+  # Sampling weights select the design-weighted engine, mirroring fit_maihda().
+  # The weights are a data COLUMN, so the per-group slicing below carries them
+  # automatically; only the name is forwarded to each group's fit.
+  if (!is.null(sampling_weights)) {
+    sampling_weights <- maihda_validate_sampling_weights(sampling_weights, data)
+    if (missing(engine)) {
+      engine <- "wemix"
+      message("compare_maihda_groups(): 'sampling_weights' supplied; using ",
+              "engine = \"wemix\" (design-weighted pseudo-maximum-likelihood via ",
+              "WeMix). Set 'engine' explicitly to silence this message or to ",
+              "choose engine = \"brms\".")
+    } else if (identical(engine, "lme4")) {
+      stop("Sampling weights are not supported by engine = \"lme4\" (lme4's ",
+           "weights are precision weights, not sampling weights). Use ",
+           "engine = \"wemix\" or \"brms\".", call. = FALSE)
+    }
+  }
+
+  if (!is.character(engine) || length(engine) != 1 ||
+      !engine %in% c("lme4", "brms", "wemix")) {
+    stop("'engine' should be one of: lme4, brms, wemix", call. = FALSE)
+  }
+  if (identical(engine, "wemix") && decomposition == "crossed-dimensions") {
+    stop("decomposition = \"crossed-dimensions\" needs crossed random effects, ",
+         "which WeMix does not fit. Use the default two-model decomposition with ",
+         "engine = \"wemix\", or engine = \"brms\" for the crossed-dimensions form.",
+         call. = FALSE)
   }
   if (!is.logical(shared_strata) || length(shared_strata) != 1 || is.na(shared_strata)) {
     stop("'shared_strata' must be TRUE or FALSE.", call. = FALSE)
@@ -565,7 +610,14 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     analytic_fr <- maihda_analytic_model_frame(
       fit_formula, sub,
       subset = slice_full(subset_value, idx),
-      weights = slice_full(weights_value, idx)
+      # Rows with a missing sampling weight are dropped by the weighted engines,
+      # so count the analytic sample the same way (the weight column is part of
+      # `sub`, already sliced to this group's rows).
+      weights = if (!is.null(sampling_weights)) {
+        sub[[sampling_weights]]
+      } else {
+        slice_full(weights_value, idx)
+      }
     )
     n_g <- if (is.null(analytic_fr)) nrow(sub) else nrow(analytic_fr)
     row <- data.frame(
@@ -620,7 +672,8 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
             fit_formula, decomp_vars, carried_attrs[["strata_autobin_info"]], sub)
           model <- do.call(
             fit_maihda,
-            c(list(cc$formula, cc$data, engine = engine, family = family),
+            c(list(cc$formula, cc$data, engine = engine, family = family,
+                   sampling_weights = sampling_weights),
               slice_dots_for_group(idx))
           )
           model$cc_info <- list(dim_groups = cc$dim_groups,
@@ -629,7 +682,8 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
         } else {
           model <- do.call(
             fit_maihda,
-            c(list(fit_formula, sub, engine = engine, family = family),
+            c(list(fit_formula, sub, engine = engine, family = family,
+                   sampling_weights = sampling_weights),
               slice_dots_for_group(idx))
           )
         }
@@ -693,7 +747,8 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
           pcv_obj <- tryCatch({
             adj_model <- do.call(
               fit_maihda,
-              c(list(af$formula, af$data, engine = engine, family = family),
+              c(list(af$formula, af$data, engine = engine, family = family,
+                     sampling_weights = sampling_weights),
                 slice_dots_for_group(idx))
             )
             calculate_pvc(fit_obj$model, adj_model)

@@ -213,6 +213,46 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     # Get model summary
     model_summary <- summary(model)
 
+  } else if (engine == "wemix") {
+    if (bootstrap) {
+      stop("Bootstrap VPC intervals are not available for the wemix engine: the ",
+           "parametric bootstrap relies on lme4's simulate()/refit(), and a ",
+           "design-based interval would require replicate weights (not yet ",
+           "implemented). The design-weighted VPC is reported as a point ",
+           "estimate; for interval estimates refit with engine = \"brms\" ",
+           "(pseudo-posterior, with caveats).", call. = FALSE)
+    }
+    if (!is.null(cc) || !is.null(ctx)) {
+      stop("Crossed-dimensions and contextual partitions are not available for ",
+           "the wemix engine (WeMix fits no crossed random effects).",
+           call. = FALSE)
+    }
+
+    # Canonical single-stratum partition from the pseudo-ML variance components.
+    # For a binomial-logit fit the level-1 variance is the latent-scale pi^2/3,
+    # exactly as in the lme4/brms summaries, so VPCs are comparable across engines.
+    vars <- maihda_wemix_variances(object)
+    vpc <- vars$stratum / (vars$stratum + vars$residual)
+    variance_components <- maihda_variance_components_table(
+      vars$stratum, 0, vars$residual
+    )
+    vpc_result <- list(estimate = vpc, bootstrap = FALSE)
+
+    # WeMix fixed-effect standard errors are design-consistent (sandwich), the
+    # main payoff of the design-weighted fit -- include them alongside the
+    # estimates (the lme4 table reports estimates only).
+    fixed_effects <- data.frame(
+      term = names(object$model$coef),
+      estimate = as.numeric(object$model$coef),
+      se = as.numeric(object$model$SE[names(object$model$coef)]),
+      row.names = NULL
+    )
+
+    stratum_estimates <- maihda_wemix_stratum_ranef(object)
+    stratum_estimates <- add_stratum_labels(stratum_estimates, object$strata_info)
+
+    model_summary <- tryCatch(summary(model), error = function(e) NULL)
+
   } else if (engine == "brms") {
     if (bootstrap) {
       stop("Bootstrap VPC confidence intervals are only supported for lme4 models. ",

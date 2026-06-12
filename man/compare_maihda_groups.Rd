@@ -17,6 +17,7 @@ compare_maihda_groups(
   conf_level = 0.95,
   autobin = TRUE,
   decomposition = c("two-model", "crossed-dimensions"),
+  sampling_weights = NULL,
   ...
 )
 }
@@ -33,7 +34,9 @@ grouping variable.}
 (e.g. \code{"country"}). A separate model is fitted for each non-missing
 level.}
 
-\item{engine}{Modeling engine, "lme4" (default) or "brms".}
+\item{engine}{Modeling engine, "lme4" (default), "brms", or "wemix" (the
+design-weighted fit; requires \code{sampling_weights} and is selected
+automatically when they are supplied with the default engine).}
 
 \item{family}{Model family. Default "gaussian". As in \code{\link{fit_maihda}},
 a binary outcome is auto-detected once on the full data and switched to
@@ -75,6 +78,13 @@ alias that warns). The crossed-dimensions form requires
 \code{var_between_adjusted}); \code{var_between} is then the total between-strata
 variance (additive + interaction). See \code{\link{maihda}} for the underlying
 model and its caveats.}
+
+\item{sampling_weights}{Optional name of a sampling-weight column in
+\code{data} for design-weighted per-group fits; see \code{\link{fit_maihda}}.
+The column is sliced with each group's rows, so every group is fitted with
+its own members' weights. Not compatible with \code{engine = "lme4"},
+\code{bootstrap = TRUE}, or (under the wemix engine)
+\code{decomposition = "crossed-dimensions"}.}
 
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
 \code{lmer}/\code{glmer}).}

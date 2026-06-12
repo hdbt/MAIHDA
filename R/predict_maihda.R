@@ -80,12 +80,37 @@ predict_maihda <- function(object, newdata = NULL,
       return(maihda_filter_strata_predictions(result, newdata))
     }
     
+  } else if (engine == "wemix") {
+    if (type == "individual") {
+      # Built from coef + the stored stratum effects (WeMix's own predict() needs
+      # the grouping re-resolved and offers no scale argument).
+      eta <- maihda_wemix_linpred(object, newdata = newdata, include_re = TRUE)
+      if (scale == "response") {
+        return(maihda_linkinv(object$family)(eta))
+      }
+      return(eta)
+
+    } else if (type == "strata") {
+      result <- maihda_wemix_stratum_ranef(object)
+      result$predicted <- result$random_effect
+      result <- result[, c("stratum", "predicted", "se", "lower_95", "upper_95")]
+      return(maihda_filter_strata_predictions(result, newdata))
+    }
+
   } else if (engine == "brms") {
     # Verify brms is available
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("Package 'brms' is required to predict from brms models. Please install it with: install.packages('brms')")
     }
-    
+
+    # A sampling-weighted brms fit carries a weights() addition term, and brms
+    # requires its column in newdata even though predictions do not depend on it;
+    # supply a unit weight when the caller's newdata lacks it.
+    if (!is.null(object$sampling_weights) && ".maihda_sw" %in% all.vars(object$formula) &&
+        !".maihda_sw" %in% names(newdata)) {
+      newdata$.maihda_sw <- 1
+    }
+
     if (type == "individual") {
       # Individual-level predictions
       predictions <- if (scale == "response") {
@@ -94,7 +119,7 @@ predict_maihda <- function(object, newdata = NULL,
         brms::posterior_linpred(model, newdata = newdata, summary = TRUE, ...)[, "Estimate"]
       }
       return(predictions)
-      
+
     } else if (type == "strata") {
       # Stratum-level predictions
       result <- maihda_stratum_ranef_brms(model)
