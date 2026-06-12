@@ -1,11 +1,56 @@
 # Internal helpers shared across model summaries, PVC, predictions, and plots.
 
+# Map engine-specific family labels onto the package's canonical names so every
+# downstream `fam$family ==` / `%in%` comparison sees one spelling per family.
+# The one label that genuinely needs this is lme4's negative binomial: a
+# glmer.nb() fit reports family "Negative Binomial(<theta>)" with the estimated
+# theta embedded in the STRING, so the label differs between any two fits (e.g.
+# a null and an adjusted model) and never matches a fixed name. brms already
+# reports "negbinomial", which is adopted as the canonical name. "ordinal" is
+# accepted as an alias of brms's "cumulative". Unknown names pass through.
+maihda_normalize_family_name <- function(name) {
+  if (is.null(name) || !is.character(name) || length(name) != 1 || is.na(name)) {
+    return(name)
+  }
+  if (grepl("^Negative Binomial\\(", name)) {
+    return("negbinomial")
+  }
+  if (name == "ordinal") {
+    return("cumulative")
+  }
+  name
+}
+
 maihda_family <- function(model) {
   fam <- tryCatch(stats::family(model), error = function(e) NULL)
   if (is.null(fam) && inherits(model, "brmsfit")) {
     fam <- tryCatch(model$family, error = function(e) NULL)
   }
+  # Canonicalise the family name (see maihda_normalize_family_name) so callers
+  # can compare against fixed names; the link and linkinv are left untouched.
+  if (!is.null(fam) && !is.null(fam$family)) {
+    fam$family <- maihda_normalize_family_name(fam$family)
+  }
   fam
+}
+
+# "family(link)" key for a maihda_model, used to decide whether two models are
+# comparable (same family and link). Prefers the fitted object's family and
+# falls back to the family the wrapper recorded at fit time -- stats::family()
+# is undefined for engines like wemix (WeMixResults). Names are canonical via
+# maihda_family()/maihda_normalize_family_name(), so e.g. two glmer.nb() fits
+# with different estimated thetas still compare equal.
+maihda_model_family_key <- function(model) {
+  fam <- maihda_family(model$model)
+  if (is.null(fam) && is.list(model$family)) {
+    fam <- model$family
+    if (!is.null(fam$family)) {
+      fam$family <- maihda_normalize_family_name(fam$family)
+    }
+  }
+  fam_name <- if (!is.null(fam$family)) fam$family else NA_character_
+  link <- if (!is.null(fam$link)) fam$link else NA_character_
+  paste0(fam_name, "(", link, ")")
 }
 
 maihda_linkinv <- function(fam) {
