@@ -109,6 +109,26 @@
 #'   }
 #'   Rows with a missing or non-positive sampling weight are dropped with a
 #'   warning. Default \code{NULL} (unweighted).
+#' @param id Optional single character string naming a person/unit identifier
+#'   column for a \strong{longitudinal (growth-curve) MAIHDA} on long-format data
+#'   (one row per measurement occasion). Supplied together with \code{time}, it
+#'   makes the model a 3-level growth curve -- occasions within individuals
+#'   (\code{id}) within intersectional strata -- with a random intercept and slope
+#'   on \code{time} at \emph{both} the individual and stratum levels. The growth
+#'   random effects are added automatically: write the strata shorthand
+#'   \code{(1 | var1:var2)} (or \code{(1 | stratum)}) only, not the slopes. The
+#'   between-stratum variance (and hence the VPC) then becomes a function of time;
+#'   \code{\link{summary.maihda_model}} reports the time-varying VPC. Longitudinal
+#'   fits are supported by \code{engine = "lme4"}/\code{"brms"} only (not
+#'   \code{wemix}/\code{ordinal}), and are incompatible with \code{context} and
+#'   \code{sampling_weights}. Default \code{NULL} (cross-sectional). See
+#'   Bell, Evans, Holman & Leckie (2024).
+#' @param time Optional single character string naming a numeric measurement-time
+#'   column (e.g. wave 0, 1, 2, ... or age), required for a longitudinal MAIHDA;
+#'   see \code{id}. Default \code{NULL}.
+#' @param time_degree Polynomial degree of the growth curve when \code{time} is
+#'   supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
+#'   degree 1 only.
 #' @param ... Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
 #'   \code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},
 #'   \code{fast}). The lme4-style \code{weights}/\code{subset}/\code{offset}
@@ -161,7 +181,7 @@
 #' @importFrom stats gaussian binomial poisson
 fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
                        autobin = TRUE, context = NULL, sampling_weights = NULL,
-                       ...) {
+                       id = NULL, time = NULL, time_degree = 1, ...) {
   # Input validation
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a formula object")
@@ -319,6 +339,18 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     }
   }
 
+  # Longitudinal (3-level growth) MAIHDA: when 'time' is supplied, validate the
+  # id/time specification now (engine and the wemix/ordinal/context/sampling
+  # restrictions are already resolved). The growth formula is built AFTER strata
+  # resolution below, so this only records the validated spec.
+  lng_spec <- NULL
+  if (!is.null(time) || !is.null(id)) {
+    lng_spec <- maihda_validate_longitudinal(id, time, time_degree, data,
+                                             engine = engine,
+                                             sampling_weights = sampling_weights,
+                                             context = context)
+  }
+
   # Parse formula to find grouping variables. Automatic strata creation is only
   # safe for the documented shorthand: one intercept-only non-stratum grouping
   # term such as (1 | gender:race). More complex random-effect structures should
@@ -386,6 +418,30 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       fixed_formula <- reformulas::nobars(formula)
       formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
     }
+  }
+
+  # Longitudinal growth structure: now that the stratum grouping is resolved,
+  # replace the random part with the canonical 3-level growth blocks
+  # (time... | id) + (time... | stratum) and ensure the time polynomial is in the
+  # fixed part. The fit then flows through the unchanged lme4/brms branches (they
+  # already pass random slopes to the engine); $longitudinal_info tags the model so
+  # summary()/predict()/plot() route to the time-varying path.
+  longitudinal_info <- NULL
+  if (!is.null(lng_spec)) {
+    has_stratum_re <- any(vapply(reformulas::findbars(formula),
+      function(b) "stratum" %in% all.vars(b[[3]]), logical(1)))
+    if (!has_stratum_re) {
+      stop("A longitudinal MAIHDA needs a stratum random effect. Use the shorthand ",
+           "(1 | var1:var2) or include (1 | stratum); the id/time growth slopes are ",
+           "added automatically (do not write them in the formula).", call. = FALSE)
+    }
+    formula <- maihda_longitudinal_formula(formula, lng_spec$id, lng_spec$time,
+                                           lng_spec$time_degree)
+    tv <- data[[lng_spec$time]]
+    longitudinal_info <- list(id = lng_spec$id, time = lng_spec$time,
+                              time_degree = lng_spec$time_degree,
+                              time_range = range(tv, na.rm = TRUE),
+                              ref_time = min(tv, na.rm = TRUE))
   }
 
   # Contextual cross-classified MAIHDA: append the higher-level context random
@@ -679,6 +735,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       context_vars = context,
       context_info = context_info,
       sampling_weights = sampling_weights,
+      longitudinal_info = longitudinal_info,
       response_recoding = response_recoding,
       diagnostics = diagnostics
     ),
@@ -703,6 +760,11 @@ print.maihda_model <- function(x, ...) {
   if (!is.null(x$context_vars)) {
     cat("Context:", paste(x$context_vars, collapse = ", "),
         "(crossed contextual random intercept)\n")
+  }
+  if (!is.null(x$longitudinal_info)) {
+    lng <- x$longitudinal_info
+    cat(sprintf("Longitudinal: id = %s, time = %s, degree = %d (3-level growth)\n",
+                lng$id, lng$time, lng$time_degree))
   }
   if (!is.null(x$sampling_weights)) {
     cat("Sampling weights:", x$sampling_weights,

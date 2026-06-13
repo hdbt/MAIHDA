@@ -155,15 +155,29 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
   # identical to the historical single-stratum summary.
   cc <- object$cc_info
   ctx <- object$context_info
+  # A longitudinal (3-level growth) fit (fit_maihda(id =, time =)) has random
+  # slopes on time at the stratum and individual levels, so the between-stratum
+  # variance -- and the VPC -- is time-varying. It routes to the longitudinal
+  # path below, which reads the full random-effect covariance blocks instead of a
+  # single intercept variance (and skips the intercept-only guard, kept for every
+  # other model).
+  lng <- object$longitudinal_info
   decomposition <- NULL
   context_summary <- NULL
+  longitudinal <- NULL
   thresholds <- NULL
 
   # Extract variance components and calculate VPC
   if (engine == "lme4") {
     # Extract variance components
     vc <- lme4::VarCorr(model)
-    if (!is.null(cc)) {
+    if (!is.null(lng)) {
+      lng_res <- maihda_longitudinal_summary_lme4(object, bootstrap, n_boot,
+                                                  conf_level)
+      variance_components <- lng_res$variance_components
+      vpc_result <- lng_res$vpc_result
+      longitudinal <- lng_res$longitudinal
+    } else if (!is.null(cc)) {
       cc_res <- maihda_cc_summary_lme4(object, cc, vc, bootstrap, n_boot, conf_level)
       variance_components <- cc_res$variance_components
       vpc_result <- cc_res$vpc_result
@@ -333,7 +347,12 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
 
     conf_level <- maihda_validate_conf_level(conf_level)
 
-    if (!is.null(cc)) {
+    if (!is.null(lng)) {
+      lng_res <- maihda_longitudinal_summary_brms(object, conf_level)
+      variance_components <- lng_res$variance_components
+      vpc_result <- lng_res$vpc_result
+      longitudinal <- lng_res$longitudinal
+    } else if (!is.null(cc)) {
       cc_res <- maihda_cc_summary_brms(object, cc, conf_level)
       variance_components <- cc_res$variance_components
       vpc_result <- cc_res$vpc_result
@@ -387,7 +406,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
   vpc_response <- NULL
   fam_name <- tryCatch(maihda_model_family_name(object),
                        error = function(e) NA_character_)
-  if (is.null(cc) && isTRUE(fam_name %in% c("binomial", "bernoulli"))) {
+  if (is.null(cc) && is.null(lng) && isTRUE(fam_name %in% c("binomial", "bernoulli"))) {
     discriminatory_accuracy <- tryCatch(
       maihda_discriminatory_accuracy(object), error = function(e) NULL)
     if (isTRUE(response_vpc) && identical(engine, "lme4") &&
@@ -404,6 +423,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       variance_components = variance_components,
       decomposition = decomposition,
       context = context_summary,
+      longitudinal = longitudinal,
       discriminatory_accuracy = discriminatory_accuracy,
       vpc_response = vpc_response,
       stratum_estimates = stratum_estimates,
@@ -413,6 +433,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       engine = engine,
       cc_info = cc,
       context_info = ctx,
+      longitudinal_info = lng,
       diagnostics = object$diagnostics
     ),
     class = "maihda_summary"
@@ -1031,7 +1052,13 @@ print.maihda_summary <- function(x, ...) {
 
   maihda_print_fit_diagnostics(x$diagnostics)
 
-  cat("Variance Partition Coefficient (VPC/ICC):\n")
+  is_lng <- !is.null(x$longitudinal)
+  if (is_lng) {
+    cat(sprintf("Variance Partition Coefficient (VPC/ICC) at baseline (%s = %g):\n",
+                x$longitudinal$time, x$longitudinal$ref_time))
+  } else {
+    cat("Variance Partition Coefficient (VPC/ICC):\n")
+  }
   if (maihda_vpc_has_interval(x$vpc)) {
     cat(sprintf("  Estimate: %.4f [%.4f, %.4f]\n",
                 x$vpc$estimate, x$vpc$ci_lower, x$vpc$ci_upper))
@@ -1048,6 +1075,18 @@ print.maihda_summary <- function(x, ...) {
   cat("Variance Components:\n")
   print(x$variance_components, row.names = FALSE, digits = 4)
   cat("\n")
+
+  if (is_lng) {
+    vt <- x$longitudinal$vpc_t
+    cat(sprintf("Time-varying VPC/ICC (between-stratum share over %s):\n",
+                x$longitudinal$time))
+    cat(sprintf("  range %.4f to %.4f across %s in [%g, %g].\n",
+                min(vt$estimate, na.rm = TRUE), max(vt$estimate, na.rm = TRUE),
+                x$longitudinal$time, min(vt$time), max(vt$time)))
+    cat("  The between-stratum variance is a function of time (random intercept +\n")
+    cat("  slope), so the VPC varies; it depends on where time is zeroed. See\n")
+    cat("  plot(type = \"vpc_trajectory\") for the full curve.\n\n")
+  }
 
   if (!is.null(x$decomposition)) {
     maihda_print_cc_decomposition(x$decomposition)

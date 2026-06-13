@@ -20,6 +20,11 @@
 #'     \item "prediction_deviation": Detailed deviation panels for individuals or strata
 #'     \item "context_vpc": Stratum vs. context variance bars for a contextual
 #'       cross-classified fit (\code{fit_maihda(context = )}); errors otherwise
+#'     \item "vpc_trajectory": Time-varying VPC/ICC curve for a \strong{longitudinal}
+#'       fit (\code{fit_maihda(id =, time =)}); errors otherwise. For a longitudinal
+#'       model \code{"vpc"} and \code{"all"} also route here
+#'     \item "trajectories": Predicted per-stratum mean trajectories over time
+#'       (longitudinal fits only)
 #'     \item "all": Generate all available plots (default if not specified)
 #'   }
 #' @param summary_obj Optional maihda_summary object from \code{summary()}.
@@ -57,7 +62,7 @@
 #' @export
 #' @import ggplot2
 #' @importFrom dplyr arrange
-plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation", "context_vpc"),
+plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
                        summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, ...) {
   if (!inherits(x, "maihda_model")) {
     stop("'x' must be a maihda_model object from fit_maihda()")
@@ -81,6 +86,32 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
   # intersectional interaction (NULL = no highlight). The BLUP-based views
   # (effect_decomp / predicted / obs_vs_shrunken) mark them; other views ignore it.
   highlight_ids <- maihda_resolve_highlight(object, highlight_interactions)
+
+  # Longitudinal (growth-curve) models: the time-varying VPC and the stratum mean
+  # trajectories replace the cross-sectional VPC bar (whose single proportion stack
+  # is undefined when the between-stratum variance varies with time). type = "vpc"
+  # redirects to the trajectory, and "all" yields the two trajectory views.
+  if (!is.null(object$longitudinal_info)) {
+    if (type == "all") {
+      plots <- list(
+        vpc_trajectory = plot_vpc_trajectory(summary_obj),
+        trajectories = tryCatch(
+          plot_stratum_trajectories(object, summary_obj, n_strata),
+          error = function(e) NULL)
+      )
+      for (p in plots[!vapply(plots, is.null, logical(1))]) print(p)
+      return(invisible(plots))
+    }
+    if (type %in% c("vpc", "vpc_trajectory")) {
+      return(plot_vpc_trajectory(summary_obj))
+    }
+    if (type == "trajectories") {
+      return(plot_stratum_trajectories(object, summary_obj, n_strata))
+    }
+  } else if (type %in% c("vpc_trajectory", "trajectories")) {
+    stop("type = \"", type, "\" is only available for a longitudinal MAIHDA ",
+         "(fit_maihda(id = , time = )).", call. = FALSE)
+  }
 
   if (type == "all") {
     plots <- list()
@@ -1070,4 +1101,192 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
   }
 
   return(p)
+}
+
+#' Time-varying VPC trajectory plot (longitudinal MAIHDA)
+#'
+#' The between-stratum share of variance (VPC/ICC) as a function of time, with a
+#' confidence/credible ribbon when available. The headline reference-time VPC is
+#' marked. For a longitudinal MAIHDA the VPC is not a single number -- the
+#' between-stratum variance is a random intercept + slope on time -- so this curve
+#' replaces the cross-sectional VPC bar.
+#'
+#' @param summary_obj A \code{maihda_summary} from a longitudinal model.
+#' @return A ggplot2 object.
+#' @keywords internal
+#' @import ggplot2
+plot_vpc_trajectory <- function(summary_obj) {
+  lng <- summary_obj$longitudinal
+  if (is.null(lng)) {
+    stop("plot_vpc_trajectory() needs a longitudinal summary (fit_maihda(id = , ",
+         "time = )).", call. = FALSE)
+  }
+  vt <- lng$vpc_t
+  has_ribbon <- any(is.finite(vt$lower) & is.finite(vt$upper))
+
+  p <- ggplot(vt, aes(x = .data$time, y = .data$estimate))
+  if (has_ribbon) {
+    p <- p + geom_ribbon(aes(ymin = .data$lower, ymax = .data$upper),
+                         fill = "#E69F00", alpha = 0.20)
+  }
+  p <- p +
+    geom_line(color = "#E69F00", linewidth = 1.1) +
+    geom_point(color = "#E69F00", size = 2) +
+    geom_vline(xintercept = lng$ref_time, linetype = "dashed",
+               color = "grey50") +
+    labs(
+      title = "Time-varying VPC/ICC (between-stratum share)",
+      subtitle = sprintf("Dashed line: reference time %s = %g (baseline VPC = %.3f)",
+                         lng$time, lng$ref_time, summary_obj$vpc$estimate),
+      x = lng$time,
+      y = "VPC/ICC (between-stratum share of variance)"
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold"))
+  p
+}
+
+#' Stratum mean-trajectory plot (longitudinal MAIHDA)
+#'
+#' One predicted line per stratum over time -- the fixed-part trajectory plus each
+#' stratum's random intercept and slope (BLUPs) -- the longitudinal analogue of the
+#' predicted-strata caterpillar. Shows how the intersectional groups fan out (or
+#' converge) over time.
+#'
+#' @param object A longitudinal \code{maihda_model}.
+#' @param summary_obj Its \code{maihda_summary}.
+#' @param n_strata Maximum number of strata to draw (by stratum order); the rest
+#'   are noted in the caption.
+#' @return A ggplot2 object.
+#' @keywords internal
+#' @import ggplot2
+plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50) {
+  lng <- summary_obj$longitudinal
+  if (is.null(lng)) {
+    stop("plot_stratum_trajectories() needs a longitudinal model.", call. = FALSE)
+  }
+  grid <- lng$time_grid
+  # Per-stratum random intercept + slope (BLUPs) on the time polynomial.
+  re <- maihda_longitudinal_stratum_re(object)
+  strata <- re$stratum
+  omitted <- 0L
+  if (!is.null(n_strata) && length(strata) > n_strata) {
+    omitted <- length(strata) - n_strata
+    keep <- strata[seq_len(n_strata)]
+    re <- re[re$stratum %in% keep, , drop = FALSE]
+    strata <- keep
+  }
+
+  # Fixed-part trajectory at the population mean covariate profile: predict on a
+  # one-row-per-grid-time frame holding covariates at the data means, RE excluded.
+  eta_fixed <- maihda_longitudinal_fixed_trajectory(object, grid)
+
+  rows <- do.call(rbind, lapply(seq_len(nrow(re)), function(i) {
+    a <- vapply(grid, function(t) sum(re$coef[[i]] * t^(0:(length(re$coef[[i]]) - 1))),
+                numeric(1))
+    data.frame(stratum = re$stratum[i],
+               label = if (!is.null(re$label)) re$label[i] else re$stratum[i],
+               time = grid, value = eta_fixed + a, stringsAsFactors = FALSE)
+  }))
+
+  cap <- if (omitted > 0) sprintf("%d of %d strata shown; %d omitted.",
+                                  length(strata), length(strata) + omitted, omitted) else NULL
+
+  ggplot(rows, aes(x = .data$time, y = .data$value, group = .data$stratum,
+                   color = .data$label)) +
+    geom_line(alpha = 0.8, linewidth = 0.7) +
+    labs(
+      title = "Predicted stratum trajectories",
+      subtitle = "Fixed-part trajectory + each stratum's random intercept & slope",
+      x = lng$time, y = "Predicted outcome (link scale)", color = "Stratum",
+      caption = cap
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold"),
+          legend.position = if (length(strata) > 12) "none" else "right")
+}
+
+#' Time-specific PCV plot (longitudinal MAIHDA)
+#'
+#' The additive share -- the proportional change in the between-stratum (trajectory)
+#' variance from the null to the adjusted model -- as a function of time. A high,
+#' flat curve means intersectional trajectory inequalities are "mostly additive".
+#'
+#' @param pcv A \code{maihda_long_pcv} from a longitudinal \code{maihda()} pair.
+#' @return A ggplot2 object.
+#' @keywords internal
+#' @import ggplot2
+plot_pcv_trajectory <- function(pcv) {
+  if (!inherits(pcv, "maihda_long_pcv")) {
+    stop("plot_pcv_trajectory() needs a maihda_long_pcv object.", call. = FALSE)
+  }
+  d <- pcv$pcv_t
+  ggplot(d, aes(x = .data$time, y = .data$pcv)) +
+    geom_line(color = "#0072B2", linewidth = 1.1) +
+    geom_point(color = "#0072B2", size = 2) +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey50") +
+    labs(
+      title = "Additive share of between-stratum (trajectory) variance over time",
+      subtitle = sprintf("PCV(t) = (Var_null(t) - Var_adjusted(t)) / Var_null(t); time = %s",
+                         pcv$time),
+      x = pcv$time, y = "PCV(t) (additive share)"
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold"))
+}
+
+# Per-stratum random-effect coefficient vector (intercept, slope, ...) for the
+# stratum grouping of a longitudinal fit, as a data frame with a list-column
+# `coef`. Used by plot_stratum_trajectories(). Engine-aware (lme4 ranef /
+# brms ranef posterior means).
+maihda_longitudinal_stratum_re <- function(object) {
+  lng <- object$longitudinal_info
+  if (identical(object$engine, "lme4")) {
+    re <- lme4::ranef(object$model)[["stratum"]]
+    coefs <- lapply(seq_len(nrow(re)), function(i) as.numeric(re[i, ]))
+    ids <- rownames(re)
+  } else if (identical(object$engine, "brms")) {
+    arr <- brms::ranef(object$model)[["stratum"]]
+    ids <- dimnames(arr)[[1]]
+    coefs <- lapply(seq_along(ids), function(i) as.numeric(arr[i, "Estimate", ]))
+  } else {
+    stop("Longitudinal trajectories are available for lme4/brms only.", call. = FALSE)
+  }
+  # Labels via the shared helper (row order preserved), then attach the per-stratum
+  # coefficient vectors (intercept, slope, ...) as a list-column aligned by row.
+  out <- add_stratum_labels(
+    data.frame(stratum = ids, stratum_id = suppressWarnings(as.integer(ids)),
+               random_effect = vapply(coefs, `[`, numeric(1), 1),
+               stringsAsFactors = FALSE),
+    object$strata_info)
+  out$coef <- coefs
+  out
+}
+
+# Fixed-part trajectory (NO random effects, re.form = NA) at the mean covariate
+# profile, over a time grid. Builds a prediction frame holding every non-time
+# covariate at its mean (numeric) or modal (factor) value and varying only time.
+maihda_longitudinal_fixed_trajectory <- function(object, grid) {
+  lng <- object$longitudinal_info
+  data <- object$data
+  fixed_vars <- all.vars(reformulas::nobars(object$formula))[-1]
+  nd <- data[rep(1L, length(grid)), , drop = FALSE]
+  for (v in intersect(fixed_vars, names(nd))) {
+    if (identical(v, lng$time)) next
+    col <- data[[v]]
+    nd[[v]] <- if (is.numeric(col)) mean(col, na.rm = TRUE) else {
+      tb <- sort(table(col), decreasing = TRUE)
+      rep(names(tb)[1], length(grid))
+    }
+  }
+  nd[[lng$time]] <- grid
+
+  if (identical(object$engine, "lme4")) {
+    as.numeric(stats::predict(object$model, newdata = nd, re.form = NA))
+  } else if (identical(object$engine, "brms")) {
+    as.numeric(colMeans(brms::posterior_linpred(object$model, newdata = nd,
+                                                re_formula = NA)))
+  } else {
+    stop("Longitudinal trajectories are available for lme4/brms only.", call. = FALSE)
+  }
 }

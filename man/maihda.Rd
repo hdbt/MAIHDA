@@ -11,7 +11,7 @@ maihda(
   context = NULL,
   engine = "lme4",
   family = "gaussian",
-  decomposition = c("two-model", "crossed-dimensions"),
+  decomposition = c("two-model", "crossed-dimensions", "longitudinal"),
   autobin = TRUE,
   shared_strata = TRUE,
   min_group_n = 30,
@@ -21,6 +21,9 @@ maihda(
   response_vpc = FALSE,
   seed = NULL,
   sampling_weights = NULL,
+  id = NULL,
+  time = NULL,
+  time_degree = 1,
   ...
 )
 }
@@ -83,7 +86,15 @@ estimated from two groups) are poorly identified and often give a singular lme4 
 (\code{"cross-classified"} is accepted as a deprecated alias for
 \code{"crossed-dimensions"}, with a warning: in the MAIHDA literature
 \dQuote{cross-classified} refers to the contextual stratum-by-place model,
-which this package fits via \code{context}.)}
+which this package fits via \code{context}.)
+\code{"longitudinal"} fits a 3-level \strong{growth-curve} MAIHDA (requires
+\code{id} and \code{time}; selected automatically when they are supplied): a
+null and an adjusted growth model, where the adjusted model adds the
+dimensions' main effects \emph{and their interactions with time}
+(\code{dim:time}). The between-stratum variance is then time-varying and the
+PCV is reported separately for the baseline (intercept) and the slope variance
+-- the additive-vs-multiplicative split of the intersectional trajectory
+inequality (Bell, Evans, Holman & Leckie 2024). See \code{\link{fit_maihda}}.}
 
 \item{autobin}{Logical passed to \code{\link{make_strata}}; tertile-bins numeric
 grouping variables. Default TRUE.}
@@ -119,6 +130,13 @@ and the adjusted model (and any per-group fits) use the same weights, so the
 PCV is a design-weighted decomposition. Not compatible with
 \code{engine = "lme4"}, \code{decomposition = "crossed-dimensions"} under
 the wemix engine, or \code{bootstrap = TRUE}.}
+
+\item{id, time, time_degree}{For a \strong{longitudinal} MAIHDA: the person/unit
+identifier column, the numeric measurement-time column, and the growth-curve
+polynomial degree (1 = linear). Supplying \code{id}/\code{time} selects
+\code{decomposition = "longitudinal"}. See \code{\link{fit_maihda}} for the
+model structure; \code{group}, \code{context}, and \code{sampling_weights} are
+not supported alongside them. Default \code{NULL} (cross-sectional).}
 
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
 \code{lmer}/\code{glmer}).}

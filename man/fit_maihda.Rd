@@ -12,6 +12,9 @@ fit_maihda(
   autobin = TRUE,
   context = NULL,
   sampling_weights = NULL,
+  id = NULL,
+  time = NULL,
+  time_degree = 1,
   ...
 )
 }
@@ -127,6 +130,29 @@ Two engines support them:
 }
 Rows with a missing or non-positive sampling weight are dropped with a
 warning. Default \code{NULL} (unweighted).}
+
+\item{id}{Optional single character string naming a person/unit identifier
+column for a \strong{longitudinal (growth-curve) MAIHDA} on long-format data
+(one row per measurement occasion). Supplied together with \code{time}, it
+makes the model a 3-level growth curve -- occasions within individuals
+(\code{id}) within intersectional strata -- with a random intercept and slope
+on \code{time} at \emph{both} the individual and stratum levels. The growth
+random effects are added automatically: write the strata shorthand
+\code{(1 | var1:var2)} (or \code{(1 | stratum)}) only, not the slopes. The
+between-stratum variance (and hence the VPC) then becomes a function of time;
+\code{\link{summary.maihda_model}} reports the time-varying VPC. Longitudinal
+fits are supported by \code{engine = "lme4"}/\code{"brms"} only (not
+\code{wemix}/\code{ordinal}), and are incompatible with \code{context} and
+\code{sampling_weights}. Default \code{NULL} (cross-sectional). See
+Bell, Evans, Holman & Leckie (2024).}
+
+\item{time}{Optional single character string naming a numeric measurement-time
+column (e.g. wave 0, 1, 2, ... or age), required for a longitudinal MAIHDA;
+see \code{id}. Default \code{NULL}.}
+
+\item{time_degree}{Polynomial degree of the growth curve when \code{time} is
+supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
+degree 1 only.}
 
 \item{...}{Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
 \code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},

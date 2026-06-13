@@ -7,7 +7,8 @@
 \method{plot}{maihda_model}(
   x,
   type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
-    "effect_decomp", "ternary", "prediction_deviation", "context_vpc"),
+    "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory",
+    "trajectories"),
   summary_obj = NULL,
   n_strata = 50,
   highlight_interactions = FALSE,
@@ -32,6 +33,11 @@
   \item "prediction_deviation": Detailed deviation panels for individuals or strata
   \item "context_vpc": Stratum vs. context variance bars for a contextual
     cross-classified fit (\code{fit_maihda(context = )}); errors otherwise
+  \item "vpc_trajectory": Time-varying VPC/ICC curve for a \strong{longitudinal}
+    fit (\code{fit_maihda(id =, time =)}); errors otherwise. For a longitudinal
+    model \code{"vpc"} and \code{"all"} also route here
+  \item "trajectories": Predicted per-stratum mean trajectories over time
+    (longitudinal fits only)
   \item "all": Generate all available plots (default if not specified)
 }}
 

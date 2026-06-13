@@ -93,6 +93,20 @@
 #'   \code{"crossed-dimensions"}, with a warning: in the MAIHDA literature
 #'   \dQuote{cross-classified} refers to the contextual stratum-by-place model,
 #'   which this package fits via \code{context}.)
+#'   \code{"longitudinal"} fits a 3-level \strong{growth-curve} MAIHDA (requires
+#'   \code{id} and \code{time}; selected automatically when they are supplied): a
+#'   null and an adjusted growth model, where the adjusted model adds the
+#'   dimensions' main effects \emph{and their interactions with time}
+#'   (\code{dim:time}). The between-stratum variance is then time-varying and the
+#'   PCV is reported separately for the baseline (intercept) and the slope variance
+#'   -- the additive-vs-multiplicative split of the intersectional trajectory
+#'   inequality (Bell, Evans, Holman & Leckie 2024). See \code{\link{fit_maihda}}.
+#' @param id,time,time_degree For a \strong{longitudinal} MAIHDA: the person/unit
+#'   identifier column, the numeric measurement-time column, and the growth-curve
+#'   polynomial degree (1 = linear). Supplying \code{id}/\code{time} selects
+#'   \code{decomposition = "longitudinal"}. See \code{\link{fit_maihda}} for the
+#'   model structure; \code{group}, \code{context}, and \code{sampling_weights} are
+#'   not supported alongside them. Default \code{NULL} (cross-sectional).
 #' @param autobin Logical passed to \code{\link{make_strata}}; tertile-bins numeric
 #'   grouping variables. Default TRUE.
 #' @param shared_strata Logical, forwarded to \code{\link{compare_maihda_groups}}
@@ -201,14 +215,42 @@
 #' @export
 maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
                    family = "gaussian",
-                   decomposition = c("two-model", "crossed-dimensions"),
+                   decomposition = c("two-model", "crossed-dimensions",
+                                     "longitudinal"),
                    autobin = TRUE, shared_strata = TRUE,
                    min_group_n = 30, bootstrap = FALSE,
                    n_boot = 1000, conf_level = 0.95,
                    response_vpc = FALSE, seed = NULL,
-                   sampling_weights = NULL, ...) {
+                   sampling_weights = NULL,
+                   id = NULL, time = NULL, time_degree = 1, ...) {
   call <- match.call()
+
+  # Longitudinal (growth-curve) MAIHDA selects itself when 'time' is supplied and
+  # the decomposition is left at its default; an explicit non-longitudinal
+  # decomposition with id/time is a contradiction.
+  if (!is.null(time) || !is.null(id)) {
+    if (missing(decomposition)) {
+      decomposition <- "longitudinal"
+    } else if (!identical(maihda_resolve_decomposition(decomposition),
+                          "longitudinal")) {
+      stop("'id'/'time' request a longitudinal MAIHDA, but decomposition = \"",
+           maihda_resolve_decomposition(decomposition), "\" was given. Use ",
+           "decomposition = \"longitudinal\" (or omit it) for a growth-curve fit.",
+           call. = FALSE)
+    }
+  }
   decomposition <- maihda_resolve_decomposition(decomposition)
+  if (identical(decomposition, "longitudinal") && (is.null(time) || is.null(id))) {
+    stop("decomposition = \"longitudinal\" requires both 'id' (the person/unit ",
+         "identifier) and 'time' (the measurement-time column). See ?maihda.",
+         call. = FALSE)
+  }
+  if (identical(decomposition, "longitudinal") &&
+      (!is.null(group) || !is.null(context) || !is.null(sampling_weights))) {
+    stop("A longitudinal MAIHDA does not support 'group', 'context', or ",
+         "'sampling_weights' (out of scope). Drop them for the growth-curve fit.",
+         call. = FALSE)
+  }
 
   # group= (stratified: one independent model per level) and context= (joint:
   # strata crossed with the higher level in ONE model) are different designs for
@@ -302,11 +344,12 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   if (missing(family)) {
     model <- fit_maihda(formula, data, engine = engine, autobin = autobin,
                         context = context, sampling_weights = sampling_weights,
-                        ...)
+                        id = id, time = time, time_degree = time_degree, ...)
   } else {
     model <- fit_maihda(formula, data, engine = engine, family = family,
                         autobin = autobin, context = context,
-                        sampling_weights = sampling_weights, ...)
+                        sampling_weights = sampling_weights,
+                        id = id, time = time, time_degree = time_degree, ...)
   }
   family_used <- model$family
 
@@ -409,6 +452,62 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
         group_var = group,
         mode = "crossed-dimensions",
         context_vars = context,
+        call = call
+      ),
+      class = "maihda_analysis"
+    ))
+  }
+
+  # --- Longitudinal (growth-curve) decomposition --------------------------------
+  # A 3-level growth pair: the NULL growth model (no dimension main effects) and an
+  # ADJUSTED growth model that adds the dimensions' main effects AND their time
+  # interactions (dim:time). The stratum-level intercept/slope variance remaining in
+  # the adjusted model is the intersectional interaction beyond additive, so the PCV
+  # in the baseline (intercept) and slope variances is the additive-vs-multiplicative
+  # split of the intersectional trajectory inequality (Bell, Evans, Holman & Leckie
+  # 2024). The VPC itself is time-varying (see summary()).
+  if (decomposition == "longitudinal") {
+    null_model <- if (length(present_terms) > 0) {
+      fit_maihda(remove_terms(model$formula, present_terms), model$original_data,
+                 engine = engine, family = family_used,
+                 id = id, time = time, time_degree = time_degree, ...)
+    } else {
+      model
+    }
+    laf <- maihda_longitudinal_adjusted_formula(
+      null_model$formula, strata_vars, null_model$strata_autobin_info,
+      null_model$original_data, time = time, time_degree = time_degree)
+    adjusted_model <- fit_maihda(laf$formula, laf$data, engine = engine,
+                                 family = family_used, id = id, time = time,
+                                 time_degree = time_degree, ...)
+
+    summary_obj <- summary(null_model, bootstrap = bootstrap, n_boot = n_boot,
+                           conf_level = conf_level)
+    summary_adj <- summary(adjusted_model, bootstrap = bootstrap, n_boot = n_boot,
+                           conf_level = conf_level)
+    pcv <- tryCatch(
+      maihda_longitudinal_pcv(null_model, adjusted_model),
+      error = function(e) {
+        warning("maihda(): the longitudinal PCV could not be computed (",
+                conditionMessage(e), "). Returning the fitted null and adjusted ",
+                "models without a PCV.", call. = FALSE)
+        NULL
+      })
+
+    return(structure(
+      list(
+        model = null_model,
+        summary = summary_obj,
+        model_adjusted = adjusted_model,
+        summary_adjusted = summary_adj,
+        pcv = pcv,
+        decomposition = NULL,
+        groups = NULL,
+        formula = null_model$formula,
+        adjusted_formula = adjusted_model$formula,
+        group_var = NULL,
+        mode = "longitudinal",
+        context_vars = NULL,
         call = call
       ),
       class = "maihda_analysis"
@@ -592,6 +691,43 @@ print.maihda_analysis <- function(x, ...) {
     return(invisible(x))
   }
 
+  # Longitudinal mode: a null/adjusted growth pair with a time-varying VPC and the
+  # additive-vs-multiplicative PCV (a maihda_long_pcv, printed by its own method).
+  if (identical(x$mode, "longitudinal")) {
+    lng <- x$summary$longitudinal
+    cat("Decomposition:   longitudinal (3-level growth curve)\n")
+    cat("Null formula:    ", paste(deparse(x$formula), collapse = " "), "\n", sep = "")
+    cat("Adjusted formula:", paste(deparse(x$adjusted_formula), collapse = " "),
+        "\n", sep = "")
+    cat("Engine: ", x$model$engine, " | Family: ", x$model$family$family, "\n",
+        sep = "")
+    maihda_print_fit_diagnostics(x$model$diagnostics)
+
+    vpc <- x$summary$vpc
+    if (maihda_vpc_has_interval(vpc)) {
+      cat(sprintf("VPC/ICC at baseline (%s = %g): %.4f [%.4f, %.4f]\n",
+                  lng$time, lng$ref_time, vpc$estimate, vpc$ci_lower, vpc$ci_upper))
+    } else {
+      cat(sprintf("VPC/ICC at baseline (%s = %g): %.4f\n",
+                  lng$time, lng$ref_time, vpc$estimate))
+    }
+    if (!is.null(lng)) {
+      vt <- lng$vpc_t
+      cat(sprintf("VPC/ICC over %s: %.4f to %.4f (time-varying).\n", lng$time,
+                  min(vt$estimate, na.rm = TRUE), max(vt$estimate, na.rm = TRUE)))
+    }
+    if (!is.null(x$pcv)) {
+      cat("\n")
+      print(x$pcv)
+    }
+    if (!is.null(x$summary$stratum_estimates)) {
+      cat("\nStrata: ", nrow(x$summary$stratum_estimates), "\n", sep = "")
+    }
+    cat("\nUse summary() for variance components and ",
+        "plot(type = \"vpc_trajectory\" / \"trajectories\") for figures.\n", sep = "")
+    return(invisible(x))
+  }
+
   cat("Null formula:    ", paste(deparse(x$formula), collapse = " "), "\n", sep = "")
   if (!is.null(x$adjusted_formula)) {
     cat("Adjusted formula:", paste(deparse(x$adjusted_formula), collapse = " "), "\n", sep = "")
@@ -687,8 +823,12 @@ summary.maihda_analysis <- function(object, ...) {
 #' @param type One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
 #'   "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation"), the
 #'   contextual type ("context_vpc", a stratum-vs-context variance bar; requires
-#'   \code{maihda(context = )}), or a group type ("group_vpc", "group_components",
-#'   "group_between_variance", "group_pcv"). Default "all".
+#'   \code{maihda(context = )}), a longitudinal type ("vpc_trajectory",
+#'   "trajectories", "pcv_trajectory"; requires \code{decomposition =
+#'   "longitudinal"}), or a group type ("group_vpc", "group_components",
+#'   "group_between_variance", "group_pcv"). Default "all". For a longitudinal
+#'   analysis "all" shows the VPC-over-time, the stratum trajectories, and the
+#'   time-specific PCV.
 #' @param highlight_interactions Highlight strata with a credibly non-zero
 #'   intersectional interaction on the BLUP-based views (see
 #'   \code{\link{maihda_interactions}} and \code{\link[=plot.maihda_model]{plot}}).
@@ -702,9 +842,40 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
   type <- match.arg(type, c(
     "all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
     "effect_decomp", "ternary", "prediction_deviation", "context_vpc",
+    "vpc_trajectory", "trajectories", "pcv_trajectory",
     "group_vpc", "group_components", "group_between_variance", "group_pcv",
     "group_additive_share"
   ))
+
+  # Longitudinal analysis: the trajectory views replace the cross-sectional ones.
+  # "all" shows the VPC-over-time and the stratum mean trajectories; "pcv_trajectory"
+  # plots the time-specific additive share from the null/adjusted pair.
+  if (identical(x$mode, "longitudinal")) {
+    if (type == "pcv_trajectory") {
+      if (is.null(x$pcv)) {
+        stop("No longitudinal PCV is available for this analysis.", call. = FALSE)
+      }
+      return(plot_pcv_trajectory(x$pcv))
+    }
+    if (type == "all") {
+      plots <- list(
+        vpc_trajectory = plot(x$model, type = "vpc_trajectory",
+                              summary_obj = x$summary, ...),
+        trajectories = tryCatch(plot(x$model, type = "trajectories",
+                                     summary_obj = x$summary, ...),
+                                error = function(e) NULL),
+        pcv_trajectory = tryCatch(plot_pcv_trajectory(x$pcv),
+                                  error = function(e) NULL)
+      )
+      for (p in plots[!vapply(plots, is.null, logical(1))]) print(p)
+      return(invisible(plots))
+    }
+    if (type %in% c("vpc_trajectory", "trajectories", "vpc")) {
+      t <- if (type == "vpc") "vpc_trajectory" else type
+      return(plot(x$model, type = t, summary_obj = x$summary, ...))
+    }
+    # Other cross-sectional types fall through to the adjusted growth model below.
+  }
 
   if (type == "context_vpc" && is.null(x$context_vars)) {
     stop("No contextual partition is available. Call maihda() with a 'context' ",
