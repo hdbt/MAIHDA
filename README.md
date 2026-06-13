@@ -166,7 +166,10 @@ Generates a ternary diagnostic plot. For each stratum it normalizes three magnit
 Creates an advanced, publication-ready two-panel dashboard for visualizing predicted values and highlighting the most notable cases or strata. What counts as notable depends on the model type — the largest deviation from the mean prediction (Gaussian/Poisson), the largest absolute deviance residual (binomial), or the most surprising observation (ordinal) — and the labelled points are not regression-diagnostic outliers.
 
 ### `compare_maihda()`
-Compares VPC/ICC across multiple models with optional bootstrap confidence intervals.
+Compares VPC/ICC across multiple models with optional bootstrap confidence intervals, and (by default, `ic = TRUE`) appends relative-fit information criteria — AIC/BIC for the likelihood engines, WAIC/LOOIC for brms — for comparing model structures.
+
+### `maihda_ic()`
+Reports the relative-fit information criteria for one or more models (or a `maihda()` analysis, expanded into its null and adjusted models) to help choose between model *structures* — a question the VPC/PCV do not address. AIC/BIC for the likelihood engines (lme4, ordinal) and the Bayesian WAIC/LOOIC for brms, with a `delta` column from the best model. REML `lmer` fits are refitted with ML so AIC/BIC are comparable across models with different fixed effects (the null-vs-adjusted case).
 
 ### `compare_maihda_groups()`
 Compares intersectional inequality (VPC/ICC and between-/within-stratum variance) across the levels of a higher-level grouping variable such as country, region, or survey wave, fitting a stratified MAIHDA model per group. Visualize with `plot(result, type = "vpc")`. The bundled `maihda_country_data` (OECD PISA 2018; gender × socioeconomic-status strata across six countries) is built to demonstrate this.
