@@ -178,7 +178,7 @@
 <h3 id="fit_maihda">
 <code>fit_maihda()</code><a class="anchor" aria-label="anchor" href="#fit_maihda"></a>
 </h3>
-<p>Fits multilevel models using the lme4 (default), brms, or WeMix (design-weighted, via <code>sampling_weights</code>) engine. Supports various families including gaussian, binomial, and poisson.</p>
+<p>Fits multilevel models using the lme4 (default), brms, or WeMix (design-weighted, via <code>sampling_weights</code>) engine. Supports various families including gaussian, binomial, poisson, and negbinomial (overdispersed counts; theta estimated via <code><a href="https://rdrr.io/pkg/lme4/man/glmer.nb.html" class="external-link">lme4::glmer.nb()</a></code> or brms’s <code>shape</code> parameter, with the VPC using the latent-scale level-1 variance of Nakagawa, Johnson &amp; Schielzeth 2017).</p>
 </div>
 <div class="section level3">
 <h3 id="contextual-cross-classified-maihda-context-">Contextual cross-classified MAIHDA (<code>context =</code>)<a class="anchor" aria-label="anchor" href="#contextual-cross-classified-maihda-context-"></a>

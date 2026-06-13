@@ -90,6 +90,9 @@ When bootstrap = TRUE, the function uses a parametric bootstrap: it
 simulates new responses from model2 and refits both models with
 [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html) for each
 simulated response to obtain confidence intervals for the PVC estimate.
+For negative-binomial models (`glmer.nb`) `refit()` holds the dispersion
+parameter theta fixed at its original estimate, so the interval is
+conditional on the estimated theta.
 
 ## Examples
 

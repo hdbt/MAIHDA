@@ -30,7 +30,12 @@ summary(
   Logical indicating whether to compute parametric bootstrap confidence
   intervals for VPC/ICC. Default is FALSE. Supported for lme4 models
   only; `brms` models always return a posterior credible interval (see
-  Details), so `bootstrap = TRUE` is rejected for them.
+  Details), so `bootstrap = TRUE` is rejected for them. For a
+  negative-binomial model (`glmer.nb`) the bootstrap refits via
+  [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html), which
+  holds the dispersion parameter theta fixed at its original estimate,
+  so the interval is conditional on the estimated theta (theta's own
+  sampling uncertainty is not propagated).
 
 - n_boot:
 
@@ -144,12 +149,14 @@ captured by the fixed effects, so for models with covariates it is
 conditional on them. It is most commonly read from the null model
 `outcome ~ 1 + (1 | stratum)`, where it is the total between-stratum
 share. For non-Gaussian families the level-1 (residual) variance uses a
-latent/distributional approximation (e.g. \\\pi^2/3\\ for logistic), so
-the VPC is on that latent scale; for a *weighted* Gaussian model the
-level-1 variance is the mean conditional residual variance,
-\\\bar{\sigma^2 / w_i}\\, since the per-observation residual variance is
-\\\sigma^2 / w_i\\. The stratum random effects represent the total
-between-stratum deviation; they equal the *pure* intersectional
+latent/distributional approximation (\\\pi^2/3\\ for logistic,
+\\\log(1 + 1/\mu)\\ for Poisson per Stryhn et al. 2006, and \\\log(1 +
+1/\mu + 1/\theta)\\ for the negative binomial per Nakagawa, Johnson &
+Schielzeth 2017), so the VPC is on that latent scale; for a *weighted*
+Gaussian model the level-1 variance is the mean conditional residual
+variance, \\\bar{\sigma^2 / w_i}\\, since the per-observation residual
+variance is \\\sigma^2 / w_i\\. The stratum random effects represent the
+total between-stratum deviation; they equal the *pure* intersectional
 (interaction) component only when the additive main effects of the
 strata variables are included in the model.
 

@@ -165,7 +165,11 @@ optional minimum count filtering.
 
 Fits multilevel models using the lme4 (default), brms, or WeMix
 (design-weighted, via `sampling_weights`) engine. Supports various
-families including gaussian, binomial, and poisson.
+families including gaussian, binomial, poisson, and negbinomial
+(overdispersed counts; theta estimated via
+[`lme4::glmer.nb()`](https://rdrr.io/pkg/lme4/man/glmer.nb.html) or
+brms’s `shape` parameter, with the VPC using the latent-scale level-1
+variance of Nakagawa, Johnson & Schielzeth 2017).
 
 ### Contextual cross-classified MAIHDA (`context =`)
 

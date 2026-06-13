@@ -48,27 +48,37 @@ fit_maihda(
 - family:
 
   Character string, family object, or family function specifying the
-  model family. Common options: "gaussian", "binomial", "poisson".
-  Default is "gaussian". If the outcome variable appears to be binary
-  and the default family is used, the function will automatically switch
-  to "binomial", recode two-level responses to 0/1 for `glmer()`, and
-  issue a warning. When a two-level non-0/1 response is recoded (on
-  either the auto-detected or an explicit `family = "binomial"` path),
-  the mapping follows the usual convention – the first level becomes 0
-  (reference) and the second becomes 1 (the modeled event), where
-  "first/second" means alphabetical order for a character outcome and
-  the declared order for a factor. The chosen mapping is reported via a
+  model family. Common options: "gaussian", "binomial", "poisson",
+  "negbinomial". Default is "gaussian". `family = "negbinomial"` fits an
+  overdispersed count model with the dispersion parameter theta
+  *estimated* from the data: lme4 via
+  [`lme4::glmer.nb()`](https://rdrr.io/pkg/lme4/man/glmer.nb.html) and
+  brms via its `shape` parameter (log link only; not supported by the
+  wemix engine). A fixed-theta `MASS::negative.binomial(theta)` family
+  object is also accepted with `engine = "lme4"` and is fitted with
+  `glmer()`, honouring the supplied theta. If the outcome variable
+  appears to be binary and the default family is used, the function will
+  automatically switch to "binomial", recode two-level responses to 0/1
+  for `glmer()`, and issue a warning. When a two-level non-0/1 response
+  is recoded (on either the auto-detected or an explicit
+  `family = "binomial"` path), the mapping follows the usual convention
+  – the first level becomes 0 (reference) and the second becomes 1 (the
+  modeled event), where "first/second" means alphabetical order for a
+  character outcome and the declared order for a factor. The chosen
+  mapping is reported via a
   [`message()`](https://rdrr.io/r/base/message.html) and stored on the
   result as `$response_recoding`; set the factor levels (or supply a 0/1
   outcome) to control which level is the event. Although any valid
   family object is accepted for fitting, the MAIHDA variance summaries
   ([`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md),
   VPC/ICC, PCV) are only defined for `gaussian("identity")`, the
-  binomial/Bernoulli families with a logit or probit link, and
-  `poisson("log")`. Other families (for example `Gamma(link = "log")`)
-  will fit, but [`summary()`](https://rdrr.io/r/base/summary.html) and
-  the VPC/PCV helpers will stop with an "not implemented" error because
-  no level-1 variance is defined for them.
+  binomial/Bernoulli families with a logit or probit link,
+  `poisson("log")`, and the negative binomial with a log link (level-1
+  variance `log(1 + 1/mu + 1/theta)`; Nakagawa, Johnson & Schielzeth
+  2017). Other families (for example `Gamma(link = "log")`) will fit,
+  but [`summary()`](https://rdrr.io/r/base/summary.html) and the VPC/PCV
+  helpers will stop with an "not implemented" error because no level-1
+  variance is defined for them.
 
 - autobin:
 

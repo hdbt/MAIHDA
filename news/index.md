@@ -4,6 +4,46 @@
 
 ### New Features
 
+- Added the **negative-binomial family** for overdispersed count
+  outcomes: `family = "negbinomial"` on
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  (and therefore
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md),
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)).
+  The dispersion parameter theta is *estimated* from the data –
+  [`lme4::glmer.nb()`](https://rdrr.io/pkg/lme4/man/glmer.nb.html) under
+  the default engine, the `shape` parameter under `engine = "brms"` –
+  and a fixed-theta `MASS::negative.binomial(theta)` family object is
+  also accepted with lme4, honouring the supplied theta. The VPC/ICC
+  uses the lognormal latent-scale level-1 variance
+  `log(1 + 1/mu + 1/theta)` (Nakagawa, Johnson & Schielzeth 2017, *J R
+  Soc Interface*), the negative-binomial analogue of the Stryhn et
+  al. (2006) Poisson approximation already used by the package (it
+  reduces to it as theta grows); for brms the `shape` draws are
+  propagated into the VPC credible interval. The two-model
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  decomposition,
+  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md),
+  parametric-bootstrap intervals (via
+  [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html), which
+  holds theta fixed at its estimate – the interval is conditional on
+  theta, as documented), prediction, and the stratum plots (routed to
+  the count branch) all work; the log link is required, and the wemix
+  engine,
+  [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md),
+  and
+  [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
+  reject the family with targeted messages. Internally, engine-specific
+  family labels are now canonicalised (notably lme4’s theta-embedding
+  `"Negative Binomial(<theta>)"`), so the family/link comparability
+  checks in
+  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  and
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  no longer depend on raw label strings – previously two NB fits could
+  never compare equal because each label carried its own theta estimate.
 - Added **design-weighted MAIHDA** (survey/sampling weights) via a new
   `sampling_weights` argument on
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
