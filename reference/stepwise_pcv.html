@@ -114,14 +114,41 @@ sample.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data.frame showing the sequential models, the between-stratum
-  variance at each step, and both the step-specific and total PCV.</p>
+    <p>A data.frame (class <code>maihda_stepwise</code>) showing the sequential
+  models, the between-stratum variance at each step, and both the step-specific
+  and total PCV. For a <strong>binary</strong> (binomial/Bernoulli) outcome it also carries
+  the discriminatory-accuracy trajectory: <code>AUC</code> (the C-statistic of each
+  step's model – step 0 is the strata-only discriminatory accuracy),
+  <code>Step_AUC</code> and <code>Total_AUC</code> (the <em>absolute</em> change in AUC,
+  delta-AUC, versus the previous step and versus the null), and <code>MOR</code> (the
+  Median Odds Ratio, logit link only). These columns are absent for non-binary
+  outcomes.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>All models are fit on the complete cases for `outcome`, `stratum`, and all
 variables in `vars` so that each sequential variance comparison uses the same
 analytic sample.</p>
+<p>For a binary outcome the table additionally tracks discriminatory accuracy
+(Merlo et al. 2016): <code>AUC</code> is each model's C-statistic and <code>Step_AUC</code> /
+<code>Total_AUC</code> are its <em>absolute</em> change (delta-AUC), in contrast to the
+<em>proportional</em> <code>Step_PCV</code> / <code>Total_PCV</code>. The <code>MOR</code> is reported
+for the logit link (<code>NA</code> otherwise) and is a monotone transform of the
+between-stratum variance already in <code>Variance</code>. For a design-weighted fit
+(<code>sampling_weights</code>) the AUC is the design-weighted (population) C-statistic.
+Reuses <code><a href="maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></code> on each step's fitted model, so
+no additional models are fit. Note that adding a <em>stratum-defining</em> dimension
+(one already encoded by the strata) typically leaves the AUC essentially unchanged:
+it re-partitions the between-stratum variance (so the PCV and MOR move) but not the
+per-stratum predicted ranking the rank-based AUC depends on. The AUC trajectory is
+therefore most informative for individual-level covariates that vary <em>within</em>
+strata.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
+    <p>Merlo, J., Wagner, P., Ghith, N., &amp; Leckie, G. (2016). An original stepwise
+multilevel logistic regression analysis of discriminatory accuracy: the case of
+neighbourhoods and health. <em>PLOS ONE</em>, 11(4), e0153778.</p>
     </div>
 
     <div class="section level2">
@@ -129,11 +156,11 @@ analytic sample.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="va">strata_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="make_strata.html">make_strata</a></span><span class="op">(</span><span class="va">maihda_sim_data</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">stepwise_pcv</span><span class="op">(</span><span class="va">strata_result</span><span class="op">$</span><span class="va">data</span>, <span class="st">"health_outcome"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span>, <span class="st">"age"</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Step      Model        Added_Variable  Variance   Step_PCV  Total_PCV</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1    0 Null Model None (Intercept only) 26.714703  0.0000000  0.0000000</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2    1    Model 1                gender 30.862914 -0.1552782 -0.1552782</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3    2    Model 2                  race  2.346242  0.9239786  0.9121741</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4    3    Model 3                   age  3.031709 -0.2921554  0.8865153</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  Step      Model        Added_Variable Variance Step_PCV Total_PCV</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     0 Null Model None (Intercept only)   26.715   0.0000    0.0000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     1    Model 1                gender   30.863  -0.1553   -0.1553</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     2    Model 2                  race    2.346   0.9240    0.9122</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     3    Model 3                   age    3.032  -0.2922    0.8865</span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

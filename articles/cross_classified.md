@@ -123,7 +123,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x5585e938d6c8>
+#> <environment: 0x55ae53a41568>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -406,8 +406,7 @@ a
 #> Between-stratum variance: 915.2323 (null) -> 1.9877 (adjusted)
 #>   ~99.8% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
-#>   additive main effects -- a model-dependent quantity, often interpreted as
-#>   intersectional interaction, but interpret it cautiously.
+#>   additive main effects -- a model-dependent quantity
 #> Strata: 6
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.

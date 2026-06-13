@@ -88,8 +88,7 @@ analysis
 #> Between-stratum variance: 1352.2436 (null) -> 0.0000 (adjusted)
 #>   ~100.0% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
-#>   additive main effects -- a model-dependent quantity, often interpreted as
-#>   intersectional interaction, but interpret it cautiously.
+#>   additive main effects -- a model-dependent quantity
 #> Strata: 6
 #> 
 #> Group comparison by 'country':

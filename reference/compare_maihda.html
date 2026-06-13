@@ -61,7 +61,8 @@ with optional bootstrap confidence intervals.</p>
 <span>  model_names <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  bootstrap <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_boot <span class="op">=</span> <span class="fl">1000</span>,</span>
-<span>  conf_level <span class="op">=</span> <span class="fl">0.95</span></span>
+<span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
+<span>  ic <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -93,12 +94,23 @@ regardless.</p></dd>
 <dd><p>Confidence level for the VPC interval (lme4 bootstrap CI or
 brms credible interval). Default is 0.95.</p></dd>
 
+
+<dt id="arg-ic">ic<a class="anchor" aria-label="anchor" href="#arg-ic"></a></dt>
+<dd><p>Logical; append relative-fit information criteria to the table for
+comparing model <em>structures</em>: <code>AIC</code>/<code>BIC</code> for the likelihood
+engines (lme4, ordinal) and <code>WAIC</code>/<code>LOOIC</code> for brms (see
+<code><a href="maihda_ic.html">maihda_ic</a></code>). Default TRUE. REML <code>lmer</code> fits are refitted with
+ML so AIC/BIC are comparable across different fixed effects. Set FALSE for the
+lean VPC-only table.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A <code>maihda_comparison</code> data frame of VPC/ICC by model. Interval
   columns (<code>ci_lower</code>/<code>ci_upper</code>) are included when any model supplies
-  an interval – an lme4 bootstrap CI or a brms posterior credible interval.</p>
+  an interval – an lme4 bootstrap CI or a brms posterior credible interval. When
+  <code>ic = TRUE</code>, information-criteria columns (<code>AIC</code>/<code>BIC</code> or
+  <code>WAIC</code>/<code>LOOIC</code>, whichever apply) are appended.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -107,7 +119,8 @@ family/link, analytic sample, and strata – the canonical use is nested models
 (e.g. null vs covariate-adjusted) on the <em>same</em> data and strata, to show
 how the VPC attenuates. If the supplied models differ in any of these,
 <code>compare_maihda()</code> still returns the table but issues a single warning,
-because the VPCs are then not directly comparable.</p>
+because the VPCs are then not directly comparable. The same comparability caveat
+applies to the appended information criteria (see <code><a href="maihda_ic.html">maihda_ic</a></code>).</p>
     </div>
 
     <div class="section level2">

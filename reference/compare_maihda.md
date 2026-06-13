@@ -11,7 +11,8 @@ compare_maihda(
   model_names = NULL,
   bootstrap = FALSE,
   n_boot = 1000,
-  conf_level = 0.95
+  conf_level = 0.95,
+  ic = TRUE
 )
 ```
 
@@ -42,11 +43,23 @@ compare_maihda(
   Confidence level for the VPC interval (lme4 bootstrap CI or brms
   credible interval). Default is 0.95.
 
+- ic:
+
+  Logical; append relative-fit information criteria to the table for
+  comparing model *structures*: `AIC`/`BIC` for the likelihood engines
+  (lme4, ordinal) and `WAIC`/`LOOIC` for brms (see
+  [`maihda_ic`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)).
+  Default TRUE. REML `lmer` fits are refitted with ML so AIC/BIC are
+  comparable across different fixed effects. Set FALSE for the lean
+  VPC-only table.
+
 ## Value
 
 A `maihda_comparison` data frame of VPC/ICC by model. Interval columns
 (`ci_lower`/`ci_upper`) are included when any model supplies an interval
-– an lme4 bootstrap CI or a brms posterior credible interval.
+– an lme4 bootstrap CI or a brms posterior credible interval. When
+`ic = TRUE`, information-criteria columns (`AIC`/`BIC` or
+`WAIC`/`LOOIC`, whichever apply) are appended.
 
 ## Details
 
@@ -55,7 +68,9 @@ family/link, analytic sample, and strata – the canonical use is nested
 models (e.g. null vs covariate-adjusted) on the *same* data and strata,
 to show how the VPC attenuates. If the supplied models differ in any of
 these, `compare_maihda()` still returns the table but issues a single
-warning, because the VPCs are then not directly comparable.
+warning, because the VPCs are then not directly comparable. The same
+comparability caveat applies to the appended information criteria (see
+[`maihda_ic`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)).
 
 ## Examples
 

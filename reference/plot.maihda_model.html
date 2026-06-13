@@ -66,6 +66,7 @@ and predicted subgroup values with confidence intervals.</p>
 <span>    <span class="st">"effect_decomp"</span>, <span class="st">"ternary"</span>, <span class="st">"prediction_deviation"</span>, <span class="st">"context_vpc"</span><span class="op">)</span>,</span>
 <span>  summary_obj <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_strata <span class="op">=</span> <span class="fl">50</span>,</span>
+<span>  highlight_interactions <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -106,6 +107,19 @@ If NULL, will be computed.</p></dd>
 When there are more strata than this, the first <code>n_strata</code> (in stratum
 order) are shown and the plot caption notes how many were omitted. Default
 is 50. Use NULL for all strata.</p></dd>
+
+
+<dt id="arg-highlight-interactions">highlight_interactions<a class="anchor" aria-label="anchor" href="#arg-highlight-interactions"></a></dt>
+<dd><p>Highlight the strata that carry a credibly
+non-zero intersectional interaction (from <code><a href="maihda_interactions.html">maihda_interactions</a></code>)
+on the BLUP-based views (<code>"effect_decomp"</code>, <code>"predicted"</code>,
+<code>"obs_vs_shrunken"</code>); other views ignore it. <code>FALSE</code> (default) off;
+<code>TRUE</code> computes the flags with <code><a href="maihda_interactions.html">maihda_interactions()</a></code> defaults; or
+pass a <code>maihda_interactions</code> object to reuse a specific
+<code>conf_level</code>/<code>adjust</code>. For the pure-interaction reading the model
+should be the adjusted (or crossed-dimensions) model – e.g. via
+<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> on a <code><a href="maihda.html">maihda</a></code> analysis, which routes these views to
+the adjusted model automatically.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

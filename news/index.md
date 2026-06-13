@@ -232,6 +232,37 @@
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   / `maihda(group = "country")`, since intersectional inequality
   (VPC/ICC) genuinely differs across the countries.
+- Added
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md),
+  a one-call **publication-ready results export** that assembles the two
+  canonical MAIHDA write-up deliverables (cf. Evans et al. 2024’s
+  tutorial) from a fitted
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis (or a single
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  model): (a) a **model-results table** contrasting the null (Model 1)
+  and adjusted (Model 2) fits – intercept, between-stratum variance and
+  SD, VPC/ICC, the PCV, and, for a binary outcome, the AUC and Median
+  Odds Ratio – and (b) a **ranked-strata table** ordering every
+  intersectional stratum by its model-predicted outcome (their Table 4),
+  with the predicted value’s conditional interval, the stratum size, and
+  the stratum random effect. It computes nothing new – every quantity is
+  read from the summaries already attached to the analysis, so the table
+  agrees exactly with
+  [`summary()`](https://rdrr.io/r/base/summary.html)/[`plot()`](https://rdrr.io/r/graphics/plot.default.html).
+  The `$models` data frame is numeric and export-ready (statistics in
+  rows, an estimate + `*_lower`/`*_upper` interval columns per model:
+  the VPC bootstrap/posterior interval and the bootstrap PCV interval
+  are carried, other rows are point estimates), and the
+  [`print()`](https://rdrr.io/r/base/print.html) method renders the
+  familiar “estimate \[low, high\]” layout plus the top/bottom strata
+  (`n_strata`). It adapts to every fit type: a crossed-dimensions
+  analysis gets “Additive share”/“Interaction share” rows instead of the
+  PCV, a contextual cross-classified analysis (`context =`) gets a
+  “Context share (VPC)” row, an ordinal fit’s thresholds stand in for
+  the intercept, and `which = "adjusted"` ranks the strata by the
+  adjusted rather than the null model. Works across the lme4, brms,
+  wemix, and ordinal engines.
 - [`summary()`](https://rdrr.io/r/base/summary.html) of a
   binomial/Bernoulli MAIHDA model – and therefore
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md), whose
@@ -258,6 +289,82 @@
   and
   [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
   are unchanged.
+- Added
+  [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md),
+  which **surfaces relative-fit information criteria** for choosing
+  between model *structures* (different covariate sets, strata
+  definitions, or families) – the question the VPC/PCV do not answer. It
+  reports `AIC`/`BIC` for the likelihood engines (lme4, ordinal `clmm`)
+  and the Bayesian `WAIC`/`LOOIC` for brms, takes one or more
+  `maihda_model`s (or a `maihda_analysis`, which expands into its null
+  and adjusted rows), and adds a `delta` column (gap from the best model
+  on the primary criterion). Crucially it handles the **REML pitfall**:
+  `lmer` fits Gaussian models by REML, whose AIC/BIC are *not*
+  comparable across models with different fixed effects (the canonical
+  null-vs-adjusted MAIHDA case), so when more than one model is supplied
+  any REML fit is refitted with maximum likelihood via
+  [`lme4::refitML()`](https://rdrr.io/pkg/lme4/man/refitML.html) before
+  the criteria are read – matching what
+  [`anova()`](https://rdrr.io/r/stats/anova.html) does on `lme4` models
+  – and the `estimator` column records it. Design-weighted (`wemix`)
+  pseudo-likelihood fits report `NA` (no standard AIC/BIC is defined).
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  now appends these criteria alongside the VPC/ICC by default
+  (`ic = TRUE`); set `ic = FALSE` for the lean VPC-only table.
+- [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  now also reports the **discriminatory-accuracy trajectory** for a
+  binary (binomial/Bernoulli) outcome, alongside the
+  between-stratum-variance / PCV trajectory it already produced – the
+  stepwise discriminatory-accuracy analysis of Merlo et al. (2016). Each
+  step gains an `AUC` (that model’s C-statistic; step 0 is the
+  strata-only discriminatory accuracy), `Step_AUC` and `Total_AUC` (the
+  **absolute** change in AUC – delta-AUC – versus the previous step and
+  versus the null, in contrast to the **proportional**
+  `Step_PCV`/`Total_PCV`), and `MOR` (the Median Odds Ratio, logit link
+  only) column. No extra models are fit: the columns are read off each
+  step’s already-fitted model via
+  [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md),
+  so a design-weighted stepwise (`sampling_weights`) reports the
+  design-weighted AUC, and the columns are simply absent for non-binary
+  outcomes (the gaussian/poisson/ordinal table is unchanged). A new
+  [`print()`](https://rdrr.io/r/base/print.html) method for the
+  `maihda_stepwise` table notes the proportional-vs-absolute
+  distinction.
+- Added
+  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md),
+  a diagnostic that flags which strata carry a credibly non-zero
+  **intersectional interaction** – the heart of “where is there genuine
+  intersectionality”. It reads each stratum’s interaction BLUP (the
+  stratum random effect of the **adjusted** / crossed-dimensions model,
+  i.e. the departure from the additive main-effects prediction) and
+  flags the strata whose effect is credibly different from zero,
+  returning a ranked `maihda_interactions` table (flagged strata first,
+  by interaction magnitude). For the frequentist engines
+  (`lme4`/`wemix`/`ordinal`) it uses the BLUP’s conditional standard
+  error with an optional multiplicity correction (`adjust`, default
+  `"none"`; the docs steer to FDR `"BH"` for screening many strata, with
+  the full set of `p.adjust` methods available for a reviewer who needs
+  a specific one); for `brms` it uses the **exact posterior tail** – a
+  credible interval and the probability of direction `pd = P(BLUP > 0)`
+  – rather than a normal approximation, and `adjust` is inert (the
+  Bayesian answer is multiplicity-free). Passing a
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis uses the right (adjusted) model automatically; passing a bare
+  null model is caught with a warning, since its stratum effects mix the
+  additive and interaction parts. The help explains why a correction is
+  optional on already-shrunken BLUP estimates (Gelman, Hill & Yajima
+  2012; Gelman & Carlin 2014).
+- [`plot()`](https://rdrr.io/r/graphics/plot.default.html) gains a
+  `highlight_interactions` argument (on both a `maihda_model` and a
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis) that rings and stars the
+  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)-flagged
+  strata on the BLUP-based views (`effect_decomp`, `predicted`,
+  `obs_vs_shrunken`). Pass `TRUE` (flags computed with defaults) or a
+  precomputed `maihda_interactions` object to reuse a specific
+  `conf_level`/`adjust`; for an analysis the flags are computed once
+  from the adjusted model and reused across views. `FALSE` (default)
+  leaves every plot unchanged.
 
 ### Improvements
 

@@ -56,8 +56,15 @@ stepwise_pcv(
 
 ## Value
 
-A data.frame showing the sequential models, the between-stratum variance
-at each step, and both the step-specific and total PCV.
+A data.frame (class `maihda_stepwise`) showing the sequential models,
+the between-stratum variance at each step, and both the step-specific
+and total PCV. For a **binary** (binomial/Bernoulli) outcome it also
+carries the discriminatory-accuracy trajectory: `AUC` (the C-statistic
+of each step's model – step 0 is the strata-only discriminatory
+accuracy), `Step_AUC` and `Total_AUC` (the *absolute* change in AUC,
+delta-AUC, versus the previous step and versus the null), and `MOR` (the
+Median Odds Ratio, logit link only). These columns are absent for
+non-binary outcomes.
 
 ## Details
 
@@ -65,16 +72,40 @@ All models are fit on the complete cases for \`outcome\`, \`stratum\`,
 and all variables in \`vars\` so that each sequential variance
 comparison uses the same analytic sample.
 
+For a binary outcome the table additionally tracks discriminatory
+accuracy (Merlo et al. 2016): `AUC` is each model's C-statistic and
+`Step_AUC` / `Total_AUC` are its *absolute* change (delta-AUC), in
+contrast to the *proportional* `Step_PCV` / `Total_PCV`. The `MOR` is
+reported for the logit link (`NA` otherwise) and is a monotone transform
+of the between-stratum variance already in `Variance`. For a
+design-weighted fit (`sampling_weights`) the AUC is the design-weighted
+(population) C-statistic. Reuses
+[`maihda_discriminatory_accuracy`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+on each step's fitted model, so no additional models are fit. Note that
+adding a *stratum-defining* dimension (one already encoded by the
+strata) typically leaves the AUC essentially unchanged: it re-partitions
+the between-stratum variance (so the PCV and MOR move) but not the
+per-stratum predicted ranking the rank-based AUC depends on. The AUC
+trajectory is therefore most informative for individual-level covariates
+that vary *within* strata.
+
+## References
+
+Merlo, J., Wagner, P., Ghith, N., & Leckie, G. (2016). An original
+stepwise multilevel logistic regression analysis of discriminatory
+accuracy: the case of neighbourhoods and health. *PLOS ONE*, 11(4),
+e0153778.
+
 ## Examples
 
 ``` r
 # \donttest{
 strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
 stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
-#>   Step      Model        Added_Variable  Variance   Step_PCV  Total_PCV
-#> 1    0 Null Model None (Intercept only) 26.714703  0.0000000  0.0000000
-#> 2    1    Model 1                gender 30.862914 -0.1552782 -0.1552782
-#> 3    2    Model 2                  race  2.346242  0.9239786  0.9121741
-#> 4    3    Model 3                   age  3.031709 -0.2921554  0.8865153
+#>  Step      Model        Added_Variable Variance Step_PCV Total_PCV
+#>     0 Null Model None (Intercept only)   26.715   0.0000    0.0000
+#>     1    Model 1                gender   30.863  -0.1553   -0.1553
+#>     2    Model 2                  race    2.346   0.9240    0.9122
+#>     3    Model 3                   age    3.032  -0.2922    0.8865
 # }
 ```

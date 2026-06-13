@@ -156,6 +156,35 @@ has no single-model mode – use
 [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
 for a single fit.
 
+### `maihda_table()`
+
+Assembles the two standard MAIHDA write-up deliverables from a fitted
+[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) analysis
+(or a single
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+model) in one call: (a) a **model-results table** contrasting the null
+(Model 1) and adjusted (Model 2) fits — intercept, between-stratum
+variance and SD, VPC/ICC, the PCV, and (for a binary outcome) the AUC
+and Median Odds Ratio — and (b) a **ranked-strata table** ordering every
+stratum by its predicted outcome, with conditional intervals and the
+stratum random effect. The `$models` data frame is numeric and
+export-ready ([`write.csv()`](https://rdrr.io/r/utils/write.table.html)
+/ [`knitr::kable()`](https://rdrr.io/pkg/knitr/man/kable.html));
+[`print()`](https://rdrr.io/r/base/print.html) renders the familiar
+“estimate \[low, high\]” layout plus the top/bottom strata. It adapts to
+every fit type (crossed-dimensions shares, contextual
+`Context share (VPC)`, ordinal thresholds) and engine
+(lme4/brms/WeMix/ordinal).
+
+``` r
+
+analysis <- maihda(BMI ~ Age + Gender + Race + (1 | Gender:Race), data = maihda_health_data)
+tab <- maihda_table(analysis)
+tab          # printed: Model 1 vs Model 2 table + highest/lowest strata
+tab$models   # numeric, export-ready results table
+tab$strata   # all strata ranked by predicted BMI
+```
+
 ### `make_strata()`
 
 Creates intersectional strata from multiple categorical variables with
@@ -255,7 +284,20 @@ regression-diagnostic outliers.
 ### `compare_maihda()`
 
 Compares VPC/ICC across multiple models with optional bootstrap
-confidence intervals.
+confidence intervals, and (by default, `ic = TRUE`) appends relative-fit
+information criteria — AIC/BIC for the likelihood engines, WAIC/LOOIC
+for brms — for comparing model structures.
+
+### `maihda_ic()`
+
+Reports the relative-fit information criteria for one or more models (or
+a [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+analysis, expanded into its null and adjusted models) to help choose
+between model *structures* — a question the VPC/PCV do not address.
+AIC/BIC for the likelihood engines (lme4, ordinal) and the Bayesian
+WAIC/LOOIC for brms, with a `delta` column from the best model. REML
+`lmer` fits are refitted with ML so AIC/BIC are comparable across models
+with different fixed effects (the null-vs-adjusted case).
 
 ### `compare_maihda_groups()`
 
@@ -284,7 +326,10 @@ Evaluates multiple sequential models by iteratively adding covariates
 step-by-step. Each step’s PCV is the change in between-stratum variance
 contributed by a predictor given the variables already in the model, so
 it is order-dependent rather than an order-invariant “unique”
-contribution.
+contribution. For a binary outcome it also reports the
+discriminatory-accuracy trajectory (`AUC`, the step/total change in AUC,
+and `MOR`) alongside the PCV, so the strata’s discriminatory accuracy
+can be tracked as covariates are added.
 
 ### `run_maihda_app()`
 

@@ -5,7 +5,7 @@ Observed vs. Shrunken Estimates Plot
 ## Usage
 
 ``` r
-plot_obs_vs_shrunken(object, summary_obj)
+plot_obs_vs_shrunken(object, summary_obj, highlight = NULL)
 ```
 
 ## Arguments

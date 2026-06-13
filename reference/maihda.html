@@ -337,8 +337,7 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance: 2.7383 (null) -&gt; 1.3792 (adjusted)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   ~49.6% of the between-stratum variance is additive (the dimensions' main</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity, often interpreted as</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   intersectional interaction, but interpret it cautiously.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 10</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for variance components and plot(type = ...) for figures.</span>
@@ -359,10 +358,10 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55dc585be5a0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d7890837a0&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55dc5849b218&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d77ceb9700&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -415,7 +414,7 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55dc57e60ba8&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d7877faba0&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>
@@ -441,8 +440,7 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance: 1352.2436 (null) -&gt; 0.0000 (adjusted)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   ~100.0% of the between-stratum variance is additive (the dimensions' main</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity, often interpreted as</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   intersectional interaction, but interpret it cautiously.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 6</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Group comparison by 'country':</span>
@@ -494,8 +492,7 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance: 915.2323 (null) -&gt; 1.9877 (adjusted)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   ~99.8% of the between-stratum variance is additive (the dimensions' main</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity, often interpreted as</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   intersectional interaction, but interpret it cautiously.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 6</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for variance components and plot(type = ...) for figures.</span>

@@ -112,17 +112,16 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> Between-stratum variance: 2.9319 (null) -> 0.9924 (adjusted)
 #>   ~66.2% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
-#>   additive main effects -- a model-dependent quantity, often interpreted as
-#>   intersectional interaction, but interpret it cautiously.
+#>   additive main effects -- a model-dependent quantity
 #> Strata: 50
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x560d64316a98>
+#> <environment: 0x5567772924d8>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x560d699f3698>
+#> <environment: 0x55677a2478f8>
 ```
 
 The returned object carries everything: the full variance components,
@@ -474,13 +473,13 @@ stepwise_results <- stepwise_pcv(
 )
 
 print(stepwise_results)
-#>   Step      Model        Added_Variable  Variance     Step_PCV   Total_PCV
-#> 1    0 Null Model None (Intercept only) 2.9319281  0.000000000 0.000000000
-#> 2    1    Model 1                   Age 2.8627658  0.023589378 0.023589378
-#> 3    2    Model 2                Gender 2.9232893 -0.021141634 0.002946462
-#> 4    3    Model 3                  Race 1.3016798  0.554720831 0.556032830
-#> 5    4    Model 4             Education 0.9756602  0.250460705 0.667229160
-#> 6    5    Model 5               Poverty 0.9695115  0.006302093 0.669326313
+#>  Step      Model        Added_Variable Variance  Step_PCV Total_PCV
+#>     0 Null Model None (Intercept only)   2.9319  0.000000  0.000000
+#>     1    Model 1                   Age   2.8628  0.023589  0.023589
+#>     2    Model 2                Gender   2.9233 -0.021142  0.002946
+#>     3    Model 3                  Race   1.3017  0.554721  0.556033
+#>     4    Model 4             Education   0.9757  0.250461  0.667229
+#>     5    Model 5               Poverty   0.9695  0.006302  0.669326
 ```
 
 Negative step PCVs in this table indicate an “unmasking”/suppression

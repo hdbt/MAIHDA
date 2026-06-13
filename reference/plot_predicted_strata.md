@@ -9,7 +9,8 @@ plot_predicted_strata(
   object,
   summary_obj,
   n_strata,
-  scale = c("response", "link")
+  scale = c("response", "link"),
+  highlight = NULL
 )
 ```
 

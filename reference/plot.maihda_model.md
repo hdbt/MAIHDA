@@ -14,6 +14,7 @@ plot(
     "effect_decomp", "ternary", "prediction_deviation", "context_vpc"),
   summary_obj = NULL,
   n_strata = 50,
+  highlight_interactions = FALSE,
   ...
 )
 ```
@@ -70,6 +71,23 @@ plot(
   are more strata than this, the first `n_strata` (in stratum order) are
   shown and the plot caption notes how many were omitted. Default is 50.
   Use NULL for all strata.
+
+- highlight_interactions:
+
+  Highlight the strata that carry a credibly non-zero intersectional
+  interaction (from
+  [`maihda_interactions`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md))
+  on the BLUP-based views (`"effect_decomp"`, `"predicted"`,
+  `"obs_vs_shrunken"`); other views ignore it. `FALSE` (default) off;
+  `TRUE` computes the flags with
+  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  defaults; or pass a `maihda_interactions` object to reuse a specific
+  `conf_level`/`adjust`. For the pure-interaction reading the model
+  should be the adjusted (or crossed-dimensions) model – e.g. via
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a
+  [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis, which routes these views to the adjusted model
+  automatically.
 
 - ...:
 

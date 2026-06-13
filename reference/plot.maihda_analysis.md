@@ -17,7 +17,7 @@ with a `group`.
 
 ``` r
 # S3 method for class 'maihda_analysis'
-plot(x, type = "all", ...)
+plot(x, type = "all", highlight_interactions = FALSE, ...)
 ```
 
 ## Arguments
@@ -35,6 +35,18 @@ plot(x, type = "all", ...)
   requires `maihda(context = )`), or a group type ("group_vpc",
   "group_components", "group_between_variance", "group_pcv"). Default
   "all".
+
+- highlight_interactions:
+
+  Highlight strata with a credibly non-zero intersectional interaction
+  on the BLUP-based views (see
+  [`maihda_interactions`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  and
+  [`plot`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)).
+  `FALSE` (default), `TRUE` (computed from this analysis's adjusted /
+  crossed-dimensions model), or a `maihda_interactions` object. The
+  flags are computed once from the correct (adjusted) model and reused
+  across views.
 
 - ...:
 

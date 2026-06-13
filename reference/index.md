@@ -24,10 +24,16 @@
   : Discriminatory accuracy of a binary MAIHDA model
 - [`maihda_health_data`](https://hdbt.github.io/MAIHDA/reference/maihda_health_data.md)
   : NHANES Health Data Subset for MAIHDA Use
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  : Information criteria for MAIHDA models
+- [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  : Flag strata with credibly non-zero intersectional interaction
 - [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
   : Median Odds Ratio (MOR) for a logistic MAIHDA model
 - [`maihda_sim_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.md)
   : Simulated Health Data for MAIHDA Use
+- [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
+  : Canonical MAIHDA results table and ranked-strata table
 - [`maihda_ternary_plot()`](https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.md)
   : Generate Ternary Plot from MAIHDA Model
 - [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
@@ -52,12 +58,20 @@
   : Print a MAIHDA Analysis
 - [`print(`*`<maihda_group_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_group_comparison.md)
   : Print method for MAIHDA group comparisons
+- [`print(`*`<maihda_ic>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_ic.md)
+  : Print MAIHDA information criteria
+- [`print(`*`<maihda_interactions>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_interactions.md)
+  : Print a MAIHDA interaction diagnostic
 - [`print(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_model.md)
   : Print method for maihda_model
+- [`print(`*`<maihda_stepwise>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_stepwise.md)
+  : Print a stepwise MAIHDA table
 - [`print(`*`<maihda_strata>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_strata.md)
   : Print method for maihda_strata objects
 - [`print(`*`<maihda_summary>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_summary.md)
   : Print method for maihda_summary objects
+- [`print(`*`<maihda_table>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_table.md)
+  : Print a MAIHDA results table
 - [`print(`*`<pvc_result>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.pvc_result.md)
   : Print method for PVC results
 - [`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md)
