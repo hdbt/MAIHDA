@@ -97,6 +97,17 @@ the null model and the additive-vs-intersectional views to the adjusted model). 
 intrinsically a decomposition and has no single-model mode -- use `fit_maihda()` for a
 single fit.
 
+### `maihda_table()`
+Assembles the two standard MAIHDA write-up deliverables from a fitted `maihda()` analysis (or a single `fit_maihda()` model) in one call: (a) a **model-results table** contrasting the null (Model 1) and adjusted (Model 2) fits — intercept, between-stratum variance and SD, VPC/ICC, the PCV, and (for a binary outcome) the AUC and Median Odds Ratio — and (b) a **ranked-strata table** ordering every stratum by its predicted outcome, with conditional intervals and the stratum random effect. The `$models` data frame is numeric and export-ready (`write.csv()` / `knitr::kable()`); `print()` renders the familiar "estimate [low, high]" layout plus the top/bottom strata. It adapts to every fit type (crossed-dimensions shares, contextual `Context share (VPC)`, ordinal thresholds) and engine (lme4/brms/WeMix/ordinal).
+
+```r
+analysis <- maihda(BMI ~ Age + Gender + Race + (1 | Gender:Race), data = maihda_health_data)
+tab <- maihda_table(analysis)
+tab          # printed: Model 1 vs Model 2 table + highest/lowest strata
+tab$models   # numeric, export-ready results table
+tab$strata   # all strata ranked by predicted BMI
+```
+
 ### `make_strata()`
 Creates intersectional strata from multiple categorical variables with optional minimum count filtering.
 
