@@ -33,8 +33,15 @@ updated.}
 default, the engine switches to "wemix" automatically (with a message).}
 
 \item{family}{Character string, family object, or family function specifying
-the model family. Common options: "gaussian", "binomial", "poisson".
-Default is "gaussian".
+the model family. Common options: "gaussian", "binomial", "poisson",
+"negbinomial". Default is "gaussian".
+\code{family = "negbinomial"} fits an overdispersed count model with the
+dispersion parameter theta \emph{estimated} from the data: lme4 via
+\code{lme4::glmer.nb()} and brms via its \code{shape} parameter (log link
+only; not supported by the wemix engine). A fixed-theta
+\code{MASS::negative.binomial(theta)} family object is also accepted with
+\code{engine = "lme4"} and is fitted with \code{glmer()}, honouring the
+supplied theta.
 If the outcome variable appears to be binary and the default family is used,
 the function will automatically switch to "binomial", recode two-level
 responses to 0/1 for \code{glmer()}, and issue a warning.
@@ -49,10 +56,11 @@ control which level is the event.
 Although any valid family object is accepted for fitting, the MAIHDA variance
 summaries (\code{\link{summary.maihda_model}}, VPC/ICC, PCV) are only defined
 for \code{gaussian("identity")}, the binomial/Bernoulli families with a logit
-or probit link, and \code{poisson("log")}. Other families (for example
-\code{Gamma(link = "log")}) will fit, but \code{summary()} and the VPC/PCV
-helpers will stop with an "not implemented" error because no level-1 variance
-is defined for them.}
+or probit link, \code{poisson("log")}, and the negative binomial with a log
+link (level-1 variance \code{log(1 + 1/mu + 1/theta)}; Nakagawa, Johnson &
+Schielzeth 2017). Other families (for example \code{Gamma(link = "log")})
+will fit, but \code{summary()} and the VPC/PCV helpers will stop with an
+"not implemented" error because no level-1 variance is defined for them.}
 
 \item{autobin}{Logical indicating whether numeric variables used only for
 automatic strata creation should be binned by \code{\link{make_strata}}.

@@ -66,11 +66,11 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     responses <- vapply(models, function(m) {
       paste(deparse(m$formula[[2]]), collapse = "")
     }, character(1))
-    fam_keys <- vapply(models, function(m) {
-      fam <- maihda_family(m$model)
-      paste0(if (!is.null(fam$family)) fam$family else NA_character_, "(",
-             if (!is.null(fam$link)) fam$link else NA_character_, ")")
-    }, character(1))
+    # Canonical "family(link)" keys; the helper falls back to the wrapper-recorded
+    # family for engines where stats::family() is undefined (previously a wemix
+    # model compared as "NA(NA)") and normalises engine-specific labels such as
+    # lme4's theta-embedding "Negative Binomial(<theta>)".
+    fam_keys <- vapply(models, maihda_model_family_key, character(1))
     nobs_vec <- vapply(models, function(m) {
       n <- maihda_nobs(m$model)
       if (is.finite(n)) as.integer(n) else NA_integer_

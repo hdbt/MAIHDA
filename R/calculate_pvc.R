@@ -37,6 +37,9 @@
 #' When bootstrap = TRUE, the function uses a parametric bootstrap: it simulates
 #' new responses from model2 and refits both models with \code{lme4::refit()} for
 #' each simulated response to obtain confidence intervals for the PVC estimate.
+#' For negative-binomial models (\code{glmer.nb}) \code{refit()} holds the
+#' dispersion parameter theta fixed at its original estimate, so the interval is
+#' conditional on the estimated theta.
 #'
 #' @examples
 #' \donttest{
@@ -172,24 +175,15 @@ validate_pvc_models <- function(model1, model2) {
          call. = FALSE)
   }
 
-  fam1 <- maihda_family(model1$model)
-  fam2 <- maihda_family(model2$model)
-  # stats::family() is undefined for WeMixResults; fall back to the family the
-  # wrapper recorded at fit time so the family/link guard still applies.
-  if (is.null(fam1) && is.list(model1$family)) fam1 <- model1$family
-  if (is.null(fam2) && is.list(model2$family)) fam2 <- model2$family
-  fam_key1 <- c(
-    family = if (!is.null(fam1$family)) fam1$family else NA_character_,
-    link = if (!is.null(fam1$link)) fam1$link else NA_character_
-  )
-  fam_key2 <- c(
-    family = if (!is.null(fam2$family)) fam2$family else NA_character_,
-    link = if (!is.null(fam2$link)) fam2$link else NA_character_
-  )
+  # Canonical "family(link)" keys (maihda_model_family_key falls back to the
+  # wrapper-recorded family for engines where stats::family() is undefined, and
+  # normalises labels so e.g. two glmer.nb fits with different estimated thetas
+  # -- reported as "Negative Binomial(<theta>)" -- still compare equal).
+  fam_key1 <- maihda_model_family_key(model1)
+  fam_key2 <- maihda_model_family_key(model2)
   if (!identical(fam_key1, fam_key2)) {
     stop("PVC requires both models to use the same model family and link. ",
-         "Model 1 uses ", fam_key1[["family"]], "(", fam_key1[["link"]], ") and ",
-         "Model 2 uses ", fam_key2[["family"]], "(", fam_key2[["link"]], ").",
+         "Model 1 uses ", fam_key1, " and Model 2 uses ", fam_key2, ".",
          call. = FALSE)
   }
 

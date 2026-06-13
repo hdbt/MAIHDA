@@ -264,16 +264,19 @@ print.maihda_da <- function(x, ...) {
 
 # ---- internal helpers -------------------------------------------------------
 
-# Resolve the family name ("binomial"/"gaussian"/"poisson") of a maihda_model,
-# tolerating either a stored family object/string or falling back to the fitted
-# model's family.
+# Resolve the family name ("binomial"/"gaussian"/"poisson"/...) of a
+# maihda_model, tolerating either a stored family object/string or falling back
+# to the fitted model's family. Every path is canonicalised via
+# maihda_normalize_family_name() so engine-specific labels (e.g. a fixed-theta
+# MASS::negative.binomial(2) family object stored as "Negative Binomial(2)")
+# compare against fixed names.
 maihda_model_family_name <- function(model) {
   fam <- model$family
   if (is.list(fam) && !is.null(fam$family)) {
-    return(fam$family)
+    return(maihda_normalize_family_name(fam$family))
   }
   if (is.character(fam) && length(fam) == 1) {
-    return(fam)
+    return(maihda_normalize_family_name(fam))
   }
   ff <- tryCatch(maihda_family(model$model), error = function(e) NULL)
   if (!is.null(ff) && !is.null(ff$family)) {
