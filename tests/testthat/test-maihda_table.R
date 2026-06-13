@@ -146,3 +146,121 @@ test_that("print.maihda_table() runs and shows both tables", {
 test_that("maihda_table() errors on an unsupported input", {
   expect_error(maihda_table(list(a = 1)), "maihda_analysis|maihda_model")
 })
+
+test_that("maihda_table() reports the context share for a contextual fit", {
+  d <- make_table_data(7009)
+  a <- suppressWarnings(suppressMessages(
+    maihda(y ~ age + (1 | gender:race), data = d, context = "country")))
+
+  tab <- maihda_table(a, n_strata = 50)   # 50 > #strata: exercise the full-list print
+  expect_true("Context share (VPC)" %in% tab$models$statistic)
+  ctx_row <- tab$models[tab$models$statistic == "Context share (VPC)", ]
+  expect_equal(ctx_row$null, a$summary$context$vpc_context_total, tolerance = 1e-10)
+
+  # The between-stratum variance comes from the contextual partition's stratum term.
+  bv <- tab$models[tab$models$statistic == "Between-stratum variance", "null"]
+  expect_equal(bv, a$summary$context$var_stratum, tolerance = 1e-10)
+
+  out <- capture.output(print(tab))
+  expect_true(any(grepl("Context: country", out, fixed = TRUE)))
+})
+
+test_that("maihda_extract_intercept handles every fixed-effects shape", {
+  # brms-style matrix with an Intercept row + Estimate column.
+  m <- matrix(c(1.5, 0.2, 1.1, 1.9), nrow = 1,
+              dimnames = list("Intercept", c("Estimate", "Est.Error", "Q2.5", "Q97.5")))
+  expect_equal(maihda_extract_intercept(list(fixed_effects = m)),
+               c(1.5, NA_real_, NA_real_))
+
+  # Matrix without an intercept row -> NA triple.
+  m2 <- matrix(c(0.3), nrow = 1, dimnames = list("age", "Estimate"))
+  expect_true(all(is.na(maihda_extract_intercept(list(fixed_effects = m2)))))
+
+  # NULL fixed effects -> NA triple.
+  expect_true(all(is.na(maihda_extract_intercept(list(fixed_effects = NULL)))))
+
+  # Data frame without term/estimate columns (e.g. a degenerate summary) -> NA.
+  expect_true(all(is.na(
+    maihda_extract_intercept(list(fixed_effects = data.frame(x = 1))))))
+
+  # Data frame with terms but no intercept (the ordinal/threshold case) -> NA.
+  fe <- data.frame(term = c("age", "genderM"), estimate = c(0.3, -0.2))
+  expect_true(all(is.na(maihda_extract_intercept(list(fixed_effects = fe)))))
+})
+
+test_that("maihda_build_results_table fills statistics absent from one model", {
+  # The adjusted model lacks AUC the null has -> the missing cell becomes NA.
+  ms <- list(
+    null = list("VPC/ICC" = c(0.10, NA, NA), "AUC" = c(0.62, NA, NA)),
+    adjusted = list("VPC/ICC" = c(0.05, NA, NA))
+  )
+  df <- maihda_build_results_table(ms, pcv = NULL)
+  auc <- df[df$statistic == "AUC", ]
+  expect_equal(auc$null, 0.62)
+  expect_true(is.na(auc$adjusted))
+})
+
+# Mocking internal bindings needs the dev package loaded as a namespace (it is
+# under R CMD check / load_all; under covr::file_coverage's bare sourcing the only
+# MAIHDA namespace is the installed copy, which may predate these internals). Gate
+# on a current internal binding actually being present in the namespace.
+maihda_ns_loaded <- function() {
+  isTRUE(tryCatch(
+    exists("maihda_stratum_predictions_wemix", envir = asNamespace("MAIHDA"),
+           inherits = FALSE),
+    error = function(e) FALSE))
+}
+
+test_that("maihda_strata_ranking dispatches per engine and validates input", {
+  skip_if_not(maihda_ns_loaded(), "MAIHDA namespace not loaded")
+  fake_pred <- function(object, summary_obj, scale) {
+    data.frame(stratum = c("a", "b"), predicted_row = c(2, 1),
+               lower_row = c(1.5, 0.5), upper_row = c(2.5, 1.5),
+               n = c(10L, 12L), stringsAsFactors = FALSE)
+  }
+  se <- data.frame(stratum = c("a", "b"), label = c("A", "B"),
+                   random_effect = c(0.5, -0.5), lower_95 = c(0.1, -0.9),
+                   upper_95 = c(0.9, -0.1), stringsAsFactors = FALSE)
+  so <- list(stratum_estimates = se)
+
+  testthat::local_mocked_bindings(
+    maihda_stratum_predictions_brms = fake_pred,
+    maihda_stratum_predictions_wemix = fake_pred,
+    maihda_stratum_predictions_ordinal = fake_pred,
+    .package = "MAIHDA"
+  )
+  for (eng in c("brms", "wemix", "ordinal")) {
+    r <- maihda_strata_ranking(list(engine = eng), so, scale = "response")
+    expect_equal(r$rank, c(1L, 2L))
+    expect_equal(r$stratum[1], "a")   # predicted 2 ranks above 1
+  }
+
+  # Unknown engine -> the switch's stop().
+  expect_error(maihda_strata_ranking(list(engine = "nope"), so),
+               "Unsupported engine")
+})
+
+test_that("maihda_strata_ranking errors when there are no stratum estimates", {
+  skip_if_not(maihda_ns_loaded(), "MAIHDA namespace not loaded")
+  fake_pred <- function(object, summary_obj, scale) {
+    data.frame(stratum = "a", predicted_row = 1, lower_row = 0, upper_row = 2, n = 1L)
+  }
+  testthat::local_mocked_bindings(maihda_stratum_predictions_lme4 = fake_pred,
+                                  .package = "MAIHDA")
+  expect_error(
+    maihda_strata_ranking(list(engine = "lme4"), list(stratum_estimates = NULL)),
+    "No stratum estimates")
+})
+
+test_that("maihda_table() degrades gracefully when strata ranking fails", {
+  skip_if_not(maihda_ns_loaded(), "MAIHDA namespace not loaded")
+  d <- make_table_data(7010)
+  m <- suppressMessages(fit_maihda(y ~ age + (1 | gender:race), data = d))
+
+  testthat::local_mocked_bindings(maihda_strata_ranking = function(...) stop("boom"),
+                                  .package = "MAIHDA")
+  tab <- maihda_table(m)
+  expect_null(tab$strata)
+  # The strata count still falls back to the summary's stratum estimates.
+  expect_equal(tab$n_strata_total, nrow(summary(m)$stratum_estimates))
+})
