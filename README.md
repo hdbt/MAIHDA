@@ -97,6 +97,17 @@ the null model and the additive-vs-intersectional views to the adjusted model). 
 intrinsically a decomposition and has no single-model mode -- use `fit_maihda()` for a
 single fit.
 
+### `maihda_table()`
+Assembles the two standard MAIHDA write-up deliverables from a fitted `maihda()` analysis (or a single `fit_maihda()` model) in one call: (a) a **model-results table** contrasting the null (Model 1) and adjusted (Model 2) fits — intercept, between-stratum variance and SD, VPC/ICC, the PCV, and (for a binary outcome) the AUC and Median Odds Ratio — and (b) a **ranked-strata table** ordering every stratum by its predicted outcome, with conditional intervals and the stratum random effect. The `$models` data frame is numeric and export-ready (`write.csv()` / `knitr::kable()`); `print()` renders the familiar "estimate [low, high]" layout plus the top/bottom strata. It adapts to every fit type (crossed-dimensions shares, contextual `Context share (VPC)`, ordinal thresholds) and engine (lme4/brms/WeMix/ordinal).
+
+```r
+analysis <- maihda(BMI ~ Age + Gender + Race + (1 | Gender:Race), data = maihda_health_data)
+tab <- maihda_table(analysis)
+tab          # printed: Model 1 vs Model 2 table + highest/lowest strata
+tab$models   # numeric, export-ready results table
+tab$strata   # all strata ranked by predicted BMI
+```
+
 ### `make_strata()`
 Creates intersectional strata from multiple categorical variables with optional minimum count filtering.
 
@@ -155,7 +166,10 @@ Generates a ternary diagnostic plot. For each stratum it normalizes three magnit
 Creates an advanced, publication-ready two-panel dashboard for visualizing predicted values and highlighting the most notable cases or strata. What counts as notable depends on the model type — the largest deviation from the mean prediction (Gaussian/Poisson), the largest absolute deviance residual (binomial), or the most surprising observation (ordinal) — and the labelled points are not regression-diagnostic outliers.
 
 ### `compare_maihda()`
-Compares VPC/ICC across multiple models with optional bootstrap confidence intervals.
+Compares VPC/ICC across multiple models with optional bootstrap confidence intervals, and (by default, `ic = TRUE`) appends relative-fit information criteria — AIC/BIC for the likelihood engines, WAIC/LOOIC for brms — for comparing model structures.
+
+### `maihda_ic()`
+Reports the relative-fit information criteria for one or more models (or a `maihda()` analysis, expanded into its null and adjusted models) to help choose between model *structures* — a question the VPC/PCV do not address. AIC/BIC for the likelihood engines (lme4, ordinal) and the Bayesian WAIC/LOOIC for brms, with a `delta` column from the best model. REML `lmer` fits are refitted with ML so AIC/BIC are comparable across models with different fixed effects (the null-vs-adjusted case).
 
 ### `compare_maihda_groups()`
 Compares intersectional inequality (VPC/ICC and between-/within-stratum variance) across the levels of a higher-level grouping variable such as country, region, or survey wave, fitting a stratified MAIHDA model per group. Visualize with `plot(result, type = "vpc")`. The bundled `maihda_country_data` (OECD PISA 2018; gender × socioeconomic-status strata across six countries) is built to demonstrate this.
@@ -168,7 +182,7 @@ Calculates the proportional change in between-stratum variance (PCV) between two
 - Supports bootstrap confidence intervals for lme4 models
 
 ### `stepwise_pcv()`
-Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step's PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model, so it is order-dependent rather than an order-invariant "unique" contribution.
+Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step's PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model, so it is order-dependent rather than an order-invariant "unique" contribution. For a binary outcome it also reports the discriminatory-accuracy trajectory (`AUC`, the step/total change in AUC, and `MOR`) alongside the PCV, so the strata's discriminatory accuracy can be tracked as covariates are added.
 
 ### `run_maihda_app()`
 Launches a locally-hosted, interactive Shiny Dashboard that exposes the core functionalities for data modeling, visualization, and summarization visually.

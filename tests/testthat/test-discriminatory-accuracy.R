@@ -290,3 +290,55 @@ test_that("maihda() headline DA shows MOR = NA for a non-logit (probit) binomial
   # The headline print renders the NA MOR via the fmt() NA branch.
   expect_output(print(a), "MOR: NA")
 })
+
+# Binary stepwise data with a real between-stratum signal (and a gender main effect so
+# adding it actually moves the discriminatory accuracy), exposing the data frame.
+maihda_da_stepwise_data <- function(seed = 321, n = 900) {
+  set.seed(seed)
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  lp <- stats::rnorm(nlevels(sk), sd = 0.8)[sk] + 0.6 * (d$gender == "M")
+  d$y <- stats::rbinom(n, 1, stats::plogis(lp))
+  strata <- make_strata(d, vars = c("gender", "race"))
+  d$stratum <- strata$data$stratum
+  d
+}
+
+test_that("stepwise_pcv carries the DA trajectory for a binary outcome", {
+  d <- maihda_da_stepwise_data()
+  out <- suppressWarnings(suppressMessages(
+    stepwise_pcv(d, "y", c("gender", "race"), family = "binomial")
+  ))
+
+  expect_s3_class(out, "maihda_stepwise")
+  expect_true(all(c("AUC", "Step_AUC", "Total_AUC", "MOR") %in% names(out)))
+  expect_equal(nrow(out), 3L)  # null + 2 steps
+
+  # AUC at each step equals maihda_discriminatory_accuracy() on the same fit, on the
+  # same (here complete) analytic sample -- no extra fits, just read off each step.
+  null_mod <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ 1 + (1 | stratum), data = d, family = "binomial")))
+  m1 <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ gender + (1 | stratum), data = d, family = "binomial")))
+  m2 <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ gender + race + (1 | stratum), data = d, family = "binomial")))
+  expect_equal(out$AUC[1], maihda_discriminatory_accuracy(null_mod)$auc)
+  expect_equal(out$AUC[2], maihda_discriminatory_accuracy(m1)$auc)
+  expect_equal(out$AUC[3], maihda_discriminatory_accuracy(m2)$auc)
+
+  # Step_AUC / Total_AUC are ABSOLUTE deltas; the null row anchors both at 0.
+  expect_equal(out$Step_AUC, c(0, diff(out$AUC)))
+  expect_equal(out$Total_AUC, out$AUC - out$AUC[1])
+  expect_equal(out$Step_AUC[1], 0)
+  expect_equal(out$Total_AUC[1], 0)
+
+  # MOR per step is exp(sqrt(2 * V_A) * qnorm(0.75)) on the between-stratum variance
+  # already in the Variance column (logit link).
+  expect_equal(out$MOR, exp(sqrt(2 * out$Variance) * stats::qnorm(0.75)))
+
+  # print() surfaces the proportional-PCV vs absolute-delta-AUC legend.
+  expect_output(print(out), "absolute changes in AUC")
+})

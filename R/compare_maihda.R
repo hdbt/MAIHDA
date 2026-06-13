@@ -13,10 +13,18 @@
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
 #' @param conf_level Confidence level for the VPC interval (lme4 bootstrap CI or
 #'   brms credible interval). Default is 0.95.
+#' @param ic Logical; append relative-fit information criteria to the table for
+#'   comparing model \emph{structures}: \code{AIC}/\code{BIC} for the likelihood
+#'   engines (lme4, ordinal) and \code{WAIC}/\code{LOOIC} for brms (see
+#'   \code{\link{maihda_ic}}). Default TRUE. REML \code{lmer} fits are refitted with
+#'   ML so AIC/BIC are comparable across different fixed effects. Set FALSE for the
+#'   lean VPC-only table.
 #'
 #' @return A \code{maihda_comparison} data frame of VPC/ICC by model. Interval
 #'   columns (\code{ci_lower}/\code{ci_upper}) are included when any model supplies
-#'   an interval -- an lme4 bootstrap CI or a brms posterior credible interval.
+#'   an interval -- an lme4 bootstrap CI or a brms posterior credible interval. When
+#'   \code{ic = TRUE}, information-criteria columns (\code{AIC}/\code{BIC} or
+#'   \code{WAIC}/\code{LOOIC}, whichever apply) are appended.
 #'
 #' @details
 #' VPCs are only directly comparable when the models share an outcome,
@@ -24,7 +32,8 @@
 #' (e.g. null vs covariate-adjusted) on the \emph{same} data and strata, to show
 #' how the VPC attenuates. If the supplied models differ in any of these,
 #' \code{compare_maihda()} still returns the table but issues a single warning,
-#' because the VPCs are then not directly comparable.
+#' because the VPCs are then not directly comparable. The same comparability caveat
+#' applies to the appended information criteria (see \code{\link{maihda_ic}}).
 #'
 #' @examples
 #' \donttest{
@@ -46,7 +55,7 @@
 #'
 #' @export
 compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
-                          n_boot = 1000, conf_level = 0.95) {
+                          n_boot = 1000, conf_level = 0.95, ic = TRUE) {
   models <- list(...)
 
   # Validate inputs
@@ -194,6 +203,30 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     comparison_df$ci_lower <- NULL
     comparison_df$ci_upper <- NULL
   }
+
+  # Append relative-fit information criteria (AIC/BIC for the likelihood engines,
+  # WAIC/LOOIC for brms) for comparing model structures. ml = TRUE refits any REML
+  # lmer fit with ML so AIC/BIC are comparable across different fixed effects. The
+  # whole block is guarded so an IC failure on an exotic fit never breaks the VPC
+  # comparison, and only the populated criterion columns are appended.
+  if (!is.logical(ic) || length(ic) != 1 || is.na(ic)) {
+    stop("'ic' must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (isTRUE(ic)) {
+    ic_cols <- tryCatch({
+      ic_rows <- lapply(models, function(m) maihda_ic_one(m, ml = TRUE))
+      ic_df <- do.call(rbind, ic_rows)
+      ic_df[, c("AIC", "BIC", "WAIC", "LOOIC"), drop = FALSE]
+    }, error = function(e) NULL)
+    if (!is.null(ic_cols)) {
+      ic_cols <- ic_cols[, vapply(ic_cols, function(col) !all(is.na(col)),
+                                  logical(1)), drop = FALSE]
+      if (ncol(ic_cols) > 0) {
+        comparison_df <- cbind(comparison_df, ic_cols, stringsAsFactors = FALSE)
+      }
+    }
+  }
+
   # Class the result so plot() dispatches to plot.maihda_comparison(). It remains
   # a data.frame, so existing column access and printing are unaffected.
   class(comparison_df) <- c("maihda_comparison", "data.frame")

@@ -243,6 +243,23 @@ test_that("stepwise_pcv quotes non-syntactic variable names", {
   expect_equal(out$Added_Variable[2], "age years")
 })
 
+test_that("stepwise_pcv adds no discriminatory-accuracy columns for a non-binary outcome", {
+  # Backward-compat guarantee: a gaussian stepwise table is exactly the historical
+  # six columns -- the AUC/MOR trajectory appears only for a binary outcome.
+  set.seed(2024)
+  d <- data.frame(
+    stratum = factor(rep(seq_len(6), each = 20)),
+    x = rnorm(120)
+  )
+  d$y <- 1 + d$x + rnorm(6, sd = 0.8)[d$stratum] + rnorm(120, sd = 0.3)
+
+  out <- stepwise_pcv(d, "y", "x")
+  expect_identical(
+    names(out),
+    c("Step", "Model", "Added_Variable", "Variance", "Step_PCV", "Total_PCV")
+  )
+})
+
 test_that("stepwise_pcv uses one complete analytic sample across steps", {
   set.seed(1016)
   d <- data.frame(

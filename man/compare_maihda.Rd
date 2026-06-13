@@ -9,7 +9,8 @@ compare_maihda(
   model_names = NULL,
   bootstrap = FALSE,
   n_boot = 1000,
-  conf_level = 0.95
+  conf_level = 0.95,
+  ic = TRUE
 )
 }
 \arguments{
@@ -27,11 +28,20 @@ regardless.}
 
 \item{conf_level}{Confidence level for the VPC interval (lme4 bootstrap CI or
 brms credible interval). Default is 0.95.}
+
+\item{ic}{Logical; append relative-fit information criteria to the table for
+comparing model \emph{structures}: \code{AIC}/\code{BIC} for the likelihood
+engines (lme4, ordinal) and \code{WAIC}/\code{LOOIC} for brms (see
+\code{\link{maihda_ic}}). Default TRUE. REML \code{lmer} fits are refitted with
+ML so AIC/BIC are comparable across different fixed effects. Set FALSE for the
+lean VPC-only table.}
 }
 \value{
 A \code{maihda_comparison} data frame of VPC/ICC by model. Interval
   columns (\code{ci_lower}/\code{ci_upper}) are included when any model supplies
-  an interval -- an lme4 bootstrap CI or a brms posterior credible interval.
+  an interval -- an lme4 bootstrap CI or a brms posterior credible interval. When
+  \code{ic = TRUE}, information-criteria columns (\code{AIC}/\code{BIC} or
+  \code{WAIC}/\code{LOOIC}, whichever apply) are appended.
 }
 \description{
 Compares variance partition coefficients (VPC/ICC) across multiple MAIHDA models,
@@ -43,7 +53,8 @@ family/link, analytic sample, and strata -- the canonical use is nested models
 (e.g. null vs covariate-adjusted) on the \emph{same} data and strata, to show
 how the VPC attenuates. If the supplied models differ in any of these,
 \code{compare_maihda()} still returns the table but issues a single warning,
-because the VPCs are then not directly comparable.
+because the VPCs are then not directly comparable. The same comparability caveat
+applies to the appended information criteria (see \code{\link{maihda_ic}}).
 }
 \examples{
 \donttest{

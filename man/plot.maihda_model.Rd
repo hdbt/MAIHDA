@@ -10,6 +10,7 @@
     "effect_decomp", "ternary", "prediction_deviation", "context_vpc"),
   summary_obj = NULL,
   n_strata = 50,
+  highlight_interactions = FALSE,
   ...
 )
 }
@@ -41,6 +42,17 @@ If NULL, will be computed.}
 When there are more strata than this, the first \code{n_strata} (in stratum
 order) are shown and the plot caption notes how many were omitted. Default
 is 50. Use NULL for all strata.}
+
+\item{highlight_interactions}{Highlight the strata that carry a credibly
+non-zero intersectional interaction (from \code{\link{maihda_interactions}})
+on the BLUP-based views (\code{"effect_decomp"}, \code{"predicted"},
+\code{"obs_vs_shrunken"}); other views ignore it. \code{FALSE} (default) off;
+\code{TRUE} computes the flags with \code{maihda_interactions()} defaults; or
+pass a \code{maihda_interactions} object to reuse a specific
+\code{conf_level}/\code{adjust}. For the pure-interaction reading the model
+should be the adjusted (or crossed-dimensions) model -- e.g. via
+\code{plot()} on a \code{\link{maihda}} analysis, which routes these views to
+the adjusted model automatically.}
 
 \item{...}{Additional arguments (not currently used).}
 }

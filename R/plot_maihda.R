@@ -28,6 +28,16 @@
 #'   When there are more strata than this, the first \code{n_strata} (in stratum
 #'   order) are shown and the plot caption notes how many were omitted. Default
 #'   is 50. Use NULL for all strata.
+#' @param highlight_interactions Highlight the strata that carry a credibly
+#'   non-zero intersectional interaction (from \code{\link{maihda_interactions}})
+#'   on the BLUP-based views (\code{"effect_decomp"}, \code{"predicted"},
+#'   \code{"obs_vs_shrunken"}); other views ignore it. \code{FALSE} (default) off;
+#'   \code{TRUE} computes the flags with \code{maihda_interactions()} defaults; or
+#'   pass a \code{maihda_interactions} object to reuse a specific
+#'   \code{conf_level}/\code{adjust}. For the pure-interaction reading the model
+#'   should be the adjusted (or crossed-dimensions) model -- e.g. via
+#'   \code{plot()} on a \code{\link{maihda}} analysis, which routes these views to
+#'   the adjusted model automatically.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return A ggplot2 object, or a list of ggplot2 objects if type = "all".
@@ -48,7 +58,7 @@
 #' @import ggplot2
 #' @importFrom dplyr arrange
 plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation", "context_vpc"),
-                       summary_obj = NULL, n_strata = 50, ...) {
+                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, ...) {
   if (!inherits(x, "maihda_model")) {
     stop("'x' must be a maihda_model object from fit_maihda()")
   }
@@ -67,6 +77,11 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     summary_obj <- summary(object)
   }
 
+  # Resolve the set of strata to highlight as carrying a credibly non-zero
+  # intersectional interaction (NULL = no highlight). The BLUP-based views
+  # (effect_decomp / predicted / obs_vs_shrunken) mark them; other views ignore it.
+  highlight_ids <- maihda_resolve_highlight(object, highlight_interactions)
+
   if (type == "all") {
     plots <- list()
 
@@ -74,15 +89,15 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
 
     # Try obs_vs_shrunken
     if ("stratum" %in% names(object$data)) {
-      plots$obs_vs_shrunken <- tryCatch(plot_obs_vs_shrunken(object, summary_obj), error = function(e) NULL)
+      plots$obs_vs_shrunken <- tryCatch(plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids), error = function(e) NULL)
     }
 
-    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata), error = function(e) NULL)
+    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids), error = function(e) NULL)
 
     top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
     plots$risk_vs_effect <- tryCatch(plot_risk_vs_effect(object, summary_obj, top_n_labels), error = function(e) NULL)
 
-    plots$effect_decomp <- tryCatch(plot_effect_decomposition(object, summary_obj, top_n_labels), error = function(e) NULL)
+    plots$effect_decomp <- tryCatch(plot_effect_decomposition(object, summary_obj, top_n_labels, highlight = highlight_ids), error = function(e) NULL)
 
     ternary_out <- tryCatch(maihda_ternary_plot(object)$plot, error = function(e) NULL)
     if (!is.null(ternary_out)) plots$ternary <- ternary_out
@@ -102,15 +117,15 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     } else if (type == "context_vpc") {
       plot <- plot_context_vpc(summary_obj)
     } else if (type == "obs_vs_shrunken") {
-      plot <- plot_obs_vs_shrunken(object, summary_obj)
+      plot <- plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids)
     } else if (type == "predicted") {
-      plot <- plot_predicted_strata(object, summary_obj, n_strata)
+      plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids)
     } else if (type == "risk_vs_effect") {
       top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
       plot <- plot_risk_vs_effect(object, summary_obj, top_n_labels)
     } else if (type == "effect_decomp") {
       top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
-      plot <- plot_effect_decomposition(object, summary_obj, top_n_labels)
+      plot <- plot_effect_decomposition(object, summary_obj, top_n_labels, highlight = highlight_ids)
     } else if (type == "ternary") {
       plot <- maihda_ternary_plot(object)$plot
     } else if (type == "prediction_deviation") {
@@ -119,6 +134,31 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
 
     return(plot)
   }
+}
+
+# Resolve the `highlight_interactions` plot argument to a character vector of
+# flagged stratum ids (or NULL = no highlight). Accepts FALSE/NULL (off), TRUE
+# (compute flags with maihda_interactions() defaults), or a precomputed
+# maihda_interactions object (so callers can set conf_level/adjust once and reuse).
+maihda_resolve_highlight <- function(model, highlight_interactions) {
+  if (is.null(highlight_interactions) || isFALSE(highlight_interactions)) {
+    return(NULL)
+  }
+  flags <- if (inherits(highlight_interactions, "maihda_interactions")) {
+    highlight_interactions
+  } else if (isTRUE(highlight_interactions)) {
+    maihda_interactions(model)
+  } else {
+    stop("'highlight_interactions' must be FALSE, TRUE, or a maihda_interactions ",
+         "object from maihda_interactions().", call. = FALSE)
+  }
+  as.character(flags$stratum[flags$flagged %in% TRUE])
+}
+
+# Append a star to the strata flagged for highlighting, for use in plot labels.
+maihda_highlight_label <- function(label, stratum, highlight) {
+  flagged <- as.character(stratum) %in% highlight
+  ifelse(flagged, paste0(label, " *"), as.character(label))
 }
 
 #' VPC Visualization Plot
@@ -300,7 +340,7 @@ plot_context_vpc <- function(summary_obj) {
 #' @import ggplot2
 #' @importFrom dplyr group_by summarise
 #' @importFrom stats formula terms
-plot_obs_vs_shrunken <- function(object, summary_obj) {
+plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
   data <- object$data
 
   observed_response <- maihda_observed_response_from_model_frame(data, object$formula)
@@ -353,6 +393,7 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
     plot_data <- merge(obs_means, stratum_est, by = "stratum")
     pred_idx <- match(as.character(plot_data$stratum), as.character(pred_data$stratum))
     plot_data$shrunken <- pred_data$predicted_row[pred_idx]
+    plot_data$.maihda_flag <- as.character(plot_data$stratum) %in% highlight
 
     # The y-axis (model estimate) includes the fixed effects, so for an adjusted
     # model the vertical gap from the diagonal mixes shrinkage with covariate
@@ -368,6 +409,11 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
     } else {
       paste("Null model: vertical distance from the diagonal is shrinkage of the",
             "stratum mean toward the grand mean.")
+    }
+    if (any(plot_data$.maihda_flag)) {
+      interpretation_caption <- paste0(
+        interpretation_caption,
+        "\nHighlighted (orange ring): interaction credibly != 0.")
     }
 
     # Create plot
@@ -386,6 +432,15 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
         plot.title = element_text(hjust = 0.5, face = "bold"),
         legend.position = "right"
       )
+
+    # Ring the flagged strata.
+    if (any(plot_data$.maihda_flag)) {
+      p <- p + geom_point(
+        data = plot_data[plot_data$.maihda_flag, , drop = FALSE],
+        aes(x = .data$observed, y = .data$shrunken),
+        shape = 1, size = 5, stroke = 1.1, color = "#D55E00"
+      )
+    }
 
     return(p)
   } else {
@@ -508,7 +563,7 @@ maihda_observed_outcome_for_plot <- function(x, family = NULL) {
 #' @keywords internal
 #' @import ggplot2
 #' @importFrom dplyr arrange slice
-plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link")) {
+plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL) {
   scale <- match.arg(scale)
 
   pred_data <- if (object$engine == "lme4") {
@@ -560,8 +615,22 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
     stratum_est$display_label <- stratum_est$stratum
   }
 
+  # Mark strata flagged as carrying a credibly non-zero interaction; star their
+  # axis labels so the highlight survives in the (possibly truncated) view.
+  stratum_est$.maihda_flag <- as.character(stratum_est$stratum) %in% highlight
+  if (any(stratum_est$.maihda_flag)) {
+    stratum_est$display_label <- maihda_highlight_label(
+      stratum_est$display_label, stratum_est$stratum, highlight)
+  }
+
   # Create factor to preserve order for plotting
   stratum_est$display_label <- factor(stratum_est$display_label, levels = stratum_est$display_label)
+
+  highlight_note <- if (any(stratum_est$.maihda_flag)) {
+    "\nHighlighted (orange ring, *): interaction credibly != 0."
+  } else {
+    ""
+  }
 
   # Create plot
   p <- ggplot(stratum_est, aes(x = .data$display_label, y = .data$predicted)) +
@@ -581,7 +650,8 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
                   n_strata, n_total_strata, n_strata)
         } else {
           ""
-        }
+        },
+        highlight_note
       )
     ) +
     theme_minimal() +
@@ -591,6 +661,15 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
       panel.grid.minor = element_blank(),
       axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
     )
+
+  # Ring the flagged strata.
+  if (any(stratum_est$.maihda_flag)) {
+    p <- p + geom_point(
+      data = stratum_est[stratum_est$.maihda_flag, , drop = FALSE],
+      aes(x = .data$display_label, y = .data$predicted),
+      shape = 1, size = 5, stroke = 1.1, color = "#D55E00"
+    )
+  }
 
   return(p)
 }
@@ -791,7 +870,7 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
 #' @importFrom dplyr group_by summarise n arrange desc mutate row_number
 #' @importFrom utils head
 #' @importFrom stats predict setNames fitted
-plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
+plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, highlight = NULL) {
   data <- object$data
 
   if (!"stratum" %in% names(data)) {
@@ -890,6 +969,9 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     dplyr::arrange(.data$total_dev) |>
     dplyr::mutate(rank = dplyr::row_number())
 
+  # Mark strata flagged as carrying a credibly non-zero interaction.
+  stratum_means$.maihda_flag <- as.character(stratum_means$stratum) %in% highlight
+
   additive_label <- if (cc_mode) "Additive (dimension random effects)" else "Fixed-effect component"
   interaction_label <- if (cc_mode) "Intersectional interaction" else "Stratum random-effect component"
 
@@ -918,10 +1000,17 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
   # Set component ordering so Additive is handled first
   seg_data$Component <- factor(seg_data$Component, levels = c(additive_label, interaction_label))
 
-  # Label the most extreme overall cases
+  # Label the most extreme overall cases, plus any flagged-interaction strata, and
+  # star the flagged ones.
   label_data <- stratum_means |>
     dplyr::arrange(dplyr::desc(.data$abs_total_dev)) |>
     utils::head(top_n_labels)
+  if (any(stratum_means$.maihda_flag)) {
+    label_data <- dplyr::distinct(dplyr::bind_rows(
+      label_data, stratum_means[stratum_means$.maihda_flag, , drop = FALSE]))
+    label_data$label <- maihda_highlight_label(
+      label_data$label, label_data$stratum, highlight)
+  }
 
   seg_colors <- stats::setNames(c("gray60", "#D55E00"), c(additive_label, interaction_label))
   plot_subtitle <- if (cc_mode) {
@@ -943,6 +1032,10 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
     "Deviation Decomposition: Additive vs. Interaction (crossed-dimensions)"
   } else {
     "Deviation Decomposition: Fixed vs. Stratum-Random Components"
+  }
+  if (any(stratum_means$.maihda_flag)) {
+    plot_subtitle <- paste0(plot_subtitle,
+      "\nHighlighted (orange ring, *): interaction credibly != 0.")
   }
 
   p <- ggplot2::ggplot() +
@@ -967,6 +1060,14 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
       plot.subtitle = ggplot2::element_text(hjust = 0.5, face = "italic", size = 9),
       legend.position = "bottom"
     )
+
+  # Ring the flagged strata at their total deviation.
+  if (any(stratum_means$.maihda_flag)) {
+    p <- p + ggplot2::geom_point(
+      data = stratum_means[stratum_means$.maihda_flag, , drop = FALSE],
+      ggplot2::aes(x = .data$rank, y = .data$total_dev),
+      shape = 1, size = 4, stroke = 1.1, color = "#D55E00")
+  }
 
   return(p)
 }
