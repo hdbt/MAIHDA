@@ -182,7 +182,7 @@ Calculates the proportional change in between-stratum variance (PCV) between two
 - Supports bootstrap confidence intervals for lme4 models
 
 ### `stepwise_pcv()`
-Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step's PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model, so it is order-dependent rather than an order-invariant "unique" contribution.
+Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step's PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model, so it is order-dependent rather than an order-invariant "unique" contribution. For a binary outcome it also reports the discriminatory-accuracy trajectory (`AUC`, the step/total change in AUC, and `MOR`) alongside the PCV, so the strata's discriminatory accuracy can be tracked as covariates are added.
 
 ### `run_maihda_app()`
 Launches a locally-hosted, interactive Shiny Dashboard that exposes the core functionalities for data modeling, visualization, and summarization visually.

@@ -689,10 +689,16 @@ summary.maihda_analysis <- function(object, ...) {
 #'   contextual type ("context_vpc", a stratum-vs-context variance bar; requires
 #'   \code{maihda(context = )}), or a group type ("group_vpc", "group_components",
 #'   "group_between_variance", "group_pcv"). Default "all".
+#' @param highlight_interactions Highlight strata with a credibly non-zero
+#'   intersectional interaction on the BLUP-based views (see
+#'   \code{\link{maihda_interactions}} and \code{\link[=plot.maihda_model]{plot}}).
+#'   \code{FALSE} (default), \code{TRUE} (computed from this analysis's adjusted /
+#'   crossed-dimensions model), or a \code{maihda_interactions} object. The flags
+#'   are computed once from the correct (adjusted) model and reused across views.
 #' @param ... Additional arguments passed to the underlying plot method.
 #' @return A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
 #' @export
-plot.maihda_analysis <- function(x, type = "all", ...) {
+plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE, ...) {
   type <- match.arg(type, c(
     "all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
     "effect_decomp", "ternary", "prediction_deviation", "context_vpc",
@@ -727,13 +733,22 @@ plot.maihda_analysis <- function(x, type = "all", ...) {
   adj_model <- if (!is.null(x$model_adjusted)) x$model_adjusted else x$model
   adj_summary <- if (!is.null(x$model_adjusted)) x$summary_adjusted else x$summary
 
+  # Resolve the interaction highlight ONCE, from the analysis (so it reads the
+  # adjusted / crossed-dimensions model and never trips the null-model guardrail),
+  # then forward the resolved maihda_interactions object to every model view -- the
+  # null-model shrinkage views included -- so the same flagged strata are marked
+  # everywhere without recomputation.
+  hl <- maihda_resolve_analysis_highlight(x, highlight_interactions)
+
   if (type == "all") {
     null_plots <- list(vpc = plot(x$model, type = "vpc", summary_obj = x$summary, ...))
     null_plots$obs_vs_shrunken <- tryCatch(
-      plot(x$model, type = "obs_vs_shrunken", summary_obj = x$summary, ...),
+      plot(x$model, type = "obs_vs_shrunken", summary_obj = x$summary,
+           highlight_interactions = hl, ...),
       error = function(e) NULL)
     null_plots$predicted <- tryCatch(
-      plot(x$model, type = "predicted", summary_obj = x$summary, ...),
+      plot(x$model, type = "predicted", summary_obj = x$summary,
+           highlight_interactions = hl, ...),
       error = function(e) NULL)
     if (!is.null(x$context_vars)) {
       null_plots$context_vpc <- tryCatch(
@@ -744,7 +759,8 @@ plot.maihda_analysis <- function(x, type = "all", ...) {
     adj_plots <- list()
     for (t in adjusted_types) {
       adj_plots[[t]] <- tryCatch(
-        plot(adj_model, type = t, summary_obj = adj_summary, ...),
+        plot(adj_model, type = t, summary_obj = adj_summary,
+             highlight_interactions = hl, ...),
         error = function(e) NULL)
     }
 
@@ -764,9 +780,29 @@ plot.maihda_analysis <- function(x, type = "all", ...) {
   }
 
   if (type %in% adjusted_types) {
-    return(plot(adj_model, type = type, summary_obj = adj_summary, ...))
+    return(plot(adj_model, type = type, summary_obj = adj_summary,
+                highlight_interactions = hl, ...))
   }
 
   # vpc, obs_vs_shrunken, predicted -> null model
-  plot(x$model, type = type, summary_obj = x$summary, ...)
+  plot(x$model, type = type, summary_obj = x$summary,
+       highlight_interactions = hl, ...)
+}
+
+# Resolve the highlight argument for a maihda_analysis: FALSE/NULL stays FALSE;
+# a maihda_interactions object passes through; TRUE is computed once from the
+# analysis (its adjusted / crossed-dimensions model) so the downstream model plots
+# receive a ready object and neither recompute nor warn.
+maihda_resolve_analysis_highlight <- function(x, highlight_interactions) {
+  if (is.null(highlight_interactions) || isFALSE(highlight_interactions)) {
+    return(FALSE)
+  }
+  if (inherits(highlight_interactions, "maihda_interactions")) {
+    return(highlight_interactions)
+  }
+  if (isTRUE(highlight_interactions)) {
+    return(maihda_interactions(x))
+  }
+  stop("'highlight_interactions' must be FALSE, TRUE, or a maihda_interactions ",
+       "object from maihda_interactions().", call. = FALSE)
 }

@@ -4,7 +4,7 @@
 \alias{plot_obs_vs_shrunken}
 \title{Observed vs. Shrunken Estimates Plot}
 \usage{
-plot_obs_vs_shrunken(object, summary_obj)
+plot_obs_vs_shrunken(object, summary_obj, highlight = NULL)
 }
 \arguments{
 \item{object}{A maihda_model object}

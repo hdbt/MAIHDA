@@ -33,8 +33,15 @@ column joins the complete-case filter so every step uses the same analytic
 sample.}
 }
 \value{
-A data.frame showing the sequential models, the between-stratum
-  variance at each step, and both the step-specific and total PCV.
+A data.frame (class \code{maihda_stepwise}) showing the sequential
+  models, the between-stratum variance at each step, and both the step-specific
+  and total PCV. For a \strong{binary} (binomial/Bernoulli) outcome it also carries
+  the discriminatory-accuracy trajectory: \code{AUC} (the C-statistic of each
+  step's model -- step 0 is the strata-only discriminatory accuracy),
+  \code{Step_AUC} and \code{Total_AUC} (the \emph{absolute} change in AUC,
+  delta-AUC, versus the previous step and versus the null), and \code{MOR} (the
+  Median Odds Ratio, logit link only). These columns are absent for non-binary
+  outcomes.
 }
 \description{
 Estimates the proportional change in variance (PCV) sequentially by fitting
@@ -48,6 +55,21 @@ model-dependent change, not an order-invariant \dQuote{unique} contribution.
 All models are fit on the complete cases for `outcome`, `stratum`, and all
 variables in `vars` so that each sequential variance comparison uses the same
 analytic sample.
+
+For a binary outcome the table additionally tracks discriminatory accuracy
+(Merlo et al. 2016): \code{AUC} is each model's C-statistic and \code{Step_AUC} /
+\code{Total_AUC} are its \emph{absolute} change (delta-AUC), in contrast to the
+\emph{proportional} \code{Step_PCV} / \code{Total_PCV}. The \code{MOR} is reported
+for the logit link (\code{NA} otherwise) and is a monotone transform of the
+between-stratum variance already in \code{Variance}. For a design-weighted fit
+(\code{sampling_weights}) the AUC is the design-weighted (population) C-statistic.
+Reuses \code{\link{maihda_discriminatory_accuracy}} on each step's fitted model, so
+no additional models are fit. Note that adding a \emph{stratum-defining} dimension
+(one already encoded by the strata) typically leaves the AUC essentially unchanged:
+it re-partitions the between-stratum variance (so the PCV and MOR move) but not the
+per-stratum predicted ranking the rank-based AUC depends on. The AUC trajectory is
+therefore most informative for individual-level covariates that vary \emph{within}
+strata.
 }
 \examples{
 \donttest{
@@ -55,4 +77,9 @@ strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
 stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
 }
 
+}
+\references{
+Merlo, J., Wagner, P., Ghith, N., & Leckie, G. (2016). An original stepwise
+multilevel logistic regression analysis of discriminatory accuracy: the case of
+neighbourhoods and health. \emph{PLOS ONE}, 11(4), e0153778.
 }

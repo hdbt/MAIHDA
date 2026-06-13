@@ -4,7 +4,12 @@
 \alias{plot_effect_decomposition}
 \title{Effect Decomposition Plot}
 \usage{
-plot_effect_decomposition(object, summary_obj, top_n_labels = 10)
+plot_effect_decomposition(
+  object,
+  summary_obj,
+  top_n_labels = 10,
+  highlight = NULL
+)
 }
 \arguments{
 \item{object}{A maihda_model object}

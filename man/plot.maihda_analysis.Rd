@@ -4,7 +4,7 @@
 \alias{plot.maihda_analysis}
 \title{Plot a MAIHDA Analysis}
 \usage{
-\method{plot}{maihda_analysis}(x, type = "all", ...)
+\method{plot}{maihda_analysis}(x, type = "all", highlight_interactions = FALSE, ...)
 }
 \arguments{
 \item{x}{A \code{maihda_analysis} object from \code{\link{maihda}}.}
@@ -14,6 +14,13 @@
 contextual type ("context_vpc", a stratum-vs-context variance bar; requires
 \code{maihda(context = )}), or a group type ("group_vpc", "group_components",
 "group_between_variance", "group_pcv"). Default "all".}
+
+\item{highlight_interactions}{Highlight strata with a credibly non-zero
+intersectional interaction on the BLUP-based views (see
+\code{\link{maihda_interactions}} and \code{\link[=plot.maihda_model]{plot}}).
+\code{FALSE} (default), \code{TRUE} (computed from this analysis's adjusted /
+crossed-dimensions model), or a \code{maihda_interactions} object. The flags
+are computed once from the correct (adjusted) model and reused across views.}
 
 \item{...}{Additional arguments passed to the underlying plot method.}
 }

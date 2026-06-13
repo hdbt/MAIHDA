@@ -399,13 +399,40 @@ print.pvc_result <- function(x, ...) {
 #'   column joins the complete-case filter so every step uses the same analytic
 #'   sample.
 #'
-#' @return A data.frame showing the sequential models, the between-stratum
-#'   variance at each step, and both the step-specific and total PCV.
+#' @return A data.frame (class \code{maihda_stepwise}) showing the sequential
+#'   models, the between-stratum variance at each step, and both the step-specific
+#'   and total PCV. For a \strong{binary} (binomial/Bernoulli) outcome it also carries
+#'   the discriminatory-accuracy trajectory: \code{AUC} (the C-statistic of each
+#'   step's model -- step 0 is the strata-only discriminatory accuracy),
+#'   \code{Step_AUC} and \code{Total_AUC} (the \emph{absolute} change in AUC,
+#'   delta-AUC, versus the previous step and versus the null), and \code{MOR} (the
+#'   Median Odds Ratio, logit link only). These columns are absent for non-binary
+#'   outcomes.
 #'
 #' @details
 #' All models are fit on the complete cases for `outcome`, `stratum`, and all
 #' variables in `vars` so that each sequential variance comparison uses the same
 #' analytic sample.
+#'
+#' For a binary outcome the table additionally tracks discriminatory accuracy
+#' (Merlo et al. 2016): \code{AUC} is each model's C-statistic and \code{Step_AUC} /
+#' \code{Total_AUC} are its \emph{absolute} change (delta-AUC), in contrast to the
+#' \emph{proportional} \code{Step_PCV} / \code{Total_PCV}. The \code{MOR} is reported
+#' for the logit link (\code{NA} otherwise) and is a monotone transform of the
+#' between-stratum variance already in \code{Variance}. For a design-weighted fit
+#' (\code{sampling_weights}) the AUC is the design-weighted (population) C-statistic.
+#' Reuses \code{\link{maihda_discriminatory_accuracy}} on each step's fitted model, so
+#' no additional models are fit. Note that adding a \emph{stratum-defining} dimension
+#' (one already encoded by the strata) typically leaves the AUC essentially unchanged:
+#' it re-partitions the between-stratum variance (so the PCV and MOR move) but not the
+#' per-stratum predicted ranking the rank-based AUC depends on. The AUC trajectory is
+#' therefore most informative for individual-level covariates that vary \emph{within}
+#' strata.
+#'
+#' @references
+#' Merlo, J., Wagner, P., Ghith, N., & Leckie, G. (2016). An original stepwise
+#' multilevel logistic regression analysis of discriminatory accuracy: the case of
+#' neighbourhoods and health. \emph{PLOS ONE}, 11(4), e0153778.
 #'
 #' @examples
 #' \donttest{
@@ -524,6 +551,26 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
                          sampling_weights = sampling_weights)
   null_var <- extract_between_variance(null_mod)
 
+  # Discriminatory-accuracy trajectory (binary outcomes only): read the AUC and MOR
+  # off each step's already-fitted model, so no extra fits are needed. Whether it
+  # applies is decided once from the null fit's resolved family; the vectors stay NA
+  # (and the columns are dropped) for any other family, so the non-binomial table is
+  # byte-for-byte unchanged. maihda_discriminatory_accuracy() already handles
+  # aggregated-binomial, design-weighted (wemix) AUC and the logit-only MOR gate, so a
+  # design-weighted stepwise yields the design-weighted AUC here too.
+  da_applies <- isTRUE(maihda_model_family_name(null_mod) %in% c("binomial", "bernoulli"))
+  auc_vec <- rep(NA_real_, length(vars) + 1)
+  mor_vec <- rep(NA_real_, length(vars) + 1)
+  read_da <- function(m) {
+    da <- tryCatch(maihda_discriminatory_accuracy(m), error = function(e) NULL)
+    if (is.null(da)) c(NA_real_, NA_real_) else c(da$auc, da$mor)
+  }
+  if (da_applies) {
+    da0 <- read_da(null_mod)
+    auc_vec[1] <- da0[1]
+    mor_vec[1] <- da0[2]
+  }
+
   results[1, ] <- list(
     Step = 0,
     Model = "Null Model",
@@ -548,6 +595,12 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
 
     curr_var <- extract_between_variance(mod)
 
+    if (da_applies) {
+      dai <- read_da(mod)
+      auc_vec[i + 1] <- dai[1]
+      mor_vec[i + 1] <- dai[2]
+    }
+
     step_pcv <- if (prev_var > 0) (prev_var - curr_var) / prev_var else NA
     total_pcv <- if (null_var > 0) (null_var - curr_var) / null_var else NA
 
@@ -563,6 +616,33 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     prev_var <- curr_var
   }
 
+  # Attach the discriminatory-accuracy trajectory as extra columns only for a binary
+  # outcome (so the gaussian/poisson/ordinal table is unchanged). Step_AUC / Total_AUC
+  # are ABSOLUTE changes in AUC (delta-AUC) -- versus the previous step and versus the
+  # null -- unlike the PROPORTIONAL Step_PCV / Total_PCV; the null row anchors both at 0.
+  if (da_applies) {
+    results$AUC <- auc_vec
+    results$Step_AUC <- c(0, diff(auc_vec))
+    results$Total_AUC <- auc_vec - auc_vec[1]
+    results$MOR <- mor_vec
+  }
+
   class(results) <- c("maihda_stepwise", "data.frame")
   return(results)
+}
+
+#' Print a stepwise MAIHDA table
+#'
+#' @param x A \code{maihda_stepwise} object from \code{\link{stepwise_pcv}}.
+#' @param ... Additional arguments (not used).
+#' @return Invisibly, \code{x}.
+#' @export
+print.maihda_stepwise <- function(x, ...) {
+  print(as.data.frame(x), row.names = FALSE, digits = 4)
+  if (all(c("AUC", "Step_AUC", "Total_AUC") %in% names(x))) {
+    cat("\nStep_PCV / Total_PCV are proportional changes in between-stratum variance;\n",
+        "Step_AUC / Total_AUC are absolute changes in AUC (delta-AUC). MOR is the\n",
+        "median odds ratio (logit link only).\n", sep = "")
+  }
+  invisible(x)
 }
