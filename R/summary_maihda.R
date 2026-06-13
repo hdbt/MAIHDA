@@ -56,7 +56,10 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'   For a negative-binomial model (\code{glmer.nb}) the bootstrap refits via
 #'   \code{lme4::refit()}, which holds the dispersion parameter theta fixed at
 #'   its original estimate, so the interval is conditional on the estimated
-#'   theta (theta's own sampling uncertainty is not propagated).
+#'   theta (theta's own sampling uncertainty is not propagated). The
+#'   \code{ordinal} (clmm) engine has no simulate/refit machinery, so
+#'   \code{bootstrap = TRUE} is rejected there (use \code{engine = "brms"} for
+#'   interval estimates).
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
 #' @param conf_level Confidence level for the VPC/ICC interval -- the lme4
 #'   bootstrap CI or the brms posterior credible interval. Default is 0.95.
@@ -92,6 +95,9 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'     \code{response_vpc = TRUE} for a binomial lme4 model; \code{NULL} otherwise}
 #'   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
 #'   \item{fixed_effects}{Fixed effects estimates}
+#'   \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut
+#'     point) estimates with standard errors -- the cumulative model's
+#'     "intercepts"; NULL otherwise}
 #'   \item{model_summary}{Original model summary}
 #'   \item{diagnostics}{Fit-quality diagnostics (singular fit / convergence)
 #'     carried over from the fitted model and reported by the print method}
@@ -151,6 +157,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
   ctx <- object$context_info
   decomposition <- NULL
   context_summary <- NULL
+  thresholds <- NULL
 
   # Extract variance components and calculate VPC
   if (engine == "lme4") {
@@ -260,6 +267,57 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
 
     model_summary <- tryCatch(summary(model), error = function(e) NULL)
 
+  } else if (engine == "ordinal") {
+    if (bootstrap) {
+      stop("Bootstrap VPC intervals are not available for the ordinal engine: ",
+           "the parametric bootstrap relies on lme4's simulate()/refit(), which ",
+           "do not exist for ordinal::clmm fits. The VPC is reported as a point ",
+           "estimate; for interval estimates refit with engine = \"brms\" ",
+           "(posterior credible intervals).", call. = FALSE)
+    }
+    if (!is.null(cc) || !is.null(ctx)) {
+      stop("Crossed-dimensions and contextual partitions are not available for ",
+           "the ordinal engine (the clmm path fits the canonical single ",
+           "(1 | stratum) structure only); use engine = \"brms\".", call. = FALSE)
+    }
+
+    # Canonical single-stratum partition on the latent scale: the level-1
+    # variance is pi^2/3 (logit) or 1 (probit), the same latent treatment the
+    # binomial summaries use, so cumulative VPCs are comparable to them.
+    vars <- maihda_clmm_variances(object)
+    vpc <- vars$stratum / (vars$stratum + vars$residual)
+    variance_components <- maihda_variance_components_table(
+      vars$stratum, 0, vars$residual
+    )
+    vpc_result <- list(estimate = vpc, bootstrap = FALSE)
+
+    # Location coefficients with Hessian-based SEs; the thresholds (the
+    # cumulative model's "intercepts") are reported separately below.
+    beta <- object$model$beta
+    if (is.null(beta) || length(beta) == 0) {
+      fixed_effects <- data.frame(term = character(0), estimate = numeric(0),
+                                  se = numeric(0))
+    } else {
+      V <- tryCatch(stats::vcov(object$model), error = function(e) NULL)
+      beta_se <- rep(NA_real_, length(beta))
+      if (!is.null(V) && all(names(beta) %in% rownames(V))) {
+        beta_se <- sqrt(pmax(diag(V)[names(beta)], 0))
+      }
+      fixed_effects <- data.frame(
+        term = names(beta),
+        estimate = as.numeric(beta),
+        se = as.numeric(beta_se),
+        row.names = NULL
+      )
+    }
+
+    stratum_estimates <- maihda_clmm_stratum_ranef(object)
+    stratum_estimates <- add_stratum_labels(stratum_estimates, object$strata_info)
+
+    thresholds <- tryCatch(maihda_clmm_thresholds(object), error = function(e) NULL)
+
+    model_summary <- tryCatch(summary(model), error = function(e) NULL)
+
   } else if (engine == "brms") {
     if (bootstrap) {
       stop("Bootstrap VPC confidence intervals are only supported for lme4 models. ",
@@ -350,6 +408,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       vpc_response = vpc_response,
       stratum_estimates = stratum_estimates,
       fixed_effects = fixed_effects,
+      thresholds = thresholds,
       model_summary = model_summary,
       engine = engine,
       cc_info = cc,
@@ -1012,6 +1071,12 @@ print.maihda_summary <- function(x, ...) {
   cat("Fixed Effects:\n")
   print(x$fixed_effects, row.names = FALSE, digits = 4)
   cat("\n")
+
+  if (!is.null(x$thresholds) && nrow(x$thresholds) > 0) {
+    cat("Thresholds (cumulative cut points; they take the intercept's place):\n")
+    print(x$thresholds, row.names = FALSE, digits = 4)
+    cat("\n")
+  }
 
   if (!is.null(x$stratum_estimates) && nrow(x$stratum_estimates) > 0) {
     cat("Stratum Estimates (first 10):\n")

@@ -342,6 +342,10 @@ plot_obs_vs_shrunken <- function(object, summary_obj) {
       maihda_stratum_predictions_brms(object, summary_obj, scale = "response")
     } else if (object$engine == "wemix") {
       maihda_stratum_predictions_wemix(object, summary_obj, scale = "response")
+    } else if (object$engine == "ordinal") {
+      # Response scale = expected category score, matching the observed mean
+      # category score computed above for an ordered-factor outcome.
+      maihda_stratum_predictions_ordinal(object, summary_obj, scale = "response")
     } else {
       stop("Unsupported engine: ", object$engine)
     }
@@ -474,6 +478,14 @@ maihda_observed_outcome_for_plot <- function(x, family = NULL) {
     if (is_binomial && nlevels(x) == 2) {
       return(maihda_observed_plot_values(x == levels(x)[2]))
     }
+    is_cumulative <- !is.null(fam_name) &&
+      maihda_normalize_family_name(fam_name) == "cumulative"
+    if (is_cumulative) {
+      # Cumulative (ordinal) outcome: the observed value is the category score
+      # (1..K in level order), whose stratum mean is the observed counterpart
+      # of the model's expected category score.
+      return(maihda_observed_plot_values(as.integer(x)))
+    }
     stop("Observed-vs-shrunken plots require a numeric outcome, or a two-level factor for binomial models.",
          call. = FALSE)
   }
@@ -505,6 +517,8 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
     maihda_stratum_predictions_brms(object, summary_obj, scale = scale)
   } else if (object$engine == "wemix") {
     maihda_stratum_predictions_wemix(object, summary_obj, scale = scale)
+  } else if (object$engine == "ordinal") {
+    maihda_stratum_predictions_ordinal(object, summary_obj, scale = scale)
   } else {
     stop("Unsupported engine: ", object$engine)
   }
@@ -617,12 +631,28 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
     preds <- maihda_linkinv(object$family)(
       maihda_wemix_linpred(object, include_re = FALSE)
     )
+  } else if (object$engine == "ordinal") {
+    # Fixed-part expected category score, built from beta + thresholds
+    # (predict.clmm does not exist).
+    preds <- maihda_ordinal_eta_to_score(
+      maihda_clmm_linpred(object, include_re = FALSE),
+      object$model$alpha, object$family$link
+    )
   } else if (object$engine == "brms" || inherits(object$model, "brmsfit")) {
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("Package 'brms' is required to plot the mean prediction vs. stratum ",
            "random effect for brms models.", call. = FALSE)
     }
-    preds <- stats::fitted(object$model, newdata = data, re_formula = NA, summary = TRUE)[, "Estimate"]
+    f <- stats::fitted(object$model, newdata = data, re_formula = NA, summary = TRUE)
+    preds <- if (length(dim(f)) == 3) {
+      # Categorical likelihood (e.g. cumulative/ordinal): an nobs x summary x
+      # category array of per-category probabilities; collapse to the expected
+      # category score (categories scored 1..K in order).
+      est <- f[, "Estimate", ]
+      drop(est %*% seq_len(ncol(est)))
+    } else {
+      f[, "Estimate"]
+    }
   } else if (model_type %in% c("binomial", "quasibinomial")) {
     preds <- tryCatch(
       predict(object$model, newdata = data, type = "response", re.form = NA),
@@ -708,7 +738,11 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
   }
   x_title <- "Mean Predicted Value"
   if (model_type %in% c("binomial", "quasibinomial")) x_title <- "Mean Predicted Probability"
-  if (inherits(object$model, "polr") || inherits(object$model, "clm") || inherits(object$model, "ordinal")) x_title <- "Average Expected Category Score"
+  if (inherits(object$model, "polr") || inherits(object$model, "clm") ||
+      inherits(object$model, "clmm") || inherits(object$model, "ordinal") ||
+      identical(maihda_normalize_family_name(model_type), "cumulative")) {
+    x_title <- "Average Expected Category Score"
+  }
 
   # Label the ones with largest intersectional residuals (positive or negative)
   label_data <- plot_data |>
@@ -784,6 +818,11 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10) {
   } else if (object$engine == "wemix") {
     preds_total <- tryCatch(maihda_wemix_linpred(object, include_re = TRUE), error = function(e) rep(NA, nrow(data)))
     preds_fixed <- tryCatch(maihda_wemix_linpred(object, include_re = FALSE), error = function(e) rep(NA, nrow(data)))
+  } else if (object$engine == "ordinal") {
+    # The latent location eta = x'beta + u: the additive/intersectional split is
+    # exact on this (link) scale, exactly as for the other engines.
+    preds_total <- tryCatch(maihda_clmm_linpred(object, include_re = TRUE), error = function(e) rep(NA, nrow(data)))
+    preds_fixed <- tryCatch(maihda_clmm_linpred(object, include_re = FALSE), error = function(e) rep(NA, nrow(data)))
   } else {
     stop("Engine not supported for effect decomposition.")
   }

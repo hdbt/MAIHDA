@@ -32,6 +32,13 @@ compute_maihda_ternary_data <- function(
   engine <- model$engine
   if (is.null(engine)) engine <- "unknown"
 
+  if (identical(engine, "ordinal")) {
+    stop("The ternary diagnostic is not yet supported for the ordinal (clmm) ",
+         "engine. Use plot(type = \"predicted\"), \"risk_vs_effect\", ",
+         "\"effect_decomp\", or plot_prediction_deviation_panels() for a ",
+         "cumulative MAIHDA model.", call. = FALSE)
+  }
+
   if (verbose && scale == "response") {
     warning("Ternary decomposition is most coherent on the link scale.")
   }

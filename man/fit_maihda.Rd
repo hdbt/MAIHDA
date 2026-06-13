@@ -27,10 +27,13 @@ updated.}
 \item{data}{A data frame containing the variables in the formula.}
 
 \item{engine}{Character string specifying which engine to use: "lme4"
-(default), "brms", or "wemix" (design-weighted pseudo-maximum-likelihood via
-\code{WeMix::mix()}; requires \code{sampling_weights}). When
-\code{sampling_weights} is supplied and \code{engine} is left at its
-default, the engine switches to "wemix" automatically (with a message).}
+(default), "brms", "wemix" (design-weighted pseudo-maximum-likelihood via
+\code{WeMix::mix()}; requires \code{sampling_weights}), or "ordinal"
+(cumulative link mixed model via \code{ordinal::clmm()}; requires an
+ordinal family). When \code{sampling_weights} is supplied and \code{engine}
+is left at its default, the engine switches to "wemix" automatically (with
+a message); likewise an ordinal family (or an auto-detected ordered-factor
+outcome) switches the default engine to "ordinal".}
 
 \item{family}{Character string, family object, or family function specifying
 the model family. Common options: "gaussian", "binomial", "poisson",
@@ -42,6 +45,19 @@ only; not supported by the wemix engine). A fixed-theta
 \code{MASS::negative.binomial(theta)} family object is also accepted with
 \code{engine = "lme4"} and is fitted with \code{glmer()}, honouring the
 supplied theta.
+\code{family = "ordinal"} (alias \code{"cumulative"}; or
+\code{\link{maihda_cumulative}("probit")} / \code{brms::cumulative()} for a
+non-logit link) fits a cumulative (proportional-odds) model for an
+\emph{ordered-factor} outcome: \code{ordinal::clmm()} under the automatic
+"ordinal" engine, \code{brms::cumulative()} under \code{engine = "brms"}.
+The VPC/ICC lives on the latent scale (level-1 variance \eqn{\pi^2/3}
+logit / 1 probit, as for binomial models) and response-scale predictions
+are \emph{expected category scores} (categories scored 1..K in order). An
+ordered-factor outcome with 3+ levels under the default family selects
+this model automatically, with a warning. The logit and probit links are
+supported; \code{sampling_weights}, \code{context}, and lme4-style
+\code{weights}/\code{subset}/\code{offset} arguments are not available on
+the clmm path.
 If the outcome variable appears to be binary and the default family is used,
 the function will automatically switch to "binomial", recode two-level
 responses to 0/1 for \code{glmer()}, and issue a warning.

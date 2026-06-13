@@ -24,7 +24,10 @@ models only; \code{brms} models always return a posterior credible interval
 For a negative-binomial model (\code{glmer.nb}) the bootstrap refits via
 \code{lme4::refit()}, which holds the dispersion parameter theta fixed at
 its original estimate, so the interval is conditional on the estimated
-theta (theta's own sampling uncertainty is not propagated).}
+theta (theta's own sampling uncertainty is not propagated). The
+\code{ordinal} (clmm) engine has no simulate/refit machinery, so
+\code{bootstrap = TRUE} is rejected there (use \code{engine = "brms"} for
+interval estimates).}
 
 \item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.}
 
@@ -66,6 +69,9 @@ A maihda_summary object containing:
     \code{response_vpc = TRUE} for a binomial lme4 model; \code{NULL} otherwise}
   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
   \item{fixed_effects}{Fixed effects estimates}
+  \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut
+    point) estimates with standard errors -- the cumulative model's
+    "intercepts"; NULL otherwise}
   \item{model_summary}{Original model summary}
   \item{diagnostics}{Fit-quality diagnostics (singular fit / convergence)
     carried over from the fitted model and reported by the print method}

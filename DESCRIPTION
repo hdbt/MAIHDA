@@ -40,6 +40,7 @@ Suggests:
     shinycssloaders,
     brms (>= 2.15.0),
     WeMix (>= 4.0.0),
+    ordinal,
     testthat (>= 3.0.0),
     shinytest2,
     knitr,

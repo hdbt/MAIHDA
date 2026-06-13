@@ -13,10 +13,13 @@
 #'   updated.
 #' @param data A data frame containing the variables in the formula.
 #' @param engine Character string specifying which engine to use: "lme4"
-#'   (default), "brms", or "wemix" (design-weighted pseudo-maximum-likelihood via
-#'   \code{WeMix::mix()}; requires \code{sampling_weights}). When
-#'   \code{sampling_weights} is supplied and \code{engine} is left at its
-#'   default, the engine switches to "wemix" automatically (with a message).
+#'   (default), "brms", "wemix" (design-weighted pseudo-maximum-likelihood via
+#'   \code{WeMix::mix()}; requires \code{sampling_weights}), or "ordinal"
+#'   (cumulative link mixed model via \code{ordinal::clmm()}; requires an
+#'   ordinal family). When \code{sampling_weights} is supplied and \code{engine}
+#'   is left at its default, the engine switches to "wemix" automatically (with
+#'   a message); likewise an ordinal family (or an auto-detected ordered-factor
+#'   outcome) switches the default engine to "ordinal".
 #' @param family Character string, family object, or family function specifying
 #'   the model family. Common options: "gaussian", "binomial", "poisson",
 #'   "negbinomial". Default is "gaussian".
@@ -27,6 +30,19 @@
 #'   \code{MASS::negative.binomial(theta)} family object is also accepted with
 #'   \code{engine = "lme4"} and is fitted with \code{glmer()}, honouring the
 #'   supplied theta.
+#'   \code{family = "ordinal"} (alias \code{"cumulative"}; or
+#'   \code{\link{maihda_cumulative}("probit")} / \code{brms::cumulative()} for a
+#'   non-logit link) fits a cumulative (proportional-odds) model for an
+#'   \emph{ordered-factor} outcome: \code{ordinal::clmm()} under the automatic
+#'   "ordinal" engine, \code{brms::cumulative()} under \code{engine = "brms"}.
+#'   The VPC/ICC lives on the latent scale (level-1 variance \eqn{\pi^2/3}
+#'   logit / 1 probit, as for binomial models) and response-scale predictions
+#'   are \emph{expected category scores} (categories scored 1..K in order). An
+#'   ordered-factor outcome with 3+ levels under the default family selects
+#'   this model automatically, with a warning. The logit and probit links are
+#'   supported; \code{sampling_weights}, \code{context}, and lme4-style
+#'   \code{weights}/\code{subset}/\code{offset} arguments are not available on
+#'   the clmm path.
 #'   If the outcome variable appears to be binary and the default family is used,
 #'   the function will automatically switch to "binomial", recode two-level
 #'   responses to 0/1 for \code{glmer()}, and issue a warning.
@@ -176,8 +192,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   }
 
   if (!is.character(engine) || length(engine) != 1 ||
-      !engine %in% c("lme4", "brms", "wemix")) {
-    stop("'engine' should be one of: lme4, brms, wemix", call. = FALSE)
+      !engine %in% c("lme4", "brms", "wemix", "ordinal")) {
+    stop("'engine' should be one of: lme4, brms, wemix, ordinal", call. = FALSE)
   }
 
   context <- maihda_validate_context(context, data)
@@ -234,7 +250,11 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # Detect on the analytic sample lme4/brms will actually fit -- the model frame
   # after transformations, NA-dropping, any `subset`, and dropping rows with a
   # missing prior weight -- so an outcome that is only 0/1 once excluded rows are
-  # removed is still recognised as binary.
+  # removed is still recognised as binary. An ORDERED factor outcome with 3+
+  # levels under the default family likewise auto-switches to the cumulative
+  # (ordinal) model -- it would otherwise just error inside lmer() -- with the
+  # binary check taking precedence (a 2-level ordered factor is a binomial
+  # model). Both switches warn so the family choice is never silent.
   if (missing(family)) {
     is_binary <- tryCatch(
       maihda_response_is_binary(formula, data, subset = subset_value,
@@ -243,6 +263,59 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     if (isTRUE(is_binary)) {
       warning("The outcome variable appears to be binary. Automatically switching to family = 'binomial'. To fit a Linear Probability Model, explicitly specify family = 'gaussian'.", call. = FALSE)
       family <- "binomial"
+    } else if (isTRUE(tryCatch(
+      maihda_response_is_ordinal(formula, data, subset = subset_value,
+                                 weights = detect_weights),
+      error = function(e) FALSE))) {
+      warning("The outcome variable is an ordered factor. Automatically ",
+              "switching to the cumulative (ordinal) model, family = 'ordinal'. ",
+              "Specify a family explicitly to override.", call. = FALSE)
+      family <- "ordinal"
+    }
+  }
+
+  # Family <-> engine handshake for the cumulative (ordinal) model. lme4 cannot
+  # fit it, so an ordinal family with the default engine auto-switches to the
+  # clmm-based "ordinal" engine (mirroring the sampling_weights -> wemix switch
+  # above), an explicit engine = "lme4" is an error, and engine = "ordinal"
+  # without an ordinal family is an error. An explicit engine = "wemix" falls
+  # through to maihda_wemix_check_family()'s targeted rejection.
+  is_ordinal <- maihda_family_is_ordinal(
+    if (is.function(family)) tryCatch(family(), error = function(e) NULL) else family
+  )
+  if (is_ordinal) {
+    if (missing(engine) && is.null(sampling_weights)) {
+      engine <- "ordinal"
+      message("fit_maihda(): ordinal (cumulative) family; using engine = ",
+              "\"ordinal\" (ordinal::clmm). Set 'engine' explicitly to silence ",
+              "this message or to choose engine = \"brms\".")
+    } else if (identical(engine, "lme4")) {
+      stop("lme4 cannot fit a cumulative (ordinal) model. Use engine = ",
+           "\"ordinal\" (ordinal::clmm, the default for this family) or ",
+           "engine = \"brms\" (brms::cumulative).", call. = FALSE)
+    }
+  } else if (identical(engine, "ordinal")) {
+    stop("engine = \"ordinal\" fits cumulative (ordinal) models; supply ",
+         "family = \"ordinal\" / maihda_cumulative() (or let an ordered-factor ",
+         "outcome select it automatically).", call. = FALSE)
+  }
+  if (identical(engine, "ordinal")) {
+    if (!is.null(sampling_weights)) {
+      stop("engine = \"ordinal\" does not support 'sampling_weights'. Use ",
+           "engine = \"brms\" for a sampling-weighted cumulative model ",
+           "(pseudo-posterior).", call. = FALSE)
+    }
+    if (!is.null(context)) {
+      stop("engine = \"ordinal\" does not support 'context' (the clmm path fits ",
+           "the canonical single (1 | stratum) structure only). Use engine = ",
+           "\"brms\" for a contextual cross-classified cumulative model.",
+           call. = FALSE)
+    }
+    unsupported_dots <- intersect(c("weights", "subset", "offset"), names(dot_vals))
+    if (length(unsupported_dots) > 0) {
+      stop("Argument(s) not supported by engine = \"ordinal\": ",
+           paste(unsupported_dots, collapse = ", "),
+           ". Subset or transform the data before fitting.", call. = FALSE)
     }
   }
 
@@ -371,6 +444,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
                      binomial = binomial(),
                      poisson = poisson(),
                      negbinomial = list(family = "negbinomial", link = "log"),
+                     ordinal = ,
+                     cumulative = maihda_cumulative("logit"),
                      stop("Unsupported family: ", family))
   } else if (is.function(family)) {
     family <- family()
@@ -379,6 +454,15 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   if (!is.list(family) || is.null(family$family) || is.null(family$link)) {
     stop("'family' must be a family name, family object, or family function.",
          call. = FALSE)
+  }
+
+  # Recompute on the RESOLVED family (the handshake above peeked at the raw
+  # input) and validate the cumulative link: the latent-scale VPC is defined for
+  # logit and probit only. Reached for maihda_cumulative()/brms::cumulative()
+  # objects as well as the "ordinal"/"cumulative" strings.
+  is_ordinal <- maihda_family_is_ordinal(family)
+  if (is_ordinal) {
+    maihda_ordinal_check_family(family)
   }
 
   # Negative binomial in any accepted form: the "negbinomial" marker from the
@@ -442,6 +526,18 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     wemix_fit <- maihda_fit_wemix(formula, data, family, sampling_weights, dot_vals)
     model <- wemix_fit$model
     data <- wemix_fit$data
+  } else if (engine == "ordinal") {
+    # Cumulative link mixed model via ordinal::clmm(). Like the wemix branch,
+    # the guard above bans data-masked engine arguments (weights/subset/offset),
+    # so the remaining dots are plain values clmm() takes directly, and
+    # maihda_fit_clmm() pre-builds the analytic sample (complete cases) so the
+    # `data` it returns matches the rows actually fitted.
+    maihda_require_ordinal()
+    maihda_ordinal_check_formula(formula)
+    data <- maihda_ordinal_prepare_response(data, formula)
+    ord_fit <- maihda_fit_clmm(formula, data, family, dot_vals)
+    model <- ord_fit$model
+    data <- ord_fit$data
   } else {
 
   fit_env <- new.env(parent = environment(formula))
@@ -528,6 +624,15 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       family <- brms::negbinomial(link = family$link)
     }
 
+    if (is_ordinal) {
+      # The same response validation/coercion the clmm path applies: brms's
+      # cumulative() needs an ordered factor, and the category order is
+      # load-bearing either way.
+      data <- maihda_ordinal_prepare_response(data, formula)
+      fit_env$data <- data
+      family <- brms::cumulative(link = family$link)
+    }
+
     fit_fun <- quote(brms::brm)
     fit_args <- list(formula = formula, data = quote(data),
                      family = family)
@@ -543,10 +648,12 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   diagnostics <- maihda_fit_diagnostics(model)
 
   # Store the actual analytic model frame so downstream calculations use the
-  # same rows as lme4/brms after their NA handling. The wemix path pre-built its
-  # analytic sample above (complete cases, positive weights), so `data` already
-  # IS the fitted frame -- and model.frame() is undefined for WeMixResults.
-  model_data <- if (engine == "wemix") {
+  # same rows as lme4/brms after their NA handling. The wemix and ordinal paths
+  # pre-built their analytic samples above (complete cases), so `data` already
+  # IS the fitted frame -- and model.frame() is undefined for WeMixResults,
+  # while clmm's frame would drop the non-model columns (e.g. the stratum
+  # dimension variables) the plots and group comparisons need.
+  model_data <- if (engine %in% c("wemix", "ordinal")) {
     data
   } else {
     maihda_model_frame(model, fallback = data)

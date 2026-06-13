@@ -250,6 +250,49 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     }
   }
 
+  # Ordinal (cumulative) family <-> engine handshake, mirroring fit_maihda():
+  # the wrappers pass 'engine' explicitly to every fit, so fit_maihda()'s own
+  # missing(engine) auto-switch could never fire through them. An ordered-factor
+  # outcome under all-default family/engine likewise selects the ordinal engine
+  # here (fit_maihda() then auto-detects the family on the analytic sample).
+  if (missing(family) && missing(engine) && is.null(sampling_weights) &&
+      isTRUE(tryCatch(maihda_response_is_ordinal(formula, data),
+                      error = function(e) FALSE))) {
+    engine <- "ordinal"
+    message("maihda(): the outcome is an ordered factor; using the cumulative ",
+            "(ordinal) model with engine = \"ordinal\" (ordinal::clmm). Specify ",
+            "'family'/'engine' explicitly to override.")
+  }
+  is_ordinal <- maihda_family_is_ordinal(
+    if (is.function(family)) tryCatch(family(), error = function(e) NULL) else family
+  )
+  if (is_ordinal) {
+    if (missing(engine) && is.null(sampling_weights)) {
+      engine <- "ordinal"
+      message("maihda(): ordinal (cumulative) family; using engine = \"ordinal\" ",
+              "(ordinal::clmm). Set 'engine' explicitly to silence this message ",
+              "or to choose engine = \"brms\".")
+    } else if (identical(engine, "lme4")) {
+      stop("lme4 cannot fit a cumulative (ordinal) model. Use engine = ",
+           "\"ordinal\" (ordinal::clmm, the default for this family) or ",
+           "engine = \"brms\" (brms::cumulative).", call. = FALSE)
+    }
+  }
+  if (identical(engine, "ordinal")) {
+    if (identical(decomposition, "crossed-dimensions")) {
+      stop("decomposition = \"crossed-dimensions\" needs crossed random effects, ",
+           "which the ordinal (clmm) engine does not fit. Use the default ",
+           "two-model decomposition, or engine = \"brms\" for the ",
+           "crossed-dimensions form.", call. = FALSE)
+    }
+    if (isTRUE(bootstrap)) {
+      stop("Bootstrap intervals are not available for engine = \"ordinal\" ",
+           "(ordinal::clmm has no simulate()/refit() machinery). Set ",
+           "bootstrap = FALSE, or use engine = \"brms\" for posterior credible ",
+           "intervals.", call. = FALSE)
+    }
+  }
+
   # Fit the supplied formula first -- this resolves the stratum dimensions (and the
   # stratum column) and the family. Depending on whether the formula already lists the
   # dimensions' additive main effects, it serves as either the null or the adjusted

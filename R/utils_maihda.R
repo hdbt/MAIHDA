@@ -104,6 +104,26 @@ maihda_fit_diagnostics <- function(model) {
       s <- as.numeric(vd$vcov[vd$grp == "stratum"][1])
       is.finite(s) && s < 1e-8
     }, error = function(e) NA)
+  } else if (inherits(model, "clmm")) {
+    diagnostics$engine <- "ordinal"
+    # clmm stores the optimiser result: convergence code 0 means converged, and
+    # the message carries the optimiser's own wording otherwise. A boundary
+    # (zero between-stratum variance) fit is flagged like lme4's isSingular().
+    conv <- tryCatch(model$optRes$convergence, error = function(e) NULL)
+    diagnostics$converged <- if (is.numeric(conv) && length(conv) == 1) {
+      conv == 0
+    } else {
+      NA
+    }
+    if (isFALSE(diagnostics$converged)) {
+      msg <- tryCatch(as.character(model$optRes$message), error = function(e) character(0))
+      diagnostics$messages <- msg[nzchar(msg)]
+    }
+    diagnostics$singular <- tryCatch({
+      vc <- ordinal::VarCorr(model)
+      s <- as.numeric(vc[["stratum"]][1, 1])
+      is.finite(s) && s < 1e-8
+    }, error = function(e) NA)
   } else if (inherits(model, "brmsfit")) {
     diagnostics$engine <- "brms"
     # Stan/brms convergence is not flagged at fit time the way lme4 surfaces
@@ -461,6 +481,21 @@ maihda_response_is_binary <- function(formula, data, subset = NULL,
     return(FALSE)
   }
   maihda_is_binary_vector(resp)
+}
+
+# TRUE when the analytic response is an ORDERED factor with 3+ observed levels
+# -- the signature of a cumulative (ordinal) outcome. Used by fit_maihda()'s
+# default-family auto-detection, after the binary check (a 2-level ordered
+# factor is a binomial model). An unordered factor stays FALSE: its level order
+# is not declared meaningful, so silently treating it as ordinal would be wrong.
+maihda_response_is_ordinal <- function(formula, data, subset = NULL,
+                                       weights = NULL) {
+  resp <- maihda_analytic_response(formula, data, subset = subset,
+                                   weights = weights)
+  if (is.null(resp)) {
+    return(FALSE)
+  }
+  is.ordered(resp) && nlevels(droplevels(resp)) >= 3
 }
 
 # TRUE if a random-effect grouping expression is a plain variable or a colon
