@@ -91,10 +91,13 @@ updated.</p></dd>
 
 <dt id="arg-engine">engine<a class="anchor" aria-label="anchor" href="#arg-engine"></a></dt>
 <dd><p>Character string specifying which engine to use: "lme4"
-(default), "brms", or "wemix" (design-weighted pseudo-maximum-likelihood via
-<code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code>; requires <code>sampling_weights</code>). When
-<code>sampling_weights</code> is supplied and <code>engine</code> is left at its
-default, the engine switches to "wemix" automatically (with a message).</p></dd>
+(default), "brms", "wemix" (design-weighted pseudo-maximum-likelihood via
+<code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code>; requires <code>sampling_weights</code>), or "ordinal"
+(cumulative link mixed model via <code><a href="https://rdrr.io/pkg/ordinal/man/clmm.html" class="external-link">ordinal::clmm()</a></code>; requires an
+ordinal family). When <code>sampling_weights</code> is supplied and <code>engine</code>
+is left at its default, the engine switches to "wemix" automatically (with
+a message); likewise an ordinal family (or an auto-detected ordered-factor
+outcome) switches the default engine to "ordinal".</p></dd>
 
 
 <dt id="arg-family">family<a class="anchor" aria-label="anchor" href="#arg-family"></a></dt>
@@ -108,6 +111,19 @@ only; not supported by the wemix engine). A fixed-theta
 <code>MASS::negative.binomial(theta)</code> family object is also accepted with
 <code>engine = "lme4"</code> and is fitted with <code>glmer()</code>, honouring the
 supplied theta.
+<code>family = "ordinal"</code> (alias <code>"cumulative"</code>; or
+<code><a href="maihda_cumulative.html">maihda_cumulative</a>("probit")</code> / <code><a href="https://paulbuerkner.com/brms/reference/brmsfamily.html" class="external-link">brms::cumulative()</a></code> for a
+non-logit link) fits a cumulative (proportional-odds) model for an
+<em>ordered-factor</em> outcome: <code><a href="https://rdrr.io/pkg/ordinal/man/clmm.html" class="external-link">ordinal::clmm()</a></code> under the automatic
+"ordinal" engine, <code><a href="https://paulbuerkner.com/brms/reference/brmsfamily.html" class="external-link">brms::cumulative()</a></code> under <code>engine = "brms"</code>.
+The VPC/ICC lives on the latent scale (level-1 variance \(\pi^2/3\)
+logit / 1 probit, as for binomial models) and response-scale predictions
+are <em>expected category scores</em> (categories scored 1..K in order). An
+ordered-factor outcome with 3+ levels under the default family selects
+this model automatically, with a warning. The logit and probit links are
+supported; <code>sampling_weights</code>, <code>context</code>, and lme4-style
+<code>weights</code>/<code>subset</code>/<code>offset</code> arguments are not available on
+the clmm path.
 If the outcome variable appears to be binary and the default family is used,
 the function will automatically switch to "binomial", recode two-level
 responses to 0/1 for <code>glmer()</code>, and issue a warning.

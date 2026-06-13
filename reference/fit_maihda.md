@@ -39,11 +39,16 @@ fit_maihda(
 - engine:
 
   Character string specifying which engine to use: "lme4" (default),
-  "brms", or "wemix" (design-weighted pseudo-maximum-likelihood via
+  "brms", "wemix" (design-weighted pseudo-maximum-likelihood via
   [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html);
-  requires `sampling_weights`). When `sampling_weights` is supplied and
+  requires `sampling_weights`), or "ordinal" (cumulative link mixed
+  model via
+  [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html);
+  requires an ordinal family). When `sampling_weights` is supplied and
   `engine` is left at its default, the engine switches to "wemix"
-  automatically (with a message).
+  automatically (with a message); likewise an ordinal family (or an
+  auto-detected ordered-factor outcome) switches the default engine to
+  "ordinal".
 
 - family:
 
@@ -56,16 +61,33 @@ fit_maihda(
   brms via its `shape` parameter (log link only; not supported by the
   wemix engine). A fixed-theta `MASS::negative.binomial(theta)` family
   object is also accepted with `engine = "lme4"` and is fitted with
-  `glmer()`, honouring the supplied theta. If the outcome variable
-  appears to be binary and the default family is used, the function will
-  automatically switch to "binomial", recode two-level responses to 0/1
-  for `glmer()`, and issue a warning. When a two-level non-0/1 response
-  is recoded (on either the auto-detected or an explicit
-  `family = "binomial"` path), the mapping follows the usual convention
-  – the first level becomes 0 (reference) and the second becomes 1 (the
-  modeled event), where "first/second" means alphabetical order for a
-  character outcome and the declared order for a factor. The chosen
-  mapping is reported via a
+  `glmer()`, honouring the supplied theta. `family = "ordinal"` (alias
+  `"cumulative"`; or
+  [`maihda_cumulative`](https://hdbt.github.io/MAIHDA/reference/maihda_cumulative.md)`("probit")`
+  /
+  [`brms::cumulative()`](https://paulbuerkner.com/brms/reference/brmsfamily.html)
+  for a non-logit link) fits a cumulative (proportional-odds) model for
+  an *ordered-factor* outcome:
+  [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html) under
+  the automatic "ordinal" engine,
+  [`brms::cumulative()`](https://paulbuerkner.com/brms/reference/brmsfamily.html)
+  under `engine = "brms"`. The VPC/ICC lives on the latent scale
+  (level-1 variance \\\pi^2/3\\ logit / 1 probit, as for binomial
+  models) and response-scale predictions are *expected category scores*
+  (categories scored 1..K in order). An ordered-factor outcome with 3+
+  levels under the default family selects this model automatically, with
+  a warning. The logit and probit links are supported;
+  `sampling_weights`, `context`, and lme4-style
+  `weights`/`subset`/`offset` arguments are not available on the clmm
+  path. If the outcome variable appears to be binary and the default
+  family is used, the function will automatically switch to "binomial",
+  recode two-level responses to 0/1 for `glmer()`, and issue a warning.
+  When a two-level non-0/1 response is recoded (on either the
+  auto-detected or an explicit `family = "binomial"` path), the mapping
+  follows the usual convention – the first level becomes 0 (reference)
+  and the second becomes 1 (the modeled event), where "first/second"
+  means alphabetical order for a character outcome and the declared
+  order for a factor. The chosen mapping is reported via a
   [`message()`](https://rdrr.io/r/base/message.html) and stored on the
   result as `$response_recoding`; set the factor levels (or supply a 0/1
   outcome) to control which level is the event. Although any valid

@@ -84,7 +84,10 @@ models only; <code>brms</code> models always return a posterior credible interva
 For a negative-binomial model (<code>glmer.nb</code>) the bootstrap refits via
 <code><a href="https://rdrr.io/pkg/lme4/man/refit.html" class="external-link">lme4::refit()</a></code>, which holds the dispersion parameter theta fixed at
 its original estimate, so the interval is conditional on the estimated
-theta (theta's own sampling uncertainty is not propagated).</p></dd>
+theta (theta's own sampling uncertainty is not propagated). The
+<code>ordinal</code> (clmm) engine has no simulate/refit machinery, so
+<code>bootstrap = TRUE</code> is rejected there (use <code>engine = "brms"</code> for
+interval estimates).</p></dd>
 
 
 <dt id="arg-n-boot">n_boot<a class="anchor" aria-label="anchor" href="#arg-n-boot"></a></dt>
@@ -151,6 +154,11 @@ families/engines.</p></dd>
 
   <dt>fixed_effects</dt>
 <dd><p>Fixed effects estimates</p></dd>
+
+  <dt>thresholds</dt>
+<dd><p>For a cumulative (ordinal) clmm fit, the threshold (cut
+    point) estimates with standard errors – the cumulative model's
+    "intercepts"; NULL otherwise</p></dd>
 
   <dt>model_summary</dt>
 <dd><p>Original model summary</p></dd>

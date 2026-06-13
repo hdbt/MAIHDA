@@ -87,7 +87,10 @@ and will be interpreted as individual-level predictions on that scale.</p></dd>
 
 <dt id="arg-scale">scale<a class="anchor" aria-label="anchor" href="#arg-scale"></a></dt>
 <dd><p>Character string specifying the prediction scale for
-individual-level predictions: "response" (default) or "link".</p></dd>
+individual-level predictions: "response" (default) or "link". For a
+cumulative (ordinal) model the "link" scale is the latent location
+\(\eta\) and the "response" scale is the <em>expected category score</em>
+\(\sum_k k P(Y = k)\) (categories scored 1..K in their declared order).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

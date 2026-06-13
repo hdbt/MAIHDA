@@ -18,6 +18,8 @@
   : Area under the ROC curve (C-statistic), rank-based
 - [`maihda_country_data`](https://hdbt.github.io/MAIHDA/reference/maihda_country_data.md)
   : Cross-National Educational Achievement Data for MAIHDA
+- [`maihda_cumulative()`](https://hdbt.github.io/MAIHDA/reference/maihda_cumulative.md)
+  : Cumulative (ordinal) family marker for MAIHDA models
 - [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
   : Discriminatory accuracy of a binary MAIHDA model
 - [`maihda_health_data`](https://hdbt.github.io/MAIHDA/reference/maihda_health_data.md)

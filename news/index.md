@@ -4,6 +4,54 @@
 
 ### New Features
 
+- Added **ordinal (cumulative) MAIHDA** for ordered-factor outcomes –
+  the multicategorical extension the MAIHDA tutorials flag as priority
+  future work. `family = "ordinal"` (alias `"cumulative"`; probit via
+  the new exported `maihda_cumulative("probit")` or
+  `brms::cumulative("probit")`) fits a cumulative (proportional-odds)
+  model: a new **`engine = "ordinal"`** wraps
+  [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html) for the
+  frequentist path (selected automatically for an ordinal family under
+  the default engine, with a message) and `engine = "brms"` uses
+  [`brms::cumulative()`](https://paulbuerkner.com/brms/reference/brmsfamily.html).
+  An ordered-factor outcome with 3+ levels under the all-default
+  family/engine selects the model automatically (with a warning; a
+  2-level ordered factor still takes the binomial auto-detect path), and
+  an unordered factor response is coerced to ordered in its declared
+  level order with a message. The VPC/ICC lives on the latent scale –
+  level-1 variance pi^2/3 (logit) or 1 (probit), the same latent
+  treatment as binomial models, so cumulative VPCs are comparable to
+  logistic ones – and [`summary()`](https://rdrr.io/r/base/summary.html)
+  gains a `thresholds` slot (the cut points that take the intercept’s
+  place, with Hessian SEs) printed alongside the location fixed effects.
+  Because `predict.clmm` does not exist, predictions are built from the
+  stored coefficients: the link scale is the latent location eta =
+  x’beta + u, and the response scale is the **expected category score**
+  sum_k k\*P(Y = k) (the quantity the plots label “Average Expected
+  Category Score”), with P(Y \<= k) = g^-1(alpha_k - eta) differenced by
+  pure, unit-tested helpers shared with the brms path (whose
+  [`fitted()`](https://rdrr.io/r/stats/fitted.values.html) probability
+  array
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  now collapses to the same score). The two-model
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  decomposition and PCV,
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  (engine handshakes mirror the `sampling_weights` precedent), the
+  stratum plots, `obs_vs_shrunken` (observed mean category score),
+  `risk_vs_effect`, `effect_decomp` (exact on the latent scale), and the
+  deviation panels all work;
+  [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
+  now also accepts cumulative-logit fits, returning the **median
+  cumulative odds ratio**. Explicit limits with targeted errors:
+  logit/probit links only, the canonical single `(1 | stratum)`
+  structure (no `context`/crossed-dimensions – use brms), no
+  `sampling_weights` on the clmm path, no parametric bootstrap (clmm has
+  no simulate/refit; brms provides credible intervals),
+  AUC/[`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
+  stay binomial-only, and the ternary diagnostic is not yet supported.
+  `ordinal` joins `Suggests`.
 - Added the **negative-binomial family** for overdispersed count
   outcomes: `family = "negbinomial"` on
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)

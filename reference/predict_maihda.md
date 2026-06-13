@@ -42,7 +42,10 @@ predict_maihda(
 - scale:
 
   Character string specifying the prediction scale for individual-level
-  predictions: "response" (default) or "link".
+  predictions: "response" (default) or "link". For a cumulative
+  (ordinal) model the "link" scale is the latent location \\\eta\\ and
+  the "response" scale is the *expected category score* \\\sum_k k P(Y =
+  k)\\ (categories scored 1..K in their declared order).
 
 - ...:
 

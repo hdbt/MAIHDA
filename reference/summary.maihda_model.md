@@ -35,7 +35,9 @@ summary(
   [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html), which
   holds the dispersion parameter theta fixed at its original estimate,
   so the interval is conditional on the estimated theta (theta's own
-  sampling uncertainty is not propagated).
+  sampling uncertainty is not propagated). The `ordinal` (clmm) engine
+  has no simulate/refit machinery, so `bootstrap = TRUE` is rejected
+  there (use `engine = "brms"` for interval estimates).
 
 - n_boot:
 
@@ -110,6 +112,12 @@ A maihda_summary object containing:
 - fixed_effects:
 
   Fixed effects estimates
+
+- thresholds:
+
+  For a cumulative (ordinal) clmm fit, the threshold (cut point)
+  estimates with standard errors – the cumulative model's "intercepts";
+  NULL otherwise
 
 - model_summary:
 

@@ -7,7 +7,13 @@ V_A is the between-stratum (latent, logit-scale) variance. An MOR of 1
 indicates no between-stratum heterogeneity. The MOR is defined only for the
 logit link (it is the median odds ratio); a non-logit binomial
 fit such as probit is rejected, because its latent variance is on a
-different scale and the exp(...) above would not be an odds ratio."><meta property="og:description" content="The Median Odds Ratio translates the between-stratum variance of a logistic
+different scale and the exp(...) above would not be an odds ratio.
+For a cumulative-logit (ordinal) MAIHDA model the same formula
+applies to the latent logit-scale between-stratum variance and is the
+median cumulative odds ratio: the median relative change in the odds
+of being at or below any given outcome category between two randomly chosen
+strata (under the model's proportional-odds assumption it is the same for
+every category split)."><meta property="og:description" content="The Median Odds Ratio translates the between-stratum variance of a logistic
 MAIHDA model onto the odds-ratio scale: the median relative change in the odds
 of the outcome when comparing two individuals from randomly chosen strata
 (higher- vs lower-risk). MOR = exp(sqrt(2 * V_A) * qnorm(0.75)), where
@@ -15,7 +21,13 @@ V_A is the between-stratum (latent, logit-scale) variance. An MOR of 1
 indicates no between-stratum heterogeneity. The MOR is defined only for the
 logit link (it is the median odds ratio); a non-logit binomial
 fit such as probit is rejected, because its latent variance is on a
-different scale and the exp(...) above would not be an odds ratio."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
+different scale and the exp(...) above would not be an odds ratio.
+For a cumulative-logit (ordinal) MAIHDA model the same formula
+applies to the latent logit-scale between-stratum variance and is the
+median cumulative odds ratio: the median relative change in the odds
+of being at or below any given outcome category between two randomly chosen
+strata (under the model's proportional-odds assumption it is the same for
+every category split)."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -73,6 +85,12 @@ indicates no between-stratum heterogeneity. The MOR is defined only for the
 <strong>logit</strong> link (it is the median <em>odds</em> ratio); a non-logit binomial
 fit such as <code>probit</code> is rejected, because its latent variance is on a
 different scale and the <code>exp(...)</code> above would not be an odds ratio.</p>
+<p>For a <strong>cumulative-logit</strong> (ordinal) MAIHDA model the same formula
+applies to the latent logit-scale between-stratum variance and is the
+<em>median cumulative odds ratio</em>: the median relative change in the odds
+of being at or below any given outcome category between two randomly chosen
+strata (under the model's proportional-odds assumption it is the same for
+every category split).</p>
     </div>
 
     <div class="section level2">
@@ -86,8 +104,8 @@ different scale and the <code>exp(...)</code> above would not be an odds ratio.<
 
 <dl><dt id="arg-model">model<a class="anchor" aria-label="anchor" href="#arg-model"></a></dt>
 <dd><p>A <code>maihda_model</code> from <code><a href="fit_maihda.html">fit_maihda</a></code> fitted with a
-<code>binomial</code> (lme4) or <code>bernoulli</code> (brms) family and a <strong>logit</strong>
-link.</p></dd>
+<code>binomial</code> (lme4), <code>bernoulli</code> (brms), or <code>cumulative</code>
+(ordinal) family and a <strong>logit</strong> link.</p></dd>
 
 </dl></div>
     <div class="section level2">

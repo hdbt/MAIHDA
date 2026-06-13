@@ -163,13 +163,18 @@ optional minimum count filtering.
 
 ### `fit_maihda()`
 
-Fits multilevel models using the lme4 (default), brms, or WeMix
-(design-weighted, via `sampling_weights`) engine. Supports various
-families including gaussian, binomial, poisson, and negbinomial
+Fits multilevel models using the lme4 (default), brms, WeMix
+(design-weighted, via `sampling_weights`), or ordinal
+([`ordinal::clmm`](https://rdrr.io/pkg/ordinal/man/clmm.html), selected
+automatically for ordered-factor outcomes) engine. Supports various
+families including gaussian, binomial, poisson, negbinomial
 (overdispersed counts; theta estimated via
 [`lme4::glmer.nb()`](https://rdrr.io/pkg/lme4/man/glmer.nb.html) or
 brms’s `shape` parameter, with the VPC using the latent-scale level-1
-variance of Nakagawa, Johnson & Schielzeth 2017).
+variance of Nakagawa, Johnson & Schielzeth 2017), and ordinal/cumulative
+(proportional-odds models for ordered outcomes; latent-scale VPC with
+pi^2/3 logit / 1 probit level-1 variance, response-scale predictions as
+expected category scores).
 
 ### Contextual cross-classified MAIHDA (`context =`)
 

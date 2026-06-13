@@ -11,6 +11,13 @@ link (it is the median *odds* ratio); a non-logit binomial fit such as
 `probit` is rejected, because its latent variance is on a different
 scale and the `exp(...)` above would not be an odds ratio.
 
+For a **cumulative-logit** (ordinal) MAIHDA model the same formula
+applies to the latent logit-scale between-stratum variance and is the
+*median cumulative odds ratio*: the median relative change in the odds
+of being at or below any given outcome category between two randomly
+chosen strata (under the model's proportional-odds assumption it is the
+same for every category split).
+
 ## Usage
 
 ``` r
@@ -23,8 +30,8 @@ maihda_mor(model)
 
   A `maihda_model` from
   [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  fitted with a `binomial` (lme4) or `bernoulli` (brms) family and a
-  **logit** link.
+  fitted with a `binomial` (lme4), `bernoulli` (brms), or `cumulative`
+  (ordinal) family and a **logit** link.
 
 ## Value
 
