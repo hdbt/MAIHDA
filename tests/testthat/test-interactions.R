@@ -187,7 +187,11 @@ test_that("an invalid highlight_interactions argument errors", {
 # ---- brms: exact posterior tail ---------------------------------------------
 
 test_that("brms uses the exact posterior tail and ignores adjust", {
-  skip_on_cran()
+  # Compiles a Stan model, so OPT-IN (set MAIHDA_TEST_BRMS=true), matching the
+  # other brms Stan tests -- the main R-CMD-check runners have brms installed but
+  # no Boost/Stan toolchain, so skip_on_cran() is not enough.
+  skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
+          "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
   skip_if_not_installed("brms")
 
   d <- maihda_interaction_data(n_per = 40)
