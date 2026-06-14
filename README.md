@@ -1,6 +1,7 @@
 # MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy  <img src="man/figures/logo.png" align="right" width="150" alt="" />
 
 [![CRAN status](https://www.r-pkg.org/badges/version/MAIHDA)](https://CRAN.R-project.org/package=MAIHDA)
+[![CRAN downloads](https://cranlogs.r-pkg.org/badges/MAIHDA)](https://CRAN.R-project.org/package=MAIHDA)
 [![R-CMD-check](https://github.com/hdbt/MAIHDA/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/hdbt/MAIHDA/actions/workflows/R-CMD-check.yaml)
 [![R](https://img.shields.io/badge/R-%3E%3D4.1.0-blue)](https://www.r-project.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
