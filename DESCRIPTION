@@ -22,6 +22,7 @@ Imports:
     ggplot2 (>= 3.4.0),
     dplyr (>= 1.0.0),
     tidyr (>= 1.1.0),
+    generics,
     stats,
     rlang (>= 0.4.0),
     patchwork,

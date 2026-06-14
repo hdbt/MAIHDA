@@ -358,6 +358,38 @@ stepwise_results <- stepwise_pcv(
 print(stepwise_results)
 ```
 
+## Tidy output (`broom`)
+
+`tidy()` and `glance()` methods turn a fitted model or analysis into tidy data for
+tables (`gt`, `flextable`) and `ggplot2`, reading the quantities `summary()` already
+computes (no new statistics, no refit):
+
+```r
+analysis <- maihda(BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
+                   data = maihda_health_data)
+
+# One-row headline: VPC/ICC, PCV, AUC/MOR (binary), additive/interaction shares, n.
+# This row has no equivalent in broom.mixed/easystats -- PCV needs the null+adjusted pair.
+glance(analysis)
+
+# Per-estimate tidy frames (broom's term/estimate/std.error/conf.low/conf.high shape):
+tidy(analysis)                          # stratum (intersection) effects, with labels
+tidy(analysis, component = "variance")  # variance components
+tidy(analysis, component = "fixed", which = "adjusted")
+
+# A caterpillar plot in two lines:
+library(ggplot2)
+tidy(analysis) |>
+  ggplot(aes(reorder(label, estimate), estimate, ymin = conf.low, ymax = conf.high)) +
+  geom_pointrange() + coord_flip()
+```
+
+The generics come from the lightweight `generics` package (the same ones `broom`
+re-exports), so `tidy()`/`glance()` work whether you load `broom`, `generics`, or just
+`MAIHDA`. The layout is uniform across the lme4, brms, WeMix, and ordinal engines.
+Note that `tidymodels` (parsnip/workflows) does not fit `lme4` random-effects models,
+so this is the tidy-*data* convention, not a modeling-pipeline integration.
+
 ## Interactive Shiny App
 
 You can access a live, cloud-hosted version of the MAIHDA interactive dashboard directly in your browser without installing R:
