@@ -19,6 +19,7 @@ articles:
       - binary_outcomes
       - group_comparison
       - cross_classified
+      - longitudinal
   - title: Interpretation
     navbar: Interpretation
     contents:

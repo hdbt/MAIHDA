@@ -28,6 +28,20 @@ test_that("maihda_longitudinal_formula builds the 3-level growth structure", {
   expect_true(any(grepl("I\\(t\\^2\\) \\| stratum", bars2)))
 })
 
+test_that("maihda_re_cov_draws_brms builds the 2x2 block from draws (Stan-free)", {
+  # Hand-built posterior draws: SD and correlation columns in brms' naming.
+  draws <- data.frame(
+    sd_stratum__Intercept = c(2, 4),
+    sd_stratum__wave = c(0.5, 1),
+    cor_stratum__Intercept__wave = c(0.5, -0.5)
+  )
+  blk <- maihda_re_cov_draws_brms(draws, "stratum", "wave")
+  expect_equal(blk$v0, c(4, 16))                 # sd0^2
+  expect_equal(blk$v1, c(0.25, 1))               # sd1^2
+  expect_equal(blk$cov, c(0.5 * 2 * 0.5, -0.5 * 4 * 1))  # cor * sd0 * sd1
+  expect_error(maihda_re_cov_draws_brms(draws, "id", "wave"), "Could not find")
+})
+
 test_that("maihda_validate_longitudinal enforces its contract", {
   d <- data.frame(pid = rep(1:3, each = 2), t = rep(0:1, 3), y = rnorm(6))
   expect_error(maihda_validate_longitudinal(NULL, "t", 1, d), "needs 'id'")
@@ -53,6 +67,11 @@ data(maihda_long_data, package = "MAIHDA")
 m_g <- fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
                   data = maihda_long_data, id = "id", time = "wave")
 
+# Shared null/adjusted longitudinal decomposition, fit once and reused.
+a_g <- maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+              data = maihda_long_data, id = "id", time = "wave",
+              decomposition = "longitudinal")
+
 test_that("fit tags the model and builds the growth formula", {
   expect_s3_class(m_g, "maihda_model")
   expect_false(is.null(m_g$longitudinal_info))
@@ -77,9 +96,7 @@ test_that("summary reports a time-varying VPC", {
 })
 
 test_that("longitudinal PCV recovers a mostly-additive trajectory split", {
-  a <- maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
-              data = maihda_long_data, id = "id", time = "wave",
-              decomposition = "longitudinal")
+  a <- a_g
   expect_identical(a$mode, "longitudinal")
   expect_s3_class(a$pcv, "maihda_long_pcv")
   # both PCVs are genuine proportions strictly inside (0, 1) by construction
@@ -100,11 +117,81 @@ test_that("predict(type = 'strata') returns trajectory parameters", {
 test_that("plots return ggplot objects", {
   expect_s3_class(plot(m_g, type = "vpc_trajectory"), "ggplot")
   expect_s3_class(plot(m_g, type = "trajectories"), "ggplot")
-  a <- maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
-              data = maihda_long_data, id = "id", time = "wave",
-              decomposition = "longitudinal")
-  expect_s3_class(plot(a, type = "pcv_trajectory"), "ggplot")
-  expect_s3_class(plot(a, type = "vpc_trajectory"), "ggplot")
+  expect_s3_class(plot(a_g, type = "pcv_trajectory"), "ggplot")
+  expect_s3_class(plot(a_g, type = "vpc_trajectory"), "ggplot")
+  expect_s3_class(plot(a_g, type = "trajectories"), "ggplot")
+})
+
+test_that("print methods cover the longitudinal branches", {
+  expect_output(print(m_g), "Longitudinal")
+  expect_output(print(summary(m_g)), "baseline")
+  expect_output(print(a_g), "longitudinal")
+  expect_output(print(a_g$pcv), "PCV")
+})
+
+test_that("plot(type = 'all') dispatches the longitudinal trajectory views", {
+  tmp <- tempfile(fileext = ".pdf")
+  grDevices::pdf(tmp)
+  on.exit({ grDevices::dev.off(); unlink(tmp) }, add = TRUE)
+  pm <- plot(m_g)            # longitudinal model -> vpc_trajectory + trajectories
+  pa <- plot(a_g)            # longitudinal analysis -> the three trajectory views
+  expect_type(pm, "list")
+  expect_true("vpc_trajectory" %in% names(pm))
+  expect_type(pa, "list")
+  expect_true("pcv_trajectory" %in% names(pa))
+})
+
+test_that("bootstrap gives a VPC-trajectory ribbon", {
+  s <- summary(m_g, bootstrap = TRUE, n_boot = 10)
+  expect_true(is.finite(s$vpc$ci_lower) && is.finite(s$vpc$ci_upper))
+  expect_true(any(is.finite(s$longitudinal$vpc_t$lower)))
+})
+
+test_that("maihda strips user-written dimension main effects from the null", {
+  a2 <- maihda(
+    wellbeing ~ wave + gender + ethnicity + education +
+      (1 | gender:ethnicity:education),
+    data = maihda_long_data, id = "id", time = "wave",
+    decomposition = "longitudinal")
+  expect_identical(a2$mode, "longitudinal")
+  expect_s3_class(a2$pcv, "maihda_long_pcv")
+  # the null model carries no dimension main effects (they belong to the adjusted)
+  expect_false(any(c("gender", "ethnicity", "education") %in%
+                     attr(stats::terms(reformulas::nobars(a2$formula)), "term.labels")))
+})
+
+test_that("compare_maihda warns and vpc_trajectory errors off a longitudinal model", {
+  expect_warning(compare_maihda(m_g, m_g), "time-varying")
+  strata <- make_strata(maihda_long_data,
+                        vars = c("gender", "ethnicity", "education"))
+  m_cs <- fit_maihda(wellbeing ~ 1 + (1 | stratum), data = strata$data)
+  expect_error(plot(m_cs, type = "vpc_trajectory"), "longitudinal")
+})
+
+test_that("brms longitudinal path gives a time-varying VPC with credible bands", {
+  skip_on_cran()
+  skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
+          "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
+  skip_if_not_installed("brms")
+
+  d <- subset(maihda_long_data, id %in% unique(maihda_long_data$id)[1:120])
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education), data = d,
+               id = "id", time = "wave", engine = "brms",
+               chains = 2, iter = 600, refresh = 0, seed = 1)))
+  s <- summary(m)
+  expect_false(is.null(s$longitudinal))
+  expect_identical(s$vpc$method, "posterior")
+  expect_true(all(is.finite(s$longitudinal$vpc_t$estimate)))
+  expect_true(any(is.finite(s$longitudinal$vpc_t$lower)))   # credible band
+
+  a <- suppressWarnings(suppressMessages(
+    maihda(wellbeing ~ wave + (1 | gender:ethnicity:education), data = d,
+           id = "id", time = "wave", engine = "brms",
+           decomposition = "longitudinal", chains = 2, iter = 600,
+           refresh = 0, seed = 1)))
+  expect_s3_class(a$pcv, "maihda_long_pcv")
+  expect_true(is.finite(a$pcv$pcv_slope))
 })
 
 test_that("maihda_ic works on a longitudinal lme4 fit", {
@@ -150,6 +237,18 @@ test_that("maihda() rejects incompatible longitudinal combinations", {
     maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
            data = maihda_long_data, id = "id", time = "wave", group = "gender"),
     "does not support")
+  # time without id
+  expect_error(
+    maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+           data = maihda_long_data, time = "wave",
+           decomposition = "longitudinal"),
+    "requires both")
+  # per-group longitudinal comparison is out of scope
+  expect_error(
+    compare_maihda_groups(wellbeing ~ wave + (1 | gender:ethnicity:education),
+                          data = maihda_long_data, group = "education",
+                          decomposition = "longitudinal"),
+    "out of scope")
 })
 
 # ---- dataset ---------------------------------------------------------------
