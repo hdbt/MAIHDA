@@ -83,7 +83,7 @@ jobs:
           # contextual, interactions, longitudinal, negbinomial, ordinal-engine and
           # tidiers -- and a name/path filter silently excluded those Stan paths,
           # letting them regress green. Running everything exercises every gated
-          # path; non-brms optional tests (WeMix, shinytest2, ...) skip cleanly when
+          # path; non-brms optional tests (WeMix, ordinal, ...) skip cleanly when
           # their package is absent.
           res <- testthat::test_local(
             ".",
