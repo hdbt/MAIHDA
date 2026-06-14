@@ -69,6 +69,16 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     }
   }
 
+  # A longitudinal fit has a time-varying VPC; compare_maihda() reports the single
+  # reference-time (baseline) value, which is not the whole picture. Warn so the
+  # comparison is not read as if the VPC were a scalar.
+  if (any(vapply(models, function(m) !is.null(m$longitudinal_info), logical(1)))) {
+    warning("One or more models are longitudinal (growth-curve) fits whose VPC is ",
+            "time-varying; compare_maihda() compares only the reference-time ",
+            "(baseline) VPC. Use summary()/plot(type = \"vpc_trajectory\") for the ",
+            "full trajectory.", call. = FALSE)
+  }
+
   # VPCs are only comparable on a shared outcome and family/link. Warn (rather
   # than error, to keep the function flexible) when they differ.
   if (length(models) > 1) {
@@ -458,6 +468,12 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                                   sampling_weights = NULL,
                                   ...) {
   decomposition <- maihda_resolve_decomposition(decomposition)
+  if (identical(decomposition, "longitudinal")) {
+    stop("compare_maihda_groups() does not support decomposition = ",
+         "\"longitudinal\" (a per-group longitudinal comparison is out of scope). ",
+         "Use maihda(decomposition = \"longitudinal\") on the pooled data.",
+         call. = FALSE)
+  }
   # ---- input validation ----
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a formula object", call. = FALSE)

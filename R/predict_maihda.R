@@ -68,7 +68,16 @@ predict_maihda <- function(object, newdata = NULL,
   } else {
     newdata <- maihda_prepare_prediction_data(object, newdata)
   }
-  
+
+  # Longitudinal (growth-curve) model: a stratum is a TRAJECTORY, so the
+  # stratum-level prediction is the random intercept and slope(s), not a single
+  # value. Individual-level predictions flow through the engine branches below
+  # (predict()/posterior_linpred handle the random slopes).
+  if (type == "strata" && !is.null(object$longitudinal_info)) {
+    res <- maihda_longitudinal_strata_predictions(object)
+    return(maihda_filter_strata_predictions(res, newdata))
+  }
+
   if (engine == "lme4") {
     if (type == "individual") {
       # Individual-level predictions including random effects

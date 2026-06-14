@@ -138,6 +138,17 @@ extract_between_variance <- function(model) {
   engine <- model$engine
   fitted_model <- model$model
 
+  # A longitudinal (growth-curve) fit has a random intercept AND slope on the
+  # stratum, so the between-stratum variance is a function of time -- there is no
+  # single scalar to return. Route the user to the time-varying decomposition.
+  if (!is.null(model$longitudinal_info)) {
+    stop("This is a longitudinal MAIHDA: the between-stratum variance is ",
+         "time-varying (random intercept + slope), so a single PCV/VPC scalar is ",
+         "undefined. Use maihda(decomposition = \"longitudinal\") for the ",
+         "additive-vs-multiplicative PCV (baseline and slope), or summary() for ",
+         "the time-varying VPC.", call. = FALSE)
+  }
+
   if (engine == "lme4") {
     maihda_validate_intercept_only_random_effects_lme4(
       fitted_model,

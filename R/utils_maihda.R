@@ -1098,6 +1098,13 @@ maihda_context_components_table <- function(var_stratum, per_context,
 # cross-classified MAIHDA) was added, to free the term. The old value still works
 # as a deprecated alias, with a one-time warning per call.
 maihda_resolve_decomposition <- function(decomposition) {
+  # A caller may pass its own multi-element formal default (e.g.
+  # c("two-model", "crossed-dimensions")); take the first as the default, mirroring
+  # match.arg()'s behaviour, so adding "longitudinal" to the choices below does not
+  # break callers whose default vector no longer equals the full choice set.
+  if (length(decomposition) > 1) {
+    decomposition <- decomposition[1]
+  }
   if (identical(decomposition, "cross-classified")) {
     warning("decomposition = \"cross-classified\" has been renamed ",
             "\"crossed-dimensions\" (it crosses the stratum dimensions' main ",
@@ -1107,7 +1114,7 @@ maihda_resolve_decomposition <- function(decomposition) {
             call. = FALSE)
     decomposition <- "crossed-dimensions"
   }
-  match.arg(decomposition, c("two-model", "crossed-dimensions"))
+  match.arg(decomposition, c("two-model", "crossed-dimensions", "longitudinal"))
 }
 
 maihda_stratum_ranef_lme4 <- function(model, group = "stratum") {
