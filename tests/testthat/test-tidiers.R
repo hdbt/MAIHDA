@@ -1,0 +1,164 @@
+# Tidy / glance (broom interface) methods for the MAIHDA classes. These repackage
+# the summary slots, so the tests assert the broom-shaped column contracts and the
+# headline glance() across the lme4, wemix, ordinal and (opt-in) brms engines.
+
+make_tidy_data <- function(seed = 5151, n = 600) {
+  set.seed(seed)
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE),
+    age    = rnorm(n),
+    stringsAsFactors = FALSE
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  u  <- rnorm(nlevels(sk), sd = 0.7)[sk]
+  d$y    <- 1 + 0.3 * d$age + u + rnorm(n, sd = 0.5)
+  d$ybin <- rbinom(n, 1, stats::plogis(-0.2 + 0.4 * d$age + u))
+  lat    <- u + 0.3 * d$age + rlogis(n)
+  d$yord <- factor(cut(lat, c(-Inf, -0.8, 0.6, Inf), labels = 1:3), ordered = TRUE)
+  d$w    <- runif(n, 0.5, 3)
+  d
+}
+
+# gender (2) x race (3), all combinations observed at n = 600
+N_STRATA <- 6L
+
+test_that("tidy.maihda_model returns broom-shaped strata / variance / fixed tibbles", {
+  d <- make_tidy_data()
+  m <- fit_maihda(y ~ age + (1 | gender:race), data = d)
+
+  st <- tidy(m)
+  expect_s3_class(st, "tbl_df")
+  expect_identical(names(st),
+                   c("stratum", "label", "estimate", "std.error", "conf.low", "conf.high"))
+  expect_equal(nrow(st), N_STRATA)
+  expect_true(is.numeric(st$estimate) && all(is.finite(st$estimate)))
+
+  vc <- tidy(m, component = "variance")
+  expect_identical(names(vc), c("component", "variance", "sd", "proportion"))
+  expect_true("Total" %in% vc$component)
+  expect_equal(vc$proportion[vc$component == "Total"], 1)
+
+  fe <- tidy(m, component = "fixed")
+  expect_identical(names(fe),
+                   c("term", "estimate", "std.error", "conf.low", "conf.high"))
+  expect_true(all(c("(Intercept)", "age") %in% fe$term))
+})
+
+test_that("glance.maihda_model is a one-row tibble with the headline columns", {
+  d <- make_tidy_data()
+  m <- fit_maihda(y ~ age + (1 | gender:race), data = d)
+
+  g <- glance(m)
+  expect_s3_class(g, "tbl_df")
+  expect_equal(nrow(g), 1L)
+  expect_identical(
+    names(g),
+    c("vpc", "vpc.conf.low", "vpc.conf.high", "additive.share", "interaction.share",
+      "auc", "mor", "n_strata", "nobs", "engine", "family")
+  )
+  expect_equal(g$vpc, summary(m)$vpc$estimate, tolerance = 1e-8)
+  expect_equal(g$n_strata, N_STRATA)
+  expect_equal(g$nobs, nrow(d))
+  expect_identical(g$engine, "lme4")
+  expect_true(g$vpc > 0 && g$vpc < 1)
+  expect_true(is.na(g$auc))   # gaussian -> no discriminatory accuracy
+})
+
+test_that("glance surfaces discriminatory accuracy for a binomial fit", {
+  d <- make_tidy_data()
+  m <- suppressWarnings(
+    fit_maihda(ybin ~ age + (1 | gender:race), data = d, family = "binomial"))
+
+  g <- glance(m)
+  expect_true(is.finite(g$auc) && g$auc > 0.4 && g$auc <= 1)
+  expect_true(is.finite(g$mor))   # logit link -> MOR defined
+})
+
+test_that("glance.maihda_analysis adds PCV, adjusted-model and mode columns", {
+  d <- make_tidy_data()
+  a <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d))
+
+  g <- glance(a)
+  expect_equal(nrow(g), 1L)
+  expect_identical(
+    names(g),
+    c("vpc", "vpc.conf.low", "vpc.conf.high",
+      "pcv", "pcv.conf.low", "pcv.conf.high",
+      "additive.share", "interaction.share",
+      "auc", "auc.adjusted", "mor",
+      "n_strata", "nobs", "engine", "family", "mode")
+  )
+  expect_equal(g$pcv, a$pcv$pvc, tolerance = 1e-8)
+  expect_identical(g$mode, "two-model")
+  expect_equal(g$nobs, nrow(d))
+  expect_equal(g$n_strata, N_STRATA)
+})
+
+test_that("tidy.maihda_analysis selects the null vs adjusted model", {
+  d <- make_tidy_data()
+  a <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d))
+
+  fe_null <- tidy(a, component = "fixed", which = "null")
+  fe_adj  <- tidy(a, component = "fixed", which = "adjusted")
+  expect_true("age" %in% fe_null$term)
+  expect_gt(nrow(fe_adj), nrow(fe_null))   # adjusted adds gender/race main effects
+  expect_equal(nrow(tidy(a)), N_STRATA)    # strata estimates from the null model
+})
+
+test_that("tidy.maihda_analysis errors when the requested summary is absent", {
+  d <- make_tidy_data()
+  a <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d))
+  a$summary_adjusted <- NULL
+  expect_error(tidy(a, which = "adjusted"), "No 'adjusted' summary")
+})
+
+test_that("tidy/glance work for the wemix engine (design-weighted)", {
+  skip_if_not_installed("WeMix")
+  d <- make_tidy_data()
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ age + (1 | gender:race), data = d,
+               engine = "wemix", sampling_weights = "w")))
+
+  fe <- tidy(m, component = "fixed")
+  expect_true(all(c("term", "estimate", "std.error") %in% names(fe)))
+  expect_true(any(is.finite(fe$std.error)))   # WeMix reports design-consistent SEs
+
+  g <- glance(m)
+  expect_identical(g$engine, "wemix")
+  expect_equal(g$n_strata, N_STRATA)
+  expect_true(g$vpc > 0 && g$vpc < 1)
+})
+
+test_that("tidy/glance work for the ordinal engine", {
+  skip_if_not_installed("ordinal")
+  d <- make_tidy_data()
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(yord ~ age + (1 | gender:race), data = d, family = "ordinal")))
+
+  st <- tidy(m)
+  expect_equal(nrow(st), N_STRATA)
+
+  g <- glance(m)
+  expect_identical(g$engine, "ordinal")
+  expect_true(g$vpc > 0 && g$vpc < 1)
+})
+
+test_that("tidy/glance work for the brms engine", {
+  skip_on_cran()
+  skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
+          "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
+  skip_if_not_installed("brms")
+  d <- make_tidy_data()
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ age + (1 | gender:race), data = d, engine = "brms",
+               chains = 1, iter = 600, refresh = 0)))
+
+  g <- glance(m)
+  expect_identical(g$engine, "brms")
+  expect_true(is.finite(g$vpc.conf.low) && is.finite(g$vpc.conf.high))  # posterior CI
+
+  fe <- tidy(m, component = "fixed")
+  expect_true(all(c("conf.low", "conf.high") %in% names(fe)))
+  expect_true(any(is.finite(fe$conf.low)))
+})

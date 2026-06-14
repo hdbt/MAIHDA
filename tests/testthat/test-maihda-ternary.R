@@ -9,8 +9,7 @@ test_that("Ternary plot functions work", {
     x = rnorm(50)
   )
 
-  library(lme4)
-  fit <- lmer(y ~ x + (1 | stratum), data = df)
+  fit <- lme4::lmer(y ~ x + (1 | stratum), data = df)
 
   model <- list(
     model = fit,
