@@ -204,7 +204,7 @@ the intersection random intercept, and fits the single model:</p>
 <code class="sourceCode R"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span></span>
 <span><span class="co">#&gt; BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | </span></span>
 <span><span class="co">#&gt;     stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x563b09ad7730&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x55bd9fef7ac0&gt;</span></span></code></pre></div>
 <p>The partition is on <code>cc$decomposition</code> (and printed
 above):</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
@@ -299,9 +299,16 @@ decomposition splits each stratum’s deviation into its additive
 (dimension random effects) and interaction (intersection random effect)
 parts.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">cc</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span>            <span class="co"># per-dimension additive + interaction + residual</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">cc</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span>  <span class="co"># additive vs. interaction, per stratum</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">cc</span>, type <span class="op">=</span> <span class="st">"ternary"</span><span class="op">)</span>        <span class="co"># additive / interaction / uncertainty per stratum</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">cc</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span>            <span class="co"># per-dimension additive + interaction + residual</span></span></code></pre></div>
+<p><img src="cross_classified_files/figure-html/plots-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">cc</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span>  <span class="co"># additive vs. interaction, per stratum</span></span></code></pre></div>
+<p><img src="cross_classified_files/figure-html/plots-2.png" class="r-plt" alt="" width="672"></p>
+<p>The ternary diagnostic needs the optional <code>ggtern</code>
+package, so it is only drawn when that package is installed.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">cc</span>, type <span class="op">=</span> <span class="st">"ternary"</span><span class="op">)</span>        <span class="co"># additive / interaction / uncertainty per stratum</span></span></code></pre></div>
+<p><img src="cross_classified_files/figure-html/plots-ternary-1.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level3">
 <h3 id="comparing-across-a-higher-level-group">Comparing across a higher-level group<a class="anchor" aria-label="anchor" href="#comparing-across-a-higher-level-group"></a>
@@ -309,7 +316,7 @@ parts.</p>
 <p>Pass a <code>group</code> to decompose within each level of a
 higher-level variable – here, how the additive-vs-interaction split
 differs across countries in the PISA data:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
 <span><span class="va">cc_grp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span>
@@ -328,7 +335,7 @@ fit; the additive and interaction shares then carry posterior
 <strong>credible</strong> intervals (no bootstrap needed). This is the
 recommended engine when dimensions have few levels (see the caveats
 below).</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cc_b</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
@@ -386,7 +393,7 @@ individual heterogeneity.</li>
 </ul>
 <p>Pass the context column(s) via <code>context =</code>; everything
 else is unchanged:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">ctx</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
@@ -432,7 +439,7 @@ of</strong> the country: in these data it drops noticeably relative to
 the strata-only fit, because part of what a strata-only model reads as
 “between-strata” is really the countries the strata members live in. The
 country share is the general contextual effect.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Strata-only fit for comparison: its VPC absorbs the country clustering.</span></span>
 <span><span class="va">m0</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_country_data</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">m0</span><span class="op">)</span><span class="op">$</span><span class="va">vpc</span><span class="op">$</span><span class="va">estimate</span>          <span class="co"># strata-only VPC</span></span>
@@ -448,7 +455,7 @@ country share is the general contextual effect.</p>
 <p><code>maihda(context = )</code> carries the context random intercept
 through <strong>both</strong> the null and the adjusted model, so the
 PCV decomposition is computed with the context partialled out:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">maihda_country_data</span>,</span>
@@ -473,9 +480,12 @@ PCV decomposition is computed with the context partialled out:</p>
 <span><span class="co">#&gt; Strata: 6</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Use summary() for variance components and plot(type = ...) for figures.</span></span></code></pre></div>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span>          <span class="co"># stacked shares, with the context broken out</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"context_vpc"</span><span class="op">)</span>  <span class="co"># stratum vs. context variances side by side</span></span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span>          <span class="co"># stacked shares, with the context broken out</span></span></code></pre></div>
+<p><img src="cross_classified_files/figure-html/context-plot-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"context_vpc"</span><span class="op">)</span>  <span class="co"># stratum vs. context variances side by side</span></span></code></pre></div>
+<p><img src="cross_classified_files/figure-html/context-plot-2.png" class="r-plt" alt="" width="672"></p>
 <p><code>context</code> also composes with the crossed-dimensions
 decomposition
 (<code>maihda(..., decomposition = "crossed-dimensions", context = "country")</code>):

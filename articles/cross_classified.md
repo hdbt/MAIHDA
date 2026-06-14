@@ -123,7 +123,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x563b09ad7730>
+#> <environment: 0x55bd9fef7ac0>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -228,9 +228,26 @@ parts.
 ``` r
 
 plot(cc, type = "vpc")            # per-dimension additive + interaction + residual
+```
+
+![](cross_classified_files/figure-html/plots-1.png)
+
+``` r
+
 plot(cc, type = "effect_decomp")  # additive vs. interaction, per stratum
+```
+
+![](cross_classified_files/figure-html/plots-2.png)
+
+The ternary diagnostic needs the optional `ggtern` package, so it is
+only drawn when that package is installed.
+
+``` r
+
 plot(cc, type = "ternary")        # additive / interaction / uncertainty per stratum
 ```
+
+![](cross_classified_files/figure-html/plots-ternary-1.png)
 
 ### Comparing across a higher-level group
 
@@ -415,8 +432,16 @@ a
 ``` r
 
 plot(a, type = "vpc")          # stacked shares, with the context broken out
+```
+
+![](cross_classified_files/figure-html/context-plot-1.png)
+
+``` r
+
 plot(a, type = "context_vpc")  # stratum vs. context variances side by side
 ```
+
+![](cross_classified_files/figure-html/context-plot-2.png)
 
 `context` also composes with the crossed-dimensions decomposition
 (`maihda(..., decomposition = "crossed-dimensions", context = "country")`):
