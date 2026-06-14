@@ -68,7 +68,7 @@ numeric time (`wave`).
 Supply `id` and `time` to `fit_maihda()`. Write only the strata shorthand
 `(1 | var1:var2)`; the growth slopes on time are added for you.
 
-```{r fit, eval = FALSE}
+```{r fit}
 m <- fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
                 data = maihda_long_data, id = "id", time = "wave")
 summary(m)
@@ -77,7 +77,7 @@ summary(m)
 `summary()` reports the VPC at the **baseline** (reference time, the earliest wave)
 and the **full trajectory** of the VPC across the observed times. Plot it:
 
-```{r vpc-traj, eval = FALSE}
+```{r vpc-traj}
 plot(m, type = "vpc_trajectory")   # VPC(t), with the reference time marked
 plot(m, type = "trajectories")     # predicted per-stratum mean trajectories
 ```
@@ -94,7 +94,7 @@ adjusted model adds the dimensions' main effects *and their interactions with ti
 (`dim:time`), so the stratum-level variance it leaves behind is the interaction
 beyond additive.
 
-```{r decomp, eval = FALSE}
+```{r decomp}
 a <- maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
             data = maihda_long_data, id = "id", time = "wave",
             decomposition = "longitudinal")
@@ -109,7 +109,7 @@ The PCV is reported separately for the two pieces of the trajectory:
   explained additively. A high `PCV_slope` is the "trajectories are mostly additive"
   finding; the remainder is the multiplicative/interaction part.
 
-```{r pcv-traj, eval = FALSE}
+```{r pcv-traj}
 plot(a, type = "pcv_trajectory")   # the additive share over time
 ```
 

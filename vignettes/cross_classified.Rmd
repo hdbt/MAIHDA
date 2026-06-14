@@ -120,9 +120,15 @@ structure: the VPC plot shows one additive slice per dimension plus the interact
 and residual, and the deviation decomposition splits each stratum's deviation into its
 additive (dimension random effects) and interaction (intersection random effect) parts.
 
-```{r plots, eval = FALSE}
+```{r plots}
 plot(cc, type = "vpc")            # per-dimension additive + interaction + residual
 plot(cc, type = "effect_decomp")  # additive vs. interaction, per stratum
+```
+
+The ternary diagnostic needs the optional `ggtern` package, so it is only drawn
+when that package is installed.
+
+```{r plots-ternary, eval = requireNamespace("ggtern", quietly = TRUE), warning = FALSE, message = FALSE}
 plot(cc, type = "ternary")        # additive / interaction / uncertainty per stratum
 ```
 
@@ -236,7 +242,7 @@ a <- maihda(
 a
 ```
 
-```{r context-plot, eval = FALSE}
+```{r context-plot}
 plot(a, type = "vpc")          # stacked shares, with the context broken out
 plot(a, type = "context_vpc")  # stratum vs. context variances side by side
 ```
