@@ -32,7 +32,11 @@ jobs:
   brms-tests:
     runs-on: ubuntu-latest
     # A cold runner installs rstan and compiles the Stan models at test time.
-    timeout-minutes: 75
+    # The whole suite is run with the brms gate open, so every brms-backed test
+    # file (cross-classified, contextual, interactions, longitudinal, negbinomial,
+    # ordinal, tidiers, fit_maihda, summary_variance) compiles its own Stan model
+    # -- roughly nine compiles on a cold runner -- hence the generous budget.
+    timeout-minutes: 120
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
@@ -73,20 +77,50 @@ jobs:
 
       - name: Run the Stan-backed (brms) tests
         run: |
-          # Run only the two files that hold the opt-in Bayesian tests. They also
-          # contain fast lme4/helper tests, which is fine; MAIHDA_TEST_BRMS and
-          # NOT_CRAN are set at the job level so the gated tests execute.
+          # Run the WHOLE suite (no file filter) with MAIHDA_TEST_BRMS and NOT_CRAN
+          # open at the job level. The brms opt-in is keyed off MAIHDA_TEST_BRMS in
+          # several files beyond fit_maihda / summary_variance -- cross-classified,
+          # contextual, interactions, longitudinal, negbinomial, ordinal-engine and
+          # tidiers -- and a name/path filter silently excluded those Stan paths,
+          # letting them regress green. Running everything exercises every gated
+          # path; non-brms optional tests (WeMix, shinytest2, ...) skip cleanly when
+          # their package is absent.
           res <- testthat::test_local(
             ".",
-            filter = "fit_maihda|summary_variance",
             reporter = "summary",
             stop_on_failure = FALSE
           )
           df <- as.data.frame(res)
 
-          # These names must match the test_that() blocks gated by MAIHDA_TEST_BRMS
-          # in test-fit_maihda.R and test-summary_variance.R. If a name drifts this
-          # job fails loudly, rather than going green on a silently-skipped path.
+          # 1) No failures or errors anywhere in the suite.
+          if (sum(df$failed) > 0 || any(df$error)) {
+            stop(sprintf("Test failures detected (failed=%d, errors=%d).",
+                         sum(df$failed), sum(df$error)))
+          }
+
+          # 2) Dynamic tripwire: with the brms gate open, NO test gated on
+          #    MAIHDA_TEST_BRMS may skip. Walk every expectation and flag any skip
+          #    whose reason mentions the opt-in -- that means a Stan path went
+          #    unexercised (a new gated file, a drifted gate, a misconfigured env).
+          #    This adapts automatically as gated tests are added, with no list to
+          #    maintain.
+          brms_skips <- character(0)
+          for (el in res) {
+            for (r in el$results) {
+              if (inherits(r, "expectation_skip") &&
+                  grepl("MAIHDA_TEST_BRMS", conditionMessage(r), fixed = TRUE)) {
+                brms_skips <- c(brms_skips, sprintf("%s :: %s", el$file, el$test))
+              }
+            }
+          }
+          if (length(brms_skips) > 0) {
+            stop("Stan-backed (brms) test(s) skipped despite MAIHDA_TEST_BRMS=true:\n  ",
+                 paste(unique(brms_skips), collapse = "\n  "))
+          }
+
+          # 3) Flagship sanity check: the two canonical brms tests must be present
+          #    and passed, so a suite that somehow ran zero Stan tests cannot go
+          #    green on the skip-tripwire alone.
           gated <- c(
             "fit_maihda fits a binary outcome with brms via bernoulli()",
             "brms summary returns a posterior credible interval for the VPC/ICC"
@@ -99,14 +133,10 @@ jobs:
             "passed"
           }, character(1))
           print(data.frame(test = gated, status = status, row.names = NULL))
-
           if (any(status != "passed")) {
-            stop("Stan-backed brms test(s) did not run and pass: ",
+            stop("Canonical Stan-backed brms test(s) did not run and pass: ",
                  paste(sprintf("%s = %s", gated, status), collapse = "; "))
           }
-          if (sum(df$failed) > 0 || any(df$error)) {
-            stop(sprintf("Test failures detected (failed=%d, errors=%d).",
-                         sum(df$failed), sum(df$error)))
-          }
+
           cat("\nStan-backed brms tests ran and passed.\n")
         shell: Rscript {0}

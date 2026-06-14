@@ -106,6 +106,23 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
   lp_fixed <- mean(stats::predict(fitted_model, re.form = NA, type = "link"), na.rm = TRUE)
 
   if (!is.null(seed)) {
+    # Keep reproducibility local: snapshot the caller's RNG state and restore it
+    # on exit, so passing seed= does not silently reseed the session and perturb
+    # the user's subsequent random draws. (Base-R equivalent of withr::with_seed;
+    # withr is not a package dependency.)
+    if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+      old_seed <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
+      on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+    } else {
+      # RNG was uninitialised before this call; remove the state we introduce so
+      # the session is left exactly as we found it.
+      on.exit(
+        if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+          rm(".Random.seed", envir = globalenv())
+        },
+        add = TRUE
+      )
+    }
     set.seed(seed)
   }
   u <- stats::rnorm(n_sim, mean = 0, sd = sqrt(var_between))
