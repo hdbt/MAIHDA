@@ -4,6 +4,36 @@
 
 ### New Features
 
+- Added **`broom`-style
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html) and
+  [`glance()`](https://generics.r-lib.org/reference/glance.html)
+  methods** for `maihda_model`, `maihda_summary`, and `maihda_analysis`,
+  so MAIHDA results drop straight into tidy data for `ggplot2`,
+  `gt`/`flextable` tables, and other downstream tooling.
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html) returns the
+  stratum (intersection) random-effect estimates by default (with the
+  human-readable intersectional label), or the variance-components table
+  (`component = "variance"`) or fixed effects (`component = "fixed"`),
+  all in broom’s `estimate`/`std.error`/`conf.low`/`conf.high` shape;
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html) on a
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis takes `which = c("null", "adjusted")`.
+  [`glance()`](https://generics.r-lib.org/reference/glance.html) returns
+  the **MAIHDA headline as a one-row tibble** – the VPC/ICC (with its
+  bootstrap/posterior interval), and for a
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis the **PCV**, the adjusted-model AUC, the additive/interaction
+  shares, AUC and MOR for a binary outcome, plus
+  `n_strata`/`nobs`/`engine`/`family` – a row no generic mixed-model
+  tool emits, since the PCV needs the null+adjusted pair. The layout is
+  uniform across the `lme4`, `brms`, `wemix`, and `ordinal` engines. The
+  generics come from the lightweight **`generics`** package (the same
+  ones `broom`/`broom.mixed` re-export), so
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html)/[`glance()`](https://generics.r-lib.org/reference/glance.html)
+  dispatch whether the user has `broom`, `generics`, or just `MAIHDA`
+  loaded, with no hard `broom` dependency; the raw fixed-effect/per-row
+  tidying `broom.mixed` already does on the underlying fit is
+  intentionally not duplicated.
 - Added **longitudinal (growth-curve) MAIHDA** – the life-course
   extension of Bell, Evans, Holman & Leckie (2024, *Soc Sci Med*
   351:116955) – via new `id`, `time`, and `time_degree` arguments on

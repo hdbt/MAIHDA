@@ -22,6 +22,10 @@
   : Cumulative (ordinal) family marker for MAIHDA models
 - [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
   : Discriminatory accuracy of a binary MAIHDA model
+- [`glance(`*`<maihda_summary>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_glance.md)
+  [`glance(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_glance.md)
+  [`glance(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_glance.md)
+  : Glance at a MAIHDA model or analysis
 - [`maihda_health_data`](https://hdbt.github.io/MAIHDA/reference/maihda_health_data.md)
   : NHANES Health Data Subset for MAIHDA Use
 - [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
@@ -38,6 +42,10 @@
   : Canonical MAIHDA results table and ranked-strata table
 - [`maihda_ternary_plot()`](https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.md)
   : Generate Ternary Plot from MAIHDA Model
+- [`tidy(`*`<maihda_summary>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md)
+  [`tidy(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md)
+  [`tidy(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md)
+  : Tidy a MAIHDA summary, model, or analysis
 - [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
   : Response-scale VPC for a binomial MAIHDA model
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)

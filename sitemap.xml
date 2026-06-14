@@ -45,6 +45,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_fit_clmm.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_fit_wemix.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_glance.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_health_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_ic.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_ic_one.html</loc></url>
@@ -69,6 +70,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_stratum_predictions_wemix.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_table.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_validate_longitudinal.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_validate_sampling_weights.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.html</loc></url>
@@ -106,6 +108,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_summary.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_table.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.pvc_result.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/reexports.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/run_maihda_app.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/summary.maihda_analysis.html</loc></url>

@@ -53,3 +53,16 @@ plot(
 ## Value
 
 A plot object.
+
+## Note
+
+This method **attaches the ggtern package to the search path** (as if by
+[`library(ggtern)`](https://rdrr.io/r/base/library.html)) if it is not
+already attached. This is a deliberate, unavoidable side effect: ggtern
+replaces several ggplot2 build/print internals at attach time, and
+without it the ternary coordinate system and themes do not render (you
+get a blank or distorted plot). The attachment persists after the call
+so the returned object can still be printed later in the session; it is
+not detached on exit. If you need a pristine search path, attach ggtern
+yourself before plotting and manage its lifecycle, or run plotting in a
+separate session.

@@ -108,6 +108,19 @@ classed result.</p>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A plot object.</p>
     </div>
+    <div class="section level2">
+    <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
+    <p>This method <strong>attaches the <span class="pkg">ggtern</span> package to the search
+path</strong> (as if by <code><a href="https://rdrr.io/r/base/library.html" class="external-link">library(ggtern)</a></code>) if it is not already attached. This
+is a deliberate, unavoidable side effect: <span class="pkg">ggtern</span> replaces several
+<span class="pkg">ggplot2</span> build/print internals at attach time, and without it the
+ternary coordinate system and themes do not render (you get a blank or
+distorted plot). The attachment persists after the call so the returned
+object can still be printed later in the session; it is not detached on
+exit. If you need a pristine search path, attach <span class="pkg">ggtern</span> yourself
+before plotting and manage its lifecycle, or run plotting in a separate
+session.</p>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

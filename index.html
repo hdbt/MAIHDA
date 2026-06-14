@@ -75,7 +75,7 @@
 <img src="logo.png" class="logo" alt=""><h1 id="maihda-multilevel-analysis-of-individual-heterogeneity-and-discriminatory-accuracy-">MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy <a class="anchor" aria-label="anchor" href="#maihda-multilevel-analysis-of-individual-heterogeneity-and-discriminatory-accuracy-"></a>
 </h1>
 </div>
-<p><a href="https://github.com/hdbt/MAIHDA/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/hdbt/MAIHDA/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a> <a href="https://www.r-project.org/" class="external-link"><img src="https://img.shields.io/badge/R-%3E%3D4.1.0-blue" alt="R"></a> <a href="https://opensource.org/licenses/MIT" class="external-link"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a> <a href="https://app.codecov.io/gh/hdbt/MAIHDA?branch=main" class="external-link"><img src="https://codecov.io/gh/hdbt/MAIHDA/branch/main/graph/badge.svg" alt="Codecov test coverage"></a> <a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a></p>
+<p><a href="https://CRAN.R-project.org/package=MAIHDA" class="external-link"><img src="https://www.r-pkg.org/badges/version/MAIHDA" alt="CRAN status"></a> <a href="https://CRAN.R-project.org/package=MAIHDA" class="external-link"><img src="https://cranlogs.r-pkg.org/badges/MAIHDA" alt="CRAN downloads"></a> <a href="https://github.com/hdbt/MAIHDA/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/hdbt/MAIHDA/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a> <a href="https://www.r-project.org/" class="external-link"><img src="https://img.shields.io/badge/R-%3E%3D4.1.0-blue" alt="R"></a> <a href="https://opensource.org/licenses/MIT" class="external-link"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a> <a href="https://app.codecov.io/gh/hdbt/MAIHDA?branch=main" class="external-link"><img src="https://codecov.io/gh/hdbt/MAIHDA/branch/main/graph/badge.svg" alt="Codecov test coverage"></a> <a href="https://lifecycle.r-lib.org/articles/figures/lifecycle-stable.svg" class="external-link"><img src="https://img.shields.io/badge/lifecycle-stable-green.svg" alt="Lifecycle: stable"></a></p>
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
@@ -465,11 +465,35 @@
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">stepwise_results</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="tidy-output-broom">Tidy output (<code>broom</code>)<a class="anchor" aria-label="anchor" href="#tidy-output-broom"></a>
+</h2>
+<p><code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code> and <code><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance()</a></code> methods turn a fitted model or analysis into tidy data for tables (<code>gt</code>, <code>flextable</code>) and <code>ggplot2</code>, reading the quantities <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> already computes (no new statistics, no refit):</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
+<span>                   data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># One-row headline: VPC/ICC, PCV, AUC/MOR (binary), additive/interaction shares, n.</span></span>
+<span><span class="co"># This row has no equivalent in broom.mixed/easystats -- PCV needs the null+adjusted pair.</span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Per-estimate tidy frames (broom's term/estimate/std.error/conf.low/conf.high shape):</span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span>                          <span class="co"># stratum (intersection) effects, with labels</span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">analysis</span>, component <span class="op">=</span> <span class="st">"variance"</span><span class="op">)</span>  <span class="co"># variance components</span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">analysis</span>, component <span class="op">=</span> <span class="st">"fixed"</span>, which <span class="op">=</span> <span class="st">"adjusted"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># A caterpillar plot in two lines:</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/reorder.factor.html" class="external-link">reorder</a></span><span class="op">(</span><span class="va">label</span>, <span class="va">estimate</span><span class="op">)</span>, <span class="va">estimate</span>, ymin <span class="op">=</span> <span class="va">conf.low</span>, ymax <span class="op">=</span> <span class="va">conf.high</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_linerange.html" class="external-link">geom_pointrange</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_flip.html" class="external-link">coord_flip</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<p>The generics come from the lightweight <code>generics</code> package (the same ones <code>broom</code> re-exports), so <code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code>/<code><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance()</a></code> work whether you load <code>broom</code>, <code>generics</code>, or just <code>MAIHDA</code>. The layout is uniform across the lme4, brms, WeMix, and ordinal engines. Note that <code>tidymodels</code> (parsnip/workflows) does not fit <code>lme4</code> random-effects models, so this is the tidy-<em>data</em> convention, not a modeling-pipeline integration.</p>
+</div>
+<div class="section level2">
 <h2 id="interactive-shiny-app">Interactive Shiny App<a class="anchor" aria-label="anchor" href="#interactive-shiny-app"></a>
 </h2>
 <p>You can access a live, cloud-hosted version of the MAIHDA interactive dashboard directly in your browser without installing R: <strong><a href="https://hdbt.shinyapps.io/shiny/" class="external-link">https://hdbt.shinyapps.io/shiny/</a></strong></p>
 <p>Alternatively, you can run all analyses described above in the browser locally by typing:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -477,7 +501,7 @@
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
 </h2>
 <p>For detailed documentation and examples, see the package vignette:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/vignette.html" class="external-link">vignette</a></span><span class="op">(</span><span class="st">"introduction"</span>, package <span class="op">=</span> <span class="st">"MAIHDA"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -527,14 +551,14 @@
 <p>If you use this package in your research, please cite:</p>
 <pre class="text"><code>Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.11, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA</code></pre>
 <p>A BibTeX entry for LaTeX users is:</p>
-<div class="sourceCode" id="cb17"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="va">@Manual</span>{<span class="ot">Bulut2025MAIHDA</span>,</span>
-<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>  <span class="dt">title</span>  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},</span>
-<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>  <span class="dt">author</span> = {Hamid Bulut},</span>
-<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>  <span class="dt">year</span>   = {2025},</span>
-<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.1.11},</span>
-<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a>  <span class="dt">url</span>    = {https://github.com/hdbt/MAIHDA},</span>
-<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a>  <span class="dt">doi</span>    = {10.32614/CRAN.package.MAIHDA}</span>
-<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="va">@Manual</span>{<span class="ot">Bulut2025MAIHDA</span>,</span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>  <span class="dt">title</span>  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},</span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a>  <span class="dt">author</span> = {Hamid Bulut},</span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a>  <span class="dt">year</span>   = {2025},</span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.1.11},</span>
+<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a>  <span class="dt">url</span>    = {https://github.com/hdbt/MAIHDA},</span>
+<span id="cb18-7"><a href="#cb18-7" tabindex="-1"></a>  <span class="dt">doi</span>    = {10.32614/CRAN.package.MAIHDA}</span>
+<span id="cb18-8"><a href="#cb18-8" tabindex="-1"></a>}</span></code></pre></div>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">
