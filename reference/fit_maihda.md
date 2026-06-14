@@ -15,6 +15,9 @@ fit_maihda(
   autobin = TRUE,
   context = NULL,
   sampling_weights = NULL,
+  id = NULL,
+  time = NULL,
+  time_degree = 1,
   ...
 )
 ```
@@ -162,6 +165,36 @@ fit_maihda(
 
   Rows with a missing or non-positive sampling weight are dropped with a
   warning. Default `NULL` (unweighted).
+
+- id:
+
+  Optional single character string naming a person/unit identifier
+  column for a **longitudinal (growth-curve) MAIHDA** on long-format
+  data (one row per measurement occasion). Supplied together with
+  `time`, it makes the model a 3-level growth curve – occasions within
+  individuals (`id`) within intersectional strata – with a random
+  intercept and slope on `time` at *both* the individual and stratum
+  levels. The growth random effects are added automatically: write the
+  strata shorthand `(1 | var1:var2)` (or `(1 | stratum)`) only, not the
+  slopes. The between-stratum variance (and hence the VPC) then becomes
+  a function of time;
+  [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
+  reports the time-varying VPC. Longitudinal fits are supported by
+  `engine = "lme4"`/`"brms"` only (not `wemix`/`ordinal`), and are
+  incompatible with `context` and `sampling_weights`. Default `NULL`
+  (cross-sectional). See Bell, Evans, Holman & Leckie (2024).
+
+- time:
+
+  Optional single character string naming a numeric measurement-time
+  column (e.g. wave 0, 1, 2, ... or age), required for a longitudinal
+  MAIHDA; see `id`. Default `NULL`.
+
+- time_degree:
+
+  Polynomial degree of the growth curve when `time` is supplied: 1
+  (default) linear, 2 quadratic, etc. The brms engine supports degree 1
+  only.
 
 - ...:
 

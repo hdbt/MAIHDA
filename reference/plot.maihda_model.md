@@ -11,7 +11,8 @@ estimates, and predicted subgroup values with confidence intervals.
 plot(
   x,
   type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
-    "effect_decomp", "ternary", "prediction_deviation", "context_vpc"),
+    "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory",
+    "trajectories"),
   summary_obj = NULL,
   n_strata = 50,
   highlight_interactions = FALSE,
@@ -56,6 +57,13 @@ plot(
 
   - "context_vpc": Stratum vs. context variance bars for a contextual
     cross-classified fit (`fit_maihda(context = )`); errors otherwise
+
+  - "vpc_trajectory": Time-varying VPC/ICC curve for a **longitudinal**
+    fit (`fit_maihda(id =, time =)`); errors otherwise. For a
+    longitudinal model `"vpc"` and `"all"` also route here
+
+  - "trajectories": Predicted per-stratum mean trajectories over time
+    (longitudinal fits only)
 
   - "all": Generate all available plots (default if not specified)
 

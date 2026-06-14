@@ -28,6 +28,7 @@ and predicted subgroup values with confidence intervals."><meta property="og:ima
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
+    <li><a class="dropdown-item" href="../articles/longitudinal.html">Longitudinal MAIHDA: intersectional inequalities over time</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -63,7 +64,8 @@ and predicted subgroup values with confidence intervals.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span></span>
 <span>  <span class="va">x</span>,</span>
 <span>  type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"all"</span>, <span class="st">"vpc"</span>, <span class="st">"obs_vs_shrunken"</span>, <span class="st">"predicted"</span>, <span class="st">"risk_vs_effect"</span>,</span>
-<span>    <span class="st">"effect_decomp"</span>, <span class="st">"ternary"</span>, <span class="st">"prediction_deviation"</span>, <span class="st">"context_vpc"</span><span class="op">)</span>,</span>
+<span>    <span class="st">"effect_decomp"</span>, <span class="st">"ternary"</span>, <span class="st">"prediction_deviation"</span>, <span class="st">"context_vpc"</span>, <span class="st">"vpc_trajectory"</span>,</span>
+<span>    <span class="st">"trajectories"</span><span class="op">)</span>,</span>
 <span>  summary_obj <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_strata <span class="op">=</span> <span class="fl">50</span>,</span>
 <span>  highlight_interactions <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -93,6 +95,11 @@ and predicted subgroup values with confidence intervals.</p>
 <li><p>"prediction_deviation": Detailed deviation panels for individuals or strata</p></li>
 <li><p>"context_vpc": Stratum vs. context variance bars for a contextual
     cross-classified fit (<code>fit_maihda(context = )</code>); errors otherwise</p></li>
+<li><p>"vpc_trajectory": Time-varying VPC/ICC curve for a <strong>longitudinal</strong>
+    fit (<code>fit_maihda(id =, time =)</code>); errors otherwise. For a longitudinal
+    model <code>"vpc"</code> and <code>"all"</code> also route here</p></li>
+<li><p>"trajectories": Predicted per-stratum mean trajectories over time
+    (longitudinal fits only)</p></li>
 <li><p>"all": Generate all available plots (default if not specified)</p></li>
 </ul></dd>
 

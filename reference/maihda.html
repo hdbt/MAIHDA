@@ -40,6 +40,7 @@ supplied it also compares this decomposition across that variable's levels."><me
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
+    <li><a class="dropdown-item" href="../articles/longitudinal.html">Longitudinal MAIHDA: intersectional inequalities over time</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -84,7 +85,7 @@ supplied it also compares this decomposition across that variable's levels.</p>
 <span>  context <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  engine <span class="op">=</span> <span class="st">"lme4"</span>,</span>
 <span>  family <span class="op">=</span> <span class="st">"gaussian"</span>,</span>
-<span>  decomposition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"two-model"</span>, <span class="st">"crossed-dimensions"</span><span class="op">)</span>,</span>
+<span>  decomposition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"two-model"</span>, <span class="st">"crossed-dimensions"</span>, <span class="st">"longitudinal"</span><span class="op">)</span>,</span>
 <span>  autobin <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  shared_strata <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  min_group_n <span class="op">=</span> <span class="fl">30</span>,</span>
@@ -94,6 +95,9 @@ supplied it also compares this decomposition across that variable's levels.</p>
 <span>  response_vpc <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sampling_weights <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  id <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  time <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  time_degree <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -173,7 +177,15 @@ estimated from two groups) are poorly identified and often give a singular lme4 
 (<code>"cross-classified"</code> is accepted as a deprecated alias for
 <code>"crossed-dimensions"</code>, with a warning: in the MAIHDA literature
 “cross-classified” refers to the contextual stratum-by-place model,
-which this package fits via <code>context</code>.)</p></dd>
+which this package fits via <code>context</code>.)
+<code>"longitudinal"</code> fits a 3-level <strong>growth-curve</strong> MAIHDA (requires
+<code>id</code> and <code>time</code>; selected automatically when they are supplied): a
+null and an adjusted growth model, where the adjusted model adds the
+dimensions' main effects <em>and their interactions with time</em>
+(<code>dim:time</code>). The between-stratum variance is then time-varying and the
+PCV is reported separately for the baseline (intercept) and the slope variance
+– the additive-vs-multiplicative split of the intersectional trajectory
+inequality (Bell, Evans, Holman &amp; Leckie 2024). See <code><a href="fit_maihda.html">fit_maihda</a></code>.</p></dd>
 
 
 <dt id="arg-autobin">autobin<a class="anchor" aria-label="anchor" href="#arg-autobin"></a></dt>
@@ -227,6 +239,15 @@ and the adjusted model (and any per-group fits) use the same weights, so the
 PCV is a design-weighted decomposition. Not compatible with
 <code>engine = "lme4"</code>, <code>decomposition = "crossed-dimensions"</code> under
 the wemix engine, or <code>bootstrap = TRUE</code>.</p></dd>
+
+
+<dt id="arg-id-time-time-degree">id, time, time_degree<a class="anchor" aria-label="anchor" href="#arg-id-time-time-degree"></a></dt>
+<dd><p>For a <strong>longitudinal</strong> MAIHDA: the person/unit
+identifier column, the numeric measurement-time column, and the growth-curve
+polynomial degree (1 = linear). Supplying <code>id</code>/<code>time</code> selects
+<code>decomposition = "longitudinal"</code>. See <code><a href="fit_maihda.html">fit_maihda</a></code> for the
+model structure; <code>group</code>, <code>context</code>, and <code>sampling_weights</code> are
+not supported alongside them. Default <code>NULL</code> (cross-sectional).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -358,10 +379,10 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d7890837a0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x565017e95130&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d77ceb9700&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x56500ade9c68&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -414,7 +435,7 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d7877faba0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x565019df2f98&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>

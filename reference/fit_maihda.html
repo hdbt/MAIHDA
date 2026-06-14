@@ -28,6 +28,7 @@ design-weighted (survey) data – WeMix."><meta property="og:image" content="htt
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
+    <li><a class="dropdown-item" href="../articles/longitudinal.html">Longitudinal MAIHDA: intersectional inequalities over time</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -67,6 +68,9 @@ design-weighted (survey) data – WeMix.</p>
 <span>  autobin <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  context <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sampling_weights <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  id <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  time <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  time_degree <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -196,6 +200,35 @@ Two engines support them:</p><ul><li><p><code>engine = "wemix"</code> (chosen au
     credible intervals are not design-based – interpret them cautiously.</p></li>
 </ul><p>Rows with a missing or non-positive sampling weight are dropped with a
 warning. Default <code>NULL</code> (unweighted).</p></dd>
+
+
+<dt id="arg-id">id<a class="anchor" aria-label="anchor" href="#arg-id"></a></dt>
+<dd><p>Optional single character string naming a person/unit identifier
+column for a <strong>longitudinal (growth-curve) MAIHDA</strong> on long-format data
+(one row per measurement occasion). Supplied together with <code>time</code>, it
+makes the model a 3-level growth curve – occasions within individuals
+(<code>id</code>) within intersectional strata – with a random intercept and slope
+on <code>time</code> at <em>both</em> the individual and stratum levels. The growth
+random effects are added automatically: write the strata shorthand
+<code>(1 | var1:var2)</code> (or <code>(1 | stratum)</code>) only, not the slopes. The
+between-stratum variance (and hence the VPC) then becomes a function of time;
+<code><a href="summary.maihda_model.html">summary.maihda_model</a></code> reports the time-varying VPC. Longitudinal
+fits are supported by <code>engine = "lme4"</code>/<code>"brms"</code> only (not
+<code>wemix</code>/<code>ordinal</code>), and are incompatible with <code>context</code> and
+<code>sampling_weights</code>. Default <code>NULL</code> (cross-sectional). See
+Bell, Evans, Holman &amp; Leckie (2024).</p></dd>
+
+
+<dt id="arg-time">time<a class="anchor" aria-label="anchor" href="#arg-time"></a></dt>
+<dd><p>Optional single character string naming a numeric measurement-time
+column (e.g. wave 0, 1, 2, ... or age), required for a longitudinal MAIHDA;
+see <code>id</code>. Default <code>NULL</code>.</p></dd>
+
+
+<dt id="arg-time-degree">time_degree<a class="anchor" aria-label="anchor" href="#arg-time-degree"></a></dt>
+<dd><p>Polynomial degree of the growth curve when <code>time</code> is
+supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
+degree 1 only.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

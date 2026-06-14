@@ -22,7 +22,7 @@ maihda(
   context = NULL,
   engine = "lme4",
   family = "gaussian",
-  decomposition = c("two-model", "crossed-dimensions"),
+  decomposition = c("two-model", "crossed-dimensions", "longitudinal"),
   autobin = TRUE,
   shared_strata = TRUE,
   min_group_n = 30,
@@ -32,6 +32,9 @@ maihda(
   response_vpc = FALSE,
   seed = NULL,
   sampling_weights = NULL,
+  id = NULL,
+  time = NULL,
+  time_degree = 1,
   ...
 )
 ```
@@ -118,6 +121,16 @@ maihda(
   alias for `"crossed-dimensions"`, with a warning: in the MAIHDA
   literature “cross-classified” refers to the contextual
   stratum-by-place model, which this package fits via `context`.)
+  `"longitudinal"` fits a 3-level **growth-curve** MAIHDA (requires `id`
+  and `time`; selected automatically when they are supplied): a null and
+  an adjusted growth model, where the adjusted model adds the
+  dimensions' main effects *and their interactions with time*
+  (`dim:time`). The between-stratum variance is then time-varying and
+  the PCV is reported separately for the baseline (intercept) and the
+  slope variance – the additive-vs-multiplicative split of the
+  intersectional trajectory inequality (Bell, Evans, Holman & Leckie
+  2024). See
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md).
 
 - autobin:
 
@@ -178,6 +191,16 @@ maihda(
   PCV is a design-weighted decomposition. Not compatible with
   `engine = "lme4"`, `decomposition = "crossed-dimensions"` under the
   wemix engine, or `bootstrap = TRUE`.
+
+- id, time, time_degree:
+
+  For a **longitudinal** MAIHDA: the person/unit identifier column, the
+  numeric measurement-time column, and the growth-curve polynomial
+  degree (1 = linear). Supplying `id`/`time` selects
+  `decomposition = "longitudinal"`. See
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  for the model structure; `group`, `context`, and `sampling_weights`
+  are not supported alongside them. Default `NULL` (cross-sectional).
 
 - ...:
 
@@ -337,10 +360,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x55d7890837a0>
+#> <environment: 0x565017e95130>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x55d77ceb9700>
+#> <environment: 0x56500ade9c68>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -393,7 +416,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x55d7877faba0>
+#> <environment: 0x565019df2f98>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

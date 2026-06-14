@@ -42,6 +42,7 @@ with a group."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
+    <li><a class="dropdown-item" href="../articles/longitudinal.html">Longitudinal MAIHDA: intersectional inequalities over time</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -96,8 +97,12 @@ with a <code>group</code>.</p>
 <dd><p>One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
 "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation"), the
 contextual type ("context_vpc", a stratum-vs-context variance bar; requires
-<code>maihda(context = )</code>), or a group type ("group_vpc", "group_components",
-"group_between_variance", "group_pcv"). Default "all".</p></dd>
+<code>maihda(context = )</code>), a longitudinal type ("vpc_trajectory",
+"trajectories", "pcv_trajectory"; requires <code>decomposition =
+"longitudinal"</code>), or a group type ("group_vpc", "group_components",
+"group_between_variance", "group_pcv"). Default "all". For a longitudinal
+analysis "all" shows the VPC-over-time, the stratum trajectories, and the
+time-specific PCV.</p></dd>
 
 
 <dt id="arg-highlight-interactions">highlight_interactions<a class="anchor" aria-label="anchor" href="#arg-highlight-interactions"></a></dt>

@@ -28,6 +28,8 @@
   : Information criteria for MAIHDA models
 - [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
   : Flag strata with credibly non-zero intersectional interaction
+- [`maihda_long_data`](https://hdbt.github.io/MAIHDA/reference/maihda_long_data.md)
+  : Simulated Longitudinal Data for MAIHDA
 - [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
   : Median Odds Ratio (MOR) for a logistic MAIHDA model
 - [`maihda_sim_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.md)
@@ -62,6 +64,8 @@
   : Print MAIHDA information criteria
 - [`print(`*`<maihda_interactions>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_interactions.md)
   : Print a MAIHDA interaction diagnostic
+- [`print(`*`<maihda_long_pcv>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_long_pcv.md)
+  : Print a longitudinal MAIHDA PCV
 - [`print(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_model.md)
   : Print method for maihda_model
 - [`print(`*`<maihda_stepwise>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_stepwise.md)

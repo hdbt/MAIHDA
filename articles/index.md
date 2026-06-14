@@ -13,6 +13,8 @@
   Groups](https://hdbt.github.io/MAIHDA/articles/group_comparison.md):
 - [Crossed random effects in MAIHDA: dimensions and
   contexts](https://hdbt.github.io/MAIHDA/articles/cross_classified.md):
+- [Longitudinal MAIHDA: intersectional inequalities over
+  time](https://hdbt.github.io/MAIHDA/articles/longitudinal.md):
 
 ### Interpretation
 

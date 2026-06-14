@@ -4,6 +4,51 @@
 
 ### New Features
 
+- Added **longitudinal (growth-curve) MAIHDA** – the life-course
+  extension of Bell, Evans, Holman & Leckie (2024, *Soc Sci Med*
+  351:116955) – via new `id`, `time`, and `time_degree` arguments on
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  and [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md).
+  Supplying `id` (the person/unit measured repeatedly) and `time` (a
+  numeric measurement-time column) fits a **3-level growth curve** –
+  occasions within individuals within intersectional strata – with a
+  random intercept *and* slope on time at *both* the individual and
+  stratum levels (`outcome ~ time + (time | id) + (time | stratum)`; the
+  growth slopes are added automatically, so you write only the strata
+  shorthand `(1 | var1:var2)`). The between-stratum variance, and
+  therefore the **VPC, is then a function of time**
+  (`VarS(t) = a(t)' Sigma_s a(t)`):
+  [`summary()`](https://rdrr.io/r/base/summary.html) reports the
+  baseline (reference-time) VPC, the full time-varying VPC trajectory,
+  and the stratum/individual intercept-slope-covariance blocks, and a
+  new plot type `"vpc_trajectory"` draws the VPC-over-time curve (with
+  `"trajectories"` for the predicted per-stratum mean trajectories;
+  `plot(type = "vpc")`/`"all"` route there for a longitudinal fit).
+  `maihda(decomposition = "longitudinal")` (selected automatically when
+  `id`/`time` are supplied) fits a null and an adjusted growth model –
+  the adjusted model adding the dimensions’ main effects **and their
+  `dim:time` interactions** – and reports the **PCV separately for the
+  baseline (intercept) and the slope variance**: the
+  additive-vs-multiplicative split of the intersectional *trajectory*
+  inequality (the paper’s “partly multiplicative but mostly additive”
+  finding), returned as a `maihda_long_pcv` object with `pcv_intercept`,
+  `pcv_slope`, and a time-specific `pcv_t` (and a `"pcv_trajectory"`
+  plot). All families with a defined level-1 variance are supported
+  (`gaussian`/`binomial`/`poisson`/`negbinomial`, latent scale for
+  non-Gaussian) on `engine = "lme4"` (any degree) and `engine = "brms"`
+  (linear growth; posterior credible bands on the VPC trajectory).
+  `predict_maihda(type = "strata")` returns each stratum’s intercept and
+  slope (a stratum is now a *trajectory*). The intercept-only guards
+  elsewhere are untouched – a longitudinal fit is tagged and routed to
+  the time-varying path, while every other model still rejects random
+  slopes – and
+  [`extract_between_variance()`](https://hdbt.github.io/MAIHDA/reference/extract_between_variance.md)/[`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  reject a longitudinal model with a pointer to the time-varying
+  decomposition. Design-weighted, contextual, `wemix`/`ordinal`, and
+  group-comparison longitudinal models are out of scope (each errors). A
+  new bundled dataset **`maihda_long_data`** (600 persons x 5 waves,
+  gender x ethnicity x education strata, with constructed
+  mostly-additive trajectory differences) demonstrates it.
 - Added **ordinal (cumulative) MAIHDA** for ordered-factor outcomes –
   the multicategorical extension the MAIHDA tutorials flag as priority
   future work. `family = "ordinal"` (alias `"cumulative"`; probit via

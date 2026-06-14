@@ -331,6 +331,38 @@ discriminatory-accuracy trajectory (`AUC`, the step/total change in AUC,
 and `MOR`) alongside the PCV, so the strata’s discriminatory accuracy
 can be tracked as covariates are added.
 
+### Longitudinal (growth-curve) MAIHDA
+
+Supply `id` and `time` to
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)/[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+for a 3-level growth-curve MAIHDA (occasions within individuals within
+strata, with random intercept *and* slope on time at both levels), the
+life-course extension of Bell, Evans, Holman & Leckie (2024). The
+between-stratum VPC is then time-varying, and
+`maihda(decomposition = "longitudinal")` reports the PCV separately for
+the baseline (intercept) and the slope variance — the
+additive-vs-multiplicative split of the intersectional *trajectory*
+inequality.
+
+``` r
+
+data(maihda_long_data)   # 600 persons x 5 waves; gender x ethnicity x education strata
+
+# Time-varying VPC from a 3-level growth model
+m <- fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+                data = maihda_long_data, id = "id", time = "wave")
+summary(m)                         # baseline VPC + the VPC trajectory over waves
+plot(m, type = "vpc_trajectory")   # VPC(t) curve
+plot(m, type = "trajectories")     # predicted per-stratum mean trajectories
+
+# Additive-vs-multiplicative PCV (null vs adjusted growth model)
+a <- maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+            data = maihda_long_data, id = "id", time = "wave",
+            decomposition = "longitudinal")
+a$pcv                              # PCV_intercept (baseline) and PCV_slope (trajectory)
+plot(a, type = "pcv_trajectory")
+```
+
 ### `run_maihda_app()`
 
 Launches a locally-hosted, interactive Shiny Dashboard that exposes the
