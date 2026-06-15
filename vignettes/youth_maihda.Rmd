@@ -1,0 +1,262 @@
+---
+title: "Youth MAIHDA: NEET and well-being across Europe"
+author: "Hamid Bulut"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Youth MAIHDA: NEET and well-being across Europe}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+```
+
+## Why MAIHDA for youth research?
+
+Youth-research institutes -- the German Youth Institute (DJI), the *Youth & Work*
+programme and the *Observatoire de la jeunesse* in Luxembourg -- ask, again and
+again, the same two questions about young people's life chances:
+
+- the **school-to-work transition**: who ends up **NEET** (Not in Employment,
+  Education or Training), the headline indicator of a stalled transition; and
+- **subjective well-being**: how good young people feel their lives are.
+
+And they ask these questions *intersectionally*. A young woman with a migration
+background whose parents have little formal education is not simply "a woman" plus
+"a migrant" plus "low social origin": the disadvantages can **compound** in ways
+that looking at one axis at a time will miss. That is exactly what MAIHDA is built
+for -- it places every young person in an **intersectional stratum** (here
+`gender x migration x parental education`) and asks how much of the inequality in
+an outcome lies *between* those strata, and how much of that is the simple additive
+sum of the parts versus a genuine intersectional **interaction**.
+
+This vignette walks through the full MAIHDA toolkit on a youth dataset:
+
+1. the two-model decomposition (**VPC/ICC** and **PCV**) for a continuous outcome
+   (well-being),
+2. the **discriminatory-accuracy** workflow for a binary outcome (NEET),
+3. comparing intersectional inequality **across countries**, and
+4. pinpointing **which intersections** carry a genuine interaction.
+
+## The data
+
+`maihda_youth_data` is a simulated cross-section of 16--29-year-olds in four
+countries. It is **synthetic** -- the real surveys it is modelled on (the Youth
+Survey Luxembourg, the DJI's AID:A, and the youth sub-sample of the European Social
+Survey) require data-use agreements and cannot be shipped in a package -- but its
+design and its NEET / life-satisfaction levels are calibrated to Eurostat figures
+for young Europeans, so the workflow below mirrors a real analysis.
+
+> **Teaching data.** The values are constructed, not observed; read the patterns
+> below as an illustration of the *method*, not as findings about these countries.
+
+```{r load}
+library(MAIHDA)
+data("maihda_youth_data")
+
+str(maihda_youth_data)
+```
+
+The three stratum dimensions form `2 x 2 x 3 = 12` intersectional strata; `country`
+is a higher-level grouping variable. Every stratum is well populated (this is not a
+sparse-cell problem -- see `vignette("bayesian_sparse_maihda")` for that case):
+
+```{r strata}
+# the 12 intersectional strata and their sizes (pooled across countries)
+table(maihda_youth_data$gender,
+      maihda_youth_data$migration,
+      maihda_youth_data$parental_edu)
+
+# NEET prevalence differs across countries, as in the real Eurostat series
+round(tapply(maihda_youth_data$neet == "Yes", maihda_youth_data$country, mean), 3)
+```
+
+## Well-being: the two-model decomposition
+
+`maihda()` runs the standard pipeline in one call. Writing the stratum dimensions'
+main effects in the formula tells `maihda()` they are the **adjusted** model; it
+derives the **null** model (the intersectional random intercept alone) by dropping
+them, fits both on the same sample, and reports the VPC/ICC and the PCV.
+
+```{r wb-fit}
+wb <- maihda(
+  wellbeing ~ gender + migration + parental_edu +
+    (1 | gender:migration:parental_edu),
+  data = maihda_youth_data
+)
+wb
+```
+
+The **VPC/ICC** is the share of well-being variation that lies *between* the
+intersectional strata. The **PCV** (proportional change in variance) is how much
+of that between-stratum variance the additive main effects account for: a high PCV
+means inequality is largely the additive sum of gender, migration, and social
+origin; the remainder is the part the additive model cannot reach -- the candidate
+**intersectional** signal. (As always, the PCV is a model-dependent variance change,
+not a causal decomposition.)
+
+```{r wb-summary}
+summary(wb)
+wb$pcv
+```
+
+`plot()` sends each view to the model it belongs on automatically -- the VPC and
+shrinkage views to the null model, the additive-vs-intersectional views to the
+adjusted model.
+
+```{r wb-plot-vpc}
+plot(wb, type = "vpc")              # variance partition (null model)
+```
+
+```{r wb-plot-effect-decomp}
+plot(wb, type = "effect_decomp")   # additive vs intersectional (adjusted model)
+```
+
+```{r wb-plot-predicted}
+plot(wb, type = "predicted")       # predicted well-being per stratum, with 95% CIs
+```
+
+The predicted-value plot ranks the 12 strata: youth with a migration background and
+low parental education sit at the bottom, those without and with highly educated
+parents at the top -- the additive gradient. The effect-decomposition plot is where
+the *intersectional* part becomes visible, separated from that additive gradient.
+
+## NEET: discriminatory accuracy
+
+NEET is binary, so MAIHDA fits a multilevel **logistic** model. `maihda()`
+auto-detects the two-level outcome (it reports how it recoded the factor); passing
+`family = "binomial"` makes it explicit. For a binary outcome the **discriminatory
+accuracy** -- the AUC / C-statistic and the Median Odds Ratio (MOR) -- rides along
+on the summary automatically.
+
+```{r neet-fit}
+neet <- maihda(
+  neet ~ gender + migration + parental_edu +
+    (1 | gender:migration:parental_edu),
+  data = maihda_youth_data, family = "binomial"
+)
+neet
+```
+
+Two numbers tell complementary stories. The **VPC** says a substantial share of the
+(latent) variation in NEET risk lies between intersectional strata. The **AUC**, by
+contrast, asks a prediction question: *given only which intersectional stratum a
+young person belongs to, how well can we separate those who are NEET from those who
+are not?* Here the AUC is moderate -- and that is the central, cautionary message of
+the "DA" in MAIHDA: a real between-stratum gradient still translates into only
+limited accuracy at the **individual** level, so intersectional strata describe
+*structure* far better than they *target individuals*. You can pull the pieces out
+directly:
+
+```{r neet-da}
+maihda_discriminatory_accuracy(neet$model)   # strata-only (null) model: Merlo's DA
+```
+
+The VPC for a logistic model is on the **latent** scale (the level-1 variance is
+fixed at `pi^2/3`); see `vignette("binary_outcomes")` for the full treatment,
+including the probability-scale complement `maihda_vpc_response()`.
+
+```{r neet-plot}
+plot(neet, type = "predicted")     # predicted NEET probability per stratum
+```
+
+## Comparing inequality across countries
+
+Add `group = "country"` and `maihda()` runs the whole decomposition *within each
+country* as well, so we can ask the contextual question youth institutes care
+about: **is intersectional inequality sharper in some countries than others?**
+
+```{r group-fit, message = FALSE, warning = FALSE}
+by_country <- maihda(
+  neet ~ gender + migration + parental_edu +
+    (1 | gender:migration:parental_edu),
+  data = maihda_youth_data, group = "country", family = "binomial"
+)
+
+group_results <- as.data.frame(by_country$groups)
+group_results[order(group_results$vpc, decreasing = TRUE),
+              c("group", "n", "n_strata", "vpc", "var_between", "pcv", "status")]
+```
+
+```{r group-plot-vpc}
+plot(by_country, type = "group_vpc")
+```
+
+The VPC/ICC is a *share*, so a country can post a high VPC partly because its
+residual variation is small. Read it alongside the **absolute** between-stratum
+variance, which is the magnitude of intersectional inequality rather than its share:
+
+```{r group-plot-magnitude}
+plot(by_country, type = "group_between_variance")
+```
+
+## Which intersections actually interact?
+
+A high PCV says most inequality is additive -- but *some* is not. `maihda_interactions()`
+reads each stratum's interaction effect (its departure from the additive
+prediction, the random effect of the adjusted model) and flags those credibly
+different from zero. With many strata, screen with an FDR correction:
+
+```{r interactions}
+flagged <- maihda_interactions(wb, adjust = "BH")
+flagged
+```
+
+The flagged strata are not scattered at random: they are the `migration x social
+origin` cells. This is what an intersectional interaction *is* -- the effect of one
+dimension **depends on** another. Here the social-origin gradient in well-being is
+**steeper among youth with a migration background**: low parental education carries
+an extra penalty when combined with a migration background, beyond what either
+factor predicts on its own. Equivalently, the additive model *over-credits* high
+parental education for youth without a migration background. That dependence -- not a
+single "worst-off" cell -- is the intersectional finding, and it is exactly the kind
+of compounding disadvantage the additive main effects cannot represent.
+
+> **What an interaction can and cannot look like.** A genuine interaction (one that
+> survives adjustment for the main effects) is *orthogonal* to them, so it always
+> moves cells in a symmetric pattern -- "the doubly-disadvantaged get worse *and* the
+> doubly-advantaged get better" is the signature of an **additive** effect, which
+> the main effects already absorb. Read the flagged strata as *where the additive
+> model mis-predicts*, and in which direction.
+
+## Reading this for youth policy
+
+Put together, the workflow gives a youth-policy reader four distinct things:
+
+- **VPC/ICC** -- how segregated outcomes are across intersectional groups (a
+  structural-inequality summary);
+- **PCV** -- how much of that is the simple additive sum of the axes versus genuine
+  intersectionality (whether single-axis policies would suffice);
+- **discriminatory accuracy** -- whether intersectional membership is sharp enough to
+  *target* individuals, or only to *describe* groups (a caution against profiling);
+- **the group comparison** -- where intersectional inequality is most acute, to
+  prioritise contexts.
+
+For the modelling extensions most relevant to youth data -- survey weights
+(`sampling_weights=`), youth nested in schools or regions (`context=`), panel
+/ growth-curve designs (`vignette("longitudinal")`), and small intersectional cells
+(`vignette("bayesian_sparse_maihda")`) -- see the linked workflows.
+
+## References
+
+- Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
+  discriminatory accuracy (MAIHDA) within an intersectional framework.
+  *Social Science & Medicine*, 203, 74-80.
+
+- Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V. (2018). A
+  multilevel approach to modeling health inequalities at the intersection of
+  multiple social identities. *Social Science & Medicine*, 203, 64-73.
+
+- Merlo, J., Wagner, P., Ghith, N., & Leckie, G. (2016). An original stepwise
+  multilevel logistic regression analysis of discriminatory accuracy: the case of
+  neighbourhoods and health. *PLOS ONE*, 11(4), e0153778.
+
+- Crenshaw, K. (1989). Demarginalizing the intersection of race and sex.
+  *University of Chicago Legal Forum*, 1989(1), 139-167.

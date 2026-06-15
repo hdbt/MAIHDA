@@ -13,17 +13,23 @@ articles:
     navbar: ~
     contents:
       - introduction
+      - planning_a_study
   - title: Workflows
     navbar: Workflows
     contents:
       - binary_outcomes
       - group_comparison
+      - design_weighted
       - cross_classified
       - longitudinal
+      - bayesian_sparse_maihda
+      - youth_maihda
+      - reporting_results
   - title: Interpretation
     navbar: Interpretation
     contents:
       - interpreting_plots
+      - finding_interactions
   - title: Interactive app
     navbar: Interactive app
     contents:
