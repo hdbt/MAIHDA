@@ -21,8 +21,6 @@
   time](https://hdbt.github.io/MAIHDA/articles/longitudinal.md):
 - [Bayesian MAIHDA for sparse
   intersections](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md):
-- [Youth MAIHDA: NEET and well-being across
-  Europe](https://hdbt.github.io/MAIHDA/articles/youth_maihda.md):
 - [Reporting MAIHDA results: tidy output and publication
   tables](https://hdbt.github.io/MAIHDA/articles/reporting_results.md):
 
@@ -30,8 +28,6 @@
 
 - [Interpreting MAIHDA Plots and
   Diagnostics](https://hdbt.github.io/MAIHDA/articles/interpreting_plots.md):
-- [Finding the interactions that
-  matter](https://hdbt.github.io/MAIHDA/articles/finding_interactions.md):
 
 ### Interactive app
 

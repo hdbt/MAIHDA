@@ -6,7 +6,6 @@ articles:
   binary_outcomes: binary_outcomes.html
   cross_classified: cross_classified.html
   design_weighted: design_weighted.html
-  finding_interactions: finding_interactions.html
   group_comparison: group_comparison.html
   interactive_app: interactive_app.html
   interpreting_plots: interpreting_plots.html
@@ -14,8 +13,7 @@ articles:
   longitudinal: longitudinal.html
   planning_a_study: planning_a_study.html
   reporting_results: reporting_results.html
-  youth_maihda: youth_maihda.html
-last_built: 2026-06-15T20:06Z
+last_built: 2026-06-15T21:09Z
 urls:
   reference: https://hdbt.github.io/MAIHDA/reference
   article: https://hdbt.github.io/MAIHDA/articles
