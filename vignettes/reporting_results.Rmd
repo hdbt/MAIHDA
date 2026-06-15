@@ -1,0 +1,180 @@
+---
+title: "Reporting MAIHDA results: tidy output and publication tables"
+author: "Hamid Bulut"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Reporting MAIHDA results: tidy output and publication tables}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+```
+
+## From a fitted model to a manuscript
+
+Fitting the model is half the job; the other half is getting the numbers *out* --
+into a results table, a tidy data frame you can plot your own way, or a one-line
+headline for an abstract. This vignette covers the three reporting helpers that
+turn a `maihda()` analysis into publication-ready output without you recomputing
+anything: **`glance()`** (the one-row headline), **`tidy()`** (estimates as a tidy
+tibble), and **`maihda_table()`** (the two canonical write-up tables). They read
+the quantities `summary()` already computed, so the tables always agree with
+`print()`/`plot()`.
+
+```{r model}
+library(MAIHDA)
+data("maihda_health_data")
+
+a <- maihda(
+  BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
+  data = maihda_health_data
+)
+```
+
+## `glance()` -- the one-row headline
+
+`glance()` returns the whole MAIHDA headline as a **one-row tibble**: the VPC/ICC
+(with its interval when bootstrapped), the PCV, the additive/interaction shares,
+the discriminatory accuracy (AUC/MOR) for a binary outcome, and the bookkeeping
+(`n_strata`, `nobs`, `engine`, `family`, `mode`).
+
+```{r glance}
+glance(a)
+```
+
+This is the row no generic mixed-model tool emits, because the **PCV needs the
+null + adjusted pair** that only a `maihda()` analysis holds. It is ideal for
+`rbind()`-ing many analyses into a comparison table, or for pulling a single
+number into inline text -- e.g. the VPC is
+`r round(100 * glance(a)$vpc, 1)`% and the additive share (PCV) is
+`r round(100 * glance(a)$pcv, 1)`%.
+
+`tidy()` and `glance()` come from the lightweight **`generics`** package -- the
+same generics `broom`/`broom.mixed` re-export -- so they dispatch whether you have
+`broom`, `generics`, or just `MAIHDA` loaded. There is no hard `broom` dependency.
+
+## `tidy()` -- estimates as a tidy tibble
+
+`tidy()` returns MAIHDA estimates in broom's `estimate`/`std.error`/`conf.low`/
+`conf.high` shape, ready for `dplyr`, `ggplot2`, or a table package. Three
+`component`s are available.
+
+The **stratum** estimates (the default) -- one row per intersection, with the
+human-readable label:
+
+```{r tidy-strata}
+strata <- tidy(a, component = "strata")
+head(strata)
+```
+
+The **variance components**:
+
+```{r tidy-variance}
+tidy(a, component = "variance")
+```
+
+And the **fixed effects** (`component = "fixed"`). For a two-model analysis,
+`which = "adjusted"` reads the adjusted model instead of the default null:
+
+```{r tidy-fixed}
+tidy(a, component = "fixed", which = "adjusted")
+```
+
+Because the output is a plain tibble, you can build your *own* figure instead of
+using the built-in `plot()` -- here a caterpillar of the stratum interaction
+estimates, ordered by magnitude:
+
+```{r tidy-plot, fig.height = 5}
+library(ggplot2)
+
+strata_ord <- strata[order(strata$estimate), ]
+strata_ord$label <- factor(strata_ord$label, levels = strata_ord$label)
+
+ggplot(strata_ord, aes(x = estimate, y = label)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
+  labs(x = "Stratum random effect (BLUP)", y = NULL,
+       title = "Intersectional strata, ordered by estimated deviation") +
+  theme_minimal()
+```
+
+## `maihda_table()` -- the two canonical write-up tables
+
+`maihda_table()` assembles the two deliverables a MAIHDA paper reports (cf. Evans
+et al. 2024): a **model-results table** contrasting the null (Model 1) and
+adjusted (Model 2) fits, and a **ranked-strata table** ordering the intersections
+by predicted outcome. The `print()` method shows both in the familiar
+"estimate [low, high]" layout:
+
+```{r table-print}
+tab <- maihda_table(a)
+tab
+```
+
+The `$models` element is a **numeric, export-ready** data frame (statistics in
+rows, a column per model with `*_lower`/`*_upper` interval columns), so it drops
+straight into `knitr::kable()` or `write.csv()`:
+
+```{r table-models}
+knitr::kable(tab$models, digits = 3,
+             caption = "MAIHDA model-results table (null vs. adjusted).")
+```
+
+```{r table-csv, eval = FALSE}
+write.csv(tab$models, "maihda_results.csv", row.names = FALSE)
+```
+
+The `$strata` element holds every stratum ranked by predicted BMI (the data
+behind the printed top/bottom rows):
+
+```{r table-strata}
+head(tab$strata)
+```
+
+If you use **`gt`** or **`flextable`** for formatted tables, the same numeric frame
+feeds them directly (shown only if `gt` is installed):
+
+```{r table-gt, eval = requireNamespace("gt", quietly = TRUE)}
+gt::gt(tab$models)
+```
+
+## Choosing a model structure with `maihda_ic()`
+
+The VPC and PCV describe *one* model; they do not tell you whether a different
+**structure** (another covariate set, strata definition, or family) fits better.
+`maihda_ic()` answers that with information criteria -- `AIC`/`BIC` for the
+likelihood engines, `WAIC`/`LOOIC` for brms -- and a `delta` column (gap from the
+best model):
+
+```{r ic}
+maihda_ic(a)
+```
+
+It handles the **REML pitfall** automatically: Gaussian `lmer` fits use REML,
+whose AIC/BIC are not comparable across models with different fixed effects (the
+null-vs-adjusted case), so with more than one model any REML fit is refit with ML
+first (the `estimator` column records it) -- matching what `anova()` does on lme4
+models.
+
+## See also
+
+- [Introduction to MAIHDA](introduction.html) -- the end-to-end workflow.
+- [Finding the interactions that matter](finding_interactions.html) -- which strata
+  carry a credibly non-zero intersectional effect.
+- [Interpreting MAIHDA plots and diagnostics](interpreting_plots.html) -- and how to
+  restyle the built-in plots.
+
+## References
+
+- Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J. (2024). A
+  tutorial for conducting intersectional multilevel analysis of individual
+  heterogeneity and discriminatory accuracy (MAIHDA). *SSM - Population Health*, 26,
+  101664.
