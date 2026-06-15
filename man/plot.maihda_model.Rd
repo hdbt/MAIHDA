@@ -63,7 +63,14 @@ the adjusted model automatically.}
 \item{...}{Additional arguments (not currently used).}
 }
 \value{
-A ggplot2 object, or a list of ggplot2 objects if type = "all".
+For a single \code{type}, a \pkg{ggplot2} object that you can extend
+  with the usual \code{+} grammar (themes, \code{\link[ggplot2]{labs}()},
+  added layers, or a replacement fill/colour scale). Two types return a richer
+  object: \code{"prediction_deviation"} returns a \pkg{patchwork} of two
+  panels (theme every panel at once with \code{& theme_*()}), and
+  \code{"ternary"} returns a \pkg{ggtern} object (use the
+  \code{ggtern::theme_*()} family rather than the standard ggplot2 themes).
+  \code{type = "all"} returns a named list of ggplot2 objects.
 }
 \description{
 Creates various plots for visualizing MAIHDA model results including
@@ -78,8 +85,14 @@ model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$d
 # VPC plot
 plot(model, type = "vpc")
 
-# Generate all plots
+# Single-type plots are ggplot objects -- restyle them with ggplot2:
+plot(model, type = "vpc") +
+  ggplot2::theme_classic() +
+  ggplot2::labs(title = "Variance partition, restyled")
+
+# Generate all plots (a named list); pick one out to restyle it:
 plots <- plot(model)
+plots$predicted + ggplot2::theme_bw()
 }
 
 }

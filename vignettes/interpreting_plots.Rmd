@@ -153,6 +153,59 @@ available -- `group_vpc`, `group_components`, `group_between_variance`, and
 and `"pcv"` on the comparison object). Those are covered in the
 [group comparison vignette](group_comparison.html).
 
+## Customizing the appearance
+
+Every `plot()` call with a single `type` returns a plain **ggplot** object, so
+you are never locked into the package's styling -- restyle it with the usual
+ggplot2 grammar by adding a theme, overriding the labels, or dropping in another
+layer. Themes, `labs()`, and added layers compose cleanly:
+
+```{r customize-theme}
+library(ggplot2)
+
+plot(model, type = "vpc") +
+  theme_classic(base_size = 13) +
+  labs(title = "Variance partition, restyled")
+```
+
+The views that map a fill or colour (`vpc`, `context_vpc`, `effect_decomp`) also
+accept a replacement palette. ggplot2 prints a harmless *"Scale for fill is
+already present ... which will replace the existing scale"* message as it swaps
+the built-in palette out (suppressed here):
+
+```{r customize-palette, message = FALSE}
+plot(model, type = "vpc") +
+  scale_fill_brewer(palette = "Set2")
+```
+
+A few plot types return something other than a single ggplot, so they restyle
+slightly differently:
+
+* **`prediction_deviation`** is a two-panel [patchwork](https://patchwork.data-imaginist.com/).
+  `+ theme_*()` styles only the active panel; use `&` to apply a theme to
+  *both* panels at once:
+
+  ```{r customize-patchwork, warning = FALSE}
+  plot(model, type = "prediction_deviation") & theme_minimal()
+  ```
+
+* **`type = "all"`** returns a *named list* of ggplot objects (it prints them as
+  a side effect), so pick one out to restyle it:
+
+  ```{r customize-all, eval = FALSE}
+  plots <- plot(model)          # list: vpc, predicted, effect_decomp, ...
+  plots$predicted + theme_bw()
+  ```
+
+* **`ternary`** is a `ggtern` object with its own coordinate system -- reach for
+  the `ggtern::theme_*()` family rather than the standard ggplot2 themes.
+
+One limit worth knowing: a few accent colours are set directly inside the geoms
+(for example the blue points in the `predicted` view), not mapped through a
+scale, so adding a `scale_colour_*()` will not recolour them. Themes, labels,
+palettes on the mapped fills, and extra layers are the parts you can adjust
+without editing the package internals.
+
 ## See also
 
 - [Introduction to MAIHDA](introduction.html) -- the end-to-end workflow.
