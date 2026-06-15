@@ -12,3 +12,4 @@ vignettes/*.html
 *.Rcheck/
 /*.tar.gz
 vignettes/youth_maihda.Rmd
+vignettes/finding_interactions.Rmd

@@ -28,7 +28,7 @@ articles:
     navbar: Interpretation
     contents:
       - interpreting_plots
-      - finding_interactions
+      #- finding_interactions
   - title: Interactive app
     navbar: Interactive app
     contents:

@@ -1,5 +1,5 @@
 ---
-title: "Finding the interactions that matter"
+title: "Finding the interactions that matter "
 author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
