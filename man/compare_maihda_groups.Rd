@@ -97,10 +97,14 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   \code{bootstrap = TRUE}). When the strata are defined by at least two
   dimensions, two further columns report the per-group null -> adjusted
   decomposition: \code{pcv} (proportional change in between-stratum variance when
-  the dimensions' additive main effects are added) and \code{var_between_adjusted}
-  (the adjusted model's between-stratum variance); both are \code{NA} for a group
-  whose adjusted fit failed, and the columns are omitted entirely when the strata
-  have a single dimension. \code{n} is the analytic sample size used by the
+  the dimensions' additive main effects are added; computed on the
+  maximum-likelihood scale -- see \code{\link{calculate_pvc}} -- because REML
+  variances are not comparable across the null vs. adjusted fixed effects) and
+  \code{var_between_adjusted} (the adjusted model's between-stratum variance,
+  reported as \code{var_between * (1 - pcv)} so it shares the scale of the
+  REML \code{var_between}/\code{vpc} and the table stays internally coherent);
+  both are \code{NA} for a group whose adjusted fit failed, and the columns are
+  omitted entirely when the strata have a single dimension. \code{n} is the analytic sample size used by the
   model (after dropping rows with a missing outcome/covariate) for both fitted
   and skipped groups, falling back to the raw row count only when the model
   frame cannot be built. \code{var_other} is the variance of any additional

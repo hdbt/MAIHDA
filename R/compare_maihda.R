@@ -411,10 +411,14 @@ plot_comparison <- function(comparison_df) {
 #'   \code{bootstrap = TRUE}). When the strata are defined by at least two
 #'   dimensions, two further columns report the per-group null -> adjusted
 #'   decomposition: \code{pcv} (proportional change in between-stratum variance when
-#'   the dimensions' additive main effects are added) and \code{var_between_adjusted}
-#'   (the adjusted model's between-stratum variance); both are \code{NA} for a group
-#'   whose adjusted fit failed, and the columns are omitted entirely when the strata
-#'   have a single dimension. \code{n} is the analytic sample size used by the
+#'   the dimensions' additive main effects are added; computed on the
+#'   maximum-likelihood scale -- see \code{\link{calculate_pvc}} -- because REML
+#'   variances are not comparable across the null vs. adjusted fixed effects) and
+#'   \code{var_between_adjusted} (the adjusted model's between-stratum variance,
+#'   reported as \code{var_between * (1 - pcv)} so it shares the scale of the
+#'   REML \code{var_between}/\code{vpc} and the table stays internally coherent);
+#'   both are \code{NA} for a group whose adjusted fit failed, and the columns are
+#'   omitted entirely when the strata have a single dimension. \code{n} is the analytic sample size used by the
 #'   model (after dropping rows with a missing outcome/covariate) for both fitted
 #'   and skipped groups, falling back to the raw row count only when the model
 #'   frame cannot be built. \code{var_other} is the variance of any additional
@@ -854,7 +858,14 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
           }, error = function(e) NULL)
           if (!is.null(pcv_obj)) {
             row$pcv <- pcv_obj$pvc
-            row$var_between_adjusted <- pcv_obj$var_model2
+            # Report the adjusted between-stratum variance on the SAME scale as
+            # var_between / vpc (the REML single-model VPC variance), so the table stays
+            # internally coherent: PCV = (var_between - var_between_adjusted) /
+            # var_between. The PCV itself is calculate_pvc()'s ML-refit value, since REML
+            # variances are not comparable across the null vs. adjusted fixed effects;
+            # the small REML-vs-ML gap in the null variance is absorbed here rather than
+            # left as an apparent inconsistency between the columns.
+            row$var_between_adjusted <- row$var_between * (1 - pcv_obj$pvc)
           }
         }
       }

@@ -272,13 +272,16 @@ test_that("stepwise_pcv uses one complete analytic sample across steps", {
 
   out <- stepwise_pcv(d, "y", c("x", "z"))
   complete_d <- d[stats::complete.cases(d[, c("y", "stratum", "x", "z")]), ]
+  # stepwise_pcv refits REML lmer fits with ML before the cross-step variance
+  # comparison (see calculate_pvc()), so the reference models must be refit likewise.
+  ml <- function(m) MAIHDA:::extract_between_variance(MAIHDA:::maihda_pcv_refit_ml(m))
   null_model <- fit_maihda(y ~ 1 + (1 | stratum), complete_d)
   x_model <- fit_maihda(y ~ x + (1 | stratum), complete_d)
   z_model <- fit_maihda(y ~ x + z + (1 | stratum), complete_d)
 
-  expect_equal(out$Variance[1], MAIHDA:::extract_between_variance(null_model), tolerance = 1e-8)
-  expect_equal(out$Variance[2], MAIHDA:::extract_between_variance(x_model), tolerance = 1e-8)
-  expect_equal(out$Variance[3], MAIHDA:::extract_between_variance(z_model), tolerance = 1e-8)
+  expect_equal(out$Variance[1], ml(null_model), tolerance = 1e-8)
+  expect_equal(out$Variance[2], ml(x_model), tolerance = 1e-8)
+  expect_equal(out$Variance[3], ml(z_model), tolerance = 1e-8)
 })
 
 test_that("stepwise_pcv errors when no complete analytic sample remains", {

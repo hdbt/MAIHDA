@@ -34,6 +34,19 @@
 #' non-nested models the PVC is simply a model-dependent difference in variance,
 #' not an explained proportion.
 #'
+#' \strong{REML vs ML.} \code{lmer} fits Gaussian models by REML, whose
+#' between-stratum variance estimate is \emph{not} comparable across models with
+#' different fixed effects -- exactly the canonical null-vs-adjusted PCV, where the
+#' adjusted model adds the dimensions' main effects. \code{calculate_pvc()} therefore
+#' refits any REML \code{lmer} model with maximum likelihood
+#' (\code{\link[lme4]{refitML}}) before reading the variances (and before the
+#' parametric bootstrap, so the interval matches), matching \code{\link{maihda_ic}}
+#' and \code{anova()} on \code{lme4} models. Using REML estimates here biases the PCV
+#' (it overstates the residual between-stratum variance of the adjusted model). GLMM
+#' fits (\code{glmer}) and the brms/wemix/ordinal engines are already on the
+#' maximum-likelihood scale and are unaffected; single-model VPC/ICC summaries keep
+#' their REML fit, since that comparison-free quantity is not subject to the pitfall.
+#'
 #' When bootstrap = TRUE, the function uses a parametric bootstrap: it simulates
 #' new responses from model2 and refits both models with \code{lme4::refit()} for
 #' each simulated response to obtain confidence intervals for the PVC estimate.
@@ -85,6 +98,15 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
 
   validate_pvc_models(model1, model2)
 
+  # REML vs ML: lmer fits Gaussian models by REML, whose between-stratum variance is
+  # NOT comparable across models with different fixed effects -- exactly the canonical
+  # null-vs-adjusted PCV. Refit any REML lmer fit with ML before the comparison (and
+  # before the parametric bootstrap below, which reuses these fits, so the interval
+  # matches the point estimate), mirroring maihda_ic() and anova.merMod. GLMM fits
+  # (glmer) and the brms/wemix/ordinal engines are already ML / unaffected.
+  model1 <- maihda_pcv_refit_ml(model1)
+  model2 <- maihda_pcv_refit_ml(model2)
+
   # Extract between-stratum variance from both models
   var1 <- extract_between_variance(model1)
   var2 <- extract_between_variance(model2)
@@ -123,6 +145,33 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
 
   class(result) <- "pvc_result"
   return(result)
+}
+
+# REML lmer between-stratum variance estimates are not comparable across models with
+# different fixed effects (the canonical null-vs-adjusted PCV), because the REML
+# criterion conditions on the fixed-effects design. Refit a REML lmer fit with ML
+# (lme4::refitML) before any cross-model variance comparison, matching maihda_ic() and
+# anova.merMod. Non-REML fits (glmer / the GLMM families), the brms/wemix/ordinal
+# engines, and longitudinal fits (time-varying variance, handled elsewhere) are
+# returned unchanged. Single-model VPC/ICC summaries deliberately keep their REML fit.
+maihda_pcv_refit_ml <- function(model) {
+  if (!inherits(model, "maihda_model") || !identical(model$engine, "lme4") ||
+      !is.null(model$longitudinal_info)) {
+    return(model)
+  }
+  is_reml <- tryCatch(isTRUE(lme4::isREML(model$model)), error = function(e) FALSE)
+  if (!is_reml) return(model)
+  # Skip a singular (boundary) fit: its between-stratum variance is ~0 under either
+  # criterion, and re-optimising a boundary fit only adds optimiser instability -- and
+  # would nudge an exact-zero variance off the boundary, masking the zero-variance
+  # guard in calculate_pvc(). The REML-vs-ML discrepancy this corrects only arises for
+  # non-singular fits.
+  singular <- tryCatch(lme4::isSingular(model$model),
+                       error = function(e) isTRUE(model$diagnostics$singular))
+  if (isTRUE(singular)) return(model)
+  refit <- tryCatch(lme4::refitML(model$model), error = function(e) NULL)
+  if (!is.null(refit)) model$model <- refit
+  model
 }
 
 #' Extract Between-Stratum Variance
@@ -556,10 +605,13 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     stringsAsFactors = FALSE
   )
 
-  # Model 0: Null Model
+  # Model 0: Null Model. Each step compares the stratum variance across models that
+  # differ in fixed effects, so refit any REML lmer fit with ML first (see
+  # calculate_pvc()); a no-op for glmer/wemix/ordinal binary fits used for the DA
+  # trajectory below.
   null_fmla <- maihda_formula_with_stratum(outcome)
-  null_mod <- fit_maihda(null_fmla, data, engine = engine, family = family,
-                         sampling_weights = sampling_weights)
+  null_mod <- maihda_pcv_refit_ml(fit_maihda(null_fmla, data, engine = engine,
+                         family = family, sampling_weights = sampling_weights))
   null_var <- extract_between_variance(null_mod)
 
   # Discriminatory-accuracy trajectory (binary outcomes only): read the AUC and MOR
@@ -601,8 +653,8 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     current_terms <- c(current_terms, model_terms[i])
 
     fmla <- maihda_formula_with_stratum(outcome, current_terms)
-    mod <- fit_maihda(fmla, data, engine = engine, family = family,
-                      sampling_weights = sampling_weights)
+    mod <- maihda_pcv_refit_ml(fit_maihda(fmla, data, engine = engine,
+                      family = family, sampling_weights = sampling_weights))
 
     curr_var <- extract_between_variance(mod)
 

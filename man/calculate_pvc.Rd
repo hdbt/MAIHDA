@@ -53,6 +53,19 @@ analytic sample and strata. The function does not require nesting, so for
 non-nested models the PVC is simply a model-dependent difference in variance,
 not an explained proportion.
 
+\strong{REML vs ML.} \code{lmer} fits Gaussian models by REML, whose
+between-stratum variance estimate is \emph{not} comparable across models with
+different fixed effects -- exactly the canonical null-vs-adjusted PCV, where the
+adjusted model adds the dimensions' main effects. \code{calculate_pvc()} therefore
+refits any REML \code{lmer} model with maximum likelihood
+(\code{\link[lme4]{refitML}}) before reading the variances (and before the
+parametric bootstrap, so the interval matches), matching \code{\link{maihda_ic}}
+and \code{anova()} on \code{lme4} models. Using REML estimates here biases the PCV
+(it overstates the residual between-stratum variance of the adjusted model). GLMM
+fits (\code{glmer}) and the brms/wemix/ordinal engines are already on the
+maximum-likelihood scale and are unaffected; single-model VPC/ICC summaries keep
+their REML fit, since that comparison-free quantity is not subject to the pitfall.
+
 When bootstrap = TRUE, the function uses a parametric bootstrap: it simulates
 new responses from model2 and refits both models with \code{lme4::refit()} for
 each simulated response to obtain confidence intervals for the PVC estimate.
