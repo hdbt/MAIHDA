@@ -33,15 +33,21 @@ agrees exactly with summary() and plot()."><meta property="og:image" content="ht
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">Introduction to MAIHDA</a></li>
+    <li><a class="dropdown-item" href="../articles/planning_a_study.html">Planning a MAIHDA study</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+    <li><a class="dropdown-item" href="../articles/design_weighted.html">Design-weighted MAIHDA for survey data</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><a class="dropdown-item" href="../articles/longitudinal.html">Longitudinal MAIHDA: intersectional inequalities over time</a></li>
+    <li><a class="dropdown-item" href="../articles/bayesian_sparse_maihda.html">Bayesian MAIHDA for sparse intersections</a></li>
+    <li><a class="dropdown-item" href="../articles/youth_maihda.html">Youth MAIHDA: NEET and well-being across Europe</a></li>
+    <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
+    <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding the interactions that matter</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
@@ -195,7 +201,7 @@ table is returned in <code>$strata</code>; <code><a href="https://rdrr.io/r/base
 <span class="r-out co"><span class="r-pr">#&gt;</span>  Between-stratum variance          2.738              1.379</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>        Between-stratum SD          1.655              1.174</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                   VPC/ICC          0.058              0.030</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    PCV (null -&gt; adjusted)                             0.496</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    PCV (null -&gt; adjusted)                             0.821</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata ranked by predicted value (null model):</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  Rank           Stratum    N               Predicted              Stratum RE</span>
@@ -218,7 +224,7 @@ table is returned in <code>$strata</code>; <code><a href="https://rdrr.io/r/base
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2 Between-stratum variance  2.73828213         NA         NA  1.37921627</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3       Between-stratum SD  1.65477555         NA         NA  1.17440039</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 4                  VPC/ICC  0.05845177         NA         NA  0.03032209</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5   PCV (null -&gt; adjusted)          NA         NA         NA  0.49632061</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5   PCV (null -&gt; adjusted)          NA         NA         NA  0.82112349</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   adjusted_lower adjusted_upper</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1             NA             NA</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2             NA             NA</span>

@@ -56,7 +56,7 @@ glance(a)
 #> # A tibble: 1 × 16
 #>      vpc vpc.conf.low vpc.conf.high   pcv pcv.conf.low pcv.conf.high
 #>    <dbl>        <dbl>         <dbl> <dbl>        <dbl>         <dbl>
-#> 1 0.0627           NA            NA 0.596           NA            NA
+#> 1 0.0627           NA            NA 0.766           NA            NA
 #> # ℹ 10 more variables: additive.share <dbl>, interaction.share <dbl>,
 #> #   auc <dbl>, auc.adjusted <dbl>, mor <dbl>, n_strata <int>, nobs <int>,
 #> #   engine <chr>, family <chr>, mode <chr>

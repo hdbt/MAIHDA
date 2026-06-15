@@ -29,15 +29,21 @@ PCV = (Var_model1 - Var_model2) / Var_model1.
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">Introduction to MAIHDA</a></li>
+    <li><a class="dropdown-item" href="../articles/planning_a_study.html">Planning a MAIHDA study</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+    <li><a class="dropdown-item" href="../articles/design_weighted.html">Design-weighted MAIHDA for survey data</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><a class="dropdown-item" href="../articles/longitudinal.html">Longitudinal MAIHDA: intersectional inequalities over time</a></li>
+    <li><a class="dropdown-item" href="../articles/bayesian_sparse_maihda.html">Bayesian MAIHDA for sparse intersections</a></li>
+    <li><a class="dropdown-item" href="../articles/youth_maihda.html">Youth MAIHDA: NEET and well-being across Europe</a></li>
+    <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
+    <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding the interactions that matter</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
@@ -137,6 +143,18 @@ case, where model2 adds fixed-effect predictors to model1 on the same outcome,
 analytic sample and strata. The function does not require nesting, so for
 non-nested models the PVC is simply a model-dependent difference in variance,
 not an explained proportion.</p>
+<p><strong>REML vs ML.</strong> <code>lmer</code> fits Gaussian models by REML, whose
+between-stratum variance estimate is <em>not</em> comparable across models with
+different fixed effects – exactly the canonical null-vs-adjusted PCV, where the
+adjusted model adds the dimensions' main effects. <code>calculate_pvc()</code> therefore
+refits any REML <code>lmer</code> model with maximum likelihood
+(<code><a href="https://rdrr.io/pkg/lme4/man/refitML.html" class="external-link">refitML</a></code>) before reading the variances (and before the
+parametric bootstrap, so the interval matches), matching <code><a href="maihda_ic.html">maihda_ic</a></code>
+and <code><a href="https://rdrr.io/r/stats/anova.html" class="external-link">anova()</a></code> on <code>lme4</code> models. Using REML estimates here biases the PCV
+(it overstates the residual between-stratum variance of the adjusted model). GLMM
+fits (<code>glmer</code>) and the brms/wemix/ordinal engines are already on the
+maximum-likelihood scale and are unaffected; single-model VPC/ICC summaries keep
+their REML fit, since that comparison-free quantity is not subject to the pitfall.</p>
 <p>When bootstrap = TRUE, the function uses a parametric bootstrap: it simulates
 new responses from model2 and refits both models with <code><a href="https://rdrr.io/pkg/lme4/man/refit.html" class="external-link">lme4::refit()</a></code> for
 each simulated response to obtain confidence intervals for the PVC estimate.
@@ -156,7 +174,7 @@ conditional on the estimated theta.</p>
 <span class="r-in"><span><span class="co"># Calculate PVC without bootstrap</span></span></span>
 <span class="r-in"><span><span class="va">pvc_result</span> <span class="op">&lt;-</span> <span class="fu">calculate_pvc</span><span class="op">(</span><span class="va">model1</span>, <span class="va">model2</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">pvc_result</span><span class="op">$</span><span class="va">pvc</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -0.1626748</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.007185334</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Calculate PVC with bootstrap CI</span></span></span>
 <span class="r-in"><span><span class="co"># pvc_boot &lt;- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 500)</span></span></span>

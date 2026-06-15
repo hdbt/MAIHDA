@@ -29,15 +29,21 @@ model-dependent change, not an order-invariant &amp;#8220;unique&amp;#8221; cont
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">Introduction to MAIHDA</a></li>
+    <li><a class="dropdown-item" href="../articles/planning_a_study.html">Planning a MAIHDA study</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+    <li><a class="dropdown-item" href="../articles/design_weighted.html">Design-weighted MAIHDA for survey data</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><a class="dropdown-item" href="../articles/longitudinal.html">Longitudinal MAIHDA: intersectional inequalities over time</a></li>
+    <li><a class="dropdown-item" href="../articles/bayesian_sparse_maihda.html">Bayesian MAIHDA for sparse intersections</a></li>
+    <li><a class="dropdown-item" href="../articles/youth_maihda.html">Youth MAIHDA: NEET and well-being across Europe</a></li>
+    <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
+    <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding the interactions that matter</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
@@ -157,11 +163,11 @@ neighbourhoods and health. <em>PLOS ONE</em>, 11(4), e0153778.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="va">strata_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="make_strata.html">make_strata</a></span><span class="op">(</span><span class="va">maihda_sim_data</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">stepwise_pcv</span><span class="op">(</span><span class="va">strata_result</span><span class="op">$</span><span class="va">data</span>, <span class="st">"health_outcome"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span>, <span class="st">"age"</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  Step      Model        Added_Variable Variance Step_PCV Total_PCV</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     0 Null Model None (Intercept only)   26.715   0.0000    0.0000</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     1    Model 1                gender   30.863  -0.1553   -0.1553</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     2    Model 2                  race    2.346   0.9240    0.9122</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     3    Model 3                   age    3.032  -0.2922    0.8865</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  Step      Model        Added_Variable  Variance Step_PCV Total_PCV</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     0 Null Model None (Intercept only) 2.324e+01  0.00000   0.00000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     1    Model 1                gender 2.290e+01  0.01457   0.01457</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     2    Model 2                  race 7.564e-14  1.00000   1.00000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     3    Model 3                   age 0.000e+00  1.00000   1.00000</span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

@@ -103,7 +103,15 @@ plot(
 
 ## Value
 
-A ggplot2 object, or a list of ggplot2 objects if type = "all".
+For a single `type`, a ggplot2 object that you can extend with the usual
+`+` grammar (themes,
+[`labs()`](https://ggplot2.tidyverse.org/reference/labs.html), added
+layers, or a replacement fill/colour scale). Two types return a richer
+object: `"prediction_deviation"` returns a patchwork of two panels
+(theme every panel at once with `& theme_*()`), and `"ternary"` returns
+a ggtern object (use the `ggtern::theme_*()` family rather than the
+standard ggplot2 themes). `type = "all"` returns a named list of ggplot2
+objects.
 
 ## Examples
 
@@ -116,7 +124,13 @@ model <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$d
 plot(model, type = "vpc")
 
 
-# Generate all plots
+# Single-type plots are ggplot objects -- restyle them with ggplot2:
+plot(model, type = "vpc") +
+  ggplot2::theme_classic() +
+  ggplot2::labs(title = "Variance partition, restyled")
+
+
+# Generate all plots (a named list); pick one out to restyle it:
 plots <- plot(model)
 
 
@@ -125,6 +139,8 @@ plots <- plot(model)
 
 #> Warning: Removing Layer 2 ('PositionNudge'), as it is not an approved position (for ternary plots) under the present ggtern package.
 
+
+plots$predicted + ggplot2::theme_bw()
 
 # }
 ```

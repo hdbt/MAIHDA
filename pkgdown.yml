@@ -2,14 +2,20 @@ pandoc: 3.8.3
 pkgdown: 2.2.0
 pkgdown_sha: ~
 articles:
+  bayesian_sparse_maihda: bayesian_sparse_maihda.html
   binary_outcomes: binary_outcomes.html
   cross_classified: cross_classified.html
+  design_weighted: design_weighted.html
+  finding_interactions: finding_interactions.html
   group_comparison: group_comparison.html
   interactive_app: interactive_app.html
   interpreting_plots: interpreting_plots.html
   introduction: introduction.html
   longitudinal: longitudinal.html
-last_built: 2026-06-14T20:05Z
+  planning_a_study: planning_a_study.html
+  reporting_results: reporting_results.html
+  youth_maihda: youth_maihda.html
+last_built: 2026-06-15T20:06Z
 urls:
   reference: https://hdbt.github.io/MAIHDA/reference
   article: https://hdbt.github.io/MAIHDA/articles

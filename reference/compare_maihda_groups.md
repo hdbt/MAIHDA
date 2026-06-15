@@ -143,16 +143,22 @@ and columns `group`, `n`, `n_strata`, `vpc`, `var_between`, `var_other`,
 `bootstrap = TRUE`). When the strata are defined by at least two
 dimensions, two further columns report the per-group null -\> adjusted
 decomposition: `pcv` (proportional change in between-stratum variance
-when the dimensions' additive main effects are added) and
-`var_between_adjusted` (the adjusted model's between-stratum variance);
-both are `NA` for a group whose adjusted fit failed, and the columns are
-omitted entirely when the strata have a single dimension. `n` is the
-analytic sample size used by the model (after dropping rows with a
-missing outcome/covariate) for both fitted and skipped groups, falling
-back to the raw row count only when the model frame cannot be built.
-`var_other` is the variance of any additional random effects and is 0
-for the canonical single-stratum model. Groups that were skipped or
-failed have `NA` metrics and an explanatory `status`.
+when the dimensions' additive main effects are added; computed on the
+maximum-likelihood scale – see
+[`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+– because REML variances are not comparable across the null vs. adjusted
+fixed effects) and `var_between_adjusted` (the adjusted model's
+between-stratum variance, reported as `var_between * (1 - pcv)` so it
+shares the scale of the REML `var_between`/`vpc` and the table stays
+internally coherent); both are `NA` for a group whose adjusted fit
+failed, and the columns are omitted entirely when the strata have a
+single dimension. `n` is the analytic sample size used by the model
+(after dropping rows with a missing outcome/covariate) for both fitted
+and skipped groups, falling back to the raw row count only when the
+model frame cannot be built. `var_other` is the variance of any
+additional random effects and is 0 for the canonical single-stratum
+model. Groups that were skipped or failed have `NA` metrics and an
+explanatory `status`.
 
 ## Details
 
@@ -227,20 +233,20 @@ print(cmp)
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
 #> 
-#>           group   n n_strata     vpc var_between var_other var_residual    pcv
-#>         Finland 600        6 0.10994       785.8         0         6361 1.0000
-#>         Germany 600        6 0.14448      1271.6         0         7529 1.0000
-#>           Italy 600        6 0.11890      1065.3         0         7895 1.0000
-#>           Japan 600        6 0.13344      1032.3         0         6704 0.9266
-#>          Mexico 600        6 0.13649       771.5         0         4881 1.0000
-#>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000
+#>           group   n n_strata     vpc var_between var_other var_residual pcv
+#>         Finland 600        6 0.10994       785.8         0         6361   1
+#>         Germany 600        6 0.14448      1271.6         0         7529   1
+#>           Italy 600        6 0.11890      1065.3         0         7895   1
+#>           Japan 600        6 0.13344      1032.3         0         6704   1
+#>          Mexico 600        6 0.13649       771.5         0         4881   1
+#>  United Kingdom 600        6 0.06011       470.5         0         7357   1
 #>  var_between_adjusted status
-#>                  0.00     ok
-#>                  0.00     ok
-#>                  0.00     ok
-#>                 75.78     ok
-#>                  0.00     ok
-#>                  0.00     ok
+#>             0.000e+00     ok
+#>             0.000e+00     ok
+#>             0.000e+00     ok
+#>             3.782e-12     ok
+#>             0.000e+00     ok
+#>             0.000e+00     ok
 plot(cmp, type = "vpc")
 
 # }

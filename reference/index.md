@@ -38,6 +38,8 @@
   : Median Odds Ratio (MOR) for a logistic MAIHDA model
 - [`maihda_sim_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.md)
   : Simulated Health Data for MAIHDA Use
+- [`maihda_sparse_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sparse_data.md)
+  : Sparse Intersectional Data for Bayesian MAIHDA
 - [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
   : Canonical MAIHDA results table and ranked-strata table
 - [`maihda_ternary_plot()`](https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.md)
@@ -48,6 +50,8 @@
   : Tidy a MAIHDA summary, model, or analysis
 - [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
   : Response-scale VPC for a binomial MAIHDA model
+- [`maihda_youth_data`](https://hdbt.github.io/MAIHDA/reference/maihda_youth_data.md)
+  : Simulated Cross-National Youth Data for MAIHDA
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   : Create Strata from Multiple Variables
 - [`plot(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_analysis.md)

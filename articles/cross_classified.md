@@ -123,7 +123,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x55bd9fef7ac0>
+#> <environment: 0x557fd38d2660>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -419,9 +419,9 @@ a
 #> Context: country (crossed contextual random intercept in the null and adjusted models)
 #> VPC/ICC (null): 0.1032
 #> Context share (null): 0.1283 (between-country share of unexplained variance)
-#> PCV (null -> adjusted): 0.9978
-#> Between-stratum variance: 915.2323 (null) -> 1.9877 (adjusted)
-#>   ~99.8% of the between-stratum variance is additive (the dimensions' main
+#> PCV (null -> adjusted): 1.0000
+#> Between-stratum variance: 838.3719 (null) -> 0.0000 (adjusted)
+#>   ~100.0% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
 #> Strata: 6

@@ -86,6 +86,22 @@ model1 on the same outcome, analytic sample and strata. The function
 does not require nesting, so for non-nested models the PVC is simply a
 model-dependent difference in variance, not an explained proportion.
 
+**REML vs ML.** `lmer` fits Gaussian models by REML, whose
+between-stratum variance estimate is *not* comparable across models with
+different fixed effects – exactly the canonical null-vs-adjusted PCV,
+where the adjusted model adds the dimensions' main effects.
+`calculate_pvc()` therefore refits any REML `lmer` model with maximum
+likelihood ([`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html))
+before reading the variances (and before the parametric bootstrap, so
+the interval matches), matching
+[`maihda_ic`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md) and
+[`anova()`](https://rdrr.io/r/stats/anova.html) on `lme4` models. Using
+REML estimates here biases the PCV (it overstates the residual
+between-stratum variance of the adjusted model). GLMM fits (`glmer`) and
+the brms/wemix/ordinal engines are already on the maximum-likelihood
+scale and are unaffected; single-model VPC/ICC summaries keep their REML
+fit, since that comparison-free quantity is not subject to the pitfall.
+
 When bootstrap = TRUE, the function uses a parametric bootstrap: it
 simulates new responses from model2 and refits both models with
 [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html) for each
@@ -106,7 +122,7 @@ model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strat
 # Calculate PVC without bootstrap
 pvc_result <- calculate_pvc(model1, model2)
 print(pvc_result$pvc)
-#> [1] -0.1626748
+#> [1] 0.007185334
 
 # Calculate PVC with bootstrap CI
 # pvc_boot <- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 500)

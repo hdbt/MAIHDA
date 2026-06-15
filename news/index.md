@@ -4,6 +4,28 @@
 
 ### New Features
 
+- Added the **`maihda_youth_data`** dataset and a new vignette, **“Youth
+  MAIHDA: NEET and well-being across Europe”**, a youth-research use
+  case aimed at the questions institutes such as the German Youth
+  Institute (DJI) and Luxembourg’s *Youth & Work* / *Observatoire de la
+  jeunesse* study: the school-to-work transition and youth well-being,
+  analysed intersectionally. The (simulated) cross-section of
+  16–29-year-olds in four countries carries
+  `gender x migration x parental education` strata, a binary **NEET**
+  outcome and a continuous **well-being** outcome built from one shared
+  latent disadvantage, a genuine (main-effect-orthogonal)
+  `migration x social-origin` interaction, and intersectional inequality
+  amplified in the higher-NEET countries so the VPC/ICC differs across
+  the `country` grouping. The vignette runs the whole toolkit on one
+  applied dataset – the two-model VPC/PCV decomposition (well-being),
+  the binary discriminatory-accuracy (AUC / MOR) workflow (NEET), the
+  `maihda(group = "country")` cross-country comparison, and
+  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  – and discusses what an intersectional interaction can and cannot look
+  like. The data are synthetic (the real surveys it is modelled on
+  require data-use agreements), calibrated to Eurostat NEET /
+  life-satisfaction figures, following the same convention as the
+  package’s other simulated datasets.
 - Added **`broom`-style
   [`tidy()`](https://generics.r-lib.org/reference/tidy.html) and
   [`glance()`](https://generics.r-lib.org/reference/glance.html)
@@ -307,6 +329,21 @@
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   / `maihda(group = "country")`, since intersectional inequality
   (VPC/ICC) genuinely differs across the countries.
+- Added the `maihda_sparse_data` dataset and a new vignette, **“Bayesian
+  MAIHDA for sparse intersections”**, showing why `engine = "brms"` is
+  the safer estimator when intersectional cells are small. The
+  (simulated) data carry a *known* interaction – 40% of the
+  between-stratum variance, on a Gaussian outcome `y` and a binary
+  outcome `event` – across 36 strata with deliberately skewed sizes
+  (median 6, half the cells below 5). Under that sparsity the
+  maximum-likelihood (lme4) crossed-dimensions fit is singular and
+  over-shrinks the interaction (to ~23% Gaussian, ~3% binary – i.e. a
+  real interaction read as “fully additive”), with no uncertainty
+  attached; a weakly-informative prior on the random-effect SDs
+  regularises the variance off the boundary and returns a calibrated
+  credible interval that covers the truth. The vignette also documents
+  the precompute-and-cache pattern for shipping brms results in a build
+  (Stan cannot run on CRAN’s / pkgdown’s builders).
 - Added
   [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md),
   a one-call **publication-ready results export** that assembles the two
@@ -609,6 +646,37 @@
 
 ### Bug Fixes
 
+- **Corrected the PCV for Gaussian `lmer` models (the REML pitfall).**
+  The proportional change in between-stratum variance compares the
+  stratum variance of a *null* and an *adjusted* model that differ in
+  their fixed effects (the adjusted model adds the dimensions’ additive
+  main effects). `lmer` fits Gaussian models by REML, and a REML
+  variance estimate is **not** comparable across models with different
+  fixed effects, so the PCV was biased – it overstated the adjusted
+  model’s residual between-stratum variance and therefore **understated
+  the additive share (the PCV)**.
+  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  – and hence
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)’s PCV,
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  and the per-group PCV in
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  – now refits any REML `lmer` model with maximum likelihood
+  ([`lme4::refitML()`](https://rdrr.io/pkg/lme4/man/refitML.html))
+  before reading the variances (and before the parametric bootstrap, so
+  the interval matches), exactly as
+  [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  already does for AIC/BIC and as
+  [`anova()`](https://rdrr.io/r/stats/anova.html) does on `lme4` models.
+  In simulations with a known 60% additive share (40% interaction), the
+  reported PCV moved from ~50% (biased, REML) to ~58–60% (ML),
+  recovering the truth. `glmer` (GLMM) fits, the brms/wemix/ordinal
+  engines, single-model VPC/ICC summaries (which correctly stay REML,
+  being comparison-free), and singular/boundary fits are unaffected. In
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md),
+  `var_between_adjusted` is now reported as `var_between * (1 - pcv)` so
+  it shares the REML scale of the VPC’s `var_between` and the table
+  stays internally coherent.
 - VPC/ICC is no longer reported for a Gaussian model fit with a
   non-identity link (e.g. `gaussian(link = "log")`). The residual
   variance is on the response scale while the between-stratum variance

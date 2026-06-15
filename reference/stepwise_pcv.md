@@ -102,10 +102,10 @@ e0153778.
 # \donttest{
 strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
 stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
-#>  Step      Model        Added_Variable Variance Step_PCV Total_PCV
-#>     0 Null Model None (Intercept only)   26.715   0.0000    0.0000
-#>     1    Model 1                gender   30.863  -0.1553   -0.1553
-#>     2    Model 2                  race    2.346   0.9240    0.9122
-#>     3    Model 3                   age    3.032  -0.2922    0.8865
+#>  Step      Model        Added_Variable  Variance Step_PCV Total_PCV
+#>     0 Null Model None (Intercept only) 2.324e+01  0.00000   0.00000
+#>     1    Model 1                gender 2.290e+01  0.01457   0.01457
+#>     2    Model 2                  race 7.564e-14  1.00000   1.00000
+#>     3    Model 3                   age 0.000e+00  1.00000   1.00000
 # }
 ```

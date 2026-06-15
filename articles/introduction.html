@@ -39,15 +39,21 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/introduction.html">Introduction to MAIHDA</a></li>
+    <li><a class="dropdown-item" href="../articles/planning_a_study.html">Planning a MAIHDA study</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
+    <li><a class="dropdown-item" href="../articles/design_weighted.html">Design-weighted MAIHDA for survey data</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><a class="dropdown-item" href="../articles/longitudinal.html">Longitudinal MAIHDA: intersectional inequalities over time</a></li>
+    <li><a class="dropdown-item" href="../articles/bayesian_sparse_maihda.html">Bayesian MAIHDA for sparse intersections</a></li>
+    <li><a class="dropdown-item" href="../articles/youth_maihda.html">Youth MAIHDA: NEET and well-being across Europe</a></li>
+    <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
+    <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding the interactions that matter</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
@@ -76,7 +82,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-06-14</h4>
+            <h4 data-toc-skip class="date">2026-06-15</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
@@ -180,9 +186,9 @@ sample</strong>, so the PCV is always a like-for-like comparison.</p>
 <span><span class="co">#&gt; Adjusted formula:BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; Engine: lme4 | Family: gaussian</span></span>
 <span><span class="co">#&gt; VPC/ICC (null): 0.0636</span></span>
-<span><span class="co">#&gt; PCV (null -&gt; adjusted): 0.6615</span></span>
-<span><span class="co">#&gt; Between-stratum variance: 2.9319 (null) -&gt; 0.9924 (adjusted)</span></span>
-<span><span class="co">#&gt;   ~66.2% of the between-stratum variance is additive (the dimensions' main</span></span>
+<span><span class="co">#&gt; PCV (null -&gt; adjusted): 0.8263</span></span>
+<span><span class="co">#&gt; Between-stratum variance: 2.8308 (null) -&gt; 0.4918 (adjusted)</span></span>
+<span><span class="co">#&gt;   ~82.6% of the between-stratum variance is additive (the dimensions' main</span></span>
 <span><span class="co">#&gt;   effects); the remainder is the between-stratum variance remaining after the</span></span>
 <span><span class="co">#&gt;   additive main effects -- a model-dependent quantity</span></span>
 <span><span class="co">#&gt; Strata: 50</span></span>
@@ -190,10 +196,10 @@ sample</strong>, so the PCV is always a like-for-like comparison.</p>
 <span><span class="co">#&gt; Use summary() for variance components and plot(type = ...) for figures.</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>        <span class="co"># null:     BMI ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x55add5bb1fd8&gt;</span></span>
+<span><span class="co">#&gt; &lt;environment: 0x55dee434ccb0&gt;</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>  <span class="co"># adjusted: BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x55add71bbed0&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x55deef542ab8&gt;</span></span></code></pre></div>
 <p>The returned object carries everything: the full variance components,
 the PCV decomposition, and both fitted models.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -242,17 +248,17 @@ the PCV decomposition, and both fitted models.</p>
 <span><span class="co">#&gt; Proportional Change in Variance (PCV)</span></span>
 <span><span class="co">#&gt; =====================================</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; PCV: 0.6615</span></span>
+<span><span class="co">#&gt; PCV: 0.8263</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Between-stratum variance:</span></span>
-<span><span class="co">#&gt;   Model 1: 2.931928</span></span>
-<span><span class="co">#&gt;   Model 2: 0.992445</span></span>
-<span><span class="co">#&gt;   Change:  1.939483 (66.15%)</span></span>
+<span><span class="co">#&gt;   Model 1: 2.830755</span></span>
+<span><span class="co">#&gt;   Model 2: 0.491811</span></span>
+<span><span class="co">#&gt;   Change:  2.338944 (82.63%)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span>
 <span><span class="co">#&gt; variance between the models; it is variance 'explained' only when Model 2</span></span>
 <span><span class="co">#&gt; nests Model 1 by adding predictors on the same outcome, sample and strata):</span></span>
-<span><span class="co">#&gt;   Between-stratum variance is 66.2% lower in Model 2 than in Model 1.</span></span></code></pre></div>
+<span><span class="co">#&gt;   Between-stratum variance is 82.6% lower in Model 2 than in Model 1.</span></span></code></pre></div>
 <p><strong>Interpretation.</strong> The VPC/ICC tells us what share of
 the total variance in BMI lies <em>between</em> the intersectional
 social groups rather than <em>within</em> them. The PCV tells us how
@@ -458,17 +464,17 @@ compares variances across models, so both must use the same sample (the
 <span><span class="co">#&gt; Proportional Change in Variance (PCV)</span></span>
 <span><span class="co">#&gt; =====================================</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; PCV: 0.0835</span></span>
+<span><span class="co">#&gt; PCV: 0.0887</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Between-stratum variance:</span></span>
-<span><span class="co">#&gt;   Model 1: 2.931928</span></span>
-<span><span class="co">#&gt;   Model 2: 2.687139</span></span>
-<span><span class="co">#&gt;   Change:  0.244789 (8.35%)</span></span>
+<span><span class="co">#&gt;   Model 1: 2.830755</span></span>
+<span><span class="co">#&gt;   Model 2: 2.579769</span></span>
+<span><span class="co">#&gt;   Change:  0.250986 (8.87%)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span>
 <span><span class="co">#&gt; variance between the models; it is variance 'explained' only when Model 2</span></span>
 <span><span class="co">#&gt; nests Model 1 by adding predictors on the same outcome, sample and strata):</span></span>
-<span><span class="co">#&gt;   Between-stratum variance is 8.3% lower in Model 2 than in Model 1.</span></span></code></pre></div>
+<span><span class="co">#&gt;   Between-stratum variance is 8.9% lower in Model 2 than in Model 1.</span></span></code></pre></div>
 <p>This PCV answers “how much between-stratum variance do Age and
 Poverty account for?”, which is distinct from the additive-share PCV
 that <code><a href="../reference/maihda.html">maihda()</a></code> reports. Add <code>bootstrap = TRUE</code>
@@ -494,13 +500,13 @@ the <code><a href="../reference/maihda.html">maihda()</a></code> object exposes 
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">stepwise_results</span><span class="op">)</span></span>
-<span><span class="co">#&gt;  Step      Model        Added_Variable Variance  Step_PCV Total_PCV</span></span>
-<span><span class="co">#&gt;     0 Null Model None (Intercept only)   2.9319  0.000000  0.000000</span></span>
-<span><span class="co">#&gt;     1    Model 1                   Age   2.8628  0.023589  0.023589</span></span>
-<span><span class="co">#&gt;     2    Model 2                Gender   2.9233 -0.021142  0.002946</span></span>
-<span><span class="co">#&gt;     3    Model 3                  Race   1.3017  0.554721  0.556033</span></span>
-<span><span class="co">#&gt;     4    Model 4             Education   0.9757  0.250461  0.667229</span></span>
-<span><span class="co">#&gt;     5    Model 5               Poverty   0.9695  0.006302  0.669326</span></span></code></pre></div>
+<span><span class="co">#&gt;  Step      Model        Added_Variable Variance Step_PCV Total_PCV</span></span>
+<span><span class="co">#&gt;     0 Null Model None (Intercept only)   2.8308  0.00000   0.00000</span></span>
+<span><span class="co">#&gt;     1    Model 1                   Age   2.7605  0.02481   0.02481</span></span>
+<span><span class="co">#&gt;     2    Model 2                Gender   2.7194  0.01489   0.03933</span></span>
+<span><span class="co">#&gt;     3    Model 3                  Race   0.9892  0.63625   0.65056</span></span>
+<span><span class="co">#&gt;     4    Model 4             Education   0.4769  0.51789   0.83153</span></span>
+<span><span class="co">#&gt;     5    Model 5               Poverty   0.4698  0.01480   0.83402</span></span></code></pre></div>
 <p>Negative step PCVs in this table indicate an “unmasking”/suppression
 pattern: adding a variable increased the between-stratum variance. This
 is a model-dependent change in variance, not proof that a hidden

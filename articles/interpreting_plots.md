@@ -167,6 +167,82 @@ When you fit across a higher-level grouping variable with
 covered in the [group comparison
 vignette](https://hdbt.github.io/MAIHDA/articles/group_comparison.md).
 
+## Customizing the appearance
+
+Every [`plot()`](https://rdrr.io/r/graphics/plot.default.html) call with
+a single `type` returns a plain **ggplot** object, so you are never
+locked into the package’s styling – restyle it with the usual ggplot2
+grammar by adding a theme, overriding the labels, or dropping in another
+layer. Themes,
+[`labs()`](https://ggplot2.tidyverse.org/reference/labs.html), and added
+layers compose cleanly:
+
+``` r
+
+library(ggplot2)
+#> 
+#> Attaching package: 'ggplot2'
+#> The following objects are masked from 'package:ggtern':
+#> 
+#>     aes, annotate, ggplot, ggplot_build, ggplot_gtable, ggplotGrob,
+#>     ggsave, layer_data, theme_bw, theme_classic, theme_dark,
+#>     theme_gray, theme_light, theme_linedraw, theme_minimal, theme_void
+
+plot(model, type = "vpc") +
+  theme_classic(base_size = 13) +
+  labs(title = "Variance partition, restyled")
+```
+
+![](interpreting_plots_files/figure-html/customize-theme-1.png)
+
+The views that map a fill or colour (`vpc`, `context_vpc`,
+`effect_decomp`) also accept a replacement palette. ggplot2 prints a
+harmless *“Scale for fill is already present … which will replace the
+existing scale”* message as it swaps the built-in palette out
+(suppressed here):
+
+``` r
+
+plot(model, type = "vpc") +
+  scale_fill_brewer(palette = "Set2")
+```
+
+![](interpreting_plots_files/figure-html/customize-palette-1.png)
+
+A few plot types return something other than a single ggplot, so they
+restyle slightly differently:
+
+- **`prediction_deviation`** is a two-panel
+  [patchwork](https://patchwork.data-imaginist.com/). `+ theme_*()`
+  styles only the active panel; use `&` to apply a theme to *both*
+  panels at once:
+
+  ``` r
+
+  plot(model, type = "prediction_deviation") & theme_minimal()
+  ```
+
+  ![](interpreting_plots_files/figure-html/customize-patchwork-1.png)
+
+- **`type = "all"`** returns a *named list* of ggplot objects (it prints
+  them as a side effect), so pick one out to restyle it:
+
+  ``` r
+
+  plots <- plot(model)          # list: vpc, predicted, effect_decomp, ...
+  plots$predicted + theme_bw()
+  ```
+
+- **`ternary`** is a `ggtern` object with its own coordinate system –
+  reach for the `ggtern::theme_*()` family rather than the standard
+  ggplot2 themes.
+
+One limit worth knowing: a few accent colours are set directly inside
+the geoms (for example the blue points in the `predicted` view), not
+mapped through a scale, so adding a `scale_colour_*()` will not recolour
+them. Themes, labels, palettes on the mapped fills, and extra layers are
+the parts you can adjust without editing the package internals.
+
 ## See also
 
 - [Introduction to

@@ -704,6 +704,8 @@ A BibTeX entry for LaTeX users is:
   : Median Odds Ratio (MOR) for a logistic MAIHDA model
 - [`maihda_sim_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.md)
   : Simulated Health Data for MAIHDA Use
+- [`maihda_sparse_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sparse_data.md)
+  : Sparse Intersectional Data for Bayesian MAIHDA
 - [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
   : Canonical MAIHDA results table and ranked-strata table
 - [`maihda_ternary_plot()`](https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.md)
@@ -714,6 +716,8 @@ A BibTeX entry for LaTeX users is:
   : Tidy a MAIHDA summary, model, or analysis
 - [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
   : Response-scale VPC for a binomial MAIHDA model
+- [`maihda_youth_data`](https://hdbt.github.io/MAIHDA/reference/maihda_youth_data.md)
+  : Simulated Cross-National Youth Data for MAIHDA
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   : Create Strata from Multiple Variables
 - [`plot(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_analysis.md)
@@ -767,6 +771,8 @@ A BibTeX entry for LaTeX users is:
 
 - [Introduction to
   MAIHDA](https://hdbt.github.io/MAIHDA/articles/introduction.md):
+- [Planning a MAIHDA
+  study](https://hdbt.github.io/MAIHDA/articles/planning_a_study.md):
 
 ### Workflows
 
@@ -774,15 +780,25 @@ A BibTeX entry for LaTeX users is:
   Accuracy)](https://hdbt.github.io/MAIHDA/articles/binary_outcomes.md):
 - [Comparing Intersectional Inequality Across
   Groups](https://hdbt.github.io/MAIHDA/articles/group_comparison.md):
+- [Design-weighted MAIHDA for survey
+  data](https://hdbt.github.io/MAIHDA/articles/design_weighted.md):
 - [Crossed random effects in MAIHDA: dimensions and
   contexts](https://hdbt.github.io/MAIHDA/articles/cross_classified.md):
 - [Longitudinal MAIHDA: intersectional inequalities over
   time](https://hdbt.github.io/MAIHDA/articles/longitudinal.md):
+- [Bayesian MAIHDA for sparse
+  intersections](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md):
+- [Youth MAIHDA: NEET and well-being across
+  Europe](https://hdbt.github.io/MAIHDA/articles/youth_maihda.md):
+- [Reporting MAIHDA results: tidy output and publication
+  tables](https://hdbt.github.io/MAIHDA/articles/reporting_results.md):
 
 ### Interpretation
 
 - [Interpreting MAIHDA Plots and
   Diagnostics](https://hdbt.github.io/MAIHDA/articles/interpreting_plots.md):
+- [Finding the interactions that
+  matter](https://hdbt.github.io/MAIHDA/articles/finding_interactions.md):
 
 ### Interactive app
 
