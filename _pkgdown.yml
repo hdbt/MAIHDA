@@ -23,7 +23,6 @@ articles:
       - cross_classified
       - longitudinal
       - bayesian_sparse_maihda
-      - youth_maihda
       - reporting_results
   - title: Interpretation
     navbar: Interpretation

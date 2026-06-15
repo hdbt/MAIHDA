@@ -53,7 +53,7 @@ Survey Luxembourg, the DJI's AID:A, and the youth sub-sample of the European Soc
 Survey) require data-use agreements and cannot be shipped in a package -- but its
 design and its NEET / life-satisfaction levels are calibrated to Eurostat figures
 for young Europeans, so the workflow below mirrors a real analysis.
-
+j
 > **Teaching data.** The values are constructed, not observed; read the patterns
 > below as an illustration of the *method*, not as findings about these countries.
 
