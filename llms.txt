@@ -716,8 +716,6 @@ A BibTeX entry for LaTeX users is:
   : Tidy a MAIHDA summary, model, or analysis
 - [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
   : Response-scale VPC for a binomial MAIHDA model
-- [`maihda_youth_data`](https://hdbt.github.io/MAIHDA/reference/maihda_youth_data.md)
-  : Simulated Cross-National Youth Data for MAIHDA
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   : Create Strata from Multiple Variables
 - [`plot(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_analysis.md)

@@ -4,28 +4,6 @@
 
 ### New Features
 
-- Added the **`maihda_youth_data`** dataset and a new vignette, **“Youth
-  MAIHDA: NEET and well-being across Europe”**, a youth-research use
-  case aimed at the questions institutes such as the German Youth
-  Institute (DJI) and Luxembourg’s *Youth & Work* / *Observatoire de la
-  jeunesse* study: the school-to-work transition and youth well-being,
-  analysed intersectionally. The (simulated) cross-section of
-  16–29-year-olds in four countries carries
-  `gender x migration x parental education` strata, a binary **NEET**
-  outcome and a continuous **well-being** outcome built from one shared
-  latent disadvantage, a genuine (main-effect-orthogonal)
-  `migration x social-origin` interaction, and intersectional inequality
-  amplified in the higher-NEET countries so the VPC/ICC differs across
-  the `country` grouping. The vignette runs the whole toolkit on one
-  applied dataset – the two-model VPC/PCV decomposition (well-being),
-  the binary discriminatory-accuracy (AUC / MOR) workflow (NEET), the
-  `maihda(group = "country")` cross-country comparison, and
-  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
-  – and discusses what an intersectional interaction can and cannot look
-  like. The data are synthetic (the real surveys it is modelled on
-  require data-use agreements), calibrated to Eurostat NEET /
-  life-satisfaction figures, following the same convention as the
-  package’s other simulated datasets.
 - Added **`broom`-style
   [`tidy()`](https://generics.r-lib.org/reference/tidy.html) and
   [`glance()`](https://generics.r-lib.org/reference/glance.html)
