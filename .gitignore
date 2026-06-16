@@ -11,5 +11,3 @@ vignettes/*.html
 # stray ..Rcheck/, and built source tarballs at the repo root.
 *.Rcheck/
 /*.tar.gz
-vignettes/youth_maihda.Rmd
-vignettes/finding_interactions.Rmd

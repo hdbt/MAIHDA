@@ -18,3 +18,5 @@
 ^playground\.R$
 ^inst/shiny/rsconnect$
 ^vignettes/.*\.html$
+# Work-in-progress vignette: kept in the repo but not built/compiled yet.
+^vignettes/finding_interactions\.Rmd$
