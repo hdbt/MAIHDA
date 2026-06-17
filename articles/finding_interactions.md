@@ -1,85 +1,42 @@
-# Finding the interactions that matter
+# Finding interaction patterns
 
-## Where is the intersectionality?
+## Overview
 
-The headline VPC tells you *how much* of the variation lies between
-intersectional strata; the PCV tells you how much of that is the
-*additive* sum of the dimensions’ main effects. Neither tells you
-**which strata** are genuinely intersectional – whose outcome departs
-from what the additive parts predict. That departure is the stratum
-random effect (BLUP) of the **adjusted** model, and
-[`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
-packages it into a flag of which strata are credibly non-zero.
+One question that does come up naturaly is which strata depart most
+clearly from the additive expectation?
+
+For these exploratory diagnostics,
+[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) can
+compute the stratum random effects and intervals from the adjusted
+model, and apply a multiplicity rule to flag strata that depart from the
+additive expectation more than expected by chance. The diagnostic is
+stored in the fitted model object and can be used to highlight strata in
+the effect-decomposition and predicted-strata plots.
+
+## Run a standard analysis and choose the multiplicity rule
+
+The default is `adjust = "none"`. This reports each stratum-level
+interval and flag without a multiple-testing correction.
+
+If the goal is to scan all strata and highlight a smaller set for
+follow-up, use an adjustment such as Benjamini-Hochberg:
 
 ``` r
 
 library(MAIHDA)
-data("maihda_health_data")
-
-a <- maihda(
+model_bh <- maihda(
   BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
-  data = maihda_health_data
+  data = maihda_health_data,
+  interactions = "BH" # Benjamini-Hochberg adjustment
 )
 ```
 
-## `maihda_interactions()`
-
-Pass the [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
-analysis and the function uses the **adjusted** model automatically
-(that is the only model on which the stratum effect isolates the *pure*
-interaction). It returns one row per stratum – the interaction BLUP, its
-interval, and whether it is flagged – sorted flagged-first, then by
-magnitude:
+The printed output reports how many strata were flagged and which
+adjustment rule was used. The full table is stored in `a$interactions`.
 
 ``` r
 
-ints <- maihda_interactions(a)
-ints
-#> Strata with credibly non-zero intersectional interaction
-#> ========================================================
-#> 
-#> 4 of 50 strata flagged (95% interval; no multiplicity correction).
-#> Model: adjusted (two-model); interaction on the link (latent) scale.
-#> 
-#>  stratum                         label   n interaction     se   lower   upper
-#>       26  female × Black × High School  46      1.5953 0.7230  0.1783  3.0122
-#>        8   male × White × Some College 328      1.3593 0.3448  0.6836  2.0350
-#>        7  female × White × High School 232     -1.0650 0.4016 -1.8521 -0.2779
-#>        3 female × White × College Grad 335     -0.9967 0.3415 -1.6660 -0.3274
-#>    p_value flagged direction
-#>  2.734e-02    TRUE     above
-#>  8.056e-05    TRUE     above
-#>  8.001e-03    TRUE     below
-#>  3.515e-03    TRUE     below
-#> 
-#> Flagging many strata inflates false positives; for a screening error-rate
-#>   story use adjust = "BH" (FDR). Interaction BLUPs are shrunken estimates,
-#>   so correction is optional -- see ?maihda_interactions.
-```
-
-The number of flagged strata is on the object’s attributes:
-
-``` r
-
-sprintf("%d of %d strata flagged", attr(ints, "n_flagged"), attr(ints, "n_strata"))
-#> [1] "4 of 50 strata flagged"
-```
-
-Each row carries the `interaction` (BLUP, on the model’s link scale),
-its `lower`/`upper` interval, the stratum size `n`, the `direction`
-(above/below the additive expectation), and – for the frequentist
-engines – the conditional `se` and `p_value`.
-
-### Screening many strata: FDR
-
-With many strata you may want an explicit error-rate control. The
-default is `adjust = "none"` (see the caveat below on why), but for a
-screen across many strata the **false-discovery rate** (`adjust = "BH"`)
-matches the goal – discovery – better than family-wise methods:
-
-``` r
-
-maihda_interactions(a, adjust = "BH")
+model_bh$interactions
 #> Strata with credibly non-zero intersectional interaction
 #> ========================================================
 #> 
@@ -95,80 +52,51 @@ maihda_interactions(a, adjust = "BH")
 #>   exploratory. See ?maihda_interactions.
 ```
 
-## Highlighting the flagged strata on the plots
+Each row is one stratum. The main columns are:
 
-Pass `highlight_interactions = TRUE` to
-[`plot()`](https://rdrr.io/r/graphics/plot.default.html) and the flagged
-strata are ringed and starred on the BLUP-based views. On a
-[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) analysis
-the flags are computed once from the adjusted model and reused:
+- `interaction`: the adjusted-model stratum random effect, on the model
+  scale.
+- `lower` and `upper`: the interval for that random effect.
+- `direction`: whether the stratum is above or below the additive
+  expectation.
+- `flagged`: whether the stratum passes the selected screening rule.
+
+For frequentist fits, the table also includes the conditional standard
+error, p-value, and adjusted p-value when a correction is requested.
+
+## Highlight flagged strata
+
+The plotting methods can reuse the stored diagnostic.
 
 ``` r
 
-plot(a, type = "effect_decomp", highlight_interactions = TRUE)
+plot(model_bh, type = "effect_decomp", highlight_interactions = TRUE)
 ```
 
 ![](finding_interactions_files/figure-html/plot-decomp-1.png)
 
+To highlight the strata that survive a specific adjustment ( in this
+case Benjamini-Hochberg ), pass the adjusted model object that contains
+the diagnostic with the desired adjustment:
+
 ``` r
 
-plot(a, type = "predicted", highlight_interactions = TRUE)
+plot(model_bh, type = "predicted", highlight_interactions = TRUE)
 ```
 
 ![](finding_interactions_files/figure-html/plot-predicted-1.png)
 
-You can also pass a precomputed `maihda_interactions` object (to reuse a
-specific `conf_level`/`adjust`) instead of `TRUE`.
-
-## How to read it – and what not to conclude
-
-- **It must come from the adjusted model.** On a null model the stratum
-  effect is the *total* between-stratum deviation (additive +
-  interaction), so passing a bare null model is flagged with a warning.
-  Passing the
-  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
-  analysis handles this for you.
-- **It is on the link (latent) scale.** For a logistic model the
-  interaction is a log-odds departure; the additive/interaction split is
-  only exact on that scale.
-- **Treat the flags as exploratory, not confirmatory.** The BLUP is
-  already a shrunken (partially pooled) estimate, which protects against
-  spurious extremes, so the relevant risk is sign/magnitude error rather
-  than family-wise Type I error. That is *why* `adjust = "none"` is the
-  default; corrections applied to shrunken estimates are conservative.
-  Use `"BH"` when you need a discovery-rate story, and read the flagged
-  strata as hypotheses to probe, not confirmed interactions.
-- **A singular fit voids the flags.** When the between-stratum variance
-  is pinned at the boundary the BLUP SEs are unreliable; the object
-  records `attr(., "singular")` and “not flagged” is then not evidence
-  of “no interaction” (see the [Bayesian sparse
-  vignette](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md)).
-
-## Bayesian evidence (brms)
-
-For a `brms` fit the function uses the **exact posterior tail** rather
-than a normal approximation: a credible interval and the probability of
-direction `pd = P(BLUP > 0)`. `adjust` is inert (the Bayesian answer is
-multiplicity-free).
-
-``` r
-
-a_brms <- maihda(BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
-                 data = maihda_health_data, engine = "brms")
-maihda_interactions(a_brms)   # gains a `pd` column; no p-values
-```
-
 ## See also
 
-- [Reporting MAIHDA
-  results](https://hdbt.github.io/MAIHDA/articles/reporting_results.md)
-  – tidy output and publication tables.
+- [Introduction to
+  MAIHDA](https://hdbt.github.io/MAIHDA/articles/introduction.md), the
+  main two-model workflow.
 - [Interpreting MAIHDA plots and
-  diagnostics](https://hdbt.github.io/MAIHDA/articles/interpreting_plots.md)
-  – the effect-decomposition and predicted views in depth.
+  diagnostics](https://hdbt.github.io/MAIHDA/articles/interpreting_plots.md),
+  how to read the effect-decomposition and predicted-strata plots.
 - [Bayesian MAIHDA for sparse
-  intersections](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md)
-  – when ML cannot see a real interaction.
+  intersections](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md),
+  sparse cells and uncertainty in variance components.
 
 ## References
 
@@ -176,6 +104,7 @@ maihda_interactions(a_brms)   # gains a `pd` column; no p-values
   (2018). A multilevel approach to modeling health inequalities at the
   intersection of multiple social identities. *Social Science &
   Medicine*, 203, 64-73.
-- Gelman, A., Hill, J., & Yajima, M. (2012). Why we (usually) don’t have
-  to worry about multiple comparisons. *Journal of Research on
-  Educational Effectiveness*, 5(2), 189-211.
+
+- Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
+  discriminatory accuracy (MAIHDA) within an intersectional framework.
+  *Social Science & Medicine*, 203, 74-80.

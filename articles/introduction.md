@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> Use summary() for variance components and plot(type = ...) for figures.
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x55b79d22e638>
+#> <environment: 0x55c6d6baf1b0>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x55b7a8429d00>
+#> <environment: 0x55c6e1da9fd8>
 ```
 
 The returned object carries everything: the full variance components,
@@ -272,8 +272,8 @@ hospitals, students within strata and schools) – pass
 [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md).
 The summary then partitions the unexplained variance into
 between-stratum vs. between-context vs. residual, and the headline
-VPC/ICC becomes the between-stratum share net of the context. Also
-covered in
+VPC/ICC becomes the between-stratum share conditional on the context
+random effect. Also covered in
 [`vignette("cross_classified", package = "MAIHDA")`](https://hdbt.github.io/MAIHDA/articles/cross_classified.md).
 
 ### Design-weighted MAIHDA (survey data)

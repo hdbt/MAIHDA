@@ -26,6 +26,8 @@
 
 - [Interpreting MAIHDA Plots and
   Diagnostics](https://hdbt.github.io/MAIHDA/articles/interpreting_plots.md):
+- [Finding interaction
+  patterns](https://hdbt.github.io/MAIHDA/articles/finding_interactions.md):
 
 ### Interactive app
 

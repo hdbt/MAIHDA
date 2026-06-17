@@ -52,6 +52,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
+    <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding interaction patterns</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
@@ -392,7 +393,7 @@ installed):</p>
 <div class="section level2">
 <h2 id="choosing-a-model-structure-with-maihda_ic">Choosing a model structure with <code>maihda_ic()</code><a class="anchor" aria-label="anchor" href="#choosing-a-model-structure-with-maihda_ic"></a>
 </h2>
-<p>The VPC and PCV describe do not tell you whether a different model
+<p>The VPC and PCV do not tell you whether a different model
 specification (another covariate set, strata definition, or family) fits
 better. <code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> answers that with information criteria
 – <code>AIC</code>/<code>BIC</code> for the likelihood engines,
@@ -419,9 +420,9 @@ column (gap from the best model):</p>
 <a href="introduction.html">Introduction to MAIHDA</a> – the
 end-to-end workflow.</li>
 <li>
-<a href="finding_interactions.html">Finding the interactions that
-matter</a> – which strata carry a credibly non-zero intersectional
-effect.</li>
+<a href="finding_interactions.html">Finding interaction patterns</a>
+– which strata show the clearest residual deviations from additive
+expectations.</li>
 <li>
 <a href="interpreting_plots.html">Interpreting MAIHDA plots and
 diagnostics</a> – and how to restyle the built-in plots.</li>

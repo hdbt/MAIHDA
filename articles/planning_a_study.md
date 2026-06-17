@@ -113,8 +113,8 @@ over
 If you see a singular-fit note, do not read the VPC as a clean zero. The
 solution is to collapse dimensions or categories (fewer, larger cells),
 or to use `engine = "brms"`, whose weakly-informative priors regularise
-the variance off the boundary and return an honest interval, the subject
-of the [Bayesian sparse
+the variance off the boundary and return a posterior interval, the
+subject of the [Bayesian sparse
 vignette](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md).
 
 ## Continuous variables and the analytic sample
@@ -139,7 +139,7 @@ vignette](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md).
 - **`lme4` (default)** – fast frequentist fits for adequately-sized
   cells.
 - **`brms`** – Bayesian; preferred when cells are sparse or dimensions
-  have few levels (regularising priors, honest intervals).
+  have few levels (regularising priors, posterior intervals).
 
 For extensions beyond the cross-sectional case, see the [crossed random
 effects](https://hdbt.github.io/MAIHDA/articles/cross_classified.md)
@@ -154,8 +154,8 @@ vignettes.
     the end-to-end workflow.
 2.  [Interpreting MAIHDA plots and
     diagnostics](https://hdbt.github.io/MAIHDA/articles/interpreting_plots.md).
-3.  [Finding the interactions that
-    matter](https://hdbt.github.io/MAIHDA/articles/finding_interactions.md).
+3.  [Finding interaction
+    patterns](https://hdbt.github.io/MAIHDA/articles/finding_interactions.md).
 4.  [Reporting MAIHDA
     results](https://hdbt.github.io/MAIHDA/articles/reporting_results.md)
     – tidy output and tables.
@@ -163,9 +163,7 @@ vignettes.
     outcomes](https://hdbt.github.io/MAIHDA/articles/binary_outcomes.md),
     [group
     comparison](https://hdbt.github.io/MAIHDA/articles/group_comparison.md),
-    [survey
-    weights](https://hdbt.github.io/MAIHDA/articles/design_weighted.md),
-    and [Bayesian /
+    survey weights, and [Bayesian /
     sparse](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md).
 
 ## References

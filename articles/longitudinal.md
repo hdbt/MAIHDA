@@ -7,7 +7,7 @@ differ?” at a single point in time, summarised by the between-stratum
 VPC. With repeated measurements we can ask a richer question: *“do
 strata differ in how they **change** over time?”* – and decompose those
 trajectory differences into an additive part (the dimensions’ main
-effects and their interactions with time) and a multiplicative part (a
+effects and their interactions with time) and a multiplicative part (an
 intersectional trajectory beyond additive).
 
 This is the longitudinal MAIHDA of Bell, Evans, Holman & Leckie (2024).
@@ -128,16 +128,16 @@ plot(m, type = "trajectories")     # predicted per-stratum mean trajectories
 
 ![](longitudinal_files/figure-html/vpc-traj-2.png)
 
-A rising VPC trajectory means the strata fan out over time (
-intersectional inequality grows).
+A rising VPC trajectory means the strata fan out over time
+(intersectional inequality grows).
 
 ## Decomposing the trajectory: additive vs. multiplicative
 
 `maihda(decomposition = "longitudinal")` (selected automatically when
-`id`/`time` are supplied) fits a null growth model and an djusted growth
-model. The adjusted model adds the dimensions’ main effects and their
-interactions with time (`dim:time`), so the stratum-level variance it
-leaves behind is the interaction beyond additive.
+`id`/`time` are supplied) fits a null growth model and an adjusted
+growth model. The adjusted model adds the dimensions’ main effects and
+their interactions with time (`dim:time`), so the stratum-level variance
+it leaves behind is the interaction beyond additive.
 
 ``` r
 

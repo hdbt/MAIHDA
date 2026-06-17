@@ -52,6 +52,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
+    <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding interaction patterns</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
@@ -193,7 +194,7 @@ than letting it pass silently:</p>
 <p>If you see a singular-fit note, do not read the VPC as a clean zero.
 The solution is to collapse dimensions or categories (fewer, larger
 cells), or to use <code>engine = "brms"</code>, whose weakly-informative
-priors regularise the variance off the boundary and return an honest
+priors regularise the variance off the boundary and return a posterior
 interval, the subject of the <a href="bayesian_sparse_maihda.html">Bayesian sparse vignette</a>.</p>
 </div>
 <div class="section level2">
@@ -254,7 +255,7 @@ modest AUC)</td>
 for adequately-sized cells.</li>
 <li>
 <strong><code>brms</code></strong> – Bayesian; preferred when cells
-are sparse or dimensions have few levels (regularising priors, honest
+are sparse or dimensions have few levels (regularising priors, posterior
 intervals).</li>
 </ul>
 <p>For extensions beyond the cross-sectional case, see the <a href="cross_classified.html">crossed random effects</a>
@@ -272,13 +273,15 @@ end-to-end workflow.</li>
 <a href="interpreting_plots.html">Interpreting MAIHDA plots and
 diagnostics</a>.</li>
 <li>
-<a href="finding_interactions.html">Finding the interactions that
-matter</a>.</li>
+<a href="finding_interactions.html">Finding interaction
+patterns</a>.</li>
 <li>
 <a href="reporting_results.html">Reporting MAIHDA results</a> – tidy
 output and tables.</li>
 <li>Specialised designs: <a href="binary_outcomes.html">binary
-outcomes</a>, <a href="group_comparison.html">group comparison</a>, <a href="design_weighted.html">survey weights</a>, and <a href="bayesian_sparse_maihda.html">Bayesian / sparse</a>.</li>
+outcomes</a>, <a href="group_comparison.html">group comparison</a>,
+survey weights, and <a href="bayesian_sparse_maihda.html">Bayesian /
+sparse</a>.</li>
 </ol>
 </div>
 <div class="section level2">

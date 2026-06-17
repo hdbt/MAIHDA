@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Finding the interactions that matter • MAIHDA</title>
+<title>Finding interaction patterns • MAIHDA</title>
 <!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
 <link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
@@ -15,7 +15,8 @@
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Finding the interactions that matter">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
+<meta property="og:title" content="Finding interaction patterns">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -39,21 +40,19 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/introduction.html">Introduction to MAIHDA</a></li>
-    <li><a class="dropdown-item" href="../articles/planning_a_study.html">Planning a MAIHDA study</a></li>
+    <li><a class="dropdown-item" href="../articles/planning_a_study.html">Planning a MAIHDA analysis</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
-    <li><a class="dropdown-item" href="../articles/design_weighted.html">Design-weighted MAIHDA for survey data</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><a class="dropdown-item" href="../articles/longitudinal.html">Longitudinal MAIHDA: intersectional inequalities over time</a></li>
     <li><a class="dropdown-item" href="../articles/bayesian_sparse_maihda.html">Bayesian MAIHDA for sparse intersections</a></li>
-    <li><a class="dropdown-item" href="../articles/youth_maihda.html">Youth MAIHDA: NEET and well-being across Europe</a></li>
     <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
-    <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding the interactions that matter</a></li>
+    <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding interaction patterns</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
@@ -78,11 +77,11 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-      <img src="../logo.png" class="logo" alt=""><h1>Finding the interactions that matter</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>Finding interaction patterns</h1>
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-06-15</h4>
+            <h4 data-toc-skip class="date">2026-06-17</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/finding_interactions.Rmd" class="external-link"><code>vignettes/finding_interactions.Rmd</code></a></small>
       <div class="d-none name"><code>finding_interactions.Rmd</code></div>
@@ -91,76 +90,37 @@ Bulut</h4>
     
     
 <div class="section level2">
-<h2 id="where-is-the-intersectionality">Where is the intersectionality?<a class="anchor" aria-label="anchor" href="#where-is-the-intersectionality"></a>
+<h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>The headline VPC tells you <em>how much</em> of the variation lies
-between intersectional strata; the PCV tells you how much of that is the
-<em>additive</em> sum of the dimensions’ main effects. Neither tells you
-<strong>which strata</strong> are genuinely intersectional – whose
-outcome departs from what the additive parts predict. That departure is
-the stratum random effect (BLUP) of the <strong>adjusted</strong> model,
-and <code><a href="../reference/maihda_interactions.html">maihda_interactions()</a></code> packages it into a flag of which
-strata are credibly non-zero.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span></span>
-<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">maihda_health_data</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<p>One question that does come up naturaly is which strata depart most
+clearly from the additive expectation?</p>
+<p>For these exploratory diagnostics, <code><a href="../reference/maihda.html">maihda()</a></code> can compute
+the stratum random effects and intervals from the adjusted model, and
+apply a multiplicity rule to flag strata that depart from the additive
+expectation more than expected by chance. The diagnostic is stored in
+the fitted model object and can be used to highlight strata in the
+effect-decomposition and predicted-strata plots.</p>
 </div>
 <div class="section level2">
-<h2 id="maihda_interactions">
-<code>maihda_interactions()</code><a class="anchor" aria-label="anchor" href="#maihda_interactions"></a>
+<h2 id="run-a-standard-analysis-and-choose-the-multiplicity-rule">Run a standard analysis and choose the multiplicity rule<a class="anchor" aria-label="anchor" href="#run-a-standard-analysis-and-choose-the-multiplicity-rule"></a>
 </h2>
-<p>Pass the <code><a href="../reference/maihda.html">maihda()</a></code> analysis and the function uses the
-<strong>adjusted</strong> model automatically (that is the only model on
-which the stratum effect isolates the <em>pure</em> interaction). It
-returns one row per stratum – the interaction BLUP, its interval, and
-whether it is flagged – sorted flagged-first, then by magnitude:</p>
+<p>The default is <code>adjust = "none"</code>. This reports each
+stratum-level interval and flag without a multiple-testing
+correction.</p>
+<p>If the goal is to scan all strata and highlight a smaller set for
+follow-up, use an adjustment such as Benjamini-Hochberg:</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
+<span><span class="va">model_bh</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span></span>
+<span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
+<span>  interactions <span class="op">=</span> <span class="st">"BH"</span> <span class="co"># Benjamini-Hochberg adjustment</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>The printed output reports how many strata were flagged and which
+adjustment rule was used. The full table is stored in
+<code>a$interactions</code>.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">ints</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
-<span><span class="va">ints</span></span>
-<span><span class="co">#&gt; Strata with credibly non-zero intersectional interaction</span></span>
-<span><span class="co">#&gt; ========================================================</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; 4 of 50 strata flagged (95% interval; no multiplicity correction).</span></span>
-<span><span class="co">#&gt; Model: adjusted (two-model); interaction on the link (latent) scale.</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;  stratum                         label   n interaction     se   lower   upper</span></span>
-<span><span class="co">#&gt;       26  female × Black × High School  46      1.5953 0.7230  0.1783  3.0122</span></span>
-<span><span class="co">#&gt;        8   male × White × Some College 328      1.3593 0.3448  0.6836  2.0350</span></span>
-<span><span class="co">#&gt;        7  female × White × High School 232     -1.0650 0.4016 -1.8521 -0.2779</span></span>
-<span><span class="co">#&gt;        3 female × White × College Grad 335     -0.9967 0.3415 -1.6660 -0.3274</span></span>
-<span><span class="co">#&gt;    p_value flagged direction</span></span>
-<span><span class="co">#&gt;  2.734e-02    TRUE     above</span></span>
-<span><span class="co">#&gt;  8.056e-05    TRUE     above</span></span>
-<span><span class="co">#&gt;  8.001e-03    TRUE     below</span></span>
-<span><span class="co">#&gt;  3.515e-03    TRUE     below</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Flagging many strata inflates false positives; for a screening error-rate</span></span>
-<span><span class="co">#&gt;   story use adjust = "BH" (FDR). Interaction BLUPs are shrunken estimates,</span></span>
-<span><span class="co">#&gt;   so correction is optional -- see ?maihda_interactions.</span></span></code></pre></div>
-<p>The number of flagged strata is on the object’s attributes:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%d of %d strata flagged"</span>, <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">ints</span>, <span class="st">"n_flagged"</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">ints</span>, <span class="st">"n_strata"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "4 of 50 strata flagged"</span></span></code></pre></div>
-<p>Each row carries the <code>interaction</code> (BLUP, on the model’s
-link scale), its <code>lower</code>/<code>upper</code> interval, the
-stratum size <code>n</code>, the <code>direction</code> (above/below the
-additive expectation), and – for the frequentist engines – the
-conditional <code>se</code> and <code>p_value</code>.</p>
-<div class="section level3">
-<h3 id="screening-many-strata-fdr">Screening many strata: FDR<a class="anchor" aria-label="anchor" href="#screening-many-strata-fdr"></a>
-</h3>
-<p>With many strata you may want an explicit error-rate control. The
-default is <code>adjust = "none"</code> (see the caveat below on why),
-but for a screen across many strata the <strong>false-discovery
-rate</strong> (<code>adjust = "BH"</code>) matches the goal – discovery
-– better than family-wise methods:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">a</span>, adjust <span class="op">=</span> <span class="st">"BH"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">model_bh</span><span class="op">$</span><span class="va">interactions</span></span>
 <span><span class="co">#&gt; Strata with credibly non-zero intersectional interaction</span></span>
 <span><span class="co">#&gt; ========================================================</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -174,95 +134,67 @@ rate</strong> (<code>adjust = "BH"</code>) matches the goal – discovery
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span>
 <span><span class="co">#&gt;   exploratory. See ?maihda_interactions.</span></span></code></pre></div>
-</div>
-</div>
-<div class="section level2">
-<h2 id="highlighting-the-flagged-strata-on-the-plots">Highlighting the flagged strata on the plots<a class="anchor" aria-label="anchor" href="#highlighting-the-flagged-strata-on-the-plots"></a>
-</h2>
-<p>Pass <code>highlight_interactions = TRUE</code> to
-<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> and the flagged strata are ringed and starred on the
-BLUP-based views. On a <code><a href="../reference/maihda.html">maihda()</a></code> analysis the flags are
-computed once from the adjusted model and reused:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span>, highlight_interactions <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-<p><img src="finding_interactions_files/figure-html/plot-decomp-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"predicted"</span>, highlight_interactions <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-<p><img src="finding_interactions_files/figure-html/plot-predicted-1.png" class="r-plt" alt="" width="672"></p>
-<p>You can also pass a precomputed <code>maihda_interactions</code>
-object (to reuse a specific <code>conf_level</code>/<code>adjust</code>)
-instead of <code>TRUE</code>.</p>
-</div>
-<div class="section level2">
-<h2 id="how-to-read-it-and-what-not-to-conclude">How to read it – and what not to conclude<a class="anchor" aria-label="anchor" href="#how-to-read-it-and-what-not-to-conclude"></a>
-</h2>
+<p>Each row is one stratum. The main columns are:</p>
 <ul>
 <li>
-<strong>It must come from the adjusted model.</strong> On a null
-model the stratum effect is the <em>total</em> between-stratum deviation
-(additive + interaction), so passing a bare null model is flagged with a
-warning. Passing the <code><a href="../reference/maihda.html">maihda()</a></code> analysis handles this for
-you.</li>
+<code>interaction</code>: the adjusted-model stratum random effect,
+on the model scale.</li>
 <li>
-<strong>It is on the link (latent) scale.</strong> For a logistic
-model the interaction is a log-odds departure; the additive/interaction
-split is only exact on that scale.</li>
+<code>lower</code> and <code>upper</code>: the interval for that
+random effect.</li>
 <li>
-<strong>Treat the flags as exploratory, not confirmatory.</strong>
-The BLUP is already a shrunken (partially pooled) estimate, which
-protects against spurious extremes, so the relevant risk is
-sign/magnitude error rather than family-wise Type I error. That is
-<em>why</em> <code>adjust = "none"</code> is the default; corrections
-applied to shrunken estimates are conservative. Use <code>"BH"</code>
-when you need a discovery-rate story, and read the flagged strata as
-hypotheses to probe, not confirmed interactions.</li>
+<code>direction</code>: whether the stratum is above or below the
+additive expectation.</li>
 <li>
-<strong>A singular fit voids the flags.</strong> When the
-between-stratum variance is pinned at the boundary the BLUP SEs are
-unreliable; the object records <code>attr(., "singular")</code> and “not
-flagged” is then not evidence of “no interaction” (see the <a href="bayesian_sparse_maihda.html">Bayesian sparse vignette</a>).</li>
+<code>flagged</code>: whether the stratum passes the selected
+screening rule.</li>
 </ul>
+<p>For frequentist fits, the table also includes the conditional
+standard error, p-value, and adjusted p-value when a correction is
+requested.</p>
 </div>
 <div class="section level2">
-<h2 id="bayesian-evidence-brms">Bayesian evidence (brms)<a class="anchor" aria-label="anchor" href="#bayesian-evidence-brms"></a>
+<h2 id="highlight-flagged-strata">Highlight flagged strata<a class="anchor" aria-label="anchor" href="#highlight-flagged-strata"></a>
 </h2>
-<p>For a <code>brms</code> fit the function uses the <strong>exact
-posterior tail</strong> rather than a normal approximation: a credible
-interval and the probability of direction
-<code>pd = P(BLUP &gt; 0)</code>. <code>adjust</code> is inert (the
-Bayesian answer is multiplicity-free).</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">a_brms</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
-<span>                 data <span class="op">=</span> <span class="va">maihda_health_data</span>, engine <span class="op">=</span> <span class="st">"brms"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">a_brms</span><span class="op">)</span>   <span class="co"># gains a `pd` column; no p-values</span></span></code></pre></div>
+<p>The plotting methods can reuse the stored diagnostic.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_bh</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span>, highlight_interactions <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p><img src="finding_interactions_files/figure-html/plot-decomp-1.png" class="r-plt" alt="" width="672"></p>
+<p>To highlight the strata that survive a specific adjustment ( in this
+case Benjamini-Hochberg ), pass the adjusted model object that contains
+the diagnostic with the desired adjustment:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_bh</span>, type <span class="op">=</span> <span class="st">"predicted"</span>, highlight_interactions <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p><img src="finding_interactions_files/figure-html/plot-predicted-1.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level2">
 <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a>
 </h2>
 <ul>
 <li>
-<a href="reporting_results.html">Reporting MAIHDA results</a> – tidy
-output and publication tables.</li>
+<a href="introduction.html">Introduction to MAIHDA</a>, the main
+two-model workflow.</li>
 <li>
 <a href="interpreting_plots.html">Interpreting MAIHDA plots and
-diagnostics</a> – the effect-decomposition and predicted views in
-depth.</li>
+diagnostics</a>, how to read the effect-decomposition and
+predicted-strata plots.</li>
 <li>
 <a href="bayesian_sparse_maihda.html">Bayesian MAIHDA for sparse
-intersections</a> – when ML cannot see a real interaction.</li>
+intersections</a>, sparse cells and uncertainty in variance
+components.</li>
 </ul>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
 <ul>
-<li>Evans, C. R., Williams, D. R., Onnela, J. P., &amp; Subramanian, S.
-V. (2018). A multilevel approach to modeling health inequalities at the
-intersection of multiple social identities. <em>Social Science &amp;
-Medicine</em>, 203, 64-73.</li>
-<li>Gelman, A., Hill, J., &amp; Yajima, M. (2012). Why we (usually)
-don’t have to worry about multiple comparisons. <em>Journal of Research
-on Educational Effectiveness</em>, 5(2), 189-211.</li>
+<li><p>Evans, C. R., Williams, D. R., Onnela, J. P., &amp; Subramanian,
+S. V. (2018). A multilevel approach to modeling health inequalities at
+the intersection of multiple social identities. <em>Social Science &amp;
+Medicine</em>, 203, 64-73.</p></li>
+<li><p>Merlo, J. (2018). Multilevel analysis of individual heterogeneity
+and discriminatory accuracy (MAIHDA) within an intersectional framework.
+<em>Social Science &amp; Medicine</em>, 203, 74-80.</p></li>
 </ul>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

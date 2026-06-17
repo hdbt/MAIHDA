@@ -52,6 +52,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
+    <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding interaction patterns</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
@@ -97,7 +98,7 @@ VPC. With repeated measurements we can ask a richer question: <em>“do
 strata differ in how they <strong>change</strong> over time?”</em> – and
 decompose those trajectory differences into an additive part (the
 dimensions’ main effects and their interactions with time) and a
-multiplicative part (a intersectional trajectory beyond additive).</p>
+multiplicative part (an intersectional trajectory beyond additive).</p>
 <p>This is the longitudinal MAIHDA of Bell, Evans, Holman &amp; Leckie
 (2024). It is a 3-level growth-curve model with measurement occasions
 (level 1) within individuals (level 2) within intersectional strata
@@ -202,16 +203,16 @@ observed times. Plot it:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">m</span>, type <span class="op">=</span> <span class="st">"trajectories"</span><span class="op">)</span>     <span class="co"># predicted per-stratum mean trajectories</span></span></code></pre></div>
 <p><img src="longitudinal_files/figure-html/vpc-traj-2.png" class="r-plt" alt="" width="672"></p>
-<p>A rising VPC trajectory means the strata fan out over time (
-intersectional inequality grows).</p>
+<p>A rising VPC trajectory means the strata fan out over time
+(intersectional inequality grows).</p>
 </div>
 <div class="section level2">
 <h2 id="decomposing-the-trajectory-additive-vs--multiplicative">Decomposing the trajectory: additive vs. multiplicative<a class="anchor" aria-label="anchor" href="#decomposing-the-trajectory-additive-vs--multiplicative"></a>
 </h2>
 <p><code>maihda(decomposition = "longitudinal")</code> (selected
 automatically when <code>id</code>/<code>time</code> are supplied) fits
-a null growth model and an djusted growth model. The adjusted model adds
-the dimensions’ main effects and their interactions with time
+a null growth model and an adjusted growth model. The adjusted model
+adds the dimensions’ main effects and their interactions with time
 (<code>dim:time</code>), so the stratum-level variance it leaves behind
 is the interaction beyond additive.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">

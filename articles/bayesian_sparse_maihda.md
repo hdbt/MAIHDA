@@ -4,13 +4,12 @@
 
 Intersectional MAIHDA decomposes the between-stratum variation into an
 additive part (the constituent dimensions’ main effects) and an
-interaction part (the departure from additivity that is genuinely
-intersectional). That conclusion is defensible only, when each
-intersectional stratum is populated well enough to estimate its effect.
-In practice it often is not. Crossing several dimensions multiplies the
-strata while the sample size stays fixed, so cell counts fall away
-quickly. Estimating an interaction variancemfrom cells like these is
-hard.
+interaction part (the model-implied departure from additivity). That
+conclusion is defensible only when each intersectional stratum is
+populated well enough to estimate its effect. In practice it often is
+not. Crossing several dimensions multiplies the strata while the sample
+size stays fixed, so cell counts fall away quickly. Estimating an
+interaction variance from cells like these is hard.
 
 ## A dataset with a known interaction
 
@@ -37,7 +36,7 @@ attr(d, "truth")$gaussian$interaction_share   # the true interaction share: 0.40
 ```
 
 A third of the strata hold fewer than five individuals. This is not an
-unsual case as it often the situation once more than two or three
+unusual case, as it is often the situation once more than two or three
 dimensions are crossed, and it is precisely where maximum likelihood
 becomes unreliable.
 
@@ -72,7 +71,7 @@ neither estimate carries an interval. The estimate is not only biased
 but reported with unwarranted precision, because the model has no way to
 express how little the sparse cells determine.
 
-## What brms adds: a calibrated interval
+## What brms adds: posterior uncertainty
 
 Refitting with `engine = "brms"` and a weakly-informative prior on the
 random-effect standard deviations changes the output in one important
@@ -117,12 +116,12 @@ data.frame(
 The posterior point remains low: the interaction is weakly identified at
 this density, so `brms` does not recover the 40% either, and we should
 not expect it to. The credible interval, however, runs from near zero to
-past the true value, correctly conveying that the data are consistent
-with an interaction anywhere in that range. This is the substantive
-difference. Maximum likelihood reported a singular point as if it were
-certain; `brms` reports an interval that includes the true share and
+past the true value, reflecting posterior uncertainty about the
+interaction share. This is the substantive difference. Maximum
+likelihood reported a singular point as if it were certain; `brms`
+reports an interval that includes the true share in this simulation and
 makes the uncertainty explicit. The diagnostics (`max_rhat` close to 1,
-no divergent transitions) confirm the posterior is well-sampled.
+no divergent transitions) suggest the posterior is well-sampled.
 
 ## Comparison
 
@@ -146,7 +145,7 @@ ggplot(fig, aes(method, share, colour = method)) +
   scale_y_continuous("Interaction share of between-stratum variance",
                      labels = function(x) paste0(round(100 * x), "%")) +
   labs(x = NULL, colour = NULL,
-       title = "A singular ML point estimate vs. a calibrated brms interval",
+       title = "A singular ML point estimate vs. a brms posterior interval",
        subtitle = "Dashed line: true interaction share (40%)") +
   theme_minimal() + theme(legend.position = "none")
 ```

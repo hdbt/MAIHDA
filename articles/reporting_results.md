@@ -283,9 +283,8 @@ gt::gt(tab$models)
 
 ## Choosing a model structure with `maihda_ic()`
 
-The VPC and PCV describe do not tell you whether a different model
-specification (another covariate set, strata definition, or family) fits
-better.
+The VPC and PCV do not tell you whether a different model specification
+(another covariate set, strata definition, or family) fits better.
 [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
 answers that with information criteria – `AIC`/`BIC` for the likelihood
 engines, `WAIC`/`LOOIC` for brms – and a `delta` column (gap from the
@@ -311,9 +310,10 @@ maihda_ic(a)
 - [Introduction to
   MAIHDA](https://hdbt.github.io/MAIHDA/articles/introduction.md) – the
   end-to-end workflow.
-- [Finding the interactions that
-  matter](https://hdbt.github.io/MAIHDA/articles/finding_interactions.md)
-  – which strata carry a credibly non-zero intersectional effect.
+- [Finding interaction
+  patterns](https://hdbt.github.io/MAIHDA/articles/finding_interactions.md)
+  – which strata show the clearest residual deviations from additive
+  expectations.
 - [Interpreting MAIHDA plots and
   diagnostics](https://hdbt.github.io/MAIHDA/articles/interpreting_plots.md)
   – and how to restyle the built-in plots.

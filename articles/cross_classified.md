@@ -129,7 +129,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x55ca4fc71818>
+#> <environment: 0x5557be8ce538>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -394,7 +394,7 @@ m0 <- fit_maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data)
 summary(m0)$vpc$estimate          # strata-only VPC
 #> [1] 0.1493031
 s <- summary(ctx)
-s$vpc$estimate                    # between-stratum share, net of country
+s$vpc$estimate                    # between-stratum share conditional on country
 #> [1] 0.1032371
 s$context$vpc_context_total      # the country (general contextual) share
 #> [1] 0.1282643

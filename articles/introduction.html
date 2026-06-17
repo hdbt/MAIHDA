@@ -52,6 +52,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
+    <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding interaction patterns</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
@@ -186,10 +187,10 @@ deriving the null by dropping them. (Omit them –
 <span><span class="co">#&gt; Use summary() for variance components and plot(type = ...) for figures.</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>        <span class="co"># null:     BMI ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x55b79d22e638&gt;</span></span>
+<span><span class="co">#&gt; &lt;environment: 0x55c6d6baf1b0&gt;</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>  <span class="co"># adjusted: BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x55b7a8429d00&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x55c6e1da9fd8&gt;</span></span></code></pre></div>
 <p>The returned object carries everything: the full variance components,
 the PCV decomposition, and both fitted models.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -316,8 +317,8 @@ strata and hospitals, students within strata and schools) – pass
 <code>context = "school"</code> to <code><a href="../reference/maihda.html">maihda()</a></code> or
 <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code>. The summary then partitions the unexplained
 variance into between-stratum vs. between-context vs. residual, and the
-headline VPC/ICC becomes the between-stratum share net of the context.
-Also covered in
+headline VPC/ICC becomes the between-stratum share conditional on the
+context random effect. Also covered in
 <code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>.</p>
 </div>
 <div class="section level3">

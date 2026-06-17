@@ -52,6 +52,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
+    <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding interaction patterns</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
@@ -93,13 +94,12 @@ Bulut</h4>
 </h2>
 <p>Intersectional MAIHDA decomposes the between-stratum variation into
 an additive part (the constituent dimensions’ main effects) and an
-interaction part (the departure from additivity that is genuinely
-intersectional). That conclusion is defensible only, when each
-intersectional stratum is populated well enough to estimate its effect.
-In practice it often is not. Crossing several dimensions multiplies the
-strata while the sample size stays fixed, so cell counts fall away
-quickly. Estimating an interaction variancemfrom cells like these is
-hard.</p>
+interaction part (the model-implied departure from additivity). That
+conclusion is defensible only when each intersectional stratum is
+populated well enough to estimate its effect. In practice it often is
+not. Crossing several dimensions multiplies the strata while the sample
+size stays fixed, so cell counts fall away quickly. Estimating an
+interaction variance from cells like these is hard.</p>
 </div>
 <div class="section level2">
 <h2 id="a-dataset-with-a-known-interaction">A dataset with a known interaction<a class="anchor" aria-label="anchor" href="#a-dataset-with-a-known-interaction"></a>
@@ -124,9 +124,9 @@ survey data.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">d</span>, <span class="st">"truth"</span><span class="op">)</span><span class="op">$</span><span class="va">gaussian</span><span class="op">$</span><span class="va">interaction_share</span>   <span class="co"># the true interaction share: 0.40</span></span>
 <span><span class="co">#&gt; [1] 0.4</span></span></code></pre></div>
 <p>A third of the strata hold fewer than five individuals. This is not
-an unsual case as it often the situation once more than two or three
-dimensions are crossed, and it is precisely where maximum likelihood
-becomes unreliable.</p>
+an unusual case, as it is often the situation once more than two or
+three dimensions are crossed, and it is precisely where maximum
+likelihood becomes unreliable.</p>
 </div>
 <div class="section level2">
 <h2 id="what-lme4-reports">What lme4 reports<a class="anchor" aria-label="anchor" href="#what-lme4-reports"></a>
@@ -157,7 +157,7 @@ but reported with unwarranted precision, because the model has no way to
 express how little the sparse cells determine.</p>
 </div>
 <div class="section level2">
-<h2 id="what-brms-adds-a-calibrated-interval">What brms adds: a calibrated interval<a class="anchor" aria-label="anchor" href="#what-brms-adds-a-calibrated-interval"></a>
+<h2 id="what-brms-adds-posterior-uncertainty">What brms adds: posterior uncertainty<a class="anchor" aria-label="anchor" href="#what-brms-adds-posterior-uncertainty"></a>
 </h2>
 <p>Refitting with <code>engine = "brms"</code> and a weakly-informative
 prior on the random-effect standard deviations changes the output in one
@@ -194,12 +194,12 @@ and several minutes; see the note on precomputation below).</p>
 <p>The posterior point remains low: the interaction is weakly identified
 at this density, so <code>brms</code> does not recover the 40% either,
 and we should not expect it to. The credible interval, however, runs
-from near zero to past the true value, correctly conveying that the data
-are consistent with an interaction anywhere in that range. This is the
-substantive difference. Maximum likelihood reported a singular point as
-if it were certain; <code>brms</code> reports an interval that includes
-the true share and makes the uncertainty explicit. The diagnostics
-(<code>max_rhat</code> close to 1, no divergent transitions) confirm the
+from near zero to past the true value, reflecting posterior uncertainty
+about the interaction share. This is the substantive difference. Maximum
+likelihood reported a singular point as if it were certain;
+<code>brms</code> reports an interval that includes the true share in
+this simulation and makes the uncertainty explicit. The diagnostics
+(<code>max_rhat</code> close to 1, no divergent transitions) suggest the
 posterior is well-sampled.</p>
 </div>
 <div class="section level2">
@@ -224,7 +224,7 @@ posterior is well-sampled.</p>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_y_continuous</a></span><span class="op">(</span><span class="st">"Interaction share of between-stratum variance"</span>,</span>
 <span>                     labels <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="va">x</span><span class="op">)</span>, <span class="st">"%"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="cn">NULL</span>, colour <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>       title <span class="op">=</span> <span class="st">"A singular ML point estimate vs. a calibrated brms interval"</span>,</span>
+<span>       title <span class="op">=</span> <span class="st">"A singular ML point estimate vs. a brms posterior interval"</span>,</span>
 <span>       subtitle <span class="op">=</span> <span class="st">"Dashed line: true interaction share (40%)"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>legend.position <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="bayesian_sparse_maihda_files/figure-html/fig-share-1.png" class="r-plt" alt="" width="672"></p>
