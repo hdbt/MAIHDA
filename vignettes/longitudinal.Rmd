@@ -21,16 +21,16 @@ library(MAIHDA)
 
 ## From a snapshot to a trajectory
 
-Standard (cross-sectional) MAIHDA answers *"do intersectional strata differ?"* at a
+Standard (cross-sectional) MAIHDA answers "do intersectional strata differ?" at a
 single point in time, summarised by the between-stratum VPC. With repeated
 measurements we can ask a richer question: *"do strata differ in how they **change**
-over time?"* -- and decompose those trajectory differences into an **additive** part
+over time?"* -- and decompose those trajectory differences into an additive part
 (the dimensions' main effects and their interactions with time) and a
-**multiplicative** part (a genuinely intersectional trajectory beyond additive).
+multiplicative part (a intersectional trajectory beyond additive).
 
 This is the longitudinal MAIHDA of Bell, Evans, Holman & Leckie (2024). It is a
-**3-level growth-curve model**: measurement occasions (level 1) within individuals
-(level 2) within intersectional strata (level 3), with a random intercept **and**
+3-level growth-curve model with measurement occasions (level 1) within individuals
+(level 2) within intersectional strata (level 3), with a random intercept and a
 slope on time at both the individual and stratum levels:
 
 $$
@@ -38,8 +38,7 @@ y_{tij} = \beta_0 + \beta_1 t + \underbrace{(u_{0j} + u_{1j}\,t)}_{\text{stratum
         + \underbrace{(v_{0ij} + v_{1ij}\,t)}_{\text{individual}} + e_{tij}.
 $$
 
-Because the stratum random effect now has a slope, the between-stratum variance --
-and hence the VPC -- becomes a **function of time**:
+Because the stratum random effect now has a slope, the between-stratum variance becomes a **function of time**:
 
 $$
 \operatorname{Var}_S(t) = \sigma^2_{u0} + 2t\,\sigma_{u01} + t^2 \sigma^2_{u1},
@@ -52,7 +51,7 @@ $$
 
 The bundled `maihda_long_data` is a simulated panel: 600 people, each measured over
 five waves, within 12 strata of gender $\times$ ethnicity $\times$ education. The
-trajectory differences are constructed to be *mostly additive* with one genuine
+trajectory differences are constructed to be mostly additive with one genuine
 interaction, so the decomposition below is interpretable.
 
 ```{r data}
@@ -60,12 +59,12 @@ data(maihda_long_data)
 head(maihda_long_data)
 ```
 
-It is **long format** -- one row per person-occasion -- with a person id (`id`) and a
+It is long format, one row per person-occasion, with a person id (`id`) and a
 numeric time (`wave`).
 
 ## Fitting and the time-varying VPC
 
-Supply `id` and `time` to `fit_maihda()`. Write only the strata shorthand
+Supply `id` and `time` to `fit_maihda()`. You only need to write the strata shorthand
 `(1 | var1:var2)`; the growth slopes on time are added for you.
 
 ```{r fit}
@@ -74,23 +73,22 @@ m <- fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
 summary(m)
 ```
 
-`summary()` reports the VPC at the **baseline** (reference time, the earliest wave)
-and the **full trajectory** of the VPC across the observed times. Plot it:
+`summary()` reports the VPC at the baseline (reference time, the earliest wave)
+and the full trajectory of the VPC across the observed times. Plot it:
 
 ```{r vpc-traj}
 plot(m, type = "vpc_trajectory")   # VPC(t), with the reference time marked
 plot(m, type = "trajectories")     # predicted per-stratum mean trajectories
 ```
 
-A rising VPC trajectory means the strata **fan out** over time -- intersectional
-inequality grows. Note that the VPC depends on where time is zeroed; the package
-reports the whole curve so that choice is transparent.
+A rising VPC trajectory means the strata fan out over time ( intersectional
+inequality grows). 
 
 ## Decomposing the trajectory: additive vs. multiplicative
 
 `maihda(decomposition = "longitudinal")` (selected automatically when `id`/`time`
-are supplied) fits a **null** growth model and an **adjusted** growth model. The
-adjusted model adds the dimensions' main effects *and their interactions with time*
+are supplied) fits a null growth model and an djusted growth model. The
+adjusted model adds the dimensions' main effects and their interactions with time
 (`dim:time`), so the stratum-level variance it leaves behind is the interaction
 beyond additive.
 
@@ -115,10 +113,6 @@ plot(a, type = "pcv_trajectory")   # the additive share over time
 
 ## Scope and cautions
 
-* **Engines / families.** lme4 (any polynomial degree) and brms (linear growth);
-  all families with a defined level-1 variance (`gaussian`, `binomial`, `poisson`,
-  `negbinomial`). For non-Gaussian outcomes the VPC is on the latent scale, as for
-  the cross-sectional summaries.
 * **Identifiability.** A stratum random slope needs enough occasions per stratum;
   sparse strata or few waves can give a singular lme4 fit (surfaced in the fit
   diagnostics) -- the brms engine handles this better.
