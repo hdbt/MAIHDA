@@ -96,12 +96,10 @@ Bulut</h4>
 </h2>
 <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> on a fitted MAIHDA model gives you several views
 of the same model, each answering a different question. This vignette
-explains, for every plot type, <strong>what it shows, how to read it,
-and what <em>not</em> to conclude from it.</strong> Calling
-<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> with no <code>type</code> draws them all; pass a
-<code>type</code> to get one.</p>
-<p>We use one shared Gaussian model throughout so the views are directly
-comparable.</p>
+explains, for every plot type, what it shows, how to read it, and what
+not to conclude from it. Calling <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> with no specified
+<code>type</code> draws them all.</p>
+<p>Lets start with fitting the model.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
@@ -119,17 +117,14 @@ comparable.</p>
 <h2 id="vpc-variance-partition">
 <code>vpc</code> – variance partition<a class="anchor" aria-label="anchor" href="#vpc-variance-partition"></a>
 </h2>
-<p>The VPC plot shows how the total <em>unexplained</em> variance splits
-into a between-stratum component (the numerator of the VPC/ICC), any
-other random-effect components, and the within-stratum residual.</p>
+<p>The VPC plot shows how the total unexplained variance splits into a
+between-stratum component (the numerator of the VPC/ICC), any other
+random-effect components, and the within-stratum residual.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="interpreting_plots_files/figure-html/vpc-1.png" class="r-plt" alt="" width="672"></p>
 <p><strong>How to read it.</strong> The between-stratum slice is the
 share of unexplained variation that lies between intersectional groups.
-Because this model includes covariates, it is a <em>conditional</em> VPC
-(net of the fixed effects); the headline, total between-stratum share is
-the one read from a null model <code>outcome ~ 1 + (1 | stratum)</code>.
 For non-Gaussian models this split is on the latent scale.</p>
 </div>
 <div class="section level2">
@@ -141,11 +136,9 @@ For non-Gaussian models this split is on the latent scale.</p>
 <p><img src="interpreting_plots_files/figure-html/predicted-1.png" class="r-plt" alt="" width="672"></p>
 <p><strong>How to read it.</strong> Each point is a stratum’s
 model-based prediction with a 95% interval, ordered so you can see which
-intersections sit above or below the average. The estimates are
-<strong>shrunken</strong> toward the overall mean – small strata are
-pulled in more – which is the protective feature of multilevel modelling
-against over-interpreting noisy small groups. For a binomial model the
-axis is the predicted probability instead of the outcome mean.</p>
+intersections sit above or below the average. The estimates are shrunken
+toward the overall mean. For a binomial model the axis is the predicted
+probability instead of the outcome mean.</p>
 </div>
 <div class="section level2">
 <h2 id="obs_vs_shrunken-shrinkage-made-visible">
@@ -157,39 +150,22 @@ axis is the predicted probability instead of the outcome mean.</p>
 <p><strong>How to read it.</strong> This contrasts the raw observed
 stratum means with the model’s shrunken estimates. Points far from the
 diagonal are strata whose raw mean was pulled substantially toward the
-centre – typically the smallest, noisiest cells. It is a sanity check on
-how much the multilevel model is regularising, not a statement about
-which strata are “really” high or low.</p>
-</div>
-<div class="section level2">
-<h2 id="risk_vs_effect-mean-prediction-vs--random-effect">
-<code>risk_vs_effect</code> – mean prediction vs. random effect<a class="anchor" aria-label="anchor" href="#risk_vs_effect-mean-prediction-vs--random-effect"></a>
-</h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"risk_vs_effect"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="interpreting_plots_files/figure-html/risk-effect-1.png" class="r-plt" alt="" width="672"></p>
-<p><strong>How to read it.</strong> Each stratum is placed by its mean
-predicted outcome (x) and its stratum random effect (y), splitting the
-plane into quadrants. Despite the type name, this is deliberately
-<strong>not</strong> framed as “risk”: whether a higher value is worse
-or better depends entirely on the outcome (high BMI vs. high test
-score), so read the axes in the context of your own outcome rather than
-as a fixed good/bad map.</p>
+centre, typically the smallest, noisiest cells. It is a sanity check on
+how much the multilevel model is regularising.</p>
 </div>
 <div class="section level2">
 <h2 id="effect_decomp-additive-vs--intersection-specific">
 <code>effect_decomp</code> – additive vs. intersection-specific<a class="anchor" aria-label="anchor" href="#effect_decomp-additive-vs--intersection-specific"></a>
 </h2>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="interpreting_plots_files/figure-html/effect-decomp-1.png" class="r-plt" alt="" width="672"></p>
 <p><strong>How to read it.</strong> This separates, for each stratum,
 the part of its deviation from the grand mean that is explained by the
-<strong>additive</strong> main effects from the
-<strong>intersection-specific</strong> part (the stratum random effect,
-what is left over after the additive effects). Large
+additive main effects from the intersection-specific part (the stratum
+random effect, what is left over after the additive effects). Large
 intersection-specific bars are the candidate “more/less than the sum of
-the parts” intersections – but treat them as hypotheses to probe, not as
+the parts” intersections, but treat them as hypotheses to probe, not as
 confirmed interactions, since they also absorb sample composition and
 estimation noise.</p>
 </div>
@@ -199,37 +175,29 @@ estimation noise.</p>
 </h2>
 <p>The ternary plot needs the optional <code>ggtern</code> package, so
 it is only drawn here when that package is installed.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"ternary"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="interpreting_plots_files/figure-html/ternary-1.png" class="r-plt" alt="" width="672"></p>
 <p><strong>How to read it.</strong> For each stratum the plot normalises
-three magnitudes to sum to 1: the <strong>additive</strong> signal (how
-far the fixed-effect-only prediction sits from the grand mean), the
-<strong>intersection-specific</strong> signal (the size of the stratum
-random effect), and the <strong>uncertainty</strong> in that estimate. A
-stratum near the “uncertainty” corner is dominated by noise; one near
-the “intersection” corner carries signal beyond the additive main
-effects.</p>
-<p><strong>What it is not.</strong> This is a
-<em>relative-magnitude</em> diagnostic, not a formal variance
-decomposition – the three shares are rescaled per stratum, so they
-compare the <em>balance</em> of signal across strata, not absolute
-variance contributions.</p>
+three magnitudes to sum to 1: the additive signal (how far the
+fixed-effect-only prediction sits from the grand mean), the
+intersection-specific signal (the size of the stratum random effect),
+and the uncertainty in that estimate. A stratum near the “uncertainty”
+corner is dominated by noise; one near the “intersection” corner carries
+signal beyond the additive main effects.</p>
 </div>
 <div class="section level2">
 <h2 id="prediction_deviation-the-deviation-dashboard">
 <code>prediction_deviation</code> – the deviation dashboard<a class="anchor" aria-label="anchor" href="#prediction_deviation-the-deviation-dashboard"></a>
 </h2>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"prediction_deviation"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="interpreting_plots_files/figure-html/prediction-deviation-1.png" class="r-plt" alt="" width="672"></p>
-<p><strong>How to read it.</strong> This two-panel, publication-oriented
-dashboard highlights the most notable cases or strata. What counts as
-“notable” depends on the model: the largest deviation from the mean
-prediction (Gaussian/Poisson), the largest absolute deviance residual
-(binomial), or the most surprising observation (ordinal). The labelled
-points are <em>notable</em>, <strong>not</strong> regression-diagnostic
-outliers – do not read them as points to delete.</p>
+<p><strong>How to read it.</strong> This two-panel dashboard highlights
+the most notable cases or strata. What counts as “notable” depends on
+the model: the largest deviation from the mean prediction
+(Gaussian/Poisson), the largest absolute deviance residual (binomial),
+or the most surprising observation (ordinal).</p>
 </div>
 <div class="section level2">
 <h2 id="group-comparison-plots">Group-comparison plots<a class="anchor" aria-label="anchor" href="#group-comparison-plots"></a>
@@ -251,7 +219,7 @@ returns a plain <strong>ggplot</strong> object, so you are never locked
 into the package’s styling – restyle it with the usual ggplot2 grammar
 by adding a theme, overriding the labels, or dropping in another layer.
 Themes, <code><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs()</a></code>, and added layers compose cleanly:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Attaching package: 'ggplot2'</span></span>
@@ -267,10 +235,10 @@ Themes, <code><a href="https://ggplot2.tidyverse.org/reference/labs.html" class=
 <p><img src="interpreting_plots_files/figure-html/customize-theme-1.png" class="r-plt" alt="" width="672"></p>
 <p>The views that map a fill or colour (<code>vpc</code>,
 <code>context_vpc</code>, <code>effect_decomp</code>) also accept a
-replacement palette. ggplot2 prints a harmless <em>“Scale for fill is
-already present … which will replace the existing scale”</em> message as
-it swaps the built-in palette out (suppressed here):</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+replacement palette. ggplot2 prints a harmless “Scale for fill is
+already present … which will replace the existing scale” message as it
+swaps the built-in palette out (suppressed here):</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_brewer.html" class="external-link">scale_fill_brewer</a></span><span class="op">(</span>palette <span class="op">=</span> <span class="st">"Set2"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="interpreting_plots_files/figure-html/customize-palette-1.png" class="r-plt" alt="" width="672"></p>
@@ -282,15 +250,15 @@ restyle slightly differently:</p>
 <a href="https://patchwork.data-imaginist.com/" class="external-link">patchwork</a>.
 <code>+ theme_*()</code> styles only the active panel; use
 <code>&amp;</code> to apply a theme to <em>both</em> panels at once:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span>, type <span class="op">=</span> <span class="st">"prediction_deviation"</span><span class="op">)</span> <span class="op">&amp;</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p><img src="interpreting_plots_files/figure-html/customize-patchwork-1.png" class="r-plt" alt="" width="672"></p>
 </li>
 <li>
-<p><strong><code>type = "all"</code></strong> returns a <em>named
-list</em> of ggplot objects (it prints them as a side effect), so pick
-one out to restyle it:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<p><strong><code>type = "all"</code></strong> returns a named list
+of ggplot objects (it prints them as a side effect), so pick one out to
+restyle it:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plots</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span>          <span class="co"># list: vpc, predicted, effect_decomp, ...</span></span>
 <span><span class="va">plots</span><span class="op">$</span><span class="va">predicted</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_bw</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </li>
@@ -299,12 +267,6 @@ object with its own coordinate system – reach for the
 <code>ggtern::theme_*()</code> family rather than the standard ggplot2
 themes.</p></li>
 </ul>
-<p>One limit worth knowing: a few accent colours are set directly inside
-the geoms (for example the blue points in the <code>predicted</code>
-view), not mapped through a scale, so adding a
-<code>scale_colour_*()</code> will not recolour them. Themes, labels,
-palettes on the mapped fills, and extra layers are the parts you can
-adjust without editing the package internals.</p>
 </div>
 <div class="section level2">
 <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a>
