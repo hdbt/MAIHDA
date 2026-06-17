@@ -1,11 +1,10 @@
-# Planning a MAIHDA study
+# Planning a MAIHDA analysis
 
 ## Before you fit
 
-Most MAIHDA mistakes are made *before* the model is fit – in the choice
-of dimensions, the number of strata, and the analytic sample. This
-vignette walks through those design decisions, with small runnable
-checks you can do on your own data first.
+through those design decisions, with small runnable checks you can do on
+your own data first to evaluate dimensions, the number of strata, and
+the analytic sample
 
 ``` r
 
@@ -25,10 +24,6 @@ when:
   the strata;
 - the outcome is measured at the **individual** level;
 - you have enough individuals to populate the cells (see below).
-
-It is *not* a causal method: the VPC, PCV, and discriminatory accuracy
-are descriptive variance/prediction summaries, not effects of identity
-on the outcome.
 
 ## The central tradeoff: more dimensions means emptier cells
 
@@ -63,17 +58,17 @@ sum(s3$strata_info$n < 10)             # how many strata have < 10 people
 ```
 
 Each extra dimension multiplies the number of strata and divides the
-people among them. Small cells are not fatal – partial pooling
-(shrinkage) is exactly what protects MAIHDA against noisy small strata –
-but they have consequences (next section). A useful discipline: choose
-the **fewest dimensions that answer your question**, and look at the
-cell-size distribution before committing.
+people among them. Small cells are not fatal, (partial pooling shrinkage
+is exactly what protects MAIHDA against noisy small strata) but they
+have consequences (next section). A useful rule: choose the fewest
+dimensions that answer your question, and look at the cell-size
+distribution before committing.
 
 ## What sparse cells do: singular fits
 
 When cells get very small the maximum-likelihood (`lme4`) estimate of
-the between-stratum variance can collapse to the boundary – a **singular
-fit** – and report a VPC of (near) zero with no uncertainty. The package
+the between-stratum variance can collapse to the boundary ( a singular
+fit) and report a VPC of (near) zero with no uncertainty. The package
 records this and surfaces it in a “Fit diagnostics” note rather than
 letting it pass silently:
 
@@ -116,10 +111,10 @@ over
 ```
 
 If you see a singular-fit note, do not read the VPC as a clean zero. The
-remedies are to **collapse dimensions or categories** (fewer, larger
-cells), or to use `engine = "brms"`, whose weakly-informative priors
-regularise the variance off the boundary and return an honest interval –
-the subject of the [Bayesian sparse
+solution is to collapse dimensions or categories (fewer, larger cells),
+or to use `engine = "brms"`, whose weakly-informative priors regularise
+the variance off the boundary and return an honest interval, the subject
+of the [Bayesian sparse
 vignette](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md).
 
 ## Continuous variables and the analytic sample
@@ -130,12 +125,6 @@ vignette](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md).
   will auto-bin a numeric dimension into tertiles (with a
   [`message()`](https://rdrr.io/r/base/message.html)), but a continuous
   *covariate* belongs in the fixed part of the formula, not the strata.
-  Set `autobin = FALSE`, or bin it yourself for reproducible cut-points.
-- **Decide the analytic sample up front.** The VPC and PCV must be
-  compared on the *same* rows, so define one complete-case sample before
-  fitting the null and adjusted models. For substantial missingness,
-  multiple imputation is preferable to dropping cases, but the strata
-  must be defined consistently across imputations.
 
 ## What the summaries can and cannot tell you
 
@@ -151,9 +140,6 @@ vignette](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md).
   cells.
 - **`brms`** – Bayesian; preferred when cells are sparse or dimensions
   have few levels (regularising priors, honest intervals).
-- **`wemix`** – design-weighted fits for **complex survey data**
-  (`sampling_weights =`); see [Design-weighted
-  MAIHDA](https://hdbt.github.io/MAIHDA/articles/design_weighted.md).
 
 For extensions beyond the cross-sectional case, see the [crossed random
 effects](https://hdbt.github.io/MAIHDA/articles/cross_classified.md)

@@ -5,7 +5,7 @@
 - [Introduction to
   MAIHDA](https://hdbt.github.io/MAIHDA/articles/introduction.md):
 - [Planning a MAIHDA
-  study](https://hdbt.github.io/MAIHDA/articles/planning_a_study.md):
+  analysis](https://hdbt.github.io/MAIHDA/articles/planning_a_study.md):
 
 ### Workflows
 

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Planning a MAIHDA study • MAIHDA</title>
+<title>Planning a MAIHDA analysis • MAIHDA</title>
 <!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
 <link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
@@ -15,7 +15,7 @@
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Planning a MAIHDA study">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Planning a MAIHDA analysis">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -39,7 +39,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/introduction.html">Introduction to MAIHDA</a></li>
-    <li><a class="dropdown-item" href="../articles/planning_a_study.html">Planning a MAIHDA study</a></li>
+    <li><a class="dropdown-item" href="../articles/planning_a_study.html">Planning a MAIHDA analysis</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
@@ -79,7 +79,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-      <img src="../logo.png" class="logo" alt=""><h1>Planning a MAIHDA study</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>Planning a MAIHDA analysis</h1>
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
@@ -94,10 +94,9 @@ Bulut</h4>
 <div class="section level2">
 <h2 id="before-you-fit">Before you fit<a class="anchor" aria-label="anchor" href="#before-you-fit"></a>
 </h2>
-<p>Most MAIHDA mistakes are made <em>before</em> the model is fit – in
-the choice of dimensions, the number of strata, and the analytic sample.
-This vignette walks through those design decisions, with small runnable
-checks you can do on your own data first.</p>
+<p>through those design decisions, with small runnable checks you can do
+on your own data first to evaluate dimensions, the number of strata, and
+the analytic sample</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span></code></pre></div>
@@ -117,9 +116,6 @@ suited when:</p>
 level;</li>
 <li>you have enough individuals to populate the cells (see below).</li>
 </ul>
-<p>It is <em>not</em> a causal method: the VPC, PCV, and discriminatory
-accuracy are descriptive variance/prediction summaries, not effects of
-identity on the outcome.</p>
 </div>
 <div class="section level2">
 <h2 id="the-central-tradeoff-more-dimensions-means-emptier-cells">The central tradeoff: more dimensions means emptier cells<a class="anchor" aria-label="anchor" href="#the-central-tradeoff-more-dimensions-means-emptier-cells"></a>
@@ -148,20 +144,20 @@ cells:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">s3</span><span class="op">$</span><span class="va">strata_info</span><span class="op">$</span><span class="va">n</span> <span class="op">&lt;</span> <span class="fl">10</span><span class="op">)</span>             <span class="co"># how many strata have &lt; 10 people</span></span>
 <span><span class="co">#&gt; [1] 5</span></span></code></pre></div>
 <p>Each extra dimension multiplies the number of strata and divides the
-people among them. Small cells are not fatal – partial pooling
-(shrinkage) is exactly what protects MAIHDA against noisy small strata –
-but they have consequences (next section). A useful discipline: choose
-the <strong>fewest dimensions that answer your question</strong>, and
-look at the cell-size distribution before committing.</p>
+people among them. Small cells are not fatal, (partial pooling shrinkage
+is exactly what protects MAIHDA against noisy small strata) but they
+have consequences (next section). A useful rule: choose the fewest
+dimensions that answer your question, and look at the cell-size
+distribution before committing.</p>
 </div>
 <div class="section level2">
 <h2 id="what-sparse-cells-do-singular-fits">What sparse cells do: singular fits<a class="anchor" aria-label="anchor" href="#what-sparse-cells-do-singular-fits"></a>
 </h2>
 <p>When cells get very small the maximum-likelihood (<code>lme4</code>)
-estimate of the between-stratum variance can collapse to the boundary –
-a <strong>singular fit</strong> – and report a VPC of (near) zero with
-no uncertainty. The package records this and surfaces it in a “Fit
-diagnostics” note rather than letting it pass silently:</p>
+estimate of the between-stratum variance can collapse to the boundary (
+a singular fit) and report a VPC of (near) zero with no uncertainty. The
+package records this and surfaces it in a “Fit diagnostics” note rather
+than letting it pass silently:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">over</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
@@ -198,10 +194,10 @@ diagnostics” note rather than letting it pass silently:</p>
 <span><span class="co">#&gt;        28.8  </span></span>
 <span><span class="co">#&gt; optimizer (nloptwrap) convergence code: 0 (OK) ; 0 optimizer warnings; 1 lme4 warnings</span></span></code></pre></div>
 <p>If you see a singular-fit note, do not read the VPC as a clean zero.
-The remedies are to <strong>collapse dimensions or categories</strong>
-(fewer, larger cells), or to use <code>engine = "brms"</code>, whose
-weakly-informative priors regularise the variance off the boundary and
-return an honest interval – the subject of the <a href="bayesian_sparse_maihda.html">Bayesian sparse vignette</a>.</p>
+The solution is to collapse dimensions or categories (fewer, larger
+cells), or to use <code>engine = "brms"</code>, whose weakly-informative
+priors regularise the variance off the boundary and return an honest
+interval, the subject of the <a href="bayesian_sparse_maihda.html">Bayesian sparse vignette</a>.</p>
 </div>
 <div class="section level2">
 <h2 id="continuous-variables-and-the-analytic-sample">Continuous variables and the analytic sample<a class="anchor" aria-label="anchor" href="#continuous-variables-and-the-analytic-sample"></a>
@@ -213,15 +209,7 @@ continuous variable in the grouping term gives one stratum per value.
 <code><a href="../reference/make_strata.html">make_strata()</a></code> will auto-bin a numeric dimension into
 tertiles (with a <code><a href="https://rdrr.io/r/base/message.html" class="external-link">message()</a></code>), but a continuous
 <em>covariate</em> belongs in the fixed part of the formula, not the
-strata. Set <code>autobin = FALSE</code>, or bin it yourself for
-reproducible cut-points.</li>
-<li>
-<strong>Decide the analytic sample up front.</strong> The VPC and
-PCV must be compared on the <em>same</em> rows, so define one
-complete-case sample before fitting the null and adjusted models. For
-substantial missingness, multiple imputation is preferable to dropping
-cases, but the strata must be defined consistently across
-imputations.</li>
+strata.</li>
 </ul>
 </div>
 <div class="section level2">
@@ -271,10 +259,6 @@ for adequately-sized cells.</li>
 <strong><code>brms</code></strong> – Bayesian; preferred when cells
 are sparse or dimensions have few levels (regularising priors, honest
 intervals).</li>
-<li>
-<strong><code>wemix</code></strong> – design-weighted fits for
-<strong>complex survey data</strong> (<code>sampling_weights =</code>);
-see <a href="design_weighted.html">Design-weighted MAIHDA</a>.</li>
 </ul>
 <p>For extensions beyond the cross-sectional case, see the <a href="cross_classified.html">crossed random effects</a>
 (dimensions/contexts) and <a href="longitudinal.html">longitudinal</a>
