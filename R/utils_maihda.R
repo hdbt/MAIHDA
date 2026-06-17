@@ -34,12 +34,35 @@ maihda_family <- function(model) {
   fam
 }
 
+# TRUE when the model's negative-binomial dispersion theta was FIXED by the user
+# (a MASS::negative.binomial(theta) family object passed to glmer), rather than
+# ESTIMATED (lme4::glmer.nb or the brms 'shape' parameter). The wrapper records
+# the family exactly as it resolved it at fit time: an estimated fit carries the
+# canonical "negbinomial" marker, while a fixed-theta fit carries MASS's
+# "Negative Binomial(<theta>)" label with theta embedded in the string. The
+# fitted object's family reads "Negative Binomial(<theta>)" in BOTH cases, so the
+# wrapper-recorded family is the only reliable signal of which one it was.
+maihda_negbin_theta_is_fixed <- function(model) {
+  fam <- model$family
+  if (!is.list(fam) || is.null(fam$family) || !is.character(fam$family) ||
+      length(fam$family) != 1 || is.na(fam$family)) {
+    return(FALSE)
+  }
+  grepl("^Negative Binomial\\(", fam$family)
+}
+
 # "family(link)" key for a maihda_model, used to decide whether two models are
 # comparable (same family and link). Prefers the fitted object's family and
 # falls back to the family the wrapper recorded at fit time -- stats::family()
 # is undefined for engines like wemix (WeMixResults). Names are canonical via
 # maihda_family()/maihda_normalize_family_name(), so e.g. two glmer.nb() fits
-# with different estimated thetas still compare equal.
+# with different ESTIMATED thetas still compare equal.
+#
+# The negative binomial needs special care: a FIXED, user-specified theta
+# (MASS::negative.binomial(theta)) is part of the model SPECIFICATION -- two such
+# fits with different thetas assume different dispersion and are NOT comparable --
+# so theta is kept in the key. An estimated theta differs between fits only by
+# estimation noise and is normalized away (to plain "negbinomial").
 maihda_model_family_key <- function(model) {
   fam <- maihda_family(model$model)
   if (is.null(fam) && is.list(model$family)) {
@@ -50,6 +73,11 @@ maihda_model_family_key <- function(model) {
   }
   fam_name <- if (!is.null(fam$family)) fam$family else NA_character_
   link <- if (!is.null(fam$link)) fam$link else NA_character_
+  if (identical(fam_name, "negbinomial") && maihda_negbin_theta_is_fixed(model)) {
+    # Restore the user's fixed-theta label ("Negative Binomial(<theta>)") so two
+    # different fixed thetas yield different keys and fail the comparability check.
+    fam_name <- model$family$family
+  }
   paste0(fam_name, "(", link, ")")
 }
 

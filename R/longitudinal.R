@@ -468,18 +468,31 @@ maihda_longitudinal_components_table <- function(Sigma_s, Sigma_i, var_resid,
                                                  time, id) {
   block_rows <- function(Sigma, level) {
     deg <- nrow(Sigma) - 1L
-    names_k <- c("intercept (baseline)",
-                 if (deg >= 1) paste0("slope (", time, ")"),
-                 if (deg >= 2) paste0("slope^", 2:deg, " (", time, ")"))
-    comp <- sprintf("%s: %s", level, names_k)
+    # Diagonal (variance) rows. The first is the random-INTERCEPT variance, i.e.
+    # the between-level variance at time = 0 -- NOT the variance at the baseline
+    # (ref_time = min(time)); the two coincide only when time is zero-referenced.
+    # The baseline variance is reported by the VPC summary and the longitudinal
+    # PCV as a(t)'Sigma a(t) evaluated at ref_time (see maihda_var_at_time()).
+    diag_names <- c("intercept (time = 0)",
+                    if (deg >= 1) paste0("slope (", time, ")"),
+                    if (deg >= 2) paste0("slope^", 2:deg, " (", time, ")"))
     vars <- diag(Sigma)
-    out <- data.frame(component = comp, variance = as.numeric(vars),
+    out <- data.frame(component = sprintf("%s: %s", level, diag_names),
+                      variance = as.numeric(vars),
                       sd = sqrt(pmax(as.numeric(vars), 0)),
                       stringsAsFactors = FALSE)
+    # Off-diagonal covariance rows: EVERY unique pair (i < j) of the block, not
+    # just intercept-slope. The time-varying variance a(t)'Sigma a(t) behind the
+    # VPC uses the whole matrix, so a quadratic (3x3) block also carries the
+    # intercept-quadratic and slope-quadratic covariances. (For the linear 2x2
+    # block this reduces to the single intercept-slope covariance as before.)
     if (deg >= 1) {
+      short <- c("intercept", "slope", if (deg >= 2) paste0("slope^", 2:deg))
+      pairs <- utils::combn(deg + 1L, 2L)
       out <- rbind(out, data.frame(
-        component = sprintf("%s: intercept-slope covariance", level),
-        variance = as.numeric(Sigma[1, 2]), sd = NA_real_,
+        component = sprintf("%s: %s-%s covariance", level,
+                            short[pairs[1, ]], short[pairs[2, ]]),
+        variance = as.numeric(Sigma[t(pairs)]), sd = NA_real_,
         stringsAsFactors = FALSE))
     }
     out
@@ -560,19 +573,26 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
 
 #' Per-stratum trajectory parameters for a longitudinal MAIHDA
 #'
-#' The stratum-level random-effect estimates as a wide table: the random intercept
-#' (baseline deviation) and the random slope(s) on time (trajectory deviation), one
-#' row per stratum. This is the longitudinal shape of
-#' \code{predict_maihda(type = "strata")} -- a stratum is now a \emph{trajectory},
-#' not a single value.
+#' The stratum-level random-effect estimates as a wide table, one row per stratum:
+#' the stratum's deviation at the baseline time (\code{baseline}, the longitudinal
+#' analogue of a cross-sectional stratum BLUP), the raw random intercept at
+#' time 0 (\code{intercept}) and the random slope(s) on time (\code{slope}, ...).
+#' This is the longitudinal shape of \code{predict_maihda(type = "strata")} -- a
+#' stratum is now a \emph{trajectory}, not a single value.
+#'
+#' \code{baseline} is \eqn{a(t_0)' coef} with \eqn{a(t) = (1, t, t^2, ...)} and
+#' \eqn{t_0 = } the reference (baseline) time \code{ref_time = min(time)}; the
+#' package defines the baseline at \code{ref_time}, so it equals the raw
+#' \code{intercept} (deviation at time 0) only when time is zero-referenced.
 #'
 #' @param object A longitudinal \code{maihda_model}.
 #' @return A data frame: \code{stratum}, \code{stratum_id}, optional \code{label},
-#'   \code{intercept}, \code{slope}(, \code{slope2}, ...).
+#'   \code{baseline}, \code{intercept}, \code{slope}(, \code{slope2}, ...).
 #' @keywords internal
 maihda_longitudinal_strata_predictions <- function(object) {
   re <- maihda_longitudinal_stratum_re(object)
   deg <- object$longitudinal_info$time_degree
+  ref_time <- object$longitudinal_info$ref_time
   mat <- do.call(rbind, lapply(re$coef, function(co) {
     out <- rep(NA_real_, deg + 1L)
     out[seq_along(co)] <- co
@@ -581,9 +601,13 @@ maihda_longitudinal_strata_predictions <- function(object) {
   colnames(mat) <- c("intercept",
                      if (deg >= 1) "slope",
                      if (deg >= 2) paste0("slope", 2:deg))
+  # Deviation at the baseline time, a(ref_time)' coef, NOT the raw time-0
+  # intercept -- these differ whenever time is not zero-referenced.
+  baseline <- as.numeric(mat %*% ref_time^(0:deg))
   df <- data.frame(stratum = re$stratum, stratum_id = re$stratum_id,
                    stringsAsFactors = FALSE)
   if (!is.null(re$label)) df$label <- re$label
+  df$baseline <- baseline
   cbind(df, as.data.frame(mat, stringsAsFactors = FALSE))
 }
 

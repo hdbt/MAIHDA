@@ -42,6 +42,33 @@ test_that("maihda_re_cov_draws_brms builds the 2x2 block from draws (Stan-free)"
   expect_error(maihda_re_cov_draws_brms(draws, "id", "wave"), "Could not find")
 })
 
+test_that("longitudinal components table is honest about intercept-vs-baseline and lists every covariance", {
+  # Quadratic (3x3) stratum block; linear (2x2) individual block. Pure helper.
+  Ss <- matrix(c(2,    0.3,  0.05,
+                 0.3,  0.5,  0.02,
+                 0.05, 0.02, 0.1), nrow = 3, byrow = TRUE)
+  Si <- matrix(c(1, 0.1, 0.1, 0.4), nrow = 2)
+  tab <- maihda_longitudinal_components_table(Ss, Si, var_resid = 0.7,
+                                              time = "wave", id = "pid")
+
+  # The intercept variance is the time-0 quantity, NOT the baseline (ref_time).
+  expect_true("Between-stratum: intercept (time = 0)" %in% tab$component)
+  expect_false(any(grepl("baseline", tab$component)))
+
+  # A quadratic block contributes ALL THREE off-diagonal covariances (not just
+  # intercept-slope), each carrying the corresponding Sigma cell.
+  expect_equal(tab$variance[tab$component == "Between-stratum: intercept-slope covariance"],
+               Ss[1, 2])
+  expect_equal(tab$variance[tab$component == "Between-stratum: intercept-slope^2 covariance"],
+               Ss[1, 3])
+  expect_equal(tab$variance[tab$component == "Between-stratum: slope-slope^2 covariance"],
+               Ss[2, 3])
+
+  # The linear (2x2) individual block still yields exactly one covariance row.
+  expect_equal(
+    sum(grepl("^Between-individual \\(pid\\): .*covariance$", tab$component)), 1L)
+})
+
 test_that("maihda_validate_longitudinal enforces its contract", {
   d <- data.frame(pid = rep(1:3, each = 2), t = rep(0:1, 3), y = rnorm(6))
   expect_error(maihda_validate_longitudinal(NULL, "t", 1, d), "needs 'id'")
@@ -159,8 +186,38 @@ test_that("longitudinal models refuse cross-sectional scalar rankings/plots", {
 
 test_that("predict(type = 'strata') returns trajectory parameters", {
   ps <- predict_maihda(m_g, type = "strata")
-  expect_true(all(c("stratum", "intercept", "slope") %in% names(ps)))
+  expect_true(all(c("stratum", "baseline", "intercept", "slope") %in% names(ps)))
   expect_equal(nrow(ps), nrow(m_g$strata_info))
+  # baseline = a(ref_time)' coef = intercept + slope*ref_time for a linear model.
+  ref <- m_g$longitudinal_info$ref_time
+  expect_equal(ps$baseline, ps$intercept + ps$slope * ref, tolerance = 1e-8)
+})
+
+test_that("predict(type = 'strata') baseline differs from the raw intercept off zero", {
+  # With waves shifted to 10.., the baseline deviation (at ref_time = 10) is NOT
+  # the raw time-0 intercept -- the column must reflect ref_time, not time 0.
+  d <- maihda_long_data
+  d$wave <- d$wave + 10
+  m <- suppressWarnings(
+    fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+               data = d, id = "id", time = "wave"))
+  ps <- predict_maihda(m, type = "strata")
+  expect_identical(m$longitudinal_info$ref_time, 10)
+  expect_equal(ps$baseline, ps$intercept + ps$slope * 10, tolerance = 1e-8)
+  expect_false(isTRUE(all.equal(ps$baseline, ps$intercept)))
+})
+
+test_that("maihda_table reports the baseline between-stratum variance for a longitudinal fit", {
+  tab <- maihda_table(a_g)
+  bv <- tab$models$estimate[tab$models$statistic == "Between-stratum variance"]
+  expect_length(bv, 1)
+  expect_true(is.finite(bv))   # was NA before: the cross-sectional row label never matched
+  # It is the between-stratum variance at ref_time, matching the VPC anchor.
+  s <- a_g$summary
+  expect_equal(bv,
+               as.numeric(maihda_var_at_time(s$longitudinal$Sigma_stratum,
+                                             s$longitudinal$ref_time)),
+               tolerance = 1e-8)
 })
 
 test_that("plots return ggplot objects", {

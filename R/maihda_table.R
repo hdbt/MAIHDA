@@ -292,14 +292,24 @@ maihda_extract_intercept <- function(s) {
 
 # The between-stratum (intersectional) variance from a summary, regardless of fit
 # type: the total between-strata variance for a crossed-dimensions fit
-# (additive + interaction), the stratum component for a contextual fit, otherwise
-# the "Between-stratum (random)" row of the variance-components table.
+# (additive + interaction), the stratum component for a contextual fit, the
+# baseline (ref_time) between-stratum variance for a longitudinal fit (it is
+# time-varying, so there is no single scalar -- report it at the reference time
+# the VPC is anchored to), otherwise the "Between-stratum (random)" row of the
+# variance-components table.
 maihda_between_stratum_variance <- function(s) {
   if (!is.null(s$decomposition) && !is.null(s$decomposition$between_var)) {
     return(as.numeric(s$decomposition$between_var))
   }
   if (!is.null(s$context) && !is.null(s$context$var_stratum)) {
     return(as.numeric(s$context$var_stratum))
+  }
+  if (!is.null(s$longitudinal)) {
+    lng <- s$longitudinal
+    if (!is.null(lng$Sigma_stratum) && !is.null(lng$ref_time)) {
+      return(as.numeric(maihda_var_at_time(lng$Sigma_stratum, lng$ref_time)))
+    }
+    return(NA_real_)
   }
   vc <- s$variance_components
   if (!is.null(vc) && "component" %in% names(vc)) {

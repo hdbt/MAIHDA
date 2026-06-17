@@ -11,13 +11,20 @@ maihda_longitudinal_strata_predictions(object)
 }
 \value{
 A data frame: \code{stratum}, \code{stratum_id}, optional \code{label},
-  \code{intercept}, \code{slope}(, \code{slope2}, ...).
+  \code{baseline}, \code{intercept}, \code{slope}(, \code{slope2}, ...).
 }
 \description{
-The stratum-level random-effect estimates as a wide table: the random intercept
-(baseline deviation) and the random slope(s) on time (trajectory deviation), one
-row per stratum. This is the longitudinal shape of
-\code{predict_maihda(type = "strata")} -- a stratum is now a \emph{trajectory},
-not a single value.
+The stratum-level random-effect estimates as a wide table, one row per stratum:
+the stratum's deviation at the baseline time (\code{baseline}, the longitudinal
+analogue of a cross-sectional stratum BLUP), the raw random intercept at
+time 0 (\code{intercept}) and the random slope(s) on time (\code{slope}, ...).
+This is the longitudinal shape of \code{predict_maihda(type = "strata")} -- a
+stratum is now a \emph{trajectory}, not a single value.
+}
+\details{
+\code{baseline} is \eqn{a(t_0)' coef} with \eqn{a(t) = (1, t, t^2, ...)} and
+\eqn{t_0 = } the reference (baseline) time \code{ref_time = min(time)}; the
+package defines the baseline at \code{ref_time}, so it equals the raw
+\code{intercept} (deviation at time 0) only when time is zero-referenced.
 }
 \keyword{internal}

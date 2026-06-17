@@ -47,8 +47,8 @@ test_that("maihda_normalize_family_name canonicalises engine-specific labels", {
 
 test_that("maihda_model_family_key normalizes and falls back to the stored family", {
   # stats::family() is undefined for the placeholder fit object, so the key
-  # must come from the wrapper-recorded family -- including normalization of a
-  # fixed-theta label.
+  # must come from the wrapper-recorded family. An ESTIMATED theta (the canonical
+  # "negbinomial" marker glmer.nb/brms record) normalizes to "negbinomial(log)".
   m <- structure(
     list(model = structure(list(), class = "no_such_fit"),
          family = list(family = "negbinomial", link = "log")),
@@ -56,11 +56,40 @@ test_that("maihda_model_family_key normalizes and falls back to the stored famil
   )
   expect_identical(maihda_model_family_key(m), "negbinomial(log)")
 
+  # A FIXED, user-specified theta (the MASS "Negative Binomial(<theta>)" label
+  # the wrapper stores for a glmer(family = MASS::negative.binomial(theta)) fit)
+  # stays in the key: two different fixed thetas are different specifications.
   m$family <- list(family = "Negative Binomial(2.5)", link = "log")
-  expect_identical(maihda_model_family_key(m), "negbinomial(log)")
+  expect_identical(maihda_model_family_key(m), "Negative Binomial(2.5)(log)")
+  m$family <- list(family = "Negative Binomial(10)", link = "log")
+  expect_identical(maihda_model_family_key(m), "Negative Binomial(10)(log)")
 
   m$family <- NULL
   expect_identical(maihda_model_family_key(m), "NA(NA)")
+})
+
+test_that("calculate_pvc rejects two fixed-theta NB fits with different thetas", {
+  skip_on_cran()
+  skip_if_not_installed("MASS")
+
+  d <- make_nb_data()
+  m1 <- suppressWarnings(
+    fit_maihda(y ~ age + (1 | gender:race:edu), data = d,
+               family = MASS::negative.binomial(1)))
+  m10 <- suppressWarnings(
+    fit_maihda(y ~ age + (1 | gender:race:edu), data = d,
+               family = MASS::negative.binomial(10)))
+
+  # Different fixed dispersion assumptions are not comparable: the family/link
+  # check must fire on the theta-bearing key rather than silently returning a PCV.
+  expect_error(calculate_pvc(m1, m10), "same model family")
+
+  # The SAME fixed theta is comparable (here a null/adjusted pair).
+  m1_adj <- suppressWarnings(
+    fit_maihda(y ~ age + gender + race + edu + (1 | gender:race:edu), data = d,
+               family = MASS::negative.binomial(1)))
+  pcv <- calculate_pvc(m1, m1_adj)
+  expect_true(is.finite(pcv$pvc))
 })
 
 test_that("the family string switch accepts negbinomial and rejects non-log links", {
