@@ -46,6 +46,9 @@ supplied it also compares this decomposition across that variable's levels."><me
     <li><a class="dropdown-item" href="../articles/bayesian_sparse_maihda.html">Bayesian MAIHDA for sparse intersections</a></li>
     <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Case studies</h6></li>
+    <li><a class="dropdown-item" href="../articles/ess_youth_unemployment.html">Case study: youth unemployment across Europe (ESS)</a></li>
+    <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
     <li><hr class="dropdown-divider"></li>
@@ -102,6 +105,7 @@ supplied it also compares this decomposition across that variable's levels.</p>
 <span>  id <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  time <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  time_degree <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  interactions <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -254,6 +258,18 @@ model structure; <code>group</code>, <code>context</code>, and <code>sampling_we
 not supported alongside them. Default <code>NULL</code> (cross-sectional).</p></dd>
 
 
+<dt id="arg-interactions">interactions<a class="anchor" aria-label="anchor" href="#arg-interactions"></a></dt>
+<dd><p>Whether to compute the per-stratum interaction diagnostic
+(<code><a href="maihda_interactions.html">maihda_interactions</a></code>) on the adjusted / crossed-dimensions model
+and attach it as the <code>interactions</code> slot, surfaced in <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>.
+<code>TRUE</code> (default) uses <code>adjust = "none"</code> (the diagnostic's own
+default); <code>FALSE</code> skips it; or pass a <code><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust</a></code> method
+name (e.g. <code>"BH"</code>) to flag with that multiplicity correction. Uses
+<code>conf_level</code>. Not computed for a longitudinal decomposition. The
+computation is cheap (it reads the stratum estimates the summary already holds;
+no refit).</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code><a href="fit_maihda.html">fit_maihda</a></code> (and on to
 <code>lmer</code>/<code>glmer</code>).</p></dd>
@@ -291,6 +307,11 @@ not supported alongside them. Default <code>NULL</code> (cross-sectional).</p></
 
   <dt>groups</dt>
 <dd><p>a <code>maihda_group_comparison</code> when <code>group</code> is supplied,
+    otherwise <code>NULL</code></p></dd>
+
+  <dt>interactions</dt>
+<dd><p>the <code>maihda_interactions</code> diagnostic (per-stratum
+    interaction BLUPs and flags) when <code>interactions</code> is not <code>FALSE</code>,
     otherwise <code>NULL</code></p></dd>
 
   <dt>mode</dt>
@@ -364,6 +385,9 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Intersectional interactions: 4 of 10 strata flagged (95% interval, no multiplicity correction)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   strongest: male × Black (-1.290, below)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   uncorrected across 10 strata; maihda_interactions(x, adjust = "BH") for an FDR screen</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for variance components and plot(type = ...) for figures.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">pcv</span>                          <span class="co"># proportional change in between-stratum variance</span></span></span>
@@ -383,10 +407,10 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x556e69a660f0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d23e28e678&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x556e6f6455f8&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d246e01208&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -433,13 +457,16 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   a different estimator; interpret the interaction share cautiously.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Intersectional interactions: 1 of 10 strata flagged (95% interval, no multiplicity correction)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   strongest: female × Black (+1.862, above)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   uncorrected across 10 strata; maihda_interactions(x, adjust = "BH") for an FDR screen</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for variance components and plot(type = ...) for figures.</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">decomposition</span><span class="op">$</span><span class="va">additive_share</span>       <span class="co"># crossed-dimensions analogue of the PCV</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x556e6dec99a0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d248c56968&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>
@@ -467,6 +494,8 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 6</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Intersectional interactions: 0 of 6 strata flagged (95% interval, no multiplicity correction)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   uncorrected across 6 strata; maihda_interactions(x, adjust = "BH") for an FDR screen</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Group comparison by 'country':</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> MAIHDA Group Comparison</span>
@@ -519,6 +548,8 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 6</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Intersectional interactions: 0 of 6 strata flagged (95% interval, no multiplicity correction)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   uncorrected across 6 strata; maihda_interactions(x, adjust = "BH") for an FDR screen</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for variance components and plot(type = ...) for figures.</span>
 <span class="r-in"><span><span class="va">a3</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">context</span><span class="op">$</span><span class="va">vpc_context_total</span>  <span class="co"># the country (general contextual) share</span></span></span>

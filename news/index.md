@@ -4,6 +4,30 @@
 
 ### New Features
 
+- **[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) now
+  reports the intersectional interactions by default.** “Which strata
+  genuinely interact” is the scientific payoff of MAIHDA, so it no
+  longer needs a separate call:
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  computes
+  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  on the adjusted (or crossed-dimensions) model, stores it as the
+  `interactions` slot, and surfaces a one-line headline in
+  [`print()`](https://rdrr.io/r/base/print.html) (flagged count, the
+  strongest stratum, and – crucially – the multiplicity stance actually
+  used, so an uncorrected scan is never silently read as corrected). The
+  computation is essentially free (it reads the stratum estimates the
+  summary already holds; no refit), and it is skipped for a longitudinal
+  decomposition (whose interaction is a trajectory, not a scalar).
+  Control it with the new `interactions` argument: `TRUE` (default) uses
+  `adjust = "none"`; `FALSE` skips it; or pass a `p.adjust` method
+  (e.g. `interactions = "BH"`) to flag with that correction.
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  gains the same argument as an **opt-in** (`interactions = FALSE` by
+  default, since a single fit is often a null model where the diagnostic
+  does not apply). `plot(..., highlight_interactions = TRUE)` now reuses
+  the stored diagnostic, so the rings on the figure and the printed
+  headline can no longer disagree.
 - Added **`broom`-style
   [`tidy()`](https://generics.r-lib.org/reference/tidy.html) and
   [`glance()`](https://generics.r-lib.org/reference/glance.html)
@@ -67,8 +91,12 @@
   (`gaussian`/`binomial`/`poisson`/`negbinomial`, latent scale for
   non-Gaussian) on `engine = "lme4"` (any degree) and `engine = "brms"`
   (linear growth; posterior credible bands on the VPC trajectory).
-  `predict_maihda(type = "strata")` returns each stratum’s intercept and
-  slope (a stratum is now a *trajectory*). The intercept-only guards
+  `predict_maihda(type = "strata")` returns each stratum’s deviation at
+  the baseline (reference) time plus its raw intercept and slope (a
+  stratum is now a *trajectory*; the baseline deviation, evaluated at
+  `ref_time = min(time)`, is the longitudinal analogue of a
+  cross-sectional stratum BLUP and differs from the raw time-0 intercept
+  whenever time is not zero-referenced). The intercept-only guards
   elsewhere are untouched – a longitudinal fit is tagged and routed to
   the time-varying path, while every other model still rejects random
   slopes – and
@@ -159,14 +187,19 @@
   and
   [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
   reject the family with targeted messages. Internally, engine-specific
-  family labels are now canonicalised (notably lme4’s theta-embedding
-  `"Negative Binomial(<theta>)"`), so the family/link comparability
+  family labels are now canonicalised so the family/link comparability
   checks in
   [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
   and
   [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
-  no longer depend on raw label strings – previously two NB fits could
-  never compare equal because each label carried its own theta estimate.
+  no longer depend on raw label strings: two fits whose theta is
+  *estimated* (lme4’s theta-embedding `"Negative Binomial(<theta>)"`,
+  brms’s `shape`) compare equal, since each label otherwise carried its
+  own theta estimate and could never match. A *fixed*, user-specified
+  theta (`MASS::negative.binomial(theta)`) is treated differently – it
+  is part of the model specification, so it stays in the comparability
+  key and two fits with different fixed thetas are (correctly) rejected
+  as incomparable.
 - Added **design-weighted MAIHDA** (survey/sampling weights) via a new
   `sampling_weights` argument on
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
@@ -624,6 +657,64 @@
 
 ### Bug Fixes
 
+- [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  and
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  now apply their analytic-sample identity checks to **design-weighted
+  (`wemix`) fits**. A `WeMixResults` object exposes no
+  [`nobs()`](https://rdrr.io/r/stats/nobs.html)/[`model.frame()`](https://rdrr.io/r/stats/model.frame.html),
+  so the row-count, row-identity and outcome-fingerprint guards
+  previously fell through to a silent pass: two wemix fits sharing a
+  formula, `n` and strata but fit to **completely different outcome
+  values** compared as if they were the same analytic sample
+  ([`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  returned a PCV,
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  reported VPCs, neither warned). The guards now fall back to the
+  wrapper’s stored analytic `$data` (the rows the engine actually fit),
+  so a mismatched outcome is caught –
+  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  errors and
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  warns – exactly as for the lme4 path. Genuinely matched wemix fits are
+  unaffected.
+- The **longitudinal PCV baseline** is now the between-stratum variance
+  at the *observed* baseline time (`ref_time = min(time)`), not the raw
+  time-0 random-intercept variance.
+  [`maihda_longitudinal_pcv()`](https://hdbt.github.io/MAIHDA/reference/maihda_longitudinal_pcv.md)
+  (and the `maihda_long_pcv` print method) evaluated `Sigma[1, 1]`
+  directly, which is the variance at `time = 0` – correct only when time
+  is centred so the baseline is 0. For a model whose time does not start
+  at zero (e.g. waves 10:12) this reported the PCV of an extrapolated
+  time-0 variance, which is meaningless and can even be negative; the
+  baseline PCV is now `a(t)'Sigma a(t)` evaluated at `ref_time`,
+  matching how [`summary()`](https://rdrr.io/r/base/summary.html)
+  reports the baseline VPC. The slope-variance PCV is unchanged (it is
+  invariant to where time is zeroed).
+- Cross-sectional, single-value-per-stratum summaries are now **refused
+  for longitudinal (growth-curve) models** rather than silently
+  returning a misleading scalar. A growth model’s stratum estimand is a
+  *trajectory* (random intercept + slope), so the scalar BLUP that
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)’s
+  ranked-strata table and
+  `plot(type = "predicted" / "obs_vs_shrunken" / "risk_vs_effect" / "effect_decomp" / "prediction_deviation" / "ternary")`
+  build (which adds only the random intercept and drops the slope)
+  misrepresents it. These paths now error – or, for
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md),
+  omit the ranking with an explanatory note – and point to the
+  trajectory tools (`predict(type = "strata")`,
+  `plot(type = "trajectories")`, `plot(type = "vpc_trajectory")`).
+  [`summary()`](https://rdrr.io/r/base/summary.html)’s stratum-estimates
+  print is relabelled “baseline (intercept) deviations” for a
+  longitudinal fit, with the same pointer.
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  now reports the analytic sample size `n` for a **design-weighted
+  (`wemix`) fit** instead of `NA`. `WeMixResults` has no
+  [`nobs()`](https://rdrr.io/r/stats/nobs.html) method, so the IC table
+  fell back to `NA`; it now uses `nrow(model$data)` (the rows the fit
+  used), matching the `nobs` that
+  [`glance()`](https://generics.r-lib.org/reference/glance.html) already
+  reports for the same model.
 - **Corrected the PCV for Gaussian `lmer` models (the REML pitfall).**
   The proportional change in between-stratum variance compares the
   stratum variance of a *null* and an *adjusted* model that differ in

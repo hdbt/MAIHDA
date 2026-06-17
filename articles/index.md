@@ -24,6 +24,11 @@
 - [Reporting MAIHDA results: tidy output and publication
   tables](https://hdbt.github.io/MAIHDA/articles/reporting_results.md):
 
+### Case studies
+
+- [Case study: youth unemployment across Europe
+  (ESS)](https://hdbt.github.io/MAIHDA/articles/ess_youth_unemployment.md):
+
 ### Interpretation
 
 - [Interpreting MAIHDA Plots and

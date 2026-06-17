@@ -76,18 +76,44 @@ a credible interval at `conf_level` and the probability of direction
 `pd = P(BLUP > 0)` – and `adjust` is not applied (the Bayesian answer is
 multiplicity-free).
 
-**On multiplicity (why `adjust = "none"` is the default).** The stratum
-BLUP is already a shrunken (partially pooled) estimate, which provides
-built-in protection against spurious extremes (Gelman, Hill & Yajima
-2012); the relevant risk is sign/magnitude (Type S/M) error rather than
-family-wise Type I error (Gelman & Carlin 2014). Multiplicity
-corrections are therefore optional and, applied to shrunken estimates,
-conservative – `"none"` is the default. When an explicit error-rate
-story is required for screening many strata, **FDR (`adjust = "BH"`)**
-matches the goal (discovery), not the family-wise methods
-(`"bonferroni"`/`"holm"`), which remain available but answer a question
-this exploratory scan does not ask. Whatever the choice, treat the flags
-as exploratory rather than confirmatory.
+**Multiplicity: partial pooling and a correction are different things,
+and the experts disagree.**
+
+- *Shrinkage (magnitude/sign).* The stratum BLUP is partially pooled, so
+  extreme values are regularised toward the grand mean, attenuating
+  exaggerated-magnitude and wrong-sign (Type M/S) error (Gelman & Carlin
+  2014). Gelman, Hill & Yajima (2012) argue this shrinkage *usually
+  substitutes* for a classical multiple-comparisons correction (the
+  problem can "disappear entirely" in the hierarchical model); on that
+  view the flag/no-flag step itself is what to avoid – the null of an
+  *exactly* zero interaction is rarely the question (McShane, Gelman et
+  al. 2019) – so report the estimate and its interval.
+
+- *Whether to correct.* If you do want an error-rate screen, whether a
+  correction is warranted depends on the *inferential structure* of the
+  claim – the joint hypothesis, not the number of strata (Rubin 2021).
+  Each stratum as its own pre-specified hypothesis ("does *this* stratum
+  interact?") is *individual* testing and needs none – **only** if you
+  do not also read the flags collectively. Once the question is "is
+  there an interaction *somewhere*?" – which an automated all-strata
+  scan effectively is – it is *disjunction* testing and a correction
+  applies.
+
+`adjust = "none"` is the default because the table is formally a set of
+individual hypotheses; **for the common exploratory scan of all strata,
+prefer `adjust = "BH"`**. Choosing FDR over family-wise
+(`"bonferroni"`/`"holm"`) matches a screening goal (the expected
+*proportion* of false discoveries) – this is the package's choice, not a
+recommendation of Rubin (2021), who raises FDR only to distinguish it
+from the family-wise rate. The flag itself is a Wald test on a shrunken
+BLUP whose conditional SE treats the variance components as known, so it
+(and any `adjust` on it) is an explicit, approximate *screen*, not a
+procedure inheriting an exact guarantee from the model. Lead with the
+interval (and, for `brms`, the probability of direction); the
+substantive question is often not whether an interaction differs from
+zero but whether it exceeds a smallest interaction of interest (an
+equivalence/SESOI reading; Lakens, Scheel & Isager 2018), read from the
+interval.
 
 The interaction is reported on the model's link (latent) scale – a
 log-odds deviation for a logistic model, etc. – because the
@@ -111,6 +137,19 @@ Effectiveness*, 5(2), 189-211.
 Gelman, A., & Carlin, J. (2014). Beyond power calculations: assessing
 Type S (sign) and Type M (magnitude) errors. *Perspectives on
 Psychological Science*, 9(6), 641-651.
+
+Rubin, M. (2021). When to adjust alpha during multiple testing: a
+consideration of disjunction, conjunction, and individual testing.
+*Synthese*, 199(3-4), 10969-11000.
+[doi:10.1007/s11229-021-03276-4](https://doi.org/10.1007/s11229-021-03276-4)
+
+McShane, B. B., Gal, D., Gelman, A., Robert, C., & Tackett, J. L.
+(2019). Abandon statistical significance. *The American Statistician*,
+73(sup1), 235-245.
+
+Lakens, D., Scheel, A. M., & Isager, P. M. (2018). Equivalence testing
+for psychological research: a tutorial. *Advances in Methods and
+Practices in Psychological Science*, 1(2), 259-269.
 
 ## See also
 

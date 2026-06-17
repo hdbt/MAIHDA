@@ -34,6 +34,9 @@ design-weighted (survey) data – WeMix."><meta property="og:image" content="htt
     <li><a class="dropdown-item" href="../articles/bayesian_sparse_maihda.html">Bayesian MAIHDA for sparse intersections</a></li>
     <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Case studies</h6></li>
+    <li><a class="dropdown-item" href="../articles/ess_youth_unemployment.html">Case study: youth unemployment across Europe (ESS)</a></li>
+    <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
     <li><hr class="dropdown-divider"></li>
@@ -75,6 +78,7 @@ design-weighted (survey) data – WeMix.</p>
 <span>  id <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  time <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  time_degree <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  interactions <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -235,6 +239,17 @@ supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
 degree 1 only.</p></dd>
 
 
+<dt id="arg-interactions">interactions<a class="anchor" aria-label="anchor" href="#arg-interactions"></a></dt>
+<dd><p>Opt-in per-stratum interaction diagnostic
+(<code><a href="maihda_interactions.html">maihda_interactions</a></code>), attached as the <code>interactions</code> slot
+and shown by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>. <code>FALSE</code> (default) skips it; <code>TRUE</code>
+computes it with <code>adjust = "none"</code>; or pass a <code><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust</a></code>
+method name (e.g. <code>"BH"</code>). It is meaningful only on an <em>adjusted</em>
+model (the dimensions' main effects in the fixed part); on a null model
+<code>maihda_interactions</code> warns. This is the single-fit parallel to the
+default-on <code>interactions</code> of <code><a href="maihda.html">maihda</a></code>.</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code>lmer</code>/<code>glmer</code> (lme4),
 <code>brm</code> (brms), or <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> (wemix; e.g. <code>nQuad</code>,
@@ -270,6 +285,10 @@ arguments are not supported by the wemix engine.</p></dd>
   <dt>context_vars</dt>
 <dd><p>The context variable name(s) when <code>context</code> was
     supplied, NULL otherwise</p></dd>
+
+  <dt>interactions</dt>
+<dd><p>The <code>maihda_interactions</code> diagnostic when
+    <code>interactions</code> is not <code>FALSE</code>, NULL otherwise</p></dd>
 
   <dt>response_recoding</dt>
 <dd><p>For a recoded two-level outcome, a data frame mapping

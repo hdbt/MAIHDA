@@ -18,6 +18,7 @@ fit_maihda(
   id = NULL,
   time = NULL,
   time_degree = 1,
+  interactions = FALSE,
   ...
 )
 ```
@@ -196,6 +197,20 @@ fit_maihda(
   (default) linear, 2 quadratic, etc. The brms engine supports degree 1
   only.
 
+- interactions:
+
+  Opt-in per-stratum interaction diagnostic
+  ([`maihda_interactions`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)),
+  attached as the `interactions` slot and shown by
+  [`print()`](https://rdrr.io/r/base/print.html). `FALSE` (default)
+  skips it; `TRUE` computes it with `adjust = "none"`; or pass a
+  [`p.adjust`](https://rdrr.io/r/stats/p.adjust.html) method name (e.g.
+  `"BH"`). It is meaningful only on an *adjusted* model (the dimensions'
+  main effects in the fixed part); on a null model `maihda_interactions`
+  warns. This is the single-fit parallel to the default-on
+  `interactions` of
+  [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md).
+
 - ...:
 
   Additional arguments passed to `lmer`/`glmer` (lme4), `brm` (brms), or
@@ -240,6 +255,11 @@ A maihda_model object containing:
 
   The context variable name(s) when `context` was supplied, NULL
   otherwise
+
+- interactions:
+
+  The `maihda_interactions` diagnostic when `interactions` is not
+  `FALSE`, NULL otherwise
 
 - response_recoding:
 

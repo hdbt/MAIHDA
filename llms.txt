@@ -29,19 +29,15 @@ socioeconomic status).
   the null *and* adjusted models, summarises the VPC/ICC and the PCV
   decomposition (additive vs. intersectional), and (optionally) compares
   across a higher-level group in a single call
-- **Create Intersectional Strata**: Automatically generate strata from
-  multiple categorical variables
 - **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**: A
   fully-featured Shiny application
   ([`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
   for no-code exploratory data analysis and model fitting
 - **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
 - **Design-Weighted MAIHDA**: Survey/sampling weights via
-  `sampling_weights` – weighted pseudo-maximum-likelihood through the
-  `WeMix` engine (or likelihood weights under brms) for complex-survey
-  data such as NHANES or PISA, with design-consistent fixed-effect
-  standard errors and a design-weighted VPC, PCV, stratum summaries and
-  AUC
+  `sampling_weights` for complex-survey data with design-consistent
+  fixed-effect standard errors and a design-weighted VPC, PCV, stratum
+  summaries and AUC
 - **Summaries & Decompositions**: Variance partition coefficients
   (VPC/ICC), stratum-specific estimates, and stepwise Proportional
   Change in Variance (PCV)
@@ -50,23 +46,13 @@ socioeconomic status).
 - **Visualizations**: Predicted stratum values, VPC visualizations,
   mean-prediction vs. stratum-effect diagnostics, and observed
   vs. shrunken estimates
-- **Model Comparison**: Compare models with parametric-bootstrap
-  confidence intervals for VPC/ICC
 - **Group Comparison**:
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   contrasts intersectional inequality (VPC/ICC) across levels of a
   higher-level variable such as country or region
 - **Contextual Cross-Classified MAIHDA**: `context = "school"` crosses
   the intersectional strata with a place/institution level (school,
-  hospital, region) in one model and partitions the unexplained variance
-  into between-stratum vs. between-context vs. residual – the
-  cross-classified MAIHDA of the literature
-- **Proportional Change in Variance (PCV)**: Quantify the proportional
-  change in between-stratum variance when additional predictors are
-  added (it is variance “explained” only when the models are nested;
-  otherwise it is a model-dependent change), or read the
-  additive/interaction split off a single model with
-  `decomposition = "crossed-dimensions"`
+  hospital, region)
 
 ## Installation
 
@@ -85,13 +71,7 @@ or the current stable version from CRAN:
 install.packages("MAIHDA")
 ```
 
-> **Note:** the CRAN release can lag behind this repository. Some
-> features documented below
-> (e.g. [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
-> and
-> [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md))
-> were added after the current CRAN version, so install the development
-> version from GitHub if you need them. \## Quick Start
+## 30 seconds to MAIHDA - Quick Start
 
 ``` r
 
@@ -99,39 +79,14 @@ library(MAIHDA)
 data("maihda_health_data")
 
 # Everything in one call: null + adjusted fit, VPC/ICC summary, and PCV decomposition.
-# Write the strata variables as additive fixed effects -- the lme4-native, fully-
-# specified ADJUSTED model. maihda() uses that as the adjusted model and derives the
-# NULL by dropping those main effects. (Omit them and maihda() adds them for you,
-# printing a message; the result is identical.)
 analysis <- maihda(BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
                    data = maihda_health_data)
-analysis                       # VPC/ICC (null) and PCV (null -> adjusted)
-analysis$formula               # null:     BMI ~ Age + (1 | stratum)
-analysis$adjusted_formula      # adjusted: BMI ~ Age + Gender + Race + Education + (1 | stratum)
-summary(analysis)              # variance components
-analysis$pcv                   # proportional change in between-stratum variance
+analysis                       
+summary(analysis)
 
-# plot() routes each view to the right model: the VPC/shrinkage views use the null
-# model; the additive-vs-intersectional views use the adjusted model.
 plot(analysis, type = "vpc")
 plot(analysis, type = "effect_decomp")
-```
-
-Prefer the individual building blocks? They are all still available:
-
-``` r
-
-# 1. Fit a MAIHDA model
-model <- fit_maihda(
-  BMI ~ Age + Poverty + (1 | Gender:Race:Education),
-  data = maihda_health_data
-)
-
-# 2. Summarize the model (Variance Partition Coefficient, stratum estimates)
-summary(model)
-
-# 3. Visualize results (Predicted outputs, VPC, Mean Prediction vs. Stratum Effect, etc.)
-plot(model)
+plot(analysis) # plots all plot types
 ```
 
 ## Main Functions
@@ -373,49 +328,6 @@ Launches a locally-hosted, interactive Shiny Dashboard that exposes the
 core functionalities for data modeling, visualization, and summarization
 visually.
 
-## Example: Intersectional Health Inequalities
-
-``` r
-
-# Fit model adjusting for age, automatically creating strata from gender, race, and education
-model <- fit_maihda(
-  BMI ~ Age + (1 | Gender:Race:Education),
-  data = maihda_health_data
-)
-
-# Get the variance partition coefficient (VPC/ICC)
-summary <- summary(model, bootstrap = TRUE, n_boot = 1000)
-
-# The VPC is the share of the *unexplained* (between-stratum + residual) variance
-# that lies between strata -- here conditional on Age, and on the latent scale for
-# non-Gaussian models (e.g. logistic uses pi^2/3 as the level-1 variance). Read
-# from the null model `outcome ~ 1 + (1 | stratum)` it is the total between-stratum
-# share. NOTE: the between-stratum variation reflects the combined additive +
-# interaction differences across strata; it represents the *pure* intersectional
-# (interaction) effect only once the additive main effects of the strata variables
-# are added to the model.
-
-# To get that pure intersectional part, fit the ADJUSTED model -- the same model PLUS
-# the strata variables as additive fixed effects -- and read the PCV (the additive
-# share of the intersectional inequality). The one-call maihda() does this for you;
-# here it is spelled out with the building blocks.
-adjusted <- fit_maihda(
-  BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
-  data = maihda_health_data
-)
-calculate_pvc(model, adjusted)  # null -> adjusted: proportional change in variance
-
-# Visualize which strata have higher/lower outcomes using new advanced plots
-plot(model, type = "predicted")
-plot(model, type = "risk_vs_effect")
-
-# Map out where the intersection-specific signal is concentrated
-plot(model, type = "ternary")
-
-# Or run it with no type to see them all!
-# plot(model)
-```
-
 ## Using brms for Bayesian Inference
 
 ``` r
@@ -465,59 +377,12 @@ fit_maihda(outcome ~ age + (1 | gender:race:education), data = survey_data,
            engine = "brms", sampling_weights = "person_weight")
 ```
 
-Limitations (explicit, not silent): the wemix engine covers the
-canonical `gaussian(identity)` / `binomial(logit)` MAIHDA with a single
-`(1 | stratum)` intercept; crossed random effects (`context =`,
+Limitations: the wemix engine covers the canonical `gaussian(identity)`
+/ `binomial(logit)` MAIHDA with a single `(1 | stratum)` intercept.
+crossed random effects (`context =`,
 `decomposition = "crossed-dimensions"`) and bootstrap intervals require
 lme4/brms. A design-based interval would need replicate weights, which
-is a possible future extension.
-
-## Model Comparison with Bootstrap
-
-``` r
-
-# Compare nested models on the SAME data and strata (null vs covariate-adjusted).
-# VPCs are only comparable when models share an outcome, family/link, analytic
-# sample (the same rows), and strata; compare_maihda() warns otherwise.
-strata <- make_strata(maihda_sim_data, vars = c("gender", "race"))
-null_model <- fit_maihda(health_outcome ~ 1 + (1 | stratum), data = strata$data)
-adj_model  <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata$data)
-
-# Compare with bootstrap CI
-comparison <- compare_maihda(
-  null_model, adj_model,
-  model_names = c("Null", "Adjusted"),
-  bootstrap = TRUE,
-  n_boot = 1000
-)
-
-# Visualize comparison
-plot(comparison)
-```
-
-## Calculating Proportional Change in Variance (PCV)
-
-``` r
-
-# Fit baseline model
-model1 <- fit_maihda(outcome ~ age + (1 | gender:race), data = data)
-
-# Fit model with additional predictor
-model2 <- fit_maihda(outcome ~ age + gender + (1 | gender:race), data = data)
-
-# Calculate PCV without bootstrap
-pvc_result <- calculate_pvc(model1, model2)
-print(pvc_result)
-
-# Calculate PCV with bootstrap confidence intervals
-pvc_boot <- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 1000)
-print(pvc_boot)
-
-# Interpretation: A PCV of 0.25 means the between-stratum variance is 25% lower in
-# model2 than in model1. This is "variance explained" by the added predictors only
-# when model2 nests model1 (same outcome, sample and strata); otherwise read it as
-# a model-dependent change in between-stratum variance.
-```
+is a upcoming future extension.
 
 ## Stepwise Proportional Change in Variance (PCV)
 
@@ -561,15 +426,6 @@ tidy(analysis) |>
   ggplot(aes(reorder(label, estimate), estimate, ymin = conf.low, ymax = conf.high)) +
   geom_pointrange() + coord_flip()
 ```
-
-The generics come from the lightweight `generics` package (the same ones
-`broom` re-exports), so
-[`tidy()`](https://generics.r-lib.org/reference/tidy.html)/[`glance()`](https://generics.r-lib.org/reference/glance.html)
-work whether you load `broom`, `generics`, or just `MAIHDA`. The layout
-is uniform across the lme4, brms, WeMix, and ordinal engines. Note that
-`tidymodels` (parsnip/workflows) does not fit `lme4` random-effects
-models, so this is the tidy-*data* convention, not a modeling-pipeline
-integration.
 
 ## Interactive Shiny App
 
@@ -788,6 +644,11 @@ A BibTeX entry for LaTeX users is:
   intersections](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md):
 - [Reporting MAIHDA results: tidy output and publication
   tables](https://hdbt.github.io/MAIHDA/articles/reporting_results.md):
+
+### Case studies
+
+- [Case study: youth unemployment across Europe
+  (ESS)](https://hdbt.github.io/MAIHDA/articles/ess_youth_unemployment.md):
 
 ### Interpretation
 
