@@ -20,9 +20,7 @@ knitr::opts_chunk$set(
 
 ## From a fitted model to a manuscript
 
-Fitting the model is half the job; the other half is getting the numbers *out* --
-into a results table, a tidy data frame you can plot your own way, or a one-line
-headline for an abstract. This vignette covers the three reporting helpers that
+This vignette covers the three reporting helpers that
 turn a `maihda()` analysis into publication-ready output without you recomputing
 anything: **`glance()`** (the one-row headline), **`tidy()`** (estimates as a tidy
 tibble), and **`maihda_table()`** (the two canonical write-up tables). They read
@@ -148,8 +146,8 @@ gt::gt(tab$models)
 
 ## Choosing a model structure with `maihda_ic()`
 
-The VPC and PCV describe *one* model; they do not tell you whether a different
-**structure** (another covariate set, strata definition, or family) fits better.
+The VPC and PCV describe do not tell you whether a different model 
+specification (another covariate set, strata definition, or family) fits better.
 `maihda_ic()` answers that with information criteria -- `AIC`/`BIC` for the
 likelihood engines, `WAIC`/`LOOIC` for brms -- and a `delta` column (gap from the
 best model):
@@ -157,12 +155,6 @@ best model):
 ```{r ic}
 maihda_ic(a)
 ```
-
-It handles the **REML pitfall** automatically: Gaussian `lmer` fits use REML,
-whose AIC/BIC are not comparable across models with different fixed effects (the
-null-vs-adjusted case), so with more than one model any REML fit is refit with ML
-first (the `estimator` column records it) -- matching what `anova()` does on lme4
-models.
 
 ## See also
 
