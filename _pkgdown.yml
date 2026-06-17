@@ -21,7 +21,7 @@ articles:
       - group_comparison
       - cross_classified
       - longitudinal
-      #- bayesian_sparse_maihda
+      - bayesian_sparse_maihda
       - reporting_results
   - title: Interpretation
     navbar: Interpretation
