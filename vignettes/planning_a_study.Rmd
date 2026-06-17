@@ -1,5 +1,5 @@
 ---
-title: "Planning a MAIHDA study"
+title: "Planning a MAIHDA analysis"
 author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
@@ -20,10 +20,8 @@ knitr::opts_chunk$set(
 
 ## Before you fit
 
-Most MAIHDA mistakes are made *before* the model is fit -- in the choice of
-dimensions, the number of strata, and the analytic sample. This vignette walks
 through those design decisions, with small runnable checks you can do on your own
-data first.
+data first to evaluate dimensions, the number of strata, and the analytic sample
 
 ```{r lib}
 library(MAIHDA)
@@ -40,9 +38,6 @@ the sum of its parts?"* It is well suited when:
   education, class, ...) whose **joint** categories define the strata;
 - the outcome is measured at the **individual** level;
 - you have enough individuals to populate the cells (see below).
-
-It is *not* a causal method: the VPC, PCV, and discriminatory accuracy are
-descriptive variance/prediction summaries, not effects of identity on the outcome.
 
 ## The central tradeoff: more dimensions means emptier cells
 
@@ -66,15 +61,15 @@ sum(s3$strata_info$n < 10)             # how many strata have < 10 people
 ```
 
 Each extra dimension multiplies the number of strata and divides the people among
-them. Small cells are not fatal -- partial pooling (shrinkage) is exactly what
-protects MAIHDA against noisy small strata -- but they have consequences (next
-section). A useful discipline: choose the **fewest dimensions that answer your
-question**, and look at the cell-size distribution before committing.
+them. Small cells are not fatal, (partial pooling shrinkage is exactly what
+protects MAIHDA against noisy small strata) but they have consequences (next
+section). A useful rule: choose the fewest dimensions that answer your
+question, and look at the cell-size distribution before committing.
 
 ## What sparse cells do: singular fits
 
 When cells get very small the maximum-likelihood (`lme4`) estimate of the
-between-stratum variance can collapse to the boundary -- a **singular fit** -- and
+between-stratum variance can collapse to the boundary ( a singular fit) and
 report a VPC of (near) zero with no uncertainty. The package records this and
 surfaces it in a "Fit diagnostics" note rather than letting it pass silently:
 
@@ -86,10 +81,10 @@ over <- fit_maihda(
 over
 ```
 
-If you see a singular-fit note, do not read the VPC as a clean zero. The remedies
-are to **collapse dimensions or categories** (fewer, larger cells), or to use
+If you see a singular-fit note, do not read the VPC as a clean zero. The solution is 
+ to collapse dimensions or categories (fewer, larger cells), or to use
 `engine = "brms"`, whose weakly-informative priors regularise the variance off the
-boundary and return an honest interval -- the subject of the
+boundary and return an honest interval,  the subject of the
 [Bayesian sparse vignette](bayesian_sparse_maihda.html).
 
 ## Continuous variables and the analytic sample
@@ -97,12 +92,7 @@ boundary and return an honest interval -- the subject of the
 - **Keep continuous variables out of the strata.** A continuous variable in the
   grouping term gives one stratum per value. `make_strata()` will auto-bin a numeric
   dimension into tertiles (with a `message()`), but a continuous *covariate* belongs
-  in the fixed part of the formula, not the strata. Set `autobin = FALSE`, or bin it
-  yourself for reproducible cut-points.
-- **Decide the analytic sample up front.** The VPC and PCV must be compared on the
-  *same* rows, so define one complete-case sample before fitting the null and
-  adjusted models. For substantial missingness, multiple imputation is preferable to
-  dropping cases, but the strata must be defined consistently across imputations.
+  in the fixed part of the formula, not the strata. 
 
 ## What the summaries can and cannot tell you
 
@@ -117,8 +107,6 @@ boundary and return an honest interval -- the subject of the
 - **`lme4` (default)** -- fast frequentist fits for adequately-sized cells.
 - **`brms`** -- Bayesian; preferred when cells are sparse or dimensions have few
   levels (regularising priors, honest intervals).
-- **`wemix`** -- design-weighted fits for **complex survey data**
-  (`sampling_weights =`); see [Design-weighted MAIHDA](design_weighted.html).
 
 For extensions beyond the cross-sectional case, see the
 [crossed random effects](cross_classified.html) (dimensions/contexts) and
