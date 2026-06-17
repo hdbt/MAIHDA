@@ -26,8 +26,8 @@
   gains the same argument as an **opt-in** (`interactions = FALSE` by
   default, since a single fit is often a null model where the diagnostic
   does not apply). `plot(..., highlight_interactions = TRUE)` now reuses
-  the stored diagnostic, so the rings on the figure and the printed
-  headline can no longer disagree.
+  the stored diagnostic, so the plot highlights and the printed headline
+  can no longer disagree.
 - Added **`broom`-style
   [`tidy()`](https://generics.r-lib.org/reference/tidy.html) and
   [`glance()`](https://generics.r-lib.org/reference/glance.html)
@@ -480,14 +480,17 @@
 - [`plot()`](https://rdrr.io/r/graphics/plot.default.html) gains a
   `highlight_interactions` argument (on both a `maihda_model` and a
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
-  analysis) that rings and stars the
+  analysis) that focuses and stars the
   [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)-flagged
   strata on the BLUP-based views (`effect_decomp`, `predicted`,
-  `obs_vs_shrunken`). Pass `TRUE` (flags computed with defaults) or a
-  precomputed `maihda_interactions` object to reuse a specific
+  `obs_vs_shrunken`). Pass `TRUE` (flags computed with defaults), a
+  multiple-testing method such as `"BH"`, or a precomputed
+  `maihda_interactions` object to reuse a specific
   `conf_level`/`adjust`; for an analysis the flags are computed once
-  from the adjusted model and reused across views. `FALSE` (default)
-  leaves every plot unchanged.
+  from the adjusted model and reused across views. In `effect_decomp`,
+  labels follow the selected flagged set, so a BH screen labels only
+  strata that survive the BH adjustment. `FALSE` (default) leaves every
+  plot unchanged.
 
 ### Improvements
 

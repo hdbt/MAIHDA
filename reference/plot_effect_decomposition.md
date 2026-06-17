@@ -29,6 +29,12 @@ plot_effect_decomposition(
 
   Number of most extreme strata to label
 
+- highlight:
+
+  Optional character vector of stratum ids to highlight. When supplied,
+  labels are restricted to these strata rather than the most extreme
+  overall deviations.
+
 ## Value
 
 A ggplot2 object

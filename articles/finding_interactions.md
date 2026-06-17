@@ -2,16 +2,15 @@
 
 ## Overview
 
-One question that does come up naturaly is which strata depart most
-clearly from the additive expectation?
+A common follow-up question is which strata depart most clearly from the
+additive expectation.
 
-For these exploratory diagnostics,
+For this exploratory diagnostic,
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) can
-compute the stratum random effects and intervals from the adjusted
-model, and apply a multiplicity rule to flag strata that depart from the
-additive expectation more than expected by chance. The diagnostic is
-stored in the fitted model object and can be used to highlight strata in
-the effect-decomposition and predicted-strata plots.
+compute the adjusted-model stratum random effects, intervals, and flags.
+When you use `interactions = "BH"`, the flags use the Benjamini-Hochberg
+adjustment. The diagnostic is stored in the analysis object and can be
+reused by the effect-decomposition and predicted-strata plots.
 
 ## Run a standard analysis and choose the multiplicity rule
 
@@ -32,7 +31,8 @@ model_bh <- maihda(
 ```
 
 The printed output reports how many strata were flagged and which
-adjustment rule was used. The full table is stored in `a$interactions`.
+adjustment rule was used. The full table is stored in
+`model_bh$interactions`.
 
 ``` r
 
@@ -66,7 +66,10 @@ error, p-value, and adjusted p-value when a correction is requested.
 
 ## Highlight flagged strata
 
-The plotting methods can reuse the stored diagnostic.
+The plotting methods can reuse the stored diagnostic. Because `model_bh`
+was fitted with `interactions = "BH"`, `highlight_interactions = TRUE`
+uses the Benjamini-Hochberg flags. In the effect-decomposition plot, the
+labels also follow that same flagged set.
 
 ``` r
 
@@ -75,9 +78,7 @@ plot(model_bh, type = "effect_decomp", highlight_interactions = TRUE)
 
 ![](finding_interactions_files/figure-html/plot-decomp-1.png)
 
-To highlight the strata that survive a specific adjustment ( in this
-case Benjamini-Hochberg ), pass the adjusted model object that contains
-the diagnostic with the desired adjustment:
+The same flags can be reused in the predicted-strata view.
 
 ``` r
 
@@ -85,6 +86,14 @@ plot(model_bh, type = "predicted", highlight_interactions = TRUE)
 ```
 
 ![](finding_interactions_files/figure-html/plot-predicted-1.png)
+
+If the analysis was fitted without a stored interaction diagnostic, pass
+the adjustment rule directly:
+
+``` r
+
+plot(model, type = "effect_decomp", highlight_interactions = "BH")
+```
 
 ## See also
 

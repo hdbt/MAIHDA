@@ -126,9 +126,10 @@ non-zero intersectional interaction (from <code><a href="maihda_interactions.htm
 on the BLUP-based views (<code>"effect_decomp"</code>, <code>"predicted"</code>,
 <code>"obs_vs_shrunken"</code>); other views ignore it. <code>FALSE</code> (default) off;
 <code>TRUE</code> computes the flags with <code><a href="maihda_interactions.html">maihda_interactions()</a></code> defaults; or
-pass a <code>maihda_interactions</code> object to reuse a specific
-<code>conf_level</code>/<code>adjust</code>. For the pure-interaction reading the model
-should be the adjusted (or crossed-dimensions) model – e.g. via
+pass a multiple-testing method such as <code>"BH"</code> or a
+<code>maihda_interactions</code> object to reuse a specific <code>conf_level</code>/
+<code>adjust</code>. For the pure-interaction reading the model should be the
+adjusted (or crossed-dimensions) model – e.g. via
 <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> on a <code><a href="maihda.html">maihda</a></code> analysis, which routes these views to
 the adjusted model automatically.</p></dd>
 

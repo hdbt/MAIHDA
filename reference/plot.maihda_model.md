@@ -89,9 +89,10 @@ plot(
   `"obs_vs_shrunken"`); other views ignore it. `FALSE` (default) off;
   `TRUE` computes the flags with
   [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
-  defaults; or pass a `maihda_interactions` object to reuse a specific
-  `conf_level`/`adjust`. For the pure-interaction reading the model
-  should be the adjusted (or crossed-dimensions) model – e.g. via
+  defaults; or pass a multiple-testing method such as `"BH"` or a
+  `maihda_interactions` object to reuse a specific `conf_level`/
+  `adjust`. For the pure-interaction reading the model should be the
+  adjusted (or crossed-dimensions) model – e.g. via
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a
   [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
   analysis, which routes these views to the adjusted model

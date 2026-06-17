@@ -47,9 +47,9 @@ plot(x, type = "all", highlight_interactions = FALSE, ...)
   and
   [`plot`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)).
   `FALSE` (default), `TRUE` (computed from this analysis's adjusted /
-  crossed-dimensions model), or a `maihda_interactions` object. The
-  flags are computed once from the correct (adjusted) model and reused
-  across views.
+  crossed-dimensions model), a multiple-testing method such as `"BH"`,
+  or a `maihda_interactions` object. The flags are computed once from
+  the correct (adjusted) model and reused across views.
 
 - ...:
 
