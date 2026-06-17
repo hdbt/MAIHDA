@@ -274,13 +274,6 @@ tidy(analysis) |>
   ggplot(aes(reorder(label, estimate), estimate, ymin = conf.low, ymax = conf.high)) +
   geom_pointrange() + coord_flip()
 ```
-
-The generics come from the lightweight `generics` package (the same ones `broom`
-re-exports), so `tidy()`/`glance()` work whether you load `broom`, `generics`, or just
-`MAIHDA`. The layout is uniform across the lme4, brms, WeMix, and ordinal engines.
-Note that `tidymodels` (parsnip/workflows) does not fit `lme4` random-effects models,
-so this is the tidy-*data* convention, not a modeling-pipeline integration.
-
 ## Interactive Shiny App
 
 You can access a live, cloud-hosted version of the MAIHDA interactive dashboard directly in your browser without installing R:
