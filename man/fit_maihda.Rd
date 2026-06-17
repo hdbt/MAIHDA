@@ -15,6 +15,7 @@ fit_maihda(
   id = NULL,
   time = NULL,
   time_degree = 1,
+  interactions = FALSE,
   ...
 )
 }
@@ -154,6 +155,15 @@ see \code{id}. Default \code{NULL}.}
 supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
 degree 1 only.}
 
+\item{interactions}{Opt-in per-stratum interaction diagnostic
+(\code{\link{maihda_interactions}}), attached as the \code{interactions} slot
+and shown by \code{print()}. \code{FALSE} (default) skips it; \code{TRUE}
+computes it with \code{adjust = "none"}; or pass a \code{\link[stats]{p.adjust}}
+method name (e.g. \code{"BH"}). It is meaningful only on an \emph{adjusted}
+model (the dimensions' main effects in the fixed part); on a null model
+\code{maihda_interactions} warns. This is the single-fit parallel to the
+default-on \code{interactions} of \code{\link{maihda}}.}
+
 \item{...}{Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
 \code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},
 \code{fast}). The lme4-style \code{weights}/\code{subset}/\code{offset}
@@ -171,6 +181,8 @@ A maihda_model object containing:
   \item{strata_info}{The strata information from make_strata() if available, NULL otherwise}
   \item{context_vars}{The context variable name(s) when \code{context} was
     supplied, NULL otherwise}
+  \item{interactions}{The \code{maihda_interactions} diagnostic when
+    \code{interactions} is not \code{FALSE}, NULL otherwise}
   \item{response_recoding}{For a recoded two-level outcome, a data frame mapping
     each original level to its 0/1 value and role (reference/event); NULL when no
     recoding occurred}

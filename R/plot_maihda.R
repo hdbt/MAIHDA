@@ -205,6 +205,15 @@ maihda_highlight_label <- function(label, stratum, highlight) {
   ifelse(flagged, paste0(label, " *"), as.character(label))
 }
 
+# Discrete aesthetics for the focus-by-contrast highlight: non-flagged strata
+# dimmed (neutral grey, low opacity), flagged strata solid in the accent colour.
+# Named by the logical flag so they map directly onto an aes(colour/alpha =
+# .maihda_flag). Replaces the old open-circle "ring" overlay, which added geometry
+# on top of already-busy plots and, on the effect-decomposition view, sat at the
+# total deviation rather than at the interaction it flagged.
+maihda_highlight_palette <- function() c(`FALSE` = "#9AA0A6", `TRUE` = "#D55E00")
+maihda_highlight_alpha   <- function() c(`FALSE` = 0.30, `TRUE` = 1.00)
+
 #' VPC Visualization Plot
 #'
 #' @param summary_obj A maihda_summary object
@@ -454,15 +463,23 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
       paste("Null model: vertical distance from the diagonal is shrinkage of the",
             "stratum mean toward the grand mean.")
     }
-    if (any(plot_data$.maihda_flag)) {
+    has_hl <- any(plot_data$.maihda_flag)
+    if (has_hl) {
       interpretation_caption <- paste0(
         interpretation_caption,
-        "\nHighlighted (orange ring): interaction credibly != 0.")
+        "\nFlagged interaction strata are solid; non-flagged strata are dimmed.")
     }
 
-    # Create plot
+    # Create plot. When interactions are highlighted, focus by contrast -- flagged
+    # strata solid in the accent colour, the rest dimmed -- instead of ringing them.
+    point_layer <- if (has_hl) {
+      geom_point(aes(size = .data$n, color = .data$.maihda_flag,
+                     alpha = .data$.maihda_flag))
+    } else {
+      geom_point(aes(size = .data$n), alpha = 0.6, color = "#0072B2")
+    }
     p <- ggplot(plot_data, aes(x = .data$observed, y = .data$shrunken)) +
-      geom_point(aes(size = .data$n), alpha = 0.6, color = "#0072B2") +
+      point_layer +
       geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
       labs(
         title = "Observed vs. Shrunken Stratum Estimates",
@@ -476,14 +493,10 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
         plot.title = element_text(hjust = 0.5, face = "bold"),
         legend.position = "right"
       )
-
-    # Ring the flagged strata.
-    if (any(plot_data$.maihda_flag)) {
-      p <- p + geom_point(
-        data = plot_data[plot_data$.maihda_flag, , drop = FALSE],
-        aes(x = .data$observed, y = .data$shrunken),
-        shape = 1, size = 5, stroke = 1.1, color = "#D55E00"
-      )
+    if (has_hl) {
+      p <- p +
+        scale_color_manual(values = maihda_highlight_palette(), guide = "none") +
+        scale_alpha_manual(values = maihda_highlight_alpha(), guide = "none")
     }
 
     return(p)
@@ -670,17 +683,31 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
   # Create factor to preserve order for plotting
   stratum_est$display_label <- factor(stratum_est$display_label, levels = stratum_est$display_label)
 
-  highlight_note <- if (any(stratum_est$.maihda_flag)) {
-    "\nHighlighted (orange ring, *): interaction credibly != 0."
+  has_hl <- any(stratum_est$.maihda_flag)
+  highlight_note <- if (has_hl) {
+    "\nFlagged interaction strata are solid and starred; others dimmed."
   } else {
     ""
   }
 
-  # Create plot
+  # Create plot. Highlighted: flagged strata solid in the accent colour, the rest
+  # dimmed (focus by contrast rather than ringing); flagged labels are starred.
+  pt_layers <- if (has_hl) {
+    list(
+      geom_point(aes(color = .data$.maihda_flag, alpha = .data$.maihda_flag), size = 2),
+      geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper,
+                        color = .data$.maihda_flag, alpha = .data$.maihda_flag),
+                    width = 0.2)
+    )
+  } else {
+    list(
+      geom_point(size = 2, color = "#0072B2"),
+      geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper),
+                    width = 0.2, alpha = 0.5, color = "#0072B2")
+    )
+  }
   p <- ggplot(stratum_est, aes(x = .data$display_label, y = .data$predicted)) +
-    geom_point(size = 2, color = "#0072B2") +
-    geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper),
-                  width = 0.2, alpha = 0.5, color = "#0072B2") +
+    pt_layers +
     geom_hline(yintercept = fixed_reference, linetype = "dashed", color = "red", alpha = 0.7) +
     labs(
       title = "Predicted Subgroup Values with Conditional 95% Intervals",
@@ -705,14 +732,10 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
       panel.grid.minor = element_blank(),
       axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
     )
-
-  # Ring the flagged strata.
-  if (any(stratum_est$.maihda_flag)) {
-    p <- p + geom_point(
-      data = stratum_est[stratum_est$.maihda_flag, , drop = FALSE],
-      aes(x = .data$display_label, y = .data$predicted),
-      shape = 1, size = 5, stroke = 1.1, color = "#D55E00"
-    )
+  if (has_hl) {
+    p <- p +
+      scale_color_manual(values = maihda_highlight_palette(), guide = "none") +
+      scale_alpha_manual(values = maihda_highlight_alpha(), guide = "none")
   }
 
   return(p)
@@ -1029,7 +1052,8 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
       Component = additive_label,
       y_start = 0,
       y_end = stratum_means$additive_dev,
-      abs_total_dev = stratum_means$abs_total_dev
+      abs_total_dev = stratum_means$abs_total_dev,
+      flag = stratum_means$.maihda_flag
     ),
     data.frame(
       rank = stratum_means$rank,
@@ -1037,7 +1061,8 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
       Component = interaction_label,
       y_start = stratum_means$additive_dev,
       y_end = stratum_means$total_dev,
-      abs_total_dev = stratum_means$abs_total_dev
+      abs_total_dev = stratum_means$abs_total_dev,
+      flag = stratum_means$.maihda_flag
     )
   )
 
@@ -1077,17 +1102,32 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
   } else {
     "Deviation Decomposition: Fixed vs. Stratum-Random Components"
   }
-  if (any(stratum_means$.maihda_flag)) {
+  has_hl <- any(stratum_means$.maihda_flag)
+  if (has_hl) {
     plot_subtitle <- paste0(plot_subtitle,
-      "\nHighlighted (orange ring, *): interaction credibly != 0.")
+      "\nFlagged interaction strata are full-opacity and starred; others dimmed.")
+  }
+
+  # Here colour already encodes the component (additive vs interaction), so the
+  # focus-by-contrast highlight rides the opacity channel: flagged strata at full
+  # opacity, the rest dimmed -- no ring overlay.
+  seg_layer <- if (has_hl) {
+    ggplot2::geom_segment(data = seg_data, ggplot2::aes(x = .data$rank, xend = .data$rank, y = .data$y_start, yend = .data$y_end, color = .data$Component, alpha = .data$flag), linewidth = 3)
+  } else {
+    ggplot2::geom_segment(data = seg_data, ggplot2::aes(x = .data$rank, xend = .data$rank, y = .data$y_start, yend = .data$y_end, color = .data$Component), linewidth = 3, alpha = 0.8)
+  }
+  total_layer <- if (has_hl) {
+    ggplot2::geom_point(data = stratum_means, ggplot2::aes(x = .data$rank, y = .data$total_dev, alpha = .data$.maihda_flag), size = 1.5, color = "black")
+  } else {
+    ggplot2::geom_point(data = stratum_means, ggplot2::aes(x = .data$rank, y = .data$total_dev), size = 1.5, color = "black")
   }
 
   p <- ggplot2::ggplot() +
     ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
     # Draw segments stacked directly simulating waterfall
-    ggplot2::geom_segment(data = seg_data, ggplot2::aes(x = .data$rank, xend = .data$rank, y = .data$y_start, yend = .data$y_end, color = .data$Component), linewidth = 3, alpha = 0.8) +
+    seg_layer +
     # Draw a point at the final Total Deviation
-    ggplot2::geom_point(data = stratum_means, ggplot2::aes(x = .data$rank, y = .data$total_dev), size = 1.5, color = "black") +
+    total_layer +
     # Label extremes
     ggrepel::geom_label_repel(data = label_data, ggplot2::aes(x = .data$rank, y = .data$total_dev, label = .data$label), size = 3, min.segment.length = 0) +
     ggplot2::scale_color_manual(values = seg_colors) +
@@ -1104,13 +1144,8 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
       plot.subtitle = ggplot2::element_text(hjust = 0.5, face = "italic", size = 9),
       legend.position = "bottom"
     )
-
-  # Ring the flagged strata at their total deviation.
-  if (any(stratum_means$.maihda_flag)) {
-    p <- p + ggplot2::geom_point(
-      data = stratum_means[stratum_means$.maihda_flag, , drop = FALSE],
-      ggplot2::aes(x = .data$rank, y = .data$total_dev),
-      shape = 1, size = 4, stroke = 1.1, color = "#D55E00")
+  if (has_hl) {
+    p <- p + ggplot2::scale_alpha_manual(values = maihda_highlight_alpha(), guide = "none")
   }
 
   return(p)

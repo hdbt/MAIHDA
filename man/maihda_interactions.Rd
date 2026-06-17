@@ -62,17 +62,41 @@ posterior tail is used -- a credible interval at \code{conf_level} and the
 probability of direction \code{pd = P(BLUP > 0)} -- and \code{adjust} is not
 applied (the Bayesian answer is multiplicity-free).
 
-\strong{On multiplicity (why \code{adjust = "none"} is the default).} The
-stratum BLUP is already a shrunken (partially pooled) estimate, which provides
-built-in protection against spurious extremes (Gelman, Hill & Yajima 2012); the
-relevant risk is sign/magnitude (Type S/M) error rather than family-wise Type I
-error (Gelman & Carlin 2014). Multiplicity corrections are therefore optional
-and, applied to shrunken estimates, conservative -- \code{"none"} is the
-default. When an explicit error-rate story is required for screening many
-strata, \strong{FDR (\code{adjust = "BH"})} matches the goal (discovery), not
-the family-wise methods (\code{"bonferroni"}/\code{"holm"}), which remain
-available but answer a question this exploratory scan does not ask. Whatever the
-choice, treat the flags as exploratory rather than confirmatory.
+\strong{Multiplicity: partial pooling and a correction are different things, and
+the experts disagree.}
+\itemize{
+  \item \emph{Shrinkage (magnitude/sign).} The stratum BLUP is partially pooled,
+    so extreme values are regularised toward the grand mean, attenuating
+    exaggerated-magnitude and wrong-sign (Type M/S) error (Gelman & Carlin 2014).
+    Gelman, Hill & Yajima (2012) argue this shrinkage \emph{usually substitutes}
+    for a classical multiple-comparisons correction (the problem can "disappear
+    entirely" in the hierarchical model); on that view the flag/no-flag step
+    itself is what to avoid -- the null of an \emph{exactly} zero interaction is
+    rarely the question (McShane, Gelman et al. 2019) -- so report the estimate
+    and its interval.
+  \item \emph{Whether to correct.} If you do want an error-rate screen, whether a
+    correction is warranted depends on the \emph{inferential structure} of the
+    claim -- the joint hypothesis, not the number of strata (Rubin 2021). Each
+    stratum as its own pre-specified hypothesis ("does \emph{this} stratum
+    interact?") is \emph{individual} testing and needs none -- \strong{only} if you
+    do not also read the flags collectively. Once the question is "is there an
+    interaction \emph{somewhere}?" -- which an automated all-strata scan
+    effectively is -- it is \emph{disjunction} testing and a correction applies.
+}
+\code{adjust = "none"} is the default because the table is formally a set of
+individual hypotheses; \strong{for the common exploratory scan of all strata,
+prefer \code{adjust = "BH"}}. Choosing FDR over family-wise
+(\code{"bonferroni"}/\code{"holm"}) matches a screening goal (the expected
+\emph{proportion} of false discoveries) -- this is the package's choice, not a
+recommendation of Rubin (2021), who raises FDR only to distinguish it from the
+family-wise rate. The flag itself is a Wald test on a shrunken BLUP whose
+conditional SE treats the variance components as known, so it (and any
+\code{adjust} on it) is an explicit, approximate \emph{screen}, not a procedure
+inheriting an exact guarantee from the model. Lead with the interval (and, for
+\code{brms}, the probability of direction); the substantive question is often not
+whether an interaction differs from zero but whether it exceeds a smallest
+interaction of interest (an equivalence/SESOI reading; Lakens, Scheel & Isager
+2018), read from the interval.
 
 The interaction is reported on the model's link (latent) scale -- a log-odds
 deviation for a logistic model, etc. -- because the additive/interaction split
@@ -104,6 +128,17 @@ Effectiveness}, 5(2), 189-211.
 Gelman, A., & Carlin, J. (2014). Beyond power calculations: assessing Type S
 (sign) and Type M (magnitude) errors. \emph{Perspectives on Psychological
 Science}, 9(6), 641-651.
+
+Rubin, M. (2021). When to adjust alpha during multiple testing: a consideration
+of disjunction, conjunction, and individual testing. \emph{Synthese}, 199(3-4),
+10969-11000. \doi{10.1007/s11229-021-03276-4}
+
+McShane, B. B., Gal, D., Gelman, A., Robert, C., & Tackett, J. L. (2019). Abandon
+statistical significance. \emph{The American Statistician}, 73(sup1), 235-245.
+
+Lakens, D., Scheel, A. M., & Isager, P. M. (2018). Equivalence testing for
+psychological research: a tutorial. \emph{Advances in Methods and Practices in
+Psychological Science}, 1(2), 259-269.
 }
 \seealso{
 \code{\link{maihda}}, \code{\link{calculate_pvc}},

@@ -133,6 +133,15 @@
 #'   PCV is a design-weighted decomposition. Not compatible with
 #'   \code{engine = "lme4"}, \code{decomposition = "crossed-dimensions"} under
 #'   the wemix engine, or \code{bootstrap = TRUE}.
+#' @param interactions Whether to compute the per-stratum interaction diagnostic
+#'   (\code{\link{maihda_interactions}}) on the adjusted / crossed-dimensions model
+#'   and attach it as the \code{interactions} slot, surfaced in \code{print()}.
+#'   \code{TRUE} (default) uses \code{adjust = "none"} (the diagnostic's own
+#'   default); \code{FALSE} skips it; or pass a \code{\link[stats]{p.adjust}} method
+#'   name (e.g. \code{"BH"}) to flag with that multiplicity correction. Uses
+#'   \code{conf_level}. Not computed for a longitudinal decomposition. The
+#'   computation is cheap (it reads the stratum estimates the summary already holds;
+#'   no refit).
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'
@@ -153,6 +162,9 @@
 #'     variances and shares, per-dimension variances; \code{"crossed-dimensions"} mode
 #'     only, \code{NULL} otherwise)}
 #'   \item{groups}{a \code{maihda_group_comparison} when \code{group} is supplied,
+#'     otherwise \code{NULL}}
+#'   \item{interactions}{the \code{maihda_interactions} diagnostic (per-stratum
+#'     interaction BLUPs and flags) when \code{interactions} is not \code{FALSE},
 #'     otherwise \code{NULL}}
 #'   \item{mode}{\code{"two-model"} or \code{"crossed-dimensions"}}
 #'   \item{context_vars}{the context variable name(s) when \code{context} was
@@ -222,7 +234,8 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
                    n_boot = 1000, conf_level = 0.95,
                    response_vpc = FALSE, seed = NULL,
                    sampling_weights = NULL,
-                   id = NULL, time = NULL, time_degree = 1, ...) {
+                   id = NULL, time = NULL, time_degree = 1,
+                   interactions = TRUE, ...) {
   call <- match.call()
 
   # Longitudinal (growth-curve) MAIHDA selects itself when 'time' is supplied and
@@ -438,7 +451,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
       )
     }
 
-    return(structure(
+    cc_analysis <- structure(
       list(
         model = cc_model,
         summary = summary_obj,
@@ -452,10 +465,12 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
         group_var = group,
         mode = "crossed-dimensions",
         context_vars = context,
+        interactions = NULL,
         call = call
       ),
       class = "maihda_analysis"
-    ))
+    )
+    return(maihda_attach_interactions(cc_analysis, interactions, conf_level))
   }
 
   # --- Longitudinal (growth-curve) decomposition --------------------------------
@@ -508,6 +523,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
         group_var = NULL,
         mode = "longitudinal",
         context_vars = NULL,
+        interactions = NULL,
         call = call
       ),
       class = "maihda_analysis"
@@ -600,7 +616,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     )
   }
 
-  structure(
+  analysis <- structure(
     list(
       model = null_model,
       summary = summary_obj,
@@ -614,10 +630,12 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
       group_var = group,
       mode = "two-model",
       context_vars = context,
+      interactions = NULL,
       call = call
     ),
     class = "maihda_analysis"
   )
+  maihda_attach_interactions(analysis, interactions, conf_level)
 }
 
 # Compact discriminatory-accuracy line for the analysis headline: the null /
@@ -683,6 +701,7 @@ print.maihda_analysis <- function(x, ...) {
     if (!is.null(x$summary$stratum_estimates)) {
       cat("Strata: ", nrow(x$summary$stratum_estimates), "\n", sep = "")
     }
+    maihda_print_interactions_line(x$interactions)
     if (!is.null(x$groups)) {
       cat(sprintf("\nGroup comparison by '%s':\n", x$group_var))
       print(x$groups)
@@ -779,6 +798,8 @@ print.maihda_analysis <- function(x, ...) {
     cat("Strata: ", nrow(x$summary$stratum_estimates), "\n", sep = "")
   }
 
+  maihda_print_interactions_line(x$interactions)
+
   if (!is.null(x$groups)) {
     cat(sprintf("\nGroup comparison by '%s':\n", x$group_var))
     print(x$groups)
@@ -803,6 +824,7 @@ summary.maihda_analysis <- function(object, ...) {
   attr(out, "groups") <- object$groups
   attr(out, "pcv") <- object$pcv
   attr(out, "adjusted") <- object$summary_adjusted
+  attr(out, "interactions") <- object$interactions
   out
 }
 
@@ -961,9 +983,11 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
 }
 
 # Resolve the highlight argument for a maihda_analysis: FALSE/NULL stays FALSE;
-# a maihda_interactions object passes through; TRUE is computed once from the
-# analysis (its adjusted / crossed-dimensions model) so the downstream model plots
-# receive a ready object and neither recompute nor warn.
+# a maihda_interactions object passes through; TRUE reuses the interaction
+# diagnostic already stored on the analysis (so the rings match the printed
+# headline exactly), falling back to computing it when the analysis was built with
+# interactions = FALSE. Either way the downstream model plots receive a ready
+# object and neither recompute nor warn.
 maihda_resolve_analysis_highlight <- function(x, highlight_interactions) {
   if (is.null(highlight_interactions) || isFALSE(highlight_interactions)) {
     return(FALSE)
@@ -972,6 +996,9 @@ maihda_resolve_analysis_highlight <- function(x, highlight_interactions) {
     return(highlight_interactions)
   }
   if (isTRUE(highlight_interactions)) {
+    if (inherits(x$interactions, "maihda_interactions")) {
+      return(x$interactions)
+    }
     return(maihda_interactions(x))
   }
   stop("'highlight_interactions' must be FALSE, TRUE, or a maihda_interactions ",

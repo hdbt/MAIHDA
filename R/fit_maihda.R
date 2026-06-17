@@ -129,6 +129,14 @@
 #' @param time_degree Polynomial degree of the growth curve when \code{time} is
 #'   supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
 #'   degree 1 only.
+#' @param interactions Opt-in per-stratum interaction diagnostic
+#'   (\code{\link{maihda_interactions}}), attached as the \code{interactions} slot
+#'   and shown by \code{print()}. \code{FALSE} (default) skips it; \code{TRUE}
+#'   computes it with \code{adjust = "none"}; or pass a \code{\link[stats]{p.adjust}}
+#'   method name (e.g. \code{"BH"}). It is meaningful only on an \emph{adjusted}
+#'   model (the dimensions' main effects in the fixed part); on a null model
+#'   \code{maihda_interactions} warns. This is the single-fit parallel to the
+#'   default-on \code{interactions} of \code{\link{maihda}}.
 #' @param ... Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
 #'   \code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},
 #'   \code{fast}). The lme4-style \code{weights}/\code{subset}/\code{offset}
@@ -145,6 +153,8 @@
 #'   \item{strata_info}{The strata information from make_strata() if available, NULL otherwise}
 #'   \item{context_vars}{The context variable name(s) when \code{context} was
 #'     supplied, NULL otherwise}
+#'   \item{interactions}{The \code{maihda_interactions} diagnostic when
+#'     \code{interactions} is not \code{FALSE}, NULL otherwise}
 #'   \item{response_recoding}{For a recoded two-level outcome, a data frame mapping
 #'     each original level to its 0/1 value and role (reference/event); NULL when no
 #'     recoding occurred}
@@ -181,7 +191,8 @@
 #' @importFrom stats gaussian binomial poisson
 fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
                        autobin = TRUE, context = NULL, sampling_weights = NULL,
-                       id = NULL, time = NULL, time_degree = 1, ...) {
+                       id = NULL, time = NULL, time_degree = 1,
+                       interactions = FALSE, ...) {
   # Input validation
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a formula object")
@@ -742,6 +753,13 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     class = "maihda_model"
   )
 
+  # Opt-in per-stratum interaction diagnostic (parallel to maihda(), which computes
+  # it by default). For a single fit this is meaningful only on the *adjusted*
+  # model -- maihda_interactions() warns if the formula looks like a null model.
+  if (!isFALSE(interactions)) {
+    result <- maihda_attach_interactions(result, interactions)
+  }
+
   return(result)
 }
 
@@ -776,6 +794,7 @@ print.maihda_model <- function(x, ...) {
   }
   cat("\n")
   maihda_print_fit_diagnostics(x$diagnostics)
+  maihda_print_interactions_line(x$interactions)
   cat("Underlying model:\n")
   print(x$model, ...)
   invisible(x)

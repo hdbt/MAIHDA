@@ -153,7 +153,7 @@ test_that("a singular/boundary fit flags nothing and prints without error", {
 
 # ---- plot highlight option --------------------------------------------------
 
-test_that("highlight_interactions = FALSE is unchanged; TRUE / object add a ring layer", {
+test_that("highlight_interactions = FALSE is unchanged; TRUE applies the fade highlight", {
   a <- maihda_interaction_analysis()
 
   p_off   <- plot(a, type = "effect_decomp")
@@ -162,9 +162,18 @@ test_that("highlight_interactions = FALSE is unchanged; TRUE / object add a ring
 
   expect_s3_class(p_off, "ggplot")
   expect_s3_class(p_on, "ggplot")
-  # FALSE is identical to the default (no extra layer); TRUE adds the ring layer.
+  # Highlighting no longer adds a ring layer; it focuses by contrast (fade the
+  # non-flagged), which keeps the layer count constant but adds the discrete alpha
+  # scale and gives the segments more than one distinct opacity.
   expect_equal(length(p_false$layers), length(p_off$layers))
-  expect_gt(length(p_on$layers), length(p_off$layers))
+  expect_equal(length(p_on$layers), length(p_off$layers))
+  expect_equal(length(p_false$scales$scales), length(p_off$scales$scales))
+  expect_gt(length(p_on$scales$scales), length(p_off$scales$scales))
+
+  seg_alpha_off <- unique(ggplot2::ggplot_build(p_off)$data[[2]]$alpha)
+  seg_alpha_on  <- unique(ggplot2::ggplot_build(p_on)$data[[2]]$alpha)
+  expect_length(seg_alpha_off, 1L)         # uniform opacity when not highlighting
+  expect_gt(length(seg_alpha_on), 1L)       # flagged (solid) vs non-flagged (dimmed)
 })
 
 test_that("a precomputed maihda_interactions object can drive the highlight", {
@@ -212,4 +221,63 @@ test_that("brms uses the exact posterior tail and ignores adjust", {
   expect_message(maihda_interactions(a, adjust = "BH"), "ignored for brms")
   mi_bh <- suppressMessages(maihda_interactions(a, adjust = "BH"))
   expect_false("p_adjusted" %in% names(mi_bh))
+})
+
+# --- the interaction diagnostic built into maihda() / fit_maihda() ------------
+
+test_that("maihda() attaches the interaction diagnostic by default", {
+  a <- maihda_interaction_analysis()
+  expect_s3_class(a$interactions, "maihda_interactions")
+  expect_identical(attr(a$interactions, "adjust"), "none")
+  # identical to calling the diagnostic directly on the analysis (no recompute drift)
+  direct <- maihda_interactions(a)
+  expect_equal(attr(a$interactions, "n_flagged"), attr(direct, "n_flagged"))
+  expect_equal(a$interactions$interaction, direct$interaction)
+})
+
+test_that("interactions = FALSE skips the diagnostic", {
+  d <- maihda_interaction_data()
+  a <- suppressMessages(suppressWarnings(
+    maihda(y ~ A + B + (1 | A:B), data = d, interactions = FALSE)))
+  expect_null(a$interactions)
+})
+
+test_that("interactions = 'BH' flags with the FDR correction", {
+  d <- maihda_interaction_data()
+  a <- suppressMessages(suppressWarnings(
+    maihda(y ~ A + B + (1 | A:B), data = d, interactions = "BH")))
+  expect_s3_class(a$interactions, "maihda_interactions")
+  expect_identical(attr(a$interactions, "adjust"), "BH")
+  expect_true("p_adjusted" %in% names(a$interactions))
+})
+
+test_that("an invalid interactions argument errors", {
+  d <- maihda_interaction_data()
+  expect_error(
+    suppressMessages(suppressWarnings(
+      maihda(y ~ A + B + (1 | A:B), data = d, interactions = 1L))),
+    "TRUE, FALSE, or a multiple-comparison method")
+})
+
+test_that("plot(highlight_interactions = TRUE) reuses the stored diagnostic", {
+  a <- maihda_interaction_analysis()
+  hl <- maihda_resolve_analysis_highlight(a, TRUE)
+  expect_identical(hl, a$interactions)
+})
+
+test_that("fit_maihda(interactions = ) is opt-in and parallels maihda()", {
+  d <- maihda_interaction_data()
+  # default off
+  m_off <- suppressMessages(suppressWarnings(
+    fit_maihda(y ~ A + B + (1 | A:B), data = d)))
+  expect_null(m_off$interactions)
+  # opt-in, on the adjusted model
+  m_on <- suppressMessages(suppressWarnings(
+    fit_maihda(y ~ A + B + (1 | A:B), data = d, interactions = TRUE)))
+  expect_s3_class(m_on$interactions, "maihda_interactions")
+  # on a null model it warns (the stratum RE is the total deviation, not the
+  # pure interaction the diagnostic claims)
+  expect_warning(
+    fit_maihda(y ~ 1 + (1 | A:B), data = d, interactions = TRUE),
+    "looks like a null model")
 })

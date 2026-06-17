@@ -24,6 +24,7 @@ maihda(
   id = NULL,
   time = NULL,
   time_degree = 1,
+  interactions = TRUE,
   ...
 )
 }
@@ -138,6 +139,16 @@ polynomial degree (1 = linear). Supplying \code{id}/\code{time} selects
 model structure; \code{group}, \code{context}, and \code{sampling_weights} are
 not supported alongside them. Default \code{NULL} (cross-sectional).}
 
+\item{interactions}{Whether to compute the per-stratum interaction diagnostic
+(\code{\link{maihda_interactions}}) on the adjusted / crossed-dimensions model
+and attach it as the \code{interactions} slot, surfaced in \code{print()}.
+\code{TRUE} (default) uses \code{adjust = "none"} (the diagnostic's own
+default); \code{FALSE} skips it; or pass a \code{\link[stats]{p.adjust}} method
+name (e.g. \code{"BH"}) to flag with that multiplicity correction. Uses
+\code{conf_level}. Not computed for a longitudinal decomposition. The
+computation is cheap (it reads the stratum estimates the summary already holds;
+no refit).}
+
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
 \code{lmer}/\code{glmer}).}
 }
@@ -159,6 +170,9 @@ An object of class \code{maihda_analysis}: a list with
     variances and shares, per-dimension variances; \code{"crossed-dimensions"} mode
     only, \code{NULL} otherwise)}
   \item{groups}{a \code{maihda_group_comparison} when \code{group} is supplied,
+    otherwise \code{NULL}}
+  \item{interactions}{the \code{maihda_interactions} diagnostic (per-stratum
+    interaction BLUPs and flags) when \code{interactions} is not \code{FALSE},
     otherwise \code{NULL}}
   \item{mode}{\code{"two-model"} or \code{"crossed-dimensions"}}
   \item{context_vars}{the context variable name(s) when \code{context} was
