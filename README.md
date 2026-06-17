@@ -37,7 +37,7 @@ devtools::install_github("hdbt/MAIHDA")
 ```r
 install.packages("MAIHDA")
 ```
-## 30 seconds to MAIHDA - Quick Start
+## Quick Start: 30 Seconds to MAIHDA
 
 ```r
 library(MAIHDA)
@@ -46,7 +46,7 @@ data("maihda_health_data")
 # Everything in one call: null + adjusted fit, VPC/ICC summary, and PCV decomposition.
 analysis <- maihda(BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
                    data = maihda_health_data)
-analysis                       
+analysis
 summary(analysis)
 
 plot(analysis, type = "vpc")
