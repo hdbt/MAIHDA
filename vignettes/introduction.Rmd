@@ -164,7 +164,7 @@ literature's cross-classified MAIHDA (patients within strata and hospitals,
 students within strata and schools) -- pass `context = "school"` to `maihda()` or
 `fit_maihda()`. The summary then partitions the unexplained variance into
 between-stratum vs. between-context vs. residual, and the headline VPC/ICC becomes
-the between-stratum share net of the context. Also covered in
+the between-stratum share conditional on the context random effect. Also covered in
 `vignette("cross_classified", package = "MAIHDA")`.
 
 ### Design-weighted MAIHDA (survey data)

@@ -81,10 +81,10 @@ over <- fit_maihda(
 over
 ```
 
-If you see a singular-fit note, do not read the VPC as a clean zero. The solution is 
- to collapse dimensions or categories (fewer, larger cells), or to use
+If you see a singular-fit note, do not read the VPC as a clean zero. The solution is
+to collapse dimensions or categories (fewer, larger cells), or to use
 `engine = "brms"`, whose weakly-informative priors regularise the variance off the
-boundary and return an honest interval,  the subject of the
+boundary and return a posterior interval, the subject of the
 [Bayesian sparse vignette](bayesian_sparse_maihda.html).
 
 ## Continuous variables and the analytic sample
@@ -106,7 +106,7 @@ boundary and return an honest interval,  the subject of the
 
 - **`lme4` (default)** -- fast frequentist fits for adequately-sized cells.
 - **`brms`** -- Bayesian; preferred when cells are sparse or dimensions have few
-  levels (regularising priors, honest intervals).
+  levels (regularising priors, posterior intervals).
 
 For extensions beyond the cross-sectional case, see the
 [crossed random effects](cross_classified.html) (dimensions/contexts) and
@@ -116,12 +116,11 @@ For extensions beyond the cross-sectional case, see the
 
 1. [Introduction to MAIHDA](introduction.html) -- the end-to-end workflow.
 2. [Interpreting MAIHDA plots and diagnostics](interpreting_plots.html).
-3. [Finding the interactions that matter](finding_interactions.html).
+3. [Finding interaction patterns](finding_interactions.html).
 4. [Reporting MAIHDA results](reporting_results.html) -- tidy output and tables.
 5. Specialised designs: [binary outcomes](binary_outcomes.html),
    [group comparison](group_comparison.html),
-   [survey weights](design_weighted.html), and
-   [Bayesian / sparse](bayesian_sparse_maihda.html).
+   survey weights, and [Bayesian / sparse](bayesian_sparse_maihda.html).
 
 ## References
 

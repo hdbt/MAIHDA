@@ -18,7 +18,7 @@
 ^playground\.R$
 ^inst/shiny/rsconnect$
 ^vignettes/.*\.html$
-# Work-in-progress vignettes: kept in the repo but not built/compiled yet.
+# Pkgdown-only vignettes/assets: kept in the repo but not included in R CMD build.
 ^vignettes/finding_interactions\.Rmd$
 ^vignettes/bayesian_sparse_maihda\.Rmd$
 ^vignettes/sparse_precomputed\.rds$

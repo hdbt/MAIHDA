@@ -228,7 +228,7 @@ from the stratum component. The country share is the general contextual effect.
 m0 <- fit_maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data)
 summary(m0)$vpc$estimate          # strata-only VPC
 s <- summary(ctx)
-s$vpc$estimate                    # between-stratum share, net of country
+s$vpc$estimate                    # between-stratum share conditional on country
 s$context$vpc_context_total      # the country (general contextual) share
 ```
 

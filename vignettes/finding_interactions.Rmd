@@ -1,0 +1,93 @@
+---
+title: "Finding interaction patterns"
+author: "Hamid Bulut"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Finding interaction patterns}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+```
+
+## Overview
+
+One question that does come up naturaly is which strata depart most clearly
+from the additive expectation?
+
+For these exploratory diagnostics, `maihda()` can compute the stratum random effects and intervals from the adjusted model, and apply a multiplicity rule to flag strata that depart from the additive expectation more than expected by chance. The diagnostic is stored in the fitted model object and can be used to highlight strata in the effect-decomposition and predicted-strata plots.
+
+## Run a standard analysis and choose the multiplicity rule
+
+The default is `adjust = "none"`. This reports each stratum-level interval and
+flag without a multiple-testing correction.
+
+If the goal is to scan all strata and highlight a smaller set for follow-up, use
+an adjustment such as Benjamini-Hochberg:
+
+```{r model-bh}
+library(MAIHDA)
+model_bh <- maihda(
+  BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
+  data = maihda_health_data,
+  interactions = "BH" # Benjamini-Hochberg adjustment
+)
+```
+
+The printed output reports how many strata were flagged and which adjustment rule
+was used. The full table is stored in `a$interactions`.
+
+```{r table}
+model_bh$interactions
+```
+
+Each row is one stratum. The main columns are:
+
+- `interaction`: the adjusted-model stratum random effect, on the model scale.
+- `lower` and `upper`: the interval for that random effect.
+- `direction`: whether the stratum is above or below the additive expectation.
+- `flagged`: whether the stratum passes the selected screening rule.
+
+For frequentist fits, the table also includes the conditional standard error,
+p-value, and adjusted p-value when a correction is requested.
+
+## Highlight flagged strata
+
+The plotting methods can reuse the stored diagnostic.
+
+```{r plot-decomp, fig.height = 5}
+plot(model_bh, type = "effect_decomp", highlight_interactions = TRUE)
+```
+
+To highlight the strata that survive a specific adjustment ( in this case Benjamini-Hochberg ), pass the adjusted model object that contains the diagnostic with the desired adjustment:
+
+```{r plot-predicted, fig.height = 5}
+plot(model_bh, type = "predicted", highlight_interactions = TRUE)
+```
+
+
+## See also
+
+- [Introduction to MAIHDA](introduction.html), the main two-model workflow.
+- [Interpreting MAIHDA plots and diagnostics](interpreting_plots.html), how to
+  read the effect-decomposition and predicted-strata plots.
+- [Bayesian MAIHDA for sparse intersections](bayesian_sparse_maihda.html), sparse
+  cells and uncertainty in variance components.
+
+## References
+
+- Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V. (2018). A
+  multilevel approach to modeling health inequalities at the intersection of
+  multiple social identities. *Social Science & Medicine*, 203, 64-73.
+
+- Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
+  discriminatory accuracy (MAIHDA) within an intersectional framework. *Social
+  Science & Medicine*, 203, 74-80.
