@@ -1033,9 +1033,9 @@ maihda_print_context_partition <- function(ctx) {
     cat(sprintf("  Context share interval: %s\n",
                 fmt_share(ctx$vpc_context_total, ctx$vpc_context_total_ci)))
   }
-  cat("  Note: the headline VPC/ICC is the between-stratum share net of the\n",
-      "  context(s) -- intersectional clustering not attributable to shared place\n",
-      "  or institution. The context share is the general contextual effect.\n\n",
+  cat("  Note: the headline VPC/ICC is the between-stratum share conditional on\n",
+      "  the context random effect(s). The context share is the between-context\n",
+      "  component of the unexplained variance.\n\n",
       sep = "")
   invisible(NULL)
 }

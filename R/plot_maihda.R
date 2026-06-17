@@ -355,8 +355,8 @@ plot_context_vpc <- function(summary_obj) {
   caption <- paste(
     "Contextual cross-classified MAIHDA: individuals are cross-classified by their",
     "intersectional stratum and the higher-level context(s).",
-    "The between-stratum variance is the intersectional clustering net of the",
-    "context; the context variance is the general contextual effect.",
+    "The between-stratum variance is conditional on the context random effect(s);",
+    "the context variance is the between-context component of unexplained variance.",
     sep = "\n")
 
   ggplot(bar_data, aes(x = .data$component, y = .data$variance,
