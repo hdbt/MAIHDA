@@ -22,7 +22,7 @@ articles:
       - design_weighted
       - cross_classified
       - longitudinal
-      #- bayesian_sparse_maihda
+      - bayesian_sparse_maihda
       - reporting_results
   - title: Case studies
     navbar: Case studies
