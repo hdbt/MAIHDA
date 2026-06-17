@@ -1,5 +1,0 @@
-# ESS microdata is license-restricted (CC BY-NC-SA, no redistribution).
-# Never commit raw survey files to this repo. Keep only docs here.
-*
-!.gitignore
-!README.md
