@@ -200,10 +200,10 @@ sample</strong>, so the PCV is always a like-for-like comparison.</p>
 <span><span class="co">#&gt; Use summary() for variance components and plot(type = ...) for figures.</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>        <span class="co"># null:     BMI ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x5579f3c43a08&gt;</span></span>
+<span><span class="co">#&gt; &lt;environment: 0x55fb8c138240&gt;</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>  <span class="co"># adjusted: BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x5579fee3d230&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x55fb9732ed70&gt;</span></span></code></pre></div>
 <p>The returned object carries everything: the full variance components,
 the PCV decomposition, and both fitted models.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -472,7 +472,7 @@ compares variances across models, so both must use the same sample (the
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Between-stratum variance:</span></span>
 <span><span class="co">#&gt;   Model 1: 2.830755</span></span>
-<span><span class="co">#&gt;   Model 2: 2.579770</span></span>
+<span><span class="co">#&gt;   Model 2: 2.579769</span></span>
 <span><span class="co">#&gt;   Change:  0.250986 (8.87%)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span>

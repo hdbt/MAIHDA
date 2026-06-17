@@ -3,34 +3,17 @@
 ## Sparse intersectional cells
 
 Intersectional MAIHDA decomposes the between-stratum variation into an
-**additive** part (the constituent dimensions’ main effects) and an
-**interaction** part (the departure from additivity that is genuinely
-intersectional). A recurring finding in the literature is that this
-split is *mostly additive*. That conclusion is only trustworthy,
-however, when each intersectional stratum is populated well enough to
-estimate its effect.
-
+additive part (the constituent dimensions’ main effects) and an
+interaction part (the departure from additivity that is genuinely
+intersectional). That conclusion is defensible only, when each
+intersectional stratum is populated well enough to estimate its effect.
 In practice it often is not. Crossing several dimensions multiplies the
 strata while the sample size stays fixed, so cell counts fall away
-quickly: a few large strata, a long tail of small ones, and some
-singletons. Estimating an interaction **variance** from cells like these
-is hard, and the two engines fail differently. With `engine = "lme4"`,
-maximum likelihood drives the interaction variance to the boundary – a
-**singular fit** – and reports it as zero with no uncertainty. A real
-interaction is then read as *essentially additive*, and nothing in the
-output flags the estimate as unreliable.
-
-This vignette makes that failure concrete against a **known answer**,
-and shows what a Bayesian fit (`engine = "brms"`) does instead. The
-message is deliberately modest: weakly-informative priors do **not**
-recover a point estimate the data cannot support – at this density no
-estimator can – but they replace the singular point with a **calibrated
-credible interval** that still admits the true interaction. The
-interval, not the point, is what `brms` contributes here.
+quickly. Estimating an interaction variancemfrom cells like these is
+hard.
 
 ## A dataset with a known interaction
 
-To judge an estimator we need a dataset whose truth we control.
 `maihda_sparse_data` is simulated for exactly that: 4 dimensions form 36
 intersectional strata, and the interaction is constructed to account for
 **40% of the between-stratum variance** – on a Gaussian outcome `y` and
@@ -54,8 +37,8 @@ attr(d, "truth")$gaussian$interaction_share   # the true interaction share: 0.40
 ```
 
 A third of the strata hold fewer than five individuals. This is not an
-edge case – it is the usual situation once more than two or three
-dimensions are crossed – and it is precisely where maximum likelihood
+unsual case as it often the situation once more than two or three
+dimensions are crossed, and it is precisely where maximum likelihood
 becomes unreliable.
 
 ## What lme4 reports
@@ -81,20 +64,20 @@ c(gaussian_singular = isTRUE(m_g$model$diagnostics$singular),
 #>              TRUE              TRUE
 ```
 
-Both fits are **singular**: maximum likelihood has placed the
-interaction variance at the boundary. The Gaussian interaction share is
-pulled down to 23%, and the binary share to 3% – against a true 40%, the
-binary fit reports a substantial interaction as effectively absent.
-Crucially, neither estimate carries an interval. The estimate is not
-only biased but reported with unwarranted precision, because the model
-has no way to express how little the sparse cells determine.
+Both fits are singular: maximum likelihood has placed the interaction
+variance at the boundary. The Gaussian interaction share is pulled down
+to 23%, and the binary share to 3% – against a true 40%, the binary fit
+reports a substantial interaction as effectively absent. Crucially,
+neither estimate carries an interval. The estimate is not only biased
+but reported with unwarranted precision, because the model has no way to
+express how little the sparse cells determine.
 
 ## What brms adds: a calibrated interval
 
 Refitting with `engine = "brms"` and a weakly-informative prior on the
 random-effect standard deviations changes the output in one important
 respect. The prior regularises the between-stratum standard deviations
-away from the boundary – so the fit is not singular – and the posterior
+away from the boundary (so the fit is not singular) and the posterior
 yields a credible interval in place of a single number. The call is
 shown but not evaluated here (`brms` requires Stan and several minutes;
 see the note on precomputation below).
@@ -131,15 +114,15 @@ data.frame(
 #> 2   Binary        0.4 0.05027529 0.0001234149 0.4206628 1.002563           0
 ```
 
-The posterior **point** remains low: the interaction is weakly
-identified at this density, so `brms` does not recover the 40% either,
-and we should not expect it to. The **credible interval**, however, runs
-from near zero to past the true value, correctly conveying that the data
-are consistent with an interaction anywhere in that range. This is the
-substantive difference. Maximum likelihood reported a singular point as
-if it were certain; `brms` reports an interval that *includes the truth*
-and makes the uncertainty explicit. The diagnostics (`max_rhat` close to
-1, no divergent transitions) confirm the posterior is well-sampled.
+The posterior point remains low: the interaction is weakly identified at
+this density, so `brms` does not recover the 40% either, and we should
+not expect it to. The credible interval, however, runs from near zero to
+past the true value, correctly conveying that the data are consistent
+with an interaction anywhere in that range. This is the substantive
+difference. Maximum likelihood reported a singular point as if it were
+certain; `brms` reports an interval that includes the true share and
+makes the uncertainty explicit. The diagnostics (`max_rhat` close to 1,
+no divergent transitions) confirm the posterior is well-sampled.
 
 ## Comparison
 
@@ -174,58 +157,19 @@ Both point estimates fall below the true value; neither engine can
 locate an interaction the sparse data do not pin down. They differ in
 what is reported alongside the point. The `brms` credible interval spans
 the true 40%, whereas `lme4` provides a single value with no
-uncertainty. Reading the `lme4` point at face value – an interaction of
-roughly 3–23%, or none at all – is the error the singular fit invites.
+uncertainty. Reading the `lme4` point at face value (an interaction of
+roughly 3–23%, or none at all) is the error the singular fit invites.
 
 ## Why the interval, not the point, is what changes
 
 The per-stratum effects (the stratum random intercepts) are similar
-under the two engines: both apply partial pooling, shrinking
+under the two engines as both apply partial pooling, shrinking
 thinly-estimated strata toward the additive prediction. What differs is
 the treatment of uncertainty. Maximum likelihood commits to a single
 variance decomposition and, at the boundary, reports it without a
 standard error. `brms` propagates the full posterior, so the interaction
-**share** is accompanied by an interval whose width reflects how little
-the sparse cells constrain it – here, wide enough to span everything
-from near zero to past the true 40%. Summarising the posterior by its
-point discards exactly the information that matters: the degree of
-uncertainty.
-
-## Practical guidance
-
-- **Use a mildly informative prior on `class = "sd"`.** A half-normal
-  (`normal(0, s)`, used here), `exponential(rate)`, or
-  `student_t(3, 0, s)` scaled to the outcome (approximately the residual
-  SD for a Gaussian outcome; about 1 on the logit scale for a binary
-  one) regularises the between-stratum standard deviations away from the
-  boundary. Wider, near-flat priors are not preferable here: under heavy
-  sparsity `brms`’s default and `student_t(3, 0, 1)` produced divergent
-  transitions and an over-confident, near-zero interaction, whereas
-  `normal(0, 0.5)` sampled cleanly and produced the interval that
-  covered the truth. Target a specific term with the `group =`/`coef =`
-  arguments of
-  [`brms::set_prior()`](https://paulbuerkner.com/brms/reference/set_prior.html).
-- **Check the sampler.** Sparse cells produce a difficult posterior
-  geometry. Raise `adapt_delta` (0.95–0.99) to remove divergent
-  transitions, and confirm `Rhat` and the effective sample size before
-  interpreting the interval.
-- **Report the interval, not the point.** With this little data per cell
-  the point estimate is uninformative; the calibrated interval is the
-  appropriate summary, and it is exactly what the singular `lme4` fit
-  cannot provide.
-- **Precompute brms for vignettes and reports.** `brms` requires Stan
-  and is slow, so it should not run at build time. Fit it once in a
-  script (`data-raw/precompute_sparse_vignette.R`), save the small
-  summaries needed (not the multi-megabyte `brmsfit` object), and render
-  from the cache, as this vignette does.
-
-## Caveats
-
-This is a **simulated** dataset with a constructed interaction, which is
-what allows the estimators to be judged against a known value; real data
-provide no such benchmark, and the *mostly additive* pattern reported
-across the MAIHDA literature is frequently genuine. The conclusion is
-correspondingly narrow: when intersectional cells are sparse, a singular
-maximum-likelihood interaction of zero is not evidence that the
-interaction is zero, and a regularised Bayesian fit with an explicit
-interval is the more defensible summary.
+share is accompanied by an interval whose width reflects how little the
+sparse cells constrain it. Summarising the posterior by its point
+discards exactly the information that matters: the degree of
+uncertainty. When intersectional cells are sparse, a regularised
+Bayesian fit with an explicit interval is the more defensible summary.
