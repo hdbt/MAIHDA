@@ -94,12 +94,12 @@ Bulut</h4>
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p>The <strong>MAIHDA</strong> package provides specialized tools for
-conducting Multilevel Analysis of Individual Heterogeneity and
-Discriminatory Accuracy. This modern epidemiological approach is highly
-effective for investigating intersectional health inequalities and
-understanding how joint social categories (e.g., Race x Gender x
-Education) influence individual outcomes.</p>
+<p>The MAIHDA package provides specialized tools for conducting
+Multilevel Analysis of Individual Heterogeneity and Discriminatory
+Accuracy. This modern epidemiological approach is highly effective for
+investigating intersectional health inequalities and understanding how
+joint social categories (e.g., Race x Gender x Education) influence
+individual outcomes.</p>
 <p>By utilizing multilevel mixed-effects models (via <code>lme4</code>
 or <code>brms</code>), MAIHDA allows researchers to: 1. Automatically
 construct intersectional strata. 2. Estimate between-stratum variance
@@ -134,21 +134,12 @@ when you need finer control.</p>
 Nutrition Examination Survey (<code>maihda_health_data</code>). We use
 it to examine how Body Mass Index (BMI) varies across intersectional
 demographic groups.</p>
-<blockquote>
-<p><strong>Note.</strong> The bundled <code>maihda_health_data</code>
-and <code>maihda_country_data</code> are for teaching only. They are
-non-random subsamples, and the package ignores the surveys’ weights and
-complex sampling design (and uses a single PISA plausible value), so the
-results below are <strong>not</strong> survey-representative and should
-not be read as substantive population findings.</p>
-</blockquote>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_health_data"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># A few sections below add individual-level covariates (Age, Poverty) or compare</span></span>
-<span><span class="co"># variances across models, which all require the same analytic sample. We define</span></span>
-<span><span class="co"># one complete-case dataset up front so every analysis in this vignette agrees.</span></span>
+<span><span class="co"># variances across models.</span></span>
 <span><span class="va">health_complete</span> <span class="op">&lt;-</span> <span class="va">maihda_health_data</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/stats/complete.cases.html" class="external-link">complete.cases</a></span><span class="op">(</span></span>
 <span>  <span class="va">maihda_health_data</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BMI"</span>, <span class="st">"Age"</span>, <span class="st">"Gender"</span>, <span class="st">"Race"</span>, <span class="st">"Education"</span>, <span class="st">"Poverty"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="op">)</span>, <span class="op">]</span></span></code></pre></div>
@@ -157,22 +148,20 @@ not be read as substantive population findings.</p>
 <h2 id="the-maihda-workflow">The <code>maihda()</code> workflow<a class="anchor" aria-label="anchor" href="#the-maihda-workflow"></a>
 </h2>
 <p><code><a href="../reference/maihda.html">maihda()</a></code> runs the standard MAIHDA pipeline in a single
-call. It is intrinsically a <strong>two-model</strong> decomposition: it
-fits the <strong>null</strong> model (the intersectional random
-intercept, <em>excluding</em> the stratum dimensions’ main effects)
-<em>and</em> the <strong>adjusted</strong> model (the null <em>plus</em>
-the additive main effects of the stratum dimensions), summarises the
-null model’s VPC/ICC, and reports the <strong>PCV</strong> – the
-proportional change in between-stratum variance from null to adjusted,
-i.e. the additive share of the intersectional inequality.</p>
+call. It is intrinsically a two-model decomposition: it fits the null
+model (the intersectional random intercept, excluding the stratum
+dimensions’ main effects) and the adjusted model (the null plus the
+additive main effects of the stratum dimensions), summarises the null
+model’s VPC/ICC, and reports the PCV – the proportional change in
+between-stratum variance from null to adjusted, i.e. the additive share
+of the intersectional inequality.</p>
 <p>Write the stratum dimensions’ main effects in the formula and
 <code><a href="../reference/maihda.html">maihda()</a></code> treats it as the fully-specified adjusted model,
 deriving the null by dropping them. (Omit them –
 <code>BMI ~ 1 + (1 | Gender:Race:Education)</code> – and
 <code><a href="../reference/maihda.html">maihda()</a></code> adds them to the adjusted model for you, with a
 <code><a href="https://rdrr.io/r/base/message.html" class="external-link">message()</a></code>, so the decomposition stays explicit.) Either way
-<code><a href="../reference/maihda.html">maihda()</a></code> fits both models on the <strong>same analytic
-sample</strong>, so the PCV is always a like-for-like comparison.</p>
+<code><a href="../reference/maihda.html">maihda()</a></code> fits both models on the same analytic sample.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
@@ -200,10 +189,10 @@ sample</strong>, so the PCV is always a like-for-like comparison.</p>
 <span><span class="co">#&gt; Use summary() for variance components and plot(type = ...) for figures.</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>        <span class="co"># null:     BMI ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x55fb8c138240&gt;</span></span>
+<span><span class="co">#&gt; &lt;environment: 0x55aba1b23fa8&gt;</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>  <span class="co"># adjusted: BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x55fb9732ed70&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x55abacd14b40&gt;</span></span></code></pre></div>
 <p>The returned object carries everything: the full variance components,
 the PCV decomposition, and both fitted models.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -269,11 +258,11 @@ social groups rather than <em>within</em> them. The PCV tells us how
 much of that between-stratum variance is the additive sum of the
 dimensions’ main effects: if the variance drops substantially (high
 PCV), the between-stratum differences are largely additive; what remains
-is often read as the <em>intersectional interaction</em>. Interpret this
-cautiously – the PCV is a model-dependent variance change, not a causal
-decomposition, and a low or negative value does not by itself prove a
-“true” interaction (it can also reflect suppression, rescaling on the
-latent scale for non-Gaussian models, sample composition, or estimation
+is often read as the <em>intersectional interaction</em>. The PCV is a
+model-dependent variance change, not a causal decomposition, and a low
+or negative value does not by itself automatically prove a true
+interaction (it can also reflect suppression, rescaling on the latent
+scale for non-Gaussian models, sample composition, or estimation
 uncertainty).</p>
 <p>For publication-ready uncertainty, add <code>bootstrap = TRUE</code>
 (with <code>n_boot</code>) to attach parametric-bootstrap confidence
@@ -282,12 +271,8 @@ omitted here.</p>
 <div class="section level3">
 <h3 id="visual-diagnostics">Visual diagnostics<a class="anchor" aria-label="anchor" href="#visual-diagnostics"></a>
 </h3>
-<p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> routes each <code>type</code> to the model it
-belongs on automatically – the VPC and shrinkage views to the
-<strong>null</strong> model, the additive-vs-intersectional views to the
-<strong>adjusted</strong> model – so you never have to track which fit
-carries which quantity. The dedicated <a href="interpreting_plots.html">plot interpretation vignette</a> explains
-how to read each one.</p>
+<p>The dedicated <a href="interpreting_plots.html">plot interpretation
+vignette</a> explains how to read each one.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Variance partition (VPC) -- null model</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">analysis</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span></code></pre></div>
@@ -320,53 +305,49 @@ package, so it is only drawn when that package is installed:</p>
 </h3>
 <p>Alongside the two-model PCV, <code><a href="../reference/maihda.html">maihda()</a></code> offers a
 <strong>crossed-dimensions</strong> decomposition
-(<code>decomposition = "crossed-dimensions"</code>; formerly called
-<code>"cross-classified"</code>, which still works as a deprecated
-alias) that estimates the additive and interaction parts from a
-<em>single</em> model – entering each dimension’s main effect as a
-random intercept rather than a fixed effect. The two modes target the
-same question with different estimators. See
+(<code>decomposition = "crossed-dimensions"</code>) that estimates the
+additive and interaction parts from a single model entering each
+dimension’s main effect as a random intercept rather than a fixed
+effect. See
 <code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>.</p>
 </div>
 <div class="section level3">
 <h3 id="a-contextual-cross-classified-model">A contextual cross-classified model<a class="anchor" aria-label="anchor" href="#a-contextual-cross-classified-model"></a>
 </h3>
 <p>To model the strata <em>crossed with</em> a higher-level place or
-institution – the literature’s <strong>cross-classified MAIHDA</strong>
-(patients within strata and hospitals, students within strata and
-schools) – pass <code>context = "school"</code> to <code><a href="../reference/maihda.html">maihda()</a></code>
-or <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code>. The summary then partitions the
-unexplained variance into between-stratum vs. between-context
-vs. residual, and the headline VPC/ICC becomes the between-stratum share
-net of the context. Also covered in
+institution – the literature’s cross-classified MAIHDA (patients within
+strata and hospitals, students within strata and schools) – pass
+<code>context = "school"</code> to <code><a href="../reference/maihda.html">maihda()</a></code> or
+<code><a href="../reference/fit_maihda.html">fit_maihda()</a></code>. The summary then partitions the unexplained
+variance into between-stratum vs. between-context vs. residual, and the
+headline VPC/ICC becomes the between-stratum share net of the context.
+Also covered in
 <code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>.</p>
 </div>
 <div class="section level3">
 <h3 id="design-weighted-maihda-survey-data">Design-weighted MAIHDA (survey data)<a class="anchor" aria-label="anchor" href="#design-weighted-maihda-survey-data"></a>
 </h3>
 <p>For complex-survey data (NHANES, PISA, …), pass the sampling-weight
-column via <code>sampling_weights</code>. Survey weights are
-<strong>not</strong> lme4’s <code>weights=</code> (those are precision
-weights, which rescale the residual variance), so the fit routes through
-<code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> – weighted pseudo-maximum-likelihood – and
-<code>engine = "lme4"</code> with sampling weights is an error rather
-than a silent misfit. The whole workflow (VPC/ICC, PCV, stratum
-summaries, prediction, plots, and the AUC for binary outcomes) is then
-design-weighted, with design-consistent standard errors for the fixed
-effects:</p>
+column via <code>sampling_weights</code>. Survey weights are not lme4’s
+<code>weights=</code> (those are precision weights, which rescale the
+residual variance), so the fit routes through <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code>
+weighted pseudo-maximum-likelihood. The whole workflow (VPC/ICC, PCV,
+stratum summaries, prediction, plots, and the AUC for binary outcomes)
+is then design-weighted, with design-consistent standard errors for the
+fixed effects:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">weighted</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
 <span>                   data <span class="op">=</span> <span class="va">survey_data</span>, sampling_weights <span class="op">=</span> <span class="st">"person_weight"</span><span class="op">)</span></span>
 <span><span class="va">weighted</span></span></code></pre></div>
-<p>The wemix engine covers the canonical <code>gaussian(identity)</code>
-/ <code>binomial(logit)</code> MAIHDA with the single
+<p>The wemix engine covers <code>gaussian(identity)</code> /
+<code>binomial(logit)</code> MAIHDA with the single
 <code>(1 | stratum)</code> intercept; crossed random effects
 (<code>context =</code>,
 <code>decomposition = "crossed-dimensions"</code>) and bootstrap
 intervals require lme4/brms. <code>engine = "brms"</code> also accepts
-<code>sampling_weights</code>, as likelihood weights (a
-<em>pseudo-posterior</em>: design-consistent point estimates, but
-credible intervals that are not design-based).</p>
+<code>sampling_weights</code>, as likelihood weights (a pseudo-posterior
+with design-consistent point estimates, but credible intervals that are
+not design-based).</p>
 </div>
 <div class="section level3">
 <h3 id="comparing-across-groups">Comparing across groups<a class="anchor" aria-label="anchor" href="#comparing-across-groups"></a>
@@ -374,10 +355,10 @@ credible intervals that are not design-based).</p>
 <p>Add a higher-level grouping variable and <code><a href="../reference/maihda.html">maihda()</a></code> also
 compares the decomposition across its levels.
 <code>maihda_country_data</code> (OECD PISA 2018) has a real country
-grouping – it asks how much the joint <strong>gender x
-socioeconomic-status</strong> inequality in mathematics achievement
-differs across six countries. This workflow has its own <a href="group_comparison.html">group comparison vignette</a>, so here we
-just point to it:</p>
+grouping – it asks how much the joint gender x socioeconomic-status
+inequality in mathematics achievement differs across six countries. This
+workflow has its own <a href="group_comparison.html">group comparison
+vignette</a>, so here we just point to it:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
 <span><span class="va">by_country</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">math</span> <span class="op">~</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">ses</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span>
@@ -394,17 +375,15 @@ lower-level functions: <code><a href="../reference/fit_maihda.html">fit_maihda()
 <code><a href="../reference/calculate_pvc.html">calculate_pvc()</a></code> compares two, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reads
 the variance components, and <code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> runs
 the group comparison. Reach for them directly when you need finer
-control than the one-call workflow gives – in particular, a
-<strong>custom adjusted model</strong>, a <strong>stepwise</strong>
-decomposition, or the discriminatory-accuracy extensions for binary
-outcomes.</p>
+control than the one-call workflow gives. In particular, a custom
+adjusted model, a stepwise decomposition, or the discriminatory-accuracy
+extensions for binary outcomes.</p>
 <div class="section level3">
 <h3 id="fit-a-single-model">Fit a single model<a class="anchor" aria-label="anchor" href="#fit-a-single-model"></a>
 </h3>
 <p><code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> builds the intersectional strata on the fly
-(from the <code>:</code> interaction in the random effect) and fits one
-multilevel model. Use it when you only want a single fit – for example
-the null-model VPC on its own.</p>
+and fits one multilevel model. Use it when you only want a single fit,
+e.g. the null-model VPC on its own.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">health_complete</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model_null</span><span class="op">)</span></span>
@@ -452,14 +431,14 @@ the null-model VPC on its own.</p>
 <div class="section level3">
 <h3 id="a-custom-adjusted-model-and-the-pcv">A custom adjusted model and the PCV<a class="anchor" aria-label="anchor" href="#a-custom-adjusted-model-and-the-pcv"></a>
 </h3>
-<p><code><a href="../reference/maihda.html">maihda()</a></code> only ever adds the <strong>stratum dimensions’
-own</strong> main effects to the adjusted model. To ask a
-<em>different</em> question – how much of the between-stratum variance
-is explained by individual-level <strong>covariates</strong> that are
-not strata dimensions (here Age and Poverty) – build the two models
-yourself and compare them with <code><a href="../reference/calculate_pvc.html">calculate_pvc()</a></code>. PCV
-compares variances across models, so both must use the same sample (the
-<code>health_complete</code> data we prepared above):</p>
+<p><code><a href="../reference/maihda.html">maihda()</a></code> only ever adds the stratum dimensions’ own main
+effects to the adjusted model. To ask a different question (like how
+much of the between-stratum variance is explained by individual-level
+covariates that are not strata dimensions, here Age and Poverty) build
+the two models yourself and compare them with
+<code><a href="../reference/calculate_pvc.html">calculate_pvc()</a></code>. PCV compares variances across models, so
+both must use the same sample (the <code>health_complete</code> data we
+prepared above):</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_cov</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Poverty</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>                        data <span class="op">=</span> <span class="va">health_complete</span><span class="op">)</span></span>
@@ -514,17 +493,15 @@ the <code><a href="../reference/maihda.html">maihda()</a></code> object exposes 
 <p>Negative step PCVs in this table indicate an “unmasking”/suppression
 pattern: adding a variable increased the between-stratum variance. This
 is a model-dependent change in variance, not proof that a hidden
-structural inequality was causally revealed – a negative PCV can also
+structural inequality was causally revealed (a negative PCV can also
 reflect suppression, rescaling, sample composition, or estimation
-uncertainty, so interpret it cautiously alongside the fitted
-effects.</p>
+uncertainty).</p>
 </div>
 <div class="section level3">
 <h3 id="discriminatory-accuracy-and-the-response-scale-vpc">Discriminatory accuracy and the response-scale VPC<a class="anchor" aria-label="anchor" href="#discriminatory-accuracy-and-the-response-scale-vpc"></a>
 </h3>
-<p>For a <strong>binary</strong> outcome the discriminatory accuracy
-(AUC / C-statistic and Median Odds Ratio) is reported
-<strong>automatically</strong> – it rides along on the
+<p>For a binary outcome the discriminatory accuracy (AUC / C-statistic
+and Median Odds Ratio) is reported automatically. It rides along on the
 <code><a href="../reference/maihda.html">maihda()</a></code> summaries and headline <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> (and
 on <code>summary(fit_maihda(...))</code>), so the strata’s AUC sits next
 to the VPC with no extra call. The probability-scale (response) VPC is
@@ -533,10 +510,10 @@ estimated by simulation, so it is opt-in: add
 still call the helpers directly on the fitted models when you want them
 on their own:</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># A binary-outcome analysis -- DA rides along automatically; ask for the response VPC:</span></span>
+<code class="sourceCode R"><span><span class="co"># A binary-outcome analysis</span></span>
 <span><span class="va">ob</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">Obese</span> <span class="op">~</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
 <span>             response_vpc <span class="op">=</span> <span class="cn">TRUE</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">ob</span>                          <span class="co"># print() now shows the null-model AUC / MOR</span></span>
+<span><span class="va">ob</span>                         </span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">ob</span><span class="op">)</span>                 <span class="co"># carries the discriminatory_accuracy (+ vpc_response) slots</span></span>
 <span></span>
 <span><span class="co"># ...or call the pieces directly on the fitted maihda_model objects:</span></span>

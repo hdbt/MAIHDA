@@ -2,12 +2,12 @@
 
 ## Introduction
 
-The **MAIHDA** package provides specialized tools for conducting
-Multilevel Analysis of Individual Heterogeneity and Discriminatory
-Accuracy. This modern epidemiological approach is highly effective for
-investigating intersectional health inequalities and understanding how
-joint social categories (e.g., Race x Gender x Education) influence
-individual outcomes.
+The MAIHDA package provides specialized tools for conducting Multilevel
+Analysis of Individual Heterogeneity and Discriminatory Accuracy. This
+modern epidemiological approach is highly effective for investigating
+intersectional health inequalities and understanding how joint social
+categories (e.g., Race x Gender x Education) influence individual
+outcomes.
 
 By utilizing multilevel mixed-effects models (via `lme4` or `brms`),
 MAIHDA allows researchers to: 1. Automatically construct intersectional
@@ -49,21 +49,13 @@ Nutrition Examination Survey (`maihda_health_data`). We use it to
 examine how Body Mass Index (BMI) varies across intersectional
 demographic groups.
 
-> **Note.** The bundled `maihda_health_data` and `maihda_country_data`
-> are for teaching only. They are non-random subsamples, and the package
-> ignores the surveys’ weights and complex sampling design (and uses a
-> single PISA plausible value), so the results below are **not**
-> survey-representative and should not be read as substantive population
-> findings.
-
 ``` r
 
 library(MAIHDA)
 data("maihda_health_data")
 
 # A few sections below add individual-level covariates (Age, Poverty) or compare
-# variances across models, which all require the same analytic sample. We define
-# one complete-case dataset up front so every analysis in this vignette agrees.
+# variances across models.
 health_complete <- maihda_health_data[complete.cases(
   maihda_health_data[, c("BMI", "Age", "Gender", "Race", "Education", "Poverty")]
 ), ]
@@ -73,13 +65,12 @@ health_complete <- maihda_health_data[complete.cases(
 
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) runs the
 standard MAIHDA pipeline in a single call. It is intrinsically a
-**two-model** decomposition: it fits the **null** model (the
-intersectional random intercept, *excluding* the stratum dimensions’
-main effects) *and* the **adjusted** model (the null *plus* the additive
-main effects of the stratum dimensions), summarises the null model’s
-VPC/ICC, and reports the **PCV** – the proportional change in
-between-stratum variance from null to adjusted, i.e. the additive share
-of the intersectional inequality.
+two-model decomposition: it fits the null model (the intersectional
+random intercept, excluding the stratum dimensions’ main effects) and
+the adjusted model (the null plus the additive main effects of the
+stratum dimensions), summarises the null model’s VPC/ICC, and reports
+the PCV – the proportional change in between-stratum variance from null
+to adjusted, i.e. the additive share of the intersectional inequality.
 
 Write the stratum dimensions’ main effects in the formula and
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) treats
@@ -90,8 +81,7 @@ them to the adjusted model for you, with a
 [`message()`](https://rdrr.io/r/base/message.html), so the decomposition
 stays explicit.) Either way
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) fits
-both models on the **same analytic sample**, so the PCV is always a
-like-for-like comparison.
+both models on the same analytic sample.
 
 ``` r
 
@@ -121,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> Use summary() for variance components and plot(type = ...) for figures.
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x55fb8c138240>
+#> <environment: 0x55aba1b23fa8>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x55fb9732ed70>
+#> <environment: 0x55abacd14b40>
 ```
 
 The returned object carries everything: the full variance components,
@@ -196,11 +186,11 @@ than *within* them. The PCV tells us how much of that between-stratum
 variance is the additive sum of the dimensions’ main effects: if the
 variance drops substantially (high PCV), the between-stratum differences
 are largely additive; what remains is often read as the *intersectional
-interaction*. Interpret this cautiously – the PCV is a model-dependent
-variance change, not a causal decomposition, and a low or negative value
-does not by itself prove a “true” interaction (it can also reflect
-suppression, rescaling on the latent scale for non-Gaussian models,
-sample composition, or estimation uncertainty).
+interaction*. The PCV is a model-dependent variance change, not a causal
+decomposition, and a low or negative value does not by itself
+automatically prove a true interaction (it can also reflect suppression,
+rescaling on the latent scale for non-Gaussian models, sample
+composition, or estimation uncertainty).
 
 For publication-ready uncertainty, add `bootstrap = TRUE` (with
 `n_boot`) to attach parametric-bootstrap confidence intervals to the VPC
@@ -208,11 +198,7 @@ and PCV. It refits the models many times, so it is omitted here.
 
 ### Visual diagnostics
 
-[`plot()`](https://rdrr.io/r/graphics/plot.default.html) routes each
-`type` to the model it belongs on automatically – the VPC and shrinkage
-views to the **null** model, the additive-vs-intersectional views to the
-**adjusted** model – so you never have to track which fit carries which
-quantity. The dedicated [plot interpretation
+The dedicated [plot interpretation
 vignette](https://hdbt.github.io/MAIHDA/articles/interpreting_plots.md)
 explains how to read each one.
 
@@ -272,18 +258,15 @@ plot(analysis, type = "ternary")
 Alongside the two-model PCV,
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) offers a
 **crossed-dimensions** decomposition
-(`decomposition = "crossed-dimensions"`; formerly called
-`"cross-classified"`, which still works as a deprecated alias) that
-estimates the additive and interaction parts from a *single* model –
-entering each dimension’s main effect as a random intercept rather than
-a fixed effect. The two modes target the same question with different
-estimators. See
+(`decomposition = "crossed-dimensions"`) that estimates the additive and
+interaction parts from a single model entering each dimension’s main
+effect as a random intercept rather than a fixed effect. See
 [`vignette("cross_classified", package = "MAIHDA")`](https://hdbt.github.io/MAIHDA/articles/cross_classified.md).
 
 ### A contextual cross-classified model
 
 To model the strata *crossed with* a higher-level place or institution –
-the literature’s **cross-classified MAIHDA** (patients within strata and
+the literature’s cross-classified MAIHDA (patients within strata and
 hospitals, students within strata and schools) – pass
 `context = "school"` to
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) or
@@ -297,15 +280,14 @@ covered in
 ### Design-weighted MAIHDA (survey data)
 
 For complex-survey data (NHANES, PISA, …), pass the sampling-weight
-column via `sampling_weights`. Survey weights are **not** lme4’s
-`weights=` (those are precision weights, which rescale the residual
-variance), so the fit routes through
+column via `sampling_weights`. Survey weights are not lme4’s `weights=`
+(those are precision weights, which rescale the residual variance), so
+the fit routes through
 [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
-– weighted pseudo-maximum-likelihood – and `engine = "lme4"` with
-sampling weights is an error rather than a silent misfit. The whole
-workflow (VPC/ICC, PCV, stratum summaries, prediction, plots, and the
-AUC for binary outcomes) is then design-weighted, with design-consistent
-standard errors for the fixed effects:
+weighted pseudo-maximum-likelihood. The whole workflow (VPC/ICC, PCV,
+stratum summaries, prediction, plots, and the AUC for binary outcomes)
+is then design-weighted, with design-consistent standard errors for the
+fixed effects:
 
 ``` r
 
@@ -314,13 +296,13 @@ weighted <- maihda(outcome ~ age + (1 | gender:race:education),
 weighted
 ```
 
-The wemix engine covers the canonical `gaussian(identity)` /
-`binomial(logit)` MAIHDA with the single `(1 | stratum)` intercept;
-crossed random effects (`context =`,
-`decomposition = "crossed-dimensions"`) and bootstrap intervals require
-lme4/brms. `engine = "brms"` also accepts `sampling_weights`, as
-likelihood weights (a *pseudo-posterior*: design-consistent point
-estimates, but credible intervals that are not design-based).
+The wemix engine covers `gaussian(identity)` / `binomial(logit)` MAIHDA
+with the single `(1 | stratum)` intercept; crossed random effects
+(`context =`, `decomposition = "crossed-dimensions"`) and bootstrap
+intervals require lme4/brms. `engine = "brms"` also accepts
+`sampling_weights`, as likelihood weights (a pseudo-posterior with
+design-consistent point estimates, but credible intervals that are not
+design-based).
 
 ### Comparing across groups
 
@@ -328,7 +310,7 @@ Add a higher-level grouping variable and
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) also
 compares the decomposition across its levels. `maihda_country_data`
 (OECD PISA 2018) has a real country grouping – it asks how much the
-joint **gender x socioeconomic-status** inequality in mathematics
+joint gender x socioeconomic-status inequality in mathematics
 achievement differs across six countries. This workflow has its own
 [group comparison
 vignette](https://hdbt.github.io/MAIHDA/articles/group_comparison.md),
@@ -354,16 +336,16 @@ compares two, [`summary()`](https://rdrr.io/r/base/summary.html) reads
 the variance components, and
 [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
 runs the group comparison. Reach for them directly when you need finer
-control than the one-call workflow gives – in particular, a **custom
-adjusted model**, a **stepwise** decomposition, or the
-discriminatory-accuracy extensions for binary outcomes.
+control than the one-call workflow gives. In particular, a custom
+adjusted model, a stepwise decomposition, or the discriminatory-accuracy
+extensions for binary outcomes.
 
 ### Fit a single model
 
 [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-builds the intersectional strata on the fly (from the `:` interaction in
-the random effect) and fits one multilevel model. Use it when you only
-want a single fit – for example the null-model VPC on its own.
+builds the intersectional strata on the fly and fits one multilevel
+model. Use it when you only want a single fit, e.g. the null-model VPC
+on its own.
 
 ``` r
 
@@ -414,11 +396,11 @@ summary(model_null)
 ### A custom adjusted model and the PCV
 
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) only
-ever adds the **stratum dimensions’ own** main effects to the adjusted
-model. To ask a *different* question – how much of the between-stratum
-variance is explained by individual-level **covariates** that are not
-strata dimensions (here Age and Poverty) – build the two models yourself
-and compare them with
+ever adds the stratum dimensions’ own main effects to the adjusted
+model. To ask a different question (like how much of the between-stratum
+variance is explained by individual-level covariates that are not strata
+dimensions, here Age and Poverty) build the two models yourself and
+compare them with
 [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md).
 PCV compares variances across models, so both must use the same sample
 (the `health_complete` data we prepared above):
@@ -488,15 +470,15 @@ print(stepwise_results)
 Negative step PCVs in this table indicate an “unmasking”/suppression
 pattern: adding a variable increased the between-stratum variance. This
 is a model-dependent change in variance, not proof that a hidden
-structural inequality was causally revealed – a negative PCV can also
+structural inequality was causally revealed (a negative PCV can also
 reflect suppression, rescaling, sample composition, or estimation
-uncertainty, so interpret it cautiously alongside the fitted effects.
+uncertainty).
 
 ### Discriminatory accuracy and the response-scale VPC
 
-For a **binary** outcome the discriminatory accuracy (AUC / C-statistic
-and Median Odds Ratio) is reported **automatically** – it rides along on
-the [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+For a binary outcome the discriminatory accuracy (AUC / C-statistic and
+Median Odds Ratio) is reported automatically. It rides along on the
+[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
 summaries and headline [`print()`](https://rdrr.io/r/base/print.html)
 (and on `summary(fit_maihda(...))`), so the strata’s AUC sits next to
 the VPC with no extra call. The probability-scale (response) VPC is
@@ -506,10 +488,10 @@ models when you want them on their own:
 
 ``` r
 
-# A binary-outcome analysis -- DA rides along automatically; ask for the response VPC:
+# A binary-outcome analysis
 ob <- maihda(Obese ~ Gender + Race + (1 | Gender:Race), data = maihda_health_data,
              response_vpc = TRUE, seed = 1)
-ob                          # print() now shows the null-model AUC / MOR
+ob                         
 summary(ob)                 # carries the discriminatory_accuracy (+ vpc_response) slots
 
 # ...or call the pieces directly on the fitted maihda_model objects:
