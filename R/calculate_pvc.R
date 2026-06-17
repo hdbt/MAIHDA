@@ -421,8 +421,7 @@ print.pvc_result <- function(x, ...) {
               x$pvc * 100))
 
   cat("\nInterpretation (PCV is the proportional change in between-stratum\n")
-  cat("variance between the models; it is variance 'explained' only when Model 2\n")
-  cat("nests Model 1 by adding predictors on the same outcome, sample and strata):\n")
+  cat("variance between the models):\n")
   if (x$pvc > 0) {
     cat(sprintf("  Between-stratum variance is %.1f%% lower in Model 2 than in Model 1.\n",
                 x$pvc * 100))

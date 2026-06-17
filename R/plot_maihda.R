@@ -909,11 +909,7 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
     ggplot2::labs(
       title = "Mean Prediction vs. Stratum Random Effect",
       subtitle = paste0(
-        "Mean predicted outcome per stratum vs the stratum random effect. ",
-        "Whether a higher predicted value is 'worse' or 'better' depends on the ",
-        "outcome.\nThe random effect is the pure intersectional (interaction) ",
-        "effect only when the strata main effects are in the model; otherwise it ",
-        "also includes those additive main effects."
+        "Mean predicted outcome per stratum vs the stratum random effect."
       ),
       x = x_title,
       y = "Stratum random effect (between-stratum deviation)",
@@ -1096,10 +1092,7 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
   } else {
     paste0(
       "Stratum deviation split into the fixed-effect component and the stratum ",
-      "random effect (BLUP), on the model (link) scale.\nThe black dot is their ",
-      "sum; any other random effects (e.g. (1 | site)) are not included. The ",
-      "stratum component is the pure intersectional (interaction) effect only when ",
-      "the strata main effects are in the model; otherwise it also absorbs them."
+      "random effect (BLUP), on the model (link) scale."
     )
   }
   plot_title <- if (cc_mode) {
