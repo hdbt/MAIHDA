@@ -94,26 +94,25 @@ Bulut</h4>
 <div class="section level2">
 <h2 id="from-a-snapshot-to-a-trajectory">From a snapshot to a trajectory<a class="anchor" aria-label="anchor" href="#from-a-snapshot-to-a-trajectory"></a>
 </h2>
-<p>Standard (cross-sectional) MAIHDA answers <em>“do intersectional
-strata differ?”</em> at a single point in time, summarised by the
-between-stratum VPC. With repeated measurements we can ask a richer
-question: <em>“do strata differ in how they <strong>change</strong> over
-time?”</em> – and decompose those trajectory differences into an
-<strong>additive</strong> part (the dimensions’ main effects and their
-interactions with time) and a <strong>multiplicative</strong> part (a
-genuinely intersectional trajectory beyond additive).</p>
+<p>Standard (cross-sectional) MAIHDA answers “do intersectional strata
+differ?” at a single point in time, summarised by the between-stratum
+VPC. With repeated measurements we can ask a richer question: <em>“do
+strata differ in how they <strong>change</strong> over time?”</em> – and
+decompose those trajectory differences into an additive part (the
+dimensions’ main effects and their interactions with time) and a
+multiplicative part (a intersectional trajectory beyond additive).</p>
 <p>This is the longitudinal MAIHDA of Bell, Evans, Holman &amp; Leckie
-(2024). It is a <strong>3-level growth-curve model</strong>: measurement
-occasions (level 1) within individuals (level 2) within intersectional
-strata (level 3), with a random intercept <strong>and</strong> slope on
-time at both the individual and stratum levels:</p>
+(2024). It is a 3-level growth-curve model with measurement occasions
+(level 1) within individuals (level 2) within intersectional strata
+(level 3), with a random intercept and a slope on time at both the
+individual and stratum levels:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>y</mi><mrow><mi>t</mi><mi>i</mi><mi>j</mi></mrow></msub><mo>=</mo><msub><mi>β</mi><mn>0</mn></msub><mo>+</mo><msub><mi>β</mi><mn>1</mn></msub><mi>t</mi><mo>+</mo><munder><munder><mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>u</mi><mrow><mn>0</mn><mi>j</mi></mrow></msub><mo>+</mo><msub><mi>u</mi><mrow><mn>1</mn><mi>j</mi></mrow></msub><mspace width="0.167em"></mspace><mi>t</mi><mo stretchy="false" form="postfix">)</mo></mrow><mo accent="true">⏟</mo></munder><mtext mathvariant="normal">stratum</mtext></munder><mo>+</mo><munder><munder><mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>v</mi><mrow><mn>0</mn><mi>i</mi><mi>j</mi></mrow></msub><mo>+</mo><msub><mi>v</mi><mrow><mn>1</mn><mi>i</mi><mi>j</mi></mrow></msub><mspace width="0.167em"></mspace><mi>t</mi><mo stretchy="false" form="postfix">)</mo></mrow><mo accent="true">⏟</mo></munder><mtext mathvariant="normal">individual</mtext></munder><mo>+</mo><msub><mi>e</mi><mrow><mi>t</mi><mi>i</mi><mi>j</mi></mrow></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
 y_{tij} = \beta_0 + \beta_1 t + \underbrace{(u_{0j} + u_{1j}\,t)}_{\text{stratum}}
         + \underbrace{(v_{0ij} + v_{1ij}\,t)}_{\text{individual}} + e_{tij}.
 </annotation></semantics></math></p>
 <p>Because the stratum random effect now has a slope, the
-between-stratum variance – and hence the VPC – becomes a
-<strong>function of time</strong>:</p>
+between-stratum variance becomes a <strong>function of
+time</strong>:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">Var</mi><mo>⁡</mo></mrow><mi>S</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msubsup><mi>σ</mi><mrow><mi>u</mi><mn>0</mn></mrow><mn>2</mn></msubsup><mo>+</mo><mn>2</mn><mi>t</mi><mspace width="0.167em"></mspace><msub><mi>σ</mi><mrow><mi>u</mi><mn>01</mn></mrow></msub><mo>+</mo><msup><mi>t</mi><mn>2</mn></msup><msubsup><mi>σ</mi><mrow><mi>u</mi><mn>1</mn></mrow><mn>2</mn></msubsup><mo>,</mo><mspace width="2.0em"></mspace><msub><mrow><mi mathvariant="normal">VPC</mi><mo>⁡</mo></mrow><mi>S</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><mrow><msub><mrow><mi mathvariant="normal">Var</mi><mo>⁡</mo></mrow><mi>S</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo></mrow><mrow><msub><mrow><mi mathvariant="normal">Var</mi><mo>⁡</mo></mrow><mi>S</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mrow><mi mathvariant="normal">Var</mi><mo>⁡</mo></mrow><mi>I</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \operatorname{Var}_S(t) = \sigma^2_{u0} + 2t\,\sigma_{u01} + t^2 \sigma^2_{u1},
 \qquad
@@ -129,9 +128,9 @@ people, each measured over five waves, within 12 strata of gender
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
 ethnicity
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
-education. The trajectory differences are constructed to be <em>mostly
-additive</em> with one genuine interaction, so the decomposition below
-is interpretable.</p>
+education. The trajectory differences are constructed to be mostly
+additive with one genuine interaction, so the decomposition below is
+interpretable.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">maihda_long_data</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">maihda_long_data</span><span class="op">)</span></span>
@@ -142,15 +141,14 @@ is interpretable.</p>
 <span><span class="co">#&gt; 4 P0001    3    Men      EthB       Low  50     3.585             1</span></span>
 <span><span class="co">#&gt; 5 P0001    4    Men      EthB       Low  50     3.594             1</span></span>
 <span><span class="co">#&gt; 6 P0002    0  Women      EthB       Low  56     5.631             0</span></span></code></pre></div>
-<p>It is <strong>long format</strong> – one row per person-occasion –
-with a person id (<code>id</code>) and a numeric time
-(<code>wave</code>).</p>
+<p>It is long format, one row per person-occasion, with a person id
+(<code>id</code>) and a numeric time (<code>wave</code>).</p>
 </div>
 <div class="section level2">
 <h2 id="fitting-and-the-time-varying-vpc">Fitting and the time-varying VPC<a class="anchor" aria-label="anchor" href="#fitting-and-the-time-varying-vpc"></a>
 </h2>
 <p>Supply <code>id</code> and <code>time</code> to
-<code><a href="../reference/fit_maihda.html">fit_maihda()</a></code>. Write only the strata shorthand
+<code><a href="../reference/fit_maihda.html">fit_maihda()</a></code>. You only need to write the strata shorthand
 <code>(1 | var1:var2)</code>; the growth slopes on time are added for
 you.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
@@ -198,31 +196,27 @@ you.</p>
 <span><span class="co">#&gt;       10         10    Men × EthC × Low      -0.82706 0.13286 -1.08747  -0.5667</span></span>
 <span><span class="co">#&gt;   ... and 2 more strata</span></span>
 <span><span class="co">#&gt;   (random slope not shown; use predict(type = "strata") for the per-stratum intercept and slope, or plot(type = "trajectories")).</span></span></code></pre></div>
-<p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports the VPC at the
-<strong>baseline</strong> (reference time, the earliest wave) and the
-<strong>full trajectory</strong> of the VPC across the observed times.
-Plot it:</p>
+<p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports the VPC at the baseline (reference
+time, the earliest wave) and the full trajectory of the VPC across the
+observed times. Plot it:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">m</span>, type <span class="op">=</span> <span class="st">"vpc_trajectory"</span><span class="op">)</span>   <span class="co"># VPC(t), with the reference time marked</span></span></code></pre></div>
 <p><img src="longitudinal_files/figure-html/vpc-traj-1.png" class="r-plt" alt="" width="672"></p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">m</span>, type <span class="op">=</span> <span class="st">"trajectories"</span><span class="op">)</span>     <span class="co"># predicted per-stratum mean trajectories</span></span></code></pre></div>
 <p><img src="longitudinal_files/figure-html/vpc-traj-2.png" class="r-plt" alt="" width="672"></p>
-<p>A rising VPC trajectory means the strata <strong>fan out</strong>
-over time – intersectional inequality grows. Note that the VPC depends
-on where time is zeroed; the package reports the whole curve so that
-choice is transparent.</p>
+<p>A rising VPC trajectory means the strata fan out over time (
+intersectional inequality grows).</p>
 </div>
 <div class="section level2">
 <h2 id="decomposing-the-trajectory-additive-vs--multiplicative">Decomposing the trajectory: additive vs. multiplicative<a class="anchor" aria-label="anchor" href="#decomposing-the-trajectory-additive-vs--multiplicative"></a>
 </h2>
 <p><code>maihda(decomposition = "longitudinal")</code> (selected
 automatically when <code>id</code>/<code>time</code> are supplied) fits
-a <strong>null</strong> growth model and an <strong>adjusted</strong>
-growth model. The adjusted model adds the dimensions’ main effects
-<em>and their interactions with time</em> (<code>dim:time</code>), so
-the stratum-level variance it leaves behind is the interaction beyond
-additive.</p>
+a null growth model and an djusted growth model. The adjusted model adds
+the dimensions’ main effects and their interactions with time
+(<code>dim:time</code>), so the stratum-level variance it leaves behind
+is the interaction beyond additive.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">wave</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ethnicity</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
 <span>            data <span class="op">=</span> <span class="va">maihda_long_data</span>, id <span class="op">=</span> <span class="st">"id"</span>, time <span class="op">=</span> <span class="st">"wave"</span>,</span>
@@ -262,12 +256,6 @@ multiplicative/interaction part.</li>
 <h2 id="scope-and-cautions">Scope and cautions<a class="anchor" aria-label="anchor" href="#scope-and-cautions"></a>
 </h2>
 <ul>
-<li>
-<strong>Engines / families.</strong> lme4 (any polynomial degree)
-and brms (linear growth); all families with a defined level-1 variance
-(<code>gaussian</code>, <code>binomial</code>, <code>poisson</code>,
-<code>negbinomial</code>). For non-Gaussian outcomes the VPC is on the
-latent scale, as for the cross-sectional summaries.</li>
 <li>
 <strong>Identifiability.</strong> A stratum random slope needs
 enough occasions per stratum; sparse strata or few waves can give a
