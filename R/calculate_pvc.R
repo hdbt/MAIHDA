@@ -252,20 +252,20 @@ validate_pvc_models <- function(model1, model2) {
          call. = FALSE)
   }
 
-  n1 <- maihda_nobs(model1$model)
-  n2 <- maihda_nobs(model2$model)
-  # nobs() is undefined for WeMixResults; the wrapper's analytic frame holds the
-  # fitted rows, so its row count is the analytic n.
-  if (!is.finite(n1) && is.data.frame(model1$data)) n1 <- nrow(model1$data)
-  if (!is.finite(n2) && is.data.frame(model2$data)) n2 <- nrow(model2$data)
+  # nobs()/model.frame() are undefined for WeMixResults; the wrapper helpers fall
+  # back to the stored analytic frame (the fitted rows) so the n, row-identity and
+  # response checks below still apply to those engines instead of degrading to a
+  # silent pass.
+  n1 <- maihda_wrapper_nobs(model1)
+  n2 <- maihda_wrapper_nobs(model2)
   if (is.finite(n1) && is.finite(n2) && n1 != n2) {
     stop("PVC requires both models to use the same analytic sample. ",
          "Model 1 used ", n1, " observations and Model 2 used ", n2, ".",
          call. = FALSE)
   }
 
-  rows1 <- maihda_row_ids(model1$model)
-  rows2 <- maihda_row_ids(model2$model)
+  rows1 <- maihda_wrapper_row_ids(model1)
+  rows2 <- maihda_wrapper_row_ids(model2)
   if (!is.null(rows1) && !is.null(rows2) && !identical(rows1, rows2)) {
     stop("PVC requires both models to use the same analytic sample in the same row order.",
          call. = FALSE)
@@ -273,8 +273,8 @@ validate_pvc_models <- function(model1, model2) {
 
   # Content fingerprint: catch unrelated datasets that share n and default 1:n
   # row names but hold different responses.
-  fp1 <- maihda_response_fingerprint(model1$model)
-  fp2 <- maihda_response_fingerprint(model2$model)
+  fp1 <- maihda_wrapper_response_fingerprint(model1)
+  fp2 <- maihda_wrapper_response_fingerprint(model2)
   if (!is.na(fp1) && !is.na(fp2) && !identical(fp1, fp2)) {
     stop("PVC requires both models to be fitted to the same analytic data; the ",
          "outcome values differ between the two models.", call. = FALSE)

@@ -175,7 +175,10 @@ maihda_ic_one <- function(model, ml = FALSE) {
     logLik = na_real, AIC = na_real, BIC = na_real,
     WAIC = na_real, LOOIC = na_real
   )
-  n <- maihda_nobs(fm)
+  # maihda_wrapper_nobs() falls back to nrow(model$data) for engines whose fitted
+  # object has no nobs() method (WeMixResults), so the IC table reports the
+  # analytic n rather than NA (glance() already reports it via the same frame).
+  n <- maihda_wrapper_nobs(model)
   row$n <- if (is.finite(n)) as.integer(n) else NA_integer_
 
   if (inherits(fm, "merMod")) {

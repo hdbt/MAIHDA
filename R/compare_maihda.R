@@ -90,15 +90,18 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     # model compared as "NA(NA)") and normalises engine-specific labels such as
     # lme4's theta-embedding "Negative Binomial(<theta>)".
     fam_keys <- vapply(models, maihda_model_family_key, character(1))
+    # Wrapper helpers fall back to the stored analytic $data for engines whose
+    # fitted object exposes no model frame (WeMixResults), so the n, row-identity
+    # and response checks below apply to those engines too instead of degrading to
+    # a silent NA pass (the same checks calculate_pvc() makes).
     nobs_vec <- vapply(models, function(m) {
-      n <- maihda_nobs(m$model)
+      n <- maihda_wrapper_nobs(m)
       if (is.finite(n)) as.integer(n) else NA_integer_
     }, integer(1))
     # Row identity of the analytic sample and the row-wise stratum assignment, so
-    # disjoint samples of the SAME size and strata are still flagged (the same
-    # checks calculate_pvc() makes).
+    # disjoint samples of the SAME size and strata are still flagged.
     row_keys <- vapply(models, function(m) {
-      rid <- maihda_row_ids(m$model)
+      rid <- maihda_wrapper_row_ids(m)
       if (is.null(rid)) NA_character_ else paste(rid, collapse = "\r")
     }, character(1))
     row_stratum_keys <- vapply(models, function(m) {
@@ -111,7 +114,7 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     # Content fingerprint of the analytic response, so unrelated datasets that
     # happen to share n, default 1:n row names and stratum ids are still caught.
     response_keys <- vapply(models, function(m) {
-      maihda_response_fingerprint(m$model)
+      maihda_wrapper_response_fingerprint(m)
     }, character(1))
     # Key the strata by their DEFINITIONS (the grouping variables and the stratum
     # labels), not just the integer IDs: two models can both number their strata

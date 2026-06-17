@@ -250,6 +250,20 @@ maihda_var_at_time <- function(Sigma, t) {
   }, numeric(1))
 }
 
+# Stop with a consistent message when a cross-sectional, single-value-per-stratum
+# summary (a scalar BLUP ranking, predicted value, or BLUP-based plot) is
+# requested for a longitudinal MAIHDA. In a growth model each stratum's estimand
+# is a TRAJECTORY (random intercept + slope(s)), so collapsing it to one number
+# produces a cross-sectional-looking result that is not the right quantity. Point
+# the user to the trajectory tools instead.
+maihda_stop_longitudinal_scalar <- function(what) {
+  stop(what, " is not defined for a longitudinal MAIHDA: each stratum is a ",
+       "trajectory (random intercept + slope), not a single value. Use ",
+       "predict(type = \"strata\") for the per-stratum intercept and slope, ",
+       "plot(type = \"trajectories\") for the stratum mean trajectories, or ",
+       "plot(type = \"vpc_trajectory\") for the time-varying VPC.", call. = FALSE)
+}
+
 # A time grid for reporting VPC(t): the observed unique times when few, else a
 # 25-point grid spanning their range.
 maihda_longitudinal_time_grid <- function(time_values) {
@@ -504,7 +518,19 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
   deg <- nrow(Sn) - 1L
 
   pcv_cell <- function(vn, va) if (is.finite(vn) && vn > 0) (vn - va) / vn else NA_real_
-  pcv_intercept <- pcv_cell(Sn[1, 1], Sa[1, 1])
+
+  # The "baseline" PCV is the proportional change in the between-stratum variance
+  # at the OBSERVED baseline time (lng$ref_time = min(time)), not the raw-time-0
+  # intercept variance Sn[1, 1]. The two coincide only when time is centred so the
+  # baseline is 0; for waves like 10:12 the time-0 intercept variance is an
+  # extrapolation and its PCV is meaningless (it can even go negative). Evaluating
+  # a(t)'Sigma a(t) at ref_time matches how the VPC summary reports its baseline.
+  ref_time <- lng$ref_time
+  var_baseline_null <- maihda_var_at_time(Sn, ref_time)
+  var_baseline_adjusted <- maihda_var_at_time(Sa, ref_time)
+  pcv_intercept <- pcv_cell(var_baseline_null, var_baseline_adjusted)
+  # The slope variance is invariant to where time is zeroed, so Sn[2, 2]/Sa[2, 2]
+  # are already the right cells.
   pcv_slope <- if (deg >= 1) pcv_cell(Sn[2, 2], Sa[2, 2]) else NA_real_
 
   if (is.null(times)) {
@@ -518,6 +544,9 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
     list(
       pcv_intercept = pcv_intercept,
       pcv_slope = pcv_slope,
+      var_baseline_null = var_baseline_null,
+      var_baseline_adjusted = var_baseline_adjusted,
+      ref_time = ref_time,
       pcv_t = data.frame(time = times, var_null = vn_t, var_adjusted = va_t,
                          pcv = pcv_t),
       Sigma_stratum_null = Sn,
@@ -568,8 +597,11 @@ print.maihda_long_pcv <- function(x, ...) {
   fmt <- function(v) if (isTRUE(is.finite(v))) sprintf("%.1f%%", 100 * v) else "NA"
   cat("Longitudinal PCV (additive vs. multiplicative intersectionality)\n")
   cat("================================================================\n\n")
-  cat(sprintf("Baseline (intercept) variance: %.4f (null) -> %.4f (adjusted)\n",
-              x$Sigma_stratum_null[1, 1], x$Sigma_stratum_adjusted[1, 1]))
+  # Baseline = the between-stratum variance at the observed baseline time
+  # (ref_time), not the raw time-0 intercept variance Sigma[1, 1] (see
+  # maihda_longitudinal_pcv); the two coincide only when time is centred.
+  cat(sprintf("Baseline (%s = %g) variance: %.4f (null) -> %.4f (adjusted)\n",
+              x$time, x$ref_time, x$var_baseline_null, x$var_baseline_adjusted))
   cat(sprintf("  PCV_intercept: %s of the baseline between-stratum inequality is additive.\n",
               fmt(x$pcv_intercept)))
   if (nrow(x$Sigma_stratum_null) >= 2) {

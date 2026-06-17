@@ -1118,10 +1118,23 @@ print.maihda_summary <- function(x, ...) {
   }
 
   if (!is.null(x$stratum_estimates) && nrow(x$stratum_estimates) > 0) {
-    cat("Stratum Estimates (first 10):\n")
+    # For a longitudinal fit the stratum random_effect is the baseline (intercept)
+    # deviation only -- the random slope is not shown here -- so label it as such
+    # and point to the trajectory tools rather than letting it read as a single
+    # cross-sectional stratum effect.
+    if (is_lng) {
+      cat("Stratum baseline (intercept) deviations (first 10):\n")
+    } else {
+      cat("Stratum Estimates (first 10):\n")
+    }
     print(utils::head(x$stratum_estimates, 10), row.names = FALSE, digits = 4)
     if (nrow(x$stratum_estimates) > 10) {
       cat(sprintf("  ... and %d more strata\n", nrow(x$stratum_estimates) - 10))
+    }
+    if (is_lng) {
+      cat("  (random slope not shown; use predict(type = \"strata\") for the ",
+          "per-stratum intercept and slope, or plot(type = \"trajectories\")).\n",
+          sep = "")
     }
   }
 

@@ -144,6 +144,10 @@ test_that("design-weighted (wemix) fits report NA criteria without warning", {
   expect_identical(ic$estimator, "pseudo-ML (weighted)")
   # AIC/BIC are NA for pseudo-likelihood, so the all-NA columns are dropped.
   expect_false(any(c("AIC", "BIC") %in% names(ic)))
+  # n must still be the analytic sample size: WeMixResults has no nobs() method,
+  # so maihda_ic falls back to nrow(model$data) rather than reporting NA.
+  expect_true(is.finite(ic$n))
+  expect_identical(as.integer(ic$n), nrow(m$data))
 
   # compare_maihda(ic = TRUE) on a wemix pair must not add a warning.
   expect_no_warning(suppressMessages(compare_maihda(m, m)))

@@ -356,6 +356,27 @@ test_that("calculate_pvc works across wemix fits and guards mismatched weights",
   expect_error(calculate_pvc(m0, m_other), "same sampling weights")
 })
 
+test_that("calculate_pvc/compare_maihda catch DIFFERENT wemix outcomes", {
+  skip_on_cran()
+  skip_if_not_installed("WeMix")
+
+  # WeMixResults exposes no model frame, so the n/row/outcome checks must read the
+  # wrapper's stored analytic $data. Two fits sharing formula/n/strata/weights/rows
+  # but holding different OUTCOME values must not pass validation silently.
+  d <- make_dw_data()
+  m0 <- suppressMessages(
+    fit_maihda(y ~ age + (1 | gender:race:edu), data = d,
+               engine = "wemix", sampling_weights = "w"))
+  d_diff <- d
+  d_diff$y <- d_diff$y + 100 + rnorm(nrow(d_diff), sd = 5)
+  m_diff <- suppressMessages(
+    fit_maihda(y ~ age + (1 | gender:race:edu), data = d_diff,
+               engine = "wemix", sampling_weights = "w"))
+
+  expect_error(calculate_pvc(m0, m_diff), "outcome values differ")
+  expect_warning(compare_maihda(m0, m_diff), "analytic sample")
+})
+
 test_that("maihda() runs the design-weighted two-model decomposition", {
   skip_on_cran()
   skip_if_not_installed("WeMix")

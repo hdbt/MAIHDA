@@ -579,6 +579,60 @@ maihda_row_ids <- function(model) {
   row.names(frame)
 }
 
+# ---- wrapper-level analytic-sample helpers ---------------------------------
+# The nobs / row-id / response-fingerprint helpers above read the RAW fitted
+# object's model frame, which is undefined for some engines -- notably
+# WeMixResults, whose stats::nobs()/model.frame() are not implemented. These
+# wrapper-level companions take the maihda_model and fall back to its stored
+# analytic $data (the exact rows the engine fit) so the PVC and model-comparison
+# sample-identity checks are NOT silently skipped for those engines (two WeMix
+# fits with the same formula/n/strata but different outcome values must still be
+# distinguished).
+
+maihda_wrapper_nobs <- function(model) {
+  n <- maihda_nobs(model$model)
+  if (!is.finite(n) && is.data.frame(model$data)) {
+    n <- nrow(model$data)
+  }
+  n
+}
+
+maihda_wrapper_row_ids <- function(model) {
+  ids <- maihda_row_ids(model$model)
+  if (!is.null(ids)) {
+    return(ids)
+  }
+  if (is.data.frame(model$data)) {
+    return(row.names(model$data))
+  }
+  NULL
+}
+
+maihda_wrapper_response_fingerprint <- function(model) {
+  fp <- maihda_response_fingerprint(model$model)
+  if (!is.na(fp)) {
+    return(fp)
+  }
+  # Engine exposes no usable model frame (WeMixResults): fingerprint the response
+  # from the wrapper's analytic $data via the (two-sided) formula instead. The
+  # encoding matches maihda_response_fingerprint() exactly so a value computed
+  # this way compares equal to one read from a model frame on the same data.
+  if (is.data.frame(model$data) && !is.null(model$formula) &&
+      length(model$formula) == 3L) {
+    resp <- tryCatch(eval(model$formula[[2]], envir = model$data),
+                     error = function(e) NULL)
+    if (!is.null(resp)) {
+      resp <- unname(resp)
+      return(if (is.numeric(resp)) {
+        paste(formatC(resp, format = "g", digits = 12), collapse = "\r")
+      } else {
+        paste(as.character(resp), collapse = "\r")
+      })
+    }
+  }
+  NA_character_
+}
+
 maihda_infer_strata_vars <- function(strata_info) {
   if (is.null(strata_info)) {
     return(NULL)
@@ -1645,6 +1699,11 @@ maihda_weighted_stratum_aggregate <- function(pred_df, cols) {
 
 maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("response", "link")) {
   scale <- match.arg(scale)
+  if (!is.null(object$longitudinal_info)) {
+    # Backstop: a single per-stratum prediction adds only the random INTERCEPT and
+    # drops the random slope, so it is a cross-sectional value, not the trajectory.
+    maihda_stop_longitudinal_scalar("A single per-stratum prediction")
+  }
   data <- object$data
   if (!"stratum" %in% names(data)) {
     stop("'stratum' variable not found in fitted model data.")
@@ -1849,6 +1908,11 @@ maihda_prepare_prediction_data <- function(object, newdata) {
 
 maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("response", "link")) {
   scale <- match.arg(scale)
+  if (!is.null(object$longitudinal_info)) {
+    # Backstop: as in the lme4 helper, the scalar per-stratum prediction drops the
+    # random slope and so misrepresents a growth model's trajectory estimand.
+    maihda_stop_longitudinal_scalar("A single per-stratum prediction")
+  }
   if (!requireNamespace("brms", quietly = TRUE)) {
     stop("Package 'brms' is required. Please install it with: install.packages('brms')")
   }

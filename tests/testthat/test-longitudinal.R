@@ -108,6 +108,55 @@ test_that("longitudinal PCV recovers a mostly-additive trajectory split", {
   expect_gt(a$pcv$Sigma_stratum_adjusted[2, 2], 0)
 })
 
+test_that("longitudinal PCV baseline is the variance at ref_time, not raw time 0", {
+  # Shift time off zero (waves 10..14): the baseline PCV must be the PCV of the
+  # between-stratum variance AT the observed baseline (ref_time = 10), evaluated
+  # via a(t)'Sigma a(t), not the raw time-0 intercept-variance cell Sn[1, 1].
+  d <- maihda_long_data
+  d$wave <- d$wave + 10
+  # Fitting on raw time far from zero stresses lme4's optimizer (the time-0
+  # intercept variance is a far extrapolation); the convergence notice is
+  # immaterial here -- the assertions below are algebraic identities on whatever
+  # covariance block is returned.
+  a <- suppressWarnings(
+    maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+           data = d, id = "id", time = "wave", decomposition = "longitudinal"))
+  pcv <- a$pcv
+  expect_identical(pcv$ref_time, 10)
+
+  Sn <- pcv$Sigma_stratum_null
+  Sa <- pcv$Sigma_stratum_adjusted
+  v_base_n <- maihda_var_at_time(Sn, 10)
+  v_base_a <- maihda_var_at_time(Sa, 10)
+  expect_equal(pcv$var_baseline_null, v_base_n)
+  expect_equal(pcv$var_baseline_adjusted, v_base_a)
+  expect_equal(pcv$pcv_intercept, (v_base_n - v_base_a) / v_base_n)
+
+  # It must NOT equal the (meaningless) raw time-0 cell PCV when time is off zero.
+  raw_cell_pcv <- (Sn[1, 1] - Sa[1, 1]) / Sn[1, 1]
+  expect_false(isTRUE(all.equal(pcv$pcv_intercept, raw_cell_pcv)))
+
+  # The print method reports the baseline at ref_time (= 10), not time 0.
+  expect_output(print(pcv), "Baseline \\(wave = 10\\)")
+})
+
+test_that("longitudinal models refuse cross-sectional scalar rankings/plots", {
+  # A growth model's stratum estimand is a trajectory, so the scalar BLUP views
+  # are not defined and must redirect to the trajectory tools.
+  for (ty in c("predicted", "obs_vs_shrunken", "risk_vs_effect",
+               "effect_decomp", "prediction_deviation", "ternary")) {
+    expect_error(plot(m_g, type = ty), "longitudinal MAIHDA")
+  }
+  expect_error(maihda_strata_ranking(m_g, summary(m_g)), "longitudinal MAIHDA")
+
+  # maihda_table omits the ranking and explains why (rather than silently showing
+  # a misleading cross-sectional rank).
+  tab <- maihda_table(a_g)
+  expect_null(tab$strata)
+  expect_match(tab$strata_note, "trajector")
+  expect_output(print(tab), "Strata are trajectories")
+})
+
 test_that("predict(type = 'strata') returns trajectory parameters", {
   ps <- predict_maihda(m_g, type = "strata")
   expect_true(all(c("stratum", "intercept", "slope") %in% names(ps)))

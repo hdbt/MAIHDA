@@ -154,7 +154,16 @@ maihda_table <- function(x, n_strata = 10L, scale = c("response", "link"),
   models_df <- maihda_build_results_table(model_stats, pcv)
 
   # Ranked-strata table -- a bonus deliverable; never let it break the results
-  # table (e.g. a brms predict failure on an exotic family).
+  # table (e.g. a brms predict failure on an exotic family). A longitudinal fit
+  # has no single ranked value per stratum (each stratum is a trajectory), so the
+  # ranking is intentionally omitted with a note pointing to the trajectory tools.
+  strata_note <- if (!is.null(rank_model$longitudinal_info)) {
+    paste0("Strata are trajectories (growth-curve model): a single ranked ",
+           "value per stratum is not defined. Use predict(type = \"strata\") ",
+           "for per-stratum intercept/slope, or plot(type = \"trajectories\").")
+  } else {
+    NULL
+  }
   strata_df <- tryCatch(
     maihda_strata_ranking(rank_model, rank_summary, scale = scale),
     error = function(e) NULL)
@@ -178,6 +187,7 @@ maihda_table <- function(x, n_strata = 10L, scale = c("response", "link"),
       mode = mode,
       scale = scale,
       ranked_by = ranked_by,
+      strata_note = strata_note,
       n_obs = n_obs,
       n_strata_total = n_strata_total,
       context_vars = context_vars,
@@ -353,6 +363,9 @@ maihda_build_results_table <- function(model_stats, pcv = NULL) {
 # effect (BLUP, and its interval).
 maihda_strata_ranking <- function(object, summary_obj, scale = c("response", "link")) {
   scale <- match.arg(scale)
+  if (!is.null(object$longitudinal_info)) {
+    maihda_stop_longitudinal_scalar("A ranked-strata table")
+  }
   pred <- switch(object$engine,
     lme4 = maihda_stratum_predictions_lme4(object, summary_obj, scale = scale),
     brms = maihda_stratum_predictions_brms(object, summary_obj, scale = scale),
@@ -466,6 +479,8 @@ print.maihda_table <- function(x, digits = x$digits, ...) {
     }
     cat("  Predicted intervals are conditional (random-effect) only; ",
         "Stratum RE is the stratum BLUP.\n", sep = "")
+  } else if (!is.null(x$strata_note)) {
+    cat("\nRanked strata: ", x$strata_note, "\n", sep = "")
   }
 
   cat("\nEstimates are point values unless a [low, high] interval is shown ",
