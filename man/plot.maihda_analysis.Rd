@@ -23,8 +23,9 @@ time-specific PCV.}
 intersectional interaction on the BLUP-based views (see
 \code{\link{maihda_interactions}} and \code{\link[=plot.maihda_model]{plot}}).
 \code{FALSE} (default), \code{TRUE} (computed from this analysis's adjusted /
-crossed-dimensions model), or a \code{maihda_interactions} object. The flags
-are computed once from the correct (adjusted) model and reused across views.}
+crossed-dimensions model), a multiple-testing method such as \code{"BH"}, or
+a \code{maihda_interactions} object. The flags are computed once from the
+correct (adjusted) model and reused across views.}
 
 \item{...}{Additional arguments passed to the underlying plot method.}
 }

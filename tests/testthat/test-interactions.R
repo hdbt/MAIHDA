@@ -36,6 +36,16 @@ maihda_interaction_analysis <- function(...) {
   ))
 }
 
+maihda_effect_decomp_label_data <- function(plot) {
+  label_layers <- plot$layers[vapply(
+    plot$layers,
+    function(layer) inherits(layer$geom, "GeomLabelRepel"),
+    logical(1)
+  )]
+  expect_length(label_layers, 1L)
+  label_layers[[1]]$data
+}
+
 test_that("maihda_interactions returns a classed table with the documented columns", {
   a <- maihda_interaction_analysis()
   mi <- maihda_interactions(a)
@@ -185,6 +195,38 @@ test_that("a precomputed maihda_interactions object can drive the highlight", {
   # Works on the predicted view too (routed to the null model, flags reused).
   p2 <- plot(a, type = "predicted", highlight_interactions = mi)
   expect_s3_class(p2, "ggplot")
+})
+
+test_that("plot labels can follow multiplicity-adjusted interaction flags", {
+  dat <- maihda_interaction_data(n_per = 30, d = 0.55)
+  a <- suppressMessages(suppressWarnings(
+    maihda(y ~ A + B + (1 | A:B), data = dat)))
+
+  none <- maihda_interactions(a, adjust = "none")
+  bh <- maihda_interactions(a, adjust = "BH")
+  expect_gt(attr(none, "n_flagged"), attr(bh, "n_flagged"))
+  expect_gt(attr(bh, "n_flagged"), 0L)
+
+  hl <- maihda_resolve_analysis_highlight(a, "BH")
+  expect_s3_class(hl, "maihda_interactions")
+  expect_identical(attr(hl, "adjust"), "BH")
+  expect_equal(sort(hl$stratum[hl$flagged]), sort(bh$stratum[bh$flagged]))
+
+  p <- plot(a, type = "effect_decomp", highlight_interactions = "BH")
+  label_data <- maihda_effect_decomp_label_data(p)
+  expect_equal(sort(as.character(label_data$stratum)),
+               sort(as.character(bh$stratum[bh$flagged])))
+  expect_true(all(label_data$.maihda_flag))
+
+  dat_null <- maihda_interaction_data(n_per = 30, d = 0)
+  a_null <- suppressMessages(suppressWarnings(
+    maihda(y ~ A + B + (1 | A:B), data = dat_null)))
+  bh_null <- maihda_interactions(a_null, adjust = "BH")
+  expect_equal(attr(bh_null, "n_flagged"), 0L)
+
+  p_null <- plot(a_null, type = "effect_decomp", highlight_interactions = "BH")
+  label_data_null <- maihda_effect_decomp_label_data(p_null)
+  expect_equal(nrow(label_data_null), 0L)
 })
 
 test_that("an invalid highlight_interactions argument errors", {

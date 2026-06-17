@@ -38,9 +38,10 @@
 #'   on the BLUP-based views (\code{"effect_decomp"}, \code{"predicted"},
 #'   \code{"obs_vs_shrunken"}); other views ignore it. \code{FALSE} (default) off;
 #'   \code{TRUE} computes the flags with \code{maihda_interactions()} defaults; or
-#'   pass a \code{maihda_interactions} object to reuse a specific
-#'   \code{conf_level}/\code{adjust}. For the pure-interaction reading the model
-#'   should be the adjusted (or crossed-dimensions) model -- e.g. via
+#'   pass a multiple-testing method such as \code{"BH"} or a
+#'   \code{maihda_interactions} object to reuse a specific \code{conf_level}/
+#'   \code{adjust}. For the pure-interaction reading the model should be the
+#'   adjusted (or crossed-dimensions) model -- e.g. via
 #'   \code{plot()} on a \code{\link{maihda}} analysis, which routes these views to
 #'   the adjusted model automatically.
 #' @param ... Additional arguments (not currently used).
@@ -187,7 +188,8 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
 
 # Resolve the `highlight_interactions` plot argument to a character vector of
 # flagged stratum ids (or NULL = no highlight). Accepts FALSE/NULL (off), TRUE
-# (compute flags with maihda_interactions() defaults), or a precomputed
+# (compute flags with maihda_interactions() defaults), a p.adjust method name
+# such as "BH" (compute flags with that adjustment), or a precomputed
 # maihda_interactions object (so callers can set conf_level/adjust once and reuse).
 maihda_resolve_highlight <- function(model, highlight_interactions) {
   if (is.null(highlight_interactions) || isFALSE(highlight_interactions)) {
@@ -197,9 +199,18 @@ maihda_resolve_highlight <- function(model, highlight_interactions) {
     highlight_interactions
   } else if (isTRUE(highlight_interactions)) {
     maihda_interactions(model)
+  } else if (is.character(highlight_interactions) && length(highlight_interactions) == 1L) {
+    choices <- c("none", stats::p.adjust.methods)
+    if (!highlight_interactions %in% choices) {
+      stop("'highlight_interactions' must be FALSE, TRUE, a multiple-comparison ",
+           "method name (e.g. \"BH\"), or a maihda_interactions object from ",
+           "maihda_interactions().", call. = FALSE)
+    }
+    maihda_interactions(model, adjust = highlight_interactions)
   } else {
-    stop("'highlight_interactions' must be FALSE, TRUE, or a maihda_interactions ",
-         "object from maihda_interactions().", call. = FALSE)
+    stop("'highlight_interactions' must be FALSE, TRUE, a multiple-comparison ",
+         "method name (e.g. \"BH\"), or a maihda_interactions object from ",
+         "maihda_interactions().", call. = FALSE)
   }
   as.character(flags$stratum[flags$flagged %in% TRUE])
 }
@@ -932,6 +943,9 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
 #' @param object A maihda_model object
 #' @param summary_obj A maihda_summary object
 #' @param top_n_labels Number of most extreme strata to label
+#' @param highlight Optional character vector of stratum ids to highlight. When
+#'   supplied, labels are restricted to these strata rather than the most extreme
+#'   overall deviations.
 #' @return A ggplot2 object
 #' @keywords internal
 #' @import ggplot2
@@ -1037,6 +1051,13 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
     dplyr::arrange(.data$total_dev) |>
     dplyr::mutate(rank = dplyr::row_number())
 
+  if (is.null(highlight) || isFALSE(highlight)) {
+    highlight <- NULL
+  } else {
+    highlight <- as.character(highlight)
+  }
+  highlight_requested <- !is.null(highlight)
+
   # Mark strata flagged as carrying a credibly non-zero interaction.
   stratum_means$.maihda_flag <- as.character(stratum_means$stratum) %in% highlight
 
@@ -1070,14 +1091,20 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
   # Set component ordering so Additive is handled first
   seg_data$Component <- factor(seg_data$Component, levels = c(additive_label, interaction_label))
 
-  # Label the most extreme overall cases, plus any flagged-interaction strata, and
-  # star the flagged ones.
-  label_data <- stratum_means |>
-    dplyr::arrange(dplyr::desc(.data$abs_total_dev)) |>
-    utils::head(top_n_labels)
-  if (any(stratum_means$.maihda_flag)) {
-    label_data <- dplyr::distinct(dplyr::bind_rows(
-      label_data, stratum_means[stratum_means$.maihda_flag, , drop = FALSE]))
+  has_hl <- any(stratum_means$.maihda_flag)
+
+  # Without an interaction screen, label the most extreme overall deviations.
+  # With a screen, label exactly the highlighted strata (e.g. BH survivors),
+  # including the zero-row case when no stratum survives, so the labels track the
+  # chosen multiplicity rule rather than unadjusted extremes.
+  label_data <- if (highlight_requested) {
+    stratum_means[stratum_means$.maihda_flag, , drop = FALSE]
+  } else {
+    stratum_means |>
+      dplyr::arrange(dplyr::desc(.data$abs_total_dev)) |>
+      utils::head(top_n_labels)
+  }
+  if (has_hl) {
     label_data$label <- maihda_highlight_label(
       label_data$label, label_data$stratum, highlight)
   }
@@ -1100,7 +1127,6 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
   } else {
     "Deviation Decomposition: Fixed vs. Stratum-Random Components"
   }
-  has_hl <- any(stratum_means$.maihda_flag)
   if (has_hl) {
     plot_subtitle <- paste0(plot_subtitle,
       "\nFlagged interaction strata are full-opacity and starred; others dimmed.")

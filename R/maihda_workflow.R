@@ -855,8 +855,9 @@ summary.maihda_analysis <- function(object, ...) {
 #'   intersectional interaction on the BLUP-based views (see
 #'   \code{\link{maihda_interactions}} and \code{\link[=plot.maihda_model]{plot}}).
 #'   \code{FALSE} (default), \code{TRUE} (computed from this analysis's adjusted /
-#'   crossed-dimensions model), or a \code{maihda_interactions} object. The flags
-#'   are computed once from the correct (adjusted) model and reused across views.
+#'   crossed-dimensions model), a multiple-testing method such as \code{"BH"}, or
+#'   a \code{maihda_interactions} object. The flags are computed once from the
+#'   correct (adjusted) model and reused across views.
 #' @param ... Additional arguments passed to the underlying plot method.
 #' @return A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
 #' @export
@@ -984,10 +985,11 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
 
 # Resolve the highlight argument for a maihda_analysis: FALSE/NULL stays FALSE;
 # a maihda_interactions object passes through; TRUE reuses the interaction
-# diagnostic already stored on the analysis (so the rings match the printed
+# diagnostic already stored on the analysis (so the plot matches the printed
 # headline exactly), falling back to computing it when the analysis was built with
-# interactions = FALSE. Either way the downstream model plots receive a ready
-# object and neither recompute nor warn.
+# interactions = FALSE. A p.adjust method name such as "BH" computes adjusted
+# flags from the analysis's adjusted/crossed-dimensions model. Either way the
+# downstream model plots receive a ready object and neither recompute nor warn.
 maihda_resolve_analysis_highlight <- function(x, highlight_interactions) {
   if (is.null(highlight_interactions) || isFALSE(highlight_interactions)) {
     return(FALSE)
@@ -1001,6 +1003,16 @@ maihda_resolve_analysis_highlight <- function(x, highlight_interactions) {
     }
     return(maihda_interactions(x))
   }
-  stop("'highlight_interactions' must be FALSE, TRUE, or a maihda_interactions ",
-       "object from maihda_interactions().", call. = FALSE)
+  if (is.character(highlight_interactions) && length(highlight_interactions) == 1L) {
+    choices <- c("none", stats::p.adjust.methods)
+    if (!highlight_interactions %in% choices) {
+      stop("'highlight_interactions' must be FALSE, TRUE, a multiple-comparison ",
+           "method name (e.g. \"BH\"), or a maihda_interactions object from ",
+           "maihda_interactions().", call. = FALSE)
+    }
+    return(maihda_interactions(x, adjust = highlight_interactions))
+  }
+  stop("'highlight_interactions' must be FALSE, TRUE, a multiple-comparison ",
+       "method name (e.g. \"BH\"), or a maihda_interactions object from ",
+       "maihda_interactions().", call. = FALSE)
 }

@@ -17,6 +17,10 @@ plot_effect_decomposition(
 \item{summary_obj}{A maihda_summary object}
 
 \item{top_n_labels}{Number of most extreme strata to label}
+
+\item{highlight}{Optional character vector of stratum ids to highlight. When
+supplied, labels are restricted to these strata rather than the most extreme
+overall deviations.}
 }
 \value{
 A ggplot2 object
