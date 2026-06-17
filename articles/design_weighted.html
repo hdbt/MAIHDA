@@ -94,20 +94,19 @@ Bulut</h4>
 <div class="section level2">
 <h2 id="why-survey-weights-need-their-own-engine">Why survey weights need their own engine<a class="anchor" aria-label="anchor" href="#why-survey-weights-need-their-own-engine"></a>
 </h2>
-<p>Most real MAIHDA applications run on <strong>complex survey
-data</strong> – NHANES, PISA, BRFSS – where individuals are sampled with
-unequal probabilities and each carries a <strong>sampling (design)
-weight</strong>. Ignoring those weights gives estimates for the
-<em>sample</em>, not the <em>population</em>. But survey weights are
-<strong>not</strong> the same thing as <code>lme4</code>’s
-<code>weights =</code> argument: those are <em>precision</em> weights
-that rescale the residual variance, so feeding survey weights to
-<code>lmer()</code>/<code>glmer()</code> maximises the wrong objective
-and returns invalid population estimates.</p>
+<p>Most real MAIHDA applications run on complex survey data where
+individuals are sampled with unequal probabilities and each carries a
+sampling (design) weight. Ignoring those weights gives estimates for the
+sample, not the population. As survey weights are not the same thing as
+<code>lme4</code>’s <code>weights =</code> argument: those are
+<em>precision</em> weights that rescale the residual variance, so
+feeding survey weights to <code>lmer()</code>/<code>glmer()</code>
+maximises the wrong objective and returns invalid population
+estimates.</p>
 <p>MAIHDA therefore routes design weights through a different estimator.
 Supplying <code>sampling_weights</code> with
-<code>engine = "lme4"</code> is an <strong>error</strong> rather than a
-silent misfit:</p>
+<code>engine = "lme4"</code> is an error rather than a silent
+misfit:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">edu</span><span class="op">)</span>, data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="op">)</span>,</span>
@@ -117,10 +116,9 @@ silent misfit:</p>
 <p>With the default engine, <code>sampling_weights</code> switches (with
 a message) to <code>engine = "wemix"</code>: weighted
 pseudo-maximum-likelihood via <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code>, the estimator
-built for NAEP/PISA-style survey analysis (Rabe-Hesketh &amp; Skrondal
-2006). The individual weights enter at level 1; the level-2 (stratum)
-weights are <strong>1</strong>, because intersectional strata are
-exhaustive population cells.</p>
+built for complex survey analysis (Rabe-Hesketh &amp; Skrondal 2006).
+The individual weights enter at level 1; the level-2 (stratum) weights
+are because intersectional strata are exhaustive population cells.</p>
 </div>
 <div class="section level2">
 <h2 id="a-population-with-a-known-vpc">A population with a known VPC<a class="anchor" aria-label="anchor" href="#a-population-with-a-known-vpc"></a>

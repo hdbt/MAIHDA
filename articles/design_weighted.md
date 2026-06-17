@@ -2,18 +2,18 @@
 
 ## Why survey weights need their own engine
 
-Most real MAIHDA applications run on **complex survey data** – NHANES,
-PISA, BRFSS – where individuals are sampled with unequal probabilities
-and each carries a **sampling (design) weight**. Ignoring those weights
-gives estimates for the *sample*, not the *population*. But survey
-weights are **not** the same thing as `lme4`’s `weights =` argument:
-those are *precision* weights that rescale the residual variance, so
-feeding survey weights to `lmer()`/`glmer()` maximises the wrong
-objective and returns invalid population estimates.
+Most real MAIHDA applications run on complex survey data where
+individuals are sampled with unequal probabilities and each carries a
+sampling (design) weight. Ignoring those weights gives estimates for the
+sample, not the population. As survey weights are not the same thing as
+`lme4`’s `weights =` argument: those are *precision* weights that
+rescale the residual variance, so feeding survey weights to
+`lmer()`/`glmer()` maximises the wrong objective and returns invalid
+population estimates.
 
 MAIHDA therefore routes design weights through a different estimator.
-Supplying `sampling_weights` with `engine = "lme4"` is an **error**
-rather than a silent misfit:
+Supplying `sampling_weights` with `engine = "lme4"` is an error rather
+than a silent misfit:
 
 ``` r
 
@@ -27,10 +27,10 @@ fit_maihda(y ~ 1 + (1 | gender:edu), data = data.frame(),
 With the default engine, `sampling_weights` switches (with a message) to
 `engine = "wemix"`: weighted pseudo-maximum-likelihood via
 [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html),
-the estimator built for NAEP/PISA-style survey analysis (Rabe-Hesketh &
-Skrondal 2006). The individual weights enter at level 1; the level-2
-(stratum) weights are **1**, because intersectional strata are
-exhaustive population cells.
+the estimator built for complex survey analysis (Rabe-Hesketh & Skrondal
+2006). The individual weights enter at level 1; the level-2 (stratum)
+weights are because intersectional strata are exhaustive population
+cells.
 
 ## A population with a known VPC
 
