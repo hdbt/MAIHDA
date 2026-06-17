@@ -378,15 +378,14 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Change:  1.995592 (82.11%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
-#> variance between the models; it is variance 'explained' only when Model 2
-#> nests Model 1 by adding predictors on the same outcome, sample and strata):
+#> variance between the models):
 #>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x5606b81764d8>
+#> <environment: 0x55fbabaa53b8>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x5606c0c70578>
+#> <environment: 0x55fbaf2b02c8>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -442,7 +441,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x5606c2bd6ae0>
+#> <environment: 0x55fba369ab80>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

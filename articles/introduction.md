@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> Use summary() for variance components and plot(type = ...) for figures.
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x557d9bad6948>
+#> <environment: 0x564c0a57ee00>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x557da6cc8960>
+#> <environment: 0x564c1577a098>
 ```
 
 The returned object carries everything: the full variance components,
@@ -175,8 +175,7 @@ analysis$pcv            # proportional change in between-stratum variance
 #>   Change:  2.338944 (82.63%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
-#> variance between the models; it is variance 'explained' only when Model 2
-#> nests Model 1 by adding predictors on the same outcome, sample and strata):
+#> variance between the models):
 #>   Between-stratum variance is 82.6% lower in Model 2 than in Model 1.
 ```
 
@@ -422,8 +421,7 @@ calculate_pvc(model_null, model_cov)
 #>   Change:  0.250986 (8.87%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
-#> variance between the models; it is variance 'explained' only when Model 2
-#> nests Model 1 by adding predictors on the same outcome, sample and strata):
+#> variance between the models):
 #>   Between-stratum variance is 8.9% lower in Model 2 than in Model 1.
 ```
 

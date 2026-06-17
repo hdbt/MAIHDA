@@ -5,8 +5,6 @@ articles:
   bayesian_sparse_maihda: bayesian_sparse_maihda.html
   binary_outcomes: binary_outcomes.html
   cross_classified: cross_classified.html
-  design_weighted: design_weighted.html
-  ess_youth_unemployment: ess_youth_unemployment.html
   group_comparison: group_comparison.html
   interactive_app: interactive_app.html
   interpreting_plots: interpreting_plots.html
@@ -14,7 +12,7 @@ articles:
   longitudinal: longitudinal.html
   planning_a_study: planning_a_study.html
   reporting_results: reporting_results.html
-last_built: 2026-06-17T16:40Z
+last_built: 2026-06-17T17:22Z
 urls:
   reference: https://hdbt.github.io/MAIHDA/reference
   article: https://hdbt.github.io/MAIHDA/articles

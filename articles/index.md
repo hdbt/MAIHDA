@@ -13,8 +13,6 @@
   Accuracy)](https://hdbt.github.io/MAIHDA/articles/binary_outcomes.md):
 - [Comparing Intersectional Inequality Across
   Groups](https://hdbt.github.io/MAIHDA/articles/group_comparison.md):
-- [Design-weighted MAIHDA for survey
-  data](https://hdbt.github.io/MAIHDA/articles/design_weighted.md):
 - [Crossed random effects in MAIHDA: dimensions and
   contexts](https://hdbt.github.io/MAIHDA/articles/cross_classified.md):
 - [Longitudinal MAIHDA: intersectional inequalities over
@@ -23,11 +21,6 @@
   intersections](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md):
 - [Reporting MAIHDA results: tidy output and publication
   tables](https://hdbt.github.io/MAIHDA/articles/reporting_results.md):
-
-### Case studies
-
-- [Case study: youth unemployment across Europe
-  (ESS)](https://hdbt.github.io/MAIHDA/articles/ess_youth_unemployment.md):
 
 ### Interpretation
 

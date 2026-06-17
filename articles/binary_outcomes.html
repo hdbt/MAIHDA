@@ -15,7 +15,8 @@
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="MAIHDA for Binary Outcomes (Discriminatory Accuracy)">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
+<meta property="og:title" content="MAIHDA for Binary Outcomes (Discriminatory Accuracy)">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -44,14 +45,10 @@
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
-    <li><a class="dropdown-item" href="../articles/design_weighted.html">Design-weighted MAIHDA for survey data</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><a class="dropdown-item" href="../articles/longitudinal.html">Longitudinal MAIHDA: intersectional inequalities over time</a></li>
     <li><a class="dropdown-item" href="../articles/bayesian_sparse_maihda.html">Bayesian MAIHDA for sparse intersections</a></li>
     <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Case studies</h6></li>
-    <li><a class="dropdown-item" href="../articles/ess_youth_unemployment.html">Case study: youth unemployment across Europe (ESS)</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
     <li><a class="dropdown-item" href="../articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
@@ -288,8 +285,7 @@ sample:</p>
 <span><span class="co">#&gt;   Change:  0.003726 (1.67%)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span>
-<span><span class="co">#&gt; variance between the models; it is variance 'explained' only when Model 2</span></span>
-<span><span class="co">#&gt; nests Model 1 by adding predictors on the same outcome, sample and strata):</span></span>
+<span><span class="co">#&gt; variance between the models):</span></span>
 <span><span class="co">#&gt;   Between-stratum variance is 1.7% lower in Model 2 than in Model 1.</span></span></code></pre></div>
 <p>The same caveats as in the continuous case apply, with one extra
 wrinkle: for non-Gaussian models the latent residual variance is fixed

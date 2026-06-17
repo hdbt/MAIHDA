@@ -215,8 +215,7 @@ print(pcv)
 #>   Change:  0.003726 (1.67%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
-#> variance between the models; it is variance 'explained' only when Model 2
-#> nests Model 1 by adding predictors on the same outcome, sample and strata):
+#> variance between the models):
 #>   Between-stratum variance is 1.7% lower in Model 2 than in Model 1.
 ```
 
