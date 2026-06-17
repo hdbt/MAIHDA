@@ -2,10 +2,7 @@
 
 ## From a fitted model to a manuscript
 
-Fitting the model is half the job; the other half is getting the numbers
-*out* – into a results table, a tidy data frame you can plot your own
-way, or a one-line headline for an abstract. This vignette covers the
-three reporting helpers that turn a
+This vignette covers the three reporting helpers that turn a
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) analysis
 into publication-ready output without you recomputing anything:
 **[`glance()`](https://generics.r-lib.org/reference/glance.html)** (the
@@ -286,9 +283,9 @@ gt::gt(tab$models)
 
 ## Choosing a model structure with `maihda_ic()`
 
-The VPC and PCV describe *one* model; they do not tell you whether a
-different **structure** (another covariate set, strata definition, or
-family) fits better.
+The VPC and PCV describe do not tell you whether a different model
+specification (another covariate set, strata definition, or family) fits
+better.
 [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
 answers that with information criteria – `AIC`/`BIC` for the likelihood
 engines, `WAIC`/`LOOIC` for brms – and a `delta` column (gap from the
@@ -308,13 +305,6 @@ maihda_ic(a)
 #> REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.
 #> Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).
 ```
-
-It handles the **REML pitfall** automatically: Gaussian `lmer` fits use
-REML, whose AIC/BIC are not comparable across models with different
-fixed effects (the null-vs-adjusted case), so with more than one model
-any REML fit is refit with ML first (the `estimator` column records it)
-– matching what [`anova()`](https://rdrr.io/r/stats/anova.html) does on
-lme4 models.
 
 ## See also
 

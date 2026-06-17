@@ -94,16 +94,13 @@ Bulut</h4>
 <div class="section level2">
 <h2 id="from-a-fitted-model-to-a-manuscript">From a fitted model to a manuscript<a class="anchor" aria-label="anchor" href="#from-a-fitted-model-to-a-manuscript"></a>
 </h2>
-<p>Fitting the model is half the job; the other half is getting the
-numbers <em>out</em> – into a results table, a tidy data frame you can
-plot your own way, or a one-line headline for an abstract. This vignette
-covers the three reporting helpers that turn a <code><a href="../reference/maihda.html">maihda()</a></code>
-analysis into publication-ready output without you recomputing anything:
-<strong><code><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance()</a></code></strong> (the one-row headline),
-<strong><code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code></strong> (estimates as a tidy tibble), and
-<strong><code><a href="../reference/maihda_table.html">maihda_table()</a></code></strong> (the two canonical write-up
-tables). They read the quantities <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> already
-computed, so the tables always agree with
+<p>This vignette covers the three reporting helpers that turn a
+<code><a href="../reference/maihda.html">maihda()</a></code> analysis into publication-ready output without you
+recomputing anything: <strong><code><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance()</a></code></strong> (the
+one-row headline), <strong><code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code></strong> (estimates as a
+tidy tibble), and <strong><code><a href="../reference/maihda_table.html">maihda_table()</a></code></strong> (the two
+canonical write-up tables). They read the quantities
+<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> already computed, so the tables always agree with
 <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>/<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
@@ -398,11 +395,10 @@ installed):</p>
 <div class="section level2">
 <h2 id="choosing-a-model-structure-with-maihda_ic">Choosing a model structure with <code>maihda_ic()</code><a class="anchor" aria-label="anchor" href="#choosing-a-model-structure-with-maihda_ic"></a>
 </h2>
-<p>The VPC and PCV describe <em>one</em> model; they do not tell you
-whether a different <strong>structure</strong> (another covariate set,
-strata definition, or family) fits better. <code><a href="../reference/maihda_ic.html">maihda_ic()</a></code>
-answers that with information criteria –
-<code>AIC</code>/<code>BIC</code> for the likelihood engines,
+<p>The VPC and PCV describe do not tell you whether a different model
+specification (another covariate set, strata definition, or family) fits
+better. <code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> answers that with information criteria
+– <code>AIC</code>/<code>BIC</code> for the likelihood engines,
 <code>WAIC</code>/<code>LOOIC</code> for brms – and a <code>delta</code>
 column (gap from the best model):</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
@@ -417,12 +413,6 @@ column (gap from the best model):</p>
 <span><span class="co">#&gt; delta = difference from the best model on AIC (lower is better).</span></span>
 <span><span class="co">#&gt; REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.</span></span>
 <span><span class="co">#&gt; Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).</span></span></code></pre></div>
-<p>It handles the <strong>REML pitfall</strong> automatically: Gaussian
-<code>lmer</code> fits use REML, whose AIC/BIC are not comparable across
-models with different fixed effects (the null-vs-adjusted case), so with
-more than one model any REML fit is refit with ML first (the
-<code>estimator</code> column records it) – matching what
-<code><a href="https://rdrr.io/r/stats/anova.html" class="external-link">anova()</a></code> does on lme4 models.</p>
 </div>
 <div class="section level2">
 <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a>
