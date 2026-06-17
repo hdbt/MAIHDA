@@ -105,10 +105,15 @@ not to conclude from it. Calling <code><a href="https://rdrr.io/r/graphics/plot.
 <span>  <span class="va">maihda_health_data</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"BMI"</span>, <span class="st">"Age"</span>, <span class="st">"Gender"</span>, <span class="st">"Race"</span>, <span class="st">"Education"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="op">)</span>, <span class="op">]</span></span>
 <span></span>
-<span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
+<span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">health_complete</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<span><span class="op">)</span></span>
+<span><span class="co"># or equivalently with the helper:</span></span>
+<span><span class="co"># model &lt;- fit_maihda(</span></span>
+<span><span class="co">#   BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),</span></span>
+<span><span class="co">#   data = health_complete</span></span>
+<span><span class="co"># )</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="vpc-variance-partition">

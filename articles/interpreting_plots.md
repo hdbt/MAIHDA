@@ -20,10 +20,15 @@ health_complete <- maihda_health_data[complete.cases(
   maihda_health_data[, c("BMI", "Age", "Gender", "Race", "Education")]
 ), ]
 
-model <- fit_maihda(
+model <- maihda(
   BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
   data = health_complete
 )
+# or equivalently with the helper:
+# model <- fit_maihda(
+#   BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
+#   data = health_complete
+# )
 ```
 
 ## `vpc` – variance partition

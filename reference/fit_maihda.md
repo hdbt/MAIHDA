@@ -311,9 +311,9 @@ summary(model3)  # between-stratum vs. between-country vs. residual
 #> Contextual Cross-Classified Partition (stratum x context):
 #>   Between-stratum (intersectional) variance: 915.2323 (share 10.3%)
 #>   Context 'country' variance: 1137.1067 (share 12.8%)
-#>   Note: the headline VPC/ICC is the between-stratum share net of the
-#>   context(s) -- intersectional clustering not attributable to shared place
-#>   or institution. The context share is the general contextual effect.
+#>   Note: the headline VPC/ICC is the between-stratum share conditional on
+#>   the context random effect(s). The context share is the between-context
+#>   component of the unexplained variance.
 #> 
 #> Fixed Effects:
 #>         term estimate
