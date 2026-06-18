@@ -4,7 +4,7 @@ author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Planning a MAIHDA study}
+  %\VignetteIndexEntry{Planning a MAIHDA analysis}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
