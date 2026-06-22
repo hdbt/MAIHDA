@@ -1,11 +1,9 @@
 # MAIHDA plot theme
 
 A ggplot2 theme that applies the MAIHDA brand identity to plot *chrome*
-only – navy titles and axis labels, soft slate gridlines, and the brand
-font (Montserrat) when it is available, with a safe fallback to the
-device default font otherwise. It encodes no data: the colourblind-safe
-data palettes used by the package's plotting functions are left
-untouched.
+only – navy titles and axis labels and soft slate gridlines. It encodes
+no data: the colourblind-safe data palettes used by the package's
+plotting functions are left untouched.
 
 ## Usage
 
@@ -21,10 +19,9 @@ theme_maihda(base_size = 11, base_family = NULL)
 
 - base_family:
 
-  Base font family. When \`NULL\` (the default), the brand font
-  "Montserrat" is used if it is registered with the graphics device,
-  otherwise the device default. Pass a string to force a family, or set
-  \`options(maihda.font = "...")\` to override globally.
+  Base font family. Defaults to \`getOption("maihda.font", "")\`, i.e.
+  the graphics device default unless you have opted into a brand font
+  globally. Pass a string to force a family for a single plot.
 
 ## Value
 
@@ -34,6 +31,18 @@ A ggplot2 theme object that can be added to a plot with \`+\`.
 
 Built on \[ggplot2::theme_minimal()\], so it composes with additional
 \`+ theme()\` calls in the usual way (later settings win).
+
+## Fonts
+
+By default the theme uses the graphics device's default font, which is
+safe on every device (including the PostScript/PDF devices used by \`R
+CMD check\` and many rendering back-ends). To render figures in the
+brand font (Montserrat) – matching the hex logo – set
+\`options(maihda.font = "Montserrat")\` or pass \`base_family =
+"Montserrat"\`, and use a graphics device that can resolve that family
+(e.g. ragg or showtext). Forcing a font that the active device cannot
+find produces "invalid font type" errors, which is why it is opt-in
+rather than automatic.
 
 ## Examples
 
