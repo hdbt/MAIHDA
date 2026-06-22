@@ -4,6 +4,14 @@
 
 * **`theme_maihda()` now is set as standard theme for ggplot objects**
 
+## Bug Fixes
+
+* `calculate_pvc()` (and therefore `maihda()`, `stepwise_pcv()`, and `compare_maihda_groups()`) could **silently report a REML-based PCV for a singular multi-random-effect model**. The ML refit (`lme4::refitML()`, needed because REML between-stratum variances are not comparable across models with different fixed effects) was skipped whenever the fit was *globally* singular -- but a fit can be singular because a **non-stratum** random effect (e.g. an extra `(1 | site)` grouping factor) is on the boundary while the stratum variance is comfortably nonzero. In that case the package returned the REML PCV instead of the intended ML PCV. The ML refit is now skipped only when the **stratum** variance itself is on the boundary (effectively zero, judged on `lme4::isSingular()`'s own relative tolerance), or when `refitML()` fails; a non-stratum boundary no longer suppresses it. The boundary skip for a zero-variance stratum is preserved, so the zero-variance guard in `calculate_pvc()` is not masked.
+
+## Improvements
+
+* `compare_maihda_groups()` (and `maihda(group = )`) gain a **`var_between_adjusted_ml`** column: the adjusted model's *actual* between-stratum variance, read straight off the adjusted fit on the maximum-likelihood scale the PCV is computed on. The existing `var_between_adjusted` column is, by design, a derived coherence quantity (`var_between * (1 - pcv)`, on the REML `var_between`/`vpc` scale so the table satisfies `pcv = (var_between - var_between_adjusted) / var_between` exactly) and is **not** the adjusted fit's own variance; the documentation now states this explicitly and `var_between_adjusted_ml` reports the literal adjusted variance for anyone who needs it. The two differ only by the small REML-vs-ML gap in the null variance.
+
 # MAIHDA 0.1.11
 
 ## New Features

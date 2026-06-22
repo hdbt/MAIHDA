@@ -179,7 +179,8 @@ test_that("compare_maihda_groups(decomposition = 'crossed-dimensions') reports s
   expect_s3_class(g, "maihda_group_comparison")
   expect_true(all(c("var_additive", "var_interaction", "additive_share",
                     "interaction_share") %in% names(g)))
-  expect_false(any(c("pcv", "var_between_adjusted") %in% names(g)))
+  expect_false(any(c("pcv", "var_between_adjusted", "var_between_adjusted_ml") %in%
+                     names(g)))
   ok <- g[g$status == "ok", ]
   expect_true(all(ok$additive_share >= -1e-8 & ok$additive_share <= 1 + 1e-8))
   expect_identical(attr(g, "decomposition"), "crossed-dimensions")

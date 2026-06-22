@@ -552,16 +552,35 @@ test_that("compare_maihda_groups reports a per-group PCV with >= 2 dimensions", 
   cmp <- suppressWarnings(
     compare_maihda_groups(y ~ age + (1 | gender:race), data = d, group = "country")
   )
-  expect_true(all(c("pcv", "var_between_adjusted") %in% names(cmp)))
+  expect_true(all(c("pcv", "var_between_adjusted", "var_between_adjusted_ml") %in%
+                    names(cmp)))
   ok <- cmp$status == "ok"
   expect_true(all(is.finite(cmp$pcv[ok])))
   expect_true(all(is.finite(cmp$var_between_adjusted[ok])))
+  expect_true(all(is.finite(cmp$var_between_adjusted_ml[ok])))
   # The per-group PCV equals the proportional change in between-stratum variance from
   # the null to the adjusted model (a negative PCV is possible -- suppression -- so
-  # we check the identity, not a sign/monotonicity).
+  # we check the identity, not a sign/monotonicity). var_between_adjusted is the
+  # derived coherence value, so this identity holds against it exactly.
   expect_equal(cmp$pcv[ok],
                (cmp$var_between[ok] - cmp$var_between_adjusted[ok]) / cmp$var_between[ok],
                tolerance = 1e-8)
+
+  # var_between_adjusted_ml is the adjusted fit's ACTUAL between-stratum variance, so
+  # it must reproduce the per-group adjusted model fitted on the same sample/strata
+  # (the ML-refit var_model2 from calculate_pvc()). It is nonzero here and -- because
+  # of the REML-vs-ML gap in the null variance -- not identical to the derived
+  # var_between_adjusted coherence value.
+  d_ok <- droplevels(d[d$country == "A", ])
+  null_a <- fit_maihda(y ~ age + (1 | gender:race), data = d_ok)
+  adj_a  <- fit_maihda(y ~ age + gender + race + (1 | gender:race), data = d_ok)
+  ml_a   <- calculate_pvc(null_a, adj_a)$var_model2
+  expect_equal(cmp$var_between_adjusted_ml[cmp$group == "A"], ml_a, tolerance = 1e-6)
+  expect_false(isTRUE(all.equal(
+    cmp$var_between_adjusted[cmp$group == "A"],
+    cmp$var_between_adjusted_ml[cmp$group == "A"]
+  )))
+
   expect_s3_class(plot(cmp, type = "pcv"), "ggplot")
 })
 

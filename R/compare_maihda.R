@@ -416,11 +416,17 @@ plot_comparison <- function(comparison_df) {
 #'   decomposition: \code{pcv} (proportional change in between-stratum variance when
 #'   the dimensions' additive main effects are added; computed on the
 #'   maximum-likelihood scale -- see \code{\link{calculate_pvc}} -- because REML
-#'   variances are not comparable across the null vs. adjusted fixed effects) and
-#'   \code{var_between_adjusted} (the adjusted model's between-stratum variance,
-#'   reported as \code{var_between * (1 - pcv)} so it shares the scale of the
-#'   REML \code{var_between}/\code{vpc} and the table stays internally coherent);
-#'   both are \code{NA} for a group whose adjusted fit failed, and the columns are
+#'   variances are not comparable across the null vs. adjusted fixed effects),
+#'   \code{var_between_adjusted} (a \emph{derived} coherence quantity, reported as
+#'   \code{var_between * (1 - pcv)} so it shares the scale of the REML
+#'   \code{var_between}/\code{vpc} and the table satisfies
+#'   \code{pcv = (var_between - var_between_adjusted) / var_between} exactly -- it is
+#'   \strong{not} the adjusted fit's own variance), and
+#'   \code{var_between_adjusted_ml} (the adjusted model's \emph{actual}
+#'   between-stratum variance, read straight off the adjusted fit on the same
+#'   maximum-likelihood scale as the PCV; it differs from \code{var_between_adjusted}
+#'   only by the small REML-vs-ML gap in the null variance). All three are
+#'   \code{NA} for a group whose adjusted fit failed, and the columns are
 #'   omitted entirely when the strata have a single dimension. \code{n} is the analytic sample size used by the
 #'   model (after dropping rows with a missing outcome/covariate) for both fitted
 #'   and skipped groups, falling back to the raw row count only when the model
@@ -731,6 +737,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       vpc = NA_real_, var_between = NA_real_, var_other = NA_real_,
       var_residual = NA_real_,
       pcv = NA_real_, var_between_adjusted = NA_real_,
+      var_between_adjusted_ml = NA_real_,
       var_additive = NA_real_, var_interaction = NA_real_,
       additive_share = NA_real_, interaction_share = NA_real_,
       ci_lower = NA_real_, ci_upper = NA_real_,
@@ -867,8 +874,15 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
             # var_between. The PCV itself is calculate_pvc()'s ML-refit value, since REML
             # variances are not comparable across the null vs. adjusted fixed effects;
             # the small REML-vs-ML gap in the null variance is absorbed here rather than
-            # left as an apparent inconsistency between the columns.
+            # left as an apparent inconsistency between the columns. NOTE: this is a
+            # derived bookkeeping value, NOT the adjusted fit's own variance.
             row$var_between_adjusted <- row$var_between * (1 - pcv_obj$pvc)
+            # The adjusted MODEL's actual between-stratum variance, on the ML scale the
+            # PCV is computed on (var_model2 from calculate_pvc()). Unlike
+            # var_between_adjusted above, this is read straight off the adjusted fit, so
+            # it is the literal "adjusted between-stratum variance" -- it differs from
+            # var_between_adjusted only by the REML-vs-ML gap in the null variance.
+            row$var_between_adjusted_ml <- pcv_obj$var_model2
           }
         }
       }
@@ -937,12 +951,14 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     out$ci_upper <- NULL
   }
   # Keep only the decomposition columns for the mode that ran: the two-model PCV
-  # columns (pcv, var_between_adjusted) in "two-model" mode, the crossed-dimensions
-  # columns (var_additive, var_interaction, additive_share, interaction_share) in
-  # "crossed-dimensions" mode; drop both when no decomposition ran (single dimension).
+  # columns (pcv, var_between_adjusted, var_between_adjusted_ml) in "two-model" mode,
+  # the crossed-dimensions columns (var_additive, var_interaction, additive_share,
+  # interaction_share) in "crossed-dimensions" mode; drop both when no decomposition
+  # ran (single dimension).
   if (!do_decomp) {
     out$pcv <- NULL
     out$var_between_adjusted <- NULL
+    out$var_between_adjusted_ml <- NULL
   }
   if (!do_cc) {
     out$var_additive <- NULL

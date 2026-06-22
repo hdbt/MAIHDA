@@ -494,6 +494,67 @@ test_that("calculate_pvc rejects random-slope models for PVC accounting", {
   )
 })
 
+test_that("calculate_pvc refits with ML when a non-stratum RE is on the boundary", {
+  # A fit can be globally singular because an EXTRA grouping factor ((1 | site))
+  # sits on the boundary while the stratum variance is comfortably nonzero. The ML
+  # refit must still run there -- testing global isSingular() wrongly skipped it and
+  # left REML-based variances in the PCV.
+  set.seed(2)
+  d <- expand.grid(stratum = factor(seq_len(25)),
+                   site    = factor(seq_len(4)),
+                   rep     = seq_len(6))
+  d$x <- rnorm(nrow(d))
+  stratum_u <- rnorm(25, sd = 1)[d$stratum]   # stratum SD ~ 1
+  # No site effect -> site variance estimated at the boundary (exactly 0).
+  d$y <- 1 + 0.6 * d$x + stratum_u + rnorm(nrow(d), sd = 1.2)
+
+  m1 <- suppressWarnings(fit_maihda(y ~ (1 | stratum) + (1 | site), data = d))
+  m2 <- suppressWarnings(fit_maihda(y ~ x + (1 | stratum) + (1 | site), data = d))
+
+  # Document/require the scenario: both fits singular via the site boundary, but the
+  # stratum variance is clearly nonzero. (A loud failure here flags a setup that no
+  # longer reproduces the bug, rather than a silent false pass.)
+  expect_true(lme4::isSingular(m1$model))
+  expect_true(lme4::isSingular(m2$model))
+  expect_equal(as.numeric(as.matrix(lme4::VarCorr(m1$model)$site)[1, 1]), 0)
+  expect_gt(as.numeric(as.matrix(lme4::VarCorr(m1$model)$stratum)[1, 1]), 0.3)
+
+  # Reference PCVs from the raw REML fits and from explicit ML refits.
+  st_var <- function(m) as.numeric(as.matrix(lme4::VarCorr(m)$stratum)[1, 1])
+  reml_pcv <- (st_var(m1$model) - st_var(m2$model)) / st_var(m1$model)
+  ml1 <- lme4::refitML(m1$model); ml2 <- lme4::refitML(m2$model)
+  ml_pcv <- (st_var(ml1) - st_var(ml2)) / st_var(ml1)
+
+  # The two genuinely differ here, so the comparison below is meaningful.
+  expect_false(isTRUE(all.equal(reml_pcv, ml_pcv)))
+
+  pcv <- calculate_pvc(m1, m2)$pvc
+  expect_equal(pcv, ml_pcv, tolerance = 1e-8)               # uses the ML refit
+  expect_false(isTRUE(all.equal(pcv, reml_pcv)))            # not the REML estimate
+})
+
+test_that("maihda_pcv_refit_ml skips the refit when the stratum is at the boundary", {
+  # When the STRATUM itself is on the boundary, the refit is skipped: its variance is
+  # ~0 under either criterion, and re-optimising would nudge an exact zero off the
+  # boundary, masking the zero-variance guard in calculate_pvc().
+  set.seed(2)
+  d <- data.frame(stratum = factor(rep(seq_len(12), each = 8)))
+  d$x <- rnorm(nrow(d))
+  # No stratum effect -> stratum variance estimated at the boundary (exactly 0).
+  d$y <- 1 + 0.5 * d$x + rnorm(nrow(d), sd = 1.5)
+
+  m <- suppressWarnings(fit_maihda(y ~ x + (1 | stratum), data = d))
+  expect_true(lme4::isSingular(m$model))
+  expect_equal(MAIHDA:::maihda_stratum_variance_lme4(m$model), 0)
+  expect_true(MAIHDA:::maihda_stratum_at_boundary_lme4(m$model))
+
+  # The fit is left untouched (still REML), so the exact-zero variance is preserved
+  # for the downstream guard rather than being nudged positive by a boundary refit.
+  refit <- MAIHDA:::maihda_pcv_refit_ml(m)
+  expect_true(lme4::isREML(refit$model))
+  expect_equal(MAIHDA:::maihda_stratum_variance_lme4(refit$model), 0)
+})
+
 test_that("predict_maihda reuses training bins for numeric automatic strata", {
   set.seed(1009)
   n <- 120

@@ -161,17 +161,39 @@ maihda_pcv_refit_ml <- function(model) {
   }
   is_reml <- tryCatch(isTRUE(lme4::isREML(model$model)), error = function(e) FALSE)
   if (!is_reml) return(model)
-  # Skip a singular (boundary) fit: its between-stratum variance is ~0 under either
-  # criterion, and re-optimising a boundary fit only adds optimiser instability -- and
-  # would nudge an exact-zero variance off the boundary, masking the zero-variance
-  # guard in calculate_pvc(). The REML-vs-ML discrepancy this corrects only arises for
-  # non-singular fits.
-  singular <- tryCatch(lme4::isSingular(model$model),
-                       error = function(e) isTRUE(model$diagnostics$singular))
-  if (isTRUE(singular)) return(model)
+  # Skip the ML refit only when the STRATUM variance is itself on the boundary
+  # (effectively zero): there its between-stratum variance is ~0 under either
+  # criterion, re-optimising only adds optimiser instability, and the refit would
+  # nudge an exact-zero variance off the boundary, masking the zero-variance guard in
+  # calculate_pvc(). A fit can be globally singular because a NON-stratum random
+  # effect (e.g. an extra grouping factor like (1 | site)) sits on the boundary while
+  # the stratum variance is comfortably nonzero -- testing global isSingular() here
+  # wrongly skipped those, leaving the REML-vs-ML discrepancy this corrects in place.
+  # If refitML() itself fails, the tryCatch below keeps the original (REML) fit.
+  if (maihda_stratum_at_boundary_lme4(model$model)) return(model)
   refit <- tryCatch(lme4::refitML(model$model), error = function(e) NULL)
   if (!is.null(refit)) model$model <- refit
   model
+}
+
+# TRUE when the stratum random-intercept variance sits on the lower boundary
+# (effectively zero). Reproduces lme4::isSingular()'s relative tolerance for the
+# stratum component alone: its scaled SD parameter theta = sd_stratum / sigma_resid
+# is below `tol`, which is exactly how lme4 flags a single intercept term as singular.
+# Used by maihda_pcv_refit_ml() to decide whether an ML refit is worthwhile -- it is
+# not when the stratum is itself at zero, but it IS when only another grouping factor
+# is on the boundary. Returns TRUE (skip the refit) if the stratum variance cannot be
+# read at all; calculate_pvc()'s own zero-variance guard then surfaces the problem.
+maihda_stratum_at_boundary_lme4 <- function(model, tol = 1e-4) {
+  stratum_var <- tryCatch(maihda_stratum_variance_lme4(model),
+                          error = function(e) NA_real_)
+  if (is.na(stratum_var) || stratum_var <= 0) return(TRUE)
+  sigma_resid <- tryCatch(stats::sigma(model), error = function(e) NA_real_)
+  if (is.na(sigma_resid) || sigma_resid <= 0) {
+    # No usable residual scale: fall back to an absolute near-zero test.
+    return(stratum_var <= .Machine$double.eps)
+  }
+  sqrt(stratum_var) / sigma_resid < tol
 }
 
 #' Extract Between-Stratum Variance
