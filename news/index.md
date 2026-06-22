@@ -1,6 +1,15 @@
 # Changelog
 
+## MAIHDA 0.1.12
+
+### New Features
+
+- **[`theme_maihda()`](https://hdbt.github.io/MAIHDA/reference/theme_maihda.md)
+  now is set as standard theme for ggplot objects**
+
 ## MAIHDA 0.1.11
+
+CRAN release: 2026-06-18
 
 ### New Features
 

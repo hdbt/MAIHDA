@@ -7,7 +7,7 @@
 ## Citation
 
 Source:
-[`inst/CITATION`](https://github.com/hdbt/MAIHDA/blob/v0.1.11/inst/CITATION)
+[`inst/CITATION`](https://github.com/hdbt/MAIHDA/blob/main/inst/CITATION)
 
 Bulut, H. (2025). MAIHDA: Multilevel Analysis of Individual
 Heterogeneity and Discriminatory Accuracy. R package version 0.1.11.

@@ -96,3 +96,5 @@
   : Summarize a MAIHDA Analysis
 - [`summary(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
   : Summarize MAIHDA Model
+- [`theme_maihda()`](https://hdbt.github.io/MAIHDA/reference/theme_maihda.md)
+  : MAIHDA plot theme
