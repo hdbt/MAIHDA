@@ -405,8 +405,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
         # predict.merMod returns no se.fit, so the per-row SEs (and the bars) are
         # NA -- in that case omit the caption rather than promising an interval.
         caption = if (identical(x_label, "Stratum Rank") && any(is.finite(df$se))) {
-          paste("Stratum intervals are approximate: the mean of the individual",
-                "prediction SEs, not the SE of the stratum-mean prediction.")
+          paste("")
         } else {
           NULL
         }
@@ -516,8 +515,7 @@ is_aggregated <- "stratum" %in% names(df)
           # Omit the interval caption when no finite SE is available (e.g. lme4,
           # whose predict() has no se.fit), so the bars and the note stay in sync.
           caption = if (any(is.finite(df$se))) {
-            paste("Stratum intervals are approximate: the mean of the individual",
-                  "prediction SEs, not the SE of the stratum-mean prediction.")
+            paste("")
           } else {
             NULL
           }

@@ -361,7 +361,7 @@ plot.maihda_ternary <- function(
       color = "Stratum",
       size = "Sample Size (N)",
       title = "MAIHDA Strata Effects Decomposition",
-      caption = "Each point is a stratum. Proximity to a corner indicates higher proportion of that component.\nAdditive: Fixed effects only. Intersection: Random effect magnitude. Uncertainty: selected uncertainty metric."
+      caption = ""
     ) +
     ggplot2::theme(
       text = ggplot2::element_text(family = "sans", size = 11, color = "#333333"),

@@ -473,11 +473,9 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
       error = function(e) character(0)
     )
     interpretation_caption <- if (length(fixed_terms) > 0) {
-      paste("Adjusted model: the y-axis includes fixed effects, so distance from",
-            "the diagonal reflects both shrinkage and covariate adjustment.")
+      paste("")
     } else {
-      paste("Null model: vertical distance from the diagonal is shrinkage of the",
-            "stratum mean toward the grand mean.")
+      paste("")
     }
     has_hl <- any(plot_data$.maihda_flag)
     if (has_hl) {
@@ -730,8 +728,6 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
       x = "Stratum",
       y = "Predicted Value",
       caption = paste0(
-        "Intervals reflect random-effect (conditional) uncertainty only, ",
-        "not fixed-effect uncertainty.\nDashed line is the mean fixed-only prediction.",
         if (truncated_strata) {
           sprintf("\nShowing the first %d of %d strata (n_strata = %d).",
                   n_strata, n_total_strata, n_strata)

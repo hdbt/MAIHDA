@@ -1153,10 +1153,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
       any(is.finite(df$ci_lower) & is.finite(df$ci_upper))
 
     vpc_caption <- maihda_compose_caption(
-      paste("Descriptive comparison: each interval reflects one group's own",
-            "uncertainty; overlap is not a test of whether VPCs differ. The VPC is",
-            "the share of unexplained variance that lies between strata, not the",
-            "magnitude of inequality -- see type = \"between_variance\"."),
+      paste(""),
       omit_note
     )
 
