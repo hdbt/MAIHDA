@@ -313,7 +313,7 @@ plot_vpc <- function(summary_obj) {
       y = "Proportion of Variance",
       fill = "Component"
     ) +
-    theme_minimal() +
+    theme_maihda() +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"),
       axis.text.y = element_blank(),
@@ -384,7 +384,7 @@ plot_context_vpc <- function(summary_obj) {
       y = "Variance",
       caption = caption
     ) +
-    theme_minimal() +
+    theme_maihda() +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"),
       axis.text.x = element_text(angle = 20, hjust = 1),
@@ -504,7 +504,7 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
         size = "Sample Size",
         caption = interpretation_caption
       ) +
-      theme_minimal() +
+      theme_maihda() +
       theme(
         plot.title = element_text(hjust = 0.5, face = "bold"),
         legend.position = "right"
@@ -741,7 +741,7 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
         highlight_note
       )
     ) +
-    theme_minimal() +
+    theme_maihda() +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"),
       plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
@@ -926,7 +926,7 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
       y = "Stratum random effect (between-stratum deviation)",
       size = "Sample Size"
     ) +
-    ggplot2::theme_minimal() +
+    theme_maihda() +
     ggplot2::theme(
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
       plot.subtitle = ggplot2::element_text(hjust = 0.5, face = "italic", size = 9),
@@ -1162,7 +1162,7 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
       y = "Deviation from Global Mean (link scale)",
       color = "Effect Component"
     ) +
-    ggplot2::theme_minimal() +
+    theme_maihda() +
     ggplot2::theme(
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
       plot.subtitle = ggplot2::element_text(hjust = 0.5, face = "italic", size = 9),
@@ -1213,7 +1213,7 @@ plot_vpc_trajectory <- function(summary_obj) {
       x = lng$time,
       y = "VPC/ICC (between-stratum share of variance)"
     ) +
-    theme_minimal() +
+    theme_maihda() +
     theme(plot.title = element_text(face = "bold"))
   p
 }
@@ -1273,7 +1273,7 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50) {
       x = lng$time, y = "Predicted outcome (link scale)", color = "Stratum",
       caption = cap
     ) +
-    theme_minimal() +
+    theme_maihda() +
     theme(plot.title = element_text(face = "bold"),
           legend.position = if (length(strata) > 12) "none" else "right")
 }
@@ -1303,7 +1303,7 @@ plot_pcv_trajectory <- function(pcv) {
                          pcv$time),
       x = pcv$time, y = "PCV(t) (additive share)"
     ) +
-    theme_minimal() +
+    theme_maihda() +
     theme(plot.title = element_text(face = "bold"))
 }
 

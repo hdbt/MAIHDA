@@ -390,7 +390,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       ggplot2::geom_vline(ggplot2::aes(xintercept = .data$mean_fitted[1]), linetype = "dashed", color = "black") +
       ggplot2::geom_rug(data = label_df, color = "red", linewidth = 1) +
       ggplot2::labs(title = value_dist_title, x = NULL, y = "Density") +
-      ggplot2::theme_minimal()
+      theme_maihda()
 
     p2 <- ggplot2::ggplot(df, ggplot2::aes(x = .data$rank, y = .data$fitted)) +
       ggplot2::geom_segment(ggplot2::aes(xend = .data$rank, yend = .data$mean_fitted), color = "gray60") +
@@ -411,7 +411,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
           NULL
         }
       ) +
-      ggplot2::theme_minimal()
+      theme_maihda()
 
     return(patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 2)))
 
@@ -502,7 +502,7 @@ is_aggregated <- "stratum" %in% names(df)
       ggplot2::geom_vline(ggplot2::aes(xintercept = .data$mean_fitted[1]), linetype = "dashed", color = "black") +
       ggplot2::geom_rug(data = label_df, color = "red", linewidth = 1) +
       ggplot2::labs(title = "Distribution of Predicted Probabilities", x = NULL, y = "Density") +
-      ggplot2::theme_minimal()
+      theme_maihda()
 
     p2 <- ggplot2::ggplot(df, ggplot2::aes(x = .data$rank, y = .data$fitted)) +
       ggplot2::geom_segment(ggplot2::aes(xend = .data$rank, yend = .data$mean_fitted), color = "gray60", alpha = 0.5) +
@@ -536,7 +536,7 @@ is_aggregated <- "stratum" %in% names(df)
       ggplot2::geom_hline(ggplot2::aes(yintercept = .data$mean_fitted[1]), linetype = "dashed") +
         ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = .data$id), size = 3, min.segment.length = 0) +
       ggplot2::scale_color_manual(values = c("Above Mean" = "#0072B2", "Below Mean" = "#D55E00")) +
-      ggplot2::theme_minimal()
+      theme_maihda()
 
     return(patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 2)))
 
@@ -618,7 +618,7 @@ is_aggregated <- "stratum" %in% names(df)
         ggplot2::geom_area(alpha = 0.8) +
         ggplot2::scale_fill_viridis_d(option = "magma") +
         ggplot2::labs(title = "Predicted Category Probability Structure", x = NULL, y = "Probability") +
-        ggplot2::theme_minimal() +
+        theme_maihda() +
         ggplot2::theme(axis.text.x = ggplot2::element_blank())
 
       p2 <- ggplot2::ggplot(df, ggplot2::aes(x = .data$rank, y = .data$surprise)) +
@@ -627,7 +627,7 @@ is_aggregated <- "stratum" %in% names(df)
         ggplot2::scale_color_viridis_c(option = "inferno") +
         ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = .data$id), size = 3) +
         ggplot2::labs(x = x_label, y = "Surprise\n(-log(P(Observed)))", color = "Surprise", size = "Surprise") +
-        ggplot2::theme_minimal()
+        theme_maihda()
 
       return(patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 2)))
 
@@ -676,7 +676,7 @@ is_aggregated <- "stratum" %in% names(df)
         ggplot2::geom_vline(ggplot2::aes(xintercept = .data$mean_fitted[1]), linetype = "dashed", color = "black") +
         ggplot2::geom_rug(data = label_df, color = "red", linewidth = 1) +
         ggplot2::labs(title = "Distribution of Expected Category Scores", x = NULL, y = "Density") +
-        ggplot2::theme_minimal()
+        theme_maihda()
 
       p2 <- ggplot2::ggplot(df, ggplot2::aes(x = .data$rank, y = .data$fitted)) +
         ggplot2::geom_segment(ggplot2::aes(xend = .data$rank, yend = .data$mean_fitted), color = "gray60") +
@@ -685,7 +685,7 @@ is_aggregated <- "stratum" %in% names(df)
         ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = .data$id), size = 3, min.segment.length = 0) +
         ggplot2::scale_color_manual(values = c("Above Mean" = "#0072B2", "Below Mean" = "#D55E00")) +
         ggplot2::labs(x = x_label, y = "Expected Score", color = "Direction", size = "Deviation\nMagnitude") +
-        ggplot2::theme_minimal()
+        theme_maihda()
 
       return(patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 2)))
     }

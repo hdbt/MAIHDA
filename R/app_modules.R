@@ -375,7 +375,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
       }
 
       p <- p + ggplot2::geom_errorbar(ggplot2::aes(xmin = .data$lower_95, xmax = .data$upper_95), width = 0.2, orientation = "y") +
-        ggplot2::theme_minimal() +
+        theme_maihda() +
         ggplot2::labs(x = "Intersectional Intercept / Effect (Deviation)",
              y = "Stratum", color = tools::toTitleCase(color_var),
              shape = tools::toTitleCase(color_var), size = "Sample Size (N)") +

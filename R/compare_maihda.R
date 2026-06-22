@@ -286,7 +286,7 @@ plot.maihda_comparison <- function(x, ...) {
       x = "Model",
       y = "VPC (ICC)"
     ) +
-    theme_minimal() +
+    theme_maihda() +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"),
       axis.text.x = element_text(angle = 45, hjust = 1)
@@ -1168,7 +1168,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
         y = "VPC (ICC)",
         caption = vpc_caption
       ) +
-      theme_minimal() +
+      theme_maihda() +
       theme(
         plot.title = element_text(hjust = 0.5, face = "bold"),
         plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
@@ -1207,7 +1207,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
           y = "Between-stratum variance",
           caption = bv_caption
         ) +
-        theme_minimal() +
+        theme_maihda() +
         theme(
           plot.title = element_text(hjust = 0.5, face = "bold"),
           plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
@@ -1249,7 +1249,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
           y = "PCV (null -> adjusted)",
           caption = pcv_caption
         ) +
-        theme_minimal() +
+        theme_maihda() +
         theme(
           plot.title = element_text(hjust = 0.5, face = "bold"),
           plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
@@ -1288,7 +1288,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
           y = "Additive share of between-strata variance",
           caption = as_caption
         ) +
-        theme_minimal() +
+        theme_maihda() +
         theme(
           plot.title = element_text(hjust = 0.5, face = "bold"),
           plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
@@ -1339,7 +1339,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
           fill = "Component",
           caption = maihda_compose_caption(omit_note)
         ) +
-        theme_minimal() +
+        theme_maihda() +
         theme(
           plot.title = element_text(hjust = 0.5, face = "bold"),
           plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
@@ -1392,7 +1392,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
       fill = "Component",
       caption = maihda_compose_caption(omit_note)
     ) +
-    theme_minimal() +
+    theme_maihda() +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"),
       plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),

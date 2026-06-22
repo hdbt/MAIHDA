@@ -1,3 +1,9 @@
+# MAIHDA 0.1.12
+
+## New Features
+
+* **`theme_maihda()` now is set as standard theme for ggplot objects**
+
 # MAIHDA 0.1.11
 
 ## New Features
