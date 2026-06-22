@@ -314,6 +314,144 @@ test_that("binomial longitudinal fit gives a latent-scale time-varying VPC", {
   expect_true(all(is.finite(s$longitudinal$vpc_t$estimate)))
 })
 
+# ---- edge cases: higher time_degree, singular fits, explicit-times PCV ------
+# Shared fits for the edge-case block; each is reused across the tests below.
+
+# Quadratic (time_degree = 2) growth: a 3x3 (intercept, slope, slope^2)
+# covariance block at each level instead of the linear 2x2.
+m_q <- suppressWarnings(suppressMessages(
+  fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+             data = maihda_long_data, id = "id", time = "wave", time_degree = 2)))
+a_q <- suppressWarnings(suppressMessages(
+  maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+         data = maihda_long_data, id = "id", time = "wave",
+         time_degree = 2, decomposition = "longitudinal")))
+
+# A deliberately data-starved fit (24 individuals spread across the 12 strata)
+# so lme4 drives one or more random-effect variances to the boundary: the
+# time-varying VPC must still be computable on a singular fit.
+m_sing <- suppressWarnings(suppressMessages(
+  fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+             data = subset(maihda_long_data,
+                           id %in% unique(maihda_long_data$id)[1:24]),
+             id = "id", time = "wave")))
+
+test_that("quadratic growth fits an I(time^2) structure and a 3x3 covariance block", {
+  expect_identical(m_q$longitudinal_info$time_degree, 2L)
+  bars <- vapply(reformulas::findbars(m_q$formula),
+                 function(b) paste(deparse(b), collapse = ""), character(1))
+  expect_true(any(grepl("I\\(wave\\^2\\) \\| id", bars)))
+  expect_true(any(grepl("I\\(wave\\^2\\) \\| stratum", bars)))
+
+  s <- summary(m_q)
+  # The stratum block is now (intercept, slope, slope^2): 3x3, ordered to a(t).
+  expect_equal(dim(s$longitudinal$Sigma_stratum), c(3L, 3L))
+  expect_true(all(s$longitudinal$vpc_t$estimate >= 0 &
+                    s$longitudinal$vpc_t$estimate <= 1))
+  # The components table carries the quadratic (slope^2) variance row plus every
+  # off-diagonal covariance of the 3x3 block (not just intercept-slope).
+  vc <- s$variance_components
+  expect_identical(attr(vc, "kind"), "longitudinal")
+  expect_true("Between-stratum: slope^2 (wave)" %in% vc$component)
+  expect_true("Between-stratum: intercept-slope^2 covariance" %in% vc$component)
+  expect_true("Between-stratum: slope-slope^2 covariance" %in% vc$component)
+})
+
+test_that("quadratic predict(type = 'strata') exposes the slope^2 term", {
+  ps <- predict_maihda(m_q, type = "strata")
+  expect_true(all(c("baseline", "intercept", "slope", "slope2") %in% names(ps)))
+  expect_equal(nrow(ps), nrow(m_q$strata_info))
+  # baseline = a(ref_time)' coef = intercept + slope*ref + slope2*ref^2.
+  ref <- m_q$longitudinal_info$ref_time
+  expect_equal(ps$baseline,
+               ps$intercept + ps$slope * ref + ps$slope2 * ref^2,
+               tolerance = 1e-8)
+})
+
+test_that("quadratic longitudinal PCV splits a 3x3 trajectory block", {
+  expect_identical(a_q$mode, "longitudinal")
+  expect_s3_class(a_q$pcv, "maihda_long_pcv")
+  expect_identical(a_q$pcv$time_degree, 2L)
+  expect_equal(dim(a_q$pcv$Sigma_stratum_null), c(3L, 3L))
+  # Both the baseline and slope PCVs are genuine proportions inside (0, 1).
+  expect_gt(a_q$pcv$pcv_intercept, 0); expect_lt(a_q$pcv$pcv_intercept, 1)
+  expect_gt(a_q$pcv$pcv_slope, 0);     expect_lt(a_q$pcv$pcv_slope, 1)
+  expect_s3_class(plot(a_q, type = "pcv_trajectory"), "ggplot")
+})
+
+test_that("the time-varying VPC stays finite on a singular fit", {
+  expect_true(lme4::isSingular(m_sing$model))   # a boundary fit by construction
+  s <- summary(m_sing)
+  expect_false(is.null(s$longitudinal))
+  expect_true(is.finite(s$vpc$estimate))
+  expect_true(all(is.finite(s$longitudinal$vpc_t$estimate)))
+  expect_true(all(s$longitudinal$vpc_t$estimate >= 0 &
+                    s$longitudinal$vpc_t$estimate <= 1))
+  # Per-stratum trajectory parameters are still recoverable on the boundary fit.
+  ps <- predict_maihda(m_sing, type = "strata")
+  expect_true(all(is.finite(ps$baseline)))
+})
+
+test_that("a VPC-trajectory bootstrap survives singular bootstrap refits", {
+  # On a boundary fit many parametric-bootstrap refits are themselves singular;
+  # the per-draw tryCatch must keep the reference-time CI finite regardless.
+  set.seed(101)
+  s <- summary(m_sing, bootstrap = TRUE, n_boot = 20)
+  expect_true(is.finite(s$vpc$ci_lower) && is.finite(s$vpc$ci_upper))
+  expect_lte(s$vpc$ci_lower, s$vpc$ci_upper)
+})
+
+test_that("longitudinal summary anchors the headline VPC at a nonzero ref_time", {
+  # Waves shifted to 10..14: the headline VPC must be VPC(ref_time = 10), i.e.
+  # the partition of a(10)' Sigma a(10) -- NOT the raw time-0 value.
+  d <- maihda_long_data
+  d$wave <- d$wave + 10
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+               data = d, id = "id", time = "wave")))
+  s <- summary(m)
+  expect_identical(s$longitudinal$ref_time, 10)
+  vt <- s$longitudinal$vpc_t
+  expect_equal(s$vpc$estimate, vt$estimate[vt$time == 10], tolerance = 1e-8)
+  # equals the partition recomputed by hand at ref_time = 10
+  Ss <- s$longitudinal$Sigma_stratum; Si <- s$longitudinal$Sigma_id
+  vr <- s$longitudinal$var_resid
+  vs <- maihda_var_at_time(Ss, 10); vi <- maihda_var_at_time(Si, 10)
+  expect_equal(s$vpc$estimate, vs / (vs + vi + vr), tolerance = 1e-8)
+})
+
+test_that("maihda_longitudinal_pcv honours an explicit times grid", {
+  # The time-specific PCV is reported on whatever times the caller supplies (not
+  # only the default reporting grid); each row is (Var_null - Var_adj) / Var_null.
+  times <- c(0, 2, 4)
+  pcv <- maihda_longitudinal_pcv(a_g$model, a_g$model_adjusted, times = times)
+  expect_equal(pcv$pcv_t$time, times)
+  expect_true(all(c("var_null", "var_adjusted", "pcv") %in% names(pcv$pcv_t)))
+  # Recompute the time-specific PCV straight from the covariance blocks.
+  vn <- maihda_var_at_time(pcv$Sigma_stratum_null, times)
+  va <- maihda_var_at_time(pcv$Sigma_stratum_adjusted, times)
+  expect_equal(pcv$pcv_t$var_null, vn, tolerance = 1e-10)
+  expect_equal(pcv$pcv_t$var_adjusted, va, tolerance = 1e-10)
+  expect_equal(pcv$pcv_t$pcv, (vn - va) / vn, tolerance = 1e-10)
+})
+
+test_that("longitudinal plot builders carry the summary/PCV data through to the ggplot", {
+  s <- summary(m_g)
+  pv <- plot_vpc_trajectory(s)
+  # The VPC-curve layer plots exactly the summary's vpc_t rows.
+  expect_equal(pv$data$time, s$longitudinal$vpc_t$time)
+  expect_equal(pv$data$estimate, s$longitudinal$vpc_t$estimate)
+
+  pp <- plot_pcv_trajectory(a_g$pcv)
+  expect_equal(pp$data$pcv, a_g$pcv$pcv_t$pcv)
+
+  # One trajectory line per stratum over the reporting grid: grid x strata rows.
+  pt <- plot_stratum_trajectories(m_g, s)
+  expect_equal(nrow(pt$data),
+               length(s$longitudinal$time_grid) * nrow(m_g$strata_info))
+  expect_equal(length(unique(pt$data$stratum)), nrow(m_g$strata_info))
+})
+
 # ---- guards ----------------------------------------------------------------
 
 test_that("scalar between-variance helpers reject a longitudinal model", {
