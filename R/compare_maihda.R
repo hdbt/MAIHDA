@@ -1232,10 +1232,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
     df_pcv$group <- factor(df_pcv$group, levels = df_pcv$group)
 
     pcv_caption <- maihda_compose_caption(
-      paste("PCV = proportional change in between-stratum variance from the null to the",
-            "adjusted (dimension main effects) model -- the additive share of the",
-            "intersectional inequality. A negative PCV means the additive main effects",
-            "do not reduce the between-stratum variance (suppression/rescaling)."),
+      paste(""),
       omit_note
     )
 
