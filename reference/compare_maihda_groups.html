@@ -23,7 +23,7 @@ share of that group's intersectional inequality."><meta property="og:image" cont
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.11</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.12</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -210,11 +210,17 @@ its own members' weights. Not compatible with <code>engine = "lme4"</code>,
   decomposition: <code>pcv</code> (proportional change in between-stratum variance when
   the dimensions' additive main effects are added; computed on the
   maximum-likelihood scale – see <code><a href="calculate_pvc.html">calculate_pvc</a></code> – because REML
-  variances are not comparable across the null vs. adjusted fixed effects) and
-  <code>var_between_adjusted</code> (the adjusted model's between-stratum variance,
-  reported as <code>var_between * (1 - pcv)</code> so it shares the scale of the
-  REML <code>var_between</code>/<code>vpc</code> and the table stays internally coherent);
-  both are <code>NA</code> for a group whose adjusted fit failed, and the columns are
+  variances are not comparable across the null vs. adjusted fixed effects),
+  <code>var_between_adjusted</code> (a <em>derived</em> coherence quantity, reported as
+  <code>var_between * (1 - pcv)</code> so it shares the scale of the REML
+  <code>var_between</code>/<code>vpc</code> and the table satisfies
+  <code>pcv = (var_between - var_between_adjusted) / var_between</code> exactly – it is
+  <strong>not</strong> the adjusted fit's own variance), and
+  <code>var_between_adjusted_ml</code> (the adjusted model's <em>actual</em>
+  between-stratum variance, read straight off the adjusted fit on the same
+  maximum-likelihood scale as the PCV; it differs from <code>var_between_adjusted</code>
+  only by the small REML-vs-ML gap in the null variance). All three are
+  <code>NA</code> for a group whose adjusted fit failed, and the columns are
   omitted entirely when the strata have a single dimension. <code>n</code> is the analytic sample size used by the
   model (after dropping rows with a missing outcome/covariate) for both fitted
   and skipped groups, falling back to the raw row count only when the model
@@ -295,13 +301,13 @@ the boundary, giving a VPC of 0.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>           Japan 600        6 0.13344      1032.3         0         6704   1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>          Mexico 600        6 0.13649       771.5         0         4881   1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  United Kingdom 600        6 0.06011       470.5         0         7357   1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  var_between_adjusted status</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00     ok</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00     ok</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00     ok</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             3.782e-12     ok</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00     ok</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  var_between_adjusted var_between_adjusted_ml status</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             3.782e-12               3.022e-12     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">cmp</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span></span>
 <span class="r-plt img"><img src="compare_maihda_groups-1.png" alt="" width="700" height="433"></span>
 <span class="r-in"><span><span class="co"># }</span></span></span>

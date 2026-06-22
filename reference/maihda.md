@@ -382,10 +382,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x55fcf4796080>
+#> <environment: 0x563e6fc30090>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x55fcf7038800>
+#> <environment: 0x563e6f75b700>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -441,7 +441,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x55fcf758f4c8>
+#> <environment: 0x563e729f6558>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):
@@ -486,13 +486,13 @@ a2
 #>           Japan 600        6 0.13344      1032.3         0         6704   1
 #>          Mexico 600        6 0.13649       771.5         0         4881   1
 #>  United Kingdom 600        6 0.06011       470.5         0         7357   1
-#>  var_between_adjusted status
-#>             0.000e+00     ok
-#>             0.000e+00     ok
-#>             0.000e+00     ok
-#>             3.782e-12     ok
-#>             0.000e+00     ok
-#>             0.000e+00     ok
+#>  var_between_adjusted var_between_adjusted_ml status
+#>             0.000e+00               0.000e+00     ok
+#>             0.000e+00               0.000e+00     ok
+#>             0.000e+00               0.000e+00     ok
+#>             3.782e-12               3.022e-12     ok
+#>             0.000e+00               0.000e+00     ok
+#>             0.000e+00               0.000e+00     ok
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
 plot(a2, type = "group_vpc")

@@ -138,13 +138,13 @@ analysis
 #>           Japan 600        6 0.13344      1032.3         0         6704   1
 #>          Mexico 600        6 0.13649       771.5         0         4881   1
 #>  United Kingdom 600        6 0.06011       470.5         0         7357   1
-#>  var_between_adjusted status
-#>             0.000e+00     ok
-#>             0.000e+00     ok
-#>             0.000e+00     ok
-#>             3.782e-12     ok
-#>             0.000e+00     ok
-#>             0.000e+00     ok
+#>  var_between_adjusted var_between_adjusted_ml status
+#>             0.000e+00               0.000e+00     ok
+#>             0.000e+00               0.000e+00     ok
+#>             0.000e+00               0.000e+00     ok
+#>             3.782e-12               3.022e-12     ok
+#>             0.000e+00               0.000e+00     ok
+#>             0.000e+00               0.000e+00     ok
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
 plot(analysis, type = "group_vpc")

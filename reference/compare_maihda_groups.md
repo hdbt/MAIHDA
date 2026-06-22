@@ -147,18 +147,24 @@ when the dimensions' additive main effects are added; computed on the
 maximum-likelihood scale – see
 [`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
 – because REML variances are not comparable across the null vs. adjusted
-fixed effects) and `var_between_adjusted` (the adjusted model's
-between-stratum variance, reported as `var_between * (1 - pcv)` so it
-shares the scale of the REML `var_between`/`vpc` and the table stays
-internally coherent); both are `NA` for a group whose adjusted fit
-failed, and the columns are omitted entirely when the strata have a
-single dimension. `n` is the analytic sample size used by the model
-(after dropping rows with a missing outcome/covariate) for both fitted
-and skipped groups, falling back to the raw row count only when the
-model frame cannot be built. `var_other` is the variance of any
-additional random effects and is 0 for the canonical single-stratum
-model. Groups that were skipped or failed have `NA` metrics and an
-explanatory `status`.
+fixed effects), `var_between_adjusted` (a *derived* coherence quantity,
+reported as `var_between * (1 - pcv)` so it shares the scale of the REML
+`var_between`/`vpc` and the table satisfies
+`pcv = (var_between - var_between_adjusted) / var_between` exactly – it
+is **not** the adjusted fit's own variance), and
+`var_between_adjusted_ml` (the adjusted model's *actual* between-stratum
+variance, read straight off the adjusted fit on the same
+maximum-likelihood scale as the PCV; it differs from
+`var_between_adjusted` only by the small REML-vs-ML gap in the null
+variance). All three are `NA` for a group whose adjusted fit failed, and
+the columns are omitted entirely when the strata have a single
+dimension. `n` is the analytic sample size used by the model (after
+dropping rows with a missing outcome/covariate) for both fitted and
+skipped groups, falling back to the raw row count only when the model
+frame cannot be built. `var_other` is the variance of any additional
+random effects and is 0 for the canonical single-stratum model. Groups
+that were skipped or failed have `NA` metrics and an explanatory
+`status`.
 
 ## Details
 
@@ -240,13 +246,13 @@ print(cmp)
 #>           Japan 600        6 0.13344      1032.3         0         6704   1
 #>          Mexico 600        6 0.13649       771.5         0         4881   1
 #>  United Kingdom 600        6 0.06011       470.5         0         7357   1
-#>  var_between_adjusted status
-#>             0.000e+00     ok
-#>             0.000e+00     ok
-#>             0.000e+00     ok
-#>             3.782e-12     ok
-#>             0.000e+00     ok
-#>             0.000e+00     ok
+#>  var_between_adjusted var_between_adjusted_ml status
+#>             0.000e+00               0.000e+00     ok
+#>             0.000e+00               0.000e+00     ok
+#>             0.000e+00               0.000e+00     ok
+#>             3.782e-12               3.022e-12     ok
+#>             0.000e+00               0.000e+00     ok
+#>             0.000e+00               0.000e+00     ok
 plot(cmp, type = "vpc")
 
 # }

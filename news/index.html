@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.11</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.12</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -56,6 +56,16 @@
 <div class="section level3">
 <h3 id="new-features-0-1-12">New Features<a class="anchor" aria-label="anchor" href="#new-features-0-1-12"></a></h3>
 <ul><li><strong><code><a href="../reference/theme_maihda.html">theme_maihda()</a></code> now is set as standard theme for ggplot objects</strong></li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-0-1-12">Bug Fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-1-12"></a></h3>
+<ul><li>
+<code><a href="../reference/calculate_pvc.html">calculate_pvc()</a></code> (and therefore <code><a href="../reference/maihda.html">maihda()</a></code>, <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code>, and <code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code>) could <strong>silently report a REML-based PCV for a singular multi-random-effect model</strong>. The ML refit (<code><a href="https://rdrr.io/pkg/lme4/man/refitML.html" class="external-link">lme4::refitML()</a></code>, needed because REML between-stratum variances are not comparable across models with different fixed effects) was skipped whenever the fit was <em>globally</em> singular – but a fit can be singular because a <strong>non-stratum</strong> random effect (e.g. an extra <code>(1 | site)</code> grouping factor) is on the boundary while the stratum variance is comfortably nonzero. In that case the package returned the REML PCV instead of the intended ML PCV. The ML refit is now skipped only when the <strong>stratum</strong> variance itself is on the boundary (effectively zero, judged on <code><a href="https://rdrr.io/pkg/lme4/man/isSingular.html" class="external-link">lme4::isSingular()</a></code>’s own relative tolerance), or when <code>refitML()</code> fails; a non-stratum boundary no longer suppresses it. The boundary skip for a zero-variance stratum is preserved, so the zero-variance guard in <code><a href="../reference/calculate_pvc.html">calculate_pvc()</a></code> is not masked.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="improvements-0-1-12">Improvements<a class="anchor" aria-label="anchor" href="#improvements-0-1-12"></a></h3>
+<ul><li>
+<code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> (and <code>maihda(group = )</code>) gain a <strong><code>var_between_adjusted_ml</code></strong> column: the adjusted model’s <em>actual</em> between-stratum variance, read straight off the adjusted fit on the maximum-likelihood scale the PCV is computed on. The existing <code>var_between_adjusted</code> column is, by design, a derived coherence quantity (<code>var_between * (1 - pcv)</code>, on the REML <code>var_between</code>/<code>vpc</code> scale so the table satisfies <code>pcv = (var_between - var_between_adjusted) / var_between</code> exactly) and is <strong>not</strong> the adjusted fit’s own variance; the documentation now states this explicitly and <code>var_between_adjusted_ml</code> reports the literal adjusted variance for anyone who needs it. The two differ only by the small REML-vs-ML gap in the null variance.</li>
 </ul></div>
 </div>
     <div class="section level2">
