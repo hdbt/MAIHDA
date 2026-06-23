@@ -1119,7 +1119,6 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
     theme_maihda() +
     ggplot2::theme(
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
-      plot.subtitle = ggplot2::element_text(hjust = 0.5, face = "italic", size = 9),
       legend.position = "bottom"
     )
   if (has_hl) {
