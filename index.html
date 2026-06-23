@@ -341,7 +341,6 @@
 <span><span class="co"># point estimates are design-consistent; credible intervals are not design-based).</span></span>
 <span><span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">survey_data</span>,</span>
 <span>           engine <span class="op">=</span> <span class="st">"brms"</span>, sampling_weights <span class="op">=</span> <span class="st">"person_weight"</span><span class="op">)</span></span></code></pre></div>
-<p>Limitations: the wemix engine covers the canonical <code>gaussian(identity)</code> / <code>binomial(logit)</code> MAIHDA with a single <code>(1 | stratum)</code> intercept. crossed random effects (<code>context =</code>, <code>decomposition = "crossed-dimensions"</code>) and bootstrap intervals require lme4/brms. A design-based interval would need replicate weights, which is a upcoming future extension.</p>
 </div>
 <div class="section level2">
 <h2 id="stepwise-proportional-change-in-variance-pcv">Stepwise Proportional Change in Variance (PCV)<a class="anchor" aria-label="anchor" href="#stepwise-proportional-change-in-variance-pcv"></a>
@@ -439,13 +438,13 @@
 <h2 id="citation">Citation<a class="anchor" aria-label="anchor" href="#citation"></a>
 </h2>
 <p>If you use this package in your research, please cite:</p>
-<pre class="text"><code>Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.11, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA</code></pre>
+<pre class="text"><code>Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.12, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA</code></pre>
 <p>A BibTeX entry for LaTeX users is:</p>
 <div class="sourceCode" id="cb14"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="va">@Manual</span>{<span class="ot">Bulut2025MAIHDA</span>,</span>
 <span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="dt">title</span>  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},</span>
 <span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="dt">author</span> = {Hamid Bulut},</span>
 <span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>  <span class="dt">year</span>   = {2025},</span>
-<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.1.11},</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.1.12},</span>
 <span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>  <span class="dt">url</span>    = {https://github.com/hdbt/MAIHDA},</span>
 <span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>  <span class="dt">doi</span>    = {10.32614/CRAN.package.MAIHDA}</span>
 <span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>}</span></code></pre></div>
