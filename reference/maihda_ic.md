@@ -97,6 +97,7 @@ maihda_ic(null_model, adj_model, model_names = c("Null", "Adjusted"))
 #> delta = difference from the best model on AIC (lower is better).
 #> REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.
 #> Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).
+#> 
 
 # Or straight from a one-call maihda() analysis (null + adjusted rows)
 a <- maihda(health_outcome ~ age + gender + race + (1 | gender:race),
@@ -112,5 +113,6 @@ maihda_ic(a)
 #> delta = difference from the best model on AIC (lower is better).
 #> REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.
 #> Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).
+#> 
 # }
 ```

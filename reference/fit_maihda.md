@@ -203,12 +203,13 @@ fit_maihda(
   ([`maihda_interactions`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)),
   attached as the `interactions` slot and shown by
   [`print()`](https://rdrr.io/r/base/print.html). `FALSE` (default)
-  skips it; `TRUE` computes it with `adjust = "none"`; or pass a
-  [`p.adjust`](https://rdrr.io/r/stats/p.adjust.html) method name (e.g.
-  `"BH"`). It is meaningful only on an *adjusted* model (the dimensions'
-  main effects in the fixed part); on a null model `maihda_interactions`
-  warns. This is the single-fit parallel to the default-on
-  `interactions` of
+  skips it; `TRUE` computes it with the diagnostic's default correction
+  (`adjust = "BH"`); or pass a
+  [`p.adjust`](https://rdrr.io/r/stats/p.adjust.html) method name,
+  including `"none"` for the uncorrected view. It is meaningful only on
+  an *adjusted* model (the dimensions' main effects in the fixed part);
+  on a null model `maihda_interactions` warns. This is the single-fit
+  parallel to the default-on `interactions` of
   [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md).
 
 - ...:

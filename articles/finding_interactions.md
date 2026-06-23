@@ -14,11 +14,12 @@ reused by the effect-decomposition and predicted-strata plots.
 
 ## Run a standard analysis and choose the multiplicity rule
 
-The default is `adjust = "none"`. This reports each stratum-level
-interval and flag without a multiple-testing correction.
+The default is `adjust = "BH"` (Benjamini-Hochberg): scanning all strata
+to see which ones interact is a screening question, so the flags are
+false-discovery-rate controlled. For the uncorrected, per-stratum
+individual view, set `interactions = "none"`.
 
-If the goal is to scan all strata and highlight a smaller set for
-follow-up, use an adjustment such as Benjamini-Hochberg:
+The call below names the (default) Benjamini-Hochberg rule explicitly:
 
 ``` r
 
@@ -26,7 +27,7 @@ library(MAIHDA)
 model_bh <- maihda(
   BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
   data = maihda_health_data,
-  interactions = "BH" # Benjamini-Hochberg adjustment
+  interactions = "BH" # Benjamini-Hochberg adjustment (also the default)
 )
 ```
 
@@ -37,9 +38,7 @@ adjustment rule was used. The full table is stored in
 ``` r
 
 model_bh$interactions
-#> Strata with credibly non-zero intersectional interaction
-#> ========================================================
-#> 
+#> ── Intersectional interactions ─────────────────────────────────────────────────
 #> 1 of 50 strata flagged (95% interval; BH-adjusted p-values).
 #> Model: adjusted (two-model); interaction on the link (latent) scale.
 #> 
@@ -50,6 +49,7 @@ model_bh$interactions
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.
+#> 
 ```
 
 Each row is one stratum. The main columns are:
@@ -95,6 +95,36 @@ the adjustment rule directly:
 plot(model, type = "effect_decomp", highlight_interactions = "BH")
 ```
 
+## Is an interaction *negligible*? (equivalence / ROPE)
+
+A flag asks whether an interaction differs from zero. Often the more
+useful question is whether it is *large enough to matter*. Pass a region
+of practical equivalence (`rope`, on the model scale) and each stratum
+is classified from its interval as `relevant` (interval entirely outside
+the region), `negligible` (entirely inside it), or `inconclusive`
+(straddling a bound):
+
+``` r
+
+maihda_interactions(model_bh, rope = 0.5)
+#> ── Intersectional interactions ─────────────────────────────────────────────────
+#> 1 of 50 strata flagged (95% interval; BH-adjusted p-values).
+#> Model: adjusted (two-model); interaction on the link (latent) scale.
+#> Equivalence vs ROPE [-0.5, 0.5]: 1 relevant | 0 negligible | 49 inconclusive.
+#> 
+#>  stratum                       label   n interaction     se  lower upper
+#>        8 male × White × Some College 328       1.359 0.3448 0.6836 2.035
+#>    p_value p_adjusted flagged direction decision
+#>  8.056e-05   0.004028    TRUE     above relevant
+#> 
+#> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
+#>   exploratory. See ?maihda_interactions.
+#> 
+```
+
+There is no default `rope`: the smallest interaction worth caring about
+is a substantive choice, made on the model’s (link) scale.
+
 ## See also
 
 - [Introduction to
@@ -117,3 +147,8 @@ plot(model, type = "effect_decomp", highlight_interactions = "BH")
 - Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
   discriminatory accuracy (MAIHDA) within an intersectional framework.
   *Social Science & Medicine*, 203, 74-80.
+
+- Schuirmann, D. J. (1987). A comparison of the two one-sided tests
+  procedure and the power approach for assessing the equivalence of
+  average bioavailability. *Journal of Pharmacokinetics and
+  Biopharmaceutics*, 15(6), 657-680.

@@ -76,7 +76,7 @@ produces an outcome the additive parts do not.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">maihda_interactions</span><span class="op">(</span><span class="va">object</span>, conf_level <span class="op">=</span> <span class="fl">0.95</span>, adjust <span class="op">=</span> <span class="st">"none"</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">maihda_interactions</span><span class="op">(</span><span class="va">object</span>, conf_level <span class="op">=</span> <span class="fl">0.95</span>, adjust <span class="op">=</span> <span class="st">"BH"</span>, rope <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -97,10 +97,23 @@ Default 0.95.</p></dd>
 
 <dt id="arg-adjust">adjust<a class="anchor" aria-label="anchor" href="#arg-adjust"></a></dt>
 <dd><p>Multiple-comparison adjustment for the per-stratum p-values
-(frequentist engines only): <code>"none"</code> (default) or any method accepted by
-<code><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust</a></code> (e.g. <code>"BH"</code>, <code>"holm"</code>,
-<code>"bonferroni"</code>). Ignored for <code>brms</code> (with a message), which uses the
-posterior tail directly.</p></dd>
+(frequentist engines only): <code>"BH"</code> (default; false-discovery rate) or any
+method accepted by <code><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust</a></code>, including <code>"none"</code> for
+the uncorrected, per-stratum individual-testing view. Ignored for <code>brms</code>
+(which uses the posterior tail directly; a message is shown only if you set it
+explicitly).</p></dd>
+
+
+<dt id="arg-rope">rope<a class="anchor" aria-label="anchor" href="#arg-rope"></a></dt>
+<dd><p>Optional equivalence region (a "smallest interaction of interest")
+for an "is the interaction <em>negligible</em>?" reading (Schuirmann 1987;
+Kruschke 2018), on the link (latent) scale. <code>NULL</code> (default) gives
+only the usual zero-centred flag. A single positive number <code>d</code> means the
+symmetric region <code>c(-d, d)</code>; or supply <code>c(lower, upper)</code>. When set, the
+result gains a <code>decision</code> column classifying each stratum from its
+<code>conf_level</code> interval relative to the region: <code>"relevant"</code> (interval
+entirely outside it), <code>"negligible"</code> (entirely inside it), or
+<code>"inconclusive"</code> (straddling a bound).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -116,9 +129,11 @@ posterior tail directly.</p></dd>
   <code>flagged</code> (logical), and <code>direction</code> (<code>"above"</code>/<code>"below"</code>
   the additive expectation). Frequentist fits add <code>se</code> and <code>p_value</code>
   (and <code>p_adjusted</code> when <code>adjust != "none"</code>); <code>brms</code> adds
-  <code>pd</code> (probability of direction). Attributes record <code>conf_level</code>,
-  <code>adjust</code>, <code>engine</code>, <code>model_type</code>, <code>n_strata</code>,
-  <code>n_flagged</code>, <code>scale</code> and <code>singular</code>.</p>
+  <code>pd</code> (probability of direction). When <code>rope</code> is set, a
+  <code>decision</code> column (<code>"relevant"</code>/<code>"negligible"</code>/<code>"inconclusive"</code>)
+  is added. Attributes record <code>conf_level</code>, <code>adjust</code>, <code>rope</code>,
+  <code>engine</code>, <code>model_type</code>, <code>n_strata</code>, <code>n_flagged</code>,
+  <code>scale</code> and <code>singular</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -155,20 +170,22 @@ the experts disagree.</strong></p><ul><li><p><em>Shrinkage (magnitude/sign).</em
     do not also read the flags collectively. Once the question is "is there an
     interaction <em>somewhere</em>?" – which an automated all-strata scan
     effectively is – it is <em>disjunction</em> testing and a correction applies.</p></li>
-</ul><p><code>adjust = "none"</code> is the default because the table is formally a set of
-individual hypotheses; <strong>for the common exploratory scan of all strata,
-prefer <code>adjust = "BH"</code></strong>. Choosing FDR over family-wise
-(<code>"bonferroni"</code>/<code>"holm"</code>) matches a screening goal (the expected
-<em>proportion</em> of false discoveries) – this is the package's choice, not a
-recommendation of Rubin (2021), who raises FDR only to distinguish it from the
-family-wise rate. The flag itself is a Wald test on a shrunken BLUP whose
+</ul><p><strong><code>adjust = "BH"</code> is the default</strong>: fitting and flagging every stratum
+in one call is the disjunction/screening case, where controlling the expected
+<em>proportion</em> of false discoveries (FDR) is the appropriate goal. Pass
+<code>adjust = "none"</code> only when each stratum is a genuine, pre-specified
+individual hypothesis. The FDR choice (over family-wise
+<code>"bonferroni"</code>/<code>"holm"</code>) is this package's, matching that screening
+goal; it is not a recommendation of Rubin (2021), who raises FDR only to
+distinguish it from the family-wise rate. The flag itself is a Wald test on a
+shrunken BLUP whose
 conditional SE treats the variance components as known, so it (and any
 <code>adjust</code> on it) is an explicit, approximate <em>screen</em>, not a procedure
 inheriting an exact guarantee from the model. Lead with the interval (and, for
 <code>brms</code>, the probability of direction); the substantive question is often not
 whether an interaction differs from zero but whether it exceeds a smallest
-interaction of interest (an equivalence/SESOI reading; Lakens, Scheel &amp; Isager
-2018), read from the interval.</p>
+interaction of interest (an equivalence reading; Schuirmann 1987; Kruschke 2018),
+read from the interval.</p>
 <p>The interaction is reported on the model's link (latent) scale – a log-odds
 deviation for a logistic model, etc. – because the additive/interaction split
 is only exact there.</p>
@@ -192,9 +209,12 @@ of disjunction, conjunction, and individual testing. <em>Synthese</em>, 199(3-4)
 10969-11000. <a href="https://doi.org/10.1007/s11229-021-03276-4" class="external-link">doi:10.1007/s11229-021-03276-4</a></p>
 <p>McShane, B. B., Gal, D., Gelman, A., Robert, C., &amp; Tackett, J. L. (2019). Abandon
 statistical significance. <em>The American Statistician</em>, 73(sup1), 235-245.</p>
-<p>Lakens, D., Scheel, A. M., &amp; Isager, P. M. (2018). Equivalence testing for
-psychological research: a tutorial. <em>Advances in Methods and Practices in
-Psychological Science</em>, 1(2), 259-269.</p>
+<p>Schuirmann, D. J. (1987). A comparison of the two one-sided tests procedure and
+the power approach for assessing the equivalence of average bioavailability.
+<em>Journal of Pharmacokinetics and Biopharmaceutics</em>, 15(6), 657-680.</p>
+<p>Kruschke, J. K. (2018). Rejecting or accepting parameter values in Bayesian
+estimation. <em>Advances in Methods and Practices in Psychological Science</em>,
+1(2), 270-280.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -210,33 +230,10 @@ Psychological Science</em>, 1(2), 259-269.</p>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">maihda_health_data</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="maihda.html">maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>            data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu">maihda_interactions</span><span class="op">(</span><span class="va">a</span><span class="op">)</span>                 <span class="co"># which strata interact (95%, no correction)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Strata with credibly non-zero intersectional interaction</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> ========================================================</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4 of 10 strata flagged (95% interval; no multiplicity correction).</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Model: adjusted (two-model); interaction on the link (latent) scale.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  stratum          label    n interaction     se   lower   upper  p_value</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>        2   male × Black  154     -1.2902 0.4870 -2.2446 -0.3357 0.008067</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>        9 female × Black  182      1.2902 0.4540  0.4003  2.1800 0.004487</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>        3 female × White 1044     -0.6003 0.2025 -0.9972 -0.2035 0.003025</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>        5   male × White  990      0.6003 0.2077  0.1932  1.0075 0.003855</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  flagged direction</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     TRUE     below</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     TRUE     above</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     TRUE     below</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     TRUE     above</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Flagging many strata inflates false positives; for a screening error-rate</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   story use adjust = "BH" (FDR). Interaction BLUPs are shrunken estimates,</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   so correction is optional -- see ?maihda_interactions.</span>
-<span class="r-in"><span><span class="fu">maihda_interactions</span><span class="op">(</span><span class="va">a</span>, adjust <span class="op">=</span> <span class="st">"BH"</span><span class="op">)</span>  <span class="co"># FDR-controlled screen</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Strata with credibly non-zero intersectional interaction</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> ========================================================</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4 of 10 strata flagged (95% interval; BH-adjusted p-values).</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Model: adjusted (two-model); interaction on the link (latent) scale.</span>
+<span class="r-in"><span><span class="fu">maihda_interactions</span><span class="op">(</span><span class="va">a</span><span class="op">)</span>                  <span class="co"># FDR-screened (default adjust = "BH")</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #D78700; font-weight: bold;">4</span> of 10 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted p-values</span>).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Model: adjusted (two-model); interaction on the link (latent) scale.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  stratum          label    n interaction     se   lower   upper  p_value</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>        2   male × Black  154     -1.2902 0.4870 -2.2446 -0.3357 0.008067</span>
@@ -249,8 +246,49 @@ Psychological Science</em>, 1(2), 259-269.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     0.01496    TRUE     below</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     0.01496    TRUE     above</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   exploratory. See ?maihda_interactions.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  exploratory. See ?maihda_interactions.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-in"><span><span class="fu">maihda_interactions</span><span class="op">(</span><span class="va">a</span>, adjust <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span> <span class="co"># uncorrected per-stratum individual view</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #D78700; font-weight: bold;">4</span> of 10 strata flagged (<span style="color: #555555;">95% interval; no multiplicity correction</span>).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Model: adjusted (two-model); interaction on the link (latent) scale.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  stratum          label    n interaction     se   lower   upper  p_value</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        2   male × Black  154     -1.2902 0.4870 -2.2446 -0.3357 0.008067</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        9 female × Black  182      1.2902 0.4540  0.4003  2.1800 0.004487</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        3 female × White 1044     -0.6003 0.2025 -0.9972 -0.2035 0.003025</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        5   male × White  990      0.6003 0.2077  0.1932  1.0075 0.003855</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  flagged direction</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     TRUE     below</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     TRUE     above</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     TRUE     below</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     TRUE     above</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Flagging many strata inflates false positives; for a screening error-rate</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  story use adjust = "BH" (FDR). Interaction BLUPs are shrunken estimates,</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  so correction is optional -- see ?maihda_interactions.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-in"><span><span class="fu">maihda_interactions</span><span class="op">(</span><span class="va">a</span>, rope <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>      <span class="co"># equivalence: |interaction| within 0.1?</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #D78700; font-weight: bold;">4</span> of 10 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted p-values</span>).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Model: adjusted (two-model); interaction on the link (latent) scale.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Equivalence vs ROPE [-0.1, 0.1]: <span style="color: #D78700;">4 relevant</span> | <span style="color: #0087D7;">0 negligible</span> | <span style="color: #555555;">6 inconclusive</span>.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  stratum          label    n interaction     se   lower   upper  p_value</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        2   male × Black  154     -1.2902 0.4870 -2.2446 -0.3357 0.008067</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        9 female × Black  182      1.2902 0.4540  0.4003  2.1800 0.004487</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        3 female × White 1044     -0.6003 0.2025 -0.9972 -0.2035 0.003025</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        5   male × White  990      0.6003 0.2077  0.1932  1.0075 0.003855</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  p_adjusted flagged direction decision</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     0.02017    TRUE     below relevant</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     0.01496    TRUE     above relevant</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     0.01496    TRUE     below relevant</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     0.01496    TRUE     above relevant</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  exploratory. See ?maihda_interactions.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

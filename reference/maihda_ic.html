@@ -144,31 +144,33 @@ not define a standard AIC/BIC.</p>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># AIC/BIC for two nested structures (REML lmer fits are ML-refitted first)</span></span></span>
 <span class="r-in"><span><span class="fu">maihda_ic</span><span class="op">(</span><span class="va">null_model</span>, <span class="va">adj_model</span>, model_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Null"</span>, <span class="st">"Adjusted"</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> MAIHDA Information Criteria</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">MAIHDA Information Criteria</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ===========================</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     model   n            estimator df logLik  AIC  BIC delta</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      Null 500 ML (refit from REML)  3  -1918 3843 3855 41.68</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  Adjusted 500 ML (refit from REML)  4  -1897 3801 3818  0.00</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> delta = difference from the best model on AIC (lower is better).</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">delta = difference from the best model on AIC (lower is better).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Or straight from a one-call maihda() analysis (null + adjusted rows)</span></span></span>
 <span class="r-in"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="maihda.html">maihda</a></span><span class="op">(</span><span class="va">health_outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="va">gender</span> <span class="op">+</span> <span class="va">race</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>            data <span class="op">=</span> <span class="va">maihda_sim_data</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">maihda_ic</span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> MAIHDA Information Criteria</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">MAIHDA Information Criteria</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ===========================</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>              model   n            estimator df logLik  AIC  BIC delta</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      Model1 (Null) 500 ML (refit from REML)  4  -1897 3801 3818 11.36</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  Model1 (Adjusted) 500 ML (refit from REML)  8  -1887 3790 3823  0.00</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> delta = difference from the best model on AIC (lower is better).</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">delta = difference from the best model on AIC (lower is better).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

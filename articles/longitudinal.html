@@ -81,7 +81,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-06-22</h4>
+            <h4 data-toc-skip class="date">2026-06-23</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/longitudinal.Rmd" class="external-link"><code>vignettes/longitudinal.Rmd</code></a></small>
       <div class="d-none name"><code>longitudinal.Rmd</code></div>
@@ -153,13 +153,13 @@ you.</p>
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">wave</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ethnicity</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
 <span>                data <span class="op">=</span> <span class="va">maihda_long_data</span>, id <span class="op">=</span> <span class="st">"id"</span>, time <span class="op">=</span> <span class="st">"wave"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span></span>
-<span><span class="co">#&gt; MAIHDA Model Summary</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">MAIHDA Model Summary</span></span></span>
 <span><span class="co">#&gt; ====================</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Variance Partition Coefficient (VPC/ICC) at baseline (wave = 0):</span></span>
-<span><span class="co">#&gt;   Estimate: 0.3985</span></span>
+<span><span class="co">#&gt;   Estimate: <span style="color: #D78700;">0.3985</span></span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Variance Components:</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Variance Components:</span></span></span>
 <span><span class="co">#&gt;                                            component variance     sd</span></span>
 <span><span class="co">#&gt;                Between-stratum: intercept (time = 0)  0.40774 0.6385</span></span>
 <span><span class="co">#&gt;                        Between-stratum: slope (wave)  0.04284 0.2070</span></span>
@@ -175,7 +175,7 @@ you.</p>
 <span><span class="co">#&gt;   slope), so the VPC varies; it depends on where time is zeroed. See</span></span>
 <span><span class="co">#&gt;   plot(type = "vpc_trajectory") for the full curve.</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Fixed Effects:</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Fixed Effects:</span></span></span>
 <span><span class="co">#&gt;         term  estimate</span></span>
 <span><span class="co">#&gt;  (Intercept)  4.986465</span></span>
 <span><span class="co">#&gt;         wave -0.006306</span></span>
@@ -220,18 +220,19 @@ is the interaction beyond additive.</p>
 <span>            data <span class="op">=</span> <span class="va">maihda_long_data</span>, id <span class="op">=</span> <span class="st">"id"</span>, time <span class="op">=</span> <span class="st">"wave"</span>,</span>
 <span>            decomposition <span class="op">=</span> <span class="st">"longitudinal"</span><span class="op">)</span></span>
 <span><span class="va">a</span><span class="op">$</span><span class="va">pcv</span></span>
-<span><span class="co">#&gt; Longitudinal PCV (additive vs. multiplicative intersectionality)</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Longitudinal PCV (additive vs. multiplicative intersectionality)</span></span></span>
 <span><span class="co">#&gt; ================================================================</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Baseline (wave = 0) variance: 0.4077 (null) -&gt; 0.0332 (adjusted)</span></span>
-<span><span class="co">#&gt;   PCV_intercept: 91.9% of the baseline between-stratum inequality is additive.</span></span>
+<span><span class="co">#&gt;   PCV_intercept: <span style="color: #D78700;">91.9%</span> of the baseline between-stratum inequality is additive.</span></span>
 <span><span class="co">#&gt; Slope (wave) variance:          0.0428 (null) -&gt; 0.0058 (adjusted)</span></span>
-<span><span class="co">#&gt;   PCV_slope:     86.6% of the *trajectory* between-stratum inequality is additive</span></span>
+<span><span class="co">#&gt;   PCV_slope:     <span style="color: #D78700;">86.6%</span> of the *trajectory* between-stratum inequality is additive</span></span>
 <span><span class="co">#&gt;                  (the remainder is the multiplicative/interaction part).</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; The PCV is the share of the null model's between-stratum (trajectory) variance</span></span>
-<span><span class="co">#&gt; explained by the dimensions' additive main effects and their time interactions;</span></span>
-<span><span class="co">#&gt; a high PCV_slope means trajectory inequalities are 'mostly additive'.</span></span></code></pre></div>
+<span><span class="co"><span style="color: #555555;">#&gt; The PCV is the share of the null model's between-stratum (trajectory) variance</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; explained by the dimensions' additive main effects and their time interactions;</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; a high PCV_slope means trajectory inequalities are 'mostly additive'.</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span></code></pre></div>
 <p>The PCV is reported separately for the two pieces of the
 trajectory:</p>
 <ul>

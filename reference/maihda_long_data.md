@@ -129,5 +129,6 @@ a$pcv
 #> The PCV is the share of the null model's between-stratum (trajectory) variance
 #> explained by the dimensions' additive main effects and their time interactions;
 #> a high PCV_slope means trajectory inequalities are 'mostly additive'.
+#> 
 # }
 ```

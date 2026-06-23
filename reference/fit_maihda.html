@@ -240,9 +240,10 @@ degree 1 only.</p></dd>
 <dd><p>Opt-in per-stratum interaction diagnostic
 (<code><a href="maihda_interactions.html">maihda_interactions</a></code>), attached as the <code>interactions</code> slot
 and shown by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>. <code>FALSE</code> (default) skips it; <code>TRUE</code>
-computes it with <code>adjust = "none"</code>; or pass a <code><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust</a></code>
-method name (e.g. <code>"BH"</code>). It is meaningful only on an <em>adjusted</em>
-model (the dimensions' main effects in the fixed part); on a null model
+computes it with the diagnostic's default correction (<code>adjust = "BH"</code>); or
+pass a <code><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust</a></code> method name, including <code>"none"</code> for the
+uncorrected view. It is meaningful only on an <em>adjusted</em> model (the
+dimensions' main effects in the fixed part); on a null model
 <code>maihda_interactions</code> warns. This is the single-fit parallel to the
 default-on <code>interactions</code> of <code><a href="maihda.html">maihda</a></code>.</p></dd>
 
@@ -320,27 +321,27 @@ arguments are not supported by the wemix engine.</p></dd>
 <span class="r-in"><span>                     data <span class="op">=</span> <span class="va">maihda_country_data</span>,</span></span>
 <span class="r-in"><span>                     context <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model3</span><span class="op">)</span>  <span class="co"># between-stratum vs. between-country vs. residual</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> MAIHDA Model Summary</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">MAIHDA Model Summary</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ====================</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Variance Partition Coefficient (VPC/ICC):</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Estimate: 0.1032</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Estimate: <span style="color: #D78700;">0.1032</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Variance Components:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Variance Components:</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                  component variance    sd proportion</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum (random)    915.2 30.25     0.1032</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>           Context: country   1137.1 33.72     0.1283</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  Within-stratum (residual)   6813.0 82.54     0.7685</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                      Total   8865.3 94.16     1.0000</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Contextual Cross-Classified Partition (stratum x context):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Contextual Cross-Classified Partition (stratum x context):</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum (intersectional) variance: 915.2323 (share 10.3%)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Context 'country' variance: 1137.1067 (share 12.8%)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Note: the headline VPC/ICC is the between-stratum share conditional on</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   the context random effect(s). The context share is the between-context</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   component of the unexplained variance.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  Note: the headline VPC/ICC is the between-stratum share conditional on</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  the context random effect(s). The context share is the between-context</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  component of the unexplained variance.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Fixed Effects:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Fixed Effects:</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>         term estimate</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  (Intercept)    492.3</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>

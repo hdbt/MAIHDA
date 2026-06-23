@@ -81,7 +81,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-06-22</h4>
+            <h4 data-toc-skip class="date">2026-06-23</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/group_comparison.Rmd" class="external-link"><code>vignettes/group_comparison.Rmd</code></a></small>
       <div class="d-none name"><code>group_comparison.Rmd</code></div>
@@ -162,24 +162,23 @@ intersectional inequality).</p>
 <span><span class="co">#&gt; boundary (singular) fit: see help('isSingular')</span></span>
 <span></span>
 <span><span class="va">analysis</span></span>
-<span><span class="co">#&gt; MAIHDA Analysis</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">MAIHDA Analysis</span></span></span>
 <span><span class="co">#&gt; ===============</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Null formula:    math ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; Adjusted formula:math ~ gender + ses + (1 | stratum)</span></span>
 <span><span class="co">#&gt; Engine: lme4 | Family: gaussian</span></span>
-<span><span class="co">#&gt; VPC/ICC (null): 0.1493</span></span>
-<span><span class="co">#&gt; PCV (null -&gt; adjusted): 1.0000</span></span>
+<span><span class="co">#&gt; VPC/ICC (null): <span style="color: #D78700;">0.1493</span></span></span>
+<span><span class="co">#&gt; PCV (null -&gt; adjusted): <span style="color: #D78700;">1.0000</span></span></span>
 <span><span class="co">#&gt; Between-stratum variance: 1124.7631 (null) -&gt; 0.0000 (adjusted)</span></span>
 <span><span class="co">#&gt;   ~100.0% of the between-stratum variance is additive (the dimensions' main</span></span>
 <span><span class="co">#&gt;   effects); the remainder is the between-stratum variance remaining after the</span></span>
 <span><span class="co">#&gt;   additive main effects -- a model-dependent quantity</span></span>
 <span><span class="co">#&gt; Strata: 6</span></span>
-<span><span class="co">#&gt; Intersectional interactions: 0 of 6 strata flagged (95% interval, no multiplicity correction)</span></span>
-<span><span class="co">#&gt;   uncorrected across 6 strata; maihda_interactions(x, adjust = "BH") for an FDR screen</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Intersectional interactions:</span> <span style="color: #555555;">0</span> of 6 strata flagged (<span style="color: #555555;">95% interval, BH-adjusted</span>)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Group comparison by 'country':</span></span>
-<span><span class="co">#&gt; MAIHDA Group Comparison</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">MAIHDA Group Comparison</span></span></span>
 <span><span class="co">#&gt; =======================</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Group variable: country </span></span>
@@ -200,7 +199,8 @@ intersectional inequality).</p>
 <span><span class="co">#&gt;             0.000e+00               0.000e+00     ok</span></span>
 <span><span class="co">#&gt;             0.000e+00               0.000e+00     ok</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Use summary() for variance components and plot(type = ...) for figures.</span></span></code></pre></div>
+<span><span class="co"><span style="color: #555555;">#&gt; Use summary() for variance components and plot(type = ...) for figures.</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span></code></pre></div>
 <p>The printed report includes the overall VPC/ICC and PCV first, then
 the country-level comparison. The group comparison is also stored in
 <code>analysis$groups</code>, so it can be inspected or saved as a

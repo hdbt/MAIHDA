@@ -81,7 +81,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-06-22</h4>
+            <h4 data-toc-skip class="date">2026-06-23</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/binary_outcomes.Rmd" class="external-link"><code>vignettes/binary_outcomes.Rmd</code></a></small>
       <div class="d-none name"><code>binary_outcomes.Rmd</code></div>
@@ -173,24 +173,24 @@ underlying latent scale, not on the probability scale.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">summary_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model_null</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">summary_null</span><span class="op">)</span></span>
-<span><span class="co">#&gt; MAIHDA Model Summary</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">MAIHDA Model Summary</span></span></span>
 <span><span class="co">#&gt; ====================</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Variance Partition Coefficient (VPC/ICC):</span></span>
-<span><span class="co">#&gt;   Estimate: 0.0634</span></span>
+<span><span class="co">#&gt;   Estimate: <span style="color: #D78700;">0.0634</span></span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Variance Components:</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Variance Components:</span></span></span>
 <span><span class="co">#&gt;                  component variance     sd proportion</span></span>
 <span><span class="co">#&gt;   Between-stratum (random)   0.2227 0.4719    0.06339</span></span>
 <span><span class="co">#&gt;  Within-stratum (residual)   3.2899 1.8138    0.93661</span></span>
 <span><span class="co">#&gt;                      Total   3.5125 1.8742    1.00000</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Discriminatory accuracy (binomial MAIHDA)</span></span>
-<span><span class="co">#&gt;   AUC (C-statistic): 0.626</span></span>
-<span><span class="co">#&gt;   Median Odds Ratio: 1.568</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Discriminatory accuracy (binomial MAIHDA)</span></span></span>
+<span><span class="co">#&gt;   AUC (C-statistic): <span style="color: #D78700;">0.626</span></span></span>
+<span><span class="co">#&gt;   Median Odds Ratio: <span style="color: #D78700;">1.568</span></span></span>
 <span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Fixed Effects:</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Fixed Effects:</span></span></span>
 <span><span class="co">#&gt;         term estimate</span></span>
 <span><span class="co">#&gt;  (Intercept)   -0.616</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -238,9 +238,10 @@ the latent-scale VPC, the package provides
 VPC by simulation (Goldstein, Browne &amp; Rasbash 2002):</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/maihda_vpc_response.html">maihda_vpc_response</a></span><span class="op">(</span><span class="va">model_null</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Response-scale VPC (simulation method)</span></span>
-<span><span class="co">#&gt;   VPC: 0.0478</span></span>
-<span><span class="co">#&gt;   10000 simulated stratum effects; between-stratum variance 0.2227 (latent scale).</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Response-scale VPC (simulation method)</span></span></span>
+<span><span class="co">#&gt;   VPC: <span style="color: #D78700;">0.0478</span></span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">  10000 simulated stratum effects; between-stratum variance 0.2227 (latent scale).</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span></code></pre></div>
 <p>Report it <em>alongside</em> – not instead of – the latent-scale VPC:
 it depends on the overall prevalence, and for adjusted models it is
 evaluated at the mean covariate profile, so it is best read from the
@@ -275,19 +276,19 @@ sample:</p>
 <span></span>
 <span><span class="va">pcv</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model_null2</span>, <span class="va">model_adj</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">pcv</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Proportional Change in Variance (PCV)</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Proportional Change in Variance (PCV)</span></span></span>
 <span><span class="co">#&gt; =====================================</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; PCV: 0.0167</span></span>
+<span><span class="co">#&gt; PCV: <span style="color: #D78700;">0.0167</span></span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Between-stratum variance:</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Between-stratum variance:</span></span></span>
 <span><span class="co">#&gt;   Model 1: 0.222667</span></span>
 <span><span class="co">#&gt;   Model 2: 0.218941</span></span>
 <span><span class="co">#&gt;   Change:  0.003726 (1.67%)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span>
-<span><span class="co">#&gt; variance between the models):</span></span>
-<span><span class="co">#&gt;   Between-stratum variance is 1.7% lower in Model 2 than in Model 1.</span></span></code></pre></div>
+<span><span class="co"><span style="color: #555555;">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; variance between the models):</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span>  Between-stratum variance is 1.7% lower in Model 2 than in Model 1.</span></span></code></pre></div>
 <p>The same caveats as in the continuous case apply, with one extra
 wrinkle: for non-Gaussian models the latent residual variance is fixed
 by the link, so a change in the between-stratum variance is partly a
@@ -330,14 +331,14 @@ membership sharpens classification:</p>
 <span><span class="va">da_adj</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></span><span class="op">(</span><span class="va">model_adj</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">da_null</span></span>
-<span><span class="co">#&gt; Discriminatory accuracy (binomial MAIHDA)</span></span>
-<span><span class="co">#&gt;   AUC (C-statistic): 0.626</span></span>
-<span><span class="co">#&gt;   Median Odds Ratio: 1.568</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Discriminatory accuracy (binomial MAIHDA)</span></span></span>
+<span><span class="co">#&gt;   AUC (C-statistic): <span style="color: #D78700;">0.626</span></span></span>
+<span><span class="co">#&gt;   Median Odds Ratio: <span style="color: #D78700;">1.568</span></span></span>
 <span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span>
 <span><span class="va">da_adj</span></span>
-<span><span class="co">#&gt; Discriminatory accuracy (binomial MAIHDA)</span></span>
-<span><span class="co">#&gt;   AUC (C-statistic): 0.628</span></span>
-<span><span class="co">#&gt;   Median Odds Ratio: 1.563</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Discriminatory accuracy (binomial MAIHDA)</span></span></span>
+<span><span class="co">#&gt;   AUC (C-statistic): <span style="color: #D78700;">0.628</span></span></span>
+<span><span class="co">#&gt;   Median Odds Ratio: <span style="color: #D78700;">1.563</span></span></span>
 <span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span></code></pre></div>
 <p>You can also call the pieces directly:
 <code>maihda_auc(prob, y)</code> on any vector of predicted

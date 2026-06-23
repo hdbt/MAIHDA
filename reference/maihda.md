@@ -210,12 +210,13 @@ maihda(
   on the adjusted / crossed-dimensions model and attach it as the
   `interactions` slot, surfaced in
   [`print()`](https://rdrr.io/r/base/print.html). `TRUE` (default) uses
-  `adjust = "none"` (the diagnostic's own default); `FALSE` skips it; or
+  the diagnostic's own default correction (`adjust = "BH"`, FDR – since
+  scanning all strata is a screening question); `FALSE` skips it; or
   pass a [`p.adjust`](https://rdrr.io/r/stats/p.adjust.html) method name
-  (e.g. `"BH"`) to flag with that multiplicity correction. Uses
-  `conf_level`. Not computed for a longitudinal decomposition. The
-  computation is cheap (it reads the stratum estimates the summary
-  already holds; no refit).
+  – including `"none"` for the uncorrected, per-stratum
+  individual-testing view. Uses `conf_level`. Not computed for a
+  longitudinal decomposition. The computation is cheap (it reads the
+  stratum estimates the summary already holds; no refit).
 
 - ...:
 
@@ -361,11 +362,11 @@ a                              # VPC (null) and PCV (null -> adjusted)
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
 #> Strata: 10
-#> Intersectional interactions: 4 of 10 strata flagged (95% interval, no multiplicity correction)
+#> Intersectional interactions: 4 of 10 strata flagged (95% interval, BH-adjusted)
 #>   strongest: male × Black (-1.290, below)
-#>   uncorrected across 10 strata; maihda_interactions(x, adjust = "BH") for an FDR screen
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
+#> 
 a$pcv                          # proportional change in between-stratum variance
 #> Proportional Change in Variance (PCV)
 #> =====================================
@@ -382,10 +383,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x563e6fc30090>
+#> <environment: 0x5566c78d1090>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x563e6f75b700>
+#> <environment: 0x5566c74022a8>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -432,16 +433,15 @@ cc                                    # VPC and additive/interaction shares
 #>   a different estimator; interpret the interaction share cautiously.
 #> 
 #> Strata: 10
-#> Intersectional interactions: 1 of 10 strata flagged (95% interval, no multiplicity correction)
-#>   strongest: female × Black (+1.862, above)
-#>   uncorrected across 10 strata; maihda_interactions(x, adjust = "BH") for an FDR screen
+#> Intersectional interactions: 0 of 10 strata flagged (95% interval, BH-adjusted)
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
+#> 
 cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x563e729f6558>
+#> <environment: 0x5566c70b7c88>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):
@@ -469,8 +469,7 @@ a2
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
 #> Strata: 6
-#> Intersectional interactions: 0 of 6 strata flagged (95% interval, no multiplicity correction)
-#>   uncorrected across 6 strata; maihda_interactions(x, adjust = "BH") for an FDR screen
+#> Intersectional interactions: 0 of 6 strata flagged (95% interval, BH-adjusted)
 #> 
 #> Group comparison by 'country':
 #> MAIHDA Group Comparison
@@ -495,6 +494,7 @@ a2
 #>             0.000e+00               0.000e+00     ok
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
+#> 
 plot(a2, type = "group_vpc")
 
 plot(a2, type = "group_pcv")
@@ -523,10 +523,10 @@ a3
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
 #> Strata: 6
-#> Intersectional interactions: 0 of 6 strata flagged (95% interval, no multiplicity correction)
-#>   uncorrected across 6 strata; maihda_interactions(x, adjust = "BH") for an FDR screen
+#> Intersectional interactions: 0 of 6 strata flagged (95% interval, BH-adjusted)
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
+#> 
 a3$summary$context$vpc_context_total  # the country (general contextual) share
 #> [1] 0.1282643
 plot(a3, type = "context_vpc")

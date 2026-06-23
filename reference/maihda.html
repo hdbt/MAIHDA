@@ -259,12 +259,13 @@ not supported alongside them. Default <code>NULL</code> (cross-sectional).</p></
 <dd><p>Whether to compute the per-stratum interaction diagnostic
 (<code><a href="maihda_interactions.html">maihda_interactions</a></code>) on the adjusted / crossed-dimensions model
 and attach it as the <code>interactions</code> slot, surfaced in <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>.
-<code>TRUE</code> (default) uses <code>adjust = "none"</code> (the diagnostic's own
-default); <code>FALSE</code> skips it; or pass a <code><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust</a></code> method
-name (e.g. <code>"BH"</code>) to flag with that multiplicity correction. Uses
-<code>conf_level</code>. Not computed for a longitudinal decomposition. The
-computation is cheap (it reads the stratum estimates the summary already holds;
-no refit).</p></dd>
+<code>TRUE</code> (default) uses the diagnostic's own default correction
+(<code>adjust = "BH"</code>, FDR – since scanning all strata is a screening
+question); <code>FALSE</code> skips it; or pass a <code><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust</a></code> method
+name – including <code>"none"</code> for the uncorrected, per-stratum
+individual-testing view. Uses <code>conf_level</code>. Not computed for a longitudinal
+decomposition. The computation is cheap (it reads the stratum estimates the
+summary already holds; no refit).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -369,44 +370,44 @@ for those single-model fits.</p>
 <span class="r-in"><span><span class="co"># adjusted model; maihda() derives the null by dropping them.</span></span></span>
 <span class="r-in"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu">maihda</span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">a</span>                              <span class="co"># VPC (null) and PCV (null -&gt; adjusted)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> MAIHDA Analysis</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">MAIHDA Analysis</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ===============</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Null formula:    BMI ~ Age + (1 | stratum)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Adjusted formula:BMI ~ Age + Gender + Race + (1 | stratum)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Engine: lme4 | Family: gaussian</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> VPC/ICC (null): 0.0585</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> PCV (null -&gt; adjusted): 0.8211</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> VPC/ICC (null): <span style="color: #D78700;">0.0585</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> PCV (null -&gt; adjusted): <span style="color: #D78700;">0.8211</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance: 2.4303 (null) -&gt; 0.4347 (adjusted)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   ~82.1% of the between-stratum variance is additive (the dimensions' main</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 10</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Intersectional interactions: 4 of 10 strata flagged (95% interval, no multiplicity correction)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   strongest: male × Black (-1.290, below)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   uncorrected across 10 strata; maihda_interactions(x, adjust = "BH") for an FDR screen</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Intersectional interactions:</span> <span style="color: #D78700; font-weight: bold;">4</span> of 10 strata flagged (<span style="color: #555555;">95% interval, BH-adjusted</span>)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   strongest: male × Black (<span style="color: #D78700;">-1.290</span>, below)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for variance components and plot(type = ...) for figures.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Use summary() for variance components and plot(type = ...) for figures.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">pcv</span>                          <span class="co"># proportional change in between-stratum variance</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Proportional Change in Variance (PCV)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Proportional Change in Variance (PCV)</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> =====================================</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> PCV: 0.8211</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> PCV: <span style="color: #D78700;">0.8211</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Between-stratum variance:</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Model 1: 2.430319</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Model 2: 0.434727</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Change:  1.995592 (82.11%)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Interpretation (PCV is the proportional change in between-stratum</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> variance between the models):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Interpretation (PCV is the proportional change in between-stratum</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">variance between the models):</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x563e6fc30090&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5566c78d1090&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x563e6f75b700&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5566c74022a8&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -425,22 +426,22 @@ for those single-model fits.</p>
 <span class="r-in"><span>             decomposition <span class="op">=</span> <span class="st">"crossed-dimensions"</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> boundary (singular) fit: see help('isSingular')</span>
 <span class="r-in"><span><span class="va">cc</span>                                    <span class="co"># VPC and additive/interaction shares</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> MAIHDA Analysis</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">MAIHDA Analysis</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ===============</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Decomposition:   crossed-dimensions (single model)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Formula:         BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Engine: lme4 | Family: gaussian</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Fit diagnostics:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Singular fit: at least one variance component is estimated at (or near) zero.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     The between-stratum variance and any VPC/PCV derived from it may be unreliable.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Convergence warnings reported by lme4:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     - boundary (singular) fit: see help('isSingular')</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">Fit diagnostics:</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">  Singular fit: at least one variance component is estimated at (or near) zero.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">    The between-stratum variance and any VPC/PCV derived from it may be unreliable.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">  Convergence warnings reported by lme4:</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">    - boundary (singular) fit: see help('isSingular')</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> VPC/ICC: 0.0637</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> VPC/ICC: <span style="color: #D78700;">0.0637</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Additive vs. Intersectional Decomposition (crossed-dimensions):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Additive vs. Intersectional Decomposition (crossed-dimensions):</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Additive (sum of dimension main effects) variance: 1.8415</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Intersectional interaction variance:               1.1593</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Total between-strata variance:                     3.0008</span>
@@ -449,20 +450,19 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Per-dimension additive variance:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     Gender: 0.0000</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     Race: 1.8415</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Note: the additive share is the crossed-dimensions analogue of the PCV but</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   a different estimator; interpret the interaction share cautiously.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  Note: the additive share is the crossed-dimensions analogue of the PCV but</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  a different estimator; interpret the interaction share cautiously.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 10</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Intersectional interactions: 1 of 10 strata flagged (95% interval, no multiplicity correction)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   strongest: female × Black (+1.862, above)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   uncorrected across 10 strata; maihda_interactions(x, adjust = "BH") for an FDR screen</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Intersectional interactions:</span> <span style="color: #555555;">0</span> of 10 strata flagged (<span style="color: #555555;">95% interval, BH-adjusted</span>)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for variance components and plot(type = ...) for figures.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Use summary() for variance components and plot(type = ...) for figures.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">decomposition</span><span class="op">$</span><span class="va">additive_share</span>       <span class="co"># crossed-dimensions analogue of the PCV</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x563e729f6558&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5566c70b7c88&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>
@@ -477,24 +477,23 @@ for those single-model fits.</p>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> boundary (singular) fit: see help('isSingular')</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> boundary (singular) fit: see help('isSingular')</span>
 <span class="r-in"><span><span class="va">a2</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> MAIHDA Analysis</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">MAIHDA Analysis</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ===============</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Null formula:    math ~ (1 | stratum)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Adjusted formula:math ~ (1 | stratum) + gender + ses</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Engine: lme4 | Family: gaussian</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> VPC/ICC (null): 0.1493</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> PCV (null -&gt; adjusted): 1.0000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> VPC/ICC (null): <span style="color: #D78700;">0.1493</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> PCV (null -&gt; adjusted): <span style="color: #D78700;">1.0000</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance: 1124.7631 (null) -&gt; 0.0000 (adjusted)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   ~100.0% of the between-stratum variance is additive (the dimensions' main</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 6</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Intersectional interactions: 0 of 6 strata flagged (95% interval, no multiplicity correction)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   uncorrected across 6 strata; maihda_interactions(x, adjust = "BH") for an FDR screen</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Intersectional interactions:</span> <span style="color: #555555;">0</span> of 6 strata flagged (<span style="color: #555555;">95% interval, BH-adjusted</span>)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Group comparison by 'country':</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> MAIHDA Group Comparison</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">MAIHDA Group Comparison</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> =======================</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Group variable: country </span>
@@ -515,7 +514,8 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for variance components and plot(type = ...) for figures.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Use summary() for variance components and plot(type = ...) for figures.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a2</span>, type <span class="op">=</span> <span class="st">"group_vpc"</span><span class="op">)</span></span></span>
 <span class="r-plt img"><img src="maihda-3.png" alt="" width="700" height="433"></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a2</span>, type <span class="op">=</span> <span class="st">"group_pcv"</span><span class="op">)</span></span></span>
@@ -529,25 +529,25 @@ for those single-model fits.</p>
 <span class="r-in"><span>             context <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> maihda(): added the additive main effect(s) of the stratum dimension(s) gender, ses to the adjusted model; the null model excludes them. List them in the formula to specify the adjusted model explicitly.</span>
 <span class="r-in"><span><span class="va">a3</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> MAIHDA Analysis</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">MAIHDA Analysis</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ===============</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Null formula:    math ~ (1 | stratum) + (1 | country)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Adjusted formula:math ~ (1 | stratum) + (1 | country) + gender + ses</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Engine: lme4 | Family: gaussian</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Context: country (crossed contextual random intercept in the null and adjusted models)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> VPC/ICC (null): 0.1032</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> VPC/ICC (null): <span style="color: #D78700;">0.1032</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Context share (null): 0.1283 (between-country share of unexplained variance)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> PCV (null -&gt; adjusted): 1.0000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> PCV (null -&gt; adjusted): <span style="color: #D78700;">1.0000</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance: 838.3719 (null) -&gt; 0.0000 (adjusted)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   ~100.0% of the between-stratum variance is additive (the dimensions' main</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 6</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Intersectional interactions: 0 of 6 strata flagged (95% interval, no multiplicity correction)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   uncorrected across 6 strata; maihda_interactions(x, adjust = "BH") for an FDR screen</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Intersectional interactions:</span> <span style="color: #555555;">0</span> of 6 strata flagged (<span style="color: #555555;">95% interval, BH-adjusted</span>)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Use summary() for variance components and plot(type = ...) for figures.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Use summary() for variance components and plot(type = ...) for figures.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="va">a3</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">context</span><span class="op">$</span><span class="va">vpc_context_total</span>  <span class="co"># the country (general contextual) share</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.1282643</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a3</span>, type <span class="op">=</span> <span class="st">"context_vpc"</span><span class="op">)</span></span></span>

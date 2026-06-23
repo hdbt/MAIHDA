@@ -12,7 +12,7 @@ not.
 ## Usage
 
 ``` r
-maihda_interactions(object, conf_level = 0.95, adjust = "none", ...)
+maihda_interactions(object, conf_level = 0.95, adjust = "BH", rope = NULL, ...)
 ```
 
 ## Arguments
@@ -35,10 +35,24 @@ maihda_interactions(object, conf_level = 0.95, adjust = "none", ...)
 - adjust:
 
   Multiple-comparison adjustment for the per-stratum p-values
-  (frequentist engines only): `"none"` (default) or any method accepted
-  by [`p.adjust`](https://rdrr.io/r/stats/p.adjust.html) (e.g. `"BH"`,
-  `"holm"`, `"bonferroni"`). Ignored for `brms` (with a message), which
-  uses the posterior tail directly.
+  (frequentist engines only): `"BH"` (default; false-discovery rate) or
+  any method accepted by
+  [`p.adjust`](https://rdrr.io/r/stats/p.adjust.html), including
+  `"none"` for the uncorrected, per-stratum individual-testing view.
+  Ignored for `brms` (which uses the posterior tail directly; a message
+  is shown only if you set it explicitly).
+
+- rope:
+
+  Optional equivalence region (a "smallest interaction of interest") for
+  an "is the interaction *negligible*?" reading (Schuirmann 1987;
+  Kruschke 2018), on the link (latent) scale. `NULL` (default) gives
+  only the usual zero-centred flag. A single positive number `d` means
+  the symmetric region `c(-d, d)`; or supply `c(lower, upper)`. When
+  set, the result gains a `decision` column classifying each stratum
+  from its `conf_level` interval relative to the region: `"relevant"`
+  (interval entirely outside it), `"negligible"` (entirely inside it),
+  or `"inconclusive"` (straddling a bound).
 
 - ...:
 
@@ -52,9 +66,10 @@ to every engine: `stratum`, `label`, `n` (stratum size), `interaction`
 (the BLUP), `lower`/`upper` (the interval), `flagged` (logical), and
 `direction` (`"above"`/`"below"` the additive expectation). Frequentist
 fits add `se` and `p_value` (and `p_adjusted` when `adjust != "none"`);
-`brms` adds `pd` (probability of direction). Attributes record
-`conf_level`, `adjust`, `engine`, `model_type`, `n_strata`, `n_flagged`,
-`scale` and `singular`.
+`brms` adds `pd` (probability of direction). When `rope` is set, a
+`decision` column (`"relevant"`/`"negligible"`/`"inconclusive"`) is
+added. Attributes record `conf_level`, `adjust`, `rope`, `engine`,
+`model_type`, `n_strata`, `n_flagged`, `scale` and `singular`.
 
 ## Details
 
@@ -99,20 +114,21 @@ and the experts disagree.**
   scan effectively is – it is *disjunction* testing and a correction
   applies.
 
-`adjust = "none"` is the default because the table is formally a set of
-individual hypotheses; **for the common exploratory scan of all strata,
-prefer `adjust = "BH"`**. Choosing FDR over family-wise
-(`"bonferroni"`/`"holm"`) matches a screening goal (the expected
-*proportion* of false discoveries) – this is the package's choice, not a
-recommendation of Rubin (2021), who raises FDR only to distinguish it
-from the family-wise rate. The flag itself is a Wald test on a shrunken
-BLUP whose conditional SE treats the variance components as known, so it
-(and any `adjust` on it) is an explicit, approximate *screen*, not a
-procedure inheriting an exact guarantee from the model. Lead with the
-interval (and, for `brms`, the probability of direction); the
-substantive question is often not whether an interaction differs from
-zero but whether it exceeds a smallest interaction of interest (an
-equivalence/SESOI reading; Lakens, Scheel & Isager 2018), read from the
+**`adjust = "BH"` is the default**: fitting and flagging every stratum
+in one call is the disjunction/screening case, where controlling the
+expected *proportion* of false discoveries (FDR) is the appropriate
+goal. Pass `adjust = "none"` only when each stratum is a genuine,
+pre-specified individual hypothesis. The FDR choice (over family-wise
+`"bonferroni"`/`"holm"`) is this package's, matching that screening
+goal; it is not a recommendation of Rubin (2021), who raises FDR only to
+distinguish it from the family-wise rate. The flag itself is a Wald test
+on a shrunken BLUP whose conditional SE treats the variance components
+as known, so it (and any `adjust` on it) is an explicit, approximate
+*screen*, not a procedure inheriting an exact guarantee from the model.
+Lead with the interval (and, for `brms`, the probability of direction);
+the substantive question is often not whether an interaction differs
+from zero but whether it exceeds a smallest interaction of interest (an
+equivalence reading; Schuirmann 1987; Kruschke 2018), read from the
 interval.
 
 The interaction is reported on the model's link (latent) scale – a
@@ -147,9 +163,14 @@ McShane, B. B., Gal, D., Gelman, A., Robert, C., & Tackett, J. L.
 (2019). Abandon statistical significance. *The American Statistician*,
 73(sup1), 235-245.
 
-Lakens, D., Scheel, A. M., & Isager, P. M. (2018). Equivalence testing
-for psychological research: a tutorial. *Advances in Methods and
-Practices in Psychological Science*, 1(2), 259-269.
+Schuirmann, D. J. (1987). A comparison of the two one-sided tests
+procedure and the power approach for assessing the equivalence of
+average bioavailability. *Journal of Pharmacokinetics and
+Biopharmaceutics*, 15(6), 657-680.
+
+Kruschke, J. K. (2018). Rejecting or accepting parameter values in
+Bayesian estimation. *Advances in Methods and Practices in Psychological
+Science*, 1(2), 270-280.
 
 ## See also
 
@@ -166,10 +187,27 @@ strata on the effect-decomposition / predicted / shrinkage plots.
 data(maihda_health_data)
 a <- maihda(BMI ~ Age + Gender + Race + (1 | Gender:Race),
             data = maihda_health_data)
-maihda_interactions(a)                 # which strata interact (95%, no correction)
-#> Strata with credibly non-zero intersectional interaction
-#> ========================================================
+maihda_interactions(a)                  # FDR-screened (default adjust = "BH")
+#> ── Intersectional interactions ─────────────────────────────────────────────────
+#> 4 of 10 strata flagged (95% interval; BH-adjusted p-values).
+#> Model: adjusted (two-model); interaction on the link (latent) scale.
 #> 
+#>  stratum          label    n interaction     se   lower   upper  p_value
+#>        2   male × Black  154     -1.2902 0.4870 -2.2446 -0.3357 0.008067
+#>        9 female × Black  182      1.2902 0.4540  0.4003  2.1800 0.004487
+#>        3 female × White 1044     -0.6003 0.2025 -0.9972 -0.2035 0.003025
+#>        5   male × White  990      0.6003 0.2077  0.1932  1.0075 0.003855
+#>  p_adjusted flagged direction
+#>     0.02017    TRUE     below
+#>     0.01496    TRUE     above
+#>     0.01496    TRUE     below
+#>     0.01496    TRUE     above
+#> 
+#> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
+#>   exploratory. See ?maihda_interactions.
+#> 
+maihda_interactions(a, adjust = "none") # uncorrected per-stratum individual view
+#> ── Intersectional interactions ─────────────────────────────────────────────────
 #> 4 of 10 strata flagged (95% interval; no multiplicity correction).
 #> Model: adjusted (two-model); interaction on the link (latent) scale.
 #> 
@@ -187,25 +225,26 @@ maihda_interactions(a)                 # which strata interact (95%, no correcti
 #> Flagging many strata inflates false positives; for a screening error-rate
 #>   story use adjust = "BH" (FDR). Interaction BLUPs are shrunken estimates,
 #>   so correction is optional -- see ?maihda_interactions.
-maihda_interactions(a, adjust = "BH")  # FDR-controlled screen
-#> Strata with credibly non-zero intersectional interaction
-#> ========================================================
 #> 
+maihda_interactions(a, rope = 0.1)      # equivalence: |interaction| within 0.1?
+#> ── Intersectional interactions ─────────────────────────────────────────────────
 #> 4 of 10 strata flagged (95% interval; BH-adjusted p-values).
 #> Model: adjusted (two-model); interaction on the link (latent) scale.
+#> Equivalence vs ROPE [-0.1, 0.1]: 4 relevant | 0 negligible | 6 inconclusive.
 #> 
 #>  stratum          label    n interaction     se   lower   upper  p_value
 #>        2   male × Black  154     -1.2902 0.4870 -2.2446 -0.3357 0.008067
 #>        9 female × Black  182      1.2902 0.4540  0.4003  2.1800 0.004487
 #>        3 female × White 1044     -0.6003 0.2025 -0.9972 -0.2035 0.003025
 #>        5   male × White  990      0.6003 0.2077  0.1932  1.0075 0.003855
-#>  p_adjusted flagged direction
-#>     0.02017    TRUE     below
-#>     0.01496    TRUE     above
-#>     0.01496    TRUE     below
-#>     0.01496    TRUE     above
+#>  p_adjusted flagged direction decision
+#>     0.02017    TRUE     below relevant
+#>     0.01496    TRUE     above relevant
+#>     0.01496    TRUE     below relevant
+#>     0.01496    TRUE     above relevant
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.
+#> 
 # }
 ```

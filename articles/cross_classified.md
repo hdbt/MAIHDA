@@ -111,11 +111,10 @@ cc
 #>   a different estimator; interpret the interaction share cautiously.
 #> 
 #> Strata: 50
-#> Intersectional interactions: 3 of 50 strata flagged (95% interval, no multiplicity correction)
-#>   strongest: female × Black × High School (+1.994, above)
-#>   uncorrected across 50 strata; maihda_interactions(x, adjust = "BH") for an FDR screen
+#> Intersectional interactions: 0 of 50 strata flagged (95% interval, BH-adjusted)
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
+#> 
 ```
 
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) builds
@@ -129,7 +128,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x55cf2d8a7b20>
+#> <environment: 0x562619877ca0>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -430,10 +429,10 @@ a
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
 #> Strata: 6
-#> Intersectional interactions: 0 of 6 strata flagged (95% interval, no multiplicity correction)
-#>   uncorrected across 6 strata; maihda_interactions(x, adjust = "BH") for an FDR screen
+#> Intersectional interactions: 0 of 6 strata flagged (95% interval, BH-adjusted)
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
+#> 
 ```
 
 ``` r

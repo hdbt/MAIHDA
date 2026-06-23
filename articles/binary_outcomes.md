@@ -166,6 +166,7 @@ maihda_vpc_response(model_null, seed = 1)
 #> Response-scale VPC (simulation method)
 #>   VPC: 0.0478
 #>   10000 simulated stratum effects; between-stratum variance 0.2227 (latent scale).
+#> 
 ```
 
 Report it *alongside* – not instead of – the latent-scale VPC: it

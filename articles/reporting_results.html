@@ -81,7 +81,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-06-22</h4>
+            <h4 data-toc-skip class="date">2026-06-23</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/reporting_results.Rmd" class="external-link"><code>vignettes/reporting_results.Rmd</code></a></small>
       <div class="d-none name"><code>reporting_results.Rmd</code></div>
@@ -224,13 +224,13 @@ shows both in the familiar “estimate [low, high]” layout:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_table.html">maihda_table</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
 <span><span class="va">tab</span></span>
-<span><span class="co">#&gt; MAIHDA Results Table</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">MAIHDA Results Table</span></span></span>
 <span><span class="co">#&gt; ====================</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Engine: lme4 | Family: gaussian | Mode: two-model</span></span>
 <span><span class="co">#&gt; Observations: 3000 | Strata: 50</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Model results:</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Model results:</span></span></span>
 <span><span class="co">#&gt;                 Statistic Null (Model 1) Adjusted (Model 2)</span></span>
 <span><span class="co">#&gt;                 Intercept         28.208             30.050</span></span>
 <span><span class="co">#&gt;  Between-stratum variance          2.900              1.172</span></span>
@@ -238,7 +238,7 @@ shows both in the familiar “estimate [low, high]” layout:</p>
 <span><span class="co">#&gt;                   VPC/ICC          0.063              0.026</span></span>
 <span><span class="co">#&gt;    PCV (null -&gt; adjusted)                             0.766</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Strata ranked by predicted value (null model):</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Strata ranked by predicted value (null model):</span></span></span>
 <span><span class="co">#&gt;  Rank                          Stratum   N               Predicted</span></span>
 <span><span class="co">#&gt;     1     female × Black × High School  46 33.274 [31.621, 34.927]</span></span>
 <span><span class="co">#&gt;     2    female × Black × Some College  76 31.413 [30.060, 32.766]</span></span>
@@ -401,16 +401,17 @@ better. <code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> answe
 column (gap from the best model):</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/maihda_ic.html">maihda_ic</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
-<span><span class="co">#&gt; MAIHDA Information Criteria</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">MAIHDA Information Criteria</span></span></span>
 <span><span class="co">#&gt; ===========================</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;              model    n            estimator df logLik   AIC   BIC delta</span></span>
 <span><span class="co">#&gt;      Model1 (Null) 3000 ML (refit from REML)  4  -9940 19889 19913  15.5</span></span>
 <span><span class="co">#&gt;  Model1 (Adjusted) 3000 ML (refit from REML) 13  -9924 19873 19951   0.0</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; delta = difference from the best model on AIC (lower is better).</span></span>
-<span><span class="co">#&gt; REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.</span></span>
-<span><span class="co">#&gt; Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).</span></span></code></pre></div>
+<span><span class="co"><span style="color: #555555;">#&gt; delta = difference from the best model on AIC (lower is better).</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a>

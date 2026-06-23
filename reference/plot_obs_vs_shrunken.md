@@ -31,4 +31,4 @@ from the diagonal is pure shrinkage toward the grand mean. For a
 covariate-adjusted model the model estimate also moves with the
 stratum's covariate profile, so distance from the diagonal reflects
 *both* shrinkage and covariate adjustment and should not be read as
-shrinkage alone. The caption notes which case applies.
+shrinkage alone.

@@ -6,6 +6,28 @@
 
 - **[`theme_maihda()`](https://hdbt.github.io/MAIHDA/reference/theme_maihda.md)
   now is set as standard theme for ggplot objects**
+- **The interaction diagnostic now defaults to FDR control and gains an
+  equivalence (ROPE) reading.**
+  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  now defaults to `adjust = "BH"` (Benjamini-Hochberg) rather than
+  `"none"`: fitting and flagging every stratum in one call is a
+  screening question, so the flags should control the false-discovery
+  rate by default. Pass `adjust = "none"` (or `interactions = "none"` to
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)/[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md))
+  for the uncorrected, per-stratum individual-testing view. A new
+  **`rope`** argument adds an equivalence /
+  smallest-interaction-of-interest reading (Schuirmann 1987; Kruschke
+  2018): supply a region of practical equivalence (a half-width `d` for
+  `c(-d, d)`, or `c(lower, upper)`, on the link scale) and each stratum
+  gains a `decision` of `"relevant"` (interval entirely outside the
+  region), `"negligible"` (entirely inside), or `"inconclusive"`
+  (straddling a bound), reported by
+  [`print()`](https://rdrr.io/r/base/print.html). The documentation now
+  also keeps two ideas the literature distinguishes apart – partial
+  pooling regularises magnitude/sign (Gelman, Hill & Yajima 2012) while
+  whether to correct depends on the inferential structure of the claim
+  (Rubin 2021) – rather than treating shrinkage as itself a multiplicity
+  correction.
 
 ### Bug Fixes
 
@@ -35,6 +57,20 @@
 
 ### Improvements
 
+- **Console output is now colour-coded** (via `cli`). The print methods
+  across the package –
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analyses, model/summary, PCV, discriminatory accuracy, the interaction
+  diagnostic, group comparison, tables, information criteria, and the
+  rest – bold section titles, accent the headline values, and dim
+  secondary notes, reusing the **plot accent colour** so the console and
+  the figures agree. The palette is deliberately **valence-neutral**:
+  colour marks emphasis (a finding to look at, a neutral conclusion, a
+  de-emphasised note), never good-vs-bad – so, e.g., a `negligible`
+  equivalence result is shown in a neutral colour, not green. It
+  **degrades to plain text automatically** wherever ANSI is unsupported
+  (knitr/vignettes, `R CMD check`, `testthat`, `NO_COLOR`), so rendered
+  and captured output is byte-for-byte unchanged. `cli` joins `Imports`.
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   (and `maihda(group = )`) gain a **`var_between_adjusted_ml`** column:
   the adjusted model’s *actual* between-stratum variance, read straight
@@ -69,9 +105,9 @@ CRAN release: 2026-06-18
   computation is essentially free (it reads the stratum estimates the
   summary already holds; no refit), and it is skipped for a longitudinal
   decomposition (whose interaction is a trajectory, not a scalar).
-  Control it with the new `interactions` argument: `TRUE` (default) uses
-  `adjust = "none"`; `FALSE` skips it; or pass a `p.adjust` method
-  (e.g. `interactions = "BH"`) to flag with that correction.
+  Control it with the new `interactions` argument: `TRUE` (default)
+  computes it with the diagnostic’s own default correction; `FALSE`
+  skips it; or pass a `p.adjust` method name to choose the correction.
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   gains the same argument as an **opt-in** (`interactions = FALSE` by
   default, since a single fit is often a null model where the diagnostic
@@ -647,10 +683,8 @@ CRAN release: 2026-06-18
   `maihda(group = )` analysis gains `type = "group_between_variance"`),
   which bars the absolute between-stratum variance by group – the
   *magnitude* of intersectional variation that the VPC *share* cannot
-  convey. The VPC plot now also carries an interpretive caption (it is
-  descriptive, and overlapping intervals are not a difference test), and
-  all group plots now name any groups omitted because their VPC was not
-  estimable instead of dropping them silently.
+  convey. All group plots now name any groups omitted because their VPC
+  was not estimable instead of dropping them silently.
 - Clarified the PCV documentation
   ([`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md),
   [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),

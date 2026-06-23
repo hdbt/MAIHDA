@@ -303,6 +303,7 @@ maihda_ic(a)
 #> delta = difference from the best model on AIC (lower is better).
 #> REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.
 #> Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).
+#> 
 ```
 
 ## See also

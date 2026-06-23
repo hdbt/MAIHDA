@@ -121,8 +121,7 @@ analysis
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
 #> Strata: 6
-#> Intersectional interactions: 0 of 6 strata flagged (95% interval, no multiplicity correction)
-#>   uncorrected across 6 strata; maihda_interactions(x, adjust = "BH") for an FDR screen
+#> Intersectional interactions: 0 of 6 strata flagged (95% interval, BH-adjusted)
 #> 
 #> Group comparison by 'country':
 #> MAIHDA Group Comparison
@@ -147,6 +146,7 @@ analysis
 #>             0.000e+00               0.000e+00     ok
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
+#> 
 plot(analysis, type = "group_vpc")
 
 # }

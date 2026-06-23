@@ -104,17 +104,17 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
 #> Strata: 50
-#> Intersectional interactions: 2 of 50 strata flagged (95% interval, no multiplicity correction)
+#> Intersectional interactions: 1 of 50 strata flagged (95% interval, BH-adjusted)
 #>   strongest: male × White × Some College (+1.196, above)
-#>   uncorrected across 50 strata; maihda_interactions(x, adjust = "BH") for an FDR screen
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
+#> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x557cb5901ec8>
+#> <environment: 0x55d6a14a0200>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x557cc0a0dd38>
+#> <environment: 0x55d6ac4e8998>
 ```
 
 The returned object carries everything: the full variance components,
