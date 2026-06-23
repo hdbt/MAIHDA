@@ -42,7 +42,8 @@ An object of class \code{maihda_interactions} (a data frame), one row
   \code{flagged} (logical), and \code{direction} (\code{"above"}/\code{"below"}
   the additive expectation). Frequentist fits add \code{se} and \code{p_value}
   (and \code{p_adjusted} when \code{adjust != "none"}); \code{brms} adds
-  \code{pd} (probability of direction). When \code{rope} is set, a
+  \code{pd} (probability of direction, \code{max(P(>0), P(<0))} in
+  \code{[0.5, 1]}). When \code{rope} is set, a
   \code{decision} column (\code{"relevant"}/\code{"negligible"}/\code{"inconclusive"})
   is added. Attributes record \code{conf_level}, \code{adjust}, \code{rope},
   \code{engine}, \code{model_type}, \code{n_strata}, \code{n_flagged},
@@ -72,7 +73,8 @@ conditional standard error: a Wald interval at \code{conf_level} and a two-sided
 p-value, with an optional multiplicity correction (\code{adjust}). For
 \code{brms} the full posterior is already available, so the \emph{exact}
 posterior tail is used -- a credible interval at \code{conf_level} and the
-probability of direction \code{pd = P(BLUP > 0)} -- and \code{adjust} is not
+probability of direction \code{pd = max(P(BLUP > 0), P(BLUP < 0))} (in
+\code{[0.5, 1]}; the sign is in \code{direction}) -- and \code{adjust} is not
 applied (the Bayesian answer is multiplicity-free).
 
 \strong{Multiplicity: partial pooling and a correction are different things, and

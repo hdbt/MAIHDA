@@ -23,18 +23,20 @@ maihda_binomial_abs_deviance_residual <- function(obs_outcome_01, fitted) {
   out
 }
 
-# Prior/precision weights aligned to `data`'s rows, used to make the per-stratum
+# Prediction weights aligned to `data`'s rows, used to make the per-stratum
 # aggregation a weighted mean for weighted fits (consistent with the weighted VPC
-# and the other stratum-level plots). Falls back to unit weights -- so the
-# weighted means reduce EXACTLY to plain means -- when the model is unweighted,
-# the weights cannot be recovered, or they do not align with `data` (e.g.
-# user-supplied prediction data). These are lme4 prior/precision weights, not a
-# complex survey design (no design-based variance is computed).
+# and the other stratum-level plots); for an aggregated-binomial fit each row is
+# weighted by its binomial TRIAL count, matching the trial-weighting the raw-model
+# fallback below already applies via weights(type = "prior"). Falls back to unit
+# weights -- so the weighted means reduce EXACTLY to plain means -- when the model
+# is unweighted, the weights cannot be recovered, or they do not align with `data`
+# (e.g. user-supplied prediction data). These are prior/precision (and trial)
+# weights, not a complex survey design (no design-based variance is computed).
 maihda_prediction_panel_prior_weights <- function(maihda_obj, model, data) {
   n <- nrow(data)
   w <- NULL
   if (!is.null(maihda_obj)) {
-    w <- tryCatch(maihda_prior_weights(maihda_obj), error = function(e) NULL)
+    w <- tryCatch(maihda_prediction_weights(maihda_obj), error = function(e) NULL)
   }
   if (is.null(w)) {
     w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)

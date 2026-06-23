@@ -135,6 +135,16 @@ test_that("longitudinal PCV recovers a mostly-additive trajectory split", {
   expect_gt(a$pcv$Sigma_stratum_adjusted[2, 2], 0)
 })
 
+test_that("maihda_interactions refuses a longitudinal analysis or model", {
+  # A direct call must NOT fall through to the scalar crossed-dimensions diagnostic:
+  # each stratum's interaction is a TRAJECTORY (intercept + slope), so the single
+  # per-stratum BLUP would drop the slope and return a cross-sectional value. Both
+  # the longitudinal analysis (mode = "longitudinal") and a bare longitudinal model
+  # (carrying longitudinal_info) error, mirroring the automatic-attachment skip.
+  expect_error(maihda_interactions(a_g), "longitudinal MAIHDA")
+  expect_error(maihda_interactions(m_g), "longitudinal MAIHDA")
+})
+
 test_that("longitudinal PCV baseline is the variance at ref_time, not raw time 0", {
   # Shift time off zero (waves 10..14): the baseline PCV must be the PCV of the
   # between-stratum variance AT the observed baseline (ref_time = 10), evaluated

@@ -672,6 +672,10 @@ test_that("maihda_prior_weights resolves design weights from either column", {
 
   expect_equal(maihda_prior_weights(m), c(2, 3, 4, 5))
 
+  # For a non-aggregated-binomial response the prediction weights coincide with the
+  # prior weights (trial-weighting only kicks in for a cbind/trials() response).
+  expect_equal(maihda_prediction_weights(m), maihda_prior_weights(m))
+
   # A brms analytic frame carries the normalized .maihda_sw column instead.
   m_brms <- m
   m_brms$data$w <- NULL

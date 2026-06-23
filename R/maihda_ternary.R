@@ -95,12 +95,13 @@ compute_maihda_ternary_data <- function(
   pred_data <- model$data
   stratum_keep <- !is.na(pred_data$stratum)
   pred_data <- pred_data[stratum_keep, , drop = FALSE]
-  # Prior/precision weights aligned to pred_data, so the per-stratum aggregation
-  # and the reference centre below are weighted for a weighted fit (consistent with
-  # the weighted VPC and the other stratum-level plots). Unit weights reduce both
-  # to the previous plain/size-weighted means. These are lme4 prior/precision
+  # Prediction weights aligned to pred_data, so the per-stratum aggregation and the
+  # reference centre below are weighted for a weighted fit (consistent with the
+  # weighted VPC and the other stratum-level plots); for an aggregated-binomial fit
+  # each row is weighted by its binomial TRIAL count. Unit weights reduce both to the
+  # previous plain/size-weighted means. These are prior/precision (and trial)
   # weights, not a complex survey design (no design-based variance is computed).
-  prior_w_full <- maihda_prior_weights(model)
+  prior_w_full <- maihda_prediction_weights(model)
   pred_w <- prior_w_full[stratum_keep]
 
   if (!is.null(reference_values)) {

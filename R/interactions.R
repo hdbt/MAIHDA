@@ -34,7 +34,8 @@
 #' p-value, with an optional multiplicity correction (\code{adjust}). For
 #' \code{brms} the full posterior is already available, so the \emph{exact}
 #' posterior tail is used -- a credible interval at \code{conf_level} and the
-#' probability of direction \code{pd = P(BLUP > 0)} -- and \code{adjust} is not
+#' probability of direction \code{pd = max(P(BLUP > 0), P(BLUP < 0))} (in
+#' \code{[0.5, 1]}; the sign is in \code{direction}) -- and \code{adjust} is not
 #' applied (the Bayesian answer is multiplicity-free).
 #'
 #' \strong{Multiplicity: partial pooling and a correction are different things, and
@@ -109,7 +110,8 @@
 #'   \code{flagged} (logical), and \code{direction} (\code{"above"}/\code{"below"}
 #'   the additive expectation). Frequentist fits add \code{se} and \code{p_value}
 #'   (and \code{p_adjusted} when \code{adjust != "none"}); \code{brms} adds
-#'   \code{pd} (probability of direction). When \code{rope} is set, a
+#'   \code{pd} (probability of direction, \code{max(P(>0), P(<0))} in
+#'   \code{[0.5, 1]}). When \code{rope} is set, a
 #'   \code{decision} column (\code{"relevant"}/\code{"negligible"}/\code{"inconclusive"})
 #'   is added. Attributes record \code{conf_level}, \code{adjust}, \code{rope},
 #'   \code{engine}, \code{model_type}, \code{n_strata}, \code{n_flagged},
@@ -361,6 +363,19 @@ print.maihda_interactions <- function(x, ...) {
 # effect is the pure interaction. A bare maihda_model is used directly, with a
 # guardrail warning when it looks like a null model.
 maihda_resolve_interaction_model <- function(object) {
+  # A longitudinal MAIHDA's per-stratum interaction is a TRAJECTORY (random
+  # intercept + slope(s)), so the scalar BLUP diagnostic is undefined: collapsing it
+  # to one number drops the slope and silently returns a cross-sectional-looking
+  # value. The automatic attachment path skips longitudinal objects; this guards the
+  # direct maihda_interactions() call that bypasses it (analysis mode
+  # "longitudinal", or a bare longitudinal maihda_model carrying longitudinal_info).
+  is_longitudinal <-
+    (inherits(object, "maihda_analysis") && identical(object$mode, "longitudinal")) ||
+    (inherits(object, "maihda_model") && !is.null(object$longitudinal_info))
+  if (is_longitudinal) {
+    maihda_stop_longitudinal_scalar("A scalar per-stratum interaction diagnostic")
+  }
+
   if (inherits(object, "maihda_analysis")) {
     if (identical(object$mode, "two-model")) {
       if (is.null(object$model_adjusted)) {
@@ -439,8 +454,10 @@ maihda_interaction_strata_n <- function(model, strata) {
 
 # Exact posterior tail of the stratum interaction for a brms fit: per stratum the
 # posterior median, a central credible interval at conf_level, and the probability
-# of direction pd = P(BLUP > 0). Uses the full random-effect draws (summary =
-# FALSE) rather than a Gaussian approximation to the posterior SD.
+# of direction pd = max(P(BLUP > 0), P(BLUP < 0)) -- the share of the posterior on
+# the side of zero the estimate actually favours, so pd is in [0.5, 1] and the SIGN
+# is reported separately (the `direction` column). Uses the full random-effect draws
+# (summary = FALSE) rather than a Gaussian approximation to the posterior SD.
 maihda_interaction_brms_tail <- function(brmsfit, group, conf_level) {
   if (!requireNamespace("brms", quietly = TRUE)) {
     stop("Package 'brms' is required to work with brms models. Please install it ",
@@ -468,9 +485,20 @@ maihda_interaction_brms_tail <- function(brmsfit, group, conf_level) {
     interaction = apply(draws_mat, 2, stats::median),
     lower = apply(draws_mat, 2, stats::quantile, probs = a / 2, names = FALSE),
     upper = apply(draws_mat, 2, stats::quantile, probs = 1 - a / 2, names = FALSE),
-    pd = apply(draws_mat, 2, function(d) mean(d > 0)),
+    pd = apply(draws_mat, 2, maihda_pd),
     stringsAsFactors = FALSE
   )
+}
+
+# Conventional probability of direction for a posterior draw vector (cf.
+# bayestestR::p_direction): the larger of the two one-sided tail masses, in
+# [0.5, 1]. NOT P(d > 0), which would read ~0 for a strong NEGATIVE interaction
+# even though its direction is near-certain -- the sign is carried separately by
+# the `direction` column. NA for an all-non-finite vector.
+maihda_pd <- function(d) {
+  d <- d[is.finite(d)]
+  if (length(d) == 0) return(NA_real_)
+  max(mean(d > 0), mean(d < 0))
 }
 
 # Validate and normalise the equivalence/ROPE argument of maihda_interactions():

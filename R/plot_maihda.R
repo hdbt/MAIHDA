@@ -822,13 +822,14 @@ plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
     stop("Could not compute one prediction per analytic row.", call. = FALSE)
   }
 
-  # Assign to dataframe and collapse to strata level average. The model's
-  # prior/precision weights make the per-stratum mean (and the reference centre
-  # below) reflect the weighted fit; these are lme4 prior weights, not a complex
-  # survey design, so the result is not survey-representative. For an unweighted
-  # model the weights are all 1 and this reduces to the previous plain means.
+  # Assign to dataframe and collapse to strata level average. The model's prediction
+  # weights make the per-stratum mean (and the reference centre below) reflect the
+  # weighted fit, and trial-weight each row of an aggregated-binomial fit; these are
+  # prior/precision (and trial) weights, not a complex survey design, so the result
+  # is not survey-representative. For an unweighted model the weights are all 1 and
+  # this reduces to the previous plain means.
   data$pred_val <- preds
-  data$.maihda_w <- maihda_prior_weights(object)
+  data$.maihda_w <- maihda_prediction_weights(object)
 
   stratum_means <- data |>
     dplyr::group_by(.data$stratum) |>
@@ -959,12 +960,13 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
 
   data$pred_total <- preds_total
   data$pred_fixed <- preds_fixed
-  # The model's prior/precision weights so the per-stratum and global means reflect
-  # the weighted fit (the stratum random-effect component below is the
-  # weight-invariant BLUP). These are lme4 prior weights, not a complex survey
-  # design, so the result is not survey-representative. Unit weights reproduce the
-  # previous unweighted means exactly.
-  data$.maihda_w <- maihda_prior_weights(object)
+  # The model's prediction weights so the per-stratum and global means reflect the
+  # weighted fit, trial-weighting each row of an aggregated-binomial fit (the stratum
+  # random-effect component below is the weight-invariant BLUP). These are
+  # prior/precision (and trial) weights, not a complex survey design, so the result
+  # is not survey-representative. Unit weights reproduce the previous unweighted
+  # means exactly.
+  data$.maihda_w <- maihda_prediction_weights(object)
 
   global_mean <- stats::weighted.mean(data$pred_total, data$.maihda_w, na.rm = TRUE)
 

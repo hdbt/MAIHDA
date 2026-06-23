@@ -771,6 +771,51 @@ test_that("stratum predictions honour prior weights; unweighted aggregation unch
   expect_equal(pu$w_sum, as.numeric(pu$n))
 })
 
+test_that("aggregated-binomial stratum predictions are trial-weighted, not row-weighted", {
+  # Regression for the audit finding: for a cbind(success, failure) fit the rows of
+  # a stratum carry DIFFERENT trial counts, so averaging the fitted probabilities
+  # must weight each row by its trials -- a 200-trial row should dominate a 5-trial
+  # row -- not count every row equally. Each stratum has one large-trial and one
+  # small-trial row with opposite covariate values so the two weightings disagree.
+  set.seed(515)
+  K <- 10
+  strata <- factor(rep(seq_len(K), each = 2))
+  x      <- rep(c(-1.5, 1.5), times = K)        # within-stratum covariate contrast
+  trials <- rep(c(200L, 5L), times = K)         # the big-trial row should dominate
+  eta <- -0.2 + 0.9 * x + rnorm(K, sd = 0.6)[strata]
+  succ <- rbinom(length(eta), size = trials, prob = stats::plogis(eta))
+  d <- data.frame(succ = succ, fail = trials - succ, x = x, stratum = strata)
+
+  m <- suppressWarnings(
+    fit_maihda(cbind(succ, fail) ~ x + (1 | stratum), data = d, family = "binomial")
+  )
+
+  # Prediction weights ARE the binomial trial counts; the observed-summary prior
+  # weights stay unit (that path is numerator/denominator based, so the trials are
+  # already in the denominator and must not be double-counted).
+  expect_equal(MAIHDA:::maihda_prediction_weights(m), as.numeric(trials))
+  expect_equal(MAIHDA:::maihda_prior_weights(m), rep(1, length(trials)))
+
+  ph <- MAIHDA:::maihda_stratum_predictions_lme4(m, summary(m), scale = "response")
+  helper <- stats::setNames(ph$predicted_row, as.character(ph$stratum))
+
+  fit_incl <- as.numeric(stats::predict(m$model, type = "response"))
+  strat <- as.character(m$data$stratum)
+  prw   <- as.numeric(stats::weights(m$model, type = "prior"))
+  trial_w <- tapply(seq_along(fit_incl), strat,
+                    function(i) stats::weighted.mean(fit_incl[i], prw[i]))
+  row_w   <- tapply(seq_along(fit_incl), strat,
+                    function(i) mean(fit_incl[i]))   # the OLD (buggy) row-weighting
+
+  # The helper matches the TRIAL-weighted mean...
+  expect_equal(as.numeric(helper[names(trial_w)]), as.numeric(trial_w),
+               tolerance = 1e-8)
+  # ...and the fix actually changes the answer (trial- vs row-weighting disagree).
+  expect_false(isTRUE(all.equal(as.numeric(trial_w), as.numeric(row_w))))
+  # w_sum is the summed TRIAL count per stratum (205), not the row count (2).
+  expect_equal(unname(ph$w_sum), rep(sum(c(200, 5)), K))
+})
+
 test_that("binary detection respects negative subset indices and NA weights", {
   set.seed(2113)
   n <- 150

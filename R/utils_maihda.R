@@ -1686,9 +1686,13 @@ maihda_prior_weights <- function(object) {
     }
   }
   # Aggregated binomial responses (cbind(success, failure) / `y | trials(n)`)
-  # report the binomial TRIALS through weights(type = "prior"); those are already
-  # encoded in the response denominator, so multiplying by them would double-count.
-  # Treat such models as unweighted for stratum-level aggregation.
+  # report the binomial TRIALS through weights(type = "prior"). For an OBSERVED
+  # stratum summary that aggregation is numerator/denominator based (sum of
+  # successes / sum of trials), so the trials are already in the denominator and
+  # multiplying the rows by them would double-count -- such models are unit-weighted
+  # HERE. Averaging fitted probabilities / linear predictors is different: a row
+  # with more trials carries more information and must be trial-weighted, so the
+  # prediction path uses maihda_prediction_weights() (below) instead of this.
   resp <- tryCatch(stats::model.response(object$data), error = function(e) NULL)
   if (!is.null(resp) && !is.null(dim(resp))) {
     return(rep(1, n))
@@ -1700,6 +1704,34 @@ maihda_prior_weights <- function(object) {
   w <- as.numeric(w)
   w[!is.finite(w)] <- NA_real_
   w
+}
+
+# Weights for averaging PREDICTIONS (fitted probabilities / linear predictors) over
+# the rows of a stratum, as distinct from the observed numerator/denominator
+# summaries that maihda_prior_weights() serves. Identical to maihda_prior_weights()
+# EXCEPT for aggregated-binomial responses (cbind(success, failure) / `y |
+# trials(n)`), where each row aggregates a different number of Bernoulli trials: the
+# row's fitted probability/linear predictor must be weighted by the binomial TRIAL
+# counts (weights(model, type = "prior")), not by unit weights, or a 2-trial row and
+# a 200-trial row would count equally in the stratum mean. For non-binomial fits the
+# two functions coincide, so unweighted and prior/sampling-weighted models are
+# unaffected. Trial counts are folded on top of any sampling weights (a sampling-
+# weighted aggregated-binomial row represents sw population units, each contributing
+# `trials` draws). These remain prior/precision (and, where present, sampling)
+# weights -- NOT a complex survey design; no design-based variance is computed.
+maihda_prediction_weights <- function(object) {
+  w <- maihda_prior_weights(object)
+  n <- length(w)
+  resp <- tryCatch(stats::model.response(object$data), error = function(e) NULL)
+  if (is.null(resp) || is.null(dim(resp))) {
+    return(w)
+  }
+  trials <- tryCatch(stats::weights(object$model, type = "prior"),
+                     error = function(e) NULL)
+  if (is.null(trials) || length(trials) != n || any(!is.finite(trials))) {
+    return(w)
+  }
+  w * as.numeric(trials)
 }
 
 # Per-stratum prior-weight-weighted means of the named columns of `pred_df` (which
@@ -1741,7 +1773,7 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
   model <- object$model
   fam <- maihda_family(model)
   linkinv <- maihda_linkinv(fam)
-  prior_w <- maihda_prior_weights(object)
+  prior_w <- maihda_prediction_weights(object)
 
   eta_fixed <- stats::predict(model, newdata = data, re.form = NA, type = "link")
   stratum_est <- summary_obj$stratum_estimates
@@ -1780,10 +1812,12 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
     stringsAsFactors = FALSE
   )
 
-  # Prior-weight-weighted per-stratum means, so a weighted fit's stratum
-  # predictions reflect the prior/precision weights (consistent with the weighted
-  # VPC); identical to the previous unweighted means for an unweighted model. These
-  # are lme4 prior weights, not a complex survey design (not survey-representative).
+  # Prediction-weighted per-stratum means: a weighted fit's stratum predictions
+  # reflect the prior/precision (or sampling) weights, and an aggregated-binomial
+  # fit weights each row by its binomial TRIAL count so rows with more trials count
+  # proportionally more (consistent with the weighted VPC). Identical to the plain
+  # unweighted means for an ordinary unweighted model. These are prior/precision (and
+  # trial) weights, not a complex survey design (not survey-representative).
   maihda_weighted_stratum_aggregate(
     pred_df, c("predicted_row", "lower_row", "upper_row", "fixed_row")
   )
@@ -1954,7 +1988,7 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
   model <- object$model
   fam <- maihda_family(model)
   linkinv <- maihda_linkinv(fam)
-  prior_w <- maihda_prior_weights(object)
+  prior_w <- maihda_prediction_weights(object)
   eta_fixed <- brms::posterior_linpred(model, newdata = data, re_formula = NA, summary = TRUE)[, "Estimate"]
 
   stratum_est <- summary_obj$stratum_estimates
@@ -1992,10 +2026,12 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
     stringsAsFactors = FALSE
   )
 
-  # Prior-weight-weighted per-stratum means, so a weighted fit's stratum
-  # predictions reflect the prior/precision weights (consistent with the weighted
-  # VPC); identical to the previous unweighted means for an unweighted model. These
-  # are lme4 prior weights, not a complex survey design (not survey-representative).
+  # Prediction-weighted per-stratum means: a weighted fit's stratum predictions
+  # reflect the prior/precision (or sampling) weights, and an aggregated-binomial
+  # fit weights each row by its binomial TRIAL count so rows with more trials count
+  # proportionally more (consistent with the weighted VPC). Identical to the plain
+  # unweighted means for an ordinary unweighted model. These are prior/precision (and
+  # trial) weights, not a complex survey design (not survey-representative).
   maihda_weighted_stratum_aggregate(
     pred_df, c("predicted_row", "lower_row", "upper_row", "fixed_row")
   )

@@ -425,7 +425,7 @@ maihda_stratum_predictions_ordinal <- function(object, summary_obj,
 
   alpha <- object$model$alpha
   link <- object$family$link
-  prior_w <- maihda_prior_weights(object)
+  prior_w <- maihda_prediction_weights(object)
   eta_fixed <- maihda_clmm_linpred(object, include_re = FALSE)
 
   stratum_est <- summary_obj$stratum_estimates

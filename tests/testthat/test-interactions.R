@@ -235,6 +235,25 @@ test_that("an invalid highlight_interactions argument errors", {
                "maihda_interactions")
 })
 
+# ---- probability of direction (Stan-free) -----------------------------------
+
+test_that("maihda_pd is the conventional probability of direction in [0.5, 1]", {
+  # A strong NEGATIVE effect has pd ~ 1 (its direction is near-certain), NOT ~ 0.
+  # The old code reported mean(d > 0), which would read ~ 0 here -- the bug.
+  d_neg <- rnorm(4000, mean = -3, sd = 1)
+  expect_gt(MAIHDA:::maihda_pd(d_neg), 0.99)
+  expect_equal(MAIHDA:::maihda_pd(d_neg),
+               max(mean(d_neg > 0), mean(d_neg < 0)))
+
+  # A strong positive effect is symmetric (also ~ 1); a null effect ~ 0.5.
+  expect_gt(MAIHDA:::maihda_pd(rnorm(4000, mean = 3)), 0.99)
+  expect_equal(MAIHDA:::maihda_pd(rnorm(20000, mean = 0)), 0.5, tolerance = 0.05)
+
+  # Always in [0.5, 1]; NA for an all-non-finite vector.
+  expect_true(MAIHDA:::maihda_pd(rnorm(500, 0.3)) >= 0.5)
+  expect_true(is.na(MAIHDA:::maihda_pd(c(NA_real_, NaN, Inf))))
+})
+
 # ---- brms: exact posterior tail ---------------------------------------------
 
 test_that("brms uses the exact posterior tail and ignores adjust", {
@@ -256,7 +275,9 @@ test_that("brms uses the exact posterior tail and ignores adjust", {
   # Bayesian columns: probability of direction, exact interval; no frequentist p.
   expect_true("pd" %in% names(mi))
   expect_false("p_value" %in% names(mi))
-  expect_true(all(mi$pd >= 0 & mi$pd <= 1, na.rm = TRUE))
+  # Conventional probability of direction: always in [0.5, 1], never the mislabelled
+  # P(BLUP > 0) that would dip below 0.5 for strata with negative interactions.
+  expect_true(all(mi$pd >= 0.5 & mi$pd <= 1, na.rm = TRUE))
   expect_true(all(is.finite(mi$lower) & is.finite(mi$upper)))
 
   # adjust is inert for brms and says so.
