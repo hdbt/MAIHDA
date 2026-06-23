@@ -1081,18 +1081,7 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
   }
 
   seg_colors <- stats::setNames(c("gray60", "#D55E00"), c(additive_label, interaction_label))
-  plot_subtitle <- if (cc_mode) {
-    paste0(
-      "Stratum deviation split into the additive (dimension random effects) and the ",
-      "intersectional interaction (stratum\nrandom effect), on the model (link) scale. ",
-      "The black dot is their sum. Both come from the single crossed-dimensions fit."
-    )
-  } else {
-    paste0(
-      "Stratum deviation split into the fixed-effect component and the stratum ",
-      "random effect (BLUP), on the model (link) scale."
-    )
-  }
+
   plot_title <- if (cc_mode) {
     "Deviation Decomposition: Additive vs. Interaction (crossed-dimensions)"
   } else {
@@ -1123,7 +1112,6 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
     ggplot2::scale_color_manual(values = seg_colors) +
     ggplot2::labs(
       title = plot_title,
-      subtitle = plot_subtitle,
       x = "Stratum Rank (Ordered by Total Predicted Deviation)",
       y = "Deviation from Global Mean (link scale)",
       color = "Effect Component"

@@ -598,6 +598,37 @@ test_that("predict_maihda errors clearly for out-of-range numeric auto-bins", {
   )
 })
 
+test_that("adjusted-model prediction works after numeric stratum auto-binning", {
+  # The adjusted model carries reconstructed .maihda_dim_<var> fixed effects for an
+  # auto-binned numeric dimension; raw newdata (numeric column, no stratum) must have
+  # those columns rebuilt before predict(), or the formula references a missing column.
+  set.seed(1009)
+  n <- 200
+  d <- data.frame(
+    age    = runif(n, 18, 80),
+    gender = sample(c("F", "M"), n, replace = TRUE)
+  )
+  strata <- interaction(cut(d$age, breaks = 3), d$gender, drop = TRUE)
+  d$y <- 2 + 0.1 * d$age + rnorm(nlevels(strata), sd = 0.6)[strata] + rnorm(n, sd = 0.4)
+
+  ana <- maihda(y ~ (1 | age:gender), data = d)
+  adj <- ana$model_adjusted
+  expect_true(any(grepl(".maihda_dim_age", deparse(adj$formula), fixed = TRUE)))
+
+  raw_newdata <- d[1:25, c("age", "gender")]
+  expect_silent(p_raw <- predict_maihda(adj, newdata = raw_newdata))
+  expect_length(p_raw, 25L)
+
+  # Identical to supplying the stratum (and rebuilt .maihda_dim_age) explicitly.
+  explicit <- raw_newdata
+  explicit$stratum <- adj$original_data$stratum[1:25]
+  expect_equal(
+    as.numeric(p_raw),
+    as.numeric(predict_maihda(adj, newdata = explicit)),
+    tolerance = 1e-8
+  )
+})
+
 test_that("maihda() resolves caller-local weights/subset through the data mask", {
   # Reproduces the wrapper bug: from inside a function, weights/subset that name a
   # caller-local variable were lost because ... forwarding became ..1 promises.

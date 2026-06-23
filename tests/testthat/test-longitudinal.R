@@ -28,6 +28,25 @@ test_that("maihda_longitudinal_formula builds the 3-level growth structure", {
   expect_true(any(grepl("I\\(t\\^2\\) \\| stratum", bars2)))
 })
 
+test_that("maihda_time_terms quotes non-syntactic names in polynomial terms", {
+  # A syntactic time name is unchanged (maihda_quote_name() is a no-op), matching
+  # the (Intercept), time, I(time^2), ... rownames lme4 records in VarCorr.
+  expect_identical(maihda_time_terms("wave", 1L), "wave")
+  expect_identical(maihda_time_terms("wave", 2L), c("wave", "I(wave^2)"))
+
+  # A non-syntactic time name must be back-quoted INSIDE I() too, otherwise the
+  # higher-degree term is unparseable formula text like I(time point^2).
+  tt <- maihda_time_terms("time point", 2L)
+  expect_identical(tt, c("`time point`", "I(`time point`^2)"))
+  # Each term parses on its own and the whole growth formula is well-formed.
+  expect_silent(lapply(tt, function(s) stats::as.formula(paste("~", s))))
+  f <- maihda_longitudinal_formula(y ~ (1 | stratum), id = "pid",
+                                   time = "time point", time_degree = 2L)
+  expect_s3_class(f, "formula")
+  expect_true("I(`time point`^2)" %in%
+                attr(stats::terms(reformulas::nobars(f)), "term.labels"))
+})
+
 test_that("maihda_re_cov_draws_brms builds the 2x2 block from draws (Stan-free)", {
   # Hand-built posterior draws: SD and correlation columns in brms' naming.
   draws <- data.frame(

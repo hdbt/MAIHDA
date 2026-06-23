@@ -1839,6 +1839,30 @@ maihda_apply_autobin_info <- function(strata_data, autobin_info) {
   strata_data
 }
 
+# Recreate the .maihda_dim_<var> tertile factors that maihda_adjusted_terms() adds
+# when a numeric stratum dimension was auto-binned. The adjusted / cross-classified
+# model formulae reference these columns as fixed effects, so prediction newdata must
+# carry them too; rebuild each from the stored breaks/labels (leaving the original
+# numeric column intact, exactly as maihda_adjusted_terms() does). Out-of-range
+# numeric values cut() to NA -- maihda_autobin_out_of_range() reports them separately.
+maihda_add_binned_dim_columns <- function(data, autobin_info) {
+  if (is.null(autobin_info) || length(autobin_info) == 0) {
+    return(data)
+  }
+
+  for (v in intersect(names(autobin_info), names(data))) {
+    info <- autobin_info[[v]]
+    if (!is.null(info$breaks) && !is.null(info$labels)) {
+      data[[paste0(".maihda_dim_", v)]] <- cut(
+        data[[v]], breaks = info$breaks,
+        include.lowest = TRUE, labels = info$labels
+      )
+    }
+  }
+
+  data
+}
+
 maihda_autobin_out_of_range <- function(data, autobin_info) {
   if (is.null(autobin_info) || length(autobin_info) == 0) {
     return(character())
@@ -1911,6 +1935,14 @@ maihda_prepare_prediction_data <- function(object, newdata) {
   if (!is.data.frame(newdata)) {
     stop("'newdata' must be a data frame", call. = FALSE)
   }
+  # The adjusted / cross-classified model formula references reconstructed
+  # .maihda_dim_<var> tertile factors for any auto-binned numeric dimension; recreate
+  # them from the stored breaks/labels so newdata carries the same fixed-effect columns
+  # as the fitting data. Done before the early return so it applies even when the
+  # caller already supplies a 'stratum' column (as long as the numeric source columns
+  # are present).
+  newdata <- maihda_add_binned_dim_columns(newdata, object$strata_autobin_info)
+
   if ("stratum" %in% names(newdata)) {
     return(newdata)
   }
