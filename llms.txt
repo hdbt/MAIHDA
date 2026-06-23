@@ -11,7 +11,7 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 [![Codecov test
 coverage](https://codecov.io/gh/hdbt/MAIHDA/branch/main/graph/badge.svg)](https://app.codecov.io/gh/hdbt/MAIHDA?branch=main)
 [![Lifecycle:
-stable](https://img.shields.io/badge/lifecycle-stable-green.svg)](https://lifecycle.r-lib.org/articles/figures/lifecycle-stable.svg)
+stable](https://img.shields.io/badge/lifecycle-stable-blue.svg)](https://lifecycle.r-lib.org/articles/figures/lifecycle-stable.svg)
 
 ## Overview
 
