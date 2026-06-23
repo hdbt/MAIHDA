@@ -400,15 +400,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       ggrepel::geom_label_repel(data = label_df, ggplot2::aes(label = .data$id), size = 3, min.segment.length = 0) +
       ggplot2::scale_color_manual(values = c("Above Mean" = "#0072B2", "Below Mean" = "#D55E00")) +
       ggplot2::labs(
-        x = x_label, y = value_axis_label, color = "Direction", size = "Deviation\nMagnitude",
-        # Only describe the stratum interval when one is actually drawn: for lme4
-        # predict.merMod returns no se.fit, so the per-row SEs (and the bars) are
-        # NA -- in that case omit the caption rather than promising an interval.
-        caption = if (identical(x_label, "Stratum Rank") && any(is.finite(df$se))) {
-          paste("")
-        } else {
-          NULL
-        }
+        x = x_label, y = value_axis_label, color = "Direction", size = "Deviation\nMagnitude"
       ) +
       theme_maihda()
 
@@ -511,14 +503,7 @@ is_aggregated <- "stratum" %in% names(df)
       p2 <- p2 +
         ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_res_dev), alpha = 0.8) +
         ggplot2::labs(
-          x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|",
-          # Omit the interval caption when no finite SE is available (e.g. lme4,
-          # whose predict() has no se.fit), so the bars and the note stay in sync.
-          caption = if (any(is.finite(df$se))) {
-            paste("")
-          } else {
-            NULL
-          }
+          x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|"
         )
     } else {
       p2 <- p2 +

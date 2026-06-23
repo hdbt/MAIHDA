@@ -1168,10 +1168,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
     has_ci <- all(c("ci_lower", "ci_upper") %in% names(df)) &&
       any(is.finite(df$ci_lower) & is.finite(df$ci_upper))
 
-    vpc_caption <- maihda_compose_caption(
-      paste(""),
-      omit_note
-    )
+    vpc_caption <- maihda_compose_caption(omit_note)
 
     p <- ggplot(df, aes(x = .data$group, y = .data$vpc)) +
       geom_point(size = 4, color = "#0072B2") +
@@ -1204,12 +1201,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
     df <- df[order(df$var_between), , drop = FALSE]
     df$group <- factor(df$group, levels = df$group)
 
-    bv_caption <- maihda_compose_caption(
-      paste("Absolute between-stratum (intersectional) variance -- the magnitude the",
-            "VPC share cannot convey. On the model (link) scale for non-Gaussian",
-            "families; unlike the VPC it is not normalised by the residual variance."),
-      omit_note
-    )
+    bv_caption <- maihda_compose_caption(omit_note)
 
     return(
       ggplot(df, aes(x = .data$group, y = .data$var_between)) +
@@ -1244,10 +1236,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
     df_pcv <- df_pcv[order(df_pcv$pcv), , drop = FALSE]
     df_pcv$group <- factor(df_pcv$group, levels = df_pcv$group)
 
-    pcv_caption <- maihda_compose_caption(
-      paste(""),
-      omit_note
-    )
+    pcv_caption <- maihda_compose_caption(omit_note)
 
     return(
       ggplot(df_pcv, aes(x = .data$group, y = .data$pcv)) +
@@ -1281,13 +1270,7 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
     df_as <- df_as[order(df_as$additive_share), , drop = FALSE]
     df_as$group <- factor(df_as$group, levels = df_as$group)
 
-    as_caption <- maihda_compose_caption(
-      paste("Additive share = additive (dimension main-effect) variance as a fraction of",
-            "the total between-strata variance, from the single crossed-dimensions model.",
-            "The complement is the intersectional interaction share. A partial-pooling",
-            "estimate -- dimensions with few levels are poorly identified."),
-      omit_note
-    )
+    as_caption <- maihda_compose_caption(omit_note)
 
     return(
       ggplot(df_as, aes(x = .data$group, y = .data$additive_share)) +

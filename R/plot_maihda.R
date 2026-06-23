@@ -400,7 +400,7 @@ plot_context_vpc <- function(summary_obj) {
 #'   pure shrinkage toward the grand mean. For a covariate-adjusted model the model
 #'   estimate also moves with the stratum's covariate profile, so distance from the
 #'   diagonal reflects \emph{both} shrinkage and covariate adjustment and should
-#'   not be read as shrinkage alone. The caption notes which case applies.
+#'   not be read as shrinkage alone.
 #'
 #' @param object A maihda_model object
 #' @param summary_obj A maihda_summary object
@@ -464,25 +464,7 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
     plot_data$shrunken <- pred_data$predicted_row[pred_idx]
     plot_data$.maihda_flag <- as.character(plot_data$stratum) %in% highlight
 
-    # The y-axis (model estimate) includes the fixed effects, so for an adjusted
-    # model the vertical gap from the diagonal mixes shrinkage with covariate
-    # adjustment; only an intercept-only model gives a pure shrinkage view. Flag
-    # which case applies in the caption rather than letting it be misread.
-    fixed_terms <- tryCatch(
-      attr(stats::terms(reformulas::nobars(object$formula)), "term.labels"),
-      error = function(e) character(0)
-    )
-    interpretation_caption <- if (length(fixed_terms) > 0) {
-      paste("")
-    } else {
-      paste("")
-    }
     has_hl <- any(plot_data$.maihda_flag)
-    if (has_hl) {
-      interpretation_caption <- paste0(
-        interpretation_caption,
-        "\nFlagged interaction strata are solid; non-flagged strata are dimmed.")
-    }
 
     # Create plot. When interactions are highlighted, focus by contrast -- flagged
     # strata solid in the accent colour, the rest dimmed -- instead of ringing them.
@@ -499,8 +481,7 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
         title = "Observed vs. Shrunken Stratum Estimates",
         x = "Observed Stratum Mean",
         y = "Shrunken Estimate (with Random Effect)",
-        size = "Sample Size",
-        caption = interpretation_caption
+        size = "Sample Size"
       ) +
       theme_maihda() +
       theme(
@@ -698,11 +679,6 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
   stratum_est$display_label <- factor(stratum_est$display_label, levels = stratum_est$display_label)
 
   has_hl <- any(stratum_est$.maihda_flag)
-  highlight_note <- if (has_hl) {
-    "\nFlagged interaction strata are solid and starred; others dimmed."
-  } else {
-    ""
-  }
 
   # Create plot. Highlighted: flagged strata solid in the accent colour, the rest
   # dimmed (focus by contrast rather than ringing); flagged labels are starred.
@@ -727,15 +703,12 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
       title = "Predicted Subgroup Values with Conditional 95% Intervals",
       x = "Stratum",
       y = "Predicted Value",
-      caption = paste0(
-        if (truncated_strata) {
-          sprintf("\nShowing the first %d of %d strata (n_strata = %d).",
-                  n_strata, n_total_strata, n_strata)
-        } else {
-          ""
-        },
-        highlight_note
-      )
+      caption = if (truncated_strata) {
+        sprintf("\nShowing the first %d of %d strata (n_strata = %d).",
+                n_strata, n_total_strata, n_strata)
+      } else {
+        ""
+      }
     ) +
     theme_maihda() +
     theme(
@@ -1123,11 +1096,6 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
   } else {
     "Deviation Decomposition: Fixed vs. Stratum-Random Components"
   }
-  if (has_hl) {
-    plot_subtitle <- paste0(plot_subtitle,
-      "\nFlagged interaction strata are full-opacity and starred; others dimmed.")
-  }
-
   # Here colour already encodes the component (additive vs interaction), so the
   # focus-by-contrast highlight rides the opacity channel: flagged strata at full
   # opacity, the rest dimmed -- no ring overlay.

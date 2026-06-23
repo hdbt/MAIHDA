@@ -360,8 +360,7 @@ plot.maihda_ternary <- function(
       z = "Uncertainty",
       color = "Stratum",
       size = "Sample Size (N)",
-      title = "MAIHDA Strata Effects Decomposition",
-      caption = ""
+      title = "MAIHDA Strata Effects Decomposition"
     ) +
     ggplot2::theme(
       text = ggplot2::element_text(family = "sans", size = 11, color = "#333333"),

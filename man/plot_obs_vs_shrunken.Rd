@@ -24,6 +24,6 @@ The x-axis is each stratum's raw observed mean; the y-axis is the
   pure shrinkage toward the grand mean. For a covariate-adjusted model the model
   estimate also moves with the stratum's covariate profile, so distance from the
   diagonal reflects \emph{both} shrinkage and covariate adjustment and should
-  not be read as shrinkage alone. The caption notes which case applies.
+  not be read as shrinkage alone.
 }
 \keyword{internal}
