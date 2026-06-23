@@ -140,10 +140,11 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
 
 #' @export
 print.maihda_vpc_response <- function(x, ...) {
-  cat("Response-scale VPC (simulation method)\n")
+  pal <- maihda_palette()
+  cat(pal$bold("Response-scale VPC (simulation method)"), "\n", sep = "")
   cat(sprintf("  VPC: %s\n",
-              if (is.finite(x$estimate)) sprintf("%.4f", x$estimate) else "NA"))
-  cat(sprintf("  %d simulated stratum effects; between-stratum variance %.4f (latent scale).\n",
-              x$n_sim, x$var_between))
+              if (is.finite(x$estimate)) pal$accent(sprintf("%.4f", x$estimate)) else "NA"))
+  cat(pal$muted(sprintf("  %d simulated stratum effects; between-stratum variance %.4f (latent scale).\n",
+              x$n_sim, x$var_between)))
   invisible(x)
 }

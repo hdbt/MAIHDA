@@ -185,13 +185,14 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
 #' @return No return value, called for side effects.
 #' @export
 print.maihda_strata <- function(x, ...) {
-  cat("MAIHDA Strata Object\n")
+  pal <- maihda_palette()
+  cat(pal$bold("MAIHDA Strata Object"), "\n", sep = "")
   cat("====================\n\n")
   cat("Variables used:", paste(x$vars, collapse = ", "), "\n")
   cat("Number of strata:", nrow(x$strata_info), "\n")
   cat("Total observations:", nrow(x$data), "\n")
   cat("Observations with valid strata:", sum(!is.na(x$data$stratum)), "\n\n")
-  cat("Stratum summary:\n")
+  cat(pal$bold("Stratum summary:"), "\n", sep = "")
   print(x$strata_info)
   invisible(x)
 }

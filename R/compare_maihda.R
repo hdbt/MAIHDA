@@ -1066,7 +1066,7 @@ maihda_prepare_group_strata <- function(formula, data, shared_strata, autobin = 
 #' @return No return value, called for side effects.
 #' @export
 print.maihda_group_comparison <- function(x, ...) {
-  cat("MAIHDA Group Comparison\n")
+  cat(maihda_palette()$bold("MAIHDA Group Comparison"), "\n", sep = "")
   cat("=======================\n\n")
   cat("Group variable:", attr(x, "group_var"), "\n")
   cat("Engine:", attr(x, "engine"),

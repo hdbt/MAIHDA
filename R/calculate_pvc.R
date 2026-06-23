@@ -418,32 +418,32 @@ bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
 #' @return No return value, called for side effects.
 #' @export
 print.pvc_result <- function(x, ...) {
-  cat("Proportional Change in Variance (PCV)\n")
+  pal <- maihda_palette()
+  cat(pal$bold("Proportional Change in Variance (PCV)"), "\n", sep = "")
   cat("=====================================\n\n")
 
   if (x$bootstrap) {
     conf_pct <- if (!is.null(x$conf_level)) x$conf_level * 100 else 95
-    cat(sprintf("PCV: %.4f [%.4f, %.4f]\n",
-                x$pvc, x$ci_lower, x$ci_upper))
-    cat(sprintf("(Bootstrap %.0f%% CI)\n", conf_pct))
+    cat(sprintf("PCV: %s [%.4f, %.4f]\n",
+                pal$accent(sprintf("%.4f", x$pvc)), x$ci_lower, x$ci_upper))
+    cat(pal$muted(sprintf("(Bootstrap %.0f%% CI)\n", conf_pct)))
     if (!is.null(x$mc_se) && is.finite(x$mc_se)) {
-      cat(sprintf("(%d successful bootstrap draws; Monte Carlo SE %.4f)\n",
-                  as.integer(x$n_boot_ok), x$mc_se))
+      cat(pal$muted(sprintf("(%d successful bootstrap draws; Monte Carlo SE %.4f)\n",
+                  as.integer(x$n_boot_ok), x$mc_se)))
     }
     cat("\n")
   } else {
-    cat(sprintf("PCV: %.4f\n\n", x$pvc))
+    cat(sprintf("PCV: %s\n\n", pal$accent(sprintf("%.4f", x$pvc))))
   }
 
-  cat("Between-stratum variance:\n")
+  cat(pal$bold("Between-stratum variance:"), "\n", sep = "")
   cat(sprintf("  Model 1: %.6f\n", x$var_model1))
   cat(sprintf("  Model 2: %.6f\n", x$var_model2))
   cat(sprintf("  Change:  %.6f (%.2f%%)\n",
               x$var_model1 - x$var_model2,
               x$pvc * 100))
 
-  cat("\nInterpretation (PCV is the proportional change in between-stratum\n")
-  cat("variance between the models):\n")
+  cat(pal$muted("\nInterpretation (PCV is the proportional change in between-stratum\nvariance between the models):\n"))
   if (x$pvc > 0) {
     cat(sprintf("  Between-stratum variance is %.1f%% lower in Model 2 than in Model 1.\n",
                 x$pvc * 100))
@@ -724,9 +724,10 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
 print.maihda_stepwise <- function(x, ...) {
   print(as.data.frame(x), row.names = FALSE, digits = 4)
   if (all(c("AUC", "Step_AUC", "Total_AUC") %in% names(x))) {
-    cat("\nStep_PCV / Total_PCV are proportional changes in between-stratum variance;\n",
+    cat(maihda_palette()$muted(paste0(
+        "\nStep_PCV / Total_PCV are proportional changes in between-stratum variance;\n",
         "Step_AUC / Total_AUC are absolute changes in AUC (delta-AUC). MOR is the\n",
-        "median odds ratio (logit link only).\n", sep = "")
+        "median odds ratio (logit link only).\n")))
   }
   invisible(x)
 }

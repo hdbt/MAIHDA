@@ -978,7 +978,7 @@ maihda_print_cc_decomposition <- function(d) {
       sprintf("%.1f%%", est * 100)
     }
   }
-  cat("Additive vs. Intersectional Decomposition (crossed-dimensions):\n")
+  cat(maihda_palette()$bold("Additive vs. Intersectional Decomposition (crossed-dimensions):"), "\n", sep = "")
   cat(sprintf("  Additive (sum of dimension main effects) variance: %.4f\n",
               d$additive_var))
   cat(sprintf("  Intersectional interaction variance:               %.4f\n",
@@ -996,8 +996,9 @@ maihda_print_cc_decomposition <- function(d) {
       cat(sprintf("    %s: %.4f\n", nm, per_dim[[nm]]))
     }
   }
-  cat("  Note: the additive share is the crossed-dimensions analogue of the PCV but\n",
-      "  a different estimator; interpret the interaction share cautiously.\n\n", sep = "")
+  cat(maihda_palette()$muted(paste0(
+      "  Note: the additive share is the crossed-dimensions analogue of the PCV but\n",
+      "  a different estimator; interpret the interaction share cautiously.\n\n")))
   invisible(NULL)
 }
 
@@ -1016,7 +1017,7 @@ maihda_print_context_partition <- function(ctx) {
       sprintf("%.1f%%", est * 100)
     }
   }
-  cat("Contextual Cross-Classified Partition (stratum x context):\n")
+  cat(maihda_palette()$bold("Contextual Cross-Classified Partition (stratum x context):"), "\n", sep = "")
   cat(sprintf("  Between-stratum (intersectional) variance: %.4f (share %s)\n",
               ctx$var_stratum, fmt_share(ctx$vpc_stratum)))
   per_context <- ctx$per_context
@@ -1033,10 +1034,10 @@ maihda_print_context_partition <- function(ctx) {
     cat(sprintf("  Context share interval: %s\n",
                 fmt_share(ctx$vpc_context_total, ctx$vpc_context_total_ci)))
   }
-  cat("  Note: the headline VPC/ICC is the between-stratum share conditional on\n",
+  cat(maihda_palette()$muted(paste0(
+      "  Note: the headline VPC/ICC is the between-stratum share conditional on\n",
       "  the context random effect(s). The context share is the between-context\n",
-      "  component of the unexplained variance.\n\n",
-      sep = "")
+      "  component of the unexplained variance.\n\n")))
   invisible(NULL)
 }
 
@@ -1047,7 +1048,8 @@ maihda_print_context_partition <- function(ctx) {
 #' @return No return value, called for side effects.
 #' @export
 print.maihda_summary <- function(x, ...) {
-  cat("MAIHDA Model Summary\n")
+  pal <- maihda_palette()
+  cat(pal$bold("MAIHDA Model Summary"), "\n", sep = "")
   cat("====================\n\n")
 
   maihda_print_fit_diagnostics(x$diagnostics)
@@ -1060,19 +1062,19 @@ print.maihda_summary <- function(x, ...) {
     cat("Variance Partition Coefficient (VPC/ICC):\n")
   }
   if (maihda_vpc_has_interval(x$vpc)) {
-    cat(sprintf("  Estimate: %.4f [%.4f, %.4f]\n",
-                x$vpc$estimate, x$vpc$ci_lower, x$vpc$ci_upper))
-    cat("  ", maihda_vpc_interval_label(x$vpc), "\n", sep = "")
+    cat(sprintf("  Estimate: %s [%.4f, %.4f]\n",
+                pal$accent(sprintf("%.4f", x$vpc$estimate)), x$vpc$ci_lower, x$vpc$ci_upper))
+    cat("  ", pal$muted(maihda_vpc_interval_label(x$vpc)), "\n", sep = "")
     if (!is.null(x$vpc$mc_se) && is.finite(x$vpc$mc_se)) {
-      cat(sprintf("  (%d successful bootstrap draws; Monte Carlo SE %.4f)\n",
-                  as.integer(x$vpc$n_boot_ok), x$vpc$mc_se))
+      cat(pal$muted(sprintf("  (%d successful bootstrap draws; Monte Carlo SE %.4f)\n",
+                  as.integer(x$vpc$n_boot_ok), x$vpc$mc_se)))
     }
     cat("\n")
   } else {
-    cat(sprintf("  Estimate: %.4f\n\n", x$vpc$estimate))
+    cat(sprintf("  Estimate: %s\n\n", pal$accent(sprintf("%.4f", x$vpc$estimate))))
   }
 
-  cat("Variance Components:\n")
+  cat(pal$bold("Variance Components:"), "\n", sep = "")
   print(x$variance_components, row.names = FALSE, digits = 4)
   cat("\n")
 
@@ -1107,7 +1109,7 @@ print.maihda_summary <- function(x, ...) {
     cat("\n")
   }
 
-  cat("Fixed Effects:\n")
+  cat(pal$bold("Fixed Effects:"), "\n", sep = "")
   print(x$fixed_effects, row.names = FALSE, digits = 4)
   cat("\n")
 

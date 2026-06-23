@@ -618,8 +618,9 @@ maihda_longitudinal_strata_predictions <- function(object) {
 #' @return The object, invisibly.
 #' @export
 print.maihda_long_pcv <- function(x, ...) {
-  fmt <- function(v) if (isTRUE(is.finite(v))) sprintf("%.1f%%", 100 * v) else "NA"
-  cat("Longitudinal PCV (additive vs. multiplicative intersectionality)\n")
+  pal <- maihda_palette()
+  fmt <- function(v) if (isTRUE(is.finite(v))) pal$accent(sprintf("%.1f%%", 100 * v)) else "NA"
+  cat(pal$bold("Longitudinal PCV (additive vs. multiplicative intersectionality)"), "\n", sep = "")
   cat("================================================================\n\n")
   # Baseline = the between-stratum variance at the observed baseline time
   # (ref_time), not the raw time-0 intercept variance Sigma[1, 1] (see
@@ -635,8 +636,9 @@ print.maihda_long_pcv <- function(x, ...) {
                 fmt(x$pcv_slope)))
     cat("                 (the remainder is the multiplicative/interaction part).\n")
   }
-  cat("\nThe PCV is the share of the null model's between-stratum (trajectory) variance\n")
-  cat("explained by the dimensions' additive main effects and their time interactions;\n")
-  cat("a high PCV_slope means trajectory inequalities are 'mostly additive'.\n")
+  cat(pal$muted(paste0(
+      "\nThe PCV is the share of the null model's between-stratum (trajectory) variance\n",
+      "explained by the dimensions' additive main effects and their time interactions;\n",
+      "a high PCV_slope means trajectory inequalities are 'mostly additive'.\n")))
   invisible(x)
 }

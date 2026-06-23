@@ -428,7 +428,8 @@ maihda_table_fmt <- function(est, lo = NA_real_, hi = NA_real_, digits = 3) {
 #' @return Invisibly, \code{x}.
 #' @export
 print.maihda_table <- function(x, digits = x$digits, ...) {
-  cat("MAIHDA Results Table\n")
+  pal <- maihda_palette()
+  cat(pal$bold("MAIHDA Results Table"), "\n", sep = "")
   cat("====================\n\n")
 
   cat(sprintf("Engine: %s | Family: %s | Mode: %s\n",
@@ -450,7 +451,7 @@ print.maihda_table <- function(x, digits = x$digits, ...) {
     }, character(1))
     disp[[x$model_labels[[k]]]] <- vals
   }
-  cat("\nModel results:\n")
+  cat("\n", pal$bold("Model results:"), "\n", sep = "")
   print(disp, row.names = FALSE)
 
   # --- Ranked-strata table ---------------------------------------------------
@@ -458,7 +459,7 @@ print.maihda_table <- function(x, digits = x$digits, ...) {
     st <- x$strata
     scale_lab <- if (identical(x$scale, "response")) "predicted value" else "predicted (link scale)"
     by_lab <- switch(x$ranked_by, null = "null model", adjusted = "adjusted model", "model")
-    cat(sprintf("\nStrata ranked by %s (%s):\n", scale_lab, by_lab))
+    cat("\n", pal$bold(sprintf("Strata ranked by %s (%s):", scale_lab, by_lab)), "\n", sep = "")
 
     fmt_row <- function(rows) {
       data.frame(

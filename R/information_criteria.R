@@ -255,22 +255,23 @@ maihda_ic_primary <- function(df) {
 #' @return No return value, called for side effects.
 #' @export
 print.maihda_ic <- function(x, ...) {
-  cat("MAIHDA Information Criteria\n")
+  pal <- maihda_palette()
+  cat(pal$bold("MAIHDA Information Criteria"), "\n", sep = "")
   cat("===========================\n\n")
   print(as.data.frame(x), row.names = FALSE, digits = 4)
 
   primary <- attr(x, "ic_primary")
   if ("delta" %in% names(x) && !is.na(primary)) {
-    cat(sprintf("\ndelta = difference from the best model on %s (lower is better).\n",
-                primary))
+    cat(pal$muted(sprintf("\ndelta = difference from the best model on %s (lower is better).\n",
+                primary)))
   }
   if (!is.null(x$estimator) && any(grepl("refit from REML", x$estimator))) {
-    cat("REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across ",
-        "different fixed effects.\n", sep = "")
+    cat(pal$muted(paste0("REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across ",
+        "different fixed effects.\n")))
   }
   if (any(c("AIC", "BIC", "WAIC", "LOOIC") %in% names(x))) {
-    cat("Information criteria are only comparable across models fitted to the same ",
-        "analytic sample (and, for AIC/BIC, the same family).\n", sep = "")
+    cat(pal$muted(paste0("Information criteria are only comparable across models fitted to the same ",
+        "analytic sample (and, for AIC/BIC, the same family).\n")))
   }
   invisible(x)
 }

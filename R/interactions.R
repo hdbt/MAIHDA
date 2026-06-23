@@ -288,8 +288,13 @@ print.maihda_interactions <- function(x, ...) {
   n_strata <- attr(x, "n_strata")
   n_flagged <- attr(x, "n_flagged")
 
-  cat("Strata with credibly non-zero intersectional interaction\n")
-  cat("========================================================\n\n")
+  # Semantic colouring via the shared cli palette (auto-degrades to plain text when
+  # the destination has no ANSI support: knitr/vignettes, R CMD check, testthat,
+  # NO_COLOR). Colour encodes emphasis, not valence.
+  pal <- maihda_palette()
+  count_style <- if (n_flagged > 0) function(s) pal$bold(pal$accent(s)) else pal$muted
+
+  cat(cli::rule(left = pal$bold("Intersectional interactions")), "\n", sep = "")
 
   evidence <- if (identical(engine, "brms")) {
     sprintf("%.0f%% credible interval; probability of direction", conf * 100)
@@ -298,42 +303,52 @@ print.maihda_interactions <- function(x, ...) {
   } else {
     sprintf("%.0f%% interval; %s-adjusted p-values", conf * 100, adjust)
   }
-  cat(sprintf("%d of %d strata flagged (%s).\n", n_flagged, n_strata, evidence))
-  cat(sprintf("Model: %s; interaction on the link (latent) scale.\n", model_type))
+  cat(sprintf("%s of %d strata flagged (%s).\n",
+              count_style(as.character(n_flagged)), n_strata, pal$muted(evidence)))
+  cat(pal$muted(sprintf("Model: %s; interaction on the link (latent) scale.\n",
+                        model_type)))
 
   rope <- attr(x, "rope")
   if (!is.null(rope) && "decision" %in% names(x)) {
     dec <- factor(x$decision, levels = c("relevant", "negligible", "inconclusive"))
     tab <- table(dec)
-    cat(sprintf("Equivalence vs ROPE [%g, %g]: %d relevant | %d negligible | %d inconclusive.\n",
-                rope[1], rope[2], tab[["relevant"]], tab[["negligible"]], tab[["inconclusive"]]))
+    # relevant -> accent ("look here"); negligible -> the neutral data colour (a
+    # firm "practically zero", NOT green/good); inconclusive -> muted (undecided).
+    cat(sprintf("Equivalence vs ROPE [%g, %g]: %s | %s | %s.\n", rope[1], rope[2],
+                pal$accent(sprintf("%d relevant", tab[["relevant"]])),
+                pal$secondary(sprintf("%d negligible", tab[["negligible"]])),
+                pal$muted(sprintf("%d inconclusive", tab[["inconclusive"]]))))
   }
 
   if (isTRUE(attr(x, "singular"))) {
-    cat("\nNote: singular/boundary fit (between-stratum variance ~ 0); the BLUP SEs\n",
-        "  collapse toward zero, so 'no flag' is not evidence of no interaction.\n",
-        sep = "")
+    cat(pal$warn(paste0(
+      "\n", cli::symbol$warning,
+      " singular/boundary fit (between-stratum variance ~ 0); the BLUP SEs\n",
+      "  collapse toward zero, so 'no flag' is not evidence of no interaction.\n")))
   }
 
   cat("\n")
   flagged_rows <- x[x$flagged %in% TRUE, , drop = FALSE]
   if (nrow(flagged_rows) == 0) {
-    cat("No strata show interaction credibly different from zero at this level.\n")
+    cat(pal$muted(
+      "No strata show interaction credibly different from zero at this level.\n"))
   } else {
     print(utils::head(as.data.frame(flagged_rows), 10), row.names = FALSE, digits = 4)
     if (nrow(flagged_rows) > 10) {
-      cat(sprintf("  ... and %d more flagged strata\n", nrow(flagged_rows) - 10))
+      cat(pal$muted(sprintf("  ... and %d more flagged strata\n",
+                            nrow(flagged_rows) - 10)))
     }
   }
 
-  if (!identical(engine, "brms") && identical(adjust, "none") && n_strata > 1) {
-    cat("\nFlagging many strata inflates false positives; for a screening error-rate\n",
-        "  story use adjust = \"BH\" (FDR). Interaction BLUPs are shrunken estimates,\n",
-        "  so correction is optional -- see ?maihda_interactions.\n", sep = "")
+  footer <- if (!identical(engine, "brms") && identical(adjust, "none") && n_strata > 1) {
+    paste0("\nFlagging many strata inflates false positives; for a screening error-rate\n",
+           "  story use adjust = \"BH\" (FDR). Interaction BLUPs are shrunken estimates,\n",
+           "  so correction is optional -- see ?maihda_interactions.\n")
   } else {
-    cat("\nInteraction BLUPs are shrunken (partially pooled) estimates; treat flags as\n",
-        "  exploratory. See ?maihda_interactions.\n", sep = "")
+    paste0("\nInteraction BLUPs are shrunken (partially pooled) estimates; treat flags as\n",
+           "  exploratory. See ?maihda_interactions.\n")
   }
+  cat(pal$muted(footer))
 
   invisible(x)
 }
@@ -525,18 +540,26 @@ maihda_print_interactions_line <- function(ints, indent = "") {
   } else {
     sprintf("%.0f%% interval, %s-adjusted", conf_pct, adjust)
   }
-  cat(sprintf("%sIntersectional interactions: %d of %d strata flagged (%s)\n",
-              indent, n_flag, n_str, basis))
+  pal <- maihda_palette()
+  count <- if (isTRUE(n_flag > 0)) {
+    pal$bold(pal$accent(as.character(n_flag)))
+  } else {
+    pal$muted(as.character(n_flag))
+  }
+  cat(sprintf("%s%s %s of %d strata flagged (%s)\n", indent,
+              pal$bold("Intersectional interactions:"), count, n_str,
+              pal$muted(basis)))
   if (isTRUE(n_flag > 0)) {
     top <- ints[ints$flagged %in% TRUE, , drop = FALSE]
     top <- top[order(-abs(top$interaction)), , drop = FALSE][1, ]
-    cat(sprintf("%s  strongest: %s (%+.3f, %s)\n",
-                indent, top$label, top$interaction, top$direction))
+    cat(sprintf("%s  strongest: %s (%s, %s)\n", indent, top$label,
+                pal$accent(sprintf("%+.3f", top$interaction)), top$direction))
   }
   if ((is.null(adjust) || identical(adjust, "none")) &&
       !identical(engine, "brms") && isTRUE(n_str > 1)) {
-    cat(sprintf("%s  uncorrected across %d strata; maihda_interactions(x, adjust = \"BH\") for an FDR screen\n",
-                indent, n_str))
+    cat(pal$muted(sprintf(
+      "%s  uncorrected across %d strata; maihda_interactions(x, adjust = \"BH\") for an FDR screen\n",
+      indent, n_str)))
   }
   invisible(NULL)
 }

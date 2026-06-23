@@ -251,11 +251,12 @@ maihda_discriminatory_accuracy <- function(model) {
 
 #' @export
 print.maihda_da <- function(x, ...) {
-  cat("Discriminatory accuracy (binomial MAIHDA)\n")
+  pal <- maihda_palette()
+  cat(pal$bold("Discriminatory accuracy (binomial MAIHDA)"), "\n", sep = "")
   cat(sprintf("  AUC (C-statistic): %s\n",
-              if (is.finite(x$auc)) sprintf("%.3f", x$auc) else "NA"))
+              if (is.finite(x$auc)) pal$accent(sprintf("%.3f", x$auc)) else "NA"))
   mor_str <- if (is.finite(x$mor)) {
-    sprintf("%.3f", x$mor)
+    pal$accent(sprintf("%.3f", x$mor))
   } else if (!is.null(x$link) && !identical(x$link, "logit")) {
     sprintf("NA (requires the logit link; model uses '%s')", x$link)
   } else {
@@ -264,8 +265,9 @@ print.maihda_da <- function(x, ...) {
   cat(sprintf("  Median Odds Ratio: %s\n", mor_str))
   cat(sprintf("  Cases / controls:  %d / %d\n", x$n_case, x$n_control))
   if (isTRUE(x$weighted)) {
-    cat("  (AUC is design-weighted: each observation contributes its sampling\n",
-        "  weight; cases/controls are unweighted counts.)\n", sep = "")
+    cat(pal$muted(paste0(
+        "  (AUC is design-weighted: each observation contributes its sampling\n",
+        "  weight; cases/controls are unweighted counts.)\n")))
   }
   invisible(x)
 }

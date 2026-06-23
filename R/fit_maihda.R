@@ -771,7 +771,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
 #' @return No return value, called for side effects.
 #' @export
 print.maihda_model <- function(x, ...) {
-  cat("MAIHDA Model\n")
+  cat(maihda_palette()$bold("MAIHDA Model"), "\n", sep = "")
   cat("============\n\n")
   cat("Engine:", x$engine, "\n")
   cat("Family:", x$family$family, "\n")

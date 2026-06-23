@@ -649,16 +649,17 @@ maihda_print_analysis_da <- function(summary_obj, summary_adjusted = NULL) {
   fmt <- function(v, d = 3) {
     if (isTRUE(is.finite(v))) formatC(v, format = "f", digits = d) else "NA"
   }
-  cat("\nDiscriminatory accuracy (null model):\n")
+  pal <- maihda_palette()
+  cat("\n", pal$bold("Discriminatory accuracy (null model):"), "\n", sep = "")
   cat(sprintf("  AUC: %s | MOR: %s | cases/controls: %d/%d\n",
-              fmt(da$auc), fmt(da$mor), da$n_case, da$n_control))
+              pal$accent(fmt(da$auc)), pal$accent(fmt(da$mor)), da$n_case, da$n_control))
   da_adj <- if (!is.null(summary_adjusted)) summary_adjusted$discriminatory_accuracy else NULL
   if (!is.null(da_adj) && isTRUE(is.finite(da_adj$auc))) {
-    cat(sprintf("  Adjusted-model AUC: %s\n", fmt(da_adj$auc)))
+    cat(sprintf("  Adjusted-model AUC: %s\n", pal$accent(fmt(da_adj$auc))))
   }
   vr <- summary_obj$vpc_response
   if (!is.null(vr) && isTRUE(is.finite(vr$estimate))) {
-    cat(sprintf("  Response-scale VPC (null): %s\n", fmt(vr$estimate, 4)))
+    cat(sprintf("  Response-scale VPC (null): %s\n", pal$accent(fmt(vr$estimate, 4))))
   }
   invisible(NULL)
 }
@@ -670,7 +671,8 @@ maihda_print_analysis_da <- function(summary_obj, summary_adjusted = NULL) {
 #' @return No return value, called for side effects.
 #' @export
 print.maihda_analysis <- function(x, ...) {
-  cat("MAIHDA Analysis\n")
+  pal <- maihda_palette()
+  cat(pal$bold("MAIHDA Analysis"), "\n", sep = "")
   cat("===============\n\n")
 
   # Crossed-dimensions mode: one model, additive (dimension REs) vs interaction
@@ -687,9 +689,10 @@ print.maihda_analysis <- function(x, ...) {
 
     vpc <- x$summary$vpc
     if (maihda_vpc_has_interval(vpc)) {
-      cat(sprintf("VPC/ICC: %.4f [%.4f, %.4f]\n", vpc$estimate, vpc$ci_lower, vpc$ci_upper))
+      cat(sprintf("VPC/ICC: %s [%.4f, %.4f]\n",
+                  pal$accent(sprintf("%.4f", vpc$estimate)), vpc$ci_lower, vpc$ci_upper))
     } else {
-      cat(sprintf("VPC/ICC: %.4f\n", vpc$estimate))
+      cat(sprintf("VPC/ICC: %s\n", pal$accent(sprintf("%.4f", vpc$estimate))))
     }
     if (!is.null(x$decomposition)) {
       cat("\n")
@@ -707,7 +710,7 @@ print.maihda_analysis <- function(x, ...) {
       cat(sprintf("\nGroup comparison by '%s':\n", x$group_var))
       print(x$groups)
     }
-    cat("\nUse summary() for variance components and plot(type = ...) for figures.\n")
+    cat(pal$muted("\nUse summary() for variance components and plot(type = ...) for figures.\n"))
     return(invisible(x))
   }
 
@@ -725,11 +728,12 @@ print.maihda_analysis <- function(x, ...) {
 
     vpc <- x$summary$vpc
     if (maihda_vpc_has_interval(vpc)) {
-      cat(sprintf("VPC/ICC at baseline (%s = %g): %.4f [%.4f, %.4f]\n",
-                  lng$time, lng$ref_time, vpc$estimate, vpc$ci_lower, vpc$ci_upper))
+      cat(sprintf("VPC/ICC at baseline (%s = %g): %s [%.4f, %.4f]\n",
+                  lng$time, lng$ref_time, pal$accent(sprintf("%.4f", vpc$estimate)),
+                  vpc$ci_lower, vpc$ci_upper))
     } else {
-      cat(sprintf("VPC/ICC at baseline (%s = %g): %.4f\n",
-                  lng$time, lng$ref_time, vpc$estimate))
+      cat(sprintf("VPC/ICC at baseline (%s = %g): %s\n",
+                  lng$time, lng$ref_time, pal$accent(sprintf("%.4f", vpc$estimate))))
     }
     if (!is.null(lng)) {
       vt <- lng$vpc_t
@@ -743,8 +747,8 @@ print.maihda_analysis <- function(x, ...) {
     if (!is.null(x$summary$stratum_estimates)) {
       cat("\nStrata: ", nrow(x$summary$stratum_estimates), "\n", sep = "")
     }
-    cat("\nUse summary() for variance components and ",
-        "plot(type = \"vpc_trajectory\" / \"trajectories\") for figures.\n", sep = "")
+    cat(pal$muted(paste0("\nUse summary() for variance components and ",
+        "plot(type = \"vpc_trajectory\" / \"trajectories\") for figures.\n")))
     return(invisible(x))
   }
 
@@ -761,9 +765,10 @@ print.maihda_analysis <- function(x, ...) {
 
   vpc <- x$summary$vpc
   if (maihda_vpc_has_interval(vpc)) {
-    cat(sprintf("VPC/ICC (null): %.4f [%.4f, %.4f]\n", vpc$estimate, vpc$ci_lower, vpc$ci_upper))
+    cat(sprintf("VPC/ICC (null): %s [%.4f, %.4f]\n",
+                pal$accent(sprintf("%.4f", vpc$estimate)), vpc$ci_lower, vpc$ci_upper))
   } else {
-    cat(sprintf("VPC/ICC (null): %.4f\n", vpc$estimate))
+    cat(sprintf("VPC/ICC (null): %s\n", pal$accent(sprintf("%.4f", vpc$estimate))))
   }
   if (!is.null(x$summary$context)) {
     ctx <- x$summary$context
@@ -774,10 +779,10 @@ print.maihda_analysis <- function(x, ...) {
   if (!is.null(x$pcv)) {
     pcv <- x$pcv
     if (isTRUE(pcv$bootstrap) && !is.null(pcv$ci_lower)) {
-      cat(sprintf("PCV (null -> adjusted): %.4f [%.4f, %.4f]\n",
-                  pcv$pvc, pcv$ci_lower, pcv$ci_upper))
+      cat(sprintf("PCV (null -> adjusted): %s [%.4f, %.4f]\n",
+                  pal$accent(sprintf("%.4f", pcv$pvc)), pcv$ci_lower, pcv$ci_upper))
     } else {
-      cat(sprintf("PCV (null -> adjusted): %.4f\n", pcv$pvc))
+      cat(sprintf("PCV (null -> adjusted): %s\n", pal$accent(sprintf("%.4f", pcv$pvc))))
     }
     cat(sprintf("Between-stratum variance: %.4f (null) -> %.4f (adjusted)\n",
                 pcv$var_model1, pcv$var_model2))
@@ -806,7 +811,7 @@ print.maihda_analysis <- function(x, ...) {
     print(x$groups)
   }
 
-  cat("\nUse summary() for variance components and plot(type = ...) for figures.\n")
+  cat(pal$muted("\nUse summary() for variance components and plot(type = ...) for figures.\n"))
   invisible(x)
 }
 

@@ -217,8 +217,9 @@ maihda_print_fit_diagnostics <- function(diagnostics) {
   if (length(diag_lines) == 0) {
     return(invisible(NULL))
   }
-  cat("Fit diagnostics:\n")
-  cat(paste0("  ", diag_lines), sep = "\n")
+  pal <- maihda_palette()
+  cat(pal$warn("Fit diagnostics:"), "\n", sep = "")        # genuine caveat -> warn
+  cat(pal$warn(paste0("  ", diag_lines)), sep = "\n")
   cat("\n\n")
   invisible(NULL)
 }
