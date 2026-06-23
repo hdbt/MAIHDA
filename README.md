@@ -227,14 +227,6 @@ fit_maihda(outcome ~ age + (1 | gender:race:education), data = survey_data,
            engine = "brms", sampling_weights = "person_weight")
 ```
 
-Limitations: the wemix engine covers the canonical
-`gaussian(identity)` / `binomial(logit)` MAIHDA with a single `(1 | stratum)`
-intercept. crossed random effects (`context =`, `decomposition =
-"crossed-dimensions"`) and bootstrap intervals require lme4/brms. A design-based
-interval would need replicate weights, which is a upcoming future extension.
-
-
-
 
 
 ## Stepwise Proportional Change in Variance (PCV)
@@ -335,7 +327,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use this package in your research, please cite:
 
 ```text
-Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.11, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
+Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.12, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
 ```
 
 A BibTeX entry for LaTeX users is:
@@ -345,7 +337,7 @@ A BibTeX entry for LaTeX users is:
   title  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},
   author = {Hamid Bulut},
   year   = {2025},
-  note   = {R package version 0.1.11},
+  note   = {R package version 0.1.12},
   url    = {https://github.com/hdbt/MAIHDA},
   doi    = {10.32614/CRAN.package.MAIHDA}
 }
