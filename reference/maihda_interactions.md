@@ -66,10 +66,11 @@ to every engine: `stratum`, `label`, `n` (stratum size), `interaction`
 (the BLUP), `lower`/`upper` (the interval), `flagged` (logical), and
 `direction` (`"above"`/`"below"` the additive expectation). Frequentist
 fits add `se` and `p_value` (and `p_adjusted` when `adjust != "none"`);
-`brms` adds `pd` (probability of direction). When `rope` is set, a
-`decision` column (`"relevant"`/`"negligible"`/`"inconclusive"`) is
-added. Attributes record `conf_level`, `adjust`, `rope`, `engine`,
-`model_type`, `n_strata`, `n_flagged`, `scale` and `singular`.
+`brms` adds `pd` (probability of direction, `max(P(>0), P(<0))` in
+`[0.5, 1]`). When `rope` is set, a `decision` column
+(`"relevant"`/`"negligible"`/`"inconclusive"`) is added. Attributes
+record `conf_level`, `adjust`, `rope`, `engine`, `model_type`,
+`n_strata`, `n_flagged`, `scale` and `singular`.
 
 ## Details
 
@@ -88,7 +89,8 @@ standard error: a Wald interval at `conf_level` and a two-sided p-value,
 with an optional multiplicity correction (`adjust`). For `brms` the full
 posterior is already available, so the *exact* posterior tail is used –
 a credible interval at `conf_level` and the probability of direction
-`pd = P(BLUP > 0)` – and `adjust` is not applied (the Bayesian answer is
+`pd = max(P(BLUP > 0), P(BLUP < 0))` (in `[0.5, 1]`; the sign is in
+`direction`) – and `adjust` is not applied (the Bayesian answer is
 multiplicity-free).
 
 **Multiplicity: partial pooling and a correction are different things,

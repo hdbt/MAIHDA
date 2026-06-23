@@ -55,6 +55,45 @@
   [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
   is not masked.
 
+- **Aggregated-binomial stratum predictions were row-weighted instead of
+  trial-weighted.** For a `cbind(success, failure)` (or `y | trials(n)`)
+  fit the rows of an intersectional stratum can carry very different
+  numbers of binomial trials, but the per-stratum *prediction* means
+  averaged the fitted probabilities / linear predictors with **unit**
+  weights, so a 5-trial row counted as much as a 200-trial row. The unit
+  weighting is correct for the **observed** stratum summaries (which sum
+  successes over summed trials – the trials are already in the
+  denominator), but wrong for the model predictions. Prediction
+  aggregation now uses a dedicated `maihda_prediction_weights()` that
+  weights each row by its binomial trial count
+  (`stats::weights(model, type = "prior")`), while the observed
+  numerator/denominator path is unchanged. This corrects the predicted
+  stratum means and the `w_sum` weights feeding
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md),
+  the predicted-strata / risk-vs-effect / effect-decomposition plots,
+  and the prediction-deviation panels; unweighted and non-binomial fits
+  are unaffected (the weights reduce exactly to the previous values).
+
+- **[`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  returned a meaningless scalar diagnostic for a longitudinal fit.** A
+  direct call on a longitudinal
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis (or a bare longitudinal model) fell through to the
+  crossed-dimensions branch and reported a single per-stratum BLUP –
+  which drops the random slope and so describes a cross-section, not the
+  trajectory. It now errors with a pointer to the trajectory tools,
+  matching the automatic-attachment path that already skips longitudinal
+  objects.
+
+- **The Bayesian `pd` column was mislabelled.**
+  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  reported `pd = P(BLUP > 0)` under the heading “probability of
+  direction”, so a strongly **negative** interaction (whose direction is
+  near-certain) showed `pd` near 0 rather than near 1. `pd` is now the
+  conventional probability of direction `max(P(BLUP > 0), P(BLUP < 0))`
+  (in `[0.5, 1]`, à la `bayestestR::p_direction`), with the sign
+  reported separately in the existing `direction` column.
+
 ### Improvements
 
 - **Console output is now colour-coded** (via `cli`). The print methods

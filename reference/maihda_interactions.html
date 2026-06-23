@@ -129,7 +129,8 @@ entirely outside it), <code>"negligible"</code> (entirely inside it), or
   <code>flagged</code> (logical), and <code>direction</code> (<code>"above"</code>/<code>"below"</code>
   the additive expectation). Frequentist fits add <code>se</code> and <code>p_value</code>
   (and <code>p_adjusted</code> when <code>adjust != "none"</code>); <code>brms</code> adds
-  <code>pd</code> (probability of direction). When <code>rope</code> is set, a
+  <code>pd</code> (probability of direction, <code>max(P(&gt;0), P(&lt;0))</code> in
+  <code>[0.5, 1]</code>). When <code>rope</code> is set, a
   <code>decision</code> column (<code>"relevant"</code>/<code>"negligible"</code>/<code>"inconclusive"</code>)
   is added. Attributes record <code>conf_level</code>, <code>adjust</code>, <code>rope</code>,
   <code>engine</code>, <code>model_type</code>, <code>n_strata</code>, <code>n_flagged</code>,
@@ -150,7 +151,8 @@ conditional standard error: a Wald interval at <code>conf_level</code> and a two
 p-value, with an optional multiplicity correction (<code>adjust</code>). For
 <code>brms</code> the full posterior is already available, so the <em>exact</em>
 posterior tail is used – a credible interval at <code>conf_level</code> and the
-probability of direction <code>pd = P(BLUP &gt; 0)</code> – and <code>adjust</code> is not
+probability of direction <code>pd = max(P(BLUP &gt; 0), P(BLUP &lt; 0))</code> (in
+<code>[0.5, 1]</code>; the sign is in <code>direction</code>) – and <code>adjust</code> is not
 applied (the Bayesian answer is multiplicity-free).</p>
 <p><strong>Multiplicity: partial pooling and a correction are different things, and
 the experts disagree.</strong></p><ul><li><p><em>Shrinkage (magnitude/sign).</em> The stratum BLUP is partially pooled,

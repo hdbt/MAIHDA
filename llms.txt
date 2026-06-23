@@ -35,9 +35,15 @@ socioeconomic status).
   for no-code exploratory data analysis and model fitting
 - **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
 - **Design-Weighted MAIHDA**: Survey/sampling weights via
-  `sampling_weights` for complex-survey data with design-consistent
-  fixed-effect standard errors and a design-weighted VPC, PCV, stratum
-  summaries and AUC
+  `sampling_weights` fit a weighted pseudo-likelihood (WeMix for lme4, a
+  pseudo-posterior for brms), giving design-consistent (sandwich) SEs
+  for the **fixed effects** and population-weighted point estimates for
+  the VPC, PCV, stratum summaries and AUC. The intersectional strata are
+  treated as exhaustively sampled population cells (level-2 weights =
+  1), and design-based (replicate-weight / linearised) variances for the
+  variance components are not computed — so this is weighting to the
+  population, not full complex-survey support for arbitrary
+  clustered/stratified/replicate-weight designs
 - **Summaries & Decompositions**: Variance partition coefficients
   (VPC/ICC), stratum-specific estimates, and stepwise Proportional
   Change in Variance (PCV)
