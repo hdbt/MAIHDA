@@ -1931,7 +1931,46 @@ maihda_stratum_lookup <- function(data, strata_info, vars, sep = " \u00d7 ",
   out
 }
 
-maihda_prepare_prediction_data <- function(object, newdata) {
+# Strata the fitted model actually saw: the unique, non-missing stratum values in
+# the analytic data (the levels for which a random effect was estimated). A
+# stratum outside this set is "new" and has no estimated effect. Returns NULL when
+# the analytic data carries no stratum column, in which case callers skip the
+# unseen-stratum check (rather than reject everything).
+maihda_known_strata <- function(object) {
+  if (is.null(object$data) || !"stratum" %in% names(object$data)) {
+    return(NULL)
+  }
+  s <- unique(as.character(object$data$stratum))
+  s[!is.na(s)]
+}
+
+# Error if `stratum` names any level the model never saw. `type` only tailors the
+# hint: an individual-level prediction can fall back to the population average via
+# allow_new_levels = TRUE, but a stratum-level prediction has no random effect to
+# report for an unseen stratum, so no such fallback is offered there.
+maihda_check_known_strata <- function(stratum, known, type = "individual") {
+  if (is.null(known)) {
+    return(invisible(NULL))
+  }
+  wanted <- unique(as.character(stratum))
+  wanted <- wanted[!is.na(wanted)]
+  unknown <- setdiff(wanted, known)
+  if (length(unknown) == 0) {
+    return(invisible(NULL))
+  }
+  hint <- if (identical(type, "individual")) {
+    " Pass allow_new_levels = TRUE for a population-average (fixed-effects-only) prediction."
+  } else {
+    ""
+  }
+  stop("newdata contains strata not present in the fitted model: ",
+       paste(utils::head(unknown, 5), collapse = ", "),
+       if (length(unknown) > 5) ", ..." else "", ".", hint,
+       call. = FALSE)
+}
+
+maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
+                                           allow_new_levels = FALSE) {
   if (!is.data.frame(newdata)) {
     stop("'newdata' must be a data frame", call. = FALSE)
   }
@@ -1943,7 +1982,19 @@ maihda_prepare_prediction_data <- function(object, newdata) {
   # are present).
   newdata <- maihda_add_binned_dim_columns(newdata, object$strata_autobin_info)
 
+  # allow_new_levels only relaxes individual-level predictions (which fall back to
+  # the population average); stratum-level predictions always require known strata.
+  permit_new <- isTRUE(allow_new_levels) && identical(type, "individual")
+
   if ("stratum" %in% names(newdata)) {
+    # A caller-supplied 'stratum' column previously skipped validation entirely,
+    # so a misspelled or genuinely new stratum silently flowed through to a
+    # fixed-only prediction (the WeMix/ordinal helpers map an unseen stratum's
+    # random effect to 0). Validate it here unless the caller opted into
+    # population-average predictions.
+    if (!permit_new) {
+      maihda_check_known_strata(newdata$stratum, maihda_known_strata(object), type)
+    }
     return(newdata)
   }
 
@@ -1991,11 +2042,23 @@ maihda_prepare_prediction_data <- function(object, newdata) {
 
   unknown <- !is.na(labels) & is.na(newdata$stratum)
   if (any(unknown)) {
-    unknown_labels <- unique(labels[unknown])
-    stop("newdata contains strata combinations that were not present when the model was fit: ",
-         paste(utils::head(unknown_labels, 5), collapse = ", "),
-         if (length(unknown_labels) > 5) ", ..." else "",
-         call. = FALSE)
+    if (permit_new) {
+      # Keep each new combination as its own stratum label so the engine maps it
+      # to a zero random effect (a population-average prediction) rather than
+      # erroring; mirrors the supplied-'stratum' branch above.
+      newdata$stratum[unknown] <- labels[unknown]
+    } else {
+      unknown_labels <- unique(labels[unknown])
+      hint <- if (identical(type, "individual")) {
+        " Pass allow_new_levels = TRUE for a population-average (fixed-effects-only) prediction."
+      } else {
+        ""
+      }
+      stop("newdata contains strata combinations that were not present when the model was fit: ",
+           paste(utils::head(unknown_labels, 5), collapse = ", "),
+           if (length(unknown_labels) > 5) ", ..." else "", ".", hint,
+           call. = FALSE)
+    }
   }
 
   newdata

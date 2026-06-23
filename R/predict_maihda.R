@@ -18,6 +18,15 @@
 #'   cumulative (ordinal) model the "link" scale is the latent location
 #'   \eqn{\eta} and the "response" scale is the \emph{expected category score}
 #'   \eqn{\sum_k k P(Y = k)} (categories scored 1..K in their declared order).
+#' @param allow_new_levels Logical. By default (\code{FALSE}) a stratum in
+#'   \code{newdata} that the model never saw -- whether supplied directly as a
+#'   \code{stratum} column or rebuilt from the grouping variables -- is an error,
+#'   for every engine, matching \pkg{lme4}'s default. Set \code{TRUE} to instead
+#'   return a \emph{population-average} (fixed-effects-only) prediction for unseen
+#'   strata, dropping the stratum random effect (i.e. treating it as zero). This
+#'   affects \code{type = "individual"} only: a stratum-level prediction
+#'   (\code{type = "strata"}) has no random effect to report for an unseen
+#'   stratum, so unseen strata remain an error there regardless.
 #' @param ... Additional arguments passed to predict method of underlying model.
 #'
 #' @return Depending on type:
@@ -48,11 +57,16 @@
 #' @importFrom lme4 ranef
 predict_maihda <- function(object, newdata = NULL,
                            type = c("individual", "strata", "response", "link"),
-                           scale = c("response", "link"), ...) {
+                           scale = c("response", "link"),
+                           allow_new_levels = FALSE, ...) {
   if (!inherits(object, "maihda_model")) {
     stop("'object' must be a maihda_model object from fit_maihda()")
   }
-  
+  if (!is.logical(allow_new_levels) || length(allow_new_levels) != 1 ||
+      is.na(allow_new_levels)) {
+    stop("'allow_new_levels' must be TRUE or FALSE.", call. = FALSE)
+  }
+
   type <- match.arg(type)
   if (type %in% c("response", "link")) {
     scale <- type
@@ -62,11 +76,12 @@ predict_maihda <- function(object, newdata = NULL,
   }
   engine <- object$engine
   model <- object$model
-  
+
   if (is.null(newdata)) {
     newdata <- object$data
   } else {
-    newdata <- maihda_prepare_prediction_data(object, newdata)
+    newdata <- maihda_prepare_prediction_data(object, newdata, type = type,
+                                              allow_new_levels = allow_new_levels)
   }
 
   # Longitudinal (growth-curve) model: a stratum is a TRAJECTORY, so the
@@ -80,10 +95,16 @@ predict_maihda <- function(object, newdata = NULL,
 
   if (engine == "lme4") {
     if (type == "individual") {
-      # Individual-level predictions including random effects
-      predictions <- predict(model, newdata = newdata, type = scale, ...)
+      # Individual-level predictions including random effects. Unseen strata are
+      # already rejected upstream unless allow_new_levels = TRUE, in which case
+      # lme4 must be told to permit them (it then sets their random effect to 0,
+      # the same population-average fallback the other engines use).
+      dots <- maihda_dots_default(list(...), "allow.new.levels",
+                                  isTRUE(allow_new_levels))
+      predictions <- do.call(stats::predict,
+                             c(list(model, newdata = newdata, type = scale), dots))
       return(predictions)
-      
+
     } else if (type == "strata") {
       # Stratum-level predictions (random effects)
       result <- maihda_stratum_ranef_lme4(model)
@@ -145,9 +166,14 @@ predict_maihda <- function(object, newdata = NULL,
     }
 
     if (type == "individual") {
-      # Individual-level predictions
+      # Individual-level predictions. As for lme4, unseen strata are rejected
+      # upstream unless allow_new_levels = TRUE, which is forwarded to brms (its
+      # own argument of the same name) so new levels draw a zero random effect.
+      dots <- maihda_dots_default(list(...), "allow_new_levels",
+                                  isTRUE(allow_new_levels))
       predictions <- if (scale == "response") {
-        f <- stats::fitted(model, newdata = newdata, summary = TRUE, ...)
+        f <- do.call(stats::fitted,
+                     c(list(model, newdata = newdata, summary = TRUE), dots))
         if (length(dim(f)) == 3) {
           # A categorical-likelihood fit (e.g. cumulative/ordinal) returns an
           # nobs x summary x category ARRAY of per-category probabilities;
@@ -159,7 +185,8 @@ predict_maihda <- function(object, newdata = NULL,
           f[, "Estimate"]
         }
       } else {
-        brms::posterior_linpred(model, newdata = newdata, summary = TRUE, ...)[, "Estimate"]
+        do.call(brms::posterior_linpred,
+                c(list(model, newdata = newdata, summary = TRUE), dots))[, "Estimate"]
       }
       return(predictions)
 
@@ -171,6 +198,16 @@ predict_maihda <- function(object, newdata = NULL,
       return(maihda_filter_strata_predictions(result, newdata))
     }
   }
+}
+
+# Inject a named default into a list of forwarded `...` arguments unless the
+# caller already supplied it, so an engine's new-levels switch can be set from
+# `allow_new_levels` without clashing with a user-supplied value of the same name.
+maihda_dots_default <- function(dots, name, value) {
+  if (!name %in% names(dots)) {
+    dots[[name]] <- value
+  }
+  dots
 }
 
 # Restrict a per-stratum prediction table to the strata present in `newdata` so

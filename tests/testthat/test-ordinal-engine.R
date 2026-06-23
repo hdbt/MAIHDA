@@ -266,6 +266,23 @@ test_that("clmm predictions work on both scales and respect newdata strata", {
     predict_maihda(m, newdata = data.frame(stratum = "no-such"), type = "strata"),
     "not present in the fitted model"
   )
+
+  # Public individual predictions reject an unseen stratum by default rather than
+  # silently returning a fixed-only (0-random-effect) prediction.
+  nd_unseen <- m$data[1, , drop = FALSE]
+  nd_unseen$stratum <- "999"
+  expect_error(
+    predict_maihda(m, newdata = nd_unseen, type = "individual", scale = "link"),
+    "not present in the fitted model"
+  )
+
+  # allow_new_levels = TRUE opts into the population average: the latent location
+  # equals the fixed part with the stratum random effect dropped (mapped to 0).
+  pa_link <- predict_maihda(m, newdata = nd_unseen, type = "individual",
+                            scale = "link", allow_new_levels = TRUE)
+  fixed_only <- maihda_clmm_linpred(m, newdata = nd_unseen, include_re = FALSE)
+  expect_true(is.finite(pa_link))
+  expect_equal(unname(pa_link), unname(fixed_only))
 })
 
 test_that("maihda_mor returns the median cumulative odds ratio for a logit fit", {

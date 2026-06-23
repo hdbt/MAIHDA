@@ -1,8 +1,9 @@
 #' Fit MAIHDA Model
 #'
 #' Fits a multilevel model for MAIHDA (Multilevel Analysis of Individual
-#' Heterogeneity and Discriminatory Accuracy) using lme4, brms, or -- for
-#' design-weighted (survey) data -- WeMix.
+#' Heterogeneity and Discriminatory Accuracy) using lme4, brms, WeMix (for
+#' design-weighted (survey) data), or -- for an ordered-factor outcome -- a
+#' cumulative link mixed model via \code{ordinal::clmm()}.
 #'
 #' @param formula A formula specifying the model. Can include a random effect
 #'   for stratum (e.g., \code{outcome ~ fixed_vars + (1 | stratum)}) or can
@@ -144,8 +145,8 @@
 #'   arguments are not supported by the wemix engine.
 #'
 #' @return A maihda_model object containing:
-#'   \item{model}{The fitted model object (lme4, brms, or WeMix)}
-#'   \item{engine}{The engine used ("lme4", "brms", or "wemix")}
+#'   \item{model}{The fitted model object (lme4, brms, WeMix, or ordinal::clmm)}
+#'   \item{engine}{The engine used ("lme4", "brms", "wemix", or "ordinal")}
 #'   \item{sampling_weights}{The sampling-weight column name when supplied,
 #'     NULL otherwise}
 #'   \item{formula}{The model formula}

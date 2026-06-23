@@ -741,7 +741,7 @@ test_that("fit_maihda routes sampling weights into a brms fit (Stan-free)", {
                captured$data$w / captured$data$w[1])
 })
 
-test_that("wemix individual predictions treat an unseen stratum as zero effect", {
+test_that("wemix unseen stratum: helper maps to zero, public path gates it", {
   ranefMat <- list(stratum = stats::setNames(
     data.frame(c(0.5, -0.5), row.names = c("s1", "s2")), "(Intercept)"))
   varDF <- data.frame(grp = c("stratum", "Residual"),
@@ -752,8 +752,25 @@ test_that("wemix individual predictions treat an unseen stratum as zero effect",
                              coef = c("(Intercept)" = 2, x = 1), data = d)
 
   nd <- data.frame(x = c(0, 0), stratum = c("s1", "unseen"))
+
+  # The internal linpred primitive maps an unseen stratum to a zero random effect
+  # (eta = fixed part). This is the population-average fallback, NOT the public
+  # default: the seen stratum keeps its 0.5 effect, the unseen one drops to 0.
   eta <- maihda_wemix_linpred(m, newdata = nd, include_re = TRUE)
   expect_equal(unname(eta), c(2.5, 2))
+
+  # Public individual predictions reject the unseen stratum by default, instead of
+  # silently returning that fixed-only prediction.
+  expect_error(
+    predict_maihda(m, newdata = nd, type = "individual"),
+    "not present in the fitted model"
+  )
+
+  # allow_new_levels = TRUE opts into the population average. The gaussian identity
+  # link makes the response scale equal the latent eta computed above.
+  pa <- predict_maihda(m, newdata = nd, type = "individual",
+                       allow_new_levels = TRUE)
+  expect_equal(unname(pa), c(2.5, 2))
 })
 
 test_that("predict_maihda supplies the brms weight column for user newdata", {

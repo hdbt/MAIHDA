@@ -9,6 +9,7 @@ predict_maihda(
   newdata = NULL,
   type = c("individual", "strata", "response", "link"),
   scale = c("response", "link"),
+  allow_new_levels = FALSE,
   ...
 )
 }
@@ -31,6 +32,16 @@ individual-level predictions: "response" (default) or "link". For a
 cumulative (ordinal) model the "link" scale is the latent location
 \eqn{\eta} and the "response" scale is the \emph{expected category score}
 \eqn{\sum_k k P(Y = k)} (categories scored 1..K in their declared order).}
+
+\item{allow_new_levels}{Logical. By default (\code{FALSE}) a stratum in
+\code{newdata} that the model never saw -- whether supplied directly as a
+\code{stratum} column or rebuilt from the grouping variables -- is an error,
+for every engine, matching \pkg{lme4}'s default. Set \code{TRUE} to instead
+return a \emph{population-average} (fixed-effects-only) prediction for unseen
+strata, dropping the stratum random effect (i.e. treating it as zero). This
+affects \code{type = "individual"} only: a stratum-level prediction
+(\code{type = "strata"}) has no random effect to report for an unseen
+stratum, so unseen strata remain an error there regardless.}
 
 \item{...}{Additional arguments passed to predict method of underlying model.}
 }

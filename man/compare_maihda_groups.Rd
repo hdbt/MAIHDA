@@ -34,9 +34,11 @@ grouping variable.}
 (e.g. \code{"country"}). A separate model is fitted for each non-missing
 level.}
 
-\item{engine}{Modeling engine, "lme4" (default), "brms", or "wemix" (the
+\item{engine}{Modeling engine, "lme4" (default), "brms", "wemix" (the
 design-weighted fit; requires \code{sampling_weights} and is selected
-automatically when they are supplied with the default engine).}
+automatically when they are supplied with the default engine), or "ordinal"
+(cumulative link mixed model via \code{ordinal::clmm()}; selected
+automatically for an ordinal family or an ordered-factor outcome).}
 
 \item{family}{Model family. Default "gaussian". As in \code{\link{fit_maihda}},
 a binary outcome is auto-detected once on the full data and switched to

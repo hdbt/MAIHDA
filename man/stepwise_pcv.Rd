@@ -22,8 +22,9 @@ so the `stratum` variable exists.}
 \item{vars}{Character vector; predictors (strata groupings & covariates) to
 add sequentially to the model.}
 
-\item{engine}{Modeling engine ("lme4", "brms", or "wemix"). Default is "lme4";
-switches to "wemix" automatically when \code{sampling_weights} is supplied.}
+\item{engine}{Modeling engine ("lme4", "brms", "wemix", or "ordinal"). Default
+is "lme4"; switches to "wemix" automatically when \code{sampling_weights} is
+supplied, and to "ordinal" for an ordinal family or ordered-factor outcome.}
 
 \item{family}{Error distribution and link function. Default is "gaussian".}
 

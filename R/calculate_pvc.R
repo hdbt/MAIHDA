@@ -84,7 +84,7 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
   }
 
   if (model1$engine != model2$engine) {
-    stop("Both models must use the same engine (lme4 or brms)")
+    stop("Both models must use the same engine.")
   }
 
   if (!is.logical(bootstrap) || length(bootstrap) != 1 || is.na(bootstrap)) {
@@ -249,7 +249,8 @@ extract_between_variance <- function(model) {
     return(maihda_stratum_variance_brms(fitted_model))
 
   } else {
-    stop("Unsupported engine: ", engine, ". Only 'lme4' and 'brms' are supported.")
+    stop("Unsupported engine: ", engine,
+         ". Supported engines are 'lme4', 'brms', 'wemix', and 'ordinal'.")
   }
 }
 
@@ -472,8 +473,9 @@ print.pvc_result <- function(x, ...) {
 #' @param outcome Character string; the dependent variable.
 #' @param vars Character vector; predictors (strata groupings & covariates) to
 #'   add sequentially to the model.
-#' @param engine Modeling engine ("lme4", "brms", or "wemix"). Default is "lme4";
-#'   switches to "wemix" automatically when \code{sampling_weights} is supplied.
+#' @param engine Modeling engine ("lme4", "brms", "wemix", or "ordinal"). Default
+#'   is "lme4"; switches to "wemix" automatically when \code{sampling_weights} is
+#'   supplied, and to "ordinal" for an ordinal family or ordered-factor outcome.
 #' @param family Error distribution and link function. Default is "gaussian".
 #' @param sampling_weights Optional name of a sampling-weight column for
 #'   design-weighted stepwise fits; see \code{\link{fit_maihda}}. The weight

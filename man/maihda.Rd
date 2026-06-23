@@ -58,10 +58,12 @@ context partialled out (the context random intercept is carried by both the
 null and the adjusted model). Cannot be combined with \code{group}; a context
 with few levels weakly identifies its variance (consider \code{engine = "brms"}).}
 
-\item{engine}{Modeling engine, "lme4" (default), "brms", or "wemix" (the
+\item{engine}{Modeling engine, "lme4" (default), "brms", "wemix" (the
 design-weighted pseudo-maximum-likelihood fit; requires
 \code{sampling_weights} and is selected automatically when they are supplied
-with the default engine).}
+with the default engine), or "ordinal" (cumulative link mixed model via
+\code{ordinal::clmm()}; selected automatically for an ordinal family or an
+ordered-factor outcome).}
 
 \item{family}{Model family. Default "gaussian". As in \code{\link{fit_maihda}},
 a binary outcome is auto-detected when \code{family} is left at the default,

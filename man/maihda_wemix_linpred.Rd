@@ -22,6 +22,9 @@ and offers no fixed-only form, so predictions are built directly from the
 coefficient vector and the stored stratum effects: the fixed design matrix is
 constructed with the training data's factor levels and multiplied by
 \code{coef}, and \code{include_re} adds each row's stratum effect (conditional
-mode). Everything is on the link scale.
+mode; an unseen stratum contributes 0 -- the population-average fallback that
+\code{\link{predict_maihda}} only reaches when \code{allow_new_levels = TRUE},
+having otherwise rejected unseen strata upstream). Everything is on the link
+scale.
 }
 \keyword{internal}
