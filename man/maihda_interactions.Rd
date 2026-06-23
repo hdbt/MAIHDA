@@ -4,7 +4,7 @@
 \alias{maihda_interactions}
 \title{Flag strata with credibly non-zero intersectional interaction}
 \usage{
-maihda_interactions(object, conf_level = 0.95, adjust = "none", ...)
+maihda_interactions(object, conf_level = 0.95, adjust = "BH", rope = NULL, ...)
 }
 \arguments{
 \item{object}{A \code{maihda_analysis} from \code{\link{maihda}} (preferred --
@@ -16,10 +16,21 @@ its adjusted / crossed-dimensions model is used automatically) or a
 Default 0.95.}
 
 \item{adjust}{Multiple-comparison adjustment for the per-stratum p-values
-(frequentist engines only): \code{"none"} (default) or any method accepted by
-\code{\link[stats]{p.adjust}} (e.g. \code{"BH"}, \code{"holm"},
-\code{"bonferroni"}). Ignored for \code{brms} (with a message), which uses the
-posterior tail directly.}
+(frequentist engines only): \code{"BH"} (default; false-discovery rate) or any
+method accepted by \code{\link[stats]{p.adjust}}, including \code{"none"} for
+the uncorrected, per-stratum individual-testing view. Ignored for \code{brms}
+(which uses the posterior tail directly; a message is shown only if you set it
+explicitly).}
+
+\item{rope}{Optional equivalence region (a "smallest interaction of interest")
+for an "is the interaction \emph{negligible}?" reading (Schuirmann 1987;
+Kruschke 2018), on the link (latent) scale. \code{NULL} (default) gives
+only the usual zero-centred flag. A single positive number \code{d} means the
+symmetric region \code{c(-d, d)}; or supply \code{c(lower, upper)}. When set, the
+result gains a \code{decision} column classifying each stratum from its
+\code{conf_level} interval relative to the region: \code{"relevant"} (interval
+entirely outside it), \code{"negligible"} (entirely inside it), or
+\code{"inconclusive"} (straddling a bound).}
 
 \item{...}{Currently unused.}
 }
@@ -31,9 +42,11 @@ An object of class \code{maihda_interactions} (a data frame), one row
   \code{flagged} (logical), and \code{direction} (\code{"above"}/\code{"below"}
   the additive expectation). Frequentist fits add \code{se} and \code{p_value}
   (and \code{p_adjusted} when \code{adjust != "none"}); \code{brms} adds
-  \code{pd} (probability of direction). Attributes record \code{conf_level},
-  \code{adjust}, \code{engine}, \code{model_type}, \code{n_strata},
-  \code{n_flagged}, \code{scale} and \code{singular}.
+  \code{pd} (probability of direction). When \code{rope} is set, a
+  \code{decision} column (\code{"relevant"}/\code{"negligible"}/\code{"inconclusive"})
+  is added. Attributes record \code{conf_level}, \code{adjust}, \code{rope},
+  \code{engine}, \code{model_type}, \code{n_strata}, \code{n_flagged},
+  \code{scale} and \code{singular}.
 }
 \description{
 Reports, for each intersectional stratum, the \strong{interaction} component of
@@ -83,20 +96,22 @@ the experts disagree.}
     interaction \emph{somewhere}?" -- which an automated all-strata scan
     effectively is -- it is \emph{disjunction} testing and a correction applies.
 }
-\code{adjust = "none"} is the default because the table is formally a set of
-individual hypotheses; \strong{for the common exploratory scan of all strata,
-prefer \code{adjust = "BH"}}. Choosing FDR over family-wise
-(\code{"bonferroni"}/\code{"holm"}) matches a screening goal (the expected
-\emph{proportion} of false discoveries) -- this is the package's choice, not a
-recommendation of Rubin (2021), who raises FDR only to distinguish it from the
-family-wise rate. The flag itself is a Wald test on a shrunken BLUP whose
+\strong{\code{adjust = "BH"} is the default}: fitting and flagging every stratum
+in one call is the disjunction/screening case, where controlling the expected
+\emph{proportion} of false discoveries (FDR) is the appropriate goal. Pass
+\code{adjust = "none"} only when each stratum is a genuine, pre-specified
+individual hypothesis. The FDR choice (over family-wise
+\code{"bonferroni"}/\code{"holm"}) is this package's, matching that screening
+goal; it is not a recommendation of Rubin (2021), who raises FDR only to
+distinguish it from the family-wise rate. The flag itself is a Wald test on a
+shrunken BLUP whose
 conditional SE treats the variance components as known, so it (and any
 \code{adjust} on it) is an explicit, approximate \emph{screen}, not a procedure
 inheriting an exact guarantee from the model. Lead with the interval (and, for
 \code{brms}, the probability of direction); the substantive question is often not
 whether an interaction differs from zero but whether it exceeds a smallest
-interaction of interest (an equivalence/SESOI reading; Lakens, Scheel & Isager
-2018), read from the interval.
+interaction of interest (an equivalence reading; Schuirmann 1987; Kruschke 2018),
+read from the interval.
 
 The interaction is reported on the model's link (latent) scale -- a log-odds
 deviation for a logistic model, etc. -- because the additive/interaction split
@@ -107,8 +122,9 @@ is only exact there.
 data(maihda_health_data)
 a <- maihda(BMI ~ Age + Gender + Race + (1 | Gender:Race),
             data = maihda_health_data)
-maihda_interactions(a)                 # which strata interact (95\%, no correction)
-maihda_interactions(a, adjust = "BH")  # FDR-controlled screen
+maihda_interactions(a)                  # FDR-screened (default adjust = "BH")
+maihda_interactions(a, adjust = "none") # uncorrected per-stratum individual view
+maihda_interactions(a, rope = 0.1)      # equivalence: |interaction| within 0.1?
 }
 
 }
@@ -136,9 +152,13 @@ of disjunction, conjunction, and individual testing. \emph{Synthese}, 199(3-4),
 McShane, B. B., Gal, D., Gelman, A., Robert, C., & Tackett, J. L. (2019). Abandon
 statistical significance. \emph{The American Statistician}, 73(sup1), 235-245.
 
-Lakens, D., Scheel, A. M., & Isager, P. M. (2018). Equivalence testing for
-psychological research: a tutorial. \emph{Advances in Methods and Practices in
-Psychological Science}, 1(2), 259-269.
+Schuirmann, D. J. (1987). A comparison of the two one-sided tests procedure and
+the power approach for assessing the equivalence of average bioavailability.
+\emph{Journal of Pharmacokinetics and Biopharmaceutics}, 15(6), 657-680.
+
+Kruschke, J. K. (2018). Rejecting or accepting parameter values in Bayesian
+estimation. \emph{Advances in Methods and Practices in Psychological Science},
+1(2), 270-280.
 }
 \seealso{
 \code{\link{maihda}}, \code{\link{calculate_pvc}},

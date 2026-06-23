@@ -58,20 +58,22 @@
 #'     interaction \emph{somewhere}?" -- which an automated all-strata scan
 #'     effectively is -- it is \emph{disjunction} testing and a correction applies.
 #' }
-#' \code{adjust = "none"} is the default because the table is formally a set of
-#' individual hypotheses; \strong{for the common exploratory scan of all strata,
-#' prefer \code{adjust = "BH"}}. Choosing FDR over family-wise
-#' (\code{"bonferroni"}/\code{"holm"}) matches a screening goal (the expected
-#' \emph{proportion} of false discoveries) -- this is the package's choice, not a
-#' recommendation of Rubin (2021), who raises FDR only to distinguish it from the
-#' family-wise rate. The flag itself is a Wald test on a shrunken BLUP whose
+#' \strong{\code{adjust = "BH"} is the default}: fitting and flagging every stratum
+#' in one call is the disjunction/screening case, where controlling the expected
+#' \emph{proportion} of false discoveries (FDR) is the appropriate goal. Pass
+#' \code{adjust = "none"} only when each stratum is a genuine, pre-specified
+#' individual hypothesis. The FDR choice (over family-wise
+#' \code{"bonferroni"}/\code{"holm"}) is this package's, matching that screening
+#' goal; it is not a recommendation of Rubin (2021), who raises FDR only to
+#' distinguish it from the family-wise rate. The flag itself is a Wald test on a
+#' shrunken BLUP whose
 #' conditional SE treats the variance components as known, so it (and any
 #' \code{adjust} on it) is an explicit, approximate \emph{screen}, not a procedure
 #' inheriting an exact guarantee from the model. Lead with the interval (and, for
 #' \code{brms}, the probability of direction); the substantive question is often not
 #' whether an interaction differs from zero but whether it exceeds a smallest
-#' interaction of interest (an equivalence/SESOI reading; Lakens, Scheel & Isager
-#' 2018), read from the interval.
+#' interaction of interest (an equivalence reading; Schuirmann 1987; Kruschke 2018),
+#' read from the interval.
 #'
 #' The interaction is reported on the model's link (latent) scale -- a log-odds
 #' deviation for a logistic model, etc. -- because the additive/interaction split
@@ -84,10 +86,20 @@
 #' @param conf_level Confidence / credible level for the interval and the flag.
 #'   Default 0.95.
 #' @param adjust Multiple-comparison adjustment for the per-stratum p-values
-#'   (frequentist engines only): \code{"none"} (default) or any method accepted by
-#'   \code{\link[stats]{p.adjust}} (e.g. \code{"BH"}, \code{"holm"},
-#'   \code{"bonferroni"}). Ignored for \code{brms} (with a message), which uses the
-#'   posterior tail directly.
+#'   (frequentist engines only): \code{"BH"} (default; false-discovery rate) or any
+#'   method accepted by \code{\link[stats]{p.adjust}}, including \code{"none"} for
+#'   the uncorrected, per-stratum individual-testing view. Ignored for \code{brms}
+#'   (which uses the posterior tail directly; a message is shown only if you set it
+#'   explicitly).
+#' @param rope Optional equivalence region (a "smallest interaction of interest")
+#'   for an "is the interaction \emph{negligible}?" reading (Schuirmann 1987;
+#'   Kruschke 2018), on the link (latent) scale. \code{NULL} (default) gives
+#'   only the usual zero-centred flag. A single positive number \code{d} means the
+#'   symmetric region \code{c(-d, d)}; or supply \code{c(lower, upper)}. When set, the
+#'   result gains a \code{decision} column classifying each stratum from its
+#'   \code{conf_level} interval relative to the region: \code{"relevant"} (interval
+#'   entirely outside it), \code{"negligible"} (entirely inside it), or
+#'   \code{"inconclusive"} (straddling a bound).
 #' @param ... Currently unused.
 #'
 #' @return An object of class \code{maihda_interactions} (a data frame), one row
@@ -97,9 +109,11 @@
 #'   \code{flagged} (logical), and \code{direction} (\code{"above"}/\code{"below"}
 #'   the additive expectation). Frequentist fits add \code{se} and \code{p_value}
 #'   (and \code{p_adjusted} when \code{adjust != "none"}); \code{brms} adds
-#'   \code{pd} (probability of direction). Attributes record \code{conf_level},
-#'   \code{adjust}, \code{engine}, \code{model_type}, \code{n_strata},
-#'   \code{n_flagged}, \code{scale} and \code{singular}.
+#'   \code{pd} (probability of direction). When \code{rope} is set, a
+#'   \code{decision} column (\code{"relevant"}/\code{"negligible"}/\code{"inconclusive"})
+#'   is added. Attributes record \code{conf_level}, \code{adjust}, \code{rope},
+#'   \code{engine}, \code{model_type}, \code{n_strata}, \code{n_flagged},
+#'   \code{scale} and \code{singular}.
 #'
 #' @references
 #' Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V. (2018). A
@@ -125,9 +139,13 @@
 #' McShane, B. B., Gal, D., Gelman, A., Robert, C., & Tackett, J. L. (2019). Abandon
 #' statistical significance. \emph{The American Statistician}, 73(sup1), 235-245.
 #'
-#' Lakens, D., Scheel, A. M., & Isager, P. M. (2018). Equivalence testing for
-#' psychological research: a tutorial. \emph{Advances in Methods and Practices in
-#' Psychological Science}, 1(2), 259-269.
+#' Schuirmann, D. J. (1987). A comparison of the two one-sided tests procedure and
+#' the power approach for assessing the equivalence of average bioavailability.
+#' \emph{Journal of Pharmacokinetics and Biopharmaceutics}, 15(6), 657-680.
+#'
+#' Kruschke, J. K. (2018). Rejecting or accepting parameter values in Bayesian
+#' estimation. \emph{Advances in Methods and Practices in Psychological Science},
+#' 1(2), 270-280.
 #'
 #' @seealso \code{\link{maihda}}, \code{\link{calculate_pvc}},
 #'   \code{\link{summary.maihda_model}}; and \code{plot(\dots,
@@ -139,14 +157,17 @@
 #' data(maihda_health_data)
 #' a <- maihda(BMI ~ Age + Gender + Race + (1 | Gender:Race),
 #'             data = maihda_health_data)
-#' maihda_interactions(a)                 # which strata interact (95%, no correction)
-#' maihda_interactions(a, adjust = "BH")  # FDR-controlled screen
+#' maihda_interactions(a)                  # FDR-screened (default adjust = "BH")
+#' maihda_interactions(a, adjust = "none") # uncorrected per-stratum individual view
+#' maihda_interactions(a, rope = 0.1)      # equivalence: |interaction| within 0.1?
 #' }
 #'
 #' @export
 #' @importFrom stats qnorm pnorm quantile median p.adjust terms p.adjust.methods
 #' @importFrom reformulas nobars
-maihda_interactions <- function(object, conf_level = 0.95, adjust = "none", ...) {
+maihda_interactions <- function(object, conf_level = 0.95, adjust = "BH",
+                                rope = NULL, ...) {
+  adjust_was_set <- !missing(adjust)
   resolved <- maihda_resolve_interaction_model(object)
   model <- resolved$model
   summary_obj <- resolved$summary
@@ -154,6 +175,7 @@ maihda_interactions <- function(object, conf_level = 0.95, adjust = "none", ...)
 
   conf_level <- maihda_validate_conf_level(conf_level)
   adjust <- match.arg(adjust, c("none", stats::p.adjust.methods))
+  rope <- maihda_normalize_rope(rope)
 
   se_tab <- summary_obj$stratum_estimates
   if (is.null(se_tab) || nrow(se_tab) == 0) {
@@ -168,7 +190,7 @@ maihda_interactions <- function(object, conf_level = 0.95, adjust = "none", ...)
   alpha <- 1 - conf_level
 
   if (identical(engine, "brms")) {
-    if (!identical(adjust, "none")) {
+    if (adjust_was_set && !identical(adjust, "none")) {
       message("maihda_interactions(): the Bayesian posterior tail is ",
               "multiplicity-free; 'adjust' is ignored for brms models.")
     }
@@ -215,6 +237,21 @@ maihda_interactions <- function(object, conf_level = 0.95, adjust = "none", ...)
     out$direction <- ifelse(est >= 0, "above", "below")
   }
 
+  # Equivalence / ROPE reading (Schuirmann 1987; Kruschke 2018): an
+  # "is the interaction negligible?" classification from each stratum's interval
+  # relative to the smallest-interaction-of-interest region, separate from the
+  # zero-centred flag. Uses the conf_level interval (lower/upper), so it is valid
+  # across engines without re-deriving anything.
+  if (!is.null(rope)) {
+    lo <- rope[1]; hi <- rope[2]
+    have <- !is.na(out$lower) & !is.na(out$upper)
+    inside  <- have & out$lower >= lo & out$upper <= hi
+    outside <- have & (out$lower > hi | out$upper < lo)
+    out$decision <- ifelse(!have, NA_character_,
+                    ifelse(inside, "negligible",
+                    ifelse(outside, "relevant", "inconclusive")))
+  }
+
   # Flagged strata first, then by interaction magnitude (most extreme first).
   ord <- order(!out$flagged, -abs(out$interaction))
   out <- out[ord, , drop = FALSE]
@@ -225,6 +262,7 @@ maihda_interactions <- function(object, conf_level = 0.95, adjust = "none", ...)
 
   attr(out, "conf_level") <- conf_level
   attr(out, "adjust") <- adjust
+  attr(out, "rope") <- rope
   attr(out, "engine") <- engine
   attr(out, "model_type") <- model_type
   attr(out, "n_strata") <- nrow(out)
@@ -262,6 +300,14 @@ print.maihda_interactions <- function(x, ...) {
   }
   cat(sprintf("%d of %d strata flagged (%s).\n", n_flagged, n_strata, evidence))
   cat(sprintf("Model: %s; interaction on the link (latent) scale.\n", model_type))
+
+  rope <- attr(x, "rope")
+  if (!is.null(rope) && "decision" %in% names(x)) {
+    dec <- factor(x$decision, levels = c("relevant", "negligible", "inconclusive"))
+    tab <- table(dec)
+    cat(sprintf("Equivalence vs ROPE [%g, %g]: %d relevant | %d negligible | %d inconclusive.\n",
+                rope[1], rope[2], tab[["relevant"]], tab[["negligible"]], tab[["inconclusive"]]))
+  }
 
   if (isTRUE(attr(x, "singular"))) {
     cat("\nNote: singular/boundary fit (between-stratum variance ~ 0); the BLUP SEs\n",
@@ -412,38 +458,54 @@ maihda_interaction_brms_tail <- function(brmsfit, group, conf_level) {
   )
 }
 
-# Resolve the `interactions` argument of maihda()/fit_maihda() (TRUE/FALSE or a
-# multiple-comparison method name) to either NULL (skip) or a p.adjust method name
-# to pass to maihda_interactions(). TRUE means "compute with no correction" -- the
-# same default maihda_interactions() itself uses.
-maihda_resolve_interactions_arg <- function(interactions) {
-  if (is.null(interactions) || isFALSE(interactions)) return(NULL)
-  if (isTRUE(interactions)) return("none")
-  if (is.character(interactions) && length(interactions) == 1L) {
-    return(match.arg(interactions, c("none", stats::p.adjust.methods)))
+# Validate and normalise the equivalence/ROPE argument of maihda_interactions():
+# NULL stays NULL; a single positive d -> c(-d, d); a length-2 c(lower, upper) with
+# lower < upper passes through. Anything else is an error.
+maihda_normalize_rope <- function(rope) {
+  if (is.null(rope)) return(NULL)
+  if (!is.numeric(rope) || any(!is.finite(rope))) {
+    stop("'rope' must be NULL, a single positive number, or a finite c(lower, upper).",
+         call. = FALSE)
   }
-  stop("'interactions' must be TRUE, FALSE, or a multiple-comparison method name ",
-       "accepted by p.adjust (e.g. \"none\", \"BH\").", call. = FALSE)
+  if (length(rope) == 1L) {
+    if (rope <= 0) stop("A single-number 'rope' must be a positive half-width.", call. = FALSE)
+    return(c(-abs(rope), abs(rope)))
+  }
+  if (length(rope) == 2L) {
+    if (rope[1] >= rope[2]) stop("'rope = c(lower, upper)' must have lower < upper.", call. = FALSE)
+    return(rope)
+  }
+  stop("'rope' must have length 1 (a half-width) or 2 (lower, upper).", call. = FALSE)
 }
 
 # Compute and attach the per-stratum interaction diagnostic to a fitted object
-# (a maihda_analysis or a maihda_model), honouring the `interactions` request
-# (NULL/FALSE skips). The longitudinal interaction is a trajectory (intercept +
-# slope), for which the scalar per-stratum diagnostic is undefined, so it is
-# skipped. Failures degrade to NULL rather than breaking the fit.
+# (a maihda_analysis or a maihda_model), honouring the `interactions` request:
+# FALSE/NULL skips; TRUE uses maihda_interactions()'s own default correction (BH);
+# a character p.adjust method name uses that correction. The longitudinal interaction
+# is a trajectory (intercept + slope), for which the scalar per-stratum diagnostic is
+# undefined, so it is skipped. Genuine errors degrade to NULL rather than breaking
+# the fit (the "looks like a null model" warning on the opt-in fit_maihda path is
+# informative and left to surface; maihda() never triggers it).
 maihda_attach_interactions <- function(object, interactions, conf_level = 0.95) {
-  adjust <- maihda_resolve_interactions_arg(interactions)
   is_longitudinal <- identical(object$mode, "longitudinal") ||
     !is.null(object$longitudinal_info)
-  if (is.null(adjust) || is_longitudinal) {
+  if (is.null(interactions) || isFALSE(interactions) || is_longitudinal) {
     object$interactions <- NULL
     return(object)
   }
-  # Only genuine errors degrade to NULL; the "this looks like a null model" warning
-  # (possible on the opt-in fit_maihda path) is informative and left to surface --
-  # maihda() never triggers it because it always passes the adjusted model.
+  if (!isTRUE(interactions)) {
+    if (!is.character(interactions) || length(interactions) != 1L) {
+      stop("'interactions' must be TRUE, FALSE, or a multiple-comparison method ",
+           "name accepted by p.adjust (e.g. \"BH\", \"none\").", call. = FALSE)
+    }
+    interactions <- match.arg(interactions, c("none", stats::p.adjust.methods))
+  }
   object$interactions <- tryCatch(
-    maihda_interactions(object, conf_level = conf_level, adjust = adjust),
+    if (isTRUE(interactions)) {
+      maihda_interactions(object, conf_level = conf_level)
+    } else {
+      maihda_interactions(object, conf_level = conf_level, adjust = interactions)
+    },
     error = function(e) NULL)
   object
 }

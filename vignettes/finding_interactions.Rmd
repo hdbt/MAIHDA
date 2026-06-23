@@ -31,18 +31,19 @@ predicted-strata plots.
 
 ## Run a standard analysis and choose the multiplicity rule
 
-The default is `adjust = "none"`. This reports each stratum-level interval and
-flag without a multiple-testing correction.
+The default is `adjust = "BH"` (Benjamini-Hochberg): scanning all strata to see
+which ones interact is a screening question, so the flags are
+false-discovery-rate controlled. For the uncorrected, per-stratum individual view,
+set `interactions = "none"`.
 
-If the goal is to scan all strata and highlight a smaller set for follow-up, use
-an adjustment such as Benjamini-Hochberg:
+The call below names the (default) Benjamini-Hochberg rule explicitly:
 
 ```{r model-bh}
 library(MAIHDA)
 model_bh <- maihda(
   BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
   data = maihda_health_data,
-  interactions = "BH" # Benjamini-Hochberg adjustment
+  interactions = "BH" # Benjamini-Hochberg adjustment (also the default)
 )
 ```
 
@@ -87,6 +88,20 @@ adjustment rule directly:
 plot(model, type = "effect_decomp", highlight_interactions = "BH")
 ```
 
+## Is an interaction *negligible*? (equivalence / ROPE)
+
+A flag asks whether an interaction differs from zero. Often the more useful
+question is whether it is *large enough to matter*. Pass a region of practical
+equivalence (`rope`, on the model scale) and each stratum is classified from its
+interval as `relevant` (interval entirely outside the region), `negligible`
+(entirely inside it), or `inconclusive` (straddling a bound):
+
+```{r rope}
+maihda_interactions(model_bh, rope = 0.5)
+```
+
+There is no default `rope`: the smallest interaction worth caring about is a
+substantive choice, made on the model's (link) scale.
 
 ## See also
 
@@ -105,3 +120,7 @@ plot(model, type = "effect_decomp", highlight_interactions = "BH")
 - Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
   discriminatory accuracy (MAIHDA) within an intersectional framework. *Social
   Science & Medicine*, 203, 74-80.
+
+- Schuirmann, D. J. (1987). A comparison of the two one-sided tests procedure and
+  the power approach for assessing the equivalence of average bioavailability.
+  *Journal of Pharmacokinetics and Biopharmaceutics*, 15(6), 657-680.

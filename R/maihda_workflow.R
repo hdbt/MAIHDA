@@ -136,12 +136,13 @@
 #' @param interactions Whether to compute the per-stratum interaction diagnostic
 #'   (\code{\link{maihda_interactions}}) on the adjusted / crossed-dimensions model
 #'   and attach it as the \code{interactions} slot, surfaced in \code{print()}.
-#'   \code{TRUE} (default) uses \code{adjust = "none"} (the diagnostic's own
-#'   default); \code{FALSE} skips it; or pass a \code{\link[stats]{p.adjust}} method
-#'   name (e.g. \code{"BH"}) to flag with that multiplicity correction. Uses
-#'   \code{conf_level}. Not computed for a longitudinal decomposition. The
-#'   computation is cheap (it reads the stratum estimates the summary already holds;
-#'   no refit).
+#'   \code{TRUE} (default) uses the diagnostic's own default correction
+#'   (\code{adjust = "BH"}, FDR -- since scanning all strata is a screening
+#'   question); \code{FALSE} skips it; or pass a \code{\link[stats]{p.adjust}} method
+#'   name -- including \code{"none"} for the uncorrected, per-stratum
+#'   individual-testing view. Uses \code{conf_level}. Not computed for a longitudinal
+#'   decomposition. The computation is cheap (it reads the stratum estimates the
+#'   summary already holds; no refit).
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'

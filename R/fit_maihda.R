@@ -132,9 +132,10 @@
 #' @param interactions Opt-in per-stratum interaction diagnostic
 #'   (\code{\link{maihda_interactions}}), attached as the \code{interactions} slot
 #'   and shown by \code{print()}. \code{FALSE} (default) skips it; \code{TRUE}
-#'   computes it with \code{adjust = "none"}; or pass a \code{\link[stats]{p.adjust}}
-#'   method name (e.g. \code{"BH"}). It is meaningful only on an \emph{adjusted}
-#'   model (the dimensions' main effects in the fixed part); on a null model
+#'   computes it with the diagnostic's default correction (\code{adjust = "BH"}); or
+#'   pass a \code{\link[stats]{p.adjust}} method name, including \code{"none"} for the
+#'   uncorrected view. It is meaningful only on an \emph{adjusted} model (the
+#'   dimensions' main effects in the fixed part); on a null model
 #'   \code{maihda_interactions} warns. This is the single-fit parallel to the
 #'   default-on \code{interactions} of \code{\link{maihda}}.
 #' @param ... Additional arguments passed to \code{lmer}/\code{glmer} (lme4),

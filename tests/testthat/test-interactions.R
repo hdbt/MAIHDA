@@ -56,8 +56,8 @@ test_that("maihda_interactions returns a classed table with the documented colum
                 "p_value", "flagged", "direction")) {
     expect_true(col %in% names(mi))
   }
-  # adjust = "none" => no p_adjusted column
-  expect_false("p_adjusted" %in% names(mi))
+  # default adjust = "BH" => p_adjusted column present
+  expect_true("p_adjusted" %in% names(mi))
 
   # Attributes are consistent with the flagged column.
   expect_equal(attr(mi, "n_strata"), nrow(mi))
@@ -71,7 +71,7 @@ test_that("maihda_interactions returns a classed table with the documented colum
 
 test_that("maihda_interactions recovers the planted orthogonal interaction block", {
   a <- maihda_interaction_analysis()
-  mi <- maihda_interactions(a)
+  mi <- maihda_interactions(a, adjust = "none")  # pure recovery, independent of FDR
 
   # Exactly the 4 block cells are flagged; the 5 zero-interaction cells are not.
   expect_equal(attr(mi, "n_flagged"), 4L)
@@ -143,7 +143,7 @@ test_that("print reports the flagged count and is exploratory", {
   a <- maihda_interaction_analysis()
   mi <- maihda_interactions(a)
   expect_output(print(mi), "strata flagged")
-  # The default (no correction) steers toward BH.
+  # The default correction is now BH (FDR), named in the evidence line.
   expect_output(print(mi), "BH")
 })
 
@@ -270,7 +270,7 @@ test_that("brms uses the exact posterior tail and ignores adjust", {
 test_that("maihda() attaches the interaction diagnostic by default", {
   a <- maihda_interaction_analysis()
   expect_s3_class(a$interactions, "maihda_interactions")
-  expect_identical(attr(a$interactions, "adjust"), "none")
+  expect_identical(attr(a$interactions, "adjust"), "BH")  # FDR default for an all-strata scan
   # identical to calling the diagnostic directly on the analysis (no recompute drift)
   direct <- maihda_interactions(a)
   expect_equal(attr(a$interactions, "n_flagged"), attr(direct, "n_flagged"))
@@ -284,13 +284,13 @@ test_that("interactions = FALSE skips the diagnostic", {
   expect_null(a$interactions)
 })
 
-test_that("interactions = 'BH' flags with the FDR correction", {
+test_that("interactions = 'none' overrides the FDR default", {
   d <- maihda_interaction_data()
   a <- suppressMessages(suppressWarnings(
-    maihda(y ~ A + B + (1 | A:B), data = d, interactions = "BH")))
+    maihda(y ~ A + B + (1 | A:B), data = d, interactions = "none")))
   expect_s3_class(a$interactions, "maihda_interactions")
-  expect_identical(attr(a$interactions, "adjust"), "BH")
-  expect_true("p_adjusted" %in% names(a$interactions))
+  expect_identical(attr(a$interactions, "adjust"), "none")
+  expect_false("p_adjusted" %in% names(a$interactions))
 })
 
 test_that("an invalid interactions argument errors", {
@@ -322,4 +322,48 @@ test_that("fit_maihda(interactions = ) is opt-in and parallels maihda()", {
   expect_warning(
     fit_maihda(y ~ 1 + (1 | A:B), data = d, interactions = TRUE),
     "looks like a null model")
+})
+
+# ---- equivalence / ROPE reading ---------------------------------------------
+
+test_that("rope adds an equivalence decision column", {
+  a <- maihda_interaction_analysis()
+  mi <- maihda_interactions(a, rope = 0.5)
+
+  expect_true("decision" %in% names(mi))
+  expect_true(all(mi$decision %in% c("relevant", "negligible", "inconclusive") |
+                    is.na(mi$decision)))
+  expect_equal(attr(mi, "rope"), c(-0.5, 0.5))
+  # rows are sorted by |interaction|; the strongest planted block cell sits well
+  # outside a small ROPE, so it is 'relevant'.
+  expect_identical(mi$decision[1], "relevant")
+  # a near-zero stratum's interval sits inside the ROPE -> 'negligible'
+  expect_true(any(mi$decision == "negligible", na.rm = TRUE))
+})
+
+test_that("a single-number rope is the symmetric region; c(lo, hi) passes through", {
+  a <- maihda_interaction_analysis()
+  expect_equal(attr(maihda_interactions(a, rope = 0.4), "rope"), c(-0.4, 0.4))
+  expect_equal(attr(maihda_interactions(a, rope = c(-0.2, 0.6)), "rope"), c(-0.2, 0.6))
+})
+
+test_that("invalid rope arguments error", {
+  a <- maihda_interaction_analysis()
+  expect_error(maihda_interactions(a, rope = -1), "positive")
+  expect_error(maihda_interactions(a, rope = c(0.5, -0.5)), "lower < upper")
+  expect_error(maihda_interactions(a, rope = c(1, 2, 3)), "length")
+  expect_error(maihda_interactions(a, rope = "wide"), "NULL")
+})
+
+test_that("rope = NULL (default) adds no decision column and prints normally", {
+  a <- maihda_interaction_analysis()
+  mi <- maihda_interactions(a)
+  expect_false("decision" %in% names(mi))
+  expect_null(attr(mi, "rope"))
+})
+
+test_that("rope print reports the equivalence breakdown", {
+  a <- maihda_interaction_analysis()
+  mi <- maihda_interactions(a, rope = 0.5)
+  expect_output(print(mi), "Equivalence vs ROPE")
 })
