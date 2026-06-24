@@ -270,11 +270,13 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     }
   }
 
-  # Rows with a missing sampling weight are dropped by the weighted engines, so
-  # base the binary-outcome detection (and any 0/1 recoding) on the same rows by
-  # passing the sampling weights through the detector's missing-weight handling.
+  # The weighted engines drop rows whose sampling weight is non-finite or <= 0
+  # (not just NA), so base the binary/ordinal detection AND any 0/1 recoding on the
+  # same analytic sample: maihda_sampling_weight_mask() maps those engine-excluded
+  # weights to NA, which the shared row mask (maihda_row_mask) already drops.
+  # Precision (lme4 prior) weights keep their NA-only handling.
   detect_weights <- if (!is.null(sampling_weights)) {
-    data[[sampling_weights]]
+    maihda_sampling_weight_mask(data[[sampling_weights]])
   } else {
     weights_value
   }

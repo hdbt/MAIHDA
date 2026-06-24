@@ -618,6 +618,14 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   subset_value <- maihda_normalize_subset(dot_vals[["subset"]], n_full)
   dot_vals[["subset"]] <- subset_value
   weights_value <- dot_vals[["weights"]]
+  # Family detection and the analytic row-count must see the same sample the engine
+  # fits. Sampling weights drop non-finite/<= 0 rows (mapped to NA here so the shared
+  # row mask drops them); precision weights only drop NA. Mirrors fit_maihda().
+  detect_weights <- if (!is.null(sampling_weights)) {
+    maihda_sampling_weight_mask(data[[sampling_weights]])
+  } else {
+    weights_value
+  }
   # Per-group slice of a single full-length value (used for the row-count guard).
   slice_full <- function(val, idx) {
     if (is.null(val) || length(val) != n_full) return(NULL)
@@ -638,7 +646,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   if (missing(family)) {
     is_binary <- tryCatch(
       maihda_response_is_binary(formula, data, subset = subset_value,
-                                weights = weights_value),
+                                weights = detect_weights),
       error = function(e) FALSE)
     if (isTRUE(is_binary)) {
       warning("The outcome variable appears to be binary. Using family = 'binomial' ",
@@ -647,7 +655,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       family <- "binomial"
     } else if (isTRUE(tryCatch(
       maihda_response_is_ordinal(formula, data, subset = subset_value,
-                                 weights = weights_value),
+                                 weights = detect_weights),
       error = function(e) FALSE))) {
       warning("The outcome variable is an ordered factor. Using the cumulative ",
               "(ordinal) model, family = 'ordinal', for every group. Specify a ",
@@ -724,11 +732,11 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     analytic_fr <- maihda_analytic_model_frame(
       fit_formula, sub,
       subset = slice_full(subset_value, idx),
-      # Rows with a missing sampling weight are dropped by the weighted engines,
-      # so count the analytic sample the same way (the weight column is part of
-      # `sub`, already sliced to this group's rows).
+      # Rows with a non-finite or <= 0 sampling weight are dropped by the weighted
+      # engines, so count the analytic sample the same way: mask those weights to NA
+      # (the weight column is part of `sub`, already sliced to this group's rows).
       weights = if (!is.null(sampling_weights)) {
-        sub[[sampling_weights]]
+        maihda_sampling_weight_mask(sub[[sampling_weights]])
       } else {
         slice_full(weights_value, idx)
       }

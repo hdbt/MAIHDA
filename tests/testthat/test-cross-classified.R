@@ -150,8 +150,9 @@ test_that("crossed-dimensions bootstrap returns finite VPC and share intervals",
     maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "crossed-dimensions")))
   sb <- suppressWarnings(summary(cc$model, bootstrap = TRUE, n_boot = 25))
   expect_true(is.finite(sb$vpc$ci_lower) && is.finite(sb$vpc$ci_upper))
-  expect_true(sb$vpc$ci_lower <= sb$vpc$estimate &&
-                sb$vpc$estimate <= sb$vpc$ci_upper)
+  # A percentile bootstrap interval is well-ordered but need not contain the point
+  # estimate (the bootstrap VPC distribution can be skewed at small n_boot).
+  expect_true(sb$vpc$ci_lower <= sb$vpc$ci_upper)
   asci <- sb$decomposition$additive_share_ci
   expect_length(asci, 2)
   expect_true(all(is.finite(asci)))

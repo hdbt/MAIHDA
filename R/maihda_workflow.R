@@ -403,8 +403,16 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   dim_terms <- maihda_adjusted_terms(strata_vars, model$strata_autobin_info,
                                      model$original_data)$terms
   supplied_fixed <- attr(stats::terms(reformulas::nobars(model$formula)), "term.labels")
-  present_terms <- intersect(dim_terms, supplied_fixed)
-  missing_vars <- strata_vars[!(dim_terms %in% supplied_fixed)]
+  # terms() backtick-quotes non-syntactic term labels (e.g. `gender var`), so the
+  # dimension main effects must be compared in their quoted form -- a raw-name
+  # intersect would miss them and misclassify a fully-specified adjusted formula as
+  # the null (producing identical null/adjusted formulas and a corrupt PCV).
+  # present_terms keeps the RAW names (remove_terms re-quotes them) and missing_vars
+  # stays parallel to strata_vars.
+  dim_terms_quoted <- vapply(dim_terms, maihda_quote_name, character(1))
+  dim_present <- dim_terms_quoted %in% supplied_fixed
+  present_terms <- dim_terms[dim_present]
+  missing_vars <- strata_vars[!dim_present]
 
   remove_terms <- function(f, terms) {
     stats::update(f, stats::as.formula(

@@ -17,8 +17,8 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 
 - **One-call Workflow**: `maihda()` fits the null *and* adjusted models, summarises the VPC/ICC and the PCV decomposition (additive vs. intersectional), and (optionally) compares across a higher-level group in a single call
 - **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**: A fully-featured Shiny application (`run_maihda_app()`) for no-code exploratory data analysis and model fitting
-- **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
-- **Design-Weighted MAIHDA**: Survey/sampling weights via `sampling_weights` fit a weighted pseudo-likelihood (WeMix for lme4, a pseudo-posterior for brms), giving design-consistent (sandwich) SEs for the **fixed effects** and population-weighted point estimates for the VPC, PCV, stratum summaries and AUC. The intersectional strata are treated as exhaustively sampled population cells (level-2 weights = 1), and design-based (replicate-weight / linearised) variances for the variance components are not computed — so this is weighting to the population, not full complex-survey support for arbitrary clustered/stratified/replicate-weight designs
+- **Model Fitting**: Multiple engines — `lme4` (frequentist), `brms` (Bayesian), `WeMix` (design-weighted pseudo-likelihood), and `ordinal` (`ordinal::clmm`, for cumulative/ordered-factor outcomes)
+- **Design-Weighted MAIHDA**: Survey/sampling weights via `sampling_weights` fit a weighted pseudo-likelihood (WeMix for lme4, a pseudo-posterior for brms) targeting a population-weighted estimand. The WeMix path gives design-consistent (sandwich) SEs for the **fixed effects**; both paths give population-weighted point estimates for the VPC, PCV, stratum summaries and AUC. The intersectional strata are treated as exhaustively sampled population cells (level-2 weights = 1), and design-based (replicate-weight / linearised) variances for the variance components are not computed — so this is weighting to the population, not full complex-survey support for arbitrary clustered/stratified/replicate-weight designs
 - **Summaries & Decompositions**: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)
 - **Multiple Prediction Types**: Individual-level and stratum-level predictions
 - **Visualizations**: Predicted stratum values, VPC visualizations, mean-prediction vs. stratum-effect diagnostics, and observed vs. shrunken estimates
@@ -152,7 +152,7 @@ Compares intersectional inequality (VPC/ICC and between-/within-stratum variance
 Calculates the proportional change in between-stratum variance (PCV) between two models. It is the share of the baseline model's between-stratum variance explained by the second model only when the second nests the first (adding predictors on the same outcome, sample and strata); otherwise it is a model-dependent change in variance.
 
 - Formula: PCV = (Var_model1 - Var_model2) / Var_model1
-- Works with both lme4 and brms engines
+- Point estimate works across all fitting engines (`lme4`, `brms`, `WeMix`, `ordinal`)
 - Supports bootstrap confidence intervals for lme4 models
 
 ### `stepwise_pcv()`
@@ -222,7 +222,8 @@ stepwise_pcv(strata_data, "outcome", c("gender", "race", "education"),
              sampling_weights = "person_weight")
 
 # Bayesian alternative: weights enter as likelihood weights (pseudo-posterior --
-# point estimates are design-consistent; credible intervals are not design-based).
+# point estimates target the population-weighted estimand, not full design-based
+# inference; credible intervals are not design-based).
 fit_maihda(outcome ~ age + (1 | gender:race:education), data = survey_data,
            engine = "brms", sampling_weights = "person_weight")
 ```

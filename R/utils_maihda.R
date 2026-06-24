@@ -339,6 +339,21 @@ maihda_binary_to_01 <- function(x) {
   as.integer(out)
 }
 
+# Sampling/design weights are dropped by the weighted engines (WeMix, the brms
+# pseudo-likelihood) whenever they are non-finite or non-positive -- the
+# is.finite(w) & w > 0 rule in maihda_fit_wemix() / maihda_prepare_brms_sampling_weights().
+# lme4 PRIOR weights, by contrast, only drop NA. The shared analytic-frame row mask
+# (maihda_row_mask) implements the NA-only rule, so to make binary/ordinal detection
+# and 0/1 recoding see exactly the rows a weighted engine fits, map the engine-excluded
+# weights (non-finite or <= 0) to NA here before handing the vector to the detection
+# chain. Without this a zero-weight row carrying an out-of-sample outcome value could
+# flip detection (e.g. fit gaussian instead of binomial) relative to the fitted rows.
+maihda_sampling_weight_mask <- function(w) {
+  w <- as.numeric(w)
+  w[!is.finite(w) | w <= 0] <- NA_real_
+  w
+}
+
 # Logical keep-mask over `n` rows reproducing the row selection lme4/brms apply
 # before fitting: an (already-evaluated) `subset` value -- logical (recycled,
 # NA -> drop), positive/negative numeric indices, or character row names -- and

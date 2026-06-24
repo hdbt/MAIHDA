@@ -76,9 +76,12 @@ test_that("calculate_pvc works with bootstrap", {
   expect_true(is.numeric(pvc_result$ci_lower))
   expect_true(is.numeric(pvc_result$ci_upper))
   
-  # CI should be in reasonable range
-  expect_true(pvc_result$ci_lower <= pvc_result$pvc)
-  expect_true(pvc_result$ci_upper >= pvc_result$pvc)
+  # A percentile bootstrap interval is well-ordered and finite, but it need NOT
+  # contain the point estimate (the original-fit PCV): the bootstrap distribution can
+  # be skewed -- especially at a small n_boot -- so containment is not a valid
+  # invariant to assert.
+  expect_true(is.finite(pvc_result$ci_lower) && is.finite(pvc_result$ci_upper))
+  expect_true(pvc_result$ci_lower <= pvc_result$ci_upper)
 })
 
 test_that("calculate_pvc validates inputs", {

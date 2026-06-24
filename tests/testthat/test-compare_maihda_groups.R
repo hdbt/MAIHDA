@@ -358,8 +358,11 @@ test_that("compare_maihda_groups bootstrap returns ordered per-group CIs", {
   )
   expect_true(all(c("ci_lower", "ci_upper") %in% names(cmp)))
   ok <- cmp$status == "ok"
-  expect_true(all(cmp$ci_lower[ok] <= cmp$vpc[ok] + 1e-8))
-  expect_true(all(cmp$ci_upper[ok] >= cmp$vpc[ok] - 1e-8))
+  # Percentile bootstrap intervals are well-ordered and finite, but need not contain
+  # the per-group point VPC (skewed/small-sample bootstrap distributions), so assert
+  # ordering and finiteness rather than containment.
+  expect_true(all(is.finite(cmp$ci_lower[ok])) && all(is.finite(cmp$ci_upper[ok])))
+  expect_true(all(cmp$ci_lower[ok] <= cmp$ci_upper[ok]))
 })
 
 test_that("compare_maihda_groups works with a precomputed stratum column", {
