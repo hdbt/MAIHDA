@@ -196,6 +196,65 @@ test_that("aggregated-binomial AUC stays trial-weighted when every row is all-ca
   expect_gt(da$auc, maihda_auc(prob, as.numeric(lme4::getME(m$model, "y"))))  # > row-level
 })
 
+test_that("maihda_discriminatory_accuracy computes a count-weighted AUC for a brms y | trials(n) fit", {
+  # The brms analogue of the lme4 cbind(success, failure) test above. brms exposes no
+  # weights.brmsfit, so the trial counts come from the trials() addition term parsed off
+  # the formula, and the response-scale prediction is the expected COUNT (trials * p),
+  # so it is divided by the trial counts to rank by probability. Compiles a Stan model,
+  # so OPT-IN like the other brms tests.
+  skip_on_cran()
+  skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
+          "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
+  skip_if_not_installed("brms")
+
+  set.seed(404)
+  n <- 1200
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- stats::rbinom(n, 1, stats::plogis(stats::rnorm(nlevels(sk), sd = 0.8)[sk]))
+  strata <- make_strata(d, vars = c("gender", "race"))
+  d$stratum <- strata$data$stratum
+  d <- d[!is.na(d$stratum), , drop = FALSE]
+
+  # Aggregate to per-stratum success / trial counts and fit a brms `success | trials(total)`
+  # binomial MAIHDA (response stays binomial -- not rewritten to bernoulli).
+  agg <- stats::aggregate(y ~ stratum, data = d,
+                          FUN = function(z) c(success = sum(z), total = length(z)))
+  agg <- data.frame(stratum = agg$stratum,
+                    success = agg$y[, "success"],
+                    total   = agg$y[, "total"])
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(success | trials(total) ~ (1 | stratum), data = agg,
+               engine = "brms", family = "binomial",
+               chains = 1, iter = 200, refresh = 0)
+  ))
+  expect_identical(m$family$family, "binomial")  # NOT rewritten to bernoulli
+
+  da <- maihda_discriminatory_accuracy(m)
+  expect_s3_class(da, "maihda_da")
+  expect_true(is.finite(da$auc) && da$auc >= 0 && da$auc <= 1)
+  # Cases / controls are the TOTAL successes / failures, not the row count.
+  expect_equal(da$n_case, sum(agg$success))
+  expect_equal(da$n_control, sum(agg$total - agg$success))
+  expect_false(da$n_case + da$n_control == nrow(agg))
+  # The MOR is still defined for an aggregated logit fit.
+  expect_true(is.finite(da$mor) && da$mor >= 1)
+
+  # The reported AUC is the count-weighted C-statistic over the implied 0/1 data,
+  # ranked by the per-trial probability: brms's response prediction is the expected
+  # COUNT (trials * p), so it is divided by the trial counts first.
+  pred_count <- predict_maihda(m, type = "individual", scale = "response")
+  prob <- pred_count / agg$total
+  expanded_prob <- unlist(Map(function(p, s, f) rep(p, s + f), prob,
+                              agg$success, agg$total - agg$success))
+  expanded_y <- unlist(Map(function(s, f) c(rep(1, s), rep(0, f)),
+                           agg$success, agg$total - agg$success))
+  expect_equal(da$auc, maihda_auc(expanded_prob, expanded_y))
+})
+
 test_that("DA helpers accept a brms Bernoulli family (not only 'binomial')", {
   # fit_maihda(engine = "brms") fits a binary 0/1 outcome with bernoulli(); the DA
   # helpers must treat that as a logistic MAIHDA model. Relabel a real lme4 binomial

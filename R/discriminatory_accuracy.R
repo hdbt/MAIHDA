@@ -145,15 +145,16 @@ maihda_mor <- function(model) {
 #' Odds Ratio is reported only for the logit link and is \code{NA} otherwise (e.g.
 #' for a probit fit), since the MOR is an odds-ratio-scale quantity.
 #'
-#' Aggregated-binomial fits (an lme4 \code{cbind(success, failure)} response) are
-#' supported: the AUC is the count-weighted C-statistic over the implied
-#' individual-level 0/1 data, and \code{n_case} / \code{n_control} are the total
-#' successes / failures.
+#' Aggregated-binomial fits are supported on both engines that fit them -- an lme4
+#' \code{cbind(success, failure)} response and a brms \code{y | trials(n)} response:
+#' the AUC is the count-weighted C-statistic over the implied individual-level 0/1
+#' data, and \code{n_case} / \code{n_control} are the total successes / failures.
 #'
 #' @param model A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
-#'   \code{binomial} family (lme4, including an aggregated \code{cbind(success,
-#'   failure)} response) or the \code{bernoulli} family a binary 0/1 outcome is fit
-#'   with under \code{engine = "brms"}.
+#'   \code{binomial} family -- including an aggregated response (an lme4
+#'   \code{cbind(success, failure)} or a brms \code{y | trials(n)}) -- or the
+#'   \code{bernoulli} family a binary 0/1 outcome is fit with under
+#'   \code{engine = "brms"}.
 #'
 #' @return An object of class \code{maihda_da}: a list with \code{auc}, \code{mor},
 #'   \code{n_case}, \code{n_control}, \code{family}, \code{link} and \code{engine}.
@@ -196,19 +197,24 @@ maihda_discriminatory_accuracy <- function(model) {
   prob <- predict_maihda(model, type = "individual", scale = "response")
   resp <- maihda_da_observed_response(model)
 
-  # fit_maihda() supports aggregated-binomial responses (an lme4 cbind(success,
-  # failure)). Detect aggregation STRUCTURALLY from the fitted model frame -- glmer
-  # stores a cbind() response as a two-column [successes, failures] matrix -- and read
-  # the trial counts straight from it, then compute a count-weighted AUC over the
-  # implied individual-level 0/1 data instead of passing a non-0/1 response to
-  # maihda_auc() (which errors). The earlier heuristic inferred aggregation from the
-  # response carrying values outside {0, 1}, which silently failed when every
-  # aggregated row was all-success or all-failure (proportions exactly 0/1): such a
-  # fit fell through to an unweighted row-level AUC with one pseudo-observation per
-  # stratum and wrong case/control totals. agg_counts is NULL for a true Bernoulli
+  # fit_maihda() supports aggregated-binomial responses on both engines that fit them
+  # -- an lme4 cbind(success, failure) and a brms `y | trials(n)`. For lme4, detect
+  # aggregation STRUCTURALLY from the fitted model frame -- glmer stores a cbind()
+  # response as a two-column [successes, failures] matrix -- and read the trial counts
+  # straight from it. For brms there is no weights.brmsfit, so the trials come from the
+  # same path the prediction-weighting uses, maihda_brms_trial_counts(), which parses
+  # the trials() addition term off the stored formula. Either way we then compute a
+  # count-weighted AUC over the implied individual-level 0/1 data instead of passing a
+  # non-0/1 response to maihda_auc() (which errors). The earlier lme4 heuristic inferred
+  # aggregation from the response carrying values outside {0, 1}, which silently failed
+  # when every aggregated row was all-success or all-failure (proportions exactly 0/1):
+  # such a fit fell through to an unweighted row-level AUC with one pseudo-observation
+  # per stratum and wrong case/control totals. agg_counts is NULL for a true Bernoulli
   # fit (which takes the ordinary rank-based path) and is aligned to prob's rows.
   agg_counts <- if (identical(model$engine, "lme4")) {
     maihda_da_aggregated_counts(model)
+  } else if (identical(model$engine, "brms")) {
+    maihda_da_brms_aggregated_counts(model)
   } else {
     NULL
   }
@@ -224,7 +230,13 @@ maihda_discriminatory_accuracy <- function(model) {
   if (aggregated) {
     successes <- agg_counts$successes
     trials <- agg_counts$trials
-    auc <- maihda_auc_weighted(prob, successes, trials)
+    # The count-weighted AUC ranks each row by its per-trial predicted probability.
+    # lme4's type = "response" already returns that proportion, but for a brms
+    # aggregated-binomial fit predict_maihda(scale = "response") returns the expected
+    # COUNT (trials * p); divide by the trial counts to recover the probability so the
+    # ranking is by probability, not by an expected count that confounds p with trials.
+    prob_row <- if (identical(model$engine, "brms")) prob / trials else prob
+    auc <- maihda_auc_weighted(prob_row, successes, trials)
     n_case <- sum(successes, na.rm = TRUE)
     n_control <- sum(trials - successes, na.rm = TRUE)
   } else if (design_weighted) {
@@ -373,6 +385,27 @@ maihda_da_aggregated_counts <- function(model) {
     return(list(successes = round(y * w), trials = w))
   }
   NULL
+}
+
+# Per-row success / trial counts for a brms `y | trials(n)` aggregated-binomial fit,
+# or NULL when the fit is not a brms aggregated binomial. The lme4 counterpart above
+# reads trials from the matrix response / prior weights; brms exposes no
+# weights.brmsfit, so the trials come from maihda_brms_trial_counts() (the same path
+# the prediction weighting uses), which parses the trials() addition term off the
+# stored formula. The successes are the response column -- the per-row success counts an
+# aggregated binomial models. NULL for a brms Bernoulli fit (no trials() term), which
+# then takes the ordinary rank-based AUC path.
+maihda_da_brms_aggregated_counts <- function(model) {
+  trials <- maihda_brms_trial_counts(model)
+  if (is.null(trials)) {
+    return(NULL)
+  }
+  successes <- tryCatch(maihda_da_observed_response(model), error = function(e) NULL)
+  if (is.null(successes) || length(successes) != length(trials) ||
+      !all(is.finite(successes)) || !all(is.finite(trials))) {
+    return(NULL)
+  }
+  list(successes = as.numeric(successes), trials = as.numeric(trials))
 }
 
 # Count-weighted AUC / C-statistic for an aggregated-binomial fit. Each row i carries

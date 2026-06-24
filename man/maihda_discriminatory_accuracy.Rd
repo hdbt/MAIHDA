@@ -8,9 +8,10 @@ maihda_discriminatory_accuracy(model)
 }
 \arguments{
 \item{model}{A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
-\code{binomial} family (lme4, including an aggregated \code{cbind(success,
-failure)} response) or the \code{bernoulli} family a binary 0/1 outcome is fit
-with under \code{engine = "brms"}.}
+\code{binomial} family -- including an aggregated response (an lme4
+\code{cbind(success, failure)} or a brms \code{y | trials(n)}) -- or the
+\code{bernoulli} family a binary 0/1 outcome is fit with under
+\code{engine = "brms"}.}
 }
 \value{
 An object of class \code{maihda_da}: a list with \code{auc}, \code{mor},
@@ -30,10 +31,10 @@ sharpen classification. The AUC is computed for any binomial link; the Median
 Odds Ratio is reported only for the logit link and is \code{NA} otherwise (e.g.
 for a probit fit), since the MOR is an odds-ratio-scale quantity.
 
-Aggregated-binomial fits (an lme4 \code{cbind(success, failure)} response) are
-supported: the AUC is the count-weighted C-statistic over the implied
-individual-level 0/1 data, and \code{n_case} / \code{n_control} are the total
-successes / failures.
+Aggregated-binomial fits are supported on both engines that fit them -- an lme4
+\code{cbind(success, failure)} response and a brms \code{y | trials(n)} response:
+the AUC is the count-weighted C-statistic over the implied individual-level 0/1
+data, and \code{n_case} / \code{n_control} are the total successes / failures.
 }
 \examples{
 \dontrun{
