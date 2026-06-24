@@ -14,8 +14,10 @@ maihda_prepare_brms_sampling_weights(data, formula, sampling_weights)
 \item{sampling_weights}{Name of the sampling-weight column.}
 }
 \value{
-A list with \code{data} (weights column \code{.maihda_sw} added) and
-  \code{formula} (rewritten).
+A list with \code{data} (weights column \code{.maihda_sw} added),
+  \code{formula} (rewritten), and \code{keep} (a logical mask over the input
+  rows marking those retained, so the caller can re-slice any row-aligned
+  forwarded arguments to the same rows).
 }
 \description{
 Drops rows with missing or non-positive sampling weights (with a warning),

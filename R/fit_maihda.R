@@ -111,7 +111,12 @@
 #'       for the variance components are not computed.
 #'   }
 #'   Rows with a missing or non-positive sampling weight are dropped with a
-#'   warning. Default \code{NULL} (unweighted).
+#'   warning. The column names \code{.maihda_sw} (brms likelihood weight) and
+#'   \code{.maihda_l2wt} (WeMix level-2 weight) are \strong{reserved} for the
+#'   design-weighted engines: they are written into the analytic data internally,
+#'   so a model that supplies \code{sampling_weights} may not also reference a
+#'   variable of either name in its formula (fitting would error). Default
+#'   \code{NULL} (unweighted).
 #' @param id Optional single character string naming a person/unit identifier
 #'   column for a \strong{longitudinal (growth-curve) MAIHDA} on long-format data
 #'   (one row per measurement occasion). Supplied together with \code{time}, it
@@ -669,10 +674,17 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     # missing/non-positive weights are dropped here so the stored data matches the
     # fitted rows.
     if (!is.null(sampling_weights)) {
+      n_pre_drop <- nrow(data)
       prep <- maihda_prepare_brms_sampling_weights(data, formula, sampling_weights)
       data <- prep$data
       formula <- prep$formula
       fit_env$data <- data
+      # The forwarded `...` were evaluated against the pre-drop data and bound into
+      # fit_env above; if rows were just dropped, re-slice any row-aligned argument
+      # (e.g. subset, offset) so it stays aligned with the `data` brms receives.
+      if (any(!prep$keep)) {
+        maihda_reslice_dot_args(dot_vals, prep$keep, n_pre_drop, fit_env)
+      }
       message("fit_maihda(): sampling weights enter the brms model as likelihood ",
               "weights (normalized to mean 1), giving a pseudo-posterior: point ",
               "estimates target the population-weighted estimand, but credible ",
@@ -785,6 +797,34 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   }
 
   return(result)
+}
+
+# Re-slice forwarded engine arguments after a pre-fit row drop. The `...` values
+# are evaluated once against the pre-drop `data` and bound into `fit_env` as
+# `.maihda_arg_*` names; when a downstream step drops rows (the brms
+# sampling-weight path removes rows with non-positive/missing weights), any
+# row-aligned argument (e.g. `subset`, `offset`) is left longer than the `data`
+# the engine receives -- brms then errors on the length mismatch, or could select
+# the wrong rows. Re-slice every value whose length (vector) or row count (matrix /
+# data frame) equals the pre-drop count `n_pre` to the surviving rows and rebind
+# it; scalars and non-row-aligned objects (chains=, control, priors) are left as
+# bound. `keep` is the logical mask over the pre-drop rows.
+maihda_reslice_dot_args <- function(dot_vals, keep, n_pre, fit_env) {
+  for (nm in names(dot_vals)) {
+    v <- dot_vals[[nm]]
+    d <- dim(v)
+    sliced <- if (!is.null(d) && length(d) == 2L) {
+      if (nrow(v) == n_pre) v[keep, , drop = FALSE] else NULL
+    } else if (is.null(d) && length(v) == n_pre) {
+      v[keep]
+    } else {
+      NULL
+    }
+    if (!is.null(sliced)) {
+      assign(paste0(".maihda_arg_", nm), sliced, envir = fit_env)
+    }
+  }
+  invisible(NULL)
 }
 
 #' Print method for maihda_model

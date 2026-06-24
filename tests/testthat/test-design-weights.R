@@ -40,6 +40,50 @@ test_that("maihda_validate_sampling_weights validates the specification", {
                "no positive finite values")
 })
 
+test_that("maihda_guard_reserved_weight_col rejects formula collisions only", {
+  d <- data.frame(a = 1:3, .maihda_sw = 4:6, check.names = FALSE)
+
+  # Present in data AND referenced by the formula -> would be overwritten -> error.
+  expect_error(
+    maihda_guard_reserved_weight_col(".maihda_sw", d, y ~ .maihda_sw, "brms"),
+    "reserved internal column"
+  )
+  # Present in data but NOT referenced by the formula (the carry-along case, e.g.
+  # maihda() refitting from a prior fit's $original_data) -> allowed.
+  expect_true(maihda_guard_reserved_weight_col(".maihda_sw", d, y ~ a, "brms"))
+  # Referenced by the formula but absent from the data -> no collision to guard
+  # (an ordinary missing variable, caught later by the engine).
+  expect_true(maihda_guard_reserved_weight_col(
+    ".maihda_sw", data.frame(a = 1:3), y ~ .maihda_sw, "brms"))
+})
+
+test_that("the weighted engines reject a reserved column used in the formula", {
+  d <- data.frame(y = rnorm(4), stratum = rep(c("a", "b"), 2),
+                  w = c(1, 2, 3, 4),
+                  .maihda_sw = c(10, 20, 30, 40),
+                  .maihda_l2wt = c(50, 60, 70, 80),
+                  check.names = FALSE)
+
+  # brms path: a covariate named .maihda_sw would be clobbered by the normalized
+  # likelihood weights, so fitting errors instead.
+  expect_error(
+    maihda_prepare_brms_sampling_weights(d, y ~ .maihda_sw + (1 | stratum), "w"),
+    "reserved internal column"
+  )
+  # wemix path: the guard fires before WeMix::mix(), so no WeMix install needed.
+  expect_error(
+    maihda_fit_wemix(y ~ .maihda_l2wt + (1 | stratum), d,
+                     stats::gaussian(), "w", list()),
+    "reserved internal column"
+  )
+
+  # A reserved column merely present (not in the formula) is overwritten, not
+  # rejected -- this keeps maihda()'s null/adjusted refits working when the column
+  # rides along in $original_data.
+  prep <- maihda_prepare_brms_sampling_weights(d, y ~ (1 | stratum), "w")
+  expect_equal(mean(prep$data$.maihda_sw), 1)
+})
+
 test_that("fit_maihda rejects sampling weights with the lme4 engine", {
   d <- make_dw_data()
   expect_error(
@@ -760,6 +804,54 @@ test_that("fit_maihda routes sampling weights into a brms fit (Stan-free)", {
   expect_equal(mean(captured$data$.maihda_sw), 1)
   expect_equal(captured$data$.maihda_sw / captured$data$.maihda_sw[1],
                captured$data$w / captured$data$w[1])
+})
+
+test_that("maihda_reslice_dot_args slices only row-aligned forwarded values", {
+  env <- new.env()
+  dot_vals <- list(subset = 1:5, chains = 4L, mat = matrix(1:10, nrow = 5))
+  for (nm in names(dot_vals)) {
+    assign(paste0(".maihda_arg_", nm), dot_vals[[nm]], envir = env)
+  }
+  keep <- c(TRUE, FALSE, TRUE, FALSE, TRUE)
+
+  maihda_reslice_dot_args(dot_vals, keep, 5L, env)
+
+  # Row-aligned vector and matrix are sliced to the kept rows...
+  expect_equal(get(".maihda_arg_subset", env), c(1L, 3L, 5L))
+  expect_equal(get(".maihda_arg_mat", env),
+               matrix(1:10, nrow = 5)[keep, , drop = FALSE])
+  # ...a scalar (length != n) is left untouched.
+  expect_equal(get(".maihda_arg_chains", env), 4L)
+})
+
+test_that("fit_maihda re-slices row-aligned dots after the brms weight drop", {
+  skip_if_not_installed("brms")
+
+  d <- make_dw_data(n = 12)
+  # Force two rows out of the fit via a zero and a missing weight.
+  d$w[3] <- 0
+  d$w[7] <- NA
+  s <- make_strata(d, vars = c("gender", "race", "edu"))
+
+  captured <- NULL
+  local_mocked_bindings(
+    brm = function(formula, data, family, ...) {
+      captured <<- list(data = data, dots = list(...))
+      structure(list(), class = "brmsfit")
+    },
+    .package = "brms"
+  )
+
+  # `subset` is forwarded and row-aligned to the pre-drop data (12 rows); after the
+  # weight drop the data is 10 rows, so the bound subset must be re-sliced to match
+  # -- otherwise brms gets a 12-long subset against a 10-row data frame.
+  sub <- rep(TRUE, nrow(s$data))
+  suppressMessages(suppressWarnings(
+    fit_maihda(y ~ age + (1 | stratum), data = s$data,
+               engine = "brms", sampling_weights = "w", subset = sub)
+  ))
+  expect_equal(nrow(captured$data), 10L)
+  expect_length(captured$dots$subset, 10L)
 })
 
 test_that("wemix unseen stratum: helper maps to zero, public path gates it", {

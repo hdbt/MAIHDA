@@ -132,7 +132,12 @@ Two engines support them:
     for the variance components are not computed.
 }
 Rows with a missing or non-positive sampling weight are dropped with a
-warning. Default \code{NULL} (unweighted).}
+warning. The column names \code{.maihda_sw} (brms likelihood weight) and
+\code{.maihda_l2wt} (WeMix level-2 weight) are \strong{reserved} for the
+design-weighted engines: they are written into the analytic data internally,
+so a model that supplies \code{sampling_weights} may not also reference a
+variable of either name in its formula (fitting would error). Default
+\code{NULL} (unweighted).}
 
 \item{id}{Optional single character string naming a person/unit identifier
 column for a \strong{longitudinal (growth-curve) MAIHDA} on long-format data
