@@ -216,6 +216,14 @@ the null \emph{excludes} the dimension main effects and the adjusted \emph{inclu
 them: when the formula already lists them it is taken as the adjusted model and the
 null is derived by dropping them; when they are missing \code{maihda()} adds them to
 the adjusted model and emits a \code{message()} so the decomposition stays explicit.
+Only the \emph{additive} main effects belong here: a fixed interaction among the
+stratum dimensions -- \code{var1 * var2}, which R expands to
+\code{var1 + var2 + var1:var2} -- duplicates the intersectional stratum random
+intercept (it absorbs the between-stratum variance into fixed cell means, which
+makes the PCV invalid), so it is \strong{rejected with an error}. Write
+\code{var1 + var2}; the intersection is estimated by the stratum random effect (and
+quantified by \code{decomposition = "crossed-dimensions"} or
+\code{\link{maihda_interactions}}).
 The dimensions themselves are read from the random term: the shorthand
 \code{(1 | var1:var2)} and \code{\link{make_strata}} both record them, and a numeric
 dimension that \code{make_strata()} auto-binned enters the adjusted model as its

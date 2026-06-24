@@ -294,6 +294,83 @@ maihda_quote_name <- function(name) {
   paste(deparse(as.name(name), backtick = TRUE), collapse = "")
 }
 
+# Detect fixed-effect interaction term(s) among the stratum dimensions in a formula's
+# fixed part -- the bug behind a corrupt MAIHDA decomposition. The shorthand
+# `var1 * var2` expands to `var1 + var2 + var1:var2`, so the dimensions' main-effect
+# detection (which only looks for the additive terms) classifies the formula as
+# fully-specified and strips ONLY the main effects, leaving the fixed `var1:var2`
+# interaction in both the derived null and adjusted formulas. That fixed cell-means
+# term duplicates the intersectional stratum random intercept (1 | var1:var2): it
+# absorbs the between-stratum variance into fixed effects, pinning the stratum RE at a
+# singular boundary and collapsing the PCV (and the pure-interaction BLUP diagnostic).
+#
+# Returns the offending fixed-effect term labels (character(0) when there are none).
+# Detection uses the terms() factors matrix (rows = variables, columns = terms) rather
+# than string-splitting the ":"-joined labels, so it is robust to non-syntactic names
+# (e.g. `gender var`) and to variable order within the interaction. A term is flagged
+# when its interaction order is >= 2 and EVERY variable it involves is a stratum
+# dimension; a dimension-by-covariate interaction (e.g. age:gender, a legitimate
+# covariate adjustment) is left alone. `strata_vars` are the raw dimension names and
+# `dim_terms` (optional) the adjusted-model main-effect terms -- the reconstructed
+# `.maihda_dim_*` factor for an auto-binned numeric dimension -- both matched in raw
+# and backtick-quoted form (terms() quotes non-syntactic variable labels).
+maihda_dimension_interaction_terms <- function(formula, strata_vars,
+                                               dim_terms = character(0)) {
+  if (is.null(strata_vars) || length(strata_vars) < 2) {
+    return(character(0))
+  }
+  tt <- tryCatch(stats::terms(reformulas::nobars(formula)),
+                 error = function(e) NULL)
+  if (is.null(tt)) return(character(0))
+  factors <- attr(tt, "factors")
+  if (is.null(factors) || length(factors) == 0) return(character(0))
+  ord <- attr(tt, "order")
+  term_labels <- colnames(factors)
+  var_labels <- rownames(factors)
+
+  dim_names <- unique(c(strata_vars, dim_terms))
+  dim_quoted <- vapply(dim_names, maihda_quote_name, character(1))
+  is_dim_var <- var_labels %in% dim_names | var_labels %in% dim_quoted
+
+  flagged <- character(0)
+  for (j in seq_along(term_labels)) {
+    if (ord[j] < 2L) next
+    involved <- factors[, j] != 0
+    if (any(involved) && all(is_dim_var[involved])) {
+      flagged <- c(flagged, term_labels[j])
+    }
+  }
+  flagged
+}
+
+# Stop with a single, actionable message when a formula carries a fixed interaction
+# among the stratum dimensions (see maihda_dimension_interaction_terms()). Called by
+# the workflow entry points (maihda(), compare_maihda_groups()) before they derive
+# the null/adjusted formulas, so the user is rejected up front rather than handed a
+# silently corrupt (NA/NULL) PCV. Rejection -- not silent stripping -- is the safe
+# choice: the MAIHDA adjusted model is defined to carry only the dimensions' ADDITIVE
+# main effects, with the intersection estimated by the stratum random effect.
+maihda_check_no_dimension_interaction <- function(formula, strata_vars,
+                                                  dim_terms = character(0),
+                                                  fn = "maihda") {
+  flagged <- maihda_dimension_interaction_terms(formula, strata_vars, dim_terms)
+  if (length(flagged) == 0) {
+    return(invisible(NULL))
+  }
+  stop(fn, "(): the formula's fixed part contains the interaction term(s) ",
+       paste(flagged, collapse = ", "), " between the stratum-defining dimensions (",
+       paste(strata_vars, collapse = ", "), "). A fixed interaction among the ",
+       "stratum dimensions duplicates the intersectional stratum random intercept ",
+       "(1 | ", paste(strata_vars, collapse = ":"), "): it absorbs the ",
+       "between-stratum variance into fixed cell means, which pins the stratum ",
+       "variance at a singular boundary and makes the PCV invalid. The MAIHDA ",
+       "adjusted model takes only the dimensions' ADDITIVE main effects -- write ",
+       "`", paste(strata_vars, collapse = " + "), "` (a `*` expands to the additive ",
+       "terms PLUS this interaction). The intersection itself is estimated by the ",
+       "stratum random effect; use decomposition = \"crossed-dimensions\" or ",
+       "maihda_interactions() to quantify it.", call. = FALSE)
+}
+
 maihda_formula_with_stratum <- function(outcome, vars = character()) {
   if (!is.character(vars)) {
     stop("'vars' must be a character vector.", call. = FALSE)

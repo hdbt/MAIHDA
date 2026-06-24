@@ -64,8 +64,11 @@ additive main effects are in the model (the \emph{adjusted} model of the
 two-model decomposition, or the crossed-dimensions model) does the stratum
 random effect isolate the \emph{pure interaction}. On a null model the stratum
 random effect is the total between-stratum deviation (additive + interaction),
-so passing one is flagged with a warning. Passing a \code{\link{maihda}} result
-uses the right model automatically.
+so passing one is flagged with a warning. The opposite mis-specification is
+flagged too: a model that adds a \emph{fixed} interaction among the dimensions
+(e.g. \code{var1 * var2}) absorbs the intersectional effect into fixed cell means,
+so the stratum random effect is no longer the pure interaction. Passing a
+\code{\link{maihda}} result uses the right model automatically.
 
 \strong{Frequentist vs. Bayesian evidence.} For the frequentist engines
 (\code{lme4}, \code{wemix}, \code{ordinal}) the flag comes from the BLUP's

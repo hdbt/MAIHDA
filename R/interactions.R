@@ -25,8 +25,11 @@
 #' two-model decomposition, or the crossed-dimensions model) does the stratum
 #' random effect isolate the \emph{pure interaction}. On a null model the stratum
 #' random effect is the total between-stratum deviation (additive + interaction),
-#' so passing one is flagged with a warning. Passing a \code{\link{maihda}} result
-#' uses the right model automatically.
+#' so passing one is flagged with a warning. The opposite mis-specification is
+#' flagged too: a model that adds a \emph{fixed} interaction among the dimensions
+#' (e.g. \code{var1 * var2}) absorbs the intersectional effect into fixed cell means,
+#' so the stratum random effect is no longer the pure interaction. Passing a
+#' \code{\link{maihda}} result uses the right model automatically.
 #'
 #' \strong{Frequentist vs. Bayesian evidence.} For the frequentist engines
 #' (\code{lme4}, \code{wemix}, \code{ordinal}) the flag comes from the BLUP's
@@ -426,7 +429,25 @@ maihda_warn_if_not_adjusted <- function(model) {
   # raw-name intersect would miss them and falsely warn that a fully-specified
   # adjusted model is a null model. Mirrors maihda_workflow.R's dim_terms_quoted.
   expected_quoted <- vapply(expected, maihda_quote_name, character(1))
-  if (!all(expected_quoted %in% fixed_terms)) {
+  # A fixed interaction among the dimensions (e.g. gender * race, which the
+  # main-effects check above passes because both main effects ARE present) is a
+  # different corruption: the fixed interaction absorbs the intersectional effect, so
+  # the stratum random effect is no longer the pure interaction this diagnostic
+  # reports. Flag it first -- it is the more specific, more serious problem.
+  flagged_int <- tryCatch(
+    maihda_dimension_interaction_terms(model$formula, sv, expected),
+    error = function(e) character(0))
+  if (length(flagged_int) > 0) {
+    warning("maihda_interactions(): the model's fixed part contains the interaction ",
+            "term(s) ", paste(flagged_int, collapse = ", "), " among the stratum ",
+            "dimensions (", paste(sv, collapse = ", "), "). That fixed interaction ",
+            "absorbs the intersectional effect, so the stratum random effect is no ",
+            "longer the PURE interaction this diagnostic reports (its BLUPs are ",
+            "driven toward a singular boundary). Fit the adjusted model with only the ",
+            "dimensions' ADDITIVE main effects (e.g. ", paste(sv, collapse = " + "),
+            ", not ", paste(sv, collapse = " * "), "), or pass a maihda() result.",
+            call. = FALSE)
+  } else if (!all(expected_quoted %in% fixed_terms)) {
     warning("maihda_interactions(): this looks like a null model -- the stratum ",
             "dimensions' additive main effects (", paste(sv, collapse = ", "),
             ") are not all in the fixed part, so the stratum random effects capture ",

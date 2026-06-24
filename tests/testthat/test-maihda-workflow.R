@@ -253,6 +253,81 @@ test_that("maihda() accepts the dimensions' main effects in the formula (no PCV-
   expect_equal(b$summary$vpc$estimate, a$summary$vpc$estimate, tolerance = 1e-8)
 })
 
+test_that("maihda() rejects a fixed interaction among the stratum dimensions", {
+  d <- make_workflow_data(4205)
+  # `gender * race` is R shorthand for gender + race + gender:race. The fixed
+  # gender:race interaction duplicates the (1 | gender:race) stratum random
+  # intercept: the old behaviour stripped only the main effects, leaving gender:race
+  # in BOTH the derived null and adjusted formulas (NULL/invalid PCV). maihda() must
+  # reject it up front rather than return a corrupt decomposition.
+  expect_error(
+    suppressMessages(suppressWarnings(
+      maihda(y ~ age + gender * race + (1 | gender:race), data = d))),
+    "interaction term"
+  )
+  # The explicit colon form (gender:race written out) is the same expansion.
+  expect_error(
+    suppressMessages(suppressWarnings(
+      maihda(y ~ age + gender + race + gender:race + (1 | gender:race), data = d))),
+    "interaction term"
+  )
+  # Variable order in the interaction must not matter (race:gender == gender:race).
+  expect_error(
+    suppressMessages(suppressWarnings(
+      maihda(y ~ age + race * gender + (1 | gender:race), data = d))),
+    "interaction term"
+  )
+  # The additive form is unaffected (no false positive).
+  a <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d))
+  expect_true(is.finite(a$pcv$pvc))
+})
+
+test_that("maihda_dimension_interaction_terms() flags only dimension-only interactions", {
+  sv <- c("gender", "race")
+  # A dimension-by-dimension interaction is flagged, in either variable order.
+  expect_length(
+    maihda_dimension_interaction_terms(y ~ age + gender:race + (1 | gender:race), sv),
+    1)
+  expect_length(
+    maihda_dimension_interaction_terms(y ~ age + race:gender + (1 | gender:race), sv),
+    1)
+  # A covariate-by-dimension interaction (age:gender) is a legitimate adjustment,
+  # not a stratum-cell interaction, so it is NOT flagged.
+  expect_length(
+    maihda_dimension_interaction_terms(y ~ age * gender + race + (1 | gender:race), sv),
+    0)
+  # The purely additive adjusted formula is clean.
+  expect_length(
+    maihda_dimension_interaction_terms(y ~ age + gender + race + (1 | gender:race), sv),
+    0)
+  # Non-syntactic dimension names are matched in their backtick-quoted form.
+  expect_length(
+    maihda_dimension_interaction_terms(
+      y ~ age + `gender var` * race + (1 | `gender var`:race),
+      c("gender var", "race")),
+    1)
+})
+
+test_that("compare_maihda_groups() rejects a fixed dimension interaction", {
+  d <- make_workflow_data(4207)
+  expect_error(
+    suppressWarnings(compare_maihda_groups(
+      y ~ age + gender * race + (1 | gender:race), data = d,
+      group = "country", min_group_n = 10)),
+    "interaction term"
+  )
+})
+
+test_that("maihda_interactions() warns on a model carrying a fixed dimension interaction", {
+  d <- make_workflow_data(4208)
+  m <- suppressMessages(suppressWarnings(
+    fit_maihda(y ~ age + gender * race + (1 | gender:race), data = d)))
+  expect_warning(
+    maihda_interactions(m),
+    "absorbs the intersectional effect"
+  )
+})
+
 test_that("maihda() adds the dimensions' main effects with a message when omitted", {
   d <- make_workflow_data(4202)
   expect_message(

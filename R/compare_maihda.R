@@ -715,6 +715,12 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     dim_terms <- maihda_adjusted_terms(decomp_vars,
                                        carried_attrs[["strata_autobin_info"]],
                                        data)$terms
+    # Reject a fixed interaction among the stratum dimensions (e.g. `gender * ses`).
+    # Stripping only the main effects below would leave the fixed gender:ses term in
+    # place, duplicating the (1 | stratum) random intercept and driving every group's
+    # PCV to NA. (maihda() catches this earlier; this guards a direct call.)
+    maihda_check_no_dimension_interaction(fit_formula, decomp_vars, dim_terms,
+                                          fn = "compare_maihda_groups")
     supplied_fixed <- attr(stats::terms(reformulas::nobars(fit_formula)),
                            "term.labels")
     present_terms <- dim_terms[

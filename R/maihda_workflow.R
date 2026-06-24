@@ -30,6 +30,14 @@
 #' them: when the formula already lists them it is taken as the adjusted model and the
 #' null is derived by dropping them; when they are missing \code{maihda()} adds them to
 #' the adjusted model and emits a \code{message()} so the decomposition stays explicit.
+#' Only the \emph{additive} main effects belong here: a fixed interaction among the
+#' stratum dimensions -- \code{var1 * var2}, which R expands to
+#' \code{var1 + var2 + var1:var2} -- duplicates the intersectional stratum random
+#' intercept (it absorbs the between-stratum variance into fixed cell means, which
+#' makes the PCV invalid), so it is \strong{rejected with an error}. Write
+#' \code{var1 + var2}; the intersection is estimated by the stratum random effect (and
+#' quantified by \code{decomposition = "crossed-dimensions"} or
+#' \code{\link{maihda_interactions}}).
 #' The dimensions themselves are read from the random term: the shorthand
 #' \code{(1 | var1:var2)} and \code{\link{make_strata}} both record them, and a numeric
 #' dimension that \code{make_strata()} auto-binned enters the adjusted model as its
@@ -402,6 +410,14 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # (.maihda_dim_*), matching the strata, not the raw column.
   dim_terms <- maihda_adjusted_terms(strata_vars, model$strata_autobin_info,
                                      model$original_data)$terms
+  # Reject a fixed interaction among the stratum dimensions (e.g. `Gender * Race`,
+  # which R expands to Gender + Race + Gender:Race). The main-effect stripping below
+  # would remove only Gender and Race, leaving the fixed Gender:Race in BOTH the
+  # derived null and adjusted formulas -- duplicating the intersectional stratum
+  # random intercept and corrupting the PCV. Guard every decomposition mode here,
+  # before the two-model / crossed-dimensions / longitudinal branches split.
+  maihda_check_no_dimension_interaction(model$formula, strata_vars, dim_terms,
+                                        fn = "maihda")
   supplied_fixed <- attr(stats::terms(reformulas::nobars(model$formula)), "term.labels")
   # terms() backtick-quotes non-syntactic term labels (e.g. `gender var`), so the
   # dimension main effects must be compared in their quoted form -- a raw-name
