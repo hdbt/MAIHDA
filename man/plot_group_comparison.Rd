@@ -12,7 +12,8 @@ plot_group_comparison(
 \arguments{
 \item{x}{A \code{maihda_group_comparison} object.}
 
-\item{type}{One of "vpc" (default), "components", "between_variance", or "pcv".}
+\item{type}{One of "vpc" (default), "components", "between_variance", "pcv", or
+"additive_share".}
 }
 \value{
 A ggplot2 object.

@@ -236,6 +236,32 @@ test_that("predict(type = 'strata') baseline differs from the raw intercept off 
   expect_false(isTRUE(all.equal(ps$baseline, ps$intercept)))
 })
 
+test_that("longitudinal ref_time/time_range come from the fitted frame, not dropped rows", {
+  # lme4 drops rows with a missing outcome. If an entire baseline wave's outcomes
+  # are missing, the reported VPC/PCV baseline must move to the first wave that
+  # actually survives the fit -- staying at the pre-fit min(time) would anchor the
+  # headline VPC/PCV at a time NOT represented in the fitted sample (an
+  # extrapolation), because the time column itself is non-missing even where the
+  # outcome is NA.
+  d <- maihda_long_data
+  waves <- sort(unique(d$wave))
+  d$wellbeing[d$wave == waves[1]] <- NA   # wipe the entire baseline wave's outcome
+
+  m <- suppressWarnings(
+    fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+               data = d, id = "id", time = "wave"))
+
+  fitted_waves <- sort(unique(m$data$wave))
+  expect_false(waves[1] %in% fitted_waves)              # baseline really dropped
+  expect_gt(m$longitudinal_info$ref_time, waves[1])     # moved off the stale min
+  expect_identical(m$longitudinal_info$ref_time, fitted_waves[1])
+  expect_identical(m$longitudinal_info$time_range, range(fitted_waves))
+
+  # The headline VPC summary anchors at the fitted baseline, not raw min(time).
+  s <- summary(m)
+  expect_identical(s$longitudinal$ref_time, fitted_waves[1])
+})
+
 test_that("maihda_table reports the baseline between-stratum variance for a longitudinal fit", {
   tab <- maihda_table(a_g)
   bv <- tab$models$estimate[tab$models$statistic == "Between-stratum variance"]

@@ -165,10 +165,12 @@ An object of class \code{maihda_analysis}: a list with
     crossed-dimensions mode, and the stratum-vs-context \code{context} partition
     when \code{context} is supplied)}
   \item{model_adjusted}{the fitted \strong{adjusted} \code{maihda_model}
-    (\code{"two-model"} mode only; \code{NULL} otherwise)}
+    (\code{"two-model"} and \code{"longitudinal"} modes; \code{NULL} otherwise)}
   \item{summary_adjusted}{the adjusted model's \code{maihda_summary}, or \code{NULL}}
-  \item{pcv}{the \code{pvc_result} from \code{\link{calculate_pvc}}
-    (\code{"two-model"} mode only; \code{NULL} otherwise)}
+  \item{pcv}{the proportional change in variance: the \code{pvc_result} from
+    \code{\link{calculate_pvc}} in \code{"two-model"} mode, or a
+    \code{maihda_long_pcv} (the intercept/slope and time-specific PCV) in
+    \code{"longitudinal"} mode; \code{NULL} otherwise}
   \item{decomposition}{the additive/interaction partition (additive and interaction
     variances and shares, per-dimension variances; \code{"crossed-dimensions"} mode
     only, \code{NULL} otherwise)}
@@ -177,7 +179,7 @@ An object of class \code{maihda_analysis}: a list with
   \item{interactions}{the \code{maihda_interactions} diagnostic (per-stratum
     interaction BLUPs and flags) when \code{interactions} is not \code{FALSE},
     otherwise \code{NULL}}
-  \item{mode}{\code{"two-model"} or \code{"crossed-dimensions"}}
+  \item{mode}{\code{"two-model"}, \code{"crossed-dimensions"}, or \code{"longitudinal"}}
   \item{context_vars}{the context variable name(s) when \code{context} was
     supplied, otherwise \code{NULL}}
   \item{formula, adjusted_formula, group_var, call}{bookkeeping for printing}

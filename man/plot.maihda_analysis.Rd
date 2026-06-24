@@ -15,9 +15,9 @@ contextual type ("context_vpc", a stratum-vs-context variance bar; requires
 \code{maihda(context = )}), a longitudinal type ("vpc_trajectory",
 "trajectories", "pcv_trajectory"; requires \code{decomposition =
 "longitudinal"}), or a group type ("group_vpc", "group_components",
-"group_between_variance", "group_pcv"). Default "all". For a longitudinal
-analysis "all" shows the VPC-over-time, the stratum trajectories, and the
-time-specific PCV.}
+"group_between_variance", "group_pcv", "group_additive_share"). Default "all".
+For a longitudinal analysis "all" shows the VPC-over-time, the stratum
+trajectories, and the time-specific PCV.}
 
 \item{highlight_interactions}{Highlight strata with a credibly non-zero
 intersectional interaction on the BLUP-based views (see
@@ -41,6 +41,6 @@ views (\code{"vpc"}, \code{"obs_vs_shrunken"}, \code{"predicted"}) use the
 the stratum random effect is the pure interaction; with fewer than two dimensions
 (no adjusted model) they fall back to the null model. Group types
 (\code{"group_vpc"}, \code{"group_components"}, \code{"group_between_variance"},
-\code{"group_pcv"}) use the group comparison when \code{\link{maihda}} was called
-with a \code{group}.
+\code{"group_pcv"}, \code{"group_additive_share"}) use the group comparison when
+\code{\link{maihda}} was called with a \code{group}.
 }

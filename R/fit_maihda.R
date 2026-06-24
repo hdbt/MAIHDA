@@ -450,6 +450,9 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     }
     formula <- maihda_longitudinal_formula(formula, lng_spec$id, lng_spec$time,
                                            lng_spec$time_degree)
+    # time_range/ref_time here are provisional (pre-fit): they are recomputed
+    # from the fitted analytic frame after the engine drops rows (see below),
+    # so a baseline wave lost to missing outcomes does not anchor the VPC/PCV.
     tv <- data[[lng_spec$time]]
     longitudinal_info <- list(id = lng_spec$id, time = lng_spec$time,
                               time_degree = lng_spec$time_degree,
@@ -732,6 +735,20 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   attr(model_data, "strata_vars") <- strata_vars
   attr(model_data, "strata_sep") <- strata_sep
   attr(model_data, "strata_autobin_info") <- strata_autobin_info
+
+  # Recompute the longitudinal reference time and time range from the FITTED
+  # analytic frame, not the pre-fit data: lme4/brms drop rows with missing
+  # outcomes (or predictors), which can remove an entire baseline wave. The
+  # earlier capture (from `data`) recorded ref_time = min(time) over rows that
+  # may not all survive the fit; the VPC/PCV summaries then report a baseline at
+  # a time not represented in the fitted sample (an extrapolation). model_data
+  # holds the rows the engine actually used, so its min/range are the analytic
+  # baseline and span.
+  if (!is.null(longitudinal_info)) {
+    tv_fit <- model_data[[longitudinal_info$time]]
+    longitudinal_info$time_range <- range(tv_fit, na.rm = TRUE)
+    longitudinal_info$ref_time <- min(tv_fit, na.rm = TRUE)
+  }
 
   result <- structure(
     list(

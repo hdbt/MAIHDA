@@ -1401,7 +1401,8 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
 #' result instead, e.g. \code{plot(cmp, type = "vpc")}.
 #'
 #' @param x A \code{maihda_group_comparison} object.
-#' @param type One of "vpc" (default), "components", "between_variance", or "pcv".
+#' @param type One of "vpc" (default), "components", "between_variance", "pcv", or
+#'   "additive_share".
 #' @return A ggplot2 object.
 #' @keywords internal
 #' @export

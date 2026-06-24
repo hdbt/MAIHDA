@@ -157,10 +157,12 @@
 #'     crossed-dimensions mode, and the stratum-vs-context \code{context} partition
 #'     when \code{context} is supplied)}
 #'   \item{model_adjusted}{the fitted \strong{adjusted} \code{maihda_model}
-#'     (\code{"two-model"} mode only; \code{NULL} otherwise)}
+#'     (\code{"two-model"} and \code{"longitudinal"} modes; \code{NULL} otherwise)}
 #'   \item{summary_adjusted}{the adjusted model's \code{maihda_summary}, or \code{NULL}}
-#'   \item{pcv}{the \code{pvc_result} from \code{\link{calculate_pvc}}
-#'     (\code{"two-model"} mode only; \code{NULL} otherwise)}
+#'   \item{pcv}{the proportional change in variance: the \code{pvc_result} from
+#'     \code{\link{calculate_pvc}} in \code{"two-model"} mode, or a
+#'     \code{maihda_long_pcv} (the intercept/slope and time-specific PCV) in
+#'     \code{"longitudinal"} mode; \code{NULL} otherwise}
 #'   \item{decomposition}{the additive/interaction partition (additive and interaction
 #'     variances and shares, per-dimension variances; \code{"crossed-dimensions"} mode
 #'     only, \code{NULL} otherwise)}
@@ -169,7 +171,7 @@
 #'   \item{interactions}{the \code{maihda_interactions} diagnostic (per-stratum
 #'     interaction BLUPs and flags) when \code{interactions} is not \code{FALSE},
 #'     otherwise \code{NULL}}
-#'   \item{mode}{\code{"two-model"} or \code{"crossed-dimensions"}}
+#'   \item{mode}{\code{"two-model"}, \code{"crossed-dimensions"}, or \code{"longitudinal"}}
 #'   \item{context_vars}{the context variable name(s) when \code{context} was
 #'     supplied, otherwise \code{NULL}}
 #'   \item{formula, adjusted_formula, group_var, call}{bookkeeping for printing}
@@ -846,8 +848,8 @@ summary.maihda_analysis <- function(object, ...) {
 #' the stratum random effect is the pure interaction; with fewer than two dimensions
 #' (no adjusted model) they fall back to the null model. Group types
 #' (\code{"group_vpc"}, \code{"group_components"}, \code{"group_between_variance"},
-#' \code{"group_pcv"}) use the group comparison when \code{\link{maihda}} was called
-#' with a \code{group}.
+#' \code{"group_pcv"}, \code{"group_additive_share"}) use the group comparison when
+#' \code{\link{maihda}} was called with a \code{group}.
 #'
 #' @param x A \code{maihda_analysis} object from \code{\link{maihda}}.
 #' @param type One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
@@ -856,9 +858,9 @@ summary.maihda_analysis <- function(object, ...) {
 #'   \code{maihda(context = )}), a longitudinal type ("vpc_trajectory",
 #'   "trajectories", "pcv_trajectory"; requires \code{decomposition =
 #'   "longitudinal"}), or a group type ("group_vpc", "group_components",
-#'   "group_between_variance", "group_pcv"). Default "all". For a longitudinal
-#'   analysis "all" shows the VPC-over-time, the stratum trajectories, and the
-#'   time-specific PCV.
+#'   "group_between_variance", "group_pcv", "group_additive_share"). Default "all".
+#'   For a longitudinal analysis "all" shows the VPC-over-time, the stratum
+#'   trajectories, and the time-specific PCV.
 #' @param highlight_interactions Highlight strata with a credibly non-zero
 #'   intersectional interaction on the BLUP-based views (see
 #'   \code{\link{maihda_interactions}} and \code{\link[=plot.maihda_model]{plot}}).
