@@ -5,8 +5,11 @@ needs the grouping structure re-resolved and offers no fixed-only form,
 so predictions are built directly from the coefficient vector and the
 stored stratum effects: the fixed design matrix is constructed with the
 training data's factor levels and multiplied by `coef`, and `include_re`
-adds each row's stratum effect (conditional mode). Everything is on the
-link scale.
+adds each row's stratum effect (conditional mode; an unseen stratum
+contributes 0 – the population-average fallback that
+[`predict_maihda`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+only reaches when `allow_new_levels = TRUE`, having otherwise rejected
+unseen strata upstream). Everything is on the link scale.
 
 ## Usage
 

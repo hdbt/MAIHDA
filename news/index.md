@@ -94,6 +94,27 @@
   (in `[0.5, 1]`, à la `bayestestR::p_direction`), with the sign
   reported separately in the existing `direction` column.
 
+- **[`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  silently accepted an unseen stratum on the `wemix` and `ordinal`
+  paths.** When `newdata` already carried a `stratum` column, the
+  preparation step returned early and skipped the unseen-stratum check,
+  so a misspelled or genuinely new stratum flowed through to the
+  WeMix/`clmm` linear-predictor helpers, which map a missing random
+  effect to 0 – yielding a fixed-only prediction that *looked* valid and
+  contradicted both the documented contract (unseen strata are an error,
+  as for `type = "strata"`) and `lme4`’s default behaviour.
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  now rejects an unseen stratum by default for **every** engine and
+  prediction type, whether the stratum is supplied directly or rebuilt
+  from the grouping variables. A new **`allow_new_levels`** argument
+  (default `FALSE`) opts into the previous behaviour *explicitly*: for
+  `type = "individual"` it returns a **population-average**
+  (fixed-effects-only) prediction for unseen strata, dropping the
+  stratum random effect (forwarded as `allow.new.levels` to lme4 and
+  `allow_new_levels` to brms). Stratum-level predictions have no random
+  effect to report for an unseen stratum, so they remain an error
+  regardless.
+
 ### Improvements
 
 - **Console output is now colour-coded** (via `cli`). The print methods

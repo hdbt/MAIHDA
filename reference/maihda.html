@@ -149,10 +149,12 @@ with few levels weakly identifies its variance (consider <code>engine = "brms"</
 
 
 <dt id="arg-engine">engine<a class="anchor" aria-label="anchor" href="#arg-engine"></a></dt>
-<dd><p>Modeling engine, "lme4" (default), "brms", or "wemix" (the
+<dd><p>Modeling engine, "lme4" (default), "brms", "wemix" (the
 design-weighted pseudo-maximum-likelihood fit; requires
 <code>sampling_weights</code> and is selected automatically when they are supplied
-with the default engine).</p></dd>
+with the default engine), or "ordinal" (cumulative link mixed model via
+<code><a href="https://rdrr.io/pkg/ordinal/man/clmm.html" class="external-link">ordinal::clmm()</a></code>; selected automatically for an ordinal family or an
+ordered-factor outcome).</p></dd>
 
 
 <dt id="arg-family">family<a class="anchor" aria-label="anchor" href="#arg-family"></a></dt>
@@ -289,14 +291,16 @@ summary already holds; no refit).</p></dd>
 
   <dt>model_adjusted</dt>
 <dd><p>the fitted <strong>adjusted</strong> <code>maihda_model</code>
-    (<code>"two-model"</code> mode only; <code>NULL</code> otherwise)</p></dd>
+    (<code>"two-model"</code> and <code>"longitudinal"</code> modes; <code>NULL</code> otherwise)</p></dd>
 
   <dt>summary_adjusted</dt>
 <dd><p>the adjusted model's <code>maihda_summary</code>, or <code>NULL</code></p></dd>
 
   <dt>pcv</dt>
-<dd><p>the <code>pvc_result</code> from <code><a href="calculate_pvc.html">calculate_pvc</a></code>
-    (<code>"two-model"</code> mode only; <code>NULL</code> otherwise)</p></dd>
+<dd><p>the proportional change in variance: the <code>pvc_result</code> from
+    <code><a href="calculate_pvc.html">calculate_pvc</a></code> in <code>"two-model"</code> mode, or a
+    <code>maihda_long_pcv</code> (the intercept/slope and time-specific PCV) in
+    <code>"longitudinal"</code> mode; <code>NULL</code> otherwise</p></dd>
 
   <dt>decomposition</dt>
 <dd><p>the additive/interaction partition (additive and interaction
@@ -313,7 +317,7 @@ summary already holds; no refit).</p></dd>
     otherwise <code>NULL</code></p></dd>
 
   <dt>mode</dt>
-<dd><p><code>"two-model"</code> or <code>"crossed-dimensions"</code></p></dd>
+<dd><p><code>"two-model"</code>, <code>"crossed-dimensions"</code>, or <code>"longitudinal"</code></p></dd>
 
   <dt>context_vars</dt>
 <dd><p>the context variable name(s) when <code>context</code> was
@@ -404,10 +408,10 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55557a4b2cb0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55c278d656d0&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55556a129c30&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55c279e8f4c8&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -462,7 +466,7 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55557f54db58&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55c27878e540&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>

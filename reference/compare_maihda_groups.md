@@ -54,9 +54,13 @@ compare_maihda_groups(
 
 - engine:
 
-  Modeling engine, "lme4" (default), "brms", or "wemix" (the
+  Modeling engine, "lme4" (default), "brms", "wemix" (the
   design-weighted fit; requires `sampling_weights` and is selected
-  automatically when they are supplied with the default engine).
+  automatically when they are supplied with the default engine), or
+  "ordinal" (cumulative link mixed model via
+  [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html);
+  selected automatically for an ordinal family or an ordered-factor
+  outcome).
 
 - family:
 

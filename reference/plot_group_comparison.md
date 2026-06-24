@@ -22,7 +22,8 @@ plot_group_comparison(
 
 - type:
 
-  One of "vpc" (default), "components", "between_variance", or "pcv".
+  One of "vpc" (default), "components", "between_variance", "pcv", or
+  "additive_share".
 
 ## Value
 

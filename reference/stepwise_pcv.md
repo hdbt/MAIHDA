@@ -39,8 +39,10 @@ stepwise_pcv(
 
 - engine:
 
-  Modeling engine ("lme4", "brms", or "wemix"). Default is "lme4";
-  switches to "wemix" automatically when `sampling_weights` is supplied.
+  Modeling engine ("lme4", "brms", "wemix", or "ordinal"). Default is
+  "lme4"; switches to "wemix" automatically when `sampling_weights` is
+  supplied, and to "ordinal" for an ordinal family or ordered-factor
+  outcome.
 
 - family:
 

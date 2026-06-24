@@ -8,8 +8,8 @@ shrinkage views (`"vpc"`, `"obs_vs_shrunken"`, `"predicted"`) use the
 effects carry the dimensions' additive part so the stratum random effect
 is the pure interaction; with fewer than two dimensions (no adjusted
 model) they fall back to the null model. Group types (`"group_vpc"`,
-`"group_components"`, `"group_between_variance"`, `"group_pcv"`) use the
-group comparison when
+`"group_components"`, `"group_between_variance"`, `"group_pcv"`,
+`"group_additive_share"`) use the group comparison when
 [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) was called
 with a `group`.
 
@@ -35,9 +35,10 @@ plot(x, type = "all", highlight_interactions = FALSE, ...)
   requires `maihda(context = )`), a longitudinal type ("vpc_trajectory",
   "trajectories", "pcv_trajectory"; requires
   `decomposition = "longitudinal"`), or a group type ("group_vpc",
-  "group_components", "group_between_variance", "group_pcv"). Default
-  "all". For a longitudinal analysis "all" shows the VPC-over-time, the
-  stratum trajectories, and the time-specific PCV.
+  "group_components", "group_between_variance", "group_pcv",
+  "group_additive_share"). Default "all". For a longitudinal analysis
+  "all" shows the VPC-over-time, the stratum trajectories, and the
+  time-specific PCV.
 
 - highlight_interactions:
 

@@ -7,8 +7,8 @@ adjusted model, whose fixed effects carry the dimensions' additive part so
 the stratum random effect is the pure interaction; with fewer than two dimensions
 (no adjusted model) they fall back to the null model. Group types
 (&quot;group_vpc&quot;, &quot;group_components&quot;, &quot;group_between_variance&quot;,
-&quot;group_pcv&quot;) use the group comparison when maihda was called
-with a group."><meta property="og:description" content="Dispatches each type to the model it is valid on. The VPC and shrinkage
+&quot;group_pcv&quot;, &quot;group_additive_share&quot;) use the group comparison when
+maihda was called with a group."><meta property="og:description" content="Dispatches each type to the model it is valid on. The VPC and shrinkage
 views (&quot;vpc&quot;, &quot;obs_vs_shrunken&quot;, &quot;predicted&quot;) use the
 null model. The additive-vs-intersectional views (&quot;risk_vs_effect&quot;,
 &quot;effect_decomp&quot;, &quot;ternary&quot;, &quot;prediction_deviation&quot;) use the
@@ -16,8 +16,8 @@ adjusted model, whose fixed effects carry the dimensions' additive part so
 the stratum random effect is the pure interaction; with fewer than two dimensions
 (no adjusted model) they fall back to the null model. Group types
 (&quot;group_vpc&quot;, &quot;group_components&quot;, &quot;group_between_variance&quot;,
-&quot;group_pcv&quot;) use the group comparison when maihda was called
-with a group."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
+&quot;group_pcv&quot;, &quot;group_additive_share&quot;) use the group comparison when
+maihda was called with a group."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -79,8 +79,8 @@ views (<code>"vpc"</code>, <code>"obs_vs_shrunken"</code>, <code>"predicted"</co
 the stratum random effect is the pure interaction; with fewer than two dimensions
 (no adjusted model) they fall back to the null model. Group types
 (<code>"group_vpc"</code>, <code>"group_components"</code>, <code>"group_between_variance"</code>,
-<code>"group_pcv"</code>) use the group comparison when <code><a href="maihda.html">maihda</a></code> was called
-with a <code>group</code>.</p>
+<code>"group_pcv"</code>, <code>"group_additive_share"</code>) use the group comparison when
+<code><a href="maihda.html">maihda</a></code> was called with a <code>group</code>.</p>
     </div>
 
     <div class="section level2">
@@ -104,9 +104,9 @@ contextual type ("context_vpc", a stratum-vs-context variance bar; requires
 <code>maihda(context = )</code>), a longitudinal type ("vpc_trajectory",
 "trajectories", "pcv_trajectory"; requires <code>decomposition =
 "longitudinal"</code>), or a group type ("group_vpc", "group_components",
-"group_between_variance", "group_pcv"). Default "all". For a longitudinal
-analysis "all" shows the VPC-over-time, the stratum trajectories, and the
-time-specific PCV.</p></dd>
+"group_between_variance", "group_pcv", "group_additive_share"). Default "all".
+For a longitudinal analysis "all" shows the VPC-over-time, the stratum
+trajectories, and the time-specific PCV.</p></dd>
 
 
 <dt id="arg-highlight-interactions">highlight_interactions<a class="anchor" aria-label="anchor" href="#arg-highlight-interactions"></a></dt>

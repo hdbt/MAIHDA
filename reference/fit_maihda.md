@@ -1,8 +1,10 @@
 # Fit MAIHDA Model
 
 Fits a multilevel model for MAIHDA (Multilevel Analysis of Individual
-Heterogeneity and Discriminatory Accuracy) using lme4, brms, or – for
-design-weighted (survey) data – WeMix.
+Heterogeneity and Discriminatory Accuracy) using lme4, brms, WeMix (for
+design-weighted (survey) data), or – for an ordered-factor outcome – a
+cumulative link mixed model via
+[`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html).
 
 ## Usage
 
@@ -226,11 +228,11 @@ A maihda_model object containing:
 
 - model:
 
-  The fitted model object (lme4, brms, or WeMix)
+  The fitted model object (lme4, brms, WeMix, or ordinal::clmm)
 
 - engine:
 
-  The engine used ("lme4", "brms", or "wemix")
+  The engine used ("lme4", "brms", "wemix", or "ordinal")
 
 - sampling_weights:
 

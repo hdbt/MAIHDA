@@ -102,8 +102,9 @@ add sequentially to the model.</p></dd>
 
 
 <dt id="arg-engine">engine<a class="anchor" aria-label="anchor" href="#arg-engine"></a></dt>
-<dd><p>Modeling engine ("lme4", "brms", or "wemix"). Default is "lme4";
-switches to "wemix" automatically when <code>sampling_weights</code> is supplied.</p></dd>
+<dd><p>Modeling engine ("lme4", "brms", "wemix", or "ordinal"). Default
+is "lme4"; switches to "wemix" automatically when <code>sampling_weights</code> is
+supplied, and to "ordinal" for an ordinal family or ordered-factor outcome.</p></dd>
 
 
 <dt id="arg-family">family<a class="anchor" aria-label="anchor" href="#arg-family"></a></dt>

@@ -123,9 +123,11 @@ level.</p></dd>
 
 
 <dt id="arg-engine">engine<a class="anchor" aria-label="anchor" href="#arg-engine"></a></dt>
-<dd><p>Modeling engine, "lme4" (default), "brms", or "wemix" (the
+<dd><p>Modeling engine, "lme4" (default), "brms", "wemix" (the
 design-weighted fit; requires <code>sampling_weights</code> and is selected
-automatically when they are supplied with the default engine).</p></dd>
+automatically when they are supplied with the default engine), or "ordinal"
+(cumulative link mixed model via <code><a href="https://rdrr.io/pkg/ordinal/man/clmm.html" class="external-link">ordinal::clmm()</a></code>; selected
+automatically for an ordinal family or an ordered-factor outcome).</p></dd>
 
 
 <dt id="arg-family">family<a class="anchor" aria-label="anchor" href="#arg-family"></a></dt>

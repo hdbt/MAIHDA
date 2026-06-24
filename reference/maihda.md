@@ -85,10 +85,14 @@ maihda(
 
 - engine:
 
-  Modeling engine, "lme4" (default), "brms", or "wemix" (the
+  Modeling engine, "lme4" (default), "brms", "wemix" (the
   design-weighted pseudo-maximum-likelihood fit; requires
   `sampling_weights` and is selected automatically when they are
-  supplied with the default engine).
+  supplied with the default engine), or "ordinal" (cumulative link mixed
+  model via
+  [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html);
+  selected automatically for an ordinal family or an ordered-factor
+  outcome).
 
 - family:
 
@@ -244,8 +248,8 @@ An object of class `maihda_analysis`: a list with
 
 - model_adjusted:
 
-  the fitted **adjusted** `maihda_model` (`"two-model"` mode only;
-  `NULL` otherwise)
+  the fitted **adjusted** `maihda_model` (`"two-model"` and
+  `"longitudinal"` modes; `NULL` otherwise)
 
 - summary_adjusted:
 
@@ -253,9 +257,10 @@ An object of class `maihda_analysis`: a list with
 
 - pcv:
 
-  the `pvc_result` from
+  the proportional change in variance: the `pvc_result` from
   [`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
-  (`"two-model"` mode only; `NULL` otherwise)
+  in `"two-model"` mode, or a `maihda_long_pcv` (the intercept/slope and
+  time-specific PCV) in `"longitudinal"` mode; `NULL` otherwise
 
 - decomposition:
 
@@ -274,7 +279,7 @@ An object of class `maihda_analysis`: a list with
 
 - mode:
 
-  `"two-model"` or `"crossed-dimensions"`
+  `"two-model"`, `"crossed-dimensions"`, or `"longitudinal"`
 
 - context_vars:
 
@@ -383,10 +388,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x55557a4b2cb0>
+#> <environment: 0x55c278d656d0>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x55556a129c30>
+#> <environment: 0x55c279e8f4c8>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -441,7 +446,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x55557f54db58>
+#> <environment: 0x55c27878e540>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):
