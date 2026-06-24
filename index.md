@@ -33,12 +33,16 @@ socioeconomic status).
   fully-featured Shiny application
   ([`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
   for no-code exploratory data analysis and model fitting
-- **Model Fitting**: Support for both lme4 and brms (Bayesian) engines
+- **Model Fitting**: Multiple engines — `lme4` (frequentist), `brms`
+  (Bayesian), `WeMix` (design-weighted pseudo-likelihood), and `ordinal`
+  ([`ordinal::clmm`](https://rdrr.io/pkg/ordinal/man/clmm.html), for
+  cumulative/ordered-factor outcomes)
 - **Design-Weighted MAIHDA**: Survey/sampling weights via
   `sampling_weights` fit a weighted pseudo-likelihood (WeMix for lme4, a
-  pseudo-posterior for brms), giving design-consistent (sandwich) SEs
-  for the **fixed effects** and population-weighted point estimates for
-  the VPC, PCV, stratum summaries and AUC. The intersectional strata are
+  pseudo-posterior for brms) targeting a population-weighted estimand.
+  The WeMix path gives design-consistent (sandwich) SEs for the **fixed
+  effects**; both paths give population-weighted point estimates for the
+  VPC, PCV, stratum summaries and AUC. The intersectional strata are
   treated as exhaustively sampled population cells (level-2 weights =
   1), and design-based (replicate-weight / linearised) variances for the
   variance components are not computed — so this is weighting to the
@@ -282,7 +286,8 @@ second nests the first (adding predictors on the same outcome, sample
 and strata); otherwise it is a model-dependent change in variance.
 
 - Formula: PCV = (Var_model1 - Var_model2) / Var_model1
-- Works with both lme4 and brms engines
+- Point estimate works across all fitting engines (`lme4`, `brms`,
+  `WeMix`, `ordinal`)
 - Supports bootstrap confidence intervals for lme4 models
 
 ### `stepwise_pcv()`
@@ -378,7 +383,8 @@ stepwise_pcv(strata_data, "outcome", c("gender", "race", "education"),
              sampling_weights = "person_weight")
 
 # Bayesian alternative: weights enter as likelihood weights (pseudo-posterior --
-# point estimates are design-consistent; credible intervals are not design-based).
+# point estimates target the population-weighted estimand, not full design-based
+# inference; credible intervals are not design-based).
 fit_maihda(outcome ~ age + (1 | gender:race:education), data = survey_data,
            engine = "brms", sampling_weights = "person_weight")
 ```

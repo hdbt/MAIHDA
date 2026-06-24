@@ -95,9 +95,9 @@
 <li>
 <strong><a href="https://hdbt.shinyapps.io/shiny/" class="external-link">Interactive Dashboard</a></strong>: A fully-featured Shiny application (<code><a href="reference/run_maihda_app.html">run_maihda_app()</a></code>) for no-code exploratory data analysis and model fitting</li>
 <li>
-<strong>Model Fitting</strong>: Support for both lme4 and brms (Bayesian) engines</li>
+<strong>Model Fitting</strong>: Multiple engines — <code>lme4</code> (frequentist), <code>brms</code> (Bayesian), <code>WeMix</code> (design-weighted pseudo-likelihood), and <code>ordinal</code> (<code><a href="https://rdrr.io/pkg/ordinal/man/clmm.html" class="external-link">ordinal::clmm</a></code>, for cumulative/ordered-factor outcomes)</li>
 <li>
-<strong>Design-Weighted MAIHDA</strong>: Survey/sampling weights via <code>sampling_weights</code> fit a weighted pseudo-likelihood (WeMix for lme4, a pseudo-posterior for brms), giving design-consistent (sandwich) SEs for the <strong>fixed effects</strong> and population-weighted point estimates for the VPC, PCV, stratum summaries and AUC. The intersectional strata are treated as exhaustively sampled population cells (level-2 weights = 1), and design-based (replicate-weight / linearised) variances for the variance components are not computed — so this is weighting to the population, not full complex-survey support for arbitrary clustered/stratified/replicate-weight designs</li>
+<strong>Design-Weighted MAIHDA</strong>: Survey/sampling weights via <code>sampling_weights</code> fit a weighted pseudo-likelihood (WeMix for lme4, a pseudo-posterior for brms) targeting a population-weighted estimand. The WeMix path gives design-consistent (sandwich) SEs for the <strong>fixed effects</strong>; both paths give population-weighted point estimates for the VPC, PCV, stratum summaries and AUC. The intersectional strata are treated as exhaustively sampled population cells (level-2 weights = 1), and design-based (replicate-weight / linearised) variances for the variance components are not computed — so this is weighting to the population, not full complex-survey support for arbitrary clustered/stratified/replicate-weight designs</li>
 <li>
 <strong>Summaries &amp; Decompositions</strong>: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)</li>
 <li>
@@ -264,7 +264,7 @@
 <p>Calculates the proportional change in between-stratum variance (PCV) between two models. It is the share of the baseline model’s between-stratum variance explained by the second model only when the second nests the first (adding predictors on the same outcome, sample and strata); otherwise it is a model-dependent change in variance.</p>
 <ul>
 <li>Formula: PCV = (Var_model1 - Var_model2) / Var_model1</li>
-<li>Works with both lme4 and brms engines</li>
+<li>Point estimate works across all fitting engines (<code>lme4</code>, <code>brms</code>, <code>WeMix</code>, <code>ordinal</code>)</li>
 <li>Supports bootstrap confidence intervals for lme4 models</li>
 </ul>
 </div>
@@ -338,7 +338,8 @@
 <span>             sampling_weights <span class="op">=</span> <span class="st">"person_weight"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Bayesian alternative: weights enter as likelihood weights (pseudo-posterior --</span></span>
-<span><span class="co"># point estimates are design-consistent; credible intervals are not design-based).</span></span>
+<span><span class="co"># point estimates target the population-weighted estimand, not full design-based</span></span>
+<span><span class="co"># inference; credible intervals are not design-based).</span></span>
 <span><span class="fu"><a href="reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">survey_data</span>,</span>
 <span>           engine <span class="op">=</span> <span class="st">"brms"</span>, sampling_weights <span class="op">=</span> <span class="st">"person_weight"</span><span class="op">)</span></span></code></pre></div>
 </div>
