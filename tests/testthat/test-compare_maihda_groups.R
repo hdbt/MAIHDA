@@ -665,3 +665,32 @@ test_that("plot.maihda_analysis dispatches group_between_variance", {
   expect_error(plot(a_nogroup, type = "group_between_variance"),
                "No group comparison")
 })
+
+test_that("supplied dimension main effects strip even for backtick-containing names", {
+  # When the formula already lists the stratum dimensions as fixed effects, the
+  # two-model decomposition strips them before deriving the null/adjusted models.
+  # Detection used maihda_quote_name() (proper backtick escaping) but removal used a
+  # bare sprintf("`%s`", .), which mis-parses a dimension name that itself contains a
+  # backtick -- so as.formula() would error on the update. Both paths must quote the
+  # same way. A backtick in a column name is rare but legal (check.names = FALSE).
+  set.seed(3101)
+  n <- 600
+  d <- data.frame(
+    grp  = sample(c("P", "Q"), n, replace = TRUE),
+    dimA = sample(c("F", "M"), n, replace = TRUE),
+    weird = sample(c("lo", "hi"), n, replace = TRUE),
+    stringsAsFactors = FALSE
+  )
+  names(d)[names(d) == "weird"] <- "a`b"        # backtick-containing legal name
+  key <- interaction(d$dimA, d[["a`b"]], drop = TRUE)
+  d$y <- 1 + 0.3 * (d$dimA == "M") + rnorm(nlevels(key), sd = 0.6)[key] + rnorm(n, sd = 0.5)
+
+  q <- maihda_quote_name("a`b")
+  f <- stats::as.formula(paste("y ~ dimA +", q, "+ (1 | dimA:", q, ")"))
+
+  # Pre-fix this errored in the term-stripping update(); now it completes.
+  cmp <- suppressWarnings(suppressMessages(
+    compare_maihda_groups(f, data = d, group = "grp", engine = "lme4")))
+  expect_s3_class(cmp, "maihda_group_comparison")
+  expect_setequal(cmp$group, c("P", "Q"))
+})

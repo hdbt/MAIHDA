@@ -141,12 +141,23 @@ maihda_wemix_check_family <- function(family) {
 #'   (the analytic data frame actually fitted, including the weight columns).
 #' @keywords internal
 maihda_fit_wemix <- function(formula, data, family, sampling_weights, dot_vals) {
-  model_vars <- unique(c(all.vars(formula), sampling_weights))
-  model_vars <- intersect(model_vars, names(data))
-  complete <- stats::complete.cases(data[, model_vars, drop = FALSE])
   w <- as.numeric(data[[sampling_weights]])
-  positive <- is.finite(w) & w > 0
-  keep <- complete & positive
+  # Keep exactly the rows WeMix::mix() will fit: the evaluated analytic frame (fixed-
+  # effect transformations applied, rows missing AFTER them dropped) intersected with
+  # finite, positive sampling weights. Passing the weight mask makes the analytic-frame
+  # helper drop non-positive/NA-weight rows too (maihda_sampling_weight_mask maps them
+  # to NA). A raw complete.cases() over the formula's columns misses NAs introduced by
+  # a transformed term (e.g. log(x) of x <= 0), which left the weight vector longer than
+  # the model matrix and triggered a weight/X row-count mismatch in mix(). Fall back to
+  # the raw check only when the analytic frame cannot be built.
+  keep <- maihda_analytic_keep_mask(formula, data,
+                                    weights = maihda_sampling_weight_mask(w))
+  if (is.null(keep)) {
+    model_vars <- intersect(unique(c(all.vars(formula), sampling_weights)),
+                            names(data))
+    keep <- stats::complete.cases(data[, model_vars, drop = FALSE]) &
+      is.finite(w) & w > 0
+  }
   if (!any(keep)) {
     stop("No usable rows remain for the wemix fit after dropping rows with ",
          "missing model variables or non-positive sampling weights.", call. = FALSE)

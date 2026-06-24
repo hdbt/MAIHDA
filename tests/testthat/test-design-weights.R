@@ -295,6 +295,27 @@ test_that("wemix rows with missing or non-positive weights are dropped", {
   expect_equal(nrow(m$data), nrow(d) - 3)
 })
 
+test_that("wemix prefilters on the evaluated frame, not raw complete.cases", {
+  skip_on_cran()
+  skip_if_not_installed("WeMix")
+
+  d <- make_dw_data(n = 400)
+  # Two rows whose transformed predictor log(age) is NaN. age itself is non-missing, so
+  # a raw complete.cases() on the formula columns keeps them -- leaving the sampling
+  # weight vector longer than the model matrix and erroring in WeMix::mix() with a
+  # weight/X row-count mismatch. The evaluated analytic frame drops them up front.
+  d$age[c(5, 9)] <- -1
+
+  expect_warning(
+    m <- suppressMessages(
+      fit_maihda(y ~ log(age) + (1 | gender:race:edu), data = d,
+                 engine = "wemix", sampling_weights = "w")),
+    "dropped 2 row"
+  )
+  expect_equal(nrow(m$data), nrow(d) - 2)
+  expect_true(all(is.finite(log(m$data$age))))   # no NaN-producing rows survived
+})
+
 test_that("predict_maihda works for wemix fits (individual and strata)", {
   skip_on_cran()
   skip_if_not_installed("WeMix")

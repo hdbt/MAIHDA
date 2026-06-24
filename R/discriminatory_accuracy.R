@@ -236,9 +236,23 @@ maihda_discriminatory_accuracy <- function(model) {
     # COUNT (trials * p); divide by the trial counts to recover the probability so the
     # ranking is by probability, not by an expected count that confounds p with trials.
     prob_row <- if (identical(model$engine, "brms")) prob / trials else prob
-    auc <- maihda_auc_weighted(prob_row, successes, trials)
+    # Reported case/control totals stay unweighted observation counts (matching the
+    # design_weighted Bernoulli branch below), so read them off the raw counts before
+    # any weighting.
     n_case <- sum(successes, na.rm = TRUE)
     n_control <- sum(trials - successes, na.rm = TRUE)
+    # When the same fit ALSO carries sampling weights (a brms `y | trials(n)` fit with
+    # sampling_weights -- lme4 never reaches here, as sampling_weights routes to wemix),
+    # fold them into the per-row case/control mass so the AUC is the design-weighted
+    # (population) concordance. Without this, `weighted = design_weighted` is reported
+    # (line below) and print.maihda_da() claims a design-weighted AUC while the number
+    # is actually the unweighted one. The ranking probability prob_row stays unweighted
+    # -- it is a per-trial probability, not a mass.
+    if (design_weighted) {
+      successes <- sw * successes
+      trials <- sw * trials
+    }
+    auc <- maihda_auc_weighted(prob_row, successes, trials)
   } else if (design_weighted) {
     auc <- maihda_auc_weighted(prob, successes = sw * resp, trials = sw)
     n_case <- sum(resp == 1, na.rm = TRUE)

@@ -66,3 +66,51 @@ test_that("weighted Poisson residual variance matches the duplicated-row fit", {
   mu_wt <- pmax(as.numeric(stats::fitted(m_wt$model)), .Machine$double.eps)
   expect_false(isTRUE(all.equal(rv_wt, mean(log1p(1 / mu_wt)), tolerance = 1e-3)))
 })
+
+# ---- brms sampling-weighted count VPC reads the .maihda_sw column ------------
+
+test_that("brms Poisson count VPC averages the latent variance by the sampling weights", {
+  # Regression guard: brms exposes no weights.brmsfit, so maihda_fit_prior_weights()
+  # saw nothing through stats::weights() and the population count-family VPC fell back
+  # to an UNWEIGHTED mean of the per-row latent variance, despite the design-weighted
+  # claim. The sampling weights live in the reserved .maihda_sw data column, so they
+  # must be read from there and folded into the average.
+  skip_on_cran()
+  skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
+          "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
+  skip_if_not_installed("brms")
+
+  set.seed(515)
+  n <- 300
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE),
+    stringsAsFactors = FALSE
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  u <- stats::rnorm(nlevels(sk), sd = 0.6)[sk]
+  d$y <- stats::rpois(n, lambda = exp(0.3 + 0.5 * (d$gender == "M") + u))
+  # Weights strongly tied to the linear predictor so the weighted and unweighted
+  # means of the per-row latent variance genuinely differ.
+  d$w <- ifelse(d$gender == "M", 3, 0.4) * stats::runif(n, 0.8, 1.2)
+
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ gender + (1 | gender:race), data = d,
+               engine = "brms", family = "poisson", sampling_weights = "w",
+               chains = 1, iter = 300, refresh = 0)
+  ))
+
+  # The raw brmsfit really exposes the normalized sampling weights for the helper.
+  w_read <- maihda_fit_prior_weights(m$model)
+  expect_false(is.null(w_read))
+  expect_equal(length(w_read), maihda_nobs(m$model))
+
+  mu <- pmax(as.numeric(stats::fitted(m$model, summary = TRUE)[, "Estimate"]),
+             .Machine$double.eps)
+  rv_unwt <- mean(log1p(1 / mu))
+  rv_wt   <- maihda_weighted_obs_mean(log1p(1 / mu), w_read)
+
+  rv_path <- maihda_residual_variance_draws_brms(m$model, as.data.frame(m$model))
+  expect_equal(rv_path[1], rv_wt)                          # uses the weighted average
+  expect_false(isTRUE(all.equal(rv_path[1], rv_unwt)))     # not the old unweighted one
+})

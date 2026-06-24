@@ -195,6 +195,29 @@ test_that("fit_maihda fits a cumulative model via clmm with auto-switch and cont
   )
 })
 
+test_that("clmm prefilters on the evaluated frame, not raw complete.cases", {
+  skip_on_cran()
+  skip_if_not_installed("ordinal")
+
+  d <- make_ord_data(n = 400)
+  d$pos <- stats::runif(nrow(d), 1, 5)
+  # Two rows whose transformed predictor log(pos) is NaN. pos itself is non-missing, so
+  # a raw complete.cases() on the formula columns keeps them -- the stored wrapper data
+  # would then hold more rows than clmm actually fits, breaking downstream row alignment
+  # (predictions / plots keyed off m$data). The evaluated analytic frame drops them.
+  d$pos[c(4, 8)] <- -1
+
+  expect_warning(
+    m <- suppressMessages(fit_maihda(y ~ log(pos) + (1 | gender:race:edu),
+                                     data = d, family = "ordinal")),
+    "dropped 2 row"
+  )
+  expect_equal(nrow(m$data), nrow(d) - 2)
+  # Stored analytic frame matches the rows clmm actually fit.
+  expect_equal(nrow(m$data), as.integer(stats::nobs(m$model)))
+  expect_true(all(is.finite(log(m$data$pos))))
+})
+
 test_that("summary of a clmm MAIHDA reports the latent-scale VPC and thresholds", {
   skip_on_cran()
   skip_if_not_installed("ordinal")

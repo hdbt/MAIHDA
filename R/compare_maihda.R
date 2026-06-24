@@ -726,8 +726,13 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     present_terms <- dim_terms[
       vapply(dim_terms, maihda_quote_name, character(1)) %in% supplied_fixed]
     if (length(present_terms) > 0) {
+      # Quote through maihda_quote_name() (the same path used to DETECT the terms
+      # against supplied_fixed) rather than a manual sprintf("`%s`", .): a bare
+      # backtick wrap mis-parses a name that itself contains a backtick, so the two
+      # paths would disagree for that rare-but-legal case.
+      quoted_terms <- vapply(present_terms, maihda_quote_name, character(1))
       fit_formula <- stats::update(fit_formula, stats::as.formula(
-        paste(". ~ . -", paste(sprintf("`%s`", present_terms), collapse = " - "))))
+        paste(". ~ . -", paste(quoted_terms, collapse = " - "))))
     }
   }
 

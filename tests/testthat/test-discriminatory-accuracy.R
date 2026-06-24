@@ -255,6 +255,52 @@ test_that("maihda_discriminatory_accuracy computes a count-weighted AUC for a br
   expect_equal(da$auc, maihda_auc(expanded_prob, expanded_y))
 })
 
+test_that("aggregated-binomial AUC folds sampling weights into the case/control mass", {
+  # Regression guard: a brms `y | trials(n)` fit with sampling_weights took the
+  # aggregated branch, which previously computed an UNWEIGHTED count AUC while still
+  # reporting weighted = TRUE (a design-weighted AUC the README/print() claim). The
+  # weights must fold into the per-row case/control mass, exactly as the Bernoulli
+  # design-weighted branch does, so the reported AUC is the population concordance.
+  skip_on_cran()
+  skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
+          "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
+  skip_if_not_installed("brms")
+
+  set.seed(909)
+  K <- 12
+  agg <- data.frame(
+    stratum = factor(sprintf("s%02d", seq_len(K))),
+    total   = sample(20:40, K, replace = TRUE)
+  )
+  agg$success <- stats::rbinom(K, agg$total, stats::plogis(seq(-1.6, 1.6, length.out = K)))
+  # Weights negatively associated with the risk gradient, so folding them shifts the
+  # ranking mass enough to move the AUC (a no-op weighting would not detect the bug).
+  agg$w <- rev(seq(0.2, 3, length.out = K))
+
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(success | trials(total) ~ (1 | stratum), data = agg,
+               engine = "brms", family = "binomial", sampling_weights = "w",
+               chains = 1, iter = 300, refresh = 0)
+  ))
+
+  prob_row <- predict_maihda(m, type = "individual", scale = "response") /
+    maihda_brms_trial_counts(m)
+  success  <- as.numeric(maihda_da_observed_response(m))
+  trials   <- maihda_brms_trial_counts(m)
+  sw       <- maihda_prior_weights(m)
+
+  auc_unwt <- maihda_auc_weighted(prob_row, success, trials)
+  auc_wt   <- maihda_auc_weighted(prob_row, sw * success, sw * trials)
+
+  da <- maihda_discriminatory_accuracy(m)
+  expect_true(da$weighted)                               # claimed design-weighted ...
+  expect_equal(da$auc, auc_wt)                           # ... and actually IS weighted
+  expect_false(isTRUE(all.equal(da$auc, auc_unwt)))      # not the old unweighted value
+  # Reported case/control totals stay UNWEIGHTED observation counts.
+  expect_equal(da$n_case, sum(agg$success))
+  expect_equal(da$n_control, sum(agg$total - agg$success))
+})
+
 test_that("DA helpers accept a brms Bernoulli family (not only 'binomial')", {
   # fit_maihda(engine = "brms") fits a binary 0/1 outcome with bernoulli(); the DA
   # helpers must treat that as a logistic MAIHDA model. Relabel a real lme4 binomial

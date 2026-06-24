@@ -512,6 +512,43 @@ maihda_analytic_model_frame <- function(formula, data, subset = NULL,
   )
 }
 
+# Logical keep-mask (over the rows of `data`) selecting exactly the rows that survive
+# into the analytic model frame above: rows kept by the subset / prior-weight row mask
+# AND not dropped by na.omit once the formula's response and fixed-effect
+# transformations are applied. This is maihda_analytic_model_frame()'s row selection
+# exposed as a position-based mask (the na.action indices are mapped back to original
+# rows, so it does not rely on rownames being preserved), letting the wemix/ordinal
+# engines prefilter `data` to the rows their fit actually uses. A raw
+# complete.cases() over the formula's columns misses NAs that only appear after a
+# transformed term (e.g. log(x) of x <= 0), so the stored frame and the engine's
+# fitted rows could disagree. Returns NULL when the frame cannot be built (callers
+# fall back to a raw complete.cases()).
+maihda_analytic_keep_mask <- function(formula, data, subset = NULL, weights = NULL) {
+  premask <- maihda_row_mask(data, subset = subset, weights = weights)
+  fr_form <- tryCatch(reformulas::subbars(formula), error = function(e) NULL)
+  if (is.null(fr_form)) {
+    return(NULL)
+  }
+  environment(fr_form) <- environment(formula)
+  mf <- tryCatch(
+    stats::model.frame(fr_form, data = data[premask, , drop = FALSE],
+                       na.action = stats::na.omit),
+    error = function(e) NULL
+  )
+  if (is.null(mf)) {
+    return(NULL)
+  }
+  keep <- premask
+  omit <- attr(mf, "na.action")
+  if (!is.null(omit)) {
+    # `omit` indexes rows WITHIN data[premask, ]; map those positions back to the
+    # corresponding original rows before clearing them.
+    kept_idx <- which(premask)
+    keep[kept_idx[as.integer(omit)]] <- FALSE
+  }
+  keep
+}
+
 # The model response over the analytic sample (post-transformation, post-NA,
 # post-subset and post-weight-NA). Only plain-symbol responses qualify as a
 # Bernoulli candidate, so a transformed or aggregated response (log(y),
@@ -1388,7 +1425,26 @@ maihda_gaussian_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(mod
 # unweighted mean); anything else falls through the tryCatch to NULL. Distinct from
 # maihda_prior_weights(), which takes the maihda_model WRAPPER and aligns row weights
 # (sampling/aggregated-binomial aware) for the plot/summary aggregations.
+#
+# brms exposes NO weights.brmsfit accessor, so stats::weights() would return NULL and
+# a sampling-weighted brms fit would be read as unweighted -- biasing the population
+# count-family (Poisson/NB) VPC, whose level-1 variance averages a per-row term that
+# MUST be weighted (see maihda_residual_variance_draws_brms()). A sampling-weighted
+# MAIHDA brms fit instead carries the (mean-1 normalized) likelihood weights in the
+# reserved `.maihda_sw` data column, aligned to the same rows stats::fitted() returns,
+# so read them straight off brmsfit$data; an unweighted brms fit has no such column
+# and correctly degrades to NULL (the unweighted mean).
 maihda_fit_prior_weights <- function(model) {
+  if (inherits(model, "brmsfit")) {
+    d <- tryCatch(model$data, error = function(e) NULL)
+    if (is.data.frame(d) && ".maihda_sw" %in% names(d)) {
+      w <- suppressWarnings(as.numeric(d[[".maihda_sw"]]))
+      if (length(w) > 0) {
+        return(w)
+      }
+    }
+    return(NULL)
+  }
   w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
   if (is.null(w) || length(w) == 0) {
     return(NULL)

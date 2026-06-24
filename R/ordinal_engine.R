@@ -163,17 +163,26 @@ maihda_ordinal_prepare_response <- function(data, formula) {
 #'   analytic data frame actually fitted).
 #' @keywords internal
 maihda_fit_clmm <- function(formula, data, family, dot_vals) {
-  model_vars <- intersect(all.vars(formula), names(data))
-  complete <- stats::complete.cases(data[, model_vars, drop = FALSE])
-  if (!any(complete)) {
+  # Keep exactly the rows clmm will fit: the evaluated analytic frame (response and
+  # fixed-effect transformations applied, rows missing AFTER those transformations
+  # dropped). A raw complete.cases() over the formula's columns misses NAs introduced
+  # by a transformed term (e.g. log(x) of x <= 0), which left the stored wrapper data
+  # holding more rows than clmm actually fit and broke downstream row alignment. Fall
+  # back to the raw check only when the analytic frame cannot be built.
+  keep <- maihda_analytic_keep_mask(formula, data)
+  if (is.null(keep)) {
+    model_vars <- intersect(all.vars(formula), names(data))
+    keep <- stats::complete.cases(data[, model_vars, drop = FALSE])
+  }
+  if (!any(keep)) {
     stop("No usable rows remain for the ordinal fit after dropping rows with ",
          "missing model variables.", call. = FALSE)
   }
-  if (sum(!complete) > 0) {
+  if (sum(!keep) > 0) {
     warning(sprintf(paste0("fit_maihda(): dropped %d row(s) with missing model ",
-                           "variables before the ordinal fit."), sum(!complete)),
+                           "variables before the ordinal fit."), sum(!keep)),
             call. = FALSE)
-    data <- data[complete, , drop = FALSE]
+    data <- data[keep, , drop = FALSE]
   }
 
   args <- list(
