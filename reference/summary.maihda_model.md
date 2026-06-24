@@ -96,14 +96,19 @@ A maihda_summary object containing:
   For a binomial/Bernoulli outcome, the `maihda_da` object (AUC + MOR)
   from
   [`maihda_discriminatory_accuracy`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md);
-  `NULL` otherwise (and for a cross-classified fit, whose single-stratum
-  between-variance the MOR needs is not defined across crossed random
-  effects)
+  `NULL` otherwise. Also `NULL` for a crossed-dimensions fit (whose
+  single-stratum between-variance the MOR needs is not defined across
+  crossed random effects) and for a contextual cross-classified fit
+  (`fit_maihda(context = )`), where the AUC would be built from
+  predictions that include the context random effects – a mismatch with
+  the stratum-vs-context partition the summary reports
 
 - vpc_response:
 
   The response-scale VPC (`maihda_vpc_response`) when
-  `response_vpc = TRUE` for a binomial lme4 model; `NULL` otherwise
+  `response_vpc = TRUE` for a single-stratum binomial lme4 model; `NULL`
+  otherwise (including for crossed-dimensions and contextual fits, whose
+  partition the stratum-only simulation does not match)
 
 - stratum_estimates:
 
