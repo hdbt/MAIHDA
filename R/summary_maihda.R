@@ -88,11 +88,16 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'     otherwise}
 #'   \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
 #'     \code{maihda_da} object (AUC + MOR) from
-#'     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise (and for a
-#'     cross-classified fit, whose single-stratum between-variance the MOR needs is
-#'     not defined across crossed random effects)}
+#'     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise. Also
+#'     \code{NULL} for a crossed-dimensions fit (whose single-stratum between-variance
+#'     the MOR needs is not defined across crossed random effects) and for a
+#'     contextual cross-classified fit (\code{fit_maihda(context = )}), where the AUC
+#'     would be built from predictions that include the context random effects -- a
+#'     mismatch with the stratum-vs-context partition the summary reports}
 #'   \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
-#'     \code{response_vpc = TRUE} for a binomial lme4 model; \code{NULL} otherwise}
+#'     \code{response_vpc = TRUE} for a single-stratum binomial lme4 model;
+#'     \code{NULL} otherwise (including for crossed-dimensions and contextual fits,
+#'     whose partition the stratum-only simulation does not match)}
 #'   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
 #'   \item{fixed_effects}{Fixed effects estimates}
 #'   \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut
@@ -400,13 +405,20 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
   # cross-classified additive/interaction `decomposition` slot above is computed in
   # this same summary layer so that fit_maihda() and maihda() share the logic.
   # Skipped for a cross-classified fit (its MOR / response-VPC need a single-stratum
-  # between-variance that is not defined across crossed random effects) and wrapped so
-  # a bonus summary never breaks the core VPC.
+  # between-variance that is not defined across crossed random effects) and for a
+  # contextual cross-classified fit (fit_maihda(context = )): there the AUC is built
+  # from full predictions that INCLUDE the context random effects while the
+  # response-scale VPC simulates only the stratum variance, so neither matches the
+  # stratum-vs-context partition this summary reports -- attaching them would pin a
+  # mismatched estimand to the contextual partition. Also skipped for a longitudinal
+  # fit, whose VPC is time-varying. Wrapped so a bonus summary never breaks the core
+  # VPC.
   discriminatory_accuracy <- NULL
   vpc_response <- NULL
   fam_name <- tryCatch(maihda_model_family_name(object),
                        error = function(e) NA_character_)
-  if (is.null(cc) && is.null(lng) && isTRUE(fam_name %in% c("binomial", "bernoulli"))) {
+  if (is.null(cc) && is.null(ctx) && is.null(lng) &&
+      isTRUE(fam_name %in% c("binomial", "bernoulli"))) {
     discriminatory_accuracy <- tryCatch(
       maihda_discriminatory_accuracy(object), error = function(e) NULL)
     if (isTRUE(response_vpc) && identical(engine, "lme4") &&

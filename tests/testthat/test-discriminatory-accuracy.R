@@ -160,6 +160,42 @@ test_that("maihda_discriminatory_accuracy computes a count-weighted AUC for aggr
   expect_equal(da$auc, maihda_auc(expanded_prob, expanded_y))
 })
 
+test_that("aggregated-binomial AUC stays trial-weighted when every row is all-case or all-control", {
+  # Regression: each cbind(success, failure) cell is all-success OR all-failure, so the
+  # response PROPORTIONS are exactly 0/1 and the old "response has values outside {0,1}"
+  # heuristic misread the fit as individual-level Bernoulli. With several cells per
+  # stratum, (1 | stratum) gives ONE fitted probability per stratum, so the unweighted
+  # row-level path saw tied probabilities with mixed 0/1 labels -- collapsing the AUC to
+  # 0.5 and reporting one pseudo-observation per row. Detection is now structural (the
+  # cbind response is a two-column matrix), so the trial-weighted C-statistic and the
+  # true success/failure totals are reported.
+  agg <- data.frame(
+    stratum = factor(c("s1", "s1", "s1", "s1", "s2", "s2", "s2", "s2")),
+    success = c(90, 0, 70, 0,   0, 8, 0, 6),
+    failure = c(0, 12, 0, 10,   85, 0, 60, 0)
+  )
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(cbind(success, failure) ~ (1 | stratum), data = agg, family = "binomial")
+  ))
+
+  da <- maihda_discriminatory_accuracy(m)
+  expect_s3_class(da, "maihda_da")
+  # Totals are the trial-level success / failure counts, not the 8-row count.
+  expect_equal(da$n_case, sum(agg$success))      # 174
+  expect_equal(da$n_control, sum(agg$failure))   # 167
+  expect_false(da$n_case + da$n_control == nrow(agg))
+
+  # AUC is the trial-weighted C-statistic over the expanded individual-level 0/1 data,
+  # NOT the unweighted rank over the stratum rows (which the tied probabilities would
+  # have driven to 0.5).
+  prob <- predict_maihda(m, type = "individual", scale = "response")
+  expanded_prob <- unlist(Map(function(p, s, f) rep(p, s + f), prob, agg$success, agg$failure))
+  expanded_y    <- unlist(Map(function(s, f) c(rep(1, s), rep(0, f)), agg$success, agg$failure))
+  expect_equal(da$auc, maihda_auc(expanded_prob, expanded_y))
+  expect_gt(da$auc, 0.7)                                 # the real separation survives
+  expect_gt(da$auc, maihda_auc(prob, as.numeric(lme4::getME(m$model, "y"))))  # > row-level
+})
+
 test_that("DA helpers accept a brms Bernoulli family (not only 'binomial')", {
   # fit_maihda(engine = "brms") fits a binary 0/1 outcome with bernoulli(); the DA
   # helpers must treat that as a logistic MAIHDA model. Relabel a real lme4 binomial

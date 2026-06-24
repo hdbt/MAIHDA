@@ -587,6 +587,46 @@ test_that("compare_maihda_groups reports a per-group PCV with >= 2 dimensions", 
   expect_s3_class(plot(cmp, type = "pcv"), "ggplot")
 })
 
+test_that("compare_maihda_groups strips supplied dimension main effects before the per-group PCV", {
+  # Regression: passing a fully-specified ADJUSTED formula (the dimensions' additive
+  # main effects written out) directly to compare_maihda_groups() must give the SAME
+  # per-group decomposition as the bare null shorthand. Previously the supplied
+  # formula was fitted as the per-group BASE model, then maihda_adjusted_formula()
+  # re-added the same main effects, so the "adjusted" model equalled the base: PCV
+  # collapsed to 0/NA and the stratum random effect went singular.
+  set.seed(3303)
+  n <- 600
+  d <- data.frame(
+    country = rep(c("A", "B", "C"), length.out = n),
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    ses = sample(c("lo", "mid", "hi"), n, replace = TRUE),
+    age = rnorm(n)
+  )
+  sk <- interaction(d$gender, d$ses, drop = TRUE)
+  d$y <- 1 + 0.4 * d$age + rnorm(nlevels(sk), sd = 1.0)[sk] + rnorm(n, sd = 0.5)
+
+  # Bare shorthand: the supplied fit IS the null, the documented base form.
+  cmp_null <- suppressWarnings(
+    compare_maihda_groups(y ~ age + (1 | gender:ses), data = d, group = "country")
+  )
+  # Fully-specified adjusted formula: the dimensions' main effects are present and
+  # must be stripped so the per-group base stays the null.
+  cmp_adj <- suppressWarnings(
+    compare_maihda_groups(y ~ age + gender + ses + (1 | gender:ses), data = d,
+                          group = "country")
+  )
+
+  ok <- cmp_null$status == "ok" & cmp_adj$status == "ok"
+  expect_true(any(ok))
+  # Identical null base => identical VPC, between-stratum variance, and PCV.
+  expect_equal(cmp_adj$vpc[ok], cmp_null$vpc[ok], tolerance = 1e-6)
+  expect_equal(cmp_adj$var_between[ok], cmp_null$var_between[ok], tolerance = 1e-6)
+  expect_equal(cmp_adj$pcv[ok], cmp_null$pcv[ok], tolerance = 1e-6)
+  # Finite and not collapsed to ~0 (the symptom of the unstripped re-added terms).
+  expect_true(all(is.finite(cmp_adj$pcv[ok])))
+  expect_false(all(abs(cmp_adj$pcv[ok]) < 1e-6))
+})
+
 test_that("compare_maihda_groups omits the PCV columns with a single dimension", {
   set.seed(3302)
   n <- 300

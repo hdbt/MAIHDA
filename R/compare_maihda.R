@@ -698,6 +698,33 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     strata_attr_names
   )
 
+  # When a per-group decomposition will run, the BASE model fitted below must be the
+  # NULL (covariates only): the two-model PCV compares it against an adjusted model
+  # that ADDS the dimensions' additive main effects, and the crossed-dimensions form
+  # enters those dimensions as random effects. If the supplied formula already lists
+  # the dimension main effects (e.g. math ~ gender + ses + (1 | gender:ses)), strip
+  # them here -- exactly as maihda() does before it delegates -- so the adjusted model
+  # does not re-add the same terms (collapsing PCV to 0/NA and pinning the stratum
+  # variance to a singular boundary) and the crossed-dimensions model does not enter a
+  # dimension as both a fixed and a random effect. Idempotent when maihda() already
+  # stripped them, and a no-op for the bare shorthand (1 | a:b) that carries no main
+  # effects. An auto-binned numeric dimension is reconstructed as its tertile factor
+  # (.maihda_dim_*) for the comparison, which a user formula never names, so it is
+  # left in place -- matching maihda()'s quoted-term presence test.
+  if (do_decomp || do_cc) {
+    dim_terms <- maihda_adjusted_terms(decomp_vars,
+                                       carried_attrs[["strata_autobin_info"]],
+                                       data)$terms
+    supplied_fixed <- attr(stats::terms(reformulas::nobars(fit_formula)),
+                           "term.labels")
+    present_terms <- dim_terms[
+      vapply(dim_terms, maihda_quote_name, character(1)) %in% supplied_fixed]
+    if (length(present_terms) > 0) {
+      fit_formula <- stats::update(fit_formula, stats::as.formula(
+        paste(". ~ . -", paste(sprintf("`%s`", present_terms), collapse = " - "))))
+    }
+  }
+
   group_values <- as.character(data[[group]])
   group_levels <- sort(unique(group_values[!is.na(group_values)]))
   if (length(group_levels) == 0) {

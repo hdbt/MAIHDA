@@ -141,6 +141,36 @@ test_that("summary() partitions stratum vs. context vs. residual coherently", {
   expect_gt(s$context$vpc_context_total, 0.05)
 })
 
+test_that("summary() of a binomial contextual fit attaches no discriminatory accuracy or response VPC", {
+  # The DA's AUC is built from full predictions that INCLUDE the context random
+  # effects, while the response-scale VPC simulates only the stratum variance -- so
+  # neither matches the stratum-vs-context partition the contextual summary reports.
+  # Both are therefore skipped for a contextual fit (as they are for crossed-dimensions
+  # and longitudinal fits), rather than pinning a mismatched estimand to the partition.
+  set.seed(8131)
+  d <- make_context_data(n = 2000, n_sites = 25)
+  d$yb <- stats::rbinom(nrow(d), 1, stats::plogis(d$y - mean(d$y)))
+
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(yb ~ x + (1 | g1:g2), data = d, context = "site", family = "binomial")
+  ))
+  expect_false(is.null(m$context_info))
+
+  s <- suppressWarnings(suppressMessages(summary(m, response_vpc = TRUE, seed = 1)))
+  # The contextual partition is still produced...
+  expect_false(is.null(s$context))
+  # ...but the binomial companions that would carry a mismatched estimand are not.
+  expect_null(s$discriminatory_accuracy)
+  expect_null(s$vpc_response)
+
+  # A single-stratum binomial fit on the same data DOES surface the DA -- confirming
+  # the skip is specific to the contextual structure, not the family.
+  m_plain <- suppressWarnings(suppressMessages(
+    fit_maihda(yb ~ x + (1 | g1:g2), data = d, family = "binomial")
+  ))
+  expect_s3_class(summary(m_plain)$discriminatory_accuracy, "maihda_da")
+})
+
 test_that("the contextual headline VPC equals the generic multi-RE VPC", {
   # The generic single-stratum path already puts extra RE variance in the VPC
   # denominator ("Other random effects"); the contextual path must agree on the

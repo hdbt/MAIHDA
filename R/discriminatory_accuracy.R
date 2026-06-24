@@ -196,14 +196,23 @@ maihda_discriminatory_accuracy <- function(model) {
   prob <- predict_maihda(model, type = "individual", scale = "response")
   resp <- maihda_da_observed_response(model)
 
-  # fit_maihda() supports aggregated-binomial responses (cbind(success, failure) or
-  # `y | trials(n)`). For an lme4 aggregated fit getME(, "y") returns success
-  # PROPORTIONS rather than 0/1, and the per-row trial counts live in the prior
-  # weights. Detect that case and compute a count-weighted AUC over the implied
-  # individual-level 0/1 data, instead of passing a non-0/1 response to maihda_auc()
-  # (which errors). A true Bernoulli fit takes the ordinary rank-based path.
-  aggregated <- identical(model$engine, "lme4") &&
-    !all(resp %in% c(0, 1) | is.na(resp))
+  # fit_maihda() supports aggregated-binomial responses (an lme4 cbind(success,
+  # failure)). Detect aggregation STRUCTURALLY from the fitted model frame -- glmer
+  # stores a cbind() response as a two-column [successes, failures] matrix -- and read
+  # the trial counts straight from it, then compute a count-weighted AUC over the
+  # implied individual-level 0/1 data instead of passing a non-0/1 response to
+  # maihda_auc() (which errors). The earlier heuristic inferred aggregation from the
+  # response carrying values outside {0, 1}, which silently failed when every
+  # aggregated row was all-success or all-failure (proportions exactly 0/1): such a
+  # fit fell through to an unweighted row-level AUC with one pseudo-observation per
+  # stratum and wrong case/control totals. agg_counts is NULL for a true Bernoulli
+  # fit (which takes the ordinary rank-based path) and is aligned to prob's rows.
+  agg_counts <- if (identical(model$engine, "lme4")) {
+    maihda_da_aggregated_counts(model)
+  } else {
+    NULL
+  }
+  aggregated <- !is.null(agg_counts) && length(agg_counts$successes) == length(prob)
   # Design-weighted fit (sampling_weights supplied): compute the design-weighted
   # AUC, where each observation contributes its sampling weight as case (y = 1) or
   # control (y = 0) mass -- the weighted Mann-Whitney concordance, estimating the
@@ -213,8 +222,8 @@ maihda_discriminatory_accuracy <- function(model) {
   design_weighted <- !is.null(sw) && length(sw) == length(prob) &&
     any(is.finite(sw)) && !isTRUE(all(abs(sw - 1) < sqrt(.Machine$double.eps)))
   if (aggregated) {
-    trials <- maihda_da_trial_counts(model$model, length(resp))
-    successes <- round(resp * trials)
+    successes <- agg_counts$successes
+    trials <- agg_counts$trials
     auc <- maihda_auc_weighted(prob, successes, trials)
     n_case <- sum(successes, na.rm = TRUE)
     n_control <- sum(trials - successes, na.rm = TRUE)
@@ -330,20 +339,40 @@ maihda_da_observed_response <- function(model) {
   as.numeric(y)
 }
 
-# Per-row binomial TRIAL counts for an aggregated-binomial lme4 fit. glmer stores a
-# cbind(success, failure) response internally as success proportions with the trial
-# totals as the prior weights, so weights(, "prior") recovers the counts. (This is
-# deliberately distinct from maihda_prior_weights(), which returns unit weights for
-# aggregated binomial to avoid double-counting in stratum-level plot aggregation --
-# here we WANT the raw trial counts.) Falls back to unit counts when the accessor is
-# unavailable or the length is unexpected.
-maihda_da_trial_counts <- function(fitted_model, n) {
-  w <- tryCatch(as.numeric(stats::weights(fitted_model, type = "prior")),
-                error = function(e) NULL)
-  if (is.null(w) || length(w) != n || any(!is.finite(w))) {
-    return(rep(1, n))
+# Per-row success / trial counts for an aggregated-binomial lme4 fit, or NULL when
+# the fit is not aggregated. An lme4 cbind(success, failure) response is stored in the
+# fitted model frame (model$data) as a two-column [successes, failures] matrix, so it
+# carries a `dim` regardless of the per-row proportions -- the STRUCTURAL signal of
+# aggregation, used the same way maihda_prior_weights() recognises it. Reading the
+# counts from the matrix is exact (no proportion x trials rounding). A fallback
+# recovers the trial counts from the prior weights (glmer stores cbind() trials there)
+# when the model frame did not retain the matrix response; it is gated on the fit
+# being unweighted so a design/precision-weighted Bernoulli fit -- whose prior weights
+# are the sampling weights, not trial counts -- is never misread as aggregated.
+maihda_da_aggregated_counts <- function(model) {
+  resp <- tryCatch(stats::model.response(model$data), error = function(e) NULL)
+  if (!is.null(resp) && !is.null(dim(resp)) && ncol(resp) == 2L) {
+    successes <- as.numeric(resp[, 1])
+    trials <- successes + as.numeric(resp[, 2])
+    if (all(is.finite(trials))) {
+      return(list(successes = successes, trials = trials))
+    }
   }
-  w
+  # Fallback: a genuine Bernoulli fit has unit prior weights, so trial counts > 1
+  # anywhere mark an aggregated fit; pair them with the success proportions from
+  # getME(, "y"). Skipped when sampling weights are in play (their prior weights are
+  # not trial counts).
+  if (!is.null(model$sampling_weights)) {
+    return(NULL)
+  }
+  y <- tryCatch(as.numeric(lme4::getME(model$model, "y")), error = function(e) NULL)
+  w <- tryCatch(as.numeric(stats::weights(model$model, type = "prior")),
+                error = function(e) NULL)
+  if (!is.null(y) && !is.null(w) && length(y) == length(w) &&
+      all(is.finite(w)) && any(w > 1)) {
+    return(list(successes = round(y * w), trials = w))
+  }
+  NULL
 }
 
 # Count-weighted AUC / C-statistic for an aggregated-binomial fit. Each row i carries
