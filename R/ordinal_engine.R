@@ -406,6 +406,39 @@ maihda_ordinal_eta_to_score <- function(eta, thresholds, link = "logit") {
   )
 }
 
+#' Posterior-mean cumulative thresholds of a brms cumulative fit
+#'
+#' The brms analogue of \code{clmm}'s \code{object$model$alpha}: the ordered cut
+#' points \eqn{\alpha_k} of a \code{brms::cumulative()} fit, read as posterior
+#' means from \code{brms::fixef()}, where they appear as \code{Intercept[1]},
+#' \code{Intercept[2]}, ... (any location predictors are separate rows and are
+#' dropped here). Returned in threshold order so they pair with the
+#' \code{brms::posterior_linpred(re_formula = NA)} location -- which excludes the
+#' thresholds, exactly the latent \eqn{\eta} that
+#' \code{\link{maihda_ordinal_category_probs}} expects (\eqn{P(Y \le k) =
+#' g^{-1}(\alpha_k - \eta)}).
+#'
+#' @param model A fitted \code{brmsfit} from \code{brms::cumulative()}.
+#' @return A numeric vector of thresholds (length \eqn{K-1} for \eqn{K} categories).
+#' @keywords internal
+maihda_brms_ordinal_thresholds <- function(model) {
+  fx <- tryCatch(brms::fixef(model), error = function(e) NULL)
+  if (is.null(fx) || is.null(dim(fx)) || is.null(rownames(fx)) ||
+      !"Estimate" %in% colnames(fx)) {
+    stop("Could not read the cumulative thresholds from the brms fit ",
+         "(brms::fixef() returned no usable population-level summary).",
+         call. = FALSE)
+  }
+  rn <- rownames(fx)
+  thr_rows <- grep("^Intercept\\[[0-9]+\\]$", rn)
+  if (length(thr_rows) == 0) {
+    stop("Could not find cumulative thresholds (Intercept[k]) in the brms fit; ",
+         "is this a brms::cumulative() model?", call. = FALSE)
+  }
+  ord <- order(as.integer(sub("^Intercept\\[([0-9]+)\\]$", "\\1", rn[thr_rows])))
+  as.numeric(fx[thr_rows[ord], "Estimate"])
+}
+
 #' Per-stratum predictions for a cumulative (clmm) fit
 #'
 #' Ordinal counterpart of \code{maihda_stratum_predictions_wemix()}: per-stratum

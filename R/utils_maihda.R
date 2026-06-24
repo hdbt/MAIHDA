@@ -1700,14 +1700,17 @@ maihda_prior_weights <- function(object) {
       }
     }
   }
-  # Aggregated binomial responses (cbind(success, failure) / `y | trials(n)`)
-  # report the binomial TRIALS through weights(type = "prior"). For an OBSERVED
+  # Aggregated binomial responses (an lme4 cbind(success, failure) matrix, or a
+  # brms `y | trials(n)`) carry the binomial TRIALS per row. For an OBSERVED
   # stratum summary that aggregation is numerator/denominator based (sum of
   # successes / sum of trials), so the trials are already in the denominator and
   # multiplying the rows by them would double-count -- such models are unit-weighted
-  # HERE. Averaging fitted probabilities / linear predictors is different: a row
-  # with more trials carries more information and must be trial-weighted, so the
-  # prediction path uses maihda_prediction_weights() (below) instead of this.
+  # HERE. (An lme4 cbind() fit's two-column matrix response is recognised below; a
+  # brms trials() fit has a single-column response and no weights.brmsfit, so it
+  # falls through to unit weights too -- the same correct answer for this path.)
+  # Averaging fitted probabilities / linear predictors is different: a row with more
+  # trials carries more information and must be trial-weighted, so the prediction
+  # path uses maihda_prediction_weights() (below) instead of this.
   resp <- tryCatch(stats::model.response(object$data), error = function(e) NULL)
   if (!is.null(resp) && !is.null(dim(resp))) {
     return(rep(1, n))
@@ -1721,22 +1724,90 @@ maihda_prior_weights <- function(object) {
   w
 }
 
+# The argument expression of the first `trials(...)` call inside a brms response
+# addition term (the RHS of `y | ...`), or NULL when there is none. Recurses so a
+# combined term such as `trials(n) + weights(w)` is handled regardless of order.
+maihda_find_trials_expr <- function(expr) {
+  if (!is.call(expr)) {
+    return(NULL)
+  }
+  if (identical(expr[[1]], as.name("trials")) && length(expr) >= 2L) {
+    return(expr[[2]])
+  }
+  for (i in seq_along(expr)[-1]) {
+    found <- maihda_find_trials_expr(expr[[i]])
+    if (!is.null(found)) {
+      return(found)
+    }
+  }
+  NULL
+}
+
+# Binomial TRIAL counts of a brms `y | trials(n)` fit, aligned to object$data, or
+# NULL when the fit is not a brms aggregated-binomial model. brms exposes
+# model.frame.brmsfit but NO weights.brmsfit, so -- unlike an lme4 cbind() fit,
+# whose trials come through stats::weights(type = "prior") -- the counts are not
+# recoverable that way and a brms trials() fit would silently fall back to unit
+# row weights. Parse the trials() addition term off the stored formula instead and
+# evaluate it on the analytic frame, so brms trials() fits are trial-weighted like
+# their lme4 cbind() counterparts.
+maihda_brms_trial_counts <- function(object) {
+  if (!inherits(object$model, "brmsfit")) {
+    return(NULL)
+  }
+  f <- object$formula
+  if (inherits(f, "brmsformula") && inherits(f$formula, "formula")) {
+    f <- f$formula
+  }
+  if (!inherits(f, "formula") || length(f) < 3L) {
+    return(NULL)
+  }
+  lhs <- f[[2]]
+  if (!is.call(lhs) || !identical(lhs[[1]], as.name("|"))) {
+    return(NULL)
+  }
+  trials_expr <- maihda_find_trials_expr(lhs[[3]])
+  if (is.null(trials_expr)) {
+    return(NULL)
+  }
+  vals <- tryCatch(eval(trials_expr, envir = object$data, enclos = baseenv()),
+                   error = function(e) NULL)
+  if (is.null(vals)) {
+    return(NULL)
+  }
+  as.numeric(vals)
+}
+
 # Weights for averaging PREDICTIONS (fitted probabilities / linear predictors) over
 # the rows of a stratum, as distinct from the observed numerator/denominator
 # summaries that maihda_prior_weights() serves. Identical to maihda_prior_weights()
 # EXCEPT for aggregated-binomial responses (cbind(success, failure) / `y |
 # trials(n)`), where each row aggregates a different number of Bernoulli trials: the
 # row's fitted probability/linear predictor must be weighted by the binomial TRIAL
-# counts (weights(model, type = "prior")), not by unit weights, or a 2-trial row and
-# a 200-trial row would count equally in the stratum mean. For non-binomial fits the
-# two functions coincide, so unweighted and prior/sampling-weighted models are
-# unaffected. Trial counts are folded on top of any sampling weights (a sampling-
-# weighted aggregated-binomial row represents sw population units, each contributing
-# `trials` draws). These remain prior/precision (and, where present, sampling)
-# weights -- NOT a complex survey design; no design-based variance is computed.
+# counts, not by unit weights, or a 2-trial row and a 200-trial row would count
+# equally in the stratum mean. The counts come from stats::weights(type = "prior")
+# for an lme4 cbind() fit; for a brms `y | trials(n)` fit (no weights.brmsfit) they
+# are parsed from the formula's trials() term by maihda_brms_trial_counts(). For
+# non-binomial fits the two functions coincide, so unweighted and prior/sampling-
+# weighted models are unaffected. Trial counts are folded on top of any sampling
+# weights (a sampling-weighted aggregated-binomial row represents sw population
+# units, each contributing `trials` draws). These remain prior/precision (and,
+# where present, sampling) weights -- NOT a complex survey design; no design-based
+# variance is computed.
 maihda_prediction_weights <- function(object) {
   w <- maihda_prior_weights(object)
   n <- length(w)
+
+  # brms `y | trials(n)`: the response is a single column (not a cbind() matrix)
+  # and there is no weights.brmsfit, so the lme4 trials path below misses it. Read
+  # the trial counts off the formula and fold them onto any sampling weights,
+  # exactly as the lme4 cbind() branch folds prior-weight trials below.
+  brms_trials <- maihda_brms_trial_counts(object)
+  if (!is.null(brms_trials) && length(brms_trials) == n &&
+      all(is.finite(brms_trials))) {
+    return(w * brms_trials)
+  }
+
   resp <- tryCatch(stats::model.response(object$data), error = function(e) NULL)
   if (is.null(resp) || is.null(dim(resp))) {
     return(w)
@@ -2101,6 +2172,22 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
   prior_w <- maihda_prediction_weights(object)
   eta_fixed <- brms::posterior_linpred(model, newdata = data, re_formula = NA, summary = TRUE)[, "Estimate"]
 
+  # A cumulative (ordinal) brms fit's response scale is the EXPECTED CATEGORY
+  # SCORE sum_k k * P(Y = k) in [1, K], NOT the scalar inverse link (which would
+  # return a single cumulative probability in [0, 1]). Mirror the clmm path and
+  # the individual brms path in predict_maihda(): map the latent location to the
+  # score with the shared cumulative helpers. posterior_linpred() returns the
+  # location mu (thresholds excluded), so P(Y <= k) = g^-1(alpha_k - eta) holds
+  # with the posterior-mean thresholds. As on the clmm path this plugs point
+  # estimates into the nonlinear score (the stratum prediction is built from the
+  # stratum effect's point summaries anyway), rather than averaging the score
+  # over the posterior the way the per-individual fitted() array does.
+  is_ordinal <- maihda_family_is_ordinal(fam)
+  if (is_ordinal) {
+    ord_thresholds <- maihda_brms_ordinal_thresholds(model)
+    ord_link <- fam$link
+  }
+
   stratum_est <- summary_obj$stratum_estimates
   if (is.null(stratum_est) || nrow(stratum_est) == 0) {
     stop("No stratum estimates available.")
@@ -2111,7 +2198,14 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
   idx <- match(key, re_key)
 
   transform_eta <- function(eta) {
-    if (scale == "response") linkinv(eta) else eta
+    if (scale != "response") {
+      return(eta)
+    }
+    if (is_ordinal) {
+      maihda_ordinal_eta_to_score(eta, ord_thresholds, ord_link)
+    } else {
+      linkinv(eta)
+    }
   }
 
   # See the lme4 sibling: in a cross-classified model the stratum prediction must

@@ -847,6 +847,59 @@ test_that("aggregated-binomial stratum predictions are trial-weighted, not row-w
   expect_equal(unname(ph$w_sum), rep(sum(c(200, 5)), K))
 })
 
+test_that("brms y | trials(n) prediction weights are trial-weighted (Stan-free)", {
+  # Regression for the audit finding: brms exposes model.frame.brmsfit but NO
+  # weights.brmsfit, so a brms aggregated-binomial `y | trials(n)` fit could not
+  # recover its trial counts through stats::weights(type = "prior") the way an
+  # lme4 cbind() fit does -- its prediction weights silently fell back to unit row
+  # weights, contradicting NEWS/helper docs that promised both engines were
+  # trial-weighted. The counts are now parsed from the trials() addition term of
+  # the stored formula and evaluated on the analytic frame. No Stan: the weight
+  # helpers never call into brms (only inherits(model, "brmsfit") and a formula
+  # parse), so a bare fake brmsfit exercises the whole path.
+  trials <- c(200, 5, 50, 100)
+  d <- data.frame(
+    y = c(120, 2, 30, 40),
+    n = trials,
+    stratum = c("s1", "s1", "s2", "s2"),
+    stringsAsFactors = FALSE
+  )
+  m <- structure(
+    list(
+      model = structure(list(), class = "brmsfit"),
+      engine = "brms",
+      formula = y | trials(n) ~ x + (1 | stratum),
+      data = d,
+      family = list(family = "binomial", link = "logit"),
+      sampling_weights = NULL
+    ),
+    class = "maihda_model"
+  )
+
+  # Prediction weights ARE the binomial trial counts; the observed-summary prior
+  # weights stay unit (numerator/denominator path -- trials already in the
+  # denominator, so multiplying would double-count).
+  expect_equal(MAIHDA:::maihda_prediction_weights(m), trials)
+  expect_equal(MAIHDA:::maihda_prior_weights(m), rep(1, nrow(d)))
+
+  # A combined `trials(n) + weights(w)` addition term still finds the trials, and
+  # the trials fold on top of the (mean-1) sampling weights, exactly as an lme4
+  # cbind() + sampling-weighted fit folds them.
+  d2 <- d
+  d2$.maihda_sw <- c(2, 0.5, 1, 1)
+  m2 <- m
+  m2$data <- d2
+  m2$formula <- y | trials(n) + weights(.maihda_sw) ~ x + (1 | stratum)
+  m2$sampling_weights <- "w"
+  expect_equal(MAIHDA:::maihda_prediction_weights(m2), d2$.maihda_sw * trials)
+
+  # A brms fit with no trials() term (e.g. a plain Gaussian) is untouched: unit
+  # prediction weights, never spuriously trial-weighted.
+  m3 <- m
+  m3$formula <- y ~ x + (1 | stratum)
+  expect_equal(MAIHDA:::maihda_prediction_weights(m3), rep(1, nrow(d)))
+})
+
 test_that("binary detection respects negative subset indices and NA weights", {
   set.seed(2113)
   n <- 150

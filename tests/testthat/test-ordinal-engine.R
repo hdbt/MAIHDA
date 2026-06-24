@@ -444,6 +444,85 @@ test_that("fit_maihda routes the ordinal family to brms::cumulative()", {
   expect_identical(maihda_normalize_family_name(m2$family$family), "cumulative")
 })
 
+test_that("brms cumulative stratum predictions are expected category scores (Stan-free)", {
+  skip_if_not_installed("brms")
+
+  # Regression for the audit finding: the brms stratum-prediction helper applied
+  # the SCALAR inverse link on the response scale, so for a cumulative (ordinal)
+  # fit it returned a single cumulative probability in [0, 1] instead of the
+  # EXPECTED CATEGORY SCORE sum_k k * P(Y = k) in [1, K] that maihda_table() and
+  # the stratum plots document (and that the individual predict_maihda() path
+  # already returns). It now maps the latent location to the score via the shared
+  # cumulative helpers and posterior-mean thresholds.
+  eta_fixed  <- c(0.10, 0.30, -0.20, 0.50)   # location mu (thresholds excluded)
+  thresholds <- c(-0.5, 0.8)                  # K = 3 categories -> scores in [1, 3]
+  strata     <- c("s1", "s1", "s2", "s2")
+
+  # posterior_linpred(re_formula = NA) returns the location mu; fixef() carries
+  # the thresholds as Intercept[1], Intercept[2] PLUS a location predictor row
+  # 'x' that the threshold extractor must ignore.
+  local_mocked_bindings(
+    posterior_linpred = function(object, ...) {
+      matrix(eta_fixed, ncol = 1, dimnames = list(NULL, "Estimate"))
+    },
+    fixef = function(object, ...) {
+      matrix(c(thresholds, 0.4), ncol = 1,
+             dimnames = list(c("Intercept[1]", "Intercept[2]", "x"), "Estimate"))
+    },
+    .package = "brms"
+  )
+
+  m <- structure(
+    list(
+      model = structure(list(family = list(family = "cumulative", link = "logit")),
+                         class = "brmsfit"),
+      engine = "brms",
+      formula = y ~ x + (1 | stratum),
+      data = data.frame(stratum = strata, stringsAsFactors = FALSE),
+      family = list(family = "cumulative", link = "logit"),
+      sampling_weights = NULL
+    ),
+    class = "maihda_model"
+  )
+  summ <- list(stratum_estimates = data.frame(
+    stratum       = c("s1", "s2"),
+    random_effect = c(0.2, -0.3),
+    lower_95      = c(-0.1, -0.7),
+    upper_95      = c(0.5,  0.1),
+    stringsAsFactors = FALSE
+  ))
+
+  resp <- MAIHDA:::maihda_stratum_predictions_brms(m, summ, scale = "response")
+
+  # Every reported value is an expected category score in [1, K = 3], NOT a
+  # cumulative probability in [0, 1] (the bug). With these locations the scores
+  # all exceed 1, which directly rules out the old plogis() output (always < 1).
+  for (col in c("predicted_row", "lower_row", "upper_row", "fixed_row")) {
+    expect_true(all(resp[[col]] >= 1 & resp[[col]] <= 3))
+  }
+  expect_true(all(resp$predicted_row > 1))
+
+  # ...and they equal the per-stratum mean of the shared eta->score helper applied
+  # row-wise (unit weights here) -- the same quantity the clmm path returns.
+  idx <- match(strata, summ$stratum_estimates$stratum)
+  u   <- summ$stratum_estimates$random_effect[idx]
+  want_score <- tapply(
+    MAIHDA:::maihda_ordinal_eta_to_score(eta_fixed + u, thresholds, "logit"),
+    strata, mean
+  )
+  got_score <- stats::setNames(resp$predicted_row, as.character(resp$stratum))
+  expect_equal(as.numeric(got_score[names(want_score)]),
+               as.numeric(want_score), tolerance = 1e-10)
+
+  # The link scale is untouched: the latent location mu + stratum effect, NOT a
+  # score -- so the fix is scoped to scale = "response".
+  lnk <- MAIHDA:::maihda_stratum_predictions_brms(m, summ, scale = "link")
+  want_link <- tapply(eta_fixed + u, strata, mean)
+  got_link  <- stats::setNames(lnk$predicted_row, as.character(lnk$stratum))
+  expect_equal(as.numeric(got_link[names(want_link)]),
+               as.numeric(want_link), tolerance = 1e-10)
+})
+
 test_that("brms cumulative summary returns a draws-based latent VPC", {
   # Compiles a Stan model, so OPT-IN (set MAIHDA_TEST_BRMS=true). The latent
   # residual stubs and probability arithmetic are covered Stan-free above.
