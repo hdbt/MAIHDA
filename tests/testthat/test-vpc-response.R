@@ -58,4 +58,11 @@ test_that("maihda_vpc_response rejects non-binomial models and invalid n_sim", {
 
   m <- maihda_vpcr_fit()
   expect_error(maihda_vpc_response(m, n_sim = 10), "n_sim")
+  # A fractional count is rejected (rnorm() would silently truncate it while the
+  # recorded n_sim kept the fraction).
+  expect_error(maihda_vpc_response(m, n_sim = 100.5), "whole number")
+
+  # A valid whole number is stored as an integer, matching the realised draw count.
+  r <- maihda_vpc_response(m, n_sim = 100, seed = 1)
+  expect_identical(r$n_sim, 100L)
 })

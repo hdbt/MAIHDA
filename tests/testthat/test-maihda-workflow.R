@@ -26,6 +26,36 @@ test_that("maihda() returns a consistent bundle; groups NULL without group", {
   expect_equal(a$summary$vpc$estimate, summary(m_direct)$vpc$estimate, tolerance = 1e-8)
 })
 
+test_that("the formula builders quote non-syntactic dimension names safely", {
+  # Regression: maihda_adjusted_formula() (two-model path) and remove_terms()
+  # (crossed-dimensions path) built RHS terms with sprintf("`%s`", .), which breaks
+  # a legal name containing a backtick. maihda_quote_name() escapes it correctly.
+  expect_identical(maihda_quote_name("a`b"), "`a\\`b`")
+  expect_identical(maihda_quote_name("gender var"), "`gender var`")
+
+  set.seed(4101)
+  n <- 900
+  gv <- sample(c("F", "M"), n, TRUE)
+  rc <- sample(c("A", "B", "C"), n, TRUE)
+  sk <- interaction(gv, rc, drop = TRUE)
+  d <- data.frame(
+    y = 2 + 0.8 * (gv == "M") + rnorm(nlevels(sk), sd = 1.2)[sk] + rnorm(n, sd = 1),
+    `gender var` = gv, race = rc, check.names = FALSE
+  )
+
+  # Two-model path: the adjusted formula must add the backtick-quoted main effects.
+  a2 <- suppressMessages(suppressWarnings(maihda(y ~ (1 | `gender var`:race), data = d)))
+  expect_match(paste(deparse(a2$adjusted_formula), collapse = " "), "`gender var`",
+               fixed = TRUE)
+  expect_true(is.finite(a2$pcv$pvc))
+
+  # Crossed-dimensions path strips the explicit main effects via remove_terms().
+  a3 <- suppressMessages(suppressWarnings(
+    maihda(y ~ `gender var` + race + (1 | `gender var`:race), data = d,
+           decomposition = "crossed-dimensions")))
+  expect_true(is.finite(a3$summary$vpc$estimate))
+})
+
 test_that("maihda() with group attaches a comparison equal to compare_maihda_groups()", {
   d <- make_workflow_data(4002)
   a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d, group = "country"))

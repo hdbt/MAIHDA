@@ -45,7 +45,10 @@ test_that("maihda_ordinal_category_probs matches hand-computed plogis difference
   expect_equal(rowSums(probs_p), rep(1, 3))
 
   expect_error(maihda_ordinal_category_probs(eta, c(1, 0), "logit"),
-               "non-decreasing")
+               "strictly increasing")
+  # Equal adjacent thresholds (a zero-probability category) are rejected too.
+  expect_error(maihda_ordinal_category_probs(eta, c(0.4, 0.4), "logit"),
+               "strictly increasing")
   expect_error(maihda_ordinal_category_probs(eta, alpha, "cloglog"),
                "Unsupported cumulative link")
 })

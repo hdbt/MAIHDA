@@ -415,8 +415,11 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   missing_vars <- strata_vars[!dim_present]
 
   remove_terms <- function(f, terms) {
+    # maihda_quote_name() safely backtick-quotes each term, including the rare
+    # legal name containing a backtick that a manual sprintf("`%s`") would break.
+    quoted <- vapply(terms, maihda_quote_name, character(1))
     stats::update(f, stats::as.formula(
-      paste(". ~ . -", paste(sprintf("`%s`", terms), collapse = " - "))))
+      paste(". ~ . -", paste(quoted, collapse = " - "))))
   }
 
   # --- Crossed-dimensions decomposition -----------------------------------------

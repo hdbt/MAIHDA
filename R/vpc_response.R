@@ -82,9 +82,13 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
     stop("The response-scale VPC is only defined for binomial MAIHDA models ",
          "(any binomial link); this model uses family = '", fam, "'.", call. = FALSE)
   }
-  if (!is.numeric(n_sim) || length(n_sim) != 1 || !is.finite(n_sim) || n_sim < 100) {
-    stop("'n_sim' must be a single number >= 100.", call. = FALSE)
+  if (!is.numeric(n_sim) || length(n_sim) != 1 || !is.finite(n_sim) ||
+      n_sim < 100 || n_sim != floor(n_sim)) {
+    stop("'n_sim' must be a single whole number >= 100.", call. = FALSE)
   }
+  # rnorm() silently truncates a fractional count (rnorm(100.5) draws 100) while the
+  # recorded n_sim would keep the fraction; cast so the draw count and the report agree.
+  n_sim <- as.integer(n_sim)
 
   var_between <- tryCatch(extract_between_variance(model), error = function(e) NA_real_)
   if (!is.numeric(var_between) || length(var_between) != 1 ||

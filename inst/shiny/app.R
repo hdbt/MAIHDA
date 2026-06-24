@@ -33,6 +33,23 @@ maihda_theme <- bs_theme(
   "border-radius" = "0.6rem"
 )
 
+# 'haven' reads Stata (.dta) / SPSS (.sav) uploads but is only a Suggests, and it is
+# NOT in maihda_app_required_packages() (run_maihda_app() does not launch-gate on it),
+# so it may be absent at runtime. Advertise the formats the app can actually read:
+# DTA/SAV only when haven is installed, otherwise CSV alone -- rather than promising
+# formats the upload handler (reactive_data() below) would only reject at upload time.
+maihda_app_has_haven <- requireNamespace("haven", quietly = TRUE)
+maihda_app_upload_label <- if (maihda_app_has_haven) {
+  "Upload Data (CSV/DTA/SAV)"
+} else {
+  "Upload Data (CSV)"
+}
+maihda_app_upload_accept <- if (maihda_app_has_haven) {
+  c(".csv", ".dta", ".sav")
+} else {
+  ".csv"
+}
+
 ui <- page_navbar(
   id = "main_tabs",
   window_title = "MAIHDA Analysis Dashboard",
@@ -62,7 +79,7 @@ ui <- page_navbar(
                                 "Upload Custom Data" = "upload")),
         conditionalPanel(
           condition = "input.dataset == 'upload'",
-          fileInput("upload", "Upload Data (CSV/DTA/SAV)", accept = c(".csv", ".dta", ".sav"))
+          fileInput("upload", maihda_app_upload_label, accept = maihda_app_upload_accept)
         )
       ),
       accordion_panel(

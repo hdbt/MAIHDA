@@ -1304,6 +1304,40 @@ maihda_gaussian_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(mod
   sigma2 * mean(1 / w)
 }
 
+# Prior (precision/frequency) weights of a RAW fitted model object (glmerMod /
+# brmsfit) as a plain numeric vector, or NULL when the fit is unweighted or the
+# weights are unavailable. lme4 exposes them through stats::weights(type = "prior")
+# (all 1 for an unweighted fit, so the count-VPC average reduces exactly to the
+# unweighted mean); anything else falls through the tryCatch to NULL. Distinct from
+# maihda_prior_weights(), which takes the maihda_model WRAPPER and aligns row weights
+# (sampling/aggregated-binomial aware) for the plot/summary aggregations.
+maihda_fit_prior_weights <- function(model) {
+  w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
+  if (is.null(w) || length(w) == 0) {
+    return(NULL)
+  }
+  as.numeric(w)
+}
+
+# Mean of a per-observation latent-scale quantity, weighted by prior weights when
+# present. The count-family (Poisson/negative-binomial) level-1 VPC averages a
+# per-row latent variance log1p(1/mu + ...); with frequency weights w_i that average
+# must be sum(w_i v_i) / sum(w_i) so a weighted fit reproduces the plain mean over the
+# equivalent duplicated-row data. Reduces to mean(v, na.rm = TRUE) when weights are
+# absent, length-mismatched, or all 1.
+maihda_weighted_obs_mean <- function(v, w = NULL) {
+  v <- as.numeric(v)
+  if (is.null(w) || length(w) != length(v)) {
+    return(mean(v, na.rm = TRUE))
+  }
+  w <- as.numeric(w)
+  ok <- is.finite(v) & is.finite(w) & w > 0
+  if (!any(ok) || isTRUE(all(abs(w[ok] - 1) < sqrt(.Machine$double.eps)))) {
+    return(mean(v, na.rm = TRUE))
+  }
+  sum(w[ok] * v[ok]) / sum(w[ok])
+}
+
 # Theta (the negative-binomial size/dispersion parameter) of an lme4 NB fit.
 # glmer.nb() stores its ML estimate retrievably via getME(); a fixed-theta
 # glmer(family = MASS::negative.binomial(theta)) fit has no such slot, so fall
@@ -1353,21 +1387,23 @@ maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
     # Stryhn et al. (2006) latent-scale level-1 variance approximation: log(1 + 1/mu).
     # The simpler 1/mu form is the first-order Taylor expansion and matches log1p(1/mu)
     # only when 1/mu is small (i.e. mu large); for low-count Poisson outcomes (mu < ~2)
-    # it overestimates residual variance and biases VPC downward.
+    # it overestimates residual variance and biases VPC downward. With prior weights the
+    # per-row variances are averaged by those weights (see maihda_weighted_obs_mean()).
     mu <- stats::fitted(model)
     mu <- pmax(as.numeric(mu), .Machine$double.eps)
-    return(mean(log1p(1 / mu), na.rm = TRUE))
+    return(maihda_weighted_obs_mean(log1p(1 / mu), maihda_fit_prior_weights(model)))
   }
   if (fam$family == "negbinomial" && fam$link == "log") {
     # Negative-binomial analogue of the Poisson approximation above: the
     # lognormal latent-scale level-1 variance ln(1 + 1/mu + 1/theta) of
     # Nakagawa, Johnson & Schielzeth (2017, J R Soc Interface 14:20170213).
     # The extra 1/theta term carries the overdispersion, so it reduces to the
-    # Stryhn Poisson form as theta -> Inf.
+    # Stryhn Poisson form as theta -> Inf. Prior weights average the per-row terms.
     mu <- stats::fitted(model)
     mu <- pmax(as.numeric(mu), .Machine$double.eps)
     theta <- maihda_negbin_theta_lme4(model)
-    return(mean(log1p(1 / mu + 1 / theta), na.rm = TRUE))
+    return(maihda_weighted_obs_mean(log1p(1 / mu + 1 / theta),
+                                    maihda_fit_prior_weights(model)))
   }
 
   stop("VPC residual variance is not implemented for family '", fam$family,
@@ -1418,9 +1454,10 @@ maihda_residual_variance_brms <- function(model) {
   if (fam$family == "poisson" && fam$link == "log") {
     # Stryhn et al. (2006) latent-scale level-1 variance approximation: log(1 + 1/mu).
     # See the lme4 sibling for the rationale; 1/mu alone biases VPC downward at low mu.
+    # Likelihood weights average the per-row terms (see maihda_weighted_obs_mean()).
     mu <- stats::fitted(model, summary = TRUE)[, "Estimate"]
     mu <- pmax(as.numeric(mu), .Machine$double.eps)
-    return(mean(log1p(1 / mu), na.rm = TRUE))
+    return(maihda_weighted_obs_mean(log1p(1 / mu), maihda_fit_prior_weights(model)))
   }
   if (fam$family == "negbinomial" && fam$link == "log") {
     # Nakagawa, Johnson & Schielzeth (2017) lognormal latent-scale level-1
@@ -1435,7 +1472,8 @@ maihda_residual_variance_brms <- function(model) {
            "the brms posterior.")
     }
     shape <- mean(as.numeric(draws[["shape"]]), na.rm = TRUE)
-    return(mean(log1p(1 / mu + 1 / shape), na.rm = TRUE))
+    return(maihda_weighted_obs_mean(log1p(1 / mu + 1 / shape),
+                                    maihda_fit_prior_weights(model)))
   }
 
   stop("VPC residual variance is not implemented for brms family '", fam$family,
@@ -1555,21 +1593,23 @@ maihda_residual_variance_draws_brms <- function(model, draws) {
   if (fam$family == "poisson" && fam$link == "log") {
     mu <- stats::fitted(model, summary = TRUE)[, "Estimate"]
     mu <- pmax(as.numeric(mu), .Machine$double.eps)
-    return(rep(mean(log1p(1 / mu), na.rm = TRUE), n))
+    w <- maihda_fit_prior_weights(model)
+    return(rep(maihda_weighted_obs_mean(log1p(1 / mu), w), n))
   }
   if (fam$family == "negbinomial" && fam$link == "log") {
     # Nakagawa et al. (2017) ln(1 + 1/mu + 1/theta), theta = brms 'shape'.
     # The shape draws are propagated; mu is held at the posterior-mean fitted
-    # means (see the header comment).
+    # means (see the header comment). Likelihood weights average the per-row terms.
     mu <- stats::fitted(model, summary = TRUE)[, "Estimate"]
     mu <- pmax(as.numeric(mu), .Machine$double.eps)
     if (!"shape" %in% names(draws)) {
       stop("Could not extract the negative-binomial 'shape' (theta) draws from ",
            "the brms posterior.")
     }
+    w <- maihda_fit_prior_weights(model)
     shape_d <- as.numeric(draws[["shape"]])
     return(vapply(shape_d,
-                  function(s) mean(log1p(1 / mu + 1 / s), na.rm = TRUE),
+                  function(s) maihda_weighted_obs_mean(log1p(1 / mu + 1 / s), w),
                   numeric(1)))
   }
 

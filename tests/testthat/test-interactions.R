@@ -128,6 +128,29 @@ test_that("a bare null model warns about total deviation; an analysis does not",
   expect_warning(maihda_interactions(a), regexp = NA)
 })
 
+test_that("a non-syntactic dimension name does not trigger a false null-model warning", {
+  # Regression: the adjusted-term detector compared RAW dimension names to terms()
+  # labels, which backtick-quote a non-syntactic name like `gender var`, so a
+  # fully-specified adjusted model was misread as a null model and warned.
+  set.seed(7)
+  n <- 300
+  d <- data.frame(
+    y = stats::rnorm(n),
+    `gender var` = sample(c("F", "M"), n, TRUE),
+    race = sample(c("A", "B", "C"), n, TRUE),
+    check.names = FALSE
+  )
+  # Both additive main effects ARE in the fixed part -> a genuine adjusted model.
+  adj <- suppressMessages(suppressWarnings(
+    fit_maihda(y ~ `gender var` + race + (1 | `gender var`:race), data = d)))
+  expect_warning(maihda_interactions(adj), regexp = NA)
+
+  # The true null model (no main effects) still warns.
+  null_mod <- suppressMessages(suppressWarnings(
+    fit_maihda(y ~ (1 | `gender var`:race), data = d)))
+  expect_warning(maihda_interactions(null_mod), "null model")
+})
+
 test_that("crossed-dimensions analyses use the interaction RE with no guardrail warning", {
   d <- maihda_interaction_data()
   cc <- suppressMessages(suppressWarnings(

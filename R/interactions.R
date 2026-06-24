@@ -421,7 +421,12 @@ maihda_warn_if_not_adjusted <- function(model) {
   fixed_terms <- tryCatch(
     attr(stats::terms(reformulas::nobars(model$formula)), "term.labels"),
     error = function(e) character(0))
-  if (!all(expected %in% fixed_terms)) {
+  # terms() backtick-quotes non-syntactic labels (e.g. `gender var`), so the
+  # expected dimension main effects must be compared in their quoted form -- a
+  # raw-name intersect would miss them and falsely warn that a fully-specified
+  # adjusted model is a null model. Mirrors maihda_workflow.R's dim_terms_quoted.
+  expected_quoted <- vapply(expected, maihda_quote_name, character(1))
+  if (!all(expected_quoted %in% fixed_terms)) {
     warning("maihda_interactions(): this looks like a null model -- the stratum ",
             "dimensions' additive main effects (", paste(sv, collapse = ", "),
             ") are not all in the fixed part, so the stratum random effects capture ",

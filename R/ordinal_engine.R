@@ -363,8 +363,11 @@ maihda_ordinal_category_probs <- function(eta, thresholds, link = "logit") {
   }
   linkinv <- if (identical(link, "probit")) stats::pnorm else stats::plogis
   thresholds <- as.numeric(thresholds)
-  if (is.unsorted(thresholds, strictly = FALSE)) {
-    stop("Cumulative thresholds must be non-decreasing.", call. = FALSE)
+  # Strictly increasing, as the @param doc states ("increasing thresholds"). Equal
+  # adjacent thresholds imply a zero-probability category (a degenerate cut point),
+  # so reject them rather than silently returning an empty category.
+  if (is.unsorted(thresholds, strictly = TRUE)) {
+    stop("Cumulative thresholds must be strictly increasing.", call. = FALSE)
   }
   cum <- vapply(thresholds, function(a) linkinv(a - eta),
                 numeric(length(eta)))

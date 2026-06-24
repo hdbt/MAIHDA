@@ -105,8 +105,10 @@
 #'       estimates (no bootstrap -- see \code{\link{summary.maihda_model}}).
 #'     \item \code{engine = "brms"}: the weights enter the model as likelihood
 #'       weights (\code{y | weights(w)}), normalized to mean 1, giving a
-#'       \emph{pseudo-posterior}: point estimates are design-consistent but
-#'       credible intervals are not design-based -- interpret them cautiously.
+#'       \emph{pseudo-posterior}: point estimates target the population-weighted
+#'       estimand but credible intervals are not design-based -- interpret them
+#'       cautiously. Full design-based (replicate-weight / linearised) variances
+#'       for the variance components are not computed.
 #'   }
 #'   Rows with a missing or non-positive sampling weight are dropped with a
 #'   warning. Default \code{NULL} (unweighted).
@@ -661,10 +663,11 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     }
 
     # Sampling weights enter the brms model as likelihood weights, which gives a
-    # PSEUDO-posterior: point estimates are design-consistent, intervals are not
-    # design-based. The weights are normalized to mean 1 so expansion weights do
-    # not inflate the effective sample size, and rows with missing/non-positive
-    # weights are dropped here so the stored data matches the fitted rows.
+    # PSEUDO-posterior: point estimates target the population-weighted estimand,
+    # intervals are not design-based. The weights are normalized to mean 1 so
+    # expansion weights do not inflate the effective sample size, and rows with
+    # missing/non-positive weights are dropped here so the stored data matches the
+    # fitted rows.
     if (!is.null(sampling_weights)) {
       prep <- maihda_prepare_brms_sampling_weights(data, formula, sampling_weights)
       data <- prep$data
@@ -672,8 +675,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       fit_env$data <- data
       message("fit_maihda(): sampling weights enter the brms model as likelihood ",
               "weights (normalized to mean 1), giving a pseudo-posterior: point ",
-              "estimates are design-consistent, but credible intervals are not ",
-              "design-based -- interpret them cautiously.")
+              "estimates target the population-weighted estimand, but credible ",
+              "intervals are not design-based -- interpret them cautiously.")
     }
 
     # brms models a 0/1 response with bernoulli(); passing binomial() would

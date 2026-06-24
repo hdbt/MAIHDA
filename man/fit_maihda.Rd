@@ -126,8 +126,10 @@ Two engines support them:
     estimates (no bootstrap -- see \code{\link{summary.maihda_model}}).
   \item \code{engine = "brms"}: the weights enter the model as likelihood
     weights (\code{y | weights(w)}), normalized to mean 1, giving a
-    \emph{pseudo-posterior}: point estimates are design-consistent but
-    credible intervals are not design-based -- interpret them cautiously.
+    \emph{pseudo-posterior}: point estimates target the population-weighted
+    estimand but credible intervals are not design-based -- interpret them
+    cautiously. Full design-based (replicate-weight / linearised) variances
+    for the variance components are not computed.
 }
 Rows with a missing or non-positive sampling weight are dropped with a
 warning. Default \code{NULL} (unweighted).}

@@ -56,7 +56,11 @@ maihda_adjusted_formula <- function(null_formula, strata_vars, autobin_info, dat
     return(NULL)
   }
   adj <- maihda_adjusted_terms(strata_vars, autobin_info, data)
-  rhs <- paste(sprintf("`%s`", adj$terms), collapse = " + ")
+  # Quote via maihda_quote_name() (deparse(as.name())) rather than a manual
+  # sprintf("`%s`"): the helper escapes the rare legal column name that itself
+  # contains a backtick, which naive backtick-wrapping would turn into a broken
+  # formula.
+  rhs <- paste(vapply(adj$terms, maihda_quote_name, character(1)), collapse = " + ")
   adjusted_formula <- stats::update(null_formula,
                                     stats::as.formula(paste(". ~ . +", rhs)))
   list(formula = adjusted_formula, data = adj$data)
