@@ -397,7 +397,8 @@ test_that("the plot layer renders a clmm MAIHDA (and the ternary errors cleanly)
   expect_no_error(suppressWarnings(
     plot_prediction_deviation_panels(m, ordinal_mode = "expected_score")))
 
-  expect_error(compute_maihda_ternary_data(m), "not yet supported for the ordinal")
+  expect_error(compute_maihda_ternary_data(m),
+               "not supported for cumulative \\(ordinal\\)")
 })
 
 # ---- fake-fixture accessor branches --------------------------------------------

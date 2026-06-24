@@ -70,3 +70,36 @@ test_that("response-scale ternary interaction signal uses response-scale differe
   expect_equal(td$interaction_signal, expected$interaction_signal[idx], tolerance = 1e-8)
   expect_false(isTRUE(all.equal(td$interaction_signal, abs(td$u_j), tolerance = 1e-4)))
 })
+
+test_that("ternary diagnostic blocks brms cumulative on both scales (Stan-free)", {
+  skip_if_not_installed("brms")
+
+  # Regression for the audit finding: compute_maihda_ternary_data() blocked only
+  # engine == "ordinal" (clmm), so a brms::cumulative() fit slipped through to the
+  # scalar linkinv() path and produced cumulative probabilities in [0, 1] on the
+  # response scale instead of the expected category score in [1, K] -- the same
+  # wrong-scale bug fixed in maihda_stratum_predictions_brms(). The ternary
+  # decomposition is a latent-scale concept the package does not define a coherent
+  # response-scale version of for a cumulative model, so BOTH cumulative engines
+  # are now blocked consistently. The guard reads only model$engine and
+  # model$family, so a bare fake fit exercises it with no Stan.
+  m <- structure(
+    list(
+      model  = structure(list(), class = "brmsfit"),
+      engine = "brms",
+      family = brms::cumulative("logit")
+    ),
+    class = "maihda_model"
+  )
+  expect_error(compute_maihda_ternary_data(m, scale = "link"),
+               "not supported for cumulative \\(ordinal\\)")
+  # On the response scale the block fires BEFORE the "most coherent on the link
+  # scale" warning, so it errors cleanly rather than warning first.
+  expect_error(compute_maihda_ternary_data(m, scale = "response"),
+               "not supported for cumulative \\(ordinal\\)")
+
+  # A non-cumulative brms family is NOT caught by the guard (it proceeds past it):
+  # the family predicate the guard uses distinguishes the two.
+  expect_true(maihda_family_is_ordinal(brms::cumulative("logit")))
+  expect_false(maihda_family_is_ordinal(brms::brmsfamily("gaussian")))
+})

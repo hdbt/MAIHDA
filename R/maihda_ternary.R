@@ -32,11 +32,20 @@ compute_maihda_ternary_data <- function(
   engine <- model$engine
   if (is.null(engine)) engine <- "unknown"
 
-  if (identical(engine, "ordinal")) {
-    stop("The ternary diagnostic is not yet supported for the ordinal (clmm) ",
-         "engine. Use plot(type = \"predicted\"), \"risk_vs_effect\", ",
-         "\"effect_decomp\", or plot_prediction_deviation_panels() for a ",
-         "cumulative MAIHDA model.", call. = FALSE)
+  # The ternary "additive vs interaction signal" decomposition is a latent-scale
+  # quantity, and the package defines no coherent response-scale version for a
+  # cumulative (ordinal) model: its response-scale summary is the expected category
+  # score (sum_k k * P(Y = k)), not a single inverse-link value, so the scalar
+  # linkinv() used below would return a meaningless cumulative probability. Block it
+  # for EITHER cumulative engine -- clmm (engine = "ordinal") and brms::cumulative()
+  # -- so the two cumulative paths stay consistent (clmm was already blocked); point
+  # users at the supported cumulative diagnostics.
+  if (identical(engine, "ordinal") || maihda_family_is_ordinal(model$family)) {
+    stop("The ternary diagnostic is not supported for cumulative (ordinal) MAIHDA ",
+         "models (engine = \"ordinal\" or brms::cumulative()). Use ",
+         "plot(type = \"predicted\"), \"risk_vs_effect\", \"effect_decomp\", or ",
+         "plot_prediction_deviation_panels() for a cumulative MAIHDA model.",
+         call. = FALSE)
   }
 
   if (verbose && scale == "response") {
