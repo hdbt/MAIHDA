@@ -65,14 +65,56 @@
   successes over summed trials – the trials are already in the
   denominator), but wrong for the model predictions. Prediction
   aggregation now uses a dedicated `maihda_prediction_weights()` that
-  weights each row by its binomial trial count
-  (`stats::weights(model, type = "prior")`), while the observed
-  numerator/denominator path is unchanged. This corrects the predicted
-  stratum means and the `w_sum` weights feeding
+  weights each row by its binomial trial count – read from
+  `stats::weights(model, type = "prior")` for an `lme4`
+  [`cbind()`](https://rdrr.io/r/base/cbind.html) fit, or parsed from the
+  formula’s `trials()` addition term for a `brms` `y | trials(n)` fit
+  (which exposes `model.frame.brmsfit` but no `weights.brmsfit`, so the
+  prior-weights route is unavailable and the counts would otherwise fall
+  back to unit weights) – while the observed numerator/denominator path
+  is unchanged. This corrects the predicted stratum means and the
+  `w_sum` weights feeding
   [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md),
   the predicted-strata / risk-vs-effect / effect-decomposition plots,
   and the prediction-deviation panels; unweighted and non-binomial fits
   are unaffected (the weights reduce exactly to the previous values).
+
+- **`brms` cumulative (ordinal) stratum predictions were on the wrong
+  response scale.** The stratum-level prediction helper applied the
+  **scalar inverse link** for the `engine = "brms"`,
+  `family = "ordinal"` response scale, returning a single cumulative
+  probability in `[0, 1]` rather than the **expected category score**
+  `sum_k k * P(Y = k)` in `[1, K]` that the rest of the package
+  documents and computes – the individual
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  path already collapses the
+  [`fitted()`](https://rdrr.io/r/stats/fitted.values.html)
+  category-probability array to that score, and the `clmm`
+  (`engine = "ordinal"`) stratum path already used it. This silently
+  mis-scaled (and mis-ranked)
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
+  and the stratum plots for a Bayesian cumulative model. The brms
+  stratum helper now maps the latent location to the expected category
+  score with the same shared cumulative helpers (using the
+  posterior-mean thresholds), so the brms and `clmm` cumulative paths
+  agree and match the documented response scale; the link scale is
+  unchanged.
+
+- **The ternary decomposition diagnostic let a `brms` cumulative
+  (ordinal) fit through on the wrong scale.**
+  [`compute_maihda_ternary_data()`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
+  blocked the `clmm` (`engine = "ordinal"`) cumulative path entirely but
+  only checked the engine, so a
+  [`brms::cumulative()`](https://paulbuerkner.com/brms/reference/brmsfamily.html)
+  fit slipped through to the same scalar inverse-link code and reported
+  cumulative probabilities in `[0, 1]` on the response scale rather than
+  expected category scores. The ternary “additive vs interaction signal”
+  split is a latent-scale concept with no coherent response-scale form
+  for a cumulative model, so the diagnostic now rejects **either**
+  cumulative engine (detected by family, not just engine name), keeping
+  the two cumulative paths consistent and pointing users at
+  `plot(type = "predicted")`, `"risk_vs_effect"`, `"effect_decomp"`, and
+  [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md).
 
 - **[`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
   returned a meaningless scalar diagnostic for a longitudinal fit.** A
