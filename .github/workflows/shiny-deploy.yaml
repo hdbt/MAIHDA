@@ -39,6 +39,12 @@ jobs:
 
       - uses: r-lib/actions/setup-r@v2
         with:
+          # Pin to an R version shinyapps.io supports on its jammy build image.
+          # Leaving this unset installs the latest release (currently 4.6.1), which
+          # rsconnect stamps into the deploy manifest; shinyapps.io then rejects the
+          # deploy with "Unsupported R version 4.6.1 for operating system jammy".
+          # Bump this only once shinyapps.io adds support for the newer version.
+          r-version: '4.5.1'
           use-public-rspm: true   # fast pre-built Linux binaries
 
       # Install the package's hard dependencies plus the extra packages the Shiny
