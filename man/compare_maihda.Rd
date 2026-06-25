@@ -54,7 +54,12 @@ family/link, analytic sample, and strata -- the canonical use is nested models
 how the VPC attenuates. If the supplied models differ in any of these,
 \code{compare_maihda()} still returns the table but issues a single warning,
 because the VPCs are then not directly comparable. The same comparability caveat
-applies to the appended information criteria (see \code{\link{maihda_ic}}).
+applies to the appended information criteria (see \code{\link{maihda_ic}}). In
+addition, when the appended criteria mix scales -- likelihood \code{AIC}/\code{BIC}
+(lme4/ordinal) shown alongside Bayesian \code{WAIC}/\code{LOOIC} (brms), which can
+happen for a same-family lme4-vs-brms comparison that the family/link check does
+not flag -- \code{compare_maihda()} warns, because those criteria are on different
+scales and are not comparable to each other.
 }
 \examples{
 \donttest{

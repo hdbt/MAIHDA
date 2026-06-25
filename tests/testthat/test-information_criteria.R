@@ -152,3 +152,57 @@ test_that("design-weighted (wemix) fits report NA criteria without warning", {
   # compare_maihda(ic = TRUE) on a wemix pair must not add a warning.
   expect_no_warning(suppressMessages(compare_maihda(m, m)))
 })
+
+test_that("maihda_ic_spans_scales flags mixed likelihood/Bayesian IC columns", {
+  expect_true(maihda_ic_spans_scales(c("AIC", "BIC", "WAIC", "LOOIC")))
+  expect_true(maihda_ic_spans_scales(c("AIC", "LOOIC")))   # one of each is enough
+  expect_true(maihda_ic_spans_scales(c("BIC", "WAIC")))
+  expect_false(maihda_ic_spans_scales(c("AIC", "BIC")))    # likelihood only
+  expect_false(maihda_ic_spans_scales(c("WAIC", "LOOIC"))) # Bayesian only
+  expect_false(maihda_ic_spans_scales(character(0)))
+})
+
+test_that("compare_maihda warns when appended IC columns mix likelihood and Bayesian scales", {
+  d <- make_ic_data()
+  # Same outcome, family, sample and strata, so the differences block stays
+  # silent and the only thing left to flag is the mixed IC scale.
+  m_lik   <- fit_maihda(y ~ x + (1 | g1:g2), data = d)
+  m_bayes <- fit_maihda(y ~ 1 + (1 | g1:g2), data = d)
+
+  # Stand in for a brms fit on the second model: its IC row carries WAIC/LOOIC
+  # instead of AIC/BIC, so the appended columns span both scales -- without any
+  # actual Stan toolchain. compare_maihda() reads the IC rows in argument order.
+  calls <- 0L
+  local_mocked_bindings(
+    maihda_ic_one = function(model, ml = FALSE) {
+      calls <<- calls + 1L
+      if (calls == 1L) {
+        data.frame(n = 300L, estimator = "ML (refit from REML)", df = 4,
+                   logLik = -400, AIC = 808, BIC = 823,
+                   WAIC = NA_real_, LOOIC = NA_real_, stringsAsFactors = FALSE)
+      } else {
+        data.frame(n = 300L, estimator = "Bayesian", df = NA_real_,
+                   logLik = NA_real_, AIC = NA_real_, BIC = NA_real_,
+                   WAIC = 805, LOOIC = 807, stringsAsFactors = FALSE)
+      }
+    }
+  )
+
+  expect_warning(
+    cmp <- compare_maihda(m_lik, m_bayes, model_names = c("lme4", "brms")),
+    "mix scales|different scales"
+  )
+  # The table still carries all four criteria side by side -- the warning flags
+  # the mixing rather than dropping columns.
+  expect_true(all(c("AIC", "BIC", "WAIC", "LOOIC") %in% names(cmp)))
+})
+
+test_that("an all-lme4 comparison appends AIC/BIC without a scale-mixing warning", {
+  d <- make_ic_data()
+  m1 <- fit_maihda(y ~ x + (1 | g1:g2), data = d)
+  m2 <- fit_maihda(y ~ 1 + (1 | g1:g2), data = d)
+
+  expect_no_warning(cmp <- compare_maihda(m1, m2))
+  expect_true(all(c("AIC", "BIC") %in% names(cmp)))
+  expect_false(any(c("WAIC", "LOOIC") %in% names(cmp)))
+})

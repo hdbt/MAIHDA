@@ -33,7 +33,12 @@
 #' how the VPC attenuates. If the supplied models differ in any of these,
 #' \code{compare_maihda()} still returns the table but issues a single warning,
 #' because the VPCs are then not directly comparable. The same comparability caveat
-#' applies to the appended information criteria (see \code{\link{maihda_ic}}).
+#' applies to the appended information criteria (see \code{\link{maihda_ic}}). In
+#' addition, when the appended criteria mix scales -- likelihood \code{AIC}/\code{BIC}
+#' (lme4/ordinal) shown alongside Bayesian \code{WAIC}/\code{LOOIC} (brms), which can
+#' happen for a same-family lme4-vs-brms comparison that the family/link check does
+#' not flag -- \code{compare_maihda()} warns, because those criteria are on different
+#' scales and are not comparable to each other.
 #'
 #' @examples
 #' \donttest{
@@ -235,6 +240,21 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
       ic_cols <- ic_cols[, vapply(ic_cols, function(col) !all(is.na(col)),
                                   logical(1)), drop = FALSE]
       if (ncol(ic_cols) > 0) {
+        # The likelihood engines (lme4/ordinal) report AIC/BIC and brms reports
+        # WAIC/LOOIC; when both kinds of column survive (a same-family lme4 vs
+        # brms comparison, which the family/link check above does NOT flag) the
+        # appended columns place criteria from different scales side by side.
+        # AIC/BIC are not comparable to WAIC/LOOIC (see maihda_ic Details), so
+        # warn -- the differences block does not catch this, since the models can
+        # agree on outcome, family, sample and strata.
+        if (maihda_ic_spans_scales(names(ic_cols))) {
+          warning("compare_maihda(): the appended information criteria mix scales ",
+                  "-- likelihood AIC/BIC (lme4/ordinal) and Bayesian WAIC/LOOIC ",
+                  "(brms) are on different scales and are not comparable to each ",
+                  "other. Compare a model to another on the same criterion (AIC with ",
+                  "AIC, WAIC/LOOIC within brms), not across the likelihood/Bayesian ",
+                  "divide.", call. = FALSE)
+        }
         comparison_df <- cbind(comparison_df, ic_cols, stringsAsFactors = FALSE)
       }
     }

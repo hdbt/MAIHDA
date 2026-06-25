@@ -248,6 +248,16 @@ maihda_ic_primary <- function(df) {
   NA_character_
 }
 
+# TRUE when a set of information-criterion column names spans BOTH the likelihood
+# scale (AIC/BIC, from lme4/ordinal) and the Bayesian scale (WAIC/LOOIC, from
+# brms). Such a table puts criteria from different scales side by side, which are
+# not comparable to each other (see the maihda_ic Details). This happens for a
+# same-family lme4-vs-brms comparison -- a case the family/link check in
+# compare_maihda() does not flag -- so compare_maihda() uses this to warn.
+maihda_ic_spans_scales <- function(cols) {
+  any(c("AIC", "BIC") %in% cols) && any(c("WAIC", "LOOIC") %in% cols)
+}
+
 #' Print MAIHDA information criteria
 #'
 #' @param x A \code{maihda_ic} object from \code{\link{maihda_ic}}.
