@@ -41,8 +41,9 @@ maihda_table(
 - n_strata:
 
   Number of strata to show at each end (top and bottom) in the printed
-  ranked-strata table. The returned `$strata` always holds all strata.
-  Default 10.
+  ranked-strata table. The returned `$strata` holds all strata (`NULL`
+  for a longitudinal fit, whose strata are trajectories rather than
+  single ranked values – see `$strata` in Value). Default 10.
 
 - scale:
 
@@ -82,8 +83,16 @@ An object of class `maihda_table`: a list with
 
   a data frame of all strata ranked by predicted outcome, with `rank`,
   `stratum`, `label`, `n`, the predicted value and its conditional
-  interval, and the stratum random effect and its interval; `NULL` if
-  the stratum predictions could not be computed
+  interval, and the stratum random effect and its interval. `NULL` when
+  a single ranked value per stratum is not defined – in particular for a
+  longitudinal (growth-curve) fit, whose strata are trajectories (see
+  `strata_note`) – or if the stratum predictions could not otherwise be
+  computed
+
+- strata_note:
+
+  a character note explaining why `strata` is `NULL` (e.g. a
+  longitudinal fit), or `NULL` when a ranked-strata table was produced
 
 - model_keys, model_labels:
 

@@ -99,12 +99,12 @@
   addition term off the stored formula – `brms` exposes no
   `weights.brmsfit`) and computes the same count-weighted C-statistic
   the `lme4` [`cbind()`](https://rdrr.io/r/base/cbind.html) path uses.
-  Because `brms`’s response-scale prediction for a binomial fit is the
-  expected *count* (`trials * p`) rather than the per-trial probability,
-  the rows are ranked by `prediction / trials` so the AUC ranks by
-  probability and not by a count that confounds the probability with the
-  number of trials; `n_case` / `n_control` are the total successes /
-  failures. Bernoulli and `lme4` fits are unaffected.
+  The rows are ranked by the per-trial probability
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  returns (now normalised to a probability on both engines – see below),
+  so the AUC ranks by probability and not by a count that confounds the
+  probability with the number of trials; `n_case` / `n_control` are the
+  total successes / failures. Bernoulli and `lme4` fits are unaffected.
 
 - [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
   (and therefore
@@ -231,6 +231,60 @@
   `allow_new_levels` to brms). Stratum-level predictions have no random
   effect to report for an unseen stratum, so they remain an error
   regardless.
+
+- **`predict_maihda(scale = "response")` returned expected *counts*, not
+  probabilities, for a `brms` aggregated-binomial (`y | trials(n)`)
+  fit.** `brms`’s
+  [`fitted()`](https://rdrr.io/r/stats/fitted.values.html) /
+  `posterior_epred()` return the expected number of successes
+  (`trials * p`) for a binomial fit with a `trials()` term, whereas
+  `lme4`’s `type = "response"` for a `cbind(success, failure)` fit
+  returns the per-trial probability. The same
+  `predict_maihda(scale = "response")` call therefore produced two
+  different scales depending on the engine, so anyone ranking or
+  comparing predicted risks across `brms` strata was comparing expected
+  counts (which confound the probability with the per-row number of
+  trials) rather than probabilities. The `brms` response-scale
+  prediction is now normalised by the per-row trial counts (evaluated on
+  the prediction `newdata`), so both engines return a per-trial
+  probability in `[0, 1]`; the discriminatory-accuracy AUC, the Shiny
+  app’s absolute-prediction panel, and any downstream ranking now read a
+  true probability. Bernoulli and non-binomial fits are unaffected (no
+  `trials()` term -\> no normalisation).
+
+- **`predict_maihda(allow_new_levels = TRUE)` did not give the
+  documented zero-effect prediction for an unseen stratum on the `brms`
+  engine.** The contract is to drop the stratum random effect (treat it
+  as zero) for a stratum the model never saw. The `brms` path merely
+  forwarded `allow_new_levels = TRUE`, but `brms`’s default
+  `sample_new_levels = "uncertainty"` *draws* a new-stratum effect from
+  the estimated random-effects distribution rather than zeroing it, so
+  the prediction silently carried a random per-call group effect.
+  Unseen-stratum rows are now split off and predicted with an
+  `re_formula` that excludes the stratum term, while seen-stratum rows
+  keep their estimated effect (a blanket exclusion would have dropped
+  the seen strata’s effects too). Any **other** random effect the unseen
+  row participates in – a contextual `(1 | school)` intercept from
+  `fit_maihda(context = )`, a longitudinal `(time | id)` growth term –
+  is **kept**, exactly as `lme4`’s `allow.new.levels` zeroes only the
+  unseen level’s effect and retains seen ones; for the usual
+  single-stratum model the excluding `re_formula` is `NA`, the
+  fixed-effects-only population average. `lme4` and the
+  `wemix`/`ordinal` paths already behaved this way and are unchanged, so
+  the engines now agree on the same model.
+
+- **The crossed-dimensions decomposition reported `NaN` additive /
+  interaction shares when there was no between-stratum variance.** The
+  shares split the between-strata variance, so for a degenerate fit
+  whose additive *and* interaction variances are both estimated at
+  exactly zero they are `0 / 0 = NaN`, which leaked through
+  [`summary()`](https://rdrr.io/r/base/summary.html) and the
+  comparison/tidier outputs. `maihda_cc_partition()` now returns `NA` (a
+  defined “undefined”) for the shares when `between == 0`, and for the
+  VPC when the total variance is `0`;
+  [`print()`](https://rdrr.io/r/base/print.html) shows
+  `NA (no between-strata variance to split)`. Non-degenerate fits are
+  unchanged.
 
 - **A formula [`offset()`](https://rdrr.io/r/stats/offset.html) term was
   silently dropped from `wemix` and `ordinal` predictions.**

@@ -107,8 +107,9 @@ single <code>maihda_model</code> from <code><a href="fit_maihda.html">fit_maihda
 
 <dt id="arg-n-strata">n_strata<a class="anchor" aria-label="anchor" href="#arg-n-strata"></a></dt>
 <dd><p>Number of strata to show at each end (top and bottom) in the
-printed ranked-strata table. The returned <code>$strata</code> always holds all strata.
-Default 10.</p></dd>
+printed ranked-strata table. The returned <code>$strata</code> holds all strata
+(<code>NULL</code> for a longitudinal fit, whose strata are trajectories rather than
+single ranked values – see <code>$strata</code> in Value). Default 10.</p></dd>
 
 
 <dt id="arg-scale">scale<a class="anchor" aria-label="anchor" href="#arg-scale"></a></dt>
@@ -144,8 +145,16 @@ crossed-dimensions analysis or a single model.</p></dd>
   <dt>strata</dt>
 <dd><p>a data frame of all strata ranked by predicted outcome, with
     <code>rank</code>, <code>stratum</code>, <code>label</code>, <code>n</code>, the predicted value and
-    its conditional interval, and the stratum random effect and its interval;
-    <code>NULL</code> if the stratum predictions could not be computed</p></dd>
+    its conditional interval, and the stratum random effect and its interval.
+    <code>NULL</code> when a single ranked value per stratum is not defined – in
+    particular for a longitudinal (growth-curve) fit, whose strata are
+    trajectories (see <code>strata_note</code>) – or if the stratum predictions could
+    not otherwise be computed</p></dd>
+
+  <dt>strata_note</dt>
+<dd><p>a character note explaining why <code>strata</code> is <code>NULL</code>
+    (e.g. a longitudinal fit), or <code>NULL</code> when a ranked-strata table was
+    produced</p></dd>
 
   <dt>model_keys, model_labels</dt>
 <dd><p>the estimate-column keys and their display labels</p></dd>

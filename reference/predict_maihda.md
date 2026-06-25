@@ -34,7 +34,11 @@ predict_maihda(
 
   - "individual": Individual-level predictions including random effects
 
-  - "strata": Stratum-level predictions (random effects only)
+  - "strata": Stratum-level predictions (random effects only). For a
+    longitudinal (growth-curve) fit a stratum is a *trajectory*, so this
+    returns the per-stratum trajectory parameters (baseline deviation,
+    random intercept and random slope(s)) rather than a single random
+    effect.
 
   For backward compatibility, "link" or "response" may also be passed
   here and will be interpreted as individual-level predictions on that
@@ -46,19 +50,28 @@ predict_maihda(
   predictions: "response" (default) or "link". For a cumulative
   (ordinal) model the "link" scale is the latent location \\\eta\\ and
   the "response" scale is the *expected category score* \\\sum_k k P(Y =
-  k)\\ (categories scored 1..K in their declared order).
+  k)\\ (categories scored 1..K in their declared order). For an
+  aggregated-binomial fit (an lme4 `cbind(success, failure)` or a brms
+  `success | trials(n)`) the "response" scale is the per-trial
+  *probability* on both engines (not the expected success count).
 
 - allow_new_levels:
 
   Logical. By default (`FALSE`) a stratum in `newdata` that the model
   never saw – whether supplied directly as a `stratum` column or rebuilt
   from the grouping variables – is an error, for every engine, matching
-  lme4's default. Set `TRUE` to instead return a *population-average*
-  (fixed-effects-only) prediction for unseen strata, dropping the
-  stratum random effect (i.e. treating it as zero). This affects
-  `type = "individual"` only: a stratum-level prediction
-  (`type = "strata"`) has no random effect to report for an unseen
-  stratum, so unseen strata remain an error there regardless.
+  lme4's default. Set `TRUE` to instead predict unseen strata with the
+  stratum random effect dropped (treated as zero), while keeping any
+  *other* random effect the row participates in (e.g. a contextual
+  `(1 | school)` intercept from `fit_maihda(context = )`, or a
+  longitudinal growth term) – the same behaviour as lme4's
+  `allow.new.levels`, which zeroes only the unseen level's effect and
+  keeps seen ones. For the usual single-stratum model the stratum is the
+  only random effect, so this is the *population-average*
+  (fixed-effects-only) prediction. This affects `type = "individual"`
+  only: a stratum-level prediction (`type = "strata"`) has no random
+  effect to report for an unseen stratum, so unseen strata remain an
+  error there regardless.
 
 - ...:
 

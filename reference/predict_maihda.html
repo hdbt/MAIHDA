@@ -84,7 +84,10 @@ original data from model fitting.</p></dd>
 
 <dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
 <dd><p>Character string specifying prediction type:</p><ul><li><p>"individual": Individual-level predictions including random effects</p></li>
-<li><p>"strata": Stratum-level predictions (random effects only)</p></li>
+<li><p>"strata": Stratum-level predictions (random effects only). For a
+    longitudinal (growth-curve) fit a stratum is a <em>trajectory</em>, so this
+    returns the per-stratum trajectory parameters (baseline deviation, random
+    intercept and random slope(s)) rather than a single random effect.</p></li>
 </ul><p>For backward compatibility, "link" or "response" may also be passed here
 and will be interpreted as individual-level predictions on that scale.</p></dd>
 
@@ -94,7 +97,10 @@ and will be interpreted as individual-level predictions on that scale.</p></dd>
 individual-level predictions: "response" (default) or "link". For a
 cumulative (ordinal) model the "link" scale is the latent location
 \(\eta\) and the "response" scale is the <em>expected category score</em>
-\(\sum_k k P(Y = k)\) (categories scored 1..K in their declared order).</p></dd>
+\(\sum_k k P(Y = k)\) (categories scored 1..K in their declared order).
+For an aggregated-binomial fit (an lme4 <code>cbind(success, failure)</code> or a
+brms <code>success | trials(n)</code>) the "response" scale is the per-trial
+<em>probability</em> on both engines (not the expected success count).</p></dd>
 
 
 <dt id="arg-allow-new-levels">allow_new_levels<a class="anchor" aria-label="anchor" href="#arg-allow-new-levels"></a></dt>
@@ -102,11 +108,17 @@ cumulative (ordinal) model the "link" scale is the latent location
 <code>newdata</code> that the model never saw – whether supplied directly as a
 <code>stratum</code> column or rebuilt from the grouping variables – is an error,
 for every engine, matching <span class="pkg">lme4</span>'s default. Set <code>TRUE</code> to instead
-return a <em>population-average</em> (fixed-effects-only) prediction for unseen
-strata, dropping the stratum random effect (i.e. treating it as zero). This
-affects <code>type = "individual"</code> only: a stratum-level prediction
-(<code>type = "strata"</code>) has no random effect to report for an unseen
-stratum, so unseen strata remain an error there regardless.</p></dd>
+predict unseen strata with the stratum random effect dropped (treated as
+zero), while keeping any <em>other</em> random effect the row participates in
+(e.g. a contextual <code>(1 | school)</code> intercept from
+<code>fit_maihda(context = )</code>, or a longitudinal growth term) – the same
+behaviour as <span class="pkg">lme4</span>'s <code>allow.new.levels</code>, which zeroes only the unseen
+level's effect and keeps seen ones. For the usual single-stratum model the
+stratum is the only random effect, so this is the <em>population-average</em>
+(fixed-effects-only) prediction. This affects <code>type = "individual"</code> only:
+a stratum-level prediction (<code>type = "strata"</code>) has no random effect to
+report for an unseen stratum, so unseen strata remain an error there
+regardless.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

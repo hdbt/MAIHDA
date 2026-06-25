@@ -149,7 +149,10 @@ every fit type (crossed-dimensions shares, contextual
 `Context share (VPC)`) and engine (lme4/brms/WeMix/ordinal); for an
 ordinal model the intercept row is `NA` and the category thresholds are
 reported by [`summary()`](https://rdrr.io/r/base/summary.html), not the
-table.
+table. For a longitudinal (growth-curve) fit each stratum is a
+trajectory rather than a single ranked value, so `$strata` is `NULL`
+(with a `$strata_note` pointing to `predict(type = "strata")` /
+`plot(type = "trajectories")`); the `$models` table is still produced.
 
 ``` r
 
