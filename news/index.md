@@ -31,6 +31,25 @@
 
 ### Bug Fixes
 
+- **`compare_maihda(ic = TRUE)` could show information criteria on
+  incompatible scales without a warning.** The comparability check only
+  warned when the models differed in outcome, weights, family/link,
+  analytic sample, or strata, then appended whichever
+  information-criterion columns existed. Two *same-family* models fitted
+  on different engines – e.g. a Gaussian `lme4` fit (reporting AIC/BIC)
+  and a Gaussian `brms` fit (reporting WAIC/LOOIC) – agree on all the
+  checked aspects, so no warning fired, yet the appended table placed
+  the likelihood AIC/BIC and the Bayesian WAIC/LOOIC side by side. Those
+  are different scales and are not comparable to each other (as
+  [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)’s
+  documentation already notes).
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  now emits an explicit warning whenever the appended criteria span both
+  the likelihood (AIC/BIC) and the Bayesian (WAIC/LOOIC) scales, so a
+  cross-engine comparison can no longer be read as if the four numbers
+  were on one ruler. An all-`lme4`/all-`ordinal` (AIC/BIC only) or
+  all-`brms` (WAIC/LOOIC only) comparison is unaffected.
+
 - **A fixed interaction among the stratum dimensions
   (e.g. `Gender * Race`) silently corrupted the decomposition.** R
   expands `Gender * Race` to `Gender + Race + Gender:Race`, but the

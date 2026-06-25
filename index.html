@@ -42,23 +42,21 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="articles/introduction.html">Introduction to MAIHDA</a></li>
+<li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Introduction</h6></li>
+    <li><a class="dropdown-item" href="articles/introduction.html">Introduction to MAIHDA</a></li>
     <li><a class="dropdown-item" href="articles/planning_a_study.html">Planning a MAIHDA analysis</a></li>
+    <li><a class="dropdown-item" href="articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
+    <li><a class="dropdown-item" href="articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
+    <li><a class="dropdown-item" href="articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
     <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Advanced</h6></li>
+    <li><a class="dropdown-item" href="articles/finding_interactions.html">Finding interaction patterns</a></li>
     <li><a class="dropdown-item" href="articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
     <li><a class="dropdown-item" href="articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
     <li><a class="dropdown-item" href="articles/longitudinal.html">Longitudinal MAIHDA: intersectional inequalities over time</a></li>
     <li><a class="dropdown-item" href="articles/bayesian_sparse_maihda.html">Bayesian MAIHDA for sparse intersections</a></li>
-    <li><a class="dropdown-item" href="articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Interpretation</h6></li>
-    <li><a class="dropdown-item" href="articles/interpreting_plots.html">Interpreting MAIHDA Plots and Diagnostics</a></li>
-    <li><a class="dropdown-item" href="articles/finding_interactions.html">Finding interaction patterns</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Interactive app</h6></li>
-    <li><a class="dropdown-item" href="articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
@@ -97,7 +95,7 @@
 <li>
 <strong>Model Fitting</strong>: Multiple engines — <code>lme4</code> (frequentist), <code>brms</code> (Bayesian), <code>WeMix</code> (design-weighted pseudo-likelihood), and <code>ordinal</code> (<code><a href="https://rdrr.io/pkg/ordinal/man/clmm.html" class="external-link">ordinal::clmm</a></code>, for cumulative/ordered-factor outcomes)</li>
 <li>
-<strong>Design-Weighted MAIHDA</strong>: Survey/sampling weights via <code>sampling_weights</code> fit a weighted pseudo-likelihood (WeMix for lme4, a pseudo-posterior for brms) targeting a population-weighted estimand. The WeMix path gives design-consistent (sandwich) SEs for the <strong>fixed effects</strong>; both paths give population-weighted point estimates for the VPC, PCV, stratum summaries and AUC. The intersectional strata are treated as exhaustively sampled population cells (level-2 weights = 1), and design-based (replicate-weight / linearised) variances for the variance components are not computed — so this is weighting to the population, not full complex-survey support for arbitrary clustered/stratified/replicate-weight designs</li>
+<strong>Design-Weighted MAIHDA</strong>: Survey/sampling weights via <code>sampling_weights</code> fit a population-weighted model using WeMix pseudo-maximum likelihood via <code>engine = "wemix"</code> or a brms pseudo-posterior via <code>engine = "brms"</code>. The WeMix path gives design-consistent (sandwich) SEs for the <strong>fixed effects</strong>; both paths give population-weighted point estimates for the VPC, PCV, stratum summaries and AUC. The intersectional strata are treated as exhaustively sampled population cells (level-2 weights = 1), and design-based (replicate-weight / linearised) variances for the variance components are not computed — so this is weighting to the population, not full complex-survey support for arbitrary clustered/stratified/replicate-weight designs</li>
 <li>
 <strong>Summaries &amp; Decompositions</strong>: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)</li>
 <li>
@@ -404,16 +402,19 @@
 <li>ggplot2 (&gt;= 3.4.0)</li>
 <li>dplyr (&gt;= 1.0.0)</li>
 <li>tidyr (&gt;= 1.1.0)</li>
-<li>reformulas, patchwork, ggrepel, tidyselect, stats, tibble, rlang</li>
+<li>reformulas, cli, generics, patchwork, ggrepel, tidyselect, stats, tibble, rlang</li>
 </ul>
 <p><strong>Optional:</strong></p>
 <ul>
 <li>brms (&gt;= 2.15.0) - for Bayesian models</li>
 <li>WeMix (&gt;= 4.0.0) - for design-weighted (survey) models via <code>sampling_weights</code>
 </li>
+<li>ordinal - for cumulative link mixed models</li>
+<li>MASS - for fixed-theta negative-binomial family objects</li>
 <li>ggtern - for ternary diagrams</li>
 <li>shiny, bslib, DT, plotly, shinyjs, shinycssloaders, future, promises - for the interactive dashboard (<code><a href="reference/run_maihda_app.html">run_maihda_app()</a></code>)</li>
 <li>haven - for uploading SPSS (.sav) / Stata (.dta) files in the dashboard</li>
+<li>knitr, rmarkdown - for building vignettes</li>
 </ul>
 <p>Bootstrap confidence intervals use a parametric bootstrap via <code>lme4::simulate()</code> / <code><a href="https://rdrr.io/pkg/lme4/man/refit.html" class="external-link">lme4::refit()</a></code>; no external bootstrap package is required.</p>
 </div>

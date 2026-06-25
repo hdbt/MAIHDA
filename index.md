@@ -38,13 +38,14 @@ socioeconomic status).
   ([`ordinal::clmm`](https://rdrr.io/pkg/ordinal/man/clmm.html), for
   cumulative/ordered-factor outcomes)
 - **Design-Weighted MAIHDA**: Survey/sampling weights via
-  `sampling_weights` fit a weighted pseudo-likelihood (WeMix for lme4, a
-  pseudo-posterior for brms) targeting a population-weighted estimand.
-  The WeMix path gives design-consistent (sandwich) SEs for the **fixed
-  effects**; both paths give population-weighted point estimates for the
-  VPC, PCV, stratum summaries and AUC. The intersectional strata are
-  treated as exhaustively sampled population cells (level-2 weights =
-  1), and design-based (replicate-weight / linearised) variances for the
+  `sampling_weights` fit a population-weighted model using WeMix
+  pseudo-maximum likelihood via `engine = "wemix"` or a brms
+  pseudo-posterior via `engine = "brms"`. The WeMix path gives
+  design-consistent (sandwich) SEs for the **fixed effects**; both paths
+  give population-weighted point estimates for the VPC, PCV, stratum
+  summaries and AUC. The intersectional strata are treated as
+  exhaustively sampled population cells (level-2 weights = 1), and
+  design-based (replicate-weight / linearised) variances for the
   variance components are not computed — so this is weighting to the
   population, not full complex-survey support for arbitrary
   clustered/stratified/replicate-weight designs
@@ -474,19 +475,23 @@ vignette("introduction", package = "MAIHDA")
 - ggplot2 (\>= 3.4.0)
 - dplyr (\>= 1.0.0)
 - tidyr (\>= 1.1.0)
-- reformulas, patchwork, ggrepel, tidyselect, stats, tibble, rlang
+- reformulas, cli, generics, patchwork, ggrepel, tidyselect, stats,
+  tibble, rlang
 
 **Optional:**
 
 - brms (\>= 2.15.0) - for Bayesian models
 - WeMix (\>= 4.0.0) - for design-weighted (survey) models via
   `sampling_weights`
+- ordinal - for cumulative link mixed models
+- MASS - for fixed-theta negative-binomial family objects
 - ggtern - for ternary diagrams
 - shiny, bslib, DT, plotly, shinyjs, shinycssloaders, future, promises -
   for the interactive dashboard
   ([`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
 - haven - for uploading SPSS (.sav) / Stata (.dta) files in the
   dashboard
+- knitr, rmarkdown - for building vignettes
 
 Bootstrap confidence intervals use a parametric bootstrap via
 `lme4::simulate()` /

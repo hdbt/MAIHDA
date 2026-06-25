@@ -70,7 +70,12 @@ to show how the VPC attenuates. If the supplied models differ in any of
 these, `compare_maihda()` still returns the table but issues a single
 warning, because the VPCs are then not directly comparable. The same
 comparability caveat applies to the appended information criteria (see
-[`maihda_ic`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)).
+[`maihda_ic`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)). In
+addition, when the appended criteria mix scales – likelihood `AIC`/`BIC`
+(lme4/ordinal) shown alongside Bayesian `WAIC`/`LOOIC` (brms), which can
+happen for a same-family lme4-vs-brms comparison that the family/link
+check does not flag – `compare_maihda()` warns, because those criteria
+are on different scales and are not comparable to each other.
 
 ## Examples
 
