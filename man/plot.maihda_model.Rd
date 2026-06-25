@@ -12,6 +12,7 @@
   summary_obj = NULL,
   n_strata = 50,
   highlight_interactions = FALSE,
+  only_flagged = FALSE,
   ...
 )
 }
@@ -60,6 +61,21 @@ pass a multiple-testing method such as \code{"BH"} or a
 adjusted (or crossed-dimensions) model -- e.g. via
 \code{plot()} on a \code{\link{maihda}} analysis, which routes these views to
 the adjusted model automatically.}
+
+\item{only_flagged}{Show \emph{only} the flagged strata rather than dimming the
+rest. \code{FALSE} (default) keeps every stratum (flagged ones highlighted);
+\code{TRUE} restricts the \code{"predicted"} and \code{"obs_vs_shrunken"}
+views to the strata carrying a credibly non-zero interaction, so a flagged
+stratum is never hidden by the \code{n_strata} cap. When \code{TRUE} and
+\code{highlight_interactions} is left \code{FALSE}, the flags are computed
+with \code{\link{maihda_interactions}} defaults; pass
+\code{highlight_interactions} to choose the \code{conf_level}/\code{adjust}.
+A captioned empty panel is returned when no stratum is flagged. It does not
+apply to \code{"effect_decomp"} (whose waterfall exists to show each flagged
+stratum's place in the \emph{full} distribution); that view stays highlighted.
+Independently of this argument, whenever interactions are highlighted the
+\code{n_strata} cap on \code{"predicted"} becomes flag-aware: every flagged
+stratum is kept and the remaining slots are filled in stratum order.}
 
 \item{...}{Additional arguments (not currently used).}
 }

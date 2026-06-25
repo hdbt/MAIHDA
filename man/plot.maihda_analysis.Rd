@@ -4,7 +4,13 @@
 \alias{plot.maihda_analysis}
 \title{Plot a MAIHDA Analysis}
 \usage{
-\method{plot}{maihda_analysis}(x, type = "all", highlight_interactions = FALSE, ...)
+\method{plot}{maihda_analysis}(
+  x,
+  type = "all",
+  highlight_interactions = FALSE,
+  only_flagged = FALSE,
+  ...
+)
 }
 \arguments{
 \item{x}{A \code{maihda_analysis} object from \code{\link{maihda}}.}
@@ -26,6 +32,14 @@ intersectional interaction on the BLUP-based views (see
 crossed-dimensions model), a multiple-testing method such as \code{"BH"}, or
 a \code{maihda_interactions} object. The flags are computed once from the
 correct (adjusted) model and reused across views.}
+
+\item{only_flagged}{Show only the flagged strata on the \code{"predicted"} and
+\code{"obs_vs_shrunken"} views instead of dimming the rest (see
+\code{\link[=plot.maihda_model]{plot}}). \code{FALSE} (default) keeps every
+stratum; \code{TRUE} restricts those views to the strata carrying a credibly
+non-zero interaction and, when \code{highlight_interactions} is left
+\code{FALSE}, turns the highlight on with this analysis's stored diagnostic.
+\code{"effect_decomp"} ignores it (it stays highlighted in context).}
 
 \item{...}{Additional arguments passed to the underlying plot method.}
 }

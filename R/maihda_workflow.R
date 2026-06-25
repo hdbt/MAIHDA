@@ -923,10 +923,18 @@ summary.maihda_analysis <- function(object, ...) {
 #'   crossed-dimensions model), a multiple-testing method such as \code{"BH"}, or
 #'   a \code{maihda_interactions} object. The flags are computed once from the
 #'   correct (adjusted) model and reused across views.
+#' @param only_flagged Show only the flagged strata on the \code{"predicted"} and
+#'   \code{"obs_vs_shrunken"} views instead of dimming the rest (see
+#'   \code{\link[=plot.maihda_model]{plot}}). \code{FALSE} (default) keeps every
+#'   stratum; \code{TRUE} restricts those views to the strata carrying a credibly
+#'   non-zero interaction and, when \code{highlight_interactions} is left
+#'   \code{FALSE}, turns the highlight on with this analysis's stored diagnostic.
+#'   \code{"effect_decomp"} ignores it (it stays highlighted in context).
 #' @param ... Additional arguments passed to the underlying plot method.
 #' @return A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
 #' @export
-plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE, ...) {
+plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE,
+                                 only_flagged = FALSE, ...) {
   type <- match.arg(type, c(
     "all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
     "effect_decomp", "ternary", "prediction_deviation", "context_vpc",
@@ -934,6 +942,15 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
     "group_vpc", "group_components", "group_between_variance", "group_pcv",
     "group_additive_share"
   ))
+
+  # only_flagged needs flags to restrict by. Imply the highlight HERE, at the
+  # analysis level, so it resolves from the stored (adjusted-model) diagnostic --
+  # deferring to the model method would recompute on the null model that the
+  # predicted/obs views use and trip its "looks like a null model" warning.
+  only_flagged <- maihda_validate_only_flagged(only_flagged)
+  if (only_flagged && isFALSE(highlight_interactions)) {
+    highlight_interactions <- TRUE
+  }
 
   # Longitudinal analysis: the trajectory views replace the cross-sectional ones.
   # "all" shows the VPC-over-time and the stratum mean trajectories; "pcv_trajectory"
@@ -1003,11 +1020,11 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
     null_plots <- list(vpc = plot(x$model, type = "vpc", summary_obj = x$summary, ...))
     null_plots$obs_vs_shrunken <- tryCatch(
       plot(x$model, type = "obs_vs_shrunken", summary_obj = x$summary,
-           highlight_interactions = hl, ...),
+           highlight_interactions = hl, only_flagged = only_flagged, ...),
       error = function(e) NULL)
     null_plots$predicted <- tryCatch(
       plot(x$model, type = "predicted", summary_obj = x$summary,
-           highlight_interactions = hl, ...),
+           highlight_interactions = hl, only_flagged = only_flagged, ...),
       error = function(e) NULL)
     if (!is.null(x$context_vars)) {
       null_plots$context_vpc <- tryCatch(
@@ -1040,12 +1057,12 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
 
   if (type %in% adjusted_types) {
     return(plot(adj_model, type = type, summary_obj = adj_summary,
-                highlight_interactions = hl, ...))
+                highlight_interactions = hl, only_flagged = only_flagged, ...))
   }
 
   # vpc, obs_vs_shrunken, predicted -> null model
   plot(x$model, type = type, summary_obj = x$summary,
-       highlight_interactions = hl, ...)
+       highlight_interactions = hl, only_flagged = only_flagged, ...)
 }
 
 # Resolve the highlight argument for a maihda_analysis: FALSE/NULL stays FALSE;

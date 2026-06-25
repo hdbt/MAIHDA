@@ -170,6 +170,55 @@ test_that("print reports the flagged count and is exploratory", {
   expect_output(print(mi), "BH")
 })
 
+# Subsetting (head / `[` / dplyr verbs) keeps the maihda_interactions class but, in
+# many R/dplyr versions, drops the attributes the print method reads (n_flagged,
+# n_strata, conf_level, ...). Whether they survive is version-dependent, so the
+# tests reproduce the attribute-less state deterministically rather than relying on
+# head() to drop it.
+maihda_strip_interaction_attrs <- function(x) {
+  for (nm in c("n_flagged", "n_strata", "conf_level", "adjust", "engine",
+               "model_type", "rope", "singular")) {
+    attr(x, nm) <- NULL
+  }
+  x
+}
+
+test_that("printing a maihda_interactions object stripped of its attributes does not error", {
+  a <- maihda_interaction_analysis()
+  mi <- maihda_interactions(a)
+
+  bare <- maihda_strip_interaction_attrs(mi)
+  expect_s3_class(bare, "maihda_interactions")     # still classed...
+  expect_null(attr(bare, "n_flagged"))             # ...but the attribute is gone (the crash precondition)
+
+  expect_no_error(print(bare))                     # previously errored on `if (NULL > 0)`
+  # Counts are recomputed from the rows themselves.
+  expect_output(print(bare),
+                paste0(sum(bare$flagged), " of ", nrow(bare), " strata flagged"))
+
+  # A stripped 3-row subset reports its own recomputed counts.
+  bare3 <- maihda_strip_interaction_attrs(mi[1:3, ])
+  expect_no_error(print(bare3))
+  expect_output(print(bare3), paste0(sum(bare3$flagged), " of 3 strata flagged"))
+
+  # Robust even when the flagged column itself was selected away.
+  expect_no_error(print(maihda_strip_interaction_attrs(mi[, c("stratum", "label", "interaction")])))
+
+  # The one-line summary helper shares the same guard.
+  expect_no_error(MAIHDA:::maihda_print_interactions_line(bare))
+})
+
+test_that("subsetting a maihda_interactions object then printing never errors", {
+  # Belt-and-suspenders over the real subsetting operations, whatever the running
+  # R/dplyr version does with the attributes.
+  a <- maihda_interaction_analysis()
+  mi <- maihda_interactions(a)
+  expect_no_error(print(head(mi, 3)))
+  expect_no_error(print(mi[1:3, ]))
+  expect_no_error(print(mi[mi$flagged, ]))
+  expect_no_error(print(mi[, c("stratum", "label", "interaction")]))
+})
+
 test_that("a singular/boundary fit flags nothing and prints without error", {
   # Purely additive outcome (no interaction) -> between-stratum interaction
   # variance near zero; the BLUP SEs collapse, so nothing should flag.
@@ -256,6 +305,108 @@ test_that("an invalid highlight_interactions argument errors", {
   a <- maihda_interaction_analysis()
   expect_error(plot(a, type = "effect_decomp", highlight_interactions = "yes"),
                "maihda_interactions")
+})
+
+# ---- only_flagged: filter to the flagged strata -----------------------------
+
+test_that("only_flagged restricts the predicted view to the flagged strata", {
+  a <- maihda_interaction_analysis()
+  mi <- maihda_interactions(a)
+  flagged <- as.character(mi$stratum[mi$flagged])
+  expect_gt(length(flagged), 0L)
+
+  p_all  <- plot(a, type = "predicted")
+  p_only <- plot(a, type = "predicted", only_flagged = TRUE)
+
+  expect_s3_class(p_only, "ggplot")
+  # exactly the flagged strata, nothing else
+  expect_setequal(as.character(p_only$data$stratum), flagged)
+  expect_equal(nrow(p_only$data), length(flagged))
+  expect_lt(nrow(p_only$data), nrow(p_all$data))
+  # the cap can no longer hide a flagged stratum: every flagged point is drawn
+  expect_true(all(p_only$data$.maihda_flag))
+  # the caption names the screen honestly
+  expect_match(p_only$labels$caption, "flagged strata")
+  expect_match(p_only$labels$caption, "BH-adjusted")
+})
+
+test_that("only_flagged restricts the obs_vs_shrunken view too", {
+  a <- maihda_interaction_analysis()
+  mi <- maihda_interactions(a)
+  flagged <- as.character(mi$stratum[mi$flagged])
+
+  p <- plot(a, type = "obs_vs_shrunken", only_flagged = TRUE)
+  expect_s3_class(p, "ggplot")
+  expect_setequal(as.character(p$data$stratum), flagged)
+  expect_match(p$labels$caption, "flagged strata")
+})
+
+test_that("only_flagged returns a captioned empty panel when nothing is flagged", {
+  d0 <- maihda_interaction_data(d = 0)
+  a0 <- suppressMessages(suppressWarnings(maihda(y ~ A + B + (1 | A:B), data = d0)))
+  expect_equal(attr(maihda_interactions(a0), "n_flagged"), 0L)
+
+  p <- plot(a0, type = "predicted", only_flagged = TRUE)
+  expect_s3_class(p, "ggplot")
+  # the title is preserved and the panel explains why it is empty
+  expect_match(p$labels$title, "Predicted Subgroup Values")
+  bdata <- ggplot2::ggplot_build(p)$data[[1]]
+  expect_true(any(grepl("No strata flagged", bdata$label)))
+})
+
+# ---- flag-aware truncation: the cap never drops a flagged stratum -----------
+
+test_that("the n_strata cap is flag-aware: flagged strata survive truncation", {
+  a <- maihda_interaction_analysis()          # 9 strata, 4 flagged
+  mi <- maihda_interactions(a)
+  flagged <- as.character(mi$stratum[mi$flagged])
+
+  # cap BELOW the flagged count, highlighting on but not only_flagged
+  p <- plot(a, type = "predicted", n_strata = 2, highlight_interactions = TRUE)
+  shown <- as.character(p$data$stratum)
+  # every flagged stratum is kept even though n_strata = 2
+  expect_true(all(flagged %in% shown))
+  expect_gte(nrow(p$data), length(flagged))
+  expect_match(p$labels$caption, "exceeded to keep every flagged stratum")
+})
+
+test_that("flag-aware truncation fills the remaining slots with non-flagged strata", {
+  a <- maihda_interaction_analysis()          # 9 strata, 4 flagged
+  mi <- maihda_interactions(a)
+  flagged <- as.character(mi$stratum[mi$flagged])
+
+  p <- plot(a, type = "predicted", n_strata = 6, highlight_interactions = TRUE)
+  shown <- as.character(p$data$stratum)
+  expect_true(all(flagged %in% shown))        # all flagged kept
+  expect_equal(length(shown), 6L)             # filled up to the cap
+  expect_match(p$labels$caption, "plus the first")
+})
+
+test_that("the unhighlighted cap is unchanged (plain head, captioned)", {
+  set.seed(202)
+  dat <- data.frame(stratum = rep(1:20, each = 10),
+                    age = rnorm(200), outcome = rnorm(200))
+  m <- fit_maihda(outcome ~ age + (1 | stratum), data = dat, engine = "lme4")
+  p <- plot(m, type = "predicted", n_strata = 10)
+  expect_equal(nrow(p$data), 10L)
+  expect_match(p$labels$caption, "first 10 of 20")
+})
+
+# ---- effect_decomp stays highlighted in context -----------------------------
+
+test_that("only_flagged does not filter effect_decomp but says so", {
+  a <- maihda_interaction_analysis()
+  expect_message(
+    p <- plot(a, type = "effect_decomp", only_flagged = TRUE),
+    "only_flagged"
+  )
+  expect_s3_class(p, "ggplot")
+})
+
+test_that("an invalid only_flagged argument errors", {
+  a <- maihda_interaction_analysis()
+  expect_error(plot(a, type = "predicted", only_flagged = "yes"),
+               "single TRUE or FALSE")
 })
 
 # ---- probability of direction (Stan-free) -----------------------------------

@@ -44,6 +44,20 @@
 #'   adjusted (or crossed-dimensions) model -- e.g. via
 #'   \code{plot()} on a \code{\link{maihda}} analysis, which routes these views to
 #'   the adjusted model automatically.
+#' @param only_flagged Show \emph{only} the flagged strata rather than dimming the
+#'   rest. \code{FALSE} (default) keeps every stratum (flagged ones highlighted);
+#'   \code{TRUE} restricts the \code{"predicted"} and \code{"obs_vs_shrunken"}
+#'   views to the strata carrying a credibly non-zero interaction, so a flagged
+#'   stratum is never hidden by the \code{n_strata} cap. When \code{TRUE} and
+#'   \code{highlight_interactions} is left \code{FALSE}, the flags are computed
+#'   with \code{\link{maihda_interactions}} defaults; pass
+#'   \code{highlight_interactions} to choose the \code{conf_level}/\code{adjust}.
+#'   A captioned empty panel is returned when no stratum is flagged. It does not
+#'   apply to \code{"effect_decomp"} (whose waterfall exists to show each flagged
+#'   stratum's place in the \emph{full} distribution); that view stays highlighted.
+#'   Independently of this argument, whenever interactions are highlighted the
+#'   \code{n_strata} cap on \code{"predicted"} becomes flag-aware: every flagged
+#'   stratum is kept and the remaining slots are filled in stratum order.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return For a single \code{type}, a \pkg{ggplot2} object that you can extend
@@ -77,12 +91,20 @@
 #' @import ggplot2
 #' @importFrom dplyr arrange
 plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
-                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, ...) {
+                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, ...) {
   if (!inherits(x, "maihda_model")) {
     stop("'x' must be a maihda_model object from fit_maihda()")
   }
 
   object <- x
+
+  # Restricting the view to flagged strata needs flags to restrict by; if the
+  # caller asked for only_flagged but no highlight, fall back to the default
+  # interaction screen so only_flagged works on its own.
+  only_flagged <- maihda_validate_only_flagged(only_flagged)
+  if (only_flagged && isFALSE(highlight_interactions)) {
+    highlight_interactions <- TRUE
+  }
 
 
   if (missing(type)) {
@@ -139,10 +161,10 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
 
     # Try obs_vs_shrunken
     if ("stratum" %in% names(object$data)) {
-      plots$obs_vs_shrunken <- tryCatch(plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids), error = function(e) NULL)
+      plots$obs_vs_shrunken <- tryCatch(plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids, only_flagged = only_flagged), error = function(e) NULL)
     }
 
-    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids), error = function(e) NULL)
+    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged), error = function(e) NULL)
 
     top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
     plots$risk_vs_effect <- tryCatch(plot_risk_vs_effect(object, summary_obj, top_n_labels), error = function(e) NULL)
@@ -167,13 +189,20 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     } else if (type == "context_vpc") {
       plot <- plot_context_vpc(summary_obj)
     } else if (type == "obs_vs_shrunken") {
-      plot <- plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids)
+      plot <- plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids, only_flagged = only_flagged)
     } else if (type == "predicted") {
-      plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids)
+      plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged)
     } else if (type == "risk_vs_effect") {
       top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
       plot <- plot_risk_vs_effect(object, summary_obj, top_n_labels)
     } else if (type == "effect_decomp") {
+      # The waterfall's value IS the full-distribution context, so filtering it
+      # away defeats the view; keep it highlighted and say so rather than no-op.
+      if (only_flagged) {
+        message("plot(): 'only_flagged' does not apply to type = \"effect_decomp\" -- ",
+                "its waterfall exists to show each flagged stratum's place in the full ",
+                "distribution, so the flagged strata are highlighted in context instead.")
+      }
       top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
       plot <- plot_effect_decomposition(object, summary_obj, top_n_labels, highlight = highlight_ids)
     } else if (type == "ternary") {
@@ -212,7 +241,66 @@ maihda_resolve_highlight <- function(model, highlight_interactions) {
          "method name (e.g. \"BH\"), or a maihda_interactions object from ",
          "maihda_interactions().", call. = FALSE)
   }
-  as.character(flags$stratum[flags$flagged %in% TRUE])
+  ids <- as.character(flags$stratum[flags$flagged %in% TRUE])
+  # Carry the screen's parameters along so downstream views can caption an
+  # only_flagged subset honestly (e.g. "95% interval, BH-adjusted"). Attributes
+  # ride harmlessly through the `as.character(stratum) %in% highlight` membership
+  # checks that consume `ids` elsewhere.
+  attr(ids, "conf_level") <- attr(flags, "conf_level")
+  attr(ids, "adjust") <- attr(flags, "adjust")
+  attr(ids, "engine") <- attr(flags, "engine")
+  ids
+}
+
+# Validate the `only_flagged` plot argument: NULL -> FALSE, otherwise a single
+# non-NA logical. Anything else is a usage error.
+maihda_validate_only_flagged <- function(only_flagged) {
+  if (is.null(only_flagged)) return(FALSE)
+  if (!is.logical(only_flagged) || length(only_flagged) != 1L || is.na(only_flagged)) {
+    stop("'only_flagged' must be a single TRUE or FALSE.", call. = FALSE)
+  }
+  only_flagged
+}
+
+# Human-readable description of the interaction screen behind a highlight set, for
+# an honest only_flagged caption. Mirrors the basis line of
+# maihda_print_interactions_line(): a credible interval for brms, otherwise the
+# conf_level interval with the multiplicity stance actually used. Reads the
+# attributes attached by maihda_resolve_highlight(); defaults to a 95% interval
+# when they are absent (e.g. a bare character vector of ids).
+maihda_highlight_screen_label <- function(highlight) {
+  conf <- attr(highlight, "conf_level")
+  adjust <- attr(highlight, "adjust")
+  engine <- attr(highlight, "engine")
+  conf_pct <- if (is.null(conf)) 95 else conf * 100
+  if (identical(engine, "brms")) {
+    sprintf("%.0f%% credible interval", conf_pct)
+  } else if (is.null(adjust) || identical(adjust, "none")) {
+    sprintf("%.0f%% interval, unadjusted", conf_pct)
+  } else {
+    sprintf("%.0f%% interval, %s-adjusted", conf_pct, adjust)
+  }
+}
+
+# Placeholder for an only_flagged view when no stratum is flagged: an empty panel
+# carrying the same title plus an explanatory annotation, so the filtered view
+# degrades gracefully instead of erroring or drawing a bare axis. Mirrors the
+# print method's "No strata show interaction credibly different from zero".
+maihda_no_flagged_plot <- function(title, screen_label) {
+  ggplot2::ggplot() +
+    ggplot2::annotate(
+      "text", x = 0, y = 0, size = 4, color = "grey30",
+      label = paste0("No strata flagged as carrying a credibly\n",
+                     "non-zero interaction (", screen_label, ").")) +
+    ggplot2::scale_x_continuous(limits = c(-1, 1)) +
+    ggplot2::scale_y_continuous(limits = c(-1, 1)) +
+    ggplot2::labs(title = title, x = NULL, y = NULL) +
+    theme_maihda() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      axis.text = ggplot2::element_blank(),
+      axis.ticks = ggplot2::element_blank(),
+      panel.grid = ggplot2::element_blank())
 }
 
 # Append a star to the strata flagged for highlighting, for use in plot labels.
@@ -404,12 +492,16 @@ plot_context_vpc <- function(summary_obj) {
 #'
 #' @param object A maihda_model object
 #' @param summary_obj A maihda_summary object
+#' @param highlight Optional character vector of flagged stratum ids (with the
+#'   interaction-screen parameters attached as attributes).
+#' @param only_flagged When TRUE, show only the flagged strata; a captioned empty
+#'   panel is returned if none are flagged.
 #' @return A ggplot2 object
 #' @keywords internal
 #' @import ggplot2
 #' @importFrom dplyr group_by summarise
 #' @importFrom stats formula terms
-plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
+plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL, only_flagged = FALSE) {
   data <- object$data
 
   observed_response <- maihda_observed_response_from_model_frame(data, object$formula)
@@ -464,6 +556,23 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
     plot_data$shrunken <- pred_data$predicted_row[pred_idx]
     plot_data$.maihda_flag <- as.character(plot_data$stratum) %in% highlight
 
+    # The y = x diagonal is the only reference and is filtering-invariant, so an
+    # only_flagged subset is safe. With nothing flagged, degrade to a captioned
+    # empty panel rather than a bare diagonal.
+    caption_txt <- NULL
+    if (only_flagged) {
+      n_total <- nrow(plot_data)
+      n_flagged <- sum(plot_data$.maihda_flag)
+      screen_label <- maihda_highlight_screen_label(highlight)
+      if (n_flagged == 0) {
+        return(maihda_no_flagged_plot("Observed vs. Shrunken Stratum Estimates",
+                                      screen_label))
+      }
+      plot_data <- plot_data[plot_data$.maihda_flag, , drop = FALSE]
+      caption_txt <- sprintf("Showing the %d flagged strata (%s) of %d total.",
+                             n_flagged, screen_label, n_total)
+    }
+
     has_hl <- any(plot_data$.maihda_flag)
 
     # Create plot. When interactions are highlighted, focus by contrast -- flagged
@@ -481,11 +590,13 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
         title = "Observed vs. Shrunken Stratum Estimates",
         x = "Observed Stratum Mean",
         y = "Shrunken Estimate (with Random Effect)",
-        size = "Sample Size"
+        size = "Sample Size",
+        caption = caption_txt
       ) +
       theme_maihda() +
       theme(
         plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
         legend.position = "right"
       )
     if (has_hl) {
@@ -611,11 +722,15 @@ maihda_observed_outcome_for_plot <- function(x, family = NULL) {
 #' @param summary_obj A maihda_summary object
 #' @param n_strata Maximum number of strata to display (the first n_strata, in stratum order)
 #' @param scale Prediction scale: "response" (default) or "link"
+#' @param highlight Optional character vector of flagged stratum ids (with the
+#'   interaction-screen parameters attached as attributes).
+#' @param only_flagged When TRUE, show only the flagged strata (those in
+#'   \code{highlight}); a captioned empty panel is returned if none are flagged.
 #' @return A ggplot2 object
 #' @keywords internal
 #' @import ggplot2
 #' @importFrom dplyr arrange slice
-plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL) {
+plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL, only_flagged = FALSE) {
   scale <- match.arg(scale)
 
   pred_data <- if (object$engine == "lme4") {
@@ -647,15 +762,62 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
   stratum_est$lower <- pred_data$lower_row[pred_idx]
   stratum_est$upper <- pred_data$upper_row[pred_idx]
 
-  # Keep original order (no sorting). n_strata is a MAXIMUM: when there are more
-  # strata than that, show the first n_strata in stratum order rather than
-  # thinning an evenly-spaced subset across all of them. The old stride sampling
-  # silently dropped strata from the middle while implying full coverage; the
-  # caption below records how many were omitted so the cap is not silent.
+  # Mark strata flagged as carrying a credibly non-zero interaction BEFORE any
+  # truncation, so the cap can be made flag-aware (a flagged stratum past the cap
+  # must not be silently dropped). The reference line above is already computed
+  # from ALL strata, so neither filtering nor capping below shifts it.
+  stratum_est$.maihda_flag <- as.character(stratum_est$stratum) %in% highlight
   n_total_strata <- nrow(stratum_est)
-  truncated_strata <- !is.null(n_strata) && n_total_strata > n_strata
-  if (truncated_strata) {
-    stratum_est <- utils::head(stratum_est, n_strata)
+  n_flagged_total <- sum(stratum_est$.maihda_flag)
+  screen_label <- maihda_highlight_screen_label(highlight)
+
+  caption_txt <- ""
+  if (only_flagged) {
+    # Restrict to flagged strata. With none flagged, return a captioned empty
+    # panel rather than an error or a bare axis.
+    if (n_flagged_total == 0) {
+      return(maihda_no_flagged_plot(
+        "Predicted Subgroup Values with Conditional 95% Intervals", screen_label))
+    }
+    stratum_est <- stratum_est[stratum_est$.maihda_flag, , drop = FALSE]
+    # A cap still applies for readability when MANY strata are flagged.
+    capped <- !is.null(n_strata) && nrow(stratum_est) > n_strata
+    if (capped) stratum_est <- utils::head(stratum_est, n_strata)
+    caption_txt <- if (capped) {
+      sprintf("\nShowing the first %d of %d flagged strata (%s); %d strata total.",
+              n_strata, n_flagged_total, screen_label, n_total_strata)
+    } else {
+      sprintf("\nShowing the %d flagged strata (%s) of %d total.",
+              n_flagged_total, screen_label, n_total_strata)
+    }
+  } else if (!is.null(n_strata) && n_total_strata > n_strata) {
+    # Cap exceeded. n_strata is a MAXIMUM: show the first n_strata in stratum
+    # order rather than thinning an evenly-spaced subset (the old stride sampling
+    # silently dropped strata from the middle while implying full coverage).
+    if (n_flagged_total > 0) {
+      # Flag-aware cap: keep EVERY flagged stratum, then fill the remaining slots
+      # in stratum order, preserving original order. A flagged stratum beyond the
+      # cap is the signal the highlight exists to surface, so it is never dropped
+      # -- even if that means showing more than n_strata.
+      flagged_idx <- which(stratum_est$.maihda_flag)
+      nonflag_idx <- which(!stratum_est$.maihda_flag)
+      n_fill <- max(0, n_strata - length(flagged_idx))
+      keep_idx <- sort(union(flagged_idx, utils::head(nonflag_idx, n_fill)))
+      stratum_est <- stratum_est[keep_idx, , drop = FALSE]
+      caption_txt <- if (length(flagged_idx) > n_strata) {
+        sprintf(paste0("\nShowing all %d flagged strata of %d (n_strata = %d ",
+                       "exceeded to keep every flagged stratum)."),
+                length(flagged_idx), n_total_strata, n_strata)
+      } else {
+        sprintf(paste0("\nShowing %d of %d strata: all %d flagged plus the first ",
+                       "%d others (n_strata = %d)."),
+                length(keep_idx), n_total_strata, length(flagged_idx), n_fill, n_strata)
+      }
+    } else {
+      stratum_est <- utils::head(stratum_est, n_strata)
+      caption_txt <- sprintf("\nShowing the first %d of %d strata (n_strata = %d).",
+                             n_strata, n_total_strata, n_strata)
+    }
   }
 
   # Use labels if available, otherwise use numeric stratum IDs
@@ -667,10 +829,10 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
     stratum_est$display_label <- stratum_est$stratum
   }
 
-  # Mark strata flagged as carrying a credibly non-zero interaction; star their
-  # axis labels so the highlight survives in the (possibly truncated) view.
-  stratum_est$.maihda_flag <- as.character(stratum_est$stratum) %in% highlight
-  if (any(stratum_est$.maihda_flag)) {
+  # Star the flagged strata's axis labels so the highlight survives the (possibly
+  # truncated) view. In only_flagged mode every shown stratum is flagged, so a
+  # star on each would be redundant noise -- skip it there.
+  if (!only_flagged && any(stratum_est$.maihda_flag)) {
     stratum_est$display_label <- maihda_highlight_label(
       stratum_est$display_label, stratum_est$stratum, highlight)
   }
@@ -703,12 +865,7 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
       title = "Predicted Subgroup Values with Conditional 95% Intervals",
       x = "Stratum",
       y = "Predicted Value",
-      caption = if (truncated_strata) {
-        sprintf("\nShowing the first %d of %d strata (n_strata = %d).",
-                n_strata, n_total_strata, n_strata)
-      } else {
-        ""
-      }
+      caption = caption_txt
     ) +
     theme_maihda() +
     theme(

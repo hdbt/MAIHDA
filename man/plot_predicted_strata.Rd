@@ -9,7 +9,8 @@ plot_predicted_strata(
   summary_obj,
   n_strata,
   scale = c("response", "link"),
-  highlight = NULL
+  highlight = NULL,
+  only_flagged = FALSE
 )
 }
 \arguments{
@@ -20,6 +21,12 @@ plot_predicted_strata(
 \item{n_strata}{Maximum number of strata to display (the first n_strata, in stratum order)}
 
 \item{scale}{Prediction scale: "response" (default) or "link"}
+
+\item{highlight}{Optional character vector of flagged stratum ids (with the
+interaction-screen parameters attached as attributes).}
+
+\item{only_flagged}{When TRUE, show only the flagged strata (those in
+\code{highlight}); a captioned empty panel is returned if none are flagged.}
 }
 \value{
 A ggplot2 object

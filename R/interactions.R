@@ -286,32 +286,54 @@ maihda_interactions <- function(object, conf_level = 0.95, adjust = "BH",
 #' @export
 #' @importFrom utils head
 print.maihda_interactions <- function(x, ...) {
-  conf <- attr(x, "conf_level")
-  adjust <- attr(x, "adjust")
-  engine <- attr(x, "engine")
-  model_type <- attr(x, "model_type")
-  n_strata <- attr(x, "n_strata")
-  n_flagged <- attr(x, "n_flagged")
+  # Subsetting a maihda_interactions object -- head(), `[`, or a dplyr verb -- keeps
+  # the class but drops these attributes, so read each defensively and fall back to a
+  # value recomputed from the data frame. Without this, a plain head(x) errors (e.g.
+  # `if (n_flagged > 0)` on a NULL attribute is "argument of length zero"). The full
+  # object returned by maihda_interactions() carries every attribute and prints
+  # exactly as before.
+  get_attr <- function(name, default) {
+    v <- attr(x, name)
+    if (length(v) == 0) default else v
+  }
+  has_flagged <- "flagged" %in% names(x)
+  conf       <- get_attr("conf_level", 0.95)
+  adjust     <- get_attr("adjust", NA_character_)
+  engine     <- get_attr("engine", NA_character_)
+  model_type <- get_attr("model_type", NA_character_)
+  n_strata   <- get_attr("n_strata", nrow(x))
+  n_flagged  <- attr(x, "n_flagged")
+  if (length(n_flagged) != 1L || is.na(n_flagged)) {
+    n_flagged <- if (has_flagged) sum(x$flagged, na.rm = TRUE) else NA_integer_
+  }
 
   # Semantic colouring via the shared cli palette (auto-degrades to plain text when
   # the destination has no ANSI support: knitr/vignettes, R CMD check, testthat,
   # NO_COLOR). Colour encodes emphasis, not valence.
   pal <- maihda_palette()
-  count_style <- if (n_flagged > 0) function(s) pal$bold(pal$accent(s)) else pal$muted
+  count_style <- if (isTRUE(n_flagged > 0)) function(s) pal$bold(pal$accent(s)) else pal$muted
 
   cat(cli::rule(left = pal$bold("Intersectional interactions")), "\n", sep = "")
 
+  conf_pct <- conf * 100
   evidence <- if (identical(engine, "brms")) {
-    sprintf("%.0f%% credible interval; probability of direction", conf * 100)
+    sprintf("%.0f%% credible interval; probability of direction", conf_pct)
+  } else if (is.na(adjust)) {
+    sprintf("%.0f%% interval", conf_pct)
   } else if (identical(adjust, "none")) {
-    sprintf("%.0f%% interval; no multiplicity correction", conf * 100)
+    sprintf("%.0f%% interval; no multiplicity correction", conf_pct)
   } else {
-    sprintf("%.0f%% interval; %s-adjusted p-values", conf * 100, adjust)
+    sprintf("%.0f%% interval; %s-adjusted p-values", conf_pct, adjust)
   }
+  count_label <- if (is.na(n_flagged)) "?" else as.character(n_flagged)
   cat(sprintf("%s of %d strata flagged (%s).\n",
-              count_style(as.character(n_flagged)), n_strata, pal$muted(evidence)))
-  cat(pal$muted(sprintf("Model: %s; interaction on the link (latent) scale.\n",
-                        model_type)))
+              count_style(count_label), n_strata, pal$muted(evidence)))
+  if (!is.na(model_type)) {
+    cat(pal$muted(sprintf("Model: %s; interaction on the link (latent) scale.\n",
+                          model_type)))
+  } else {
+    cat(pal$muted("Interaction reported on the link (latent) scale.\n"))
+  }
 
   rope <- attr(x, "rope")
   if (!is.null(rope) && "decision" %in% names(x)) {
@@ -333,15 +355,20 @@ print.maihda_interactions <- function(x, ...) {
   }
 
   cat("\n")
-  flagged_rows <- x[x$flagged %in% TRUE, , drop = FALSE]
-  if (nrow(flagged_rows) == 0) {
-    cat(pal$muted(
-      "No strata show interaction credibly different from zero at this level.\n"))
+  if (!has_flagged) {
+    # The 'flagged' column was selected away in a subset; show the rows as-is.
+    print(utils::head(as.data.frame(x), 10), row.names = FALSE, digits = 4)
   } else {
-    print(utils::head(as.data.frame(flagged_rows), 10), row.names = FALSE, digits = 4)
-    if (nrow(flagged_rows) > 10) {
-      cat(pal$muted(sprintf("  ... and %d more flagged strata\n",
-                            nrow(flagged_rows) - 10)))
+    flagged_rows <- x[x$flagged %in% TRUE, , drop = FALSE]
+    if (nrow(flagged_rows) == 0) {
+      cat(pal$muted(
+        "No strata show interaction credibly different from zero at this level.\n"))
+    } else {
+      print(utils::head(as.data.frame(flagged_rows), 10), row.names = FALSE, digits = 4)
+      if (nrow(flagged_rows) > 10) {
+        cat(pal$muted(sprintf("  ... and %d more flagged strata\n",
+                              nrow(flagged_rows) - 10)))
+      }
     }
   }
 
@@ -586,6 +613,12 @@ maihda_print_interactions_line <- function(ints, indent = "") {
   n_flag <- attr(ints, "n_flagged"); n_str <- attr(ints, "n_strata")
   adjust <- attr(ints, "adjust"); conf <- attr(ints, "conf_level")
   engine <- attr(ints, "engine")
+  # Subsetting drops these attributes (see print.maihda_interactions); fall back to
+  # values recomputed from the data frame so the one-line summary never errors.
+  if (length(n_flag) != 1L || is.na(n_flag)) {
+    n_flag <- if ("flagged" %in% names(ints)) sum(ints$flagged, na.rm = TRUE) else NA_integer_
+  }
+  if (length(n_str) != 1L) n_str <- nrow(ints)
   conf_pct <- if (is.null(conf)) 95 else conf * 100
   basis <- if (identical(engine, "brms")) {
     sprintf("%.0f%% credible interval", conf_pct)
