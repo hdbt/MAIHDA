@@ -318,18 +318,46 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     }
   }
 
+  # Resolve the forwarded engine arguments (subset/weights/offset/control/...) once,
+  # against the user data, and forward the VALUES -- not the expressions -- to every
+  # fit_maihda() call below (via fit_maihda_fwd). A data-masked subset/weights that
+  # references the response (e.g. subset = y %in% c("a", "b")) would otherwise be
+  # re-evaluated by each derived null/adjusted fit against that fit's data -- whose
+  # response has already been recoded to 0/1 in $original_data -- selecting zero rows
+  # and failing. Pre-evaluating makes the subset immune to the recoding, exactly as
+  # fit_maihda() does internally for a single fit and compare_maihda_groups() does for
+  # its per-group fits. The subset is normalized to a full-length logical so it stays
+  # row-aligned with each derived fit's data (which has the same rows as `data`).
+  dots_eval <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
+  if (!is.null(dots_eval[["subset"]])) {
+    dots_eval[["subset"]] <- maihda_normalize_subset(dots_eval[["subset"]], nrow(data))
+  }
+  fit_maihda_fwd <- function(...) do.call(fit_maihda, c(list(...), dots_eval))
+
   # Ordinal (cumulative) family <-> engine handshake, mirroring fit_maihda():
   # the wrappers pass 'engine' explicitly to every fit, so fit_maihda()'s own
   # missing(engine) auto-switch could never fire through them. An ordered-factor
   # outcome under all-default family/engine likewise selects the ordinal engine
   # here (fit_maihda() then auto-detects the family on the analytic sample).
-  if (missing(family) && missing(engine) && is.null(sampling_weights) &&
-      isTRUE(tryCatch(maihda_response_is_ordinal(formula, data),
-                      error = function(e) FALSE))) {
-    engine <- "ordinal"
-    message("maihda(): the outcome is an ordered factor; using the cumulative ",
-            "(ordinal) model with engine = \"ordinal\" (ordinal::clmm). Specify ",
-            "'family'/'engine' explicitly to override.")
+  #
+  # Detect on the SAME analytic sample fit_maihda() fits -- after any forwarded
+  # subset / precision weights -- not the raw outcome column. Pinning the engine
+  # from the raw column could select engine = "ordinal" while fit_maihda()'s
+  # analytic-sample detection resolves a binomial family (e.g. an ordered factor
+  # subset to two observed levels), a contradiction that then errors inside
+  # fit_maihda().
+  if (missing(family) && missing(engine) && is.null(sampling_weights)) {
+    is_ord_outcome <- isTRUE(tryCatch(
+      maihda_response_is_ordinal(formula, data,
+                                 subset = dots_eval[["subset"]],
+                                 weights = dots_eval[["weights"]]),
+      error = function(e) FALSE))
+    if (is_ord_outcome) {
+      engine <- "ordinal"
+      message("maihda(): the outcome is an ordered factor; using the cumulative ",
+              "(ordinal) model with engine = \"ordinal\" (ordinal::clmm). Specify ",
+              "'family'/'engine' explicitly to override.")
+    }
   }
   is_ordinal <- maihda_family_is_ordinal(
     if (is.function(family)) tryCatch(family(), error = function(e) NULL) else family
@@ -368,14 +396,14 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # can auto-detect a binary outcome, then reuse the resolved family for every model so
   # they agree.
   if (missing(family)) {
-    model <- fit_maihda(formula, data, engine = engine, autobin = autobin,
-                        context = context, sampling_weights = sampling_weights,
-                        id = id, time = time, time_degree = time_degree, ...)
+    model <- fit_maihda_fwd(formula, data, engine = engine, autobin = autobin,
+                            context = context, sampling_weights = sampling_weights,
+                            id = id, time = time, time_degree = time_degree)
   } else {
-    model <- fit_maihda(formula, data, engine = engine, family = family,
-                        autobin = autobin, context = context,
-                        sampling_weights = sampling_weights,
-                        id = id, time = time, time_degree = time_degree, ...)
+    model <- fit_maihda_fwd(formula, data, engine = engine, family = family,
+                            autobin = autobin, context = context,
+                            sampling_weights = sampling_weights,
+                            id = id, time = time, time_degree = time_degree)
   }
   family_used <- model$family
 
@@ -456,9 +484,9 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     # The formula builder strips ALL random effects before adding the dimension +
     # intersection intercepts; passing `context` again re-appends (and re-tags) any
     # contextual random intercept, so the two structures compose in one fit.
-    cc_model <- fit_maihda(cc$formula, cc$data, engine = engine,
-                           family = family_used, context = context,
-                           sampling_weights = sampling_weights, ...)
+    cc_model <- fit_maihda_fwd(cc$formula, cc$data, engine = engine,
+                               family = family_used, context = context,
+                               sampling_weights = sampling_weights)
     # Tag the fit so summary()/plot() read the additive-vs-interaction partition.
     cc_model$cc_info <- list(dim_groups = cc$dim_groups,
                              interaction_group = cc$interaction_group,
@@ -515,18 +543,18 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # 2024). The VPC itself is time-varying (see summary()).
   if (decomposition == "longitudinal") {
     null_model <- if (length(present_terms) > 0) {
-      fit_maihda(remove_terms(model$formula, present_terms), model$original_data,
-                 engine = engine, family = family_used,
-                 id = id, time = time, time_degree = time_degree, ...)
+      fit_maihda_fwd(remove_terms(model$formula, present_terms), model$original_data,
+                     engine = engine, family = family_used,
+                     id = id, time = time, time_degree = time_degree)
     } else {
       model
     }
     laf <- maihda_longitudinal_adjusted_formula(
       null_model$formula, strata_vars, null_model$strata_autobin_info,
       null_model$original_data, time = time, time_degree = time_degree)
-    adjusted_model <- fit_maihda(laf$formula, laf$data, engine = engine,
-                                 family = family_used, id = id, time = time,
-                                 time_degree = time_degree, ...)
+    adjusted_model <- fit_maihda_fwd(laf$formula, laf$data, engine = engine,
+                                     family = family_used, id = id, time = time,
+                                     time_degree = time_degree)
 
     summary_obj <- summary(null_model, bootstrap = bootstrap, n_boot = n_boot,
                            conf_level = conf_level)
@@ -575,32 +603,32 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     af <- maihda_adjusted_formula(null_model$formula, strata_vars,
                                   null_model$strata_autobin_info,
                                   null_model$original_data)
-    adjusted_model <- fit_maihda(af$formula, af$data, engine = engine,
-                                 family = family_used, context = context,
-                                 sampling_weights = sampling_weights, ...)
+    adjusted_model <- fit_maihda_fwd(af$formula, af$data, engine = engine,
+                                     family = family_used, context = context,
+                                     sampling_weights = sampling_weights)
     adjusted_formula <- af$formula
   } else if (length(missing_vars) == 0) {
     # Every dimension main effect is already present (the fully-specified adjusted
     # model): the supplied fit IS the adjusted; derive the null by removing them.
     adjusted_model <- model
     adjusted_formula <- model$formula
-    null_model <- fit_maihda(remove_terms(model$formula, present_terms),
-                             model$original_data, engine = engine,
-                             family = family_used, context = context,
-                             sampling_weights = sampling_weights, ...)
+    null_model <- fit_maihda_fwd(remove_terms(model$formula, present_terms),
+                                 model$original_data, engine = engine,
+                                 family = family_used, context = context,
+                                 sampling_weights = sampling_weights)
   } else {
     # Some dimension main effects present, some missing: fit a clean null (covariates
     # only) and a clean adjusted (all dimension main effects).
-    null_model <- fit_maihda(remove_terms(model$formula, present_terms),
-                             model$original_data, engine = engine,
-                             family = family_used, context = context,
-                             sampling_weights = sampling_weights, ...)
+    null_model <- fit_maihda_fwd(remove_terms(model$formula, present_terms),
+                                 model$original_data, engine = engine,
+                                 family = family_used, context = context,
+                                 sampling_weights = sampling_weights)
     af <- maihda_adjusted_formula(null_model$formula, strata_vars,
                                   null_model$strata_autobin_info,
                                   null_model$original_data)
-    adjusted_model <- fit_maihda(af$formula, af$data, engine = engine,
-                                 family = family_used, context = context,
-                                 sampling_weights = sampling_weights, ...)
+    adjusted_model <- fit_maihda_fwd(af$formula, af$data, engine = engine,
+                                     family = family_used, context = context,
+                                     sampling_weights = sampling_weights)
     adjusted_formula <- af$formula
   }
 

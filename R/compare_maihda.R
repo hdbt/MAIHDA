@@ -526,13 +526,50 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     }
   }
 
+  # Evaluate the forwarded engine arguments (e.g. weights=/subset=) once, with the
+  # data mask, as fit_maihda() does. Capturing them as quosures keeps them working
+  # when compare_maihda_groups() is itself called through maihda(). The resulting
+  # full-length values are then SLICED per group before both the min_group_n guard
+  # and the per-group fit, so an external `weights = w` / `subset = keep` vector
+  # (one not stored as a data column) lines up with each group's rows instead of
+  # being passed at full length (which fails with a length mismatch or, for a
+  # subset, silently recycles onto the wrong rows). Resolved here, BEFORE the
+  # engine handshake, so the ordinal pre-check detects the cumulative outcome on
+  # the same analytic sample the per-group family resolution uses.
+  dot_vals <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
+  n_full <- nrow(data)
+  # A numeric `subset` (e.g. subset = c(1:10, 31:40)) holds GLOBAL row indices into
+  # `data`, and a recycled logical mask is likewise positional over the full data.
+  # Expand both to a full-length logical mask BEFORE the per-group slicing below;
+  # otherwise the same vector is reinterpreted relative to each subgroup (numeric
+  # index k picks the k-th row of the group, not global row k), silently fitting
+  # the wrong rows. Store the normalized value back into dot_vals so the per-group
+  # fit (slice_dots_for_group) slices it too, not just the row-count guard.
+  subset_value <- maihda_normalize_subset(dot_vals[["subset"]], n_full)
+  dot_vals[["subset"]] <- subset_value
+  weights_value <- dot_vals[["weights"]]
+  # Family detection and the analytic row-count must see the same sample the engine
+  # fits. Sampling weights drop non-finite/<= 0 rows (mapped to NA here so the shared
+  # row mask drops them); precision weights only drop NA. Mirrors fit_maihda().
+  detect_weights <- if (!is.null(sampling_weights)) {
+    maihda_sampling_weight_mask(data[[sampling_weights]])
+  } else {
+    weights_value
+  }
+
   # Ordinal (cumulative) family <-> engine handshake, mirroring fit_maihda():
   # the per-group fits receive 'engine' explicitly, so fit_maihda()'s own
   # missing(engine) auto-switch could never fire through them. An ordered-factor
   # outcome under all-default family/engine likewise selects the ordinal engine
-  # here (the per-group family resolution below then picks up the family).
+  # here (the per-group family resolution below then picks up the family). Detect
+  # on the analytic sample (subset/weights applied), not the raw outcome column,
+  # so the engine choice cannot contradict the analytic family (e.g. an ordered
+  # factor subset to two observed levels resolves binomial, not ordinal, and
+  # would otherwise fail every group with an engine/family contradiction).
   if (missing(family) && missing(engine) && is.null(sampling_weights) &&
-      isTRUE(tryCatch(maihda_response_is_ordinal(formula, data),
+      isTRUE(tryCatch(maihda_response_is_ordinal(formula, data,
+                                                 subset = subset_value,
+                                                 weights = detect_weights),
                       error = function(e) FALSE))) {
     engine <- "ordinal"
     message("compare_maihda_groups(): the outcome is an ordered factor; using ",
@@ -598,34 +635,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     conf_level <- bootstrap_args$conf_level
   }
 
-  # Evaluate the forwarded engine arguments (e.g. weights=/subset=) once, with the
-  # data mask, as fit_maihda() does. Capturing them as quosures keeps them working
-  # when compare_maihda_groups() is itself called through maihda(). The resulting
-  # full-length values are then SLICED per group before both the min_group_n guard
-  # and the per-group fit, so an external `weights = w` / `subset = keep` vector
-  # (one not stored as a data column) lines up with each group's rows instead of
-  # being passed at full length (which fails with a length mismatch or, for a
-  # subset, silently recycles onto the wrong rows).
-  dot_vals <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
-  n_full <- nrow(data)
-  # A numeric `subset` (e.g. subset = c(1:10, 31:40)) holds GLOBAL row indices into
-  # `data`, and a recycled logical mask is likewise positional over the full data.
-  # Expand both to a full-length logical mask BEFORE the per-group slicing below;
-  # otherwise the same vector is reinterpreted relative to each subgroup (numeric
-  # index k picks the k-th row of the group, not global row k), silently fitting
-  # the wrong rows. Store the normalized value back into dot_vals so the per-group
-  # fit (slice_dots_for_group) slices it too, not just the row-count guard.
-  subset_value <- maihda_normalize_subset(dot_vals[["subset"]], n_full)
-  dot_vals[["subset"]] <- subset_value
-  weights_value <- dot_vals[["weights"]]
-  # Family detection and the analytic row-count must see the same sample the engine
-  # fits. Sampling weights drop non-finite/<= 0 rows (mapped to NA here so the shared
-  # row mask drops them); precision weights only drop NA. Mirrors fit_maihda().
-  detect_weights <- if (!is.null(sampling_weights)) {
-    maihda_sampling_weight_mask(data[[sampling_weights]])
-  } else {
-    weights_value
-  }
+  # `dot_vals`, `n_full`, `subset_value`, `weights_value` and `detect_weights`
+  # were resolved above (before the engine handshake) so the ordinal pre-check and
+  # the family resolution below both see the same analytic sample. Define the
+  # per-group slicers that consume them.
   # Per-group slice of a single full-length value (used for the row-count guard).
   slice_full <- function(val, idx) {
     if (is.null(val) || length(val) != n_full) return(NULL)

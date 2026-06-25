@@ -165,6 +165,12 @@ maihda_prediction_panel_ordinal_probs <- function(model, data) {
       }
       drop(X[, names(beta), drop = FALSE] %*% beta)
     }
+    # A formula offset term is part of the latent location clmm fits but is not a
+    # column of X, so add it explicitly or the rebuilt probabilities omit it.
+    off <- stats::model.offset(mf)
+    if (!is.null(off)) {
+      eta <- eta + off
+    }
     re_list <- tryCatch(ordinal::ranef(model), error = function(e) NULL)
     if (!is.null(re_list) && "stratum" %in% names(re_list) &&
         "stratum" %in% names(data)) {

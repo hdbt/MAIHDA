@@ -22,7 +22,9 @@ A numeric vector of latent-scale location predictions.
 constructed with the training data's factor levels and multiplied by the
 location coefficients \code{beta} (a clmm has \emph{no} intercept column --
 it is absorbed by the thresholds -- so \code{beta}'s names select the right
-columns), and \code{include_re} adds each row's stratum conditional mode (an
+columns), any formula offset term is evaluated on \code{newdata} and added
+(so an offset-only null model still predicts its offset), and
+\code{include_re} adds each row's stratum conditional mode (an
 unseen stratum contributes 0 -- the population-average fallback that
 \code{\link{predict_maihda}} only reaches when \code{allow_new_levels = TRUE},
 having otherwise rejected unseen strata upstream). Everything is on the latent

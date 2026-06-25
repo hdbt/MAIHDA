@@ -254,7 +254,8 @@ maihda_wemix_variances <- function(object) {
 #' and offers no fixed-only form, so predictions are built directly from the
 #' coefficient vector and the stored stratum effects: the fixed design matrix is
 #' constructed with the training data's factor levels and multiplied by
-#' \code{coef}, and \code{include_re} adds each row's stratum effect (conditional
+#' \code{coef}, any formula offset term is evaluated on \code{newdata} and added,
+#' and \code{include_re} adds each row's stratum effect (conditional
 #' mode; an unseen stratum contributes 0 -- the population-average fallback that
 #' \code{\link{predict_maihda}} only reaches when \code{allow_new_levels = TRUE},
 #' having otherwise rejected unseen strata upstream). Everything is on the link
@@ -280,6 +281,15 @@ maihda_wemix_linpred <- function(object, newdata = NULL, include_re = TRUE) {
          paste(missing_cols, collapse = ", "), call. = FALSE)
   }
   eta <- drop(X[, names(beta), drop = FALSE] %*% beta)
+
+  # A formula offset term (offset(.) in the model formula) is part of the linear
+  # predictor WeMix::mix() fits but is NOT a column of X, so model.matrix() never
+  # rebuilds it -- add it back explicitly from the model frame, evaluated on
+  # newdata, or response-scale predictions would be off by the offset.
+  off <- stats::model.offset(mf)
+  if (!is.null(off)) {
+    eta <- eta + off
+  }
 
   if (include_re) {
     re <- maihda_wemix_ranef_vector(object)

@@ -311,6 +311,52 @@ test_that("clmm predictions work on both scales and respect newdata strata", {
   expect_equal(unname(pa_link), unname(fixed_only))
 })
 
+test_that("clmm predictions add the formula offset (incl. an offset-only model)", {
+  skip_on_cran()
+  skip_if_not_installed("ordinal")
+
+  d <- make_ord_data()
+  d$expo <- runif(nrow(d), 0.5, 4)
+
+  m <- fit_ord(d, formula = y ~ x + offset(log(expo)) + (1 | gender:race:edu))
+
+  # The latent-location prediction must include the offset: rebuild it
+  # independently as X %*% beta + offset + u and compare.
+  off <- log(m$data$expo)
+  beta <- m$model$beta
+  tt <- stats::delete.response(stats::terms(reformulas::nobars(m$formula)))
+  mf <- stats::model.frame(tt, m$data, na.action = stats::na.pass)
+  X <- stats::model.matrix(tt, mf)
+  ret <- maihda_clmm_stratum_ranef(m)
+  re <- stats::setNames(ret$random_effect, ret$stratum)
+  u <- re[as.character(m$data$stratum)]; u[is.na(u)] <- 0
+  ref <- drop(X[, names(beta), drop = FALSE] %*% beta) + off + unname(u)
+
+  eta <- predict_maihda(m, type = "individual", scale = "link")
+  expect_equal(unname(eta), unname(ref), tolerance = 1e-8)
+  # The offset is non-trivial, so a fit that dropped it would differ by max|offset|.
+  expect_gt(max(abs(off)), 0.5)
+
+  # An offset-only NULL model (no location coefficients) must still predict its
+  # offset: the latent location is offset + u, not 0 + u.
+  m0 <- fit_ord(d, formula = y ~ offset(log(expo)) + (1 | gender:race:edu))
+  expect_length(m0$model$beta, 0L)
+  ret0 <- maihda_clmm_stratum_ranef(m0)
+  re0 <- stats::setNames(ret0$random_effect, ret0$stratum)
+  u0 <- re0[as.character(m0$data$stratum)]; u0[is.na(u0)] <- 0
+  eta0 <- predict_maihda(m0, type = "individual", scale = "link")
+  expect_equal(unname(eta0), unname(log(m0$data$expo) + unname(u0)), tolerance = 1e-8)
+  expect_gt(max(abs(eta0 - unname(u0))), 0.5)
+
+  # The prediction-deviation panel rebuilds the clmm probabilities independently;
+  # it must include the offset too.
+  panel <- maihda_prediction_panel_ordinal_probs(m$model, m$data)
+  exp_probs <- maihda_ordinal_category_probs(ref, m$model$alpha, m$model$link)
+  panel_m <- as.matrix(panel); dimnames(panel_m) <- NULL
+  exp_m <- exp_probs; dimnames(exp_m) <- NULL
+  expect_equal(panel_m, exp_m, tolerance = 1e-8)
+})
+
 test_that("maihda_mor returns the median cumulative odds ratio for a logit fit", {
   skip_on_cran()
   skip_if_not_installed("ordinal")

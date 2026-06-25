@@ -393,6 +393,32 @@ test_that("predict_maihda works for wemix fits (individual and strata)", {
   expect_gt(stats::cor(p_ind, m$data$y), 0.3)
 })
 
+test_that("wemix predictions add the formula offset", {
+  skip_on_cran()
+  skip_if_not_installed("WeMix")
+
+  d <- make_dw_data()
+  d$expo <- runif(nrow(d), 0.5, 4)
+  m <- suppressMessages(
+    fit_maihda(y ~ age + offset(log(expo)) + (1 | gender:race:edu), data = d,
+               engine = "wemix", sampling_weights = "w"))
+
+  # Rebuild the link-scale prediction independently as X %*% beta + offset + u.
+  off <- log(m$data$expo)
+  beta <- m$model$coef
+  tt <- stats::delete.response(stats::terms(reformulas::nobars(m$formula)))
+  mf <- stats::model.frame(tt, m$data, na.action = stats::na.pass)
+  X <- stats::model.matrix(tt, mf)
+  re <- maihda_wemix_ranef_vector(m)
+  u <- re[as.character(m$data$stratum)]; u[is.na(u)] <- 0
+  ref <- drop(X[, names(beta), drop = FALSE] %*% beta) + off + unname(u)
+
+  eta <- predict_maihda(m, type = "link")
+  expect_equal(unname(eta), unname(ref), tolerance = 1e-8)
+  # A fit that dropped the offset would differ by max|offset| (> 0.5 here).
+  expect_gt(max(abs(off)), 0.5)
+})
+
 test_that("calculate_pvc works across wemix fits and guards mismatched weights", {
   skip_on_cran()
   skip_if_not_installed("WeMix")

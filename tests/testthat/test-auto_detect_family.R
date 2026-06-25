@@ -54,3 +54,51 @@ test_that("fit_maihda detects binary on the post-transformation analytic frame",
   )
   expect_equal(m$family$family, "binomial")
 })
+
+test_that("the maihda() wrappers pick the engine from the analytic sample, not raw", {
+  # An ordered 3-level outcome subset to two observed levels is a BINARY analytic
+  # sample. The wrappers must detect that on the post-subset frame (engine = lme4,
+  # binomial) instead of pinning engine = "ordinal" from the raw 3-level column,
+  # which would error with an engine/family contradiction.
+  set.seed(303)
+  n <- 600
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race = sample(c("A", "B", "C"), n, replace = TRUE),
+    x = rnorm(n)
+  )
+  lat <- 0.5 * d$x + rnorm(n)
+  d$y <- factor(cut(lat, c(-Inf, -0.3, 0.6, Inf), labels = c("lo", "mid", "hi")),
+                levels = c("lo", "mid", "hi"), ordered = TRUE)
+  d$grp <- sample(c("g1", "g2"), n, replace = TRUE)
+
+  # Baseline: a direct fit resolves binomial/lme4 on the analytic sample.
+  fm <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ x + (1 | gender:race), data = d, subset = y %in% c("lo", "mid"))))
+  expect_identical(fm$engine, "lme4")
+  expect_identical(fm$family$family, "binomial")
+
+  # maihda() must agree -- and the two-model decomposition must complete (the
+  # response-referencing subset is re-used by value, immune to the 0/1 recoding).
+  mh <- suppressWarnings(suppressMessages(
+    maihda(y ~ x + (1 | gender:race), data = d, subset = y %in% c("lo", "mid"))))
+  expect_identical(mh$model$engine, "lme4")
+  expect_identical(mh$model$family$family, "binomial")
+  expect_false(is.null(mh$model_adjusted))
+  expect_identical(mh$model_adjusted$engine, "lme4")
+
+  # compare_maihda_groups() must agree and fit every group (no engine/family clash).
+  cm <- suppressWarnings(suppressMessages(
+    compare_maihda_groups(y ~ x + (1 | gender:race), data = d, group = "grp",
+                          subset = y %in% c("lo", "mid"), min_group_n = 5)))
+  expect_identical(attr(cm, "engine"), "lme4")
+  expect_true(all(cm$status == "ok"))
+  expect_true(all(is.finite(cm$vpc)))
+
+  # Regression guard: with the full (unsubset) 3-level ordered outcome the ordinal
+  # engine is still selected.
+  skip_if_not_installed("ordinal")
+  mh_ord <- suppressWarnings(suppressMessages(
+    maihda(y ~ x + (1 | gender:race), data = d)))
+  expect_identical(mh_ord$model$engine, "ordinal")
+})

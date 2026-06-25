@@ -308,7 +308,9 @@ maihda_clmm_stratum_ranef <- function(object) {
 #' constructed with the training data's factor levels and multiplied by the
 #' location coefficients \code{beta} (a clmm has \emph{no} intercept column --
 #' it is absorbed by the thresholds -- so \code{beta}'s names select the right
-#' columns), and \code{include_re} adds each row's stratum conditional mode (an
+#' columns), any formula offset term is evaluated on \code{newdata} and added
+#' (so an offset-only null model still predicts its offset), and
+#' \code{include_re} adds each row's stratum conditional mode (an
 #' unseen stratum contributes 0 -- the population-average fallback that
 #' \code{\link{predict_maihda}} only reaches when \code{allow_new_levels = TRUE},
 #' having otherwise rejected unseen strata upstream). Everything is on the latent
@@ -326,13 +328,18 @@ maihda_clmm_linpred <- function(object, newdata = NULL, include_re = TRUE) {
   }
   beta <- object$model$beta
 
+  # Build the fixed-effect model frame once. It supplies both the design matrix
+  # (when there are location coefficients) and any formula offset term, so it is
+  # needed even for a null (thresholds-only) model that carries only an offset.
+  tt <- stats::delete.response(stats::terms(reformulas::nobars(object$formula)))
+  xlev <- stats::.getXlevels(tt, stats::model.frame(tt, object$data))
+  mf <- stats::model.frame(tt, newdata, xlev = xlev, na.action = stats::na.pass)
+
   if (is.null(beta) || length(beta) == 0) {
-    # Null (thresholds-only) model: the location fixed part is identically 0.
+    # Null (thresholds-only) model: the location fixed part is identically 0
+    # (the offset, if any, is added below).
     eta <- rep(0, nrow(newdata))
   } else {
-    tt <- stats::delete.response(stats::terms(reformulas::nobars(object$formula)))
-    xlev <- stats::.getXlevels(tt, stats::model.frame(tt, object$data))
-    mf <- stats::model.frame(tt, newdata, xlev = xlev, na.action = stats::na.pass)
     X <- stats::model.matrix(tt, mf)
     missing_cols <- setdiff(names(beta), colnames(X))
     if (length(missing_cols) > 0) {
@@ -340,6 +347,14 @@ maihda_clmm_linpred <- function(object, newdata = NULL, include_re = TRUE) {
            paste(missing_cols, collapse = ", "), call. = FALSE)
     }
     eta <- drop(X[, names(beta), drop = FALSE] %*% beta)
+  }
+
+  # A formula offset term (offset(.) in the model formula) is part of the latent
+  # location clmm fits but is NOT a column of X, so add it explicitly -- including
+  # for an offset-only null model, whose location is otherwise identically 0.
+  off <- stats::model.offset(mf)
+  if (!is.null(off)) {
+    eta <- eta + off
   }
 
   if (include_re) {
