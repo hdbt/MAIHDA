@@ -9,7 +9,10 @@
 #' @param type Character string specifying prediction type:
 #'   \itemize{
 #'     \item "individual": Individual-level predictions including random effects
-#'     \item "strata": Stratum-level predictions (random effects only)
+#'     \item "strata": Stratum-level predictions (random effects only). For a
+#'       longitudinal (growth-curve) fit a stratum is a \emph{trajectory}, so this
+#'       returns the per-stratum trajectory parameters (baseline deviation, random
+#'       intercept and random slope(s)) rather than a single random effect.
 #'   }
 #'   For backward compatibility, "link" or "response" may also be passed here
 #'   and will be interpreted as individual-level predictions on that scale.
@@ -18,15 +21,24 @@
 #'   cumulative (ordinal) model the "link" scale is the latent location
 #'   \eqn{\eta} and the "response" scale is the \emph{expected category score}
 #'   \eqn{\sum_k k P(Y = k)} (categories scored 1..K in their declared order).
+#'   For an aggregated-binomial fit (an lme4 \code{cbind(success, failure)} or a
+#'   brms \code{success | trials(n)}) the "response" scale is the per-trial
+#'   \emph{probability} on both engines (not the expected success count).
 #' @param allow_new_levels Logical. By default (\code{FALSE}) a stratum in
 #'   \code{newdata} that the model never saw -- whether supplied directly as a
 #'   \code{stratum} column or rebuilt from the grouping variables -- is an error,
 #'   for every engine, matching \pkg{lme4}'s default. Set \code{TRUE} to instead
-#'   return a \emph{population-average} (fixed-effects-only) prediction for unseen
-#'   strata, dropping the stratum random effect (i.e. treating it as zero). This
-#'   affects \code{type = "individual"} only: a stratum-level prediction
-#'   (\code{type = "strata"}) has no random effect to report for an unseen
-#'   stratum, so unseen strata remain an error there regardless.
+#'   predict unseen strata with the stratum random effect dropped (treated as
+#'   zero), while keeping any \emph{other} random effect the row participates in
+#'   (e.g. a contextual \code{(1 | school)} intercept from
+#'   \code{fit_maihda(context = )}, or a longitudinal growth term) -- the same
+#'   behaviour as \pkg{lme4}'s \code{allow.new.levels}, which zeroes only the unseen
+#'   level's effect and keeps seen ones. For the usual single-stratum model the
+#'   stratum is the only random effect, so this is the \emph{population-average}
+#'   (fixed-effects-only) prediction. This affects \code{type = "individual"} only:
+#'   a stratum-level prediction (\code{type = "strata"}) has no random effect to
+#'   report for an unseen stratum, so unseen strata remain an error there
+#'   regardless.
 #' @param ... Additional arguments passed to predict method of underlying model.
 #'
 #' @return Depending on type:
@@ -167,27 +179,18 @@ predict_maihda <- function(object, newdata = NULL,
 
     if (type == "individual") {
       # Individual-level predictions. As for lme4, unseen strata are rejected
-      # upstream unless allow_new_levels = TRUE, which is forwarded to brms (its
-      # own argument of the same name) so new levels draw a zero random effect.
+      # upstream unless allow_new_levels = TRUE. Forwarding allow_new_levels to brms
+      # is NOT enough to honour the documented zero-effect fallback for unseen
+      # strata -- brms's default sample_new_levels = "uncertainty" DRAWS a new
+      # stratum effect from the estimated random-effects distribution rather than
+      # treating it as zero -- so the unseen rows are split off and predicted with
+      # re_formula = NA (see maihda_brms_individual_prediction()). allow_new_levels
+      # is still forwarded for the seen rows so an unseen *context* level (a
+      # different kind of new level) keeps working as before.
       dots <- maihda_dots_default(list(...), "allow_new_levels",
                                   isTRUE(allow_new_levels))
-      predictions <- if (scale == "response") {
-        f <- do.call(stats::fitted,
-                     c(list(model, newdata = newdata, summary = TRUE), dots))
-        if (length(dim(f)) == 3) {
-          # A categorical-likelihood fit (e.g. cumulative/ordinal) returns an
-          # nobs x summary x category ARRAY of per-category probabilities;
-          # collapse it to the expected category score (categories scored 1..K
-          # in order), the package's response-scale summary of such models.
-          est <- f[, "Estimate", ]
-          drop(est %*% seq_len(ncol(est)))
-        } else {
-          f[, "Estimate"]
-        }
-      } else {
-        do.call(brms::posterior_linpred,
-                c(list(model, newdata = newdata, summary = TRUE), dots))[, "Estimate"]
-      }
+      predictions <- maihda_brms_individual_prediction(object, newdata, scale,
+                                                       allow_new_levels, dots)
       return(predictions)
 
     } else if (type == "strata") {
@@ -208,6 +211,99 @@ maihda_dots_default <- function(dots, name, value) {
     dots[[name]] <- value
   }
   dots
+}
+
+# Individual-level brms predictions, honouring the documented unseen-stratum
+# fallback. allow_new_levels = TRUE promises a prediction that drops the stratum
+# random effect (treating it as zero) for a stratum the model never saw. brms does
+# NOT do this by simply receiving allow_new_levels = TRUE: its default
+# sample_new_levels = "uncertainty" SAMPLES a new stratum effect from the random-
+# effects distribution. So the unseen-stratum rows are predicted separately with an
+# re_formula that excludes the stratum term (see maihda_brms_unseen_re_formula());
+# the seen-stratum rows keep their estimated stratum effect. A blanket re_formula on
+# all rows would wrongly drop the seen strata's effects too, which is why the rows
+# are split. Any OTHER random effect the unseen row participates in -- a contextual
+# (1 | school) intercept, a longitudinal (time | id) growth term -- is retained,
+# matching lme4's allow.new.levels (which zeroes only the unseen level's effect); for
+# the usual single-stratum model the excluding re_formula is NA (fixed effects only),
+# the population average. Unseen rows are only possible when allow_new_levels = TRUE
+# (otherwise upstream validation rejected them), so without it every row takes the
+# ordinary full-random-effects path.
+maihda_brms_individual_prediction <- function(object, newdata, scale,
+                                              allow_new_levels, dots) {
+  known <- maihda_known_strata(object)
+  unseen <- if (isTRUE(allow_new_levels) && !is.null(known) &&
+                "stratum" %in% names(newdata)) {
+    !as.character(newdata$stratum) %in% known
+  } else {
+    rep(FALSE, nrow(newdata))
+  }
+
+  pred <- rep(NA_real_, nrow(newdata))
+  if (any(!unseen)) {
+    pred[!unseen] <- maihda_brms_predict_rows(
+      object, newdata[!unseen, , drop = FALSE], scale, dots)
+  }
+  if (any(unseen)) {
+    unseen_dots <- dots
+    # Drop the stratum effect (treat as zero) but keep any non-stratum random effect.
+    unseen_dots$re_formula <- maihda_brms_unseen_re_formula(object)
+    pred[unseen] <- maihda_brms_predict_rows(
+      object, newdata[unseen, , drop = FALSE], scale, unseen_dots)
+  }
+  pred
+}
+
+# A brms re_formula that keeps every grouping (random-effect) term EXCEPT the
+# stratum one, for predicting an unseen stratum: the stratum random effect is
+# dropped (treated as zero -- the population-average fallback) while any other
+# random effect the row participates in is retained, matching lme4's
+# allow.new.levels (which zeroes only the unseen level's effect, keeping seen ones).
+# Returns NA -- the brms re_formula that drops ALL group terms -- when the stratum is
+# the only random effect, i.e. the ordinary fixed-effects-only population average.
+# A bar's grouping factor is read with all.vars() so a context (1 | school) or a
+# longitudinal (poly | id) term is kept while (... | stratum) is removed.
+maihda_brms_unseen_re_formula <- function(object) {
+  f <- object$formula
+  if (inherits(f, "brmsformula") && inherits(f$formula, "formula")) {
+    f <- f$formula
+  }
+  if (!inherits(f, "formula")) {
+    return(NA)
+  }
+  bars <- tryCatch(reformulas::findbars(f), error = function(e) NULL)
+  if (is.null(bars) || length(bars) == 0) {
+    return(NA)
+  }
+  keep <- Filter(function(b) !("stratum" %in% all.vars(b[[3]])), bars)
+  if (length(keep) == 0) {
+    return(NA)
+  }
+  terms_chr <- vapply(keep, function(b)
+    paste0("(", paste(deparse(b, width.cutoff = 500L), collapse = " "), ")"),
+    character(1))
+  stats::as.formula(paste("~", paste(terms_chr, collapse = " + ")),
+                    env = baseenv())
+}
+
+# Response- or link-scale brms predictions for a block of rows. On the response
+# scale an aggregated-binomial `y | trials(n)` fit returns the expected COUNT
+# (trials * p), so it is normalised to a probability (matching lme4's cbind() fit);
+# a categorical-likelihood fit returns an nobs x summary x category array, collapsed
+# to the expected category score (categories scored 1..K in order).
+maihda_brms_predict_rows <- function(object, nd, scale, dots) {
+  model <- object$model
+  if (scale == "response") {
+    f <- do.call(stats::fitted,
+                 c(list(model, newdata = nd, summary = TRUE), dots))
+    if (length(dim(f)) == 3) {
+      est <- f[, "Estimate", ]
+      return(drop(est %*% seq_len(ncol(est))))
+    }
+    return(maihda_brms_response_to_prob(object, f[, "Estimate"], nd))
+  }
+  do.call(brms::posterior_linpred,
+          c(list(model, newdata = nd, summary = TRUE), dots))[, "Estimate"]
 }
 
 # Restrict a per-stratum prediction table to the strata present in `newdata` so

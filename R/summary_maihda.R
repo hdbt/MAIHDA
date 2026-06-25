@@ -984,6 +984,10 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
 #' @keywords internal
 maihda_print_cc_decomposition <- function(d) {
   fmt_share <- function(est, ci) {
+    if (!is.finite(est)) {
+      # NA when there is no between-strata variance to split (see maihda_cc_partition).
+      return("NA (no between-strata variance to split)")
+    }
     if (!is.null(ci) && length(ci) == 2L && all(is.finite(ci))) {
       sprintf("%.1f%% [%.1f%%, %.1f%%]", est * 100, ci[1] * 100, ci[2] * 100)
     } else {

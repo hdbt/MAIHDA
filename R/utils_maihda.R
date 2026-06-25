@@ -1169,6 +1169,12 @@ maihda_cc_variance_split <- function(var_named, dim_groups, interaction_group) {
 maihda_cc_partition <- function(additive, interaction, within, other = 0) {
   between <- additive + interaction
   total <- between + within + other
+  # The additive / interaction shares split the between-strata variance, so they are
+  # undefined when there is no between-strata variance (between == 0): additive / 0
+  # and interaction / 0 are 0 / 0 = NaN, a degenerate fit (every stratum's additive
+  # and interaction variance estimated at exactly zero). Report NA rather than leaking
+  # NaN to the public summary. Likewise the VPC is undefined when total variance is 0.
+  safe_ratio <- function(num, den) ifelse(den > 0, num / den, NA_real_)
   list(
     additive = additive,
     interaction = interaction,
@@ -1176,9 +1182,9 @@ maihda_cc_partition <- function(additive, interaction, within, other = 0) {
     within = within,
     other = other,
     total = total,
-    vpc = between / total,
-    additive_share = additive / between,
-    interaction_share = interaction / between
+    vpc = safe_ratio(between, total),
+    additive_share = safe_ratio(additive, between),
+    interaction_share = safe_ratio(interaction, between)
   )
 }
 
@@ -1928,15 +1934,18 @@ maihda_find_trials_expr <- function(expr) {
   NULL
 }
 
-# Binomial TRIAL counts of a brms `y | trials(n)` fit, aligned to object$data, or
-# NULL when the fit is not a brms aggregated-binomial model. brms exposes
+# Binomial TRIAL counts of a brms `y | trials(n)` fit, or NULL when the fit is not
+# a brms aggregated-binomial model. By default the counts are aligned to
+# object$data; pass `data` (e.g. a prediction newdata) to evaluate the trials()
+# term on a different frame instead, so a response-scale prediction can be
+# normalised by the trial counts of the rows it was made on. brms exposes
 # model.frame.brmsfit but NO weights.brmsfit, so -- unlike an lme4 cbind() fit,
 # whose trials come through stats::weights(type = "prior") -- the counts are not
 # recoverable that way and a brms trials() fit would silently fall back to unit
 # row weights. Parse the trials() addition term off the stored formula instead and
-# evaluate it on the analytic frame, so brms trials() fits are trial-weighted like
+# evaluate it on the supplied frame, so brms trials() fits are trial-weighted like
 # their lme4 cbind() counterparts.
-maihda_brms_trial_counts <- function(object) {
+maihda_brms_trial_counts <- function(object, data = object$data) {
   if (!inherits(object$model, "brmsfit")) {
     return(NULL)
   }
@@ -1955,12 +1964,30 @@ maihda_brms_trial_counts <- function(object) {
   if (is.null(trials_expr)) {
     return(NULL)
   }
-  vals <- tryCatch(eval(trials_expr, envir = object$data, enclos = baseenv()),
+  vals <- tryCatch(eval(trials_expr, envir = data, enclos = baseenv()),
                    error = function(e) NULL)
   if (is.null(vals)) {
     return(NULL)
   }
   as.numeric(vals)
+}
+
+# Convert a brms response-scale prediction to the probability scale for an
+# aggregated-binomial `y | trials(n)` fit. brms's fitted()/posterior_epred()
+# return the expected COUNT of successes (trials * p) for such a fit, whereas
+# lme4's type = "response" for a cbind(success, failure) fit returns the per-trial
+# probability; divide by the per-row trial counts (evaluated on the prediction
+# `newdata`) so both engines return a probability on the response scale. A
+# Bernoulli / non-binomial fit has no trials() term, so the counts are NULL and the
+# estimate is returned unchanged. The counts must be finite and positive to divide;
+# otherwise the estimate is left as-is rather than producing Inf/NaN.
+maihda_brms_response_to_prob <- function(object, est, newdata) {
+  trials <- maihda_brms_trial_counts(object, newdata)
+  if (is.null(trials) || length(trials) != length(est) ||
+      !all(is.finite(trials)) || any(trials <= 0)) {
+    return(est)
+  }
+  est / trials
 }
 
 # Weights for averaging PREDICTIONS (fitted probabilities / linear predictors) over

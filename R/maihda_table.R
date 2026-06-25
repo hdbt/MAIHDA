@@ -53,8 +53,9 @@
 #' @param x A \code{maihda_analysis} from \code{\link{maihda}} (the usual input), or a
 #'   single \code{maihda_model} from \code{\link{fit_maihda}}.
 #' @param n_strata Number of strata to show at each end (top and bottom) in the
-#'   printed ranked-strata table. The returned \code{$strata} always holds all strata.
-#'   Default 10.
+#'   printed ranked-strata table. The returned \code{$strata} holds all strata
+#'   (\code{NULL} for a longitudinal fit, whose strata are trajectories rather than
+#'   single ranked values -- see \code{$strata} in Value). Default 10.
 #' @param scale Scale for the predicted stratum values: \code{"response"} (default)
 #'   or \code{"link"}. For a cumulative (ordinal) model the response scale is the
 #'   expected category score.
@@ -72,8 +73,14 @@
 #'     columns)}
 #'   \item{strata}{a data frame of all strata ranked by predicted outcome, with
 #'     \code{rank}, \code{stratum}, \code{label}, \code{n}, the predicted value and
-#'     its conditional interval, and the stratum random effect and its interval;
-#'     \code{NULL} if the stratum predictions could not be computed}
+#'     its conditional interval, and the stratum random effect and its interval.
+#'     \code{NULL} when a single ranked value per stratum is not defined -- in
+#'     particular for a longitudinal (growth-curve) fit, whose strata are
+#'     trajectories (see \code{strata_note}) -- or if the stratum predictions could
+#'     not otherwise be computed}
+#'   \item{strata_note}{a character note explaining why \code{strata} is \code{NULL}
+#'     (e.g. a longitudinal fit), or \code{NULL} when a ranked-strata table was
+#'     produced}
 #'   \item{model_keys, model_labels}{the estimate-column keys and their display labels}
 #'   \item{family, engine, mode, scale, ranked_by, n_obs, n_strata_total, context_vars}{
 #'     metadata used by \code{print()}}

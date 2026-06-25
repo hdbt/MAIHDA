@@ -900,6 +900,103 @@ test_that("brms y | trials(n) prediction weights are trial-weighted (Stan-free)"
   expect_equal(MAIHDA:::maihda_prediction_weights(m3), rep(1, nrow(d)))
 })
 
+test_that("brms aggregated-binomial response prediction is normalised to a probability (Stan-free)", {
+  # Regression for the audit finding: brms's fitted()/posterior_epred() return the
+  # expected success COUNT (trials * p) for a `y | trials(n)` fit, whereas lme4's
+  # type = "response" for a cbind() fit returns the per-trial probability. So
+  # predict_maihda(scale = "response") used to return counts on brms and probabilities
+  # on lme4 -- the same call, two different scales. maihda_brms_response_to_prob()
+  # divides the expected count by the per-row trial counts to recover the probability.
+  # No Stan: the helper only parses the formula's trials() term and divides (it never
+  # calls into brms), so a bare fake brmsfit exercises the whole path.
+  trials <- c(200, 5, 50, 100)
+  d <- data.frame(
+    y = c(120, 2, 30, 40),
+    n = trials,
+    stratum = c("s1", "s1", "s2", "s2"),
+    stringsAsFactors = FALSE
+  )
+  m <- structure(
+    list(
+      model = structure(list(), class = "brmsfit"),
+      engine = "brms",
+      formula = y | trials(n) ~ x + (1 | stratum),
+      data = d,
+      family = list(family = "binomial", link = "logit"),
+      sampling_weights = NULL
+    ),
+    class = "maihda_model"
+  )
+
+  # Expected counts trials * p (here p = 0.3 on every row) normalise back to p.
+  p <- rep(0.3, nrow(d))
+  expected_counts <- trials * p
+  expect_equal(MAIHDA:::maihda_brms_response_to_prob(m, expected_counts, d), p)
+
+  # Trial counts are read off the SUPPLIED frame, not object$data, so a prediction
+  # newdata with its own trials column normalises by its own counts.
+  nd <- data.frame(y = c(0, 0), n = c(10, 4), stratum = c("s1", "s2"),
+                   stringsAsFactors = FALSE)
+  expect_equal(MAIHDA:::maihda_brms_trial_counts(m, nd), c(10, 4))
+  expect_equal(MAIHDA:::maihda_brms_response_to_prob(m, c(5, 1), nd), c(0.5, 0.25))
+
+  # A Bernoulli fit (no trials() term) has NULL trial counts, so the estimate is
+  # returned unchanged -- a Bernoulli response prediction is already a probability.
+  m_bern <- m
+  m_bern$formula <- y ~ x + (1 | stratum)
+  expect_null(MAIHDA:::maihda_brms_trial_counts(m_bern))
+  est <- c(0.1, 0.9, 0.5, 0.2)
+  expect_equal(MAIHDA:::maihda_brms_response_to_prob(m_bern, est, d), est)
+
+  # Guards: a length mismatch or a non-positive trial count leaves the estimate
+  # untouched rather than producing a misaligned division or an Inf/NaN.
+  expect_equal(MAIHDA:::maihda_brms_response_to_prob(m, c(1, 2), d), c(1, 2))
+  d0 <- d; d0$n <- c(200, 0, 50, 100)
+  expect_equal(MAIHDA:::maihda_brms_response_to_prob(m, expected_counts, d0),
+               expected_counts)
+})
+
+test_that("maihda_brms_unseen_re_formula drops only the stratum term (Stan-free)", {
+  # The unseen-stratum brms prediction drops the stratum random effect (treated as
+  # zero) but must KEEP any other random effect the row participates in -- a
+  # contextual (1 | school) intercept or a longitudinal (poly | id) growth term --
+  # matching lme4's allow.new.levels, which zeroes only the unseen level's effect.
+  # The helper builds the re_formula that does this from the stored formula alone
+  # (no brms call), so a bare object exercises it.
+  mk <- function(formula) {
+    structure(list(model = structure(list(), class = "brmsfit"),
+                   engine = "brms", formula = formula),
+              class = "maihda_model")
+  }
+  grp_vars <- function(re) {
+    bars <- reformulas::findbars(re)
+    sort(unlist(lapply(bars, function(b) all.vars(b[[3]])), use.names = FALSE))
+  }
+
+  # Single-stratum model: stratum is the only random effect, so the excluding
+  # re_formula is NA (drop all group terms -> fixed-effects-only population average).
+  expect_true(is.na(MAIHDA:::maihda_brms_unseen_re_formula(
+    mk(y ~ x + (1 | stratum)))))
+
+  # Context model: keep (1 | school), drop (1 | stratum).
+  re_ctx <- MAIHDA:::maihda_brms_unseen_re_formula(
+    mk(y ~ x + (1 | stratum) + (1 | school)))
+  expect_s3_class(re_ctx, "formula")
+  expect_equal(grp_vars(re_ctx), "school")           # school kept, stratum dropped
+
+  # Longitudinal-style model: keep the (poly | id) growth term, drop (poly | stratum).
+  re_long <- MAIHDA:::maihda_brms_unseen_re_formula(
+    mk(y ~ time + (1 + time | id) + (1 + time | stratum)))
+  expect_s3_class(re_long, "formula")
+  expect_equal(grp_vars(re_long), "id")
+  # The kept term retains its random slope, not just the intercept.
+  expect_true("time" %in% all.vars(reformulas::findbars(re_long)[[1]]))
+
+  # No random effects (or a non-formula) -> NA, the all-fixed-effects re_formula.
+  expect_true(is.na(MAIHDA:::maihda_brms_unseen_re_formula(mk(y ~ x))))
+  expect_true(is.na(MAIHDA:::maihda_brms_unseen_re_formula(mk("not a formula"))))
+})
+
 test_that("binary detection respects negative subset indices and NA weights", {
   set.seed(2113)
   n <- 150

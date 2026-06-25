@@ -22,7 +22,10 @@ original data from model fitting.}
 \item{type}{Character string specifying prediction type:
 \itemize{
   \item "individual": Individual-level predictions including random effects
-  \item "strata": Stratum-level predictions (random effects only)
+  \item "strata": Stratum-level predictions (random effects only). For a
+    longitudinal (growth-curve) fit a stratum is a \emph{trajectory}, so this
+    returns the per-stratum trajectory parameters (baseline deviation, random
+    intercept and random slope(s)) rather than a single random effect.
 }
 For backward compatibility, "link" or "response" may also be passed here
 and will be interpreted as individual-level predictions on that scale.}
@@ -31,17 +34,26 @@ and will be interpreted as individual-level predictions on that scale.}
 individual-level predictions: "response" (default) or "link". For a
 cumulative (ordinal) model the "link" scale is the latent location
 \eqn{\eta} and the "response" scale is the \emph{expected category score}
-\eqn{\sum_k k P(Y = k)} (categories scored 1..K in their declared order).}
+\eqn{\sum_k k P(Y = k)} (categories scored 1..K in their declared order).
+For an aggregated-binomial fit (an lme4 \code{cbind(success, failure)} or a
+brms \code{success | trials(n)}) the "response" scale is the per-trial
+\emph{probability} on both engines (not the expected success count).}
 
 \item{allow_new_levels}{Logical. By default (\code{FALSE}) a stratum in
 \code{newdata} that the model never saw -- whether supplied directly as a
 \code{stratum} column or rebuilt from the grouping variables -- is an error,
 for every engine, matching \pkg{lme4}'s default. Set \code{TRUE} to instead
-return a \emph{population-average} (fixed-effects-only) prediction for unseen
-strata, dropping the stratum random effect (i.e. treating it as zero). This
-affects \code{type = "individual"} only: a stratum-level prediction
-(\code{type = "strata"}) has no random effect to report for an unseen
-stratum, so unseen strata remain an error there regardless.}
+predict unseen strata with the stratum random effect dropped (treated as
+zero), while keeping any \emph{other} random effect the row participates in
+(e.g. a contextual \code{(1 | school)} intercept from
+\code{fit_maihda(context = )}, or a longitudinal growth term) -- the same
+behaviour as \pkg{lme4}'s \code{allow.new.levels}, which zeroes only the unseen
+level's effect and keeps seen ones. For the usual single-stratum model the
+stratum is the only random effect, so this is the \emph{population-average}
+(fixed-effects-only) prediction. This affects \code{type = "individual"} only:
+a stratum-level prediction (\code{type = "strata"}) has no random effect to
+report for an unseen stratum, so unseen strata remain an error there
+regardless.}
 
 \item{...}{Additional arguments passed to predict method of underlying model.}
 }

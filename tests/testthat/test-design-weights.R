@@ -912,6 +912,123 @@ test_that("wemix unseen stratum: helper maps to zero, public path gates it", {
   expect_equal(unname(pa), c(2.5, 2))
 })
 
+test_that("brms unseen stratum honours the zero-effect population-average fallback", {
+  # Regression for the audit finding: allow_new_levels = TRUE promises a population-
+  # average (fixed-effects-only) prediction for an unseen stratum -- the stratum
+  # random effect treated as zero. Forwarding allow_new_levels to brms is NOT enough:
+  # its default sample_new_levels = "uncertainty" DRAWS a new-level effect from the
+  # random-effects distribution instead of zeroing it. The fix predicts unseen rows
+  # with re_formula = NA, so the unseen prediction must match a manual re_formula = NA
+  # (fixed-only) prediction, while seen rows keep their estimated stratum effect.
+  # Compiles a Stan model, so OPT-IN like the other brms tests.
+  skip_on_cran()
+  skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
+          "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
+  skip_if_not_installed("brms")
+
+  set.seed(717)
+  n <- 800
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE),
+    x      = stats::rnorm(n)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- 0.4 * d$x + stats::rnorm(nlevels(sk), sd = 0.8)[sk] + stats::rnorm(n, sd = 0.5)
+  strata <- make_strata(d, vars = c("gender", "race"))
+  d$stratum <- strata$data$stratum
+  d <- d[!is.na(d$stratum), , drop = FALSE]
+
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ x + (1 | stratum), data = d, engine = "brms",
+               chains = 1, iter = 300, refresh = 0)
+  ))
+
+  # One row in a SEEN stratum, one in a brand-new stratum.
+  seen_stratum <- as.character(d$stratum[1])
+  nd <- data.frame(x = c(0.5, 0.5),
+                   stratum = c(seen_stratum, "ZZ-unseen"),
+                   stringsAsFactors = FALSE)
+
+  # The unseen stratum is rejected by default.
+  expect_error(
+    predict_maihda(m, newdata = nd, type = "individual", scale = "response"),
+    "not present in the fitted model"
+  )
+
+  pa <- predict_maihda(m, newdata = nd, type = "individual", scale = "response",
+                       allow_new_levels = TRUE)
+
+  # Unseen row == the population-average (re_formula = NA) prediction: fixed effects
+  # only, stratum random effect zero (NOT a sampled new-level effect).
+  popavg <- brms::fitted(m$model, newdata = nd, re_formula = NA,
+                         summary = TRUE)[, "Estimate"]
+  expect_equal(unname(pa[2]), unname(popavg[2]))
+
+  # Seen row keeps its estimated stratum effect, so it differs from the fixed-only
+  # prediction and matches the full-random-effects prediction.
+  seen_full <- brms::fitted(m$model, newdata = nd[1, , drop = FALSE],
+                            summary = TRUE)[, "Estimate"]
+  expect_equal(unname(pa[1]), unname(seen_full))
+  expect_false(isTRUE(all.equal(unname(pa[1]), unname(popavg[1]))))
+})
+
+test_that("brms unseen stratum keeps a seen context random effect (lme4 parity)", {
+  # An unseen stratum drops only the STRATUM random effect; any other random effect
+  # the row participates in (here a contextual (1 | school) intercept) is kept, the
+  # way lme4's allow.new.levels zeroes only the unseen level and keeps seen ones. So
+  # the unseen-row prediction must match brms's re_formula = ~ (1 | school) (stratum
+  # dropped, school kept), NOT re_formula = NA (which would drop the school effect
+  # too). Compiles a Stan model, so OPT-IN like the other brms tests.
+  skip_on_cran()
+  skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
+          "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
+  skip_if_not_installed("brms")
+
+  set.seed(818)
+  n <- 1000
+  n_school <- 8
+  school_eff <- stats::rnorm(n_school, sd = 1.2)   # sizeable, so dropping it shows
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE),
+    school = factor(sample(seq_len(n_school), n, replace = TRUE)),
+    x      = stats::rnorm(n)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y <- 0.4 * d$x + stats::rnorm(nlevels(sk), sd = 0.6)[sk] +
+    school_eff[as.integer(d$school)] + stats::rnorm(n, sd = 0.5)
+  strata <- make_strata(d, vars = c("gender", "race"))
+  d$stratum <- strata$data$stratum
+  d <- d[!is.na(d$stratum), , drop = FALSE]
+
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ x + (1 | stratum), data = d, engine = "brms",
+               context = "school", chains = 1, iter = 400, refresh = 0)
+  ))
+  expect_equal(m$context_vars, "school")
+
+  seen_stratum <- as.character(d$stratum[1])
+  seen_school  <- d$school[1]
+  nd <- data.frame(x = c(0.5, 0.5),
+                   stratum = c(seen_stratum, "ZZ-unseen"),
+                   school  = c(seen_school, seen_school),
+                   stringsAsFactors = FALSE)
+
+  pa <- predict_maihda(m, newdata = nd, type = "individual", scale = "response",
+                       allow_new_levels = TRUE)
+
+  keep_school <- brms::fitted(m$model, newdata = nd, re_formula = ~ (1 | school),
+                              summary = TRUE)[, "Estimate"]
+  drop_all    <- brms::fitted(m$model, newdata = nd, re_formula = NA,
+                              summary = TRUE)[, "Estimate"]
+
+  # Unseen row == keep-school prediction (stratum dropped, school kept) ...
+  expect_equal(unname(pa[2]), unname(keep_school[2]))
+  # ... and NOT the fixed-only prediction that would also drop the seen school.
+  expect_false(isTRUE(all.equal(unname(pa[2]), unname(drop_all[2]))))
+})
+
 test_that("predict_maihda supplies the brms weight column for user newdata", {
   skip_if_not_installed("brms")
 

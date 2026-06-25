@@ -244,10 +244,12 @@ test_that("maihda_discriminatory_accuracy computes a count-weighted AUC for a br
   expect_true(is.finite(da$mor) && da$mor >= 1)
 
   # The reported AUC is the count-weighted C-statistic over the implied 0/1 data,
-  # ranked by the per-trial probability: brms's response prediction is the expected
-  # COUNT (trials * p), so it is divided by the trial counts first.
-  pred_count <- predict_maihda(m, type = "individual", scale = "response")
-  prob <- pred_count / agg$total
+  # ranked by the per-trial probability. predict_maihda(scale = "response") returns
+  # that per-trial probability directly for a brms `y | trials(n)` fit -- it
+  # normalises brms's expected success COUNT (trials * p) by the trial counts, so it
+  # is a probability in [0, 1] like lme4's cbind() fit, NOT an expected count.
+  prob <- predict_maihda(m, type = "individual", scale = "response")
+  expect_true(all(prob >= 0 & prob <= 1))
   expanded_prob <- unlist(Map(function(p, s, f) rep(p, s + f), prob,
                               agg$success, agg$total - agg$success))
   expanded_y <- unlist(Map(function(s, f) c(rep(1, s), rep(0, f)),
@@ -283,8 +285,9 @@ test_that("aggregated-binomial AUC folds sampling weights into the case/control 
                chains = 1, iter = 300, refresh = 0)
   ))
 
-  prob_row <- predict_maihda(m, type = "individual", scale = "response") /
-    maihda_brms_trial_counts(m)
+  # predict_maihda(scale = "response") already returns the per-trial probability for
+  # a brms `y | trials(n)` fit (it normalises the expected success count internally).
+  prob_row <- predict_maihda(m, type = "individual", scale = "response")
   success  <- as.numeric(maihda_da_observed_response(m))
   trials   <- maihda_brms_trial_counts(m)
   sw       <- maihda_prior_weights(m)

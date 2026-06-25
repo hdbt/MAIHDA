@@ -231,11 +231,10 @@ maihda_discriminatory_accuracy <- function(model) {
     successes <- agg_counts$successes
     trials <- agg_counts$trials
     # The count-weighted AUC ranks each row by its per-trial predicted probability.
-    # lme4's type = "response" already returns that proportion, but for a brms
-    # aggregated-binomial fit predict_maihda(scale = "response") returns the expected
-    # COUNT (trials * p); divide by the trial counts to recover the probability so the
-    # ranking is by probability, not by an expected count that confounds p with trials.
-    prob_row <- if (identical(model$engine, "brms")) prob / trials else prob
+    # predict_maihda(scale = "response") returns that probability on both engines now
+    # (lme4's cbind() fit and a brms `y | trials(n)` fit, which normalises its expected
+    # success COUNT by the trial counts internally), so the rows rank directly by it.
+    prob_row <- prob
     # Reported case/control totals stay unweighted observation counts (matching the
     # design_weighted Bernoulli branch below), so read them off the raw counts before
     # any weighting.
