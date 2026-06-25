@@ -29,5 +29,7 @@ maihda_prepare_brms_sampling_weights(data, formula, sampling_weights)
 
 ## Value
 
-A list with `data` (weights column `.maihda_sw` added) and `formula`
-(rewritten).
+A list with `data` (weights column `.maihda_sw` added), `formula`
+(rewritten), and `keep` (a logical mask over the input rows marking
+those retained, so the caller can re-slice any row-aligned forwarded
+arguments to the same rows).

@@ -4,7 +4,9 @@
 constructed with the training data's factor levels and multiplied by the
 location coefficients beta (a clmm has no intercept column –
 it is absorbed by the thresholds – so beta's names select the right
-columns), and include_re adds each row's stratum conditional mode (an
+columns), any formula offset term is evaluated on newdata and added
+(so an offset-only null model still predicts its offset), and
+include_re adds each row's stratum conditional mode (an
 unseen stratum contributes 0 – the population-average fallback that
 predict_maihda only reaches when allow_new_levels = TRUE,
 having otherwise rejected unseen strata upstream). Everything is on the latent
@@ -14,7 +16,9 @@ response-scale expected category score."><meta property="og:description" content
 constructed with the training data's factor levels and multiplied by the
 location coefficients beta (a clmm has no intercept column –
 it is absorbed by the thresholds – so beta's names select the right
-columns), and include_re adds each row's stratum conditional mode (an
+columns), any formula offset term is evaluated on newdata and added
+(so an offset-only null model still predicts its offset), and
+include_re adds each row's stratum conditional mode (an
 unseen stratum contributes 0 – the population-average fallback that
 predict_maihda only reaches when allow_new_levels = TRUE,
 having otherwise rejected unseen strata upstream). Everything is on the latent
@@ -78,7 +82,9 @@ response-scale expected category score."><meta property="og:image" content="http
 constructed with the training data's factor levels and multiplied by the
 location coefficients <code>beta</code> (a clmm has <em>no</em> intercept column –
 it is absorbed by the thresholds – so <code>beta</code>'s names select the right
-columns), and <code>include_re</code> adds each row's stratum conditional mode (an
+columns), any formula offset term is evaluated on <code>newdata</code> and added
+(so an offset-only null model still predicts its offset), and
+<code>include_re</code> adds each row's stratum conditional mode (an
 unseen stratum contributes 0 – the population-average fallback that
 <code><a href="predict_maihda.html">predict_maihda</a></code> only reaches when <code>allow_new_levels = TRUE</code>,
 having otherwise rejected unseen strata upstream). Everything is on the latent

@@ -81,7 +81,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-06-24</h4>
+            <h4 data-toc-skip class="date">2026-06-25</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
@@ -187,10 +187,10 @@ deriving the null by dropping them. (Omit them –
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>        <span class="co"># null:     BMI ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x560a43401920&gt;</span></span>
+<span><span class="co">#&gt; &lt;environment: 0x55ffc658f9e8&gt;</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>  <span class="co"># adjusted: BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x560a4196bee0&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x55ffc5716fd8&gt;</span></span></code></pre></div>
 <p>The returned object carries everything: the full variance components,
 the PCV decomposition, and both fitted models.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -343,8 +343,8 @@ fixed effects:</p>
 <code>decomposition = "crossed-dimensions"</code>) and bootstrap
 intervals require lme4/brms. <code>engine = "brms"</code> also accepts
 <code>sampling_weights</code>, as likelihood weights (a pseudo-posterior
-with design-consistent point estimates, but credible intervals that are
-not design-based).</p>
+whose point estimates target the population-weighted estimand, but with
+credible intervals that are not design-based).</p>
 </div>
 <div class="section level3">
 <h3 id="comparing-across-groups">Comparing across groups<a class="anchor" aria-label="anchor" href="#comparing-across-groups"></a>

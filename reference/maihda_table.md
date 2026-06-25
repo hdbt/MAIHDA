@@ -6,9 +6,14 @@ and adjusted models (intercept, between-stratum variance and SD,
 VPC/ICC, the PCV, and – for a binary outcome – the AUC and Median Odds
 Ratio), and (b) a **ranked-strata table** ordering the intersectional
 strata by their predicted outcome, so the best- and worst-off strata can
-be read directly. It computes nothing new: every quantity is read from
-the summaries already attached to the analysis, so the table agrees
-exactly with [`summary()`](https://rdrr.io/r/base/summary.html) and
+be read directly. It introduces no new estimator: the model-results
+table reuses the quantities from
+[`summary()`](https://rdrr.io/r/base/summary.html) (calling
+[`summary()`](https://rdrr.io/r/base/summary.html) itself for a bare
+[`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+model), and the ranked-strata table reuses the same stratum predictions
+as `plot(type = "predicted")`, so the table agrees exactly with
+[`summary()`](https://rdrr.io/r/base/summary.html) and
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html).
 
 ## Usage

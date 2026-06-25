@@ -58,8 +58,11 @@ socioeconomic status).
   vs. shrunken estimates
 - **Group Comparison**:
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
-  contrasts intersectional inequality (VPC/ICC) across levels of a
-  higher-level variable such as country or region
+  contrasts the between-stratum *share* of variance (VPC/ICC) and the
+  between-/within-stratum variance components across levels of a
+  higher-level variable such as country or region. (The VPC/ICC is a
+  share, not the absolute magnitude of intersectional inequality — read
+  it alongside the absolute between-stratum variance.)
 - **Contextual Cross-Classified MAIHDA**: `context = "school"` crosses
   the intersectional strata with a place/institution level (school,
   hospital, region)
@@ -142,8 +145,10 @@ export-ready ([`write.csv()`](https://rdrr.io/r/utils/write.table.html)
 [`print()`](https://rdrr.io/r/base/print.html) renders the familiar
 “estimate \[low, high\]” layout plus the top/bottom strata. It adapts to
 every fit type (crossed-dimensions shares, contextual
-`Context share (VPC)`, ordinal thresholds) and engine
-(lme4/brms/WeMix/ordinal).
+`Context share (VPC)`) and engine (lme4/brms/WeMix/ordinal); for an
+ordinal model the intercept row is `NA` and the category thresholds are
+reported by [`summary()`](https://rdrr.io/r/base/summary.html), not the
+table.
 
 ``` r
 
@@ -270,12 +275,16 @@ with different fixed effects (the null-vs-adjusted case).
 
 ### `compare_maihda_groups()`
 
-Compares intersectional inequality (VPC/ICC and between-/within-stratum
-variance) across the levels of a higher-level grouping variable such as
-country, region, or survey wave, fitting a stratified MAIHDA model per
-group. Visualize with `plot(result, type = "vpc")`. The bundled
-`maihda_country_data` (OECD PISA 2018; gender × socioeconomic-status
-strata across six countries) is built to demonstrate this.
+Compares the between-stratum *share* of variance (VPC/ICC) and the
+between-/within-stratum variance components across the levels of a
+higher-level grouping variable such as country, region, or survey wave,
+fitting a stratified MAIHDA model per group. The VPC/ICC is a *share*,
+not the absolute magnitude of intersectional inequality, so a higher VPC
+need not mean more between-stratum variation — read it alongside the
+absolute `var_between` column. Visualize with
+`plot(result, type = "vpc")`. The bundled `maihda_country_data` (OECD
+PISA 2018; gender × socioeconomic-status strata across six countries) is
+built to demonstrate this.
 
 ### `calculate_pvc()`
 

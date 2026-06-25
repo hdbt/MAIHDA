@@ -11,10 +11,11 @@ classification. The AUC is computed for any binomial link; the Median
 Odds Ratio is reported only for the logit link and is `NA` otherwise
 (e.g. for a probit fit), since the MOR is an odds-ratio-scale quantity.
 
-Aggregated-binomial fits (an lme4 `cbind(success, failure)` response)
-are supported: the AUC is the count-weighted C-statistic over the
-implied individual-level 0/1 data, and `n_case` / `n_control` are the
-total successes / failures.
+Aggregated-binomial fits are supported on both engines that fit them –
+an lme4 `cbind(success, failure)` response and a brms `y | trials(n)`
+response: the AUC is the count-weighted C-statistic over the implied
+individual-level 0/1 data, and `n_case` / `n_control` are the total
+successes / failures.
 
 ## Usage
 
@@ -28,9 +29,10 @@ maihda_discriminatory_accuracy(model)
 
   A `maihda_model` from
   [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  fitted with a `binomial` family (lme4, including an aggregated
-  `cbind(success, failure)` response) or the `bernoulli` family a binary
-  0/1 outcome is fit with under `engine = "brms"`.
+  fitted with a `binomial` family – including an aggregated response (an
+  lme4 `cbind(success, failure)` or a brms `y | trials(n)`) – or the
+  `bernoulli` family a binary 0/1 outcome is fit with under
+  `engine = "brms"`.
 
 ## Value
 

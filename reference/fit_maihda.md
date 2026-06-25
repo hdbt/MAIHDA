@@ -163,11 +163,18 @@ fit_maihda(
 
   - `engine = "brms"`: the weights enter the model as likelihood weights
     (`y | weights(w)`), normalized to mean 1, giving a
-    *pseudo-posterior*: point estimates are design-consistent but
-    credible intervals are not design-based – interpret them cautiously.
+    *pseudo-posterior*: point estimates target the population-weighted
+    estimand but credible intervals are not design-based – interpret
+    them cautiously. Full design-based (replicate-weight / linearised)
+    variances for the variance components are not computed.
 
   Rows with a missing or non-positive sampling weight are dropped with a
-  warning. Default `NULL` (unweighted).
+  warning. The column names `.maihda_sw` (brms likelihood weight) and
+  `.maihda_l2wt` (WeMix level-2 weight) are **reserved** for the
+  design-weighted engines: they are written into the analytic data
+  internally, so a model that supplies `sampling_weights` may not also
+  reference a variable of either name in its formula (fitting would
+  error). Default `NULL` (unweighted).
 
 - id:
 

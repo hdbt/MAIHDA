@@ -8,10 +8,10 @@ an adjusted model shows whether individual covariates beyond stratum membership
 sharpen classification. The AUC is computed for any binomial link; the Median
 Odds Ratio is reported only for the logit link and is NA otherwise (e.g.
 for a probit fit), since the MOR is an odds-ratio-scale quantity.
-Aggregated-binomial fits (an lme4 cbind(success, failure) response) are
-supported: the AUC is the count-weighted C-statistic over the implied
-individual-level 0/1 data, and n_case / n_control are the total
-successes / failures."><meta property="og:description" content="Bundles the individual-level discriminatory-accuracy summaries for a binomial
+Aggregated-binomial fits are supported on both engines that fit them – an lme4
+cbind(success, failure) response and a brms y | trials(n) response:
+the AUC is the count-weighted C-statistic over the implied individual-level 0/1
+data, and n_case / n_control are the total successes / failures."><meta property="og:description" content="Bundles the individual-level discriminatory-accuracy summaries for a binomial
 MAIHDA model: the AUC / C-statistic (how well the model's predicted
 probabilities separate cases from non-cases) and the Median Odds Ratio. Applied
 to a strata-only (null) model, the AUC is the discriminatory accuracy of the
@@ -20,10 +20,10 @@ an adjusted model shows whether individual covariates beyond stratum membership
 sharpen classification. The AUC is computed for any binomial link; the Median
 Odds Ratio is reported only for the logit link and is NA otherwise (e.g.
 for a probit fit), since the MOR is an odds-ratio-scale quantity.
-Aggregated-binomial fits (an lme4 cbind(success, failure) response) are
-supported: the AUC is the count-weighted C-statistic over the implied
-individual-level 0/1 data, and n_case / n_control are the total
-successes / failures."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
+Aggregated-binomial fits are supported on both engines that fit them – an lme4
+cbind(success, failure) response and a brms y | trials(n) response:
+the AUC is the count-weighted C-statistic over the implied individual-level 0/1
+data, and n_case / n_control are the total successes / failures."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -86,10 +86,10 @@ an adjusted model shows whether individual covariates beyond stratum membership
 sharpen classification. The AUC is computed for any binomial link; the Median
 Odds Ratio is reported only for the logit link and is <code>NA</code> otherwise (e.g.
 for a probit fit), since the MOR is an odds-ratio-scale quantity.</p>
-<p>Aggregated-binomial fits (an lme4 <code>cbind(success, failure)</code> response) are
-supported: the AUC is the count-weighted C-statistic over the implied
-individual-level 0/1 data, and <code>n_case</code> / <code>n_control</code> are the total
-successes / failures.</p>
+<p>Aggregated-binomial fits are supported on both engines that fit them – an lme4
+<code>cbind(success, failure)</code> response and a brms <code>y | trials(n)</code> response:
+the AUC is the count-weighted C-statistic over the implied individual-level 0/1
+data, and <code>n_case</code> / <code>n_control</code> are the total successes / failures.</p>
     </div>
 
     <div class="section level2">
@@ -103,9 +103,10 @@ successes / failures.</p>
 
 <dl><dt id="arg-model">model<a class="anchor" aria-label="anchor" href="#arg-model"></a></dt>
 <dd><p>A <code>maihda_model</code> from <code><a href="fit_maihda.html">fit_maihda</a></code> fitted with a
-<code>binomial</code> family (lme4, including an aggregated <code>cbind(success,
-failure)</code> response) or the <code>bernoulli</code> family a binary 0/1 outcome is fit
-with under <code>engine = "brms"</code>.</p></dd>
+<code>binomial</code> family – including an aggregated response (an lme4
+<code>cbind(success, failure)</code> or a brms <code>y | trials(n)</code>) – or the
+<code>bernoulli</code> family a binary 0/1 outcome is fit with under
+<code>engine = "brms"</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

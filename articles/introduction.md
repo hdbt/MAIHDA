@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x560a43401920>
+#> <environment: 0x55ffc658f9e8>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x560a4196bee0>
+#> <environment: 0x55ffc5716fd8>
 ```
 
 The returned object carries everything: the full variance components,
@@ -299,9 +299,9 @@ The wemix engine covers `gaussian(identity)` / `binomial(logit)` MAIHDA
 with the single `(1 | stratum)` intercept; crossed random effects
 (`context =`, `decomposition = "crossed-dimensions"`) and bootstrap
 intervals require lme4/brms. `engine = "brms"` also accepts
-`sampling_weights`, as likelihood weights (a pseudo-posterior with
-design-consistent point estimates, but credible intervals that are not
-design-based).
+`sampling_weights`, as likelihood weights (a pseudo-posterior whose
+point estimates target the population-weighted estimand, but with
+credible intervals that are not design-based).
 
 ### Comparing across groups
 

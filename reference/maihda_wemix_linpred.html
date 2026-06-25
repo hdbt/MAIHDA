@@ -3,7 +3,8 @@
 and offers no fixed-only form, so predictions are built directly from the
 coefficient vector and the stored stratum effects: the fixed design matrix is
 constructed with the training data's factor levels and multiplied by
-coef, and include_re adds each row's stratum effect (conditional
+coef, any formula offset term is evaluated on newdata and added,
+and include_re adds each row's stratum effect (conditional
 mode; an unseen stratum contributes 0 – the population-average fallback that
 predict_maihda only reaches when allow_new_levels = TRUE,
 having otherwise rejected unseen strata upstream). Everything is on the link
@@ -11,7 +12,8 @@ scale."><meta property="og:description" content="WeMix's own predict() method ne
 and offers no fixed-only form, so predictions are built directly from the
 coefficient vector and the stored stratum effects: the fixed design matrix is
 constructed with the training data's factor levels and multiplied by
-coef, and include_re adds each row's stratum effect (conditional
+coef, any formula offset term is evaluated on newdata and added,
+and include_re adds each row's stratum effect (conditional
 mode; an unseen stratum contributes 0 – the population-average fallback that
 predict_maihda only reaches when allow_new_levels = TRUE,
 having otherwise rejected unseen strata upstream). Everything is on the link
@@ -73,7 +75,8 @@ scale."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.pn
 and offers no fixed-only form, so predictions are built directly from the
 coefficient vector and the stored stratum effects: the fixed design matrix is
 constructed with the training data's factor levels and multiplied by
-<code>coef</code>, and <code>include_re</code> adds each row's stratum effect (conditional
+<code>coef</code>, any formula offset term is evaluated on <code>newdata</code> and added,
+and <code>include_re</code> adds each row's stratum effect (conditional
 mode; an unseen stratum contributes 0 – the population-average fallback that
 <code><a href="predict_maihda.html">predict_maihda</a></code> only reaches when <code>allow_new_levels = TRUE</code>,
 having otherwise rejected unseen strata upstream). Everything is on the link

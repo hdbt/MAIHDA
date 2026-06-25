@@ -91,8 +91,10 @@ rewrites the formula with a <code><a href="https://rdrr.io/r/stats/weights.html"
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with <code>data</code> (weights column <code>.maihda_sw</code> added) and
-  <code>formula</code> (rewritten).</p>
+    <p>A list with <code>data</code> (weights column <code>.maihda_sw</code> added),
+  <code>formula</code> (rewritten), and <code>keep</code> (a logical mask over the input
+  rows marking those retained, so the caller can re-slice any row-aligned
+  forwarded arguments to the same rows).</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

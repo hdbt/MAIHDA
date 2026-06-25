@@ -31,6 +31,62 @@
 
 ### Bug Fixes
 
+- **A fixed interaction among the stratum dimensions
+  (e.g. `Gender * Race`) silently corrupted the decomposition.** R
+  expands `Gender * Race` to `Gender + Race + Gender:Race`, but the
+  workflow only looked for the dimensions’ additive *main effects* when
+  deciding whether the supplied formula was the fully-specified adjusted
+  model. It found both `Gender` and `Race`, treated the fit as the
+  adjusted model, and derived the null by removing only those main
+  effects – leaving the fixed `Gender:Race` interaction in **both** the
+  null and the adjusted formulas. That fixed cell-means term duplicates
+  the intersectional `(1 | Gender:Race)` random intercept: it absorbs
+  the between-stratum variance into fixed effects, pinning the stratum
+  variance at a singular boundary so the PCV came back `NULL`/invalid
+  (and every per-group PCV came back `NA` in
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  / `maihda(group = )`).
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now **reject** such a formula up front with an actionable error – the
+  MAIHDA adjusted model is defined to carry only the dimensions’
+  *additive* main effects, with the intersection estimated by the
+  stratum random effect (write `Gender + Race`, and use
+  `decomposition = "crossed-dimensions"` or
+  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  to quantify the interaction).
+  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  likewise now warns when handed a bare model that carries such a fixed
+  dimension interaction (its stratum random effects are no longer the
+  pure interaction the diagnostic reports). Detection is robust to
+  variable order within the interaction and to non-syntactic names, and
+  a legitimate covariate-by-dimension interaction (e.g. `age * Gender`)
+  is left untouched.
+
+- **Discriminatory accuracy silently dropped the AUC/MOR for a `brms`
+  aggregated-binomial (`y | trials(n)`) fit.** The model layer fits such
+  responses, and [`summary()`](https://rdrr.io/r/base/summary.html)
+  attaches the discriminatory accuracy automatically for any
+  binomial/Bernoulli fit, but
+  [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+  only recognised the aggregated structure for `lme4`
+  `cbind(success, failure)` fits. A `brms` `y | trials(n)` fit therefore
+  reached
+  [`maihda_auc()`](https://hdbt.github.io/MAIHDA/reference/maihda_auc.md)
+  with the per-row success *counts* as the response, errored on the
+  non-0/1 values, and the summary quietly omitted the DA. It now detects
+  a `brms` aggregated binomial via the existing trial-count extraction
+  path (`maihda_brms_trial_counts()`, which parses the `trials()`
+  addition term off the stored formula – `brms` exposes no
+  `weights.brmsfit`) and computes the same count-weighted C-statistic
+  the `lme4` [`cbind()`](https://rdrr.io/r/base/cbind.html) path uses.
+  Because `brms`’s response-scale prediction for a binomial fit is the
+  expected *count* (`trials * p`) rather than the per-trial probability,
+  the rows are ranked by `prediction / trials` so the AUC ranks by
+  probability and not by a count that confounds the probability with the
+  number of trials; `n_case` / `n_control` are the total successes /
+  failures. Bernoulli and `lme4` fits are unaffected.
+
 - [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
   (and therefore
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md),
@@ -156,6 +212,60 @@
   `allow_new_levels` to brms). Stratum-level predictions have no random
   effect to report for an unseen stratum, so they remain an error
   regardless.
+
+- **A formula [`offset()`](https://rdrr.io/r/stats/offset.html) term was
+  silently dropped from `wemix` and `ordinal` predictions.**
+  [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
+  and [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html)
+  both honour an `offset(.)` term in the model formula when fitting, but
+  the manual linear-predictor helpers (no `predict.clmm` exists, and
+  WeMix’s own [`predict()`](https://rdrr.io/r/stats/predict.html) offers
+  no fixed-only/scale control) rebuilt the linear predictor as
+  `X %*% beta (+ u)` from the design matrix only – and
+  [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html) never
+  produces a column for an offset term, so the offset was omitted. Every
+  link-scale prediction (and the response-scale value derived from it)
+  was therefore off by exactly the per-row offset:
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  for both engines, and the ordinal
+  [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
+  probabilities, which rebuild the `clmm` location independently. The
+  helpers now evaluate the formula’s offset on the prediction data
+  ([`stats::model.offset()`](https://rdrr.io/r/stats/model.extract.html)
+  of the rebuilt model frame) and add it back, **including for an
+  offset-only null model** whose location is otherwise identically zero.
+  Fits with no offset are unaffected.
+
+- **[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  chose the engine from the raw outcome, before `subset`/weights.** The
+  wrappers pass `engine` explicitly to every sub-fit, so they
+  pre-selected `engine = "ordinal"` from an ordered-factor outcome – but
+  they checked the *raw* column, while
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  detects the family on the **analytic sample** (after `subset` and
+  weight filtering). An ordered 3-level outcome subset to two observed
+  levels is a binary analytic sample: a direct
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  fits it as `binomial`/`lme4`, but the wrappers pinned
+  `engine = "ordinal"` and then errored
+  ([`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)) or
+  failed every group
+  ([`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md))
+  with an engine/family contradiction. The ordinal pre-check now runs on
+  the same analytic sample
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  uses (the forwarded `subset`/weights are resolved against the data
+  mask first), so the engine choice can no longer contradict the
+  resolved family. Relatedly,
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) now
+  forwards the **evaluated** `subset`/`weights` (not the raw
+  expressions) to its derived null/adjusted fits, mirroring
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md):
+  a response-referencing `subset`
+  (e.g. `subset = y %in% c("lo", "mid")`) was otherwise re-evaluated by
+  each derived fit against `$original_data`, whose response has already
+  been recoded to 0/1, selecting zero rows.
 
 ### Improvements
 
@@ -557,9 +667,11 @@ CRAN release: 2026-06-18
   Odds Ratio – and (b) a **ranked-strata table** ordering every
   intersectional stratum by its model-predicted outcome (their Table 4),
   with the predicted value’s conditional interval, the stratum size, and
-  the stratum random effect. It computes nothing new – every quantity is
-  read from the summaries already attached to the analysis, so the table
-  agrees exactly with
+  the stratum random effect. It introduces no new estimator – the
+  model-results table reuses the quantities from
+  [`summary()`](https://rdrr.io/r/base/summary.html) and the
+  ranked-strata table reuses `plot(type = "predicted")`’s stratum
+  predictions, so the table agrees exactly with
   [`summary()`](https://rdrr.io/r/base/summary.html)/[`plot()`](https://rdrr.io/r/graphics/plot.default.html).
   The `$models` data frame is numeric and export-ready (statistics in
   rows, an estimate + `*_lower`/`*_upper` interval columns per model:
@@ -570,10 +682,12 @@ CRAN release: 2026-06-18
   (`n_strata`). It adapts to every fit type: a crossed-dimensions
   analysis gets “Additive share”/“Interaction share” rows instead of the
   PCV, a contextual cross-classified analysis (`context =`) gets a
-  “Context share (VPC)” row, an ordinal fit’s thresholds stand in for
-  the intercept, and `which = "adjusted"` ranks the strata by the
-  adjusted rather than the null model. Works across the lme4, brms,
-  wemix, and ordinal engines.
+  “Context share (VPC)” row, an ordinal fit leaves the intercept row
+  `NA` (its category thresholds are reported by
+  [`summary()`](https://rdrr.io/r/base/summary.html), not the table),
+  and `which = "adjusted"` ranks the strata by the adjusted rather than
+  the null model. Works across the lme4, brms, wemix, and ordinal
+  engines.
 - [`summary()`](https://rdrr.io/r/base/summary.html) of a
   binomial/Bernoulli MAIHDA model – and therefore
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md), whose
