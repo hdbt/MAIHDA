@@ -694,3 +694,50 @@ test_that("supplied dimension main effects strip even for backtick-containing na
   expect_s3_class(cmp, "maihda_group_comparison")
   expect_setequal(cmp$group, c("P", "Q"))
 })
+
+test_that("compare_maihda_groups rejects a mixed-sign numeric subset like base R", {
+  set.seed(9091)
+  d <- data.frame(
+    grp = rep(c("A", "B"), each = 20),
+    gender = rep(c("F", "M"), 20),
+    ses = rep(c("lo", "hi"), each = 2, length.out = 40),
+    y = rnorm(40)
+  )
+  # c(-1, 2) mixes positive and negative subscripts: base R and a bare fit error on
+  # it, so the comparison must too -- not silently normalise it to an empty (n = 0)
+  # mask that reports every group as skipped.
+  expect_error(
+    compare_maihda_groups(y ~ 1 + (1 | gender:ses), data = d, group = "grp",
+                          subset = c(-1, 2)),
+    "subset")
+})
+
+test_that("subsetting a maihda_group_comparison keeps its print metadata", {
+  set.seed(7711)
+  n <- 300
+  d <- data.frame(
+    grp = rep(c("A", "B"), each = n / 2),
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    ses = sample(c("lo", "hi"), n, replace = TRUE)
+  )
+  key <- interaction(d$gender, d$ses, drop = TRUE)
+  d$y <- rnorm(nlevels(key), sd = 0.7)[key] + rnorm(n, sd = 0.4)
+
+  cmp <- suppressWarnings(suppressMessages(
+    compare_maihda_groups(y ~ 1 + (1 | gender:ses), data = d, group = "grp")))
+
+  sub <- cmp[, c("group", "n", "status")]
+  expect_s3_class(sub, "maihda_group_comparison")
+  # Metadata attributes survive the column subset (regression: `[.data.frame` kept
+  # the class but dropped them, blanking the printed header).
+  expect_identical(attr(sub, "group_var"), attr(cmp, "group_var"))
+  expect_identical(attr(sub, "engine"), attr(cmp, "engine"))
+  expect_identical(attr(sub, "family"), attr(cmp, "family"))
+
+  # Printing the column subset still shows the populated header line.
+  out <- paste(utils::capture.output(print(sub)), collapse = "\n")
+  expect_match(out, "Group variable: grp")
+
+  # A single-column drop returns a bare vector, not a classed object.
+  expect_false(is.data.frame(cmp[, "group"]))
+})

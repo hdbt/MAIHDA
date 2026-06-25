@@ -16,9 +16,12 @@
 #' models (intercept, between-stratum variance and SD, VPC/ICC, the PCV, and -- for a
 #' binary outcome -- the AUC and Median Odds Ratio), and (b) a \strong{ranked-strata
 #' table} ordering the intersectional strata by their predicted outcome, so the
-#' best- and worst-off strata can be read directly. It computes nothing new: every
-#' quantity is read from the summaries already attached to the analysis, so the table
-#' agrees exactly with \code{summary()} and \code{plot()}.
+#' best- and worst-off strata can be read directly. It introduces no new estimator:
+#' the model-results table reuses the quantities from \code{summary()} (calling
+#' \code{summary()} itself for a bare \code{\link{fit_maihda}} model), and the
+#' ranked-strata table reuses the same stratum predictions as
+#' \code{plot(type = "predicted")}, so the table agrees exactly with \code{summary()}
+#' and \code{plot()}.
 #'
 #' @details
 #' The model-results table is mostly numeric and export-ready (e.g.

@@ -480,7 +480,17 @@ maihda_normalize_subset <- function(subset, n) {
   }
   if (is.numeric(subset)) {
     mask <- logical(n)
-    idx <- tryCatch(seq_len(n)[subset], error = function(e) integer(0))
+    # Let base R validate the numeric subscripts rather than swallowing its error.
+    # `seq_len(n)[subset]` only errors on a genuinely invalid subset -- mixing
+    # positive and negative indices (e.g. c(-1, 2)), or mixing NA with negative
+    # indices; out-of-range indices merely yield NA, which is filtered below. The old
+    # tryCatch(..., error = integer(0)) collapsed those invalid subsets to an empty
+    # mask, so compare_maihda_groups()/maihda() silently fit zero rows (every group
+    # reported as skipped, n = 0) instead of erroring like base R and a bare fit do.
+    idx <- tryCatch(
+      seq_len(n)[subset],
+      error = function(e) stop("invalid 'subset': ", conditionMessage(e),
+                               call. = FALSE))
     idx <- idx[!is.na(idx) & idx >= 1L & idx <= n]
     mask[idx] <- TRUE
     return(mask)

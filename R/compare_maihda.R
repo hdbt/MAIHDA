@@ -1129,13 +1129,47 @@ maihda_prepare_group_strata <- function(formula, data, shared_strata, autobin = 
 print.maihda_group_comparison <- function(x, ...) {
   cat(maihda_palette()$bold("MAIHDA Group Comparison"), "\n", sep = "")
   cat("=======================\n\n")
-  cat("Group variable:", attr(x, "group_var"), "\n")
-  cat("Engine:", attr(x, "engine"),
-      " | Family:", attr(x, "family"),
-      " | Strata:", if (isTRUE(attr(x, "shared_strata"))) "shared/global" else "per-group",
-      "\n\n")
+  # `[.maihda_group_comparison` re-attaches the metadata attributes after a row/column
+  # subset, but degrade gracefully if they are missing anyway (e.g. an object built by
+  # some other path): print the bare data frame rather than blank header fields.
+  group_var <- attr(x, "group_var")
+  if (!is.null(group_var)) {
+    cat("Group variable:", group_var, "\n")
+    cat("Engine:", attr(x, "engine"),
+        " | Family:", attr(x, "family"),
+        " | Strata:", if (isTRUE(attr(x, "shared_strata"))) "shared/global" else "per-group",
+        "\n\n")
+  }
   print(as.data.frame(x), row.names = FALSE, digits = 4)
   invisible(x)
+}
+
+#' Subset a MAIHDA group comparison
+#'
+#' Indexing method for \code{\link{compare_maihda_groups}} results that preserves the
+#' comparison's metadata attributes (group variable, engine, family, ...) so the
+#' \code{print()} header stays populated after a row/column subset. Plain
+#' \code{[.data.frame} keeps the S3 class but drops those attributes, which would
+#' otherwise blank the printed header.
+#'
+#' @param x A \code{maihda_group_comparison} object.
+#' @param ... Row/column indices forwarded to \code{[.data.frame}.
+#' @return A \code{maihda_group_comparison} with the metadata attributes carried over,
+#'   or a bare vector when the selection drops to a single column.
+#' @keywords internal
+#' @export
+`[.maihda_group_comparison` <- function(x, ...) {
+  out <- NextMethod()
+  # A single-column selection with drop = TRUE returns a bare vector; leave it
+  # unclassed. Otherwise restore the class and the metadata attributes the print
+  # method relies on.
+  if (is.data.frame(out)) {
+    for (a in c("group_var", "engine", "family", "shared_strata", "decomposition")) {
+      attr(out, a) <- attr(x, a)
+    }
+    class(out) <- class(x)
+  }
+  out
 }
 
 #' Join non-empty caption lines for a plot
