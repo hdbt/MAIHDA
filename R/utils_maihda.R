@@ -201,11 +201,13 @@ maihda_format_fit_diagnostics <- function(diagnostics) {
     )
   }
   if (isFALSE(diagnostics$converged) && length(diagnostics$messages) > 0) {
-    header <- if (identical(diagnostics$engine, "brms")) {
-      "MCMC convergence diagnostics (brms):"
-    } else {
-      "Convergence warnings reported by lme4:"
-    }
+    header <- switch(
+      as.character(diagnostics$engine),
+      brms = "MCMC convergence diagnostics (brms):",
+      ordinal = "Convergence warnings reported by ordinal::clmm:",
+      lme4 = "Convergence warnings reported by lme4:",
+      "Convergence warnings:"
+    )
     out <- c(out, header, paste0("  - ", diagnostics$messages))
   }
   out
