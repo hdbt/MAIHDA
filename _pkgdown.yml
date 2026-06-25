@@ -9,26 +9,22 @@ navbar:
     left: [intro, reference, articles, news]
 
 articles:
-  - title: Get started
-    navbar: ~
+
+  - title: Introduction
+    navbar: Introduction
     contents:
       - introduction
       - planning_a_study
-  - title: Workflows
-    navbar: Workflows
+      - interpreting_plots
+      - reporting_results
+      - interactive_app
+
+  - title: Advanced topics
+    navbar: Advanced
     contents:
+      - finding_interactions
       - binary_outcomes
       - group_comparison
       - cross_classified
       - longitudinal
       - bayesian_sparse_maihda
-      - reporting_results
-  - title: Interpretation
-    navbar: Interpretation
-    contents:
-      - interpreting_plots
-      - finding_interactions
-  - title: Interactive app
-    navbar: Interactive app
-    contents:
-      - interactive_app
