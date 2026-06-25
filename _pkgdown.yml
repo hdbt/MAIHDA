@@ -20,7 +20,7 @@ articles:
       - interactive_app
 
   - title: Advanced topics
-    navbar: Advanced
+    navbar: Advanced topics
     contents:
       - finding_interactions
       - binary_outcomes
