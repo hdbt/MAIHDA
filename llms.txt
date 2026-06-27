@@ -40,15 +40,7 @@ socioeconomic status).
 - **Design-Weighted MAIHDA**: Survey/sampling weights via
   `sampling_weights` fit a population-weighted model using WeMix
   pseudo-maximum likelihood via `engine = "wemix"` or a brms
-  pseudo-posterior via `engine = "brms"`. The WeMix path gives
-  design-consistent (sandwich) SEs for the **fixed effects**; both paths
-  give population-weighted point estimates for the VPC, PCV, stratum
-  summaries and AUC. The intersectional strata are treated as
-  exhaustively sampled population cells (level-2 weights = 1), and
-  design-based (replicate-weight / linearised) variances for the
-  variance components are not computed — so this is weighting to the
-  population, not full complex-survey support for arbitrary
-  clustered/stratified/replicate-weight designs
+  pseudo-posterior via `engine = "brms"`.
 - **Summaries & Decompositions**: Variance partition coefficients
   (VPC/ICC), stratum-specific estimates, and stepwise Proportional
   Change in Variance (PCV)
@@ -56,14 +48,13 @@ socioeconomic status).
   predictions
 - **Visualizations**: Predicted stratum values, VPC visualizations,
   mean-prediction vs. stratum-effect diagnostics, and observed
-  vs. shrunken estimates
+  vs. shrunken estimates, with multiplicity correction for flagged
+  strata
 - **Group Comparison**:
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   contrasts the between-stratum *share* of variance (VPC/ICC) and the
   between-/within-stratum variance components across levels of a
-  higher-level variable such as country or region. (The VPC/ICC is a
-  share, not the absolute magnitude of intersectional inequality — read
-  it alongside the absolute between-stratum variance.)
+  higher-level variable such as country or region.
 - **Contextual Cross-Classified MAIHDA**: `context = "school"` crosses
   the intersectional strata with a place/institution level (school,
   hospital, region)
