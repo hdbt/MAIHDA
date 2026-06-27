@@ -91,6 +91,7 @@ summary(analysis)
 
 plot(analysis, type = "vpc")
 plot(analysis, type = "effect_decomp")
+plot(analysis, type = "predicted", highlight_interactions = TRUE)
 plot(analysis) # plots all plot types
 ```
 
@@ -98,27 +99,18 @@ plot(analysis) # plots all plot types
 
 ### `maihda()`
 
-A single high-level entry point that runs the standard two-model MAIHDA
-workflow: it fits the **null** model (covariates only) and the
-**adjusted** model (plus the dimensions’ additive main effects – write
-them in the formula, or let
-[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) add them
-with a message), summarises the null-model VPC/ICC, and reports the
-**PCV** (the additive share of the intersectional inequality). When a
-`group` is supplied it also runs this decomposition within each group.
-Alternatively, `decomposition = "crossed-dimensions"` reads the
-additive/interaction split off a *single* model that enters each
-dimension’s main effect as a random intercept. Returns one
+A wrapper that runs the standard two-model MAIHDA workflow: it fits the
+**null** model (covariates only) and the **adjusted** model (plus the
+dimensions’ additive main effects, summarises the null-model VPC/ICC,
+and reports the **PCV** (the additive share of the intersectional
+inequality). When a `group` is supplied it also runs this decomposition
+within each group. Alternatively, `decomposition = "crossed-dimensions"`
+reads the additive/interaction split off a *single* model that enters
+each dimension’s main effect as a random intercept. Returns one
 `maihda_analysis` object with
 [`print()`](https://rdrr.io/r/base/print.html),
 [`summary()`](https://rdrr.io/r/base/summary.html), and
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods
-([`plot()`](https://rdrr.io/r/graphics/plot.default.html) routes the
-VPC/shrinkage views to the null model and the additive-vs-intersectional
-views to the adjusted model). It is intrinsically a decomposition and
-has no single-model mode – use
-[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-for a single fit.
 
 ### `maihda_table()`
 
@@ -176,10 +168,9 @@ expected category scores).
 
 ### Contextual cross-classified MAIHDA (`context =`)
 
-The MAIHDA literature’s *cross-classified* design crosses individuals’
-intersectional strata with a higher-level **context** – hospitals
-(patient survival), schools (student achievement), neighbourhoods. Pass
-`context = "school"` to
+The *cross-classified* design crosses individuals’ intersectional strata
+with a higher-level **context** – hospitals (patient survival), schools
+(student achievement), neighbourhoods. Pass `context = "school"` to
 [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
 or [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) to
 fit `outcome ~ covars + (1 | stratum) + (1 | school)` in one model; the
