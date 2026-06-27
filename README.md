@@ -137,7 +137,7 @@ Creates various visualizations:
 Generates a ternary diagnostic plot. For each stratum it normalizes three magnitudes to sum to 1: the additive signal (how far the fixed-effect-only prediction sits from the grand mean), the intersection-specific signal (the magnitude of the stratum random effect), and the uncertainty in that estimate. It is a relative-signal diagnostic, not a formal variance decomposition.
 
 ### `plot_prediction_deviation_panels()`
-Creates an advanced, publication-ready two-panel dashboard for visualizing predicted values and highlighting the most notable cases or strata. What counts as notable depends on the model type — the largest deviation from the mean prediction (Gaussian/Poisson), the largest absolute deviance residual (binomial), or the most surprising observation (ordinal) — and the labelled points are not regression-diagnostic outliers.
+Creates a two-panel dashboard for visualizing predicted values and highlighting the most notable cases or strata. What counts as notable depends on the model type — the largest deviation from the mean prediction (Gaussian/Poisson), the largest absolute deviance residual (binomial), or the most surprising observation (ordinal).
 
 ### `compare_maihda()`
 Compares VPC/ICC across multiple models with optional bootstrap confidence intervals, and (by default, `ic = TRUE`) appends relative-fit information criteria — AIC/BIC for the likelihood engines, WAIC/LOOIC for brms — for comparing model structures.
@@ -146,17 +146,17 @@ Compares VPC/ICC across multiple models with optional bootstrap confidence inter
 Reports the relative-fit information criteria for one or more models (or a `maihda()` analysis, expanded into its null and adjusted models) to help choose between model *structures* — a question the VPC/PCV do not address. AIC/BIC for the likelihood engines (lme4, ordinal) and the Bayesian WAIC/LOOIC for brms, with a `delta` column from the best model. REML `lmer` fits are refitted with ML so AIC/BIC are comparable across models with different fixed effects (the null-vs-adjusted case).
 
 ### `compare_maihda_groups()`
-Compares the between-stratum *share* of variance (VPC/ICC) and the between-/within-stratum variance components across the levels of a higher-level grouping variable such as country, region, or survey wave, fitting a stratified MAIHDA model per group. The VPC/ICC is a *share*, not the absolute magnitude of intersectional inequality, so a higher VPC need not mean more between-stratum variation — read it alongside the absolute `var_between` column. Visualize with `plot(result, type = "vpc")`. The bundled `maihda_country_data` (OECD PISA 2018; gender × socioeconomic-status strata across six countries) is built to demonstrate this.
+Compares the between-stratum *share* of variance (VPC/ICC) and the between-/within-stratum variance components across the levels of a higher-level grouping variable such as country, region, or survey wave, fitting a stratified MAIHDA model per group.
 
 ### `calculate_pvc()`
-Calculates the proportional change in between-stratum variance (PCV) between two models. It is the share of the baseline model's between-stratum variance explained by the second model only when the second nests the first (adding predictors on the same outcome, sample and strata); otherwise it is a model-dependent change in variance.
+Calculates the proportional change in between-stratum variance (PCV) between two models. 
 
 - Formula: PCV = (Var_model1 - Var_model2) / Var_model1
 - Point estimate works across all fitting engines (`lme4`, `brms`, `WeMix`, `ordinal`)
 - Supports bootstrap confidence intervals for lme4 models
 
 ### `stepwise_pcv()`
-Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step's PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model, so it is order-dependent rather than an order-invariant "unique" contribution. For a binary outcome it also reports the discriminatory-accuracy trajectory (`AUC`, the step/total change in AUC, and `MOR`) alongside the PCV, so the strata's discriminatory accuracy can be tracked as covariates are added.
+Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step's PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model. For a binary outcome it also reports the discriminatory-accuracy trajectory (`AUC`, the step/total change in AUC, and `MOR`) alongside the PCV, so the strata's discriminatory accuracy can be tracked as covariates are added.
 
 ### Longitudinal (growth-curve) MAIHDA
 Supply `id` and `time` to `fit_maihda()`/`maihda()` for a 3-level growth-curve MAIHDA (occasions within individuals within strata, with random intercept *and* slope on time at both levels), the life-course extension of Bell, Evans, Holman & Leckie (2024). The between-stratum VPC is then time-varying, and `maihda(decomposition = "longitudinal")` reports the PCV separately for the baseline (intercept) and the slope variance — the additive-vs-multiplicative split of the intersectional *trajectory* inequality.
