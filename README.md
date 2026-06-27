@@ -51,25 +51,22 @@ summary(analysis)
 
 plot(analysis, type = "vpc")
 plot(analysis, type = "effect_decomp")
+plot(analysis, type = "predicted", highlight_interactions = TRUE)
 plot(analysis) # plots all plot types
 ```
 
 ## Main Functions
 
 ### `maihda()`
-A single high-level entry point that runs the standard two-model MAIHDA workflow: it
+A wrapper that runs the standard two-model MAIHDA workflow: it
 fits the **null** model (covariates only) and the **adjusted** model (plus the
-dimensions' additive main effects -- write them in the formula, or let `maihda()` add
-them with a message), summarises the null-model VPC/ICC, and reports the **PCV** (the
+dimensions' additive main effects, summarises the null-model VPC/ICC, and reports the **PCV** (the
 additive share of the intersectional inequality). When a `group` is supplied it also
 runs this decomposition within each group. Alternatively,
 `decomposition = "crossed-dimensions"` reads the additive/interaction split off a
 *single* model that enters each dimension's main effect as a random intercept.
 Returns one `maihda_analysis` object with
-`print()`, `summary()`, and `plot()` methods (`plot()` routes the VPC/shrinkage views to
-the null model and the additive-vs-intersectional views to the adjusted model). It is
-intrinsically a decomposition and has no single-model mode -- use `fit_maihda()` for a
-single fit.
+`print()`, `summary()`, and `plot()` methods
 
 ### `maihda_table()`
 Assembles the two standard MAIHDA write-up deliverables from a fitted `maihda()` analysis (or a single `fit_maihda()` model) in one call: (a) a **model-results table** contrasting the null (Model 1) and adjusted (Model 2) fits — intercept, between-stratum variance and SD, VPC/ICC, the PCV, and (for a binary outcome) the AUC and Median Odds Ratio — and (b) a **ranked-strata table** ordering every stratum by its predicted outcome, with conditional intervals and the stratum random effect. The `$models` data frame is numeric and export-ready (`write.csv()` / `knitr::kable()`); `print()` renders the familiar "estimate [low, high]" layout plus the top/bottom strata. It adapts to every fit type (crossed-dimensions shares, contextual `Context share (VPC)`) and engine (lme4/brms/WeMix/ordinal); for an ordinal model the intercept row is `NA` and the category thresholds are reported by `summary()`, not the table. For a longitudinal (growth-curve) fit each stratum is a trajectory rather than a single ranked value, so `$strata` is `NULL` (with a `$strata_note` pointing to `predict(type = "strata")` / `plot(type = "trajectories")`); the `$models` table is still produced.
@@ -89,7 +86,7 @@ Creates intersectional strata from multiple categorical variables with optional 
 Fits multilevel models using the lme4 (default), brms, WeMix (design-weighted, via `sampling_weights`), or ordinal (`ordinal::clmm`, selected automatically for ordered-factor outcomes) engine. Supports various families including gaussian, binomial, poisson, negbinomial (overdispersed counts; theta estimated via `lme4::glmer.nb()` or brms's `shape` parameter, with the VPC using the latent-scale level-1 variance of Nakagawa, Johnson & Schielzeth 2017), and ordinal/cumulative (proportional-odds models for ordered outcomes; latent-scale VPC with pi^2/3 logit / 1 probit level-1 variance, response-scale predictions as expected category scores).
 
 ### Contextual cross-classified MAIHDA (`context =`)
-The MAIHDA literature's *cross-classified* design crosses individuals' intersectional
+The *cross-classified* design crosses individuals' intersectional
 strata with a higher-level **context** -- hospitals (patient survival), schools
 (student achievement), neighbourhoods. Pass `context = "school"` to `fit_maihda()` or
 `maihda()` to fit `outcome ~ covars + (1 | stratum) + (1 | school)` in one model; the
