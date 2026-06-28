@@ -57,7 +57,17 @@
 #'   stratum's place in the \emph{full} distribution); that view stays highlighted.
 #'   Independently of this argument, whenever interactions are highlighted the
 #'   \code{n_strata} cap on \code{"predicted"} becomes flag-aware: every flagged
-#'   stratum is kept and the remaining slots are filled in stratum order.
+#'   stratum is kept and the remaining slots are filled according to \code{select}.
+#' @param select When the \code{n_strata} cap must drop strata, which to keep:
+#'   \code{"order"} (default; the first n_strata in stratum order, the historical
+#'   behaviour) or \code{"deviation"} (the n_strata furthest from the reference
+#'   line -- largest \code{|predicted - reference|}, so the most extreme strata in
+#'   \emph{both} directions). Applies to \code{"predicted"} and, for a longitudinal
+#'   fit, \code{"trajectories"} (where it keeps the strata whose trajectories swing
+#'   furthest from the population curve). Flagged strata are always kept; this
+#'   governs the fill and the unflagged case. The displayed x-axis stays in stratum
+#'   order regardless, so \code{select} changes \emph{which} strata appear, not
+#'   their left-to-right order.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return For a single \code{type}, a \pkg{ggplot2} object that you can extend
@@ -91,7 +101,7 @@
 #' @import ggplot2
 #' @importFrom dplyr arrange
 plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
-                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, ...) {
+                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, select = c("order", "deviation"), ...) {
   if (!inherits(x, "maihda_model")) {
     stop("'x' must be a maihda_model object from fit_maihda()")
   }
@@ -105,6 +115,8 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
   if (only_flagged && isFALSE(highlight_interactions)) {
     highlight_interactions <- TRUE
   }
+  # Which strata survive the n_strata cap on the predicted / trajectory views.
+  select <- match.arg(select)
 
 
   if (missing(type)) {
@@ -132,7 +144,7 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
       plots <- list(
         vpc_trajectory = plot_vpc_trajectory(summary_obj),
         trajectories = tryCatch(
-          plot_stratum_trajectories(object, summary_obj, n_strata),
+          plot_stratum_trajectories(object, summary_obj, n_strata, select = select),
           error = function(e) NULL)
       )
       for (p in plots[!vapply(plots, is.null, logical(1))]) print(p)
@@ -142,7 +154,7 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
       return(plot_vpc_trajectory(summary_obj))
     }
     if (type == "trajectories") {
-      return(plot_stratum_trajectories(object, summary_obj, n_strata))
+      return(plot_stratum_trajectories(object, summary_obj, n_strata, select = select))
     }
     # Every remaining view (predicted, obs_vs_shrunken, risk_vs_effect,
     # effect_decomp, prediction_deviation, ternary) is a cross-sectional BLUP
@@ -164,7 +176,7 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
       plots$obs_vs_shrunken <- tryCatch(plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids, only_flagged = only_flagged), error = function(e) NULL)
     }
 
-    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged), error = function(e) NULL)
+    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select), error = function(e) NULL)
 
     top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
     plots$risk_vs_effect <- tryCatch(plot_risk_vs_effect(object, summary_obj, top_n_labels), error = function(e) NULL)
@@ -191,7 +203,7 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     } else if (type == "obs_vs_shrunken") {
       plot <- plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids, only_flagged = only_flagged)
     } else if (type == "predicted") {
-      plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged)
+      plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select)
     } else if (type == "risk_vs_effect") {
       top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
       plot <- plot_risk_vs_effect(object, summary_obj, top_n_labels)
@@ -301,6 +313,26 @@ maihda_no_flagged_plot <- function(title, screen_label) {
       axis.text = ggplot2::element_blank(),
       axis.ticks = ggplot2::element_blank(),
       panel.grid = ggplot2::element_blank())
+}
+
+# Choose which `k` of the candidate row indices `cand_idx` to keep when a capped
+# view must drop strata, honouring the selection rule. "order" keeps the first k
+# (stratum order, the historical behaviour); "deviation" keeps the k most extreme
+# by |deviation| -- magnitude, so BOTH tails are pulled in, ranked by distance --
+# where `mag` is a per-row magnitude aligned to the full table (non-finite -> -Inf
+# so incomputable rows sort last). The returned indices are sorted ascending, so
+# the DISPLAYED x-axis stays in stratum order regardless of how the survivors were
+# chosen: selection and display order are deliberately separate.
+maihda_pick_strata <- function(cand_idx, k, select, mag) {
+  if (length(cand_idx) <= k) return(sort(cand_idx))
+  chosen <- if (identical(select, "deviation")) {
+    m <- mag[cand_idx]
+    m[!is.finite(m)] <- -Inf
+    cand_idx[order(m, decreasing = TRUE)[seq_len(k)]]
+  } else {
+    utils::head(cand_idx, k)
+  }
+  sort(chosen)
 }
 
 # Append a star to the strata flagged for highlighting, for use in plot labels.
@@ -726,12 +758,19 @@ maihda_observed_outcome_for_plot <- function(x, family = NULL) {
 #'   interaction-screen parameters attached as attributes).
 #' @param only_flagged When TRUE, show only the flagged strata (those in
 #'   \code{highlight}); a captioned empty panel is returned if none are flagged.
+#' @param select When the \code{n_strata} cap drops strata, which to keep:
+#'   \code{"order"} (default) the first n_strata in stratum order, or
+#'   \code{"deviation"} the n_strata furthest from the reference line (largest
+#'   \code{|predicted - reference|}, so both tails). Flagged strata are kept
+#'   regardless; this governs the fill / the unflagged case. The displayed x-axis
+#'   stays in stratum order either way.
 #' @return A ggplot2 object
 #' @keywords internal
 #' @import ggplot2
 #' @importFrom dplyr arrange slice
-plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL, only_flagged = FALSE) {
+plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL, only_flagged = FALSE, select = c("order", "deviation")) {
   scale <- match.arg(scale)
+  select <- match.arg(select)
 
   pred_data <- if (object$engine == "lme4") {
     maihda_stratum_predictions_lme4(object, summary_obj, scale = scale)
@@ -771,6 +810,17 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
   n_flagged_total <- sum(stratum_est$.maihda_flag)
   screen_label <- maihda_highlight_screen_label(highlight)
 
+  # Per-stratum magnitude = visual distance from the reference line. select =
+  # "deviation" keeps the most extreme by this; "order" ignores it. The reference
+  # is computed from ALL strata above, so the ranking is stable under capping.
+  dev_mag <- abs(stratum_est$predicted - fixed_reference)
+  # Phrase a kept subset of size k to match the rule actually used, so a
+  # deviation-selected view is never read as a stratum-order one. Word order
+  # differs ("first 2" vs "2 most extreme"), so build the whole phrase here.
+  sel_phrase <- function(k) {
+    if (identical(select, "deviation")) sprintf("%d most extreme", k) else sprintf("first %d", k)
+  }
+
   caption_txt <- ""
   if (only_flagged) {
     # Restrict to flagged strata. With none flagged, return a captioned empty
@@ -779,44 +829,56 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
       return(maihda_no_flagged_plot(
         "Predicted Subgroup Values with Conditional 95% Intervals", screen_label))
     }
-    stratum_est <- stratum_est[stratum_est$.maihda_flag, , drop = FALSE]
-    # A cap still applies for readability when MANY strata are flagged.
-    capped <- !is.null(n_strata) && nrow(stratum_est) > n_strata
-    if (capped) stratum_est <- utils::head(stratum_est, n_strata)
+    flagged_idx <- which(stratum_est$.maihda_flag)
+    # A cap still applies for readability when MANY strata are flagged; which
+    # flagged strata survive it follows `select`.
+    k <- if (is.null(n_strata)) length(flagged_idx) else n_strata
+    keep_idx <- maihda_pick_strata(flagged_idx, k, select, dev_mag)
+    capped <- length(keep_idx) < n_flagged_total
+    stratum_est <- stratum_est[keep_idx, , drop = FALSE]
     caption_txt <- if (capped) {
-      sprintf("\nShowing the first %d of %d flagged strata (%s); %d strata total.",
-              n_strata, n_flagged_total, screen_label, n_total_strata)
+      sprintf("\nShowing the %s of %d flagged strata (%s); %d strata total.",
+              sel_phrase(length(keep_idx)), n_flagged_total, screen_label, n_total_strata)
     } else {
       sprintf("\nShowing the %d flagged strata (%s) of %d total.",
               n_flagged_total, screen_label, n_total_strata)
     }
   } else if (!is.null(n_strata) && n_total_strata > n_strata) {
-    # Cap exceeded. n_strata is a MAXIMUM: show the first n_strata in stratum
-    # order rather than thinning an evenly-spaced subset (the old stride sampling
-    # silently dropped strata from the middle while implying full coverage).
+    # Cap exceeded. n_strata is a MAXIMUM: keep the first n_strata in stratum order
+    # (select = "order") or the n_strata furthest from the reference (select =
+    # "deviation") -- never an evenly-spaced stride, which silently dropped strata
+    # from the middle while implying full coverage.
     if (n_flagged_total > 0) {
       # Flag-aware cap: keep EVERY flagged stratum, then fill the remaining slots
-      # in stratum order, preserving original order. A flagged stratum beyond the
-      # cap is the signal the highlight exists to surface, so it is never dropped
-      # -- even if that means showing more than n_strata.
+      # per `select`. A flagged stratum beyond the cap is the signal the highlight
+      # exists to surface, so it is never dropped -- even if that means showing
+      # more than n_strata.
       flagged_idx <- which(stratum_est$.maihda_flag)
       nonflag_idx <- which(!stratum_est$.maihda_flag)
       n_fill <- max(0, n_strata - length(flagged_idx))
-      keep_idx <- sort(union(flagged_idx, utils::head(nonflag_idx, n_fill)))
+      fill_idx <- maihda_pick_strata(nonflag_idx, n_fill, select, dev_mag)
+      keep_idx <- sort(union(flagged_idx, fill_idx))
       stratum_est <- stratum_est[keep_idx, , drop = FALSE]
       caption_txt <- if (length(flagged_idx) > n_strata) {
         sprintf(paste0("\nShowing all %d flagged strata of %d (n_strata = %d ",
                        "exceeded to keep every flagged stratum)."),
                 length(flagged_idx), n_total_strata, n_strata)
       } else {
-        sprintf(paste0("\nShowing %d of %d strata: all %d flagged plus the first ",
-                       "%d others (n_strata = %d)."),
-                length(keep_idx), n_total_strata, length(flagged_idx), n_fill, n_strata)
+        sprintf(paste0("\nShowing %d of %d strata: all %d flagged plus the %s ",
+                       "others (n_strata = %d)."),
+                length(keep_idx), n_total_strata, length(flagged_idx),
+                sel_phrase(n_fill), n_strata)
       }
     } else {
-      stratum_est <- utils::head(stratum_est, n_strata)
-      caption_txt <- sprintf("\nShowing the first %d of %d strata (n_strata = %d).",
-                             n_strata, n_total_strata, n_strata)
+      keep_idx <- maihda_pick_strata(seq_len(n_total_strata), n_strata, select, dev_mag)
+      stratum_est <- stratum_est[keep_idx, , drop = FALSE]
+      caption_txt <- if (identical(select, "deviation")) {
+        sprintf("\nShowing the %d strata furthest from the reference, of %d (n_strata = %d).",
+                n_strata, n_total_strata, n_strata)
+      } else {
+        sprintf("\nShowing the first %d of %d strata (n_strata = %d).",
+                n_strata, n_total_strata, n_strata)
+      }
     }
   }
 
@@ -1337,12 +1399,17 @@ plot_vpc_trajectory <- function(summary_obj) {
 #'
 #' @param object A longitudinal \code{maihda_model}.
 #' @param summary_obj Its \code{maihda_summary}.
-#' @param n_strata Maximum number of strata to draw (by stratum order); the rest
-#'   are noted in the caption.
+#' @param n_strata Maximum number of strata to draw; the rest are noted in the
+#'   caption.
+#' @param select When the cap drops strata, which to keep: \code{"order"}
+#'   (default) the first n_strata in stratum order, or \code{"deviation"} the
+#'   n_strata whose trajectory swings furthest from the population curve (largest
+#'   peak \code{|random deviation|} over the time grid, either direction).
 #' @return A ggplot2 object.
 #' @keywords internal
 #' @import ggplot2
-plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50) {
+plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50, select = c("order", "deviation")) {
+  select <- match.arg(select)
   lng <- summary_obj$longitudinal
   if (is.null(lng)) {
     stop("plot_stratum_trajectories() needs a longitudinal model.", call. = FALSE)
@@ -1354,9 +1421,22 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50) {
   omitted <- 0L
   if (!is.null(n_strata) && length(strata) > n_strata) {
     omitted <- length(strata) - n_strata
-    keep <- strata[seq_len(n_strata)]
-    re <- re[re$stratum %in% keep, , drop = FALSE]
-    strata <- keep
+    keep_rows <- if (identical(select, "deviation")) {
+      # Peak absolute random deviation over the grid -- max_t |sum_j coef_j t^j|,
+      # the stratum's own departure from the fixed trajectory -- so the strata whose
+      # trajectories diverge most (either direction) survive the cap, not the first
+      # by stratum id. A scalar BLUP would miss a small-intercept/large-slope fan-out.
+      mag <- vapply(seq_len(nrow(re)), function(i) {
+        a <- vapply(grid, function(t) sum(re$coef[[i]] * t^(0:(length(re$coef[[i]]) - 1))),
+                    numeric(1))
+        max(abs(a))
+      }, numeric(1))
+      order(mag, decreasing = TRUE)[seq_len(n_strata)]
+    } else {
+      seq_len(n_strata)
+    }
+    re <- re[sort(keep_rows), , drop = FALSE]
+    strata <- re$stratum
   }
 
   # Fixed-part trajectory at the population mean covariate profile: predict on a
@@ -1371,8 +1451,12 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50) {
                time = grid, value = eta_fixed + a, stringsAsFactors = FALSE)
   }))
 
-  cap <- if (omitted > 0) sprintf("%d of %d strata shown; %d omitted.",
-                                  length(strata), length(strata) + omitted, omitted) else NULL
+  cap <- if (omitted > 0) {
+    sprintf("%d of %d strata shown%s; %d omitted.",
+            length(strata), length(strata) + omitted,
+            if (identical(select, "deviation")) " (most extreme by trajectory deviation)" else "",
+            omitted)
+  } else NULL
 
   ggplot(rows, aes(x = .data$time, y = .data$value, group = .data$stratum,
                    color = .data$label)) +

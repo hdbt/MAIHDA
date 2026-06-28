@@ -10,7 +10,8 @@ plot_predicted_strata(
   n_strata,
   scale = c("response", "link"),
   highlight = NULL,
-  only_flagged = FALSE
+  only_flagged = FALSE,
+  select = c("order", "deviation")
 )
 }
 \arguments{
@@ -27,6 +28,13 @@ interaction-screen parameters attached as attributes).}
 
 \item{only_flagged}{When TRUE, show only the flagged strata (those in
 \code{highlight}); a captioned empty panel is returned if none are flagged.}
+
+\item{select}{When the \code{n_strata} cap drops strata, which to keep:
+\code{"order"} (default) the first n_strata in stratum order, or
+\code{"deviation"} the n_strata furthest from the reference line (largest
+\code{|predicted - reference|}, so both tails). Flagged strata are kept
+regardless; this governs the fill / the unflagged case. The displayed x-axis
+stays in stratum order either way.}
 }
 \value{
 A ggplot2 object

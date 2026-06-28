@@ -3,6 +3,7 @@
 ^pkgdown$
 ^\.github$
 ^data-raw$
+^data/brfss-2024$
 ^cran-comments\.md$
 ^README\.Rmd$
 ^\.git$

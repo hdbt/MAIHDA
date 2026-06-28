@@ -13,6 +13,7 @@
   n_strata = 50,
   highlight_interactions = FALSE,
   only_flagged = FALSE,
+  select = c("order", "deviation"),
   ...
 )
 }
@@ -75,7 +76,18 @@ apply to \code{"effect_decomp"} (whose waterfall exists to show each flagged
 stratum's place in the \emph{full} distribution); that view stays highlighted.
 Independently of this argument, whenever interactions are highlighted the
 \code{n_strata} cap on \code{"predicted"} becomes flag-aware: every flagged
-stratum is kept and the remaining slots are filled in stratum order.}
+stratum is kept and the remaining slots are filled according to \code{select}.}
+
+\item{select}{When the \code{n_strata} cap must drop strata, which to keep:
+\code{"order"} (default; the first n_strata in stratum order, the historical
+behaviour) or \code{"deviation"} (the n_strata furthest from the reference
+line -- largest \code{|predicted - reference|}, so the most extreme strata in
+\emph{both} directions). Applies to \code{"predicted"} and, for a longitudinal
+fit, \code{"trajectories"} (where it keeps the strata whose trajectories swing
+furthest from the population curve). Flagged strata are always kept; this
+governs the fill and the unflagged case. The displayed x-axis stays in stratum
+order regardless, so \code{select} changes \emph{which} strata appear, not
+their left-to-right order.}
 
 \item{...}{Additional arguments (not currently used).}
 }

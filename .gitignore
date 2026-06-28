@@ -11,3 +11,6 @@ vignettes/*.html
 # stray ..Rcheck/, and built source tarballs at the repo root.
 *.Rcheck/
 /*.tar.gz
+
+# Large public-use BRFSS cache and derived local case-study outputs.
+/data/brfss-2024/

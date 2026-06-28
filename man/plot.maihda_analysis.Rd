@@ -9,6 +9,7 @@
   type = "all",
   highlight_interactions = FALSE,
   only_flagged = FALSE,
+  select = c("order", "deviation"),
   ...
 )
 }
@@ -40,6 +41,12 @@ stratum; \code{TRUE} restricts those views to the strata carrying a credibly
 non-zero interaction and, when \code{highlight_interactions} is left
 \code{FALSE}, turns the highlight on with this analysis's stored diagnostic.
 \code{"effect_decomp"} ignores it (it stays highlighted in context).}
+
+\item{select}{When the \code{n_strata} cap drops strata on the
+\code{"predicted"} (or longitudinal \code{"trajectories"}) view, which to
+keep: \code{"order"} (default, first n_strata in stratum order) or
+\code{"deviation"} (the n_strata furthest from the reference, both tails). See
+\code{\link[=plot.maihda_model]{plot}}.}
 
 \item{...}{Additional arguments passed to the underlying plot method.}
 }

@@ -409,6 +409,29 @@ test_that("an invalid only_flagged argument errors", {
                "single TRUE or FALSE")
 })
 
+# ---- select composes with the flag-aware cap --------------------------------
+
+test_that("select governs the flag-aware fill while every flagged stratum is kept", {
+  a <- maihda_interaction_analysis()          # 9 strata, 4 flagged
+  mi <- maihda_interactions(a)
+  flagged <- as.character(mi$stratum[mi$flagged])
+
+  p <- plot(a, type = "predicted", n_strata = 6,
+            highlight_interactions = TRUE, select = "deviation")
+  shown <- as.character(p$data$stratum)
+  expect_true(all(flagged %in% shown))        # flagged always survive
+  expect_equal(length(shown), 6L)             # filled to the cap
+  expect_match(p$labels$caption, "most extreme")
+})
+
+test_that("select picks which flagged strata survive an only_flagged cap", {
+  a <- maihda_interaction_analysis()          # 4 flagged
+  p <- plot(a, type = "predicted", only_flagged = TRUE,
+            n_strata = 2, select = "deviation")
+  expect_equal(nrow(p$data), 2L)
+  expect_match(p$labels$caption, "most extreme of 4 flagged")
+})
+
 # ---- probability of direction (Stan-free) -----------------------------------
 
 test_that("maihda_pd is the conventional probability of direction in [0.5, 1]", {

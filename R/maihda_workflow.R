@@ -930,11 +930,16 @@ summary.maihda_analysis <- function(object, ...) {
 #'   non-zero interaction and, when \code{highlight_interactions} is left
 #'   \code{FALSE}, turns the highlight on with this analysis's stored diagnostic.
 #'   \code{"effect_decomp"} ignores it (it stays highlighted in context).
+#' @param select When the \code{n_strata} cap drops strata on the
+#'   \code{"predicted"} (or longitudinal \code{"trajectories"}) view, which to
+#'   keep: \code{"order"} (default, first n_strata in stratum order) or
+#'   \code{"deviation"} (the n_strata furthest from the reference, both tails). See
+#'   \code{\link[=plot.maihda_model]{plot}}.
 #' @param ... Additional arguments passed to the underlying plot method.
 #' @return A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
 #' @export
 plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE,
-                                 only_flagged = FALSE, ...) {
+                                 only_flagged = FALSE, select = c("order", "deviation"), ...) {
   type <- match.arg(type, c(
     "all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
     "effect_decomp", "ternary", "prediction_deviation", "context_vpc",
@@ -951,6 +956,8 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
   if (only_flagged && isFALSE(highlight_interactions)) {
     highlight_interactions <- TRUE
   }
+  # Which strata survive the n_strata cap on the predicted / trajectory views.
+  select <- match.arg(select)
 
   # Longitudinal analysis: the trajectory views replace the cross-sectional ones.
   # "all" shows the VPC-over-time and the stratum mean trajectories; "pcv_trajectory"
@@ -967,7 +974,7 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
         vpc_trajectory = plot(x$model, type = "vpc_trajectory",
                               summary_obj = x$summary, ...),
         trajectories = tryCatch(plot(x$model, type = "trajectories",
-                                     summary_obj = x$summary, ...),
+                                     summary_obj = x$summary, select = select, ...),
                                 error = function(e) NULL),
         pcv_trajectory = tryCatch(plot_pcv_trajectory(x$pcv),
                                   error = function(e) NULL)
@@ -977,7 +984,7 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
     }
     if (type %in% c("vpc_trajectory", "trajectories", "vpc")) {
       t <- if (type == "vpc") "vpc_trajectory" else type
-      return(plot(x$model, type = t, summary_obj = x$summary, ...))
+      return(plot(x$model, type = t, summary_obj = x$summary, select = select, ...))
     }
     # Other cross-sectional types fall through to the adjusted growth model below.
   }
@@ -1024,7 +1031,7 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
       error = function(e) NULL)
     null_plots$predicted <- tryCatch(
       plot(x$model, type = "predicted", summary_obj = x$summary,
-           highlight_interactions = hl, only_flagged = only_flagged, ...),
+           highlight_interactions = hl, only_flagged = only_flagged, select = select, ...),
       error = function(e) NULL)
     if (!is.null(x$context_vars)) {
       null_plots$context_vpc <- tryCatch(
@@ -1062,7 +1069,7 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
 
   # vpc, obs_vs_shrunken, predicted -> null model
   plot(x$model, type = type, summary_obj = x$summary,
-       highlight_interactions = hl, only_flagged = only_flagged, ...)
+       highlight_interactions = hl, only_flagged = only_flagged, select = select, ...)
 }
 
 # Resolve the highlight argument for a maihda_analysis: FALSE/NULL stays FALSE;

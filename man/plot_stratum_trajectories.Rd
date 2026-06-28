@@ -4,15 +4,25 @@
 \alias{plot_stratum_trajectories}
 \title{Stratum mean-trajectory plot (longitudinal MAIHDA)}
 \usage{
-plot_stratum_trajectories(object, summary_obj, n_strata = 50)
+plot_stratum_trajectories(
+  object,
+  summary_obj,
+  n_strata = 50,
+  select = c("order", "deviation")
+)
 }
 \arguments{
 \item{object}{A longitudinal \code{maihda_model}.}
 
 \item{summary_obj}{Its \code{maihda_summary}.}
 
-\item{n_strata}{Maximum number of strata to draw (by stratum order); the rest
-are noted in the caption.}
+\item{n_strata}{Maximum number of strata to draw; the rest are noted in the
+caption.}
+
+\item{select}{When the cap drops strata, which to keep: \code{"order"}
+(default) the first n_strata in stratum order, or \code{"deviation"} the
+n_strata whose trajectory swings furthest from the population curve (largest
+peak \code{|random deviation|} over the time grid, either direction).}
 }
 \value{
 A ggplot2 object.
