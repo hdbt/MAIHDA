@@ -6,6 +6,49 @@
 
 - **[`theme_maihda()`](https://hdbt.github.io/MAIHDA/reference/theme_maihda.md)
   now is set as standard theme for ggplot objects**
+- **The `predicted` (and longitudinal `trajectories`) plot can now keep
+  the most extreme strata when it truncates, instead of the first by
+  stratum order.** When there are more strata than the `n_strata` cap,
+  the view dropped strata in *stratum order* – effectively arbitrary
+  with respect to how far a subgroup sits from the population mean, so
+  the most striking strata could be the ones omitted.
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) gains an
+  opt-in **`select`** argument: `"order"` (default, unchanged) keeps the
+  first n_strata in stratum order; `"deviation"` keeps the n_strata
+  furthest from the reference line (largest `|predicted - reference|`,
+  so the most extreme strata in *both* directions, not just one tail).
+  For a longitudinal `trajectories` plot it keeps the strata whose
+  trajectories swing furthest from the population curve (peak
+  `|random deviation|` over the time grid). Selection and display are
+  kept separate: `select` changes *which* strata appear, but the x-axis
+  stays in stratum order. It composes with the flag-aware cap (flagged
+  strata are always kept; `select` governs the fill) and the caption
+  names the rule used (“the 12 strata furthest from the reference, of
+  200”).
+- **The BLUP plots can now show only the flagged strata, and never hide
+  a flagged stratum behind the display cap.** When there are many strata
+  the `"predicted"` view caps the number drawn (`n_strata`, default 50)
+  and kept them in stratum order, so a stratum flagged by
+  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  that fell past the cap was dropped from the figure entirely – the
+  highlight could not reach it.
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) gains
+  **`only_flagged`**: `TRUE` restricts the `"predicted"` and
+  `"obs_vs_shrunken"` views to the strata carrying a credibly non-zero
+  interaction (and turns the highlight on with the stored diagnostic if
+  it was off), with a caption naming the screen (e.g. “Showing the 7
+  flagged strata (95% interval, BH-adjusted) of 200 total”) and a
+  graceful captioned empty panel when none are flagged. Independently,
+  whenever interactions are highlighted the `n_strata` cap on
+  `"predicted"` is now **flag-aware**: every flagged stratum is kept and
+  the remaining slots are filled in stratum order, so the signal the
+  highlight exists to surface is never silently truncated away. The
+  across-strata reference line is still computed from the full set, so
+  filtering never shifts it. `"effect_decomp"` deliberately ignores
+  `only_flagged` (its waterfall exists to show each flagged stratum’s
+  place in the full distribution) and says so; the framing stays on
+  “flagged”, not “significant”, consistent with the diagnostic’s
+  exploratory, partial-pooling reading.
 - **The interaction diagnostic now defaults to FDR control and gains an
   equivalence (ROPE) reading.**
   [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)

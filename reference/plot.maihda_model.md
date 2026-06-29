@@ -16,6 +16,10 @@ plot(
   summary_obj = NULL,
   n_strata = 50,
   highlight_interactions = FALSE,
+  only_flagged = FALSE,
+  highlight_by = c("flag", "rope"),
+  rope = NULL,
+  select = c("order", "deviation"),
   ...
 )
 ```
@@ -96,7 +100,65 @@ plot(
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a
   [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
   analysis, which routes these views to the adjusted model
-  automatically.
+  automatically. Which column of the screen drives the highlight set is
+  governed by `highlight_by`.
+
+- only_flagged:
+
+  Show *only* the flagged strata rather than dimming the rest. `FALSE`
+  (default) keeps every stratum (flagged ones highlighted); `TRUE`
+  restricts the `"predicted"` and `"obs_vs_shrunken"` views to the
+  highlighted strata (those carrying a credibly non-zero interaction, or
+  – under `highlight_by = "rope"` – those classified ROPE-`"relevant"`),
+  so a highlighted stratum is never hidden by the `n_strata` cap. When
+  `TRUE` and `highlight_interactions` is left `FALSE`, the flags are
+  computed with
+  [`maihda_interactions`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  defaults; pass `highlight_interactions` to choose the
+  `conf_level`/`adjust`. A captioned empty panel is returned when no
+  stratum is flagged. It does not apply to `"effect_decomp"` (whose
+  waterfall exists to show each flagged stratum's place in the *full*
+  distribution); that view stays highlighted. Independently of this
+  argument, whenever interactions are highlighted the `n_strata` cap on
+  `"predicted"` becomes flag-aware: every flagged stratum is kept and
+  the remaining slots are filled according to `select`.
+
+- highlight_by:
+
+  Which interaction-screen column defines the highlighted strata:
+  `"flag"` (default) uses the zero-centred `flagged` column (credibly
+  non-zero interaction), preserving the historical behaviour; `"rope"`
+  uses the equivalence `decision` column, highlighting the strata
+  classified `"relevant"` (interaction interval entirely outside the
+  region of practical equivalence). `"rope"` requires a screen carrying
+  a `decision` column: either pass `rope`, or supply a
+  `maihda_interactions` object built with `rope`; otherwise it errors.
+
+- rope:
+
+  Equivalence region (a "smallest interaction of interest") forwarded to
+  [`maihda_interactions`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  when the screen is computed here (i.e. when `highlight_interactions`
+  is `TRUE` or a `p.adjust` method name). `NULL` (default) adds no
+  equivalence classification; a single positive `d` means the symmetric
+  region `c(-d, d)` on the latent (link) scale, or supply
+  `c(lower, upper)`. Needed for `highlight_by = "rope"` unless the
+  supplied `maihda_interactions` object already carries a `decision`
+  column. Ignored when a precomputed `maihda_interactions` object is
+  passed (its own `rope` is used).
+
+- select:
+
+  When the `n_strata` cap must drop strata, which to keep: `"order"`
+  (default; the first n_strata in stratum order, the historical
+  behaviour) or `"deviation"` (the n_strata furthest from the reference
+  line – largest `|predicted - reference|`, so the most extreme strata
+  in *both* directions). Applies to `"predicted"` and, for a
+  longitudinal fit, `"trajectories"` (where it keeps the strata whose
+  trajectories swing furthest from the population curve). Flagged strata
+  are always kept; this governs the fill and the unflagged case. The
+  displayed x-axis stays in stratum order regardless, so `select`
+  changes *which* strata appear, not their left-to-right order.
 
 - ...:
 

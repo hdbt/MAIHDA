@@ -26,8 +26,9 @@
     <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
     <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Advanced</h6></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Advanced topics</h6></li>
     <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding interaction patterns</a></li>
+    <li><a class="dropdown-item" href="../articles/real_data_brfss.html">Real-data case study: BRFSS mental distress</a></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
@@ -56,7 +57,12 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">plot_obs_vs_shrunken</span><span class="op">(</span><span class="va">object</span>, <span class="va">summary_obj</span>, highlight <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">plot_obs_vs_shrunken</span><span class="op">(</span></span>
+<span>  <span class="va">object</span>,</span>
+<span>  <span class="va">summary_obj</span>,</span>
+<span>  highlight <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  only_flagged <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -69,6 +75,17 @@
 
 <dt id="arg-summary-obj">summary_obj<a class="anchor" aria-label="anchor" href="#arg-summary-obj"></a></dt>
 <dd><p>A maihda_summary object</p></dd>
+
+
+<dt id="arg-highlight">highlight<a class="anchor" aria-label="anchor" href="#arg-highlight"></a></dt>
+<dd><p>Optional character vector of highlighted stratum ids (flagged,
+or ROPE-relevant under <code>highlight_by = "rope"</code>), with the
+interaction-screen parameters attached as attributes.</p></dd>
+
+
+<dt id="arg-only-flagged">only_flagged<a class="anchor" aria-label="anchor" href="#arg-only-flagged"></a></dt>
+<dd><p>When TRUE, show only the highlighted strata; a captioned
+empty panel is returned if none are.</p></dd>
 
 </dl></div>
     <div class="section level2">

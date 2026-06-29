@@ -17,7 +17,16 @@ with a `group`.
 
 ``` r
 # S3 method for class 'maihda_analysis'
-plot(x, type = "all", highlight_interactions = FALSE, ...)
+plot(
+  x,
+  type = "all",
+  highlight_interactions = FALSE,
+  only_flagged = FALSE,
+  highlight_by = c("flag", "rope"),
+  rope = NULL,
+  select = c("order", "deviation"),
+  ...
+)
 ```
 
 ## Arguments
@@ -51,6 +60,45 @@ plot(x, type = "all", highlight_interactions = FALSE, ...)
   crossed-dimensions model), a multiple-testing method such as `"BH"`,
   or a `maihda_interactions` object. The flags are computed once from
   the correct (adjusted) model and reused across views.
+
+- only_flagged:
+
+  Show only the highlighted strata on the `"predicted"` and
+  `"obs_vs_shrunken"` views instead of dimming the rest (see
+  [`plot`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)).
+  `FALSE` (default) keeps every stratum; `TRUE` restricts those views to
+  the highlighted strata (those carrying a credibly non-zero
+  interaction, or – under `highlight_by = "rope"` – those classified
+  ROPE-`"relevant"`) and, when `highlight_interactions` is left `FALSE`,
+  turns the highlight on with this analysis's stored diagnostic.
+  `"effect_decomp"` ignores it (it stays highlighted in context).
+
+- highlight_by:
+
+  Which interaction-screen column defines the highlighted strata:
+  `"flag"` (default, the zero-centred `flagged` column) or `"rope"` (the
+  equivalence `decision` column, highlighting the strata classified
+  `"relevant"`). See
+  [`plot`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md).
+  `"rope"` requires `rope` (or a `highlight_interactions` object built
+  with one).
+
+- rope:
+
+  Equivalence region forwarded to
+  [`maihda_interactions`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  when computing the screen, so `highlight_by = "rope"` has a `decision`
+  column to read: a single positive `d` for the symmetric region
+  `c(-d, d)` on the latent (link) scale, or `c(lower, upper)`. `NULL`
+  (default) adds no equivalence classification.
+
+- select:
+
+  When the `n_strata` cap drops strata on the `"predicted"` (or
+  longitudinal `"trajectories"`) view, which to keep: `"order"`
+  (default, first n_strata in stratum order) or `"deviation"` (the
+  n_strata furthest from the reference, both tails). See
+  [`plot`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md).
 
 - ...:
 

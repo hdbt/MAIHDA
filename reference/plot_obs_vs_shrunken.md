@@ -5,7 +5,12 @@ Observed vs. Shrunken Estimates Plot
 ## Usage
 
 ``` r
-plot_obs_vs_shrunken(object, summary_obj, highlight = NULL)
+plot_obs_vs_shrunken(
+  object,
+  summary_obj,
+  highlight = NULL,
+  only_flagged = FALSE
+)
 ```
 
 ## Arguments
@@ -17,6 +22,17 @@ plot_obs_vs_shrunken(object, summary_obj, highlight = NULL)
 - summary_obj:
 
   A maihda_summary object
+
+- highlight:
+
+  Optional character vector of highlighted stratum ids (flagged, or
+  ROPE-relevant under `highlight_by = "rope"`), with the
+  interaction-screen parameters attached as attributes.
+
+- only_flagged:
+
+  When TRUE, show only the highlighted strata; a captioned empty panel
+  is returned if none are.
 
 ## Value
 

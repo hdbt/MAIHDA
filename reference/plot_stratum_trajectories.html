@@ -32,8 +32,9 @@ converge) over time."><meta property="og:image" content="https://hdbt.github.io/
     <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
     <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Advanced</h6></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Advanced topics</h6></li>
     <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding interaction patterns</a></li>
+    <li><a class="dropdown-item" href="../articles/real_data_brfss.html">Real-data case study: BRFSS mental distress</a></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
@@ -65,7 +66,12 @@ converge) over time.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">plot_stratum_trajectories</span><span class="op">(</span><span class="va">object</span>, <span class="va">summary_obj</span>, n_strata <span class="op">=</span> <span class="fl">50</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">plot_stratum_trajectories</span><span class="op">(</span></span>
+<span>  <span class="va">object</span>,</span>
+<span>  <span class="va">summary_obj</span>,</span>
+<span>  n_strata <span class="op">=</span> <span class="fl">50</span>,</span>
+<span>  select <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"order"</span>, <span class="st">"deviation"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -81,8 +87,15 @@ converge) over time.</p>
 
 
 <dt id="arg-n-strata">n_strata<a class="anchor" aria-label="anchor" href="#arg-n-strata"></a></dt>
-<dd><p>Maximum number of strata to draw (by stratum order); the rest
-are noted in the caption.</p></dd>
+<dd><p>Maximum number of strata to draw; the rest are noted in the
+caption.</p></dd>
+
+
+<dt id="arg-select">select<a class="anchor" aria-label="anchor" href="#arg-select"></a></dt>
+<dd><p>When the cap drops strata, which to keep: <code>"order"</code>
+(default) the first n_strata in stratum order, or <code>"deviation"</code> the
+n_strata whose trajectory swings furthest from the population curve (largest
+peak <code>|random deviation|</code> over the time grid, either direction).</p></dd>
 
 </dl></div>
     <div class="section level2">

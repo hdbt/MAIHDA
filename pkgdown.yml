@@ -12,8 +12,9 @@ articles:
   introduction: introduction.html
   longitudinal: longitudinal.html
   planning_a_study: planning_a_study.html
+  real_data_brfss: real_data_brfss.html
   reporting_results: reporting_results.html
-last_built: 2026-06-27T21:29Z
+last_built: 2026-06-29T12:33Z
 urls:
   reference: https://hdbt.github.io/MAIHDA/reference
   article: https://hdbt.github.io/MAIHDA/articles

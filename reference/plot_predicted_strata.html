@@ -26,8 +26,9 @@
     <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
     <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Advanced</h6></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Advanced topics</h6></li>
     <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding interaction patterns</a></li>
+    <li><a class="dropdown-item" href="../articles/real_data_brfss.html">Real-data case study: BRFSS mental distress</a></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
@@ -61,7 +62,9 @@
 <span>  <span class="va">summary_obj</span>,</span>
 <span>  <span class="va">n_strata</span>,</span>
 <span>  scale <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"response"</span>, <span class="st">"link"</span><span class="op">)</span>,</span>
-<span>  highlight <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  highlight <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  only_flagged <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  select <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"order"</span>, <span class="st">"deviation"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -83,6 +86,27 @@
 
 <dt id="arg-scale">scale<a class="anchor" aria-label="anchor" href="#arg-scale"></a></dt>
 <dd><p>Prediction scale: "response" (default) or "link"</p></dd>
+
+
+<dt id="arg-highlight">highlight<a class="anchor" aria-label="anchor" href="#arg-highlight"></a></dt>
+<dd><p>Optional character vector of highlighted stratum ids – the
+flagged strata, or the ROPE-relevant strata under
+<code>highlight_by = "rope"</code> – with the interaction-screen parameters
+attached as attributes (including <code>highlight_by</code> and <code>rope</code>).</p></dd>
+
+
+<dt id="arg-only-flagged">only_flagged<a class="anchor" aria-label="anchor" href="#arg-only-flagged"></a></dt>
+<dd><p>When TRUE, show only the highlighted strata (those in
+<code>highlight</code>); a captioned empty panel is returned if none are.</p></dd>
+
+
+<dt id="arg-select">select<a class="anchor" aria-label="anchor" href="#arg-select"></a></dt>
+<dd><p>When the <code>n_strata</code> cap drops strata, which to keep:
+<code>"order"</code> (default) the first n_strata in stratum order, or
+<code>"deviation"</code> the n_strata furthest from the reference line (largest
+<code>|predicted - reference|</code>, so both tails). Flagged strata are kept
+regardless; this governs the fill / the unflagged case. The displayed x-axis
+stays in stratum order either way.</p></dd>
 
 </dl></div>
     <div class="section level2">

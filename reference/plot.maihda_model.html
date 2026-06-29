@@ -30,8 +30,9 @@ and predicted subgroup values with confidence intervals."><meta property="og:ima
     <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
     <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Advanced</h6></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Advanced topics</h6></li>
     <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding interaction patterns</a></li>
+    <li><a class="dropdown-item" href="../articles/real_data_brfss.html">Real-data case study: BRFSS mental distress</a></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
@@ -71,6 +72,10 @@ and predicted subgroup values with confidence intervals.</p>
 <span>  summary_obj <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_strata <span class="op">=</span> <span class="fl">50</span>,</span>
 <span>  highlight_interactions <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  only_flagged <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  highlight_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"flag"</span>, <span class="st">"rope"</span><span class="op">)</span>,</span>
+<span>  rope <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  select <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"order"</span>, <span class="st">"deviation"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -129,7 +134,63 @@ pass a multiple-testing method such as <code>"BH"</code> or a
 <code>adjust</code>. For the pure-interaction reading the model should be the
 adjusted (or crossed-dimensions) model – e.g. via
 <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> on a <code><a href="maihda.html">maihda</a></code> analysis, which routes these views to
-the adjusted model automatically.</p></dd>
+the adjusted model automatically. Which column of the screen drives the
+highlight set is governed by <code>highlight_by</code>.</p></dd>
+
+
+<dt id="arg-only-flagged">only_flagged<a class="anchor" aria-label="anchor" href="#arg-only-flagged"></a></dt>
+<dd><p>Show <em>only</em> the flagged strata rather than dimming the
+rest. <code>FALSE</code> (default) keeps every stratum (flagged ones highlighted);
+<code>TRUE</code> restricts the <code>"predicted"</code> and <code>"obs_vs_shrunken"</code>
+views to the highlighted strata (those carrying a credibly non-zero
+interaction, or – under <code>highlight_by = "rope"</code> – those classified
+ROPE-<code>"relevant"</code>), so a highlighted stratum is never hidden by the
+<code>n_strata</code> cap. When <code>TRUE</code> and
+<code>highlight_interactions</code> is left <code>FALSE</code>, the flags are computed
+with <code><a href="maihda_interactions.html">maihda_interactions</a></code> defaults; pass
+<code>highlight_interactions</code> to choose the <code>conf_level</code>/<code>adjust</code>.
+A captioned empty panel is returned when no stratum is flagged. It does not
+apply to <code>"effect_decomp"</code> (whose waterfall exists to show each flagged
+stratum's place in the <em>full</em> distribution); that view stays highlighted.
+Independently of this argument, whenever interactions are highlighted the
+<code>n_strata</code> cap on <code>"predicted"</code> becomes flag-aware: every flagged
+stratum is kept and the remaining slots are filled according to <code>select</code>.</p></dd>
+
+
+<dt id="arg-highlight-by">highlight_by<a class="anchor" aria-label="anchor" href="#arg-highlight-by"></a></dt>
+<dd><p>Which interaction-screen column defines the highlighted
+strata: <code>"flag"</code> (default) uses the zero-centred <code>flagged</code> column
+(credibly non-zero interaction), preserving the historical behaviour;
+<code>"rope"</code> uses the equivalence <code>decision</code> column, highlighting the
+strata classified <code>"relevant"</code> (interaction interval entirely outside the
+region of practical equivalence). <code>"rope"</code> requires a screen carrying a
+<code>decision</code> column: either pass <code>rope</code>, or supply a
+<code>maihda_interactions</code> object built with <code>rope</code>; otherwise it errors.</p></dd>
+
+
+<dt id="arg-rope">rope<a class="anchor" aria-label="anchor" href="#arg-rope"></a></dt>
+<dd><p>Equivalence region (a "smallest interaction of interest") forwarded
+to <code><a href="maihda_interactions.html">maihda_interactions</a></code> when the screen is computed here (i.e.
+when <code>highlight_interactions</code> is <code>TRUE</code> or a <code>p.adjust</code> method
+name). <code>NULL</code> (default) adds no equivalence classification; a single
+positive <code>d</code> means the symmetric region <code>c(-d, d)</code> on the latent
+(link) scale, or supply <code>c(lower, upper)</code>. Needed for
+<code>highlight_by = "rope"</code> unless the supplied <code>maihda_interactions</code>
+object already carries a <code>decision</code> column. Ignored when a precomputed
+<code>maihda_interactions</code> object is passed (its own <code>rope</code> is used).</p></dd>
+
+
+<dt id="arg-select">select<a class="anchor" aria-label="anchor" href="#arg-select"></a></dt>
+<dd><p>When the <code>n_strata</code> cap must drop strata, which to keep:
+<code>"order"</code> (default; the first n_strata in stratum order, the historical
+behaviour) or <code>"deviation"</code> (the n_strata furthest from the reference
+line – largest <code>|predicted - reference|</code>, so the most extreme strata in
+<em>both</em> directions). Applies to <code>"predicted"</code> and, for a longitudinal
+fit, <code>"trajectories"</code> (where it keeps the strata whose trajectories swing
+furthest from the population curve). Flagged strata are always kept; this
+governs the fill and the unflagged case. The displayed x-axis stays in stratum
+order regardless, so <code>select</code> changes <em>which</em> strata appear, not
+their left-to-right order.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

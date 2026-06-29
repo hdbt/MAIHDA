@@ -44,8 +44,9 @@ maihda was called with a group."><meta property="og:image" content="https://hdbt
     <li><a class="dropdown-item" href="../articles/reporting_results.html">Reporting MAIHDA results: tidy output and publication tables</a></li>
     <li><a class="dropdown-item" href="../articles/interactive_app.html">Interactive Data Analysis with MAIHDA</a></li>
     <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Advanced</h6></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Advanced topics</h6></li>
     <li><a class="dropdown-item" href="../articles/finding_interactions.html">Finding interaction patterns</a></li>
+    <li><a class="dropdown-item" href="../articles/real_data_brfss.html">Real-data case study: BRFSS mental distress</a></li>
     <li><a class="dropdown-item" href="../articles/binary_outcomes.html">MAIHDA for Binary Outcomes (Discriminatory Accuracy)</a></li>
     <li><a class="dropdown-item" href="../articles/group_comparison.html">Comparing Intersectional Inequality Across Groups</a></li>
     <li><a class="dropdown-item" href="../articles/cross_classified.html">Crossed random effects in MAIHDA: dimensions and contexts</a></li>
@@ -84,7 +85,16 @@ the stratum random effect is the pure interaction; with fewer than two dimension
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="co"># S3 method for class 'maihda_analysis'</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">x</span>, type <span class="op">=</span> <span class="st">"all"</span>, highlight_interactions <span class="op">=</span> <span class="cn">FALSE</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  type <span class="op">=</span> <span class="st">"all"</span>,</span>
+<span>  highlight_interactions <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  only_flagged <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  highlight_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"flag"</span>, <span class="st">"rope"</span><span class="op">)</span>,</span>
+<span>  rope <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  select <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"order"</span>, <span class="st">"deviation"</span><span class="op">)</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -115,6 +125,43 @@ intersectional interaction on the BLUP-based views (see
 crossed-dimensions model), a multiple-testing method such as <code>"BH"</code>, or
 a <code>maihda_interactions</code> object. The flags are computed once from the
 correct (adjusted) model and reused across views.</p></dd>
+
+
+<dt id="arg-only-flagged">only_flagged<a class="anchor" aria-label="anchor" href="#arg-only-flagged"></a></dt>
+<dd><p>Show only the highlighted strata on the <code>"predicted"</code>
+and <code>"obs_vs_shrunken"</code> views instead of dimming the rest (see
+<code><a href="plot.maihda_model.html">plot</a></code>). <code>FALSE</code> (default) keeps every
+stratum; <code>TRUE</code> restricts those views to the highlighted strata (those
+carrying a credibly non-zero interaction, or – under
+<code>highlight_by = "rope"</code> – those classified ROPE-<code>"relevant"</code>) and,
+when <code>highlight_interactions</code> is left <code>FALSE</code>, turns the highlight on
+with this analysis's stored diagnostic. <code>"effect_decomp"</code> ignores it (it
+stays highlighted in context).</p></dd>
+
+
+<dt id="arg-highlight-by">highlight_by<a class="anchor" aria-label="anchor" href="#arg-highlight-by"></a></dt>
+<dd><p>Which interaction-screen column defines the highlighted
+strata: <code>"flag"</code> (default, the zero-centred <code>flagged</code> column) or
+<code>"rope"</code> (the equivalence <code>decision</code> column, highlighting the
+strata classified <code>"relevant"</code>). See
+<code><a href="plot.maihda_model.html">plot</a></code>. <code>"rope"</code> requires <code>rope</code>
+(or a <code>highlight_interactions</code> object built with one).</p></dd>
+
+
+<dt id="arg-rope">rope<a class="anchor" aria-label="anchor" href="#arg-rope"></a></dt>
+<dd><p>Equivalence region forwarded to <code><a href="maihda_interactions.html">maihda_interactions</a></code>
+when computing the screen, so <code>highlight_by = "rope"</code> has a
+<code>decision</code> column to read: a single positive <code>d</code> for the symmetric
+region <code>c(-d, d)</code> on the latent (link) scale, or <code>c(lower, upper)</code>.
+<code>NULL</code> (default) adds no equivalence classification.</p></dd>
+
+
+<dt id="arg-select">select<a class="anchor" aria-label="anchor" href="#arg-select"></a></dt>
+<dd><p>When the <code>n_strata</code> cap drops strata on the
+<code>"predicted"</code> (or longitudinal <code>"trajectories"</code>) view, which to
+keep: <code>"order"</code> (default, first n_strata in stratum order) or
+<code>"deviation"</code> (the n_strata furthest from the reference, both tails). See
+<code><a href="plot.maihda_model.html">plot</a></code>.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
