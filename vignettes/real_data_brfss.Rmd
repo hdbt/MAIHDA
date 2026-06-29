@@ -10,7 +10,6 @@ vignette: >
 ---
 
 ```{r setup, include = FALSE}
-
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -18,6 +17,11 @@ knitr::opts_chunk$set(
   fig.height = 4.5
 )
 
+# This is an UNWEIGHTED MAIHDA on the full ~352,714-record complete-case sample. An
+# lme4 glmer on that many rows (with the 432-group random intercept, two models)
+# takes minutes -- too slow for a package build -- so it is fitted once by
+# data-raw/brfss_precompute.R and this article renders from a small cache plus
+# pre-rendered figures.
 pc <- readRDS("brfss_precomputed.rds")
 
 fmt  <- function(x, d = 3) formatC(as.numeric(x), format = "f", digits = d)
@@ -26,49 +30,28 @@ pct  <- function(x, d = 1) paste0(formatC(100 * as.numeric(x), format = "f", dig
 big  <- function(x) format(as.numeric(x), big.mark = ",", trim = TRUE)
 ```
 
-##
-
 This case uses the 2024 Behavioral Risk Factor Surveillance System (BRFSS), a U.S. health survey released by the Centers for Disease Control and Prevention. The outcome is frequent mental distress: 14 or more of the past 30 days when mental health was not good.
 
-The intersectional strata combine respondent sex, race/ethnicity, age, education, income, and disability. The question is whether mental distress is concentrated in particular social strata, and whether some of these intersections remain once the main effects of the dimensions are included.
+The intersectional strata combine respondent sex, race/ethnicity, age, education, income, and disability. The question is whether mental distress is concentrated in particular social strata, and whether any of these intersections remain once the additive main effects of the dimensions are included.
 
-CDC's 2024 BRFSS page provides the data, codebook, and weighting documentation:
+CDC's 2024 BRFSS page provides the data and codebook:
 
 -   [2024 BRFSS survey data and documentation](https://www.cdc.gov/brfss/annual_data/annual_2024.html)
 -   [2024 SAS transport data file](https://www.cdc.gov/brfss/annual_data/2024/files/LLCP2024XPT.zip)
 -   [2024 codebook](https://www.cdc.gov/brfss/annual_data/2024/zip/codebook24_llcp-v2-508.zip)
--   [2024 complex-sampling guidance](https://www.cdc.gov/brfss/annual_data/2024/pdf/Complex-Sampling-Weights-and-Preparing-Module-Data-for-Analysis-2024-508.pdf)
 
-## Download only the needed columns
 
-BRFSS distributes the public-use file as a zipped SAS transport (`.XPT`) file. It is large (\~1 GB unzipped).
+## Data preparation
+
+BRFSS distributes the public-use file as a zipped SAS transport (`.XPT`) file (\~1 GB unzipped).
 
 ```{r download, eval = FALSE}
 library(MAIHDA)
 library(dplyr)
 
-data_dir <- file.path("data", "brfss-2024")
-dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
-
-brfss_url <- "https://www.cdc.gov/brfss/annual_data/2024/files/LLCP2024XPT.zip"
-zip_file <- file.path(data_dir, "LLCP2024XPT.zip")
-
-if (!file.exists(zip_file)) {
-  download.file(brfss_url, zip_file, mode = "wb")
-}
-
-xpt_name <- unzip(zip_file, list = TRUE)$Name
-xpt_name <- xpt_name[grepl("\\.xpt$", xpt_name, ignore.case = TRUE)][1]
-xpt_file <- file.path(data_dir, basename(xpt_name))
-
-if (!file.exists(xpt_file)) {
-  unzip(zip_file, files = xpt_name, exdir = data_dir, overwrite = TRUE)
-}
-
 raw_cols <- c(
   "_MENT14D", "SEXVAR", "_IMPRACE", "_AGEG5YR", "EDUCA", "_INCOMG1",
-  "DEAF", "BLIND", "DECIDE", "DIFFWALK", "DIFFDRES", "DIFFALON",
-  "_STATE", "_LLCPWT"
+  "DEAF", "BLIND", "DECIDE", "DIFFWALK", "DIFFDRES", "DIFFALON"
 )
 
 brfss_raw <- haven::read_xpt(xpt_file, col_select = dplyr::all_of(raw_cols))
@@ -149,37 +132,32 @@ brfss_reduced <- brfss_raw |>
         TRUE ~ NA_character_
       ),
       levels = c("No disability", "Any disability")
-    ),
-    survey_weight = .data[["_LLCPWT"]]
+    )
   ) |>
   filter(
     !is.na(frequent_distress), !is.na(sex), !is.na(race_ethnicity),
-    !is.na(age_group), !is.na(education), !is.na(income),
-    !is.na(disability), !is.na(survey_weight), survey_weight > 0
+    !is.na(age_group), !is.na(education), !is.na(income), !is.na(disability)
   )
 ```
 
-This yields **`r big(pc$analytic_n)` complete-case adults** in **`r pc$n_strata` intersectional strata**`r if (!is.na(pc$n_sparse_lt20)) paste0(" (only ", pc$n_sparse_lt20, " stratum with fewer than 20 observed adults, ", pc$n_sparse_lt50, " with fewer than 50)")`.
+The complete-case recode yields **`r big(pc$analytic_n)` adults** in **`r pc$n_strata` intersectional strata** (only `r pc$n_sparse_lt20` stratum has fewer than 20 adults, `r pc$n_sparse_lt50` fewer than 50).
 
-## Fit the design-weighted MAIHDA
+## Fit the MAIHDA
 
-Passing the survey weight as `sampling_weights` switches the engine to WeMix. The individual weights enter at level 1, fixed-effect standard errors are design-consistent, and the same weights are used for the null and adjusted models so the PCV is a design-weighted decomposition.
+The analysis is a single call, a binomial MAIHDA fitting a null model (strata only) and an adjusted model (the six dimensions additive main effects), on the full individual data:
 
-```{r fit-wemix, eval = FALSE}
+```{r fit-code, eval = FALSE}
 brfss_fit <- maihda(
   frequent_distress ~ sex + race_ethnicity + age_group + education + income + disability +
     (1 | sex:race_ethnicity:age_group:education:income:disability),
-  data = brfss_reduced,
-  family = "binomial",
-  sampling_weights = "survey_weight",   # -> engine = "wemix", design-consistent SEs
-  interactions = "BH"
+  data = brfss_reduced, family = "binomial", interactions = "BH"
 )
 
 brfss_fit
 generics::glance(brfss_fit)
 ```
 
-```{r fit-table-cached, echo = FALSE}
+```{r model-table, echo = FALSE}
 mt <- pc$model_table
 knitr::kable(
   data.frame(
@@ -188,67 +166,56 @@ knitr::kable(
     `Adjusted (Model 2)` = fmt0(mt$adjusted),
     check.names = FALSE
   ),
-  caption = "Design-weighted model-results table (cached full-data WeMix run)."
+  caption = "Model-results table (unweighted, full data, cached)."
 )
 ```
 
-The design-weighted run gives a null-model **VPC of `r fmt(pc$vpc)`**, **PCV of `r fmt(pc$pcv)`** (`r pct(pc$pcv)`), **AUC of `r fmt(pc$auc)`**, and **MOR of `r fmt(pc$mor, 2)`**. The collapsed intersectional strata carry between-stratum concentration of frequent mental distress, and most of it is captured by the additive main effects of the six dimensions under this specification (the between-stratum variance falls from `r fmt(pc$between_var_null)` to `r fmt(pc$between_var_adjusted)` on the latent scale).
+The null model gives a **VPC of `r fmt(pc$vpc)`** (about `r pct(pc$vpc)` of the latent-scale variation lies between strata), with **AUC `r fmt(pc$auc, 2)`** and **MOR `r fmt(pc$mor, 2)`**. Adding the six dimensions' additive main effects collapses the between-stratum variance from `r fmt(pc$between_var_null, 2)` to `r fmt(pc$between_var_adjusted, 2)`, a **PCV of `r pct(pc$pcv)`**. Almost all of the between-stratum inequality is additive  and the residual intersectional component is small (residual VPC `r pct(pc$vpc_adjusted)`, residual MOR `r fmt(pc$mor_adjusted, 2)`).
 
 ## Which strata drive the pattern?
 
-Now the next question is *where* the risk is concentrated. `maihda_table()` ranks strata by their null-model predicted risk (the simple-intersectional stratum predictions, pass `which = "adjusted"` to rank by the adjusted model instead), while the interaction table focuses on deviations from the additive expectation.
-
-```{r ranked-strata, eval = FALSE}
-tab <- maihda_table(brfss_fit)
-head(tab$strata, 10)   # highest predicted risk
-tail(tab$strata, 10)   # lowest predicted risk
-```
+`maihda_table()` ranks strata by their null-model predicted risk (the simple-intersectional stratum predictions; pass `which = "adjusted"` to rank by the adjusted model).
 
 ```{r ranked-strata-cached, echo = FALSE}
-strata_disp <- function(d) {
-  out <- data.frame(Stratum = d$label, Predicted = fmt(d$predicted),
-                    check.names = FALSE)
-  if ("weighted_prevalence" %in% names(d)) out[["Weighted prevalence"]] <- fmt(d$weighted_prevalence)
-  if ("raw_n" %in% names(d)) out[["Raw n"]] <- big(d$raw_n)
-  out
-}
-knitr::kable(strata_disp(pc$top_strata),
-             caption = "Highest predicted-risk strata (cached WeMix run).")
+ts <- pc$top_strata
+disp <- data.frame(Rank = ts$rank, Stratum = ts$label, Predicted = fmt(ts$predicted),
+                   check.names = FALSE)
+if ("observed" %in% names(ts)) disp[["Observed"]] <- fmt(ts$observed)
+if ("raw_n" %in% names(ts)) disp[["N"]] <- big(ts$raw_n)
+knitr::kable(disp, caption = "Highest predicted-risk strata (cached).")
 ```
 
-```{r interaction-table, eval = FALSE}
-brfss_fit$interactions |>
-  dplyr::arrange(dplyr::desc(abs(interaction))) |>
-  dplyr::select(stratum, label, interaction, lower, upper, p_adjusted, flagged) |>
-  head(20)
-```
+The highest-risk strata combine younger age, female sex, low income, and disability (top predicted prevalence around `r pct(pc$top_strata$predicted[1])`) and race/ethnicity varies across the top group. These strata are high-risk because they stack several high-risk main-effect categories, not necessarily because of a large residual interaction.
+
+The interaction table instead asks which strata *depart* from the additive main-effect prediction:
 
 ```{r interaction-table-cached, echo = FALSE}
 it <- pc$top_interactions
 disp <- data.frame(Stratum = it$label, Interaction = fmt(it$interaction),
                    Lower = fmt(it$lower), Upper = fmt(it$upper), check.names = FALSE)
-if ("p_adjusted" %in% names(it)) disp[["FDR p"]] <- formatC(it$p_adjusted, format = "e", digits = 2)
 if ("direction" %in% names(it)) disp[["Direction"]] <- it$direction
-knitr::kable(disp, caption = "Strongest interactions by absolute size (cached WeMix run).")
+if ("decision" %in% names(it)) disp[["ROPE (±0.4)"]] <- it$decision
+knitr::kable(head(disp, 15), digits = 3,
+             caption = "Strongest interactions by absolute size, with ROPE classification (cached).")
 ```
 
-The two tables answer different questions. The ranked table identifies the highest and lowest predicted risks. The interaction table identifies strata whose predicted risks are higher or lower than expected from the additive main effects alone. A stratum can have high predicted risk because it stacks many high-risk main-effect categories, without having a large residual interaction.
+### How many interactions actually matter? A ROPE
+
+Flagging asks only whether an interaction differs statisticaly significantly from zero. On the full data the FDR screen flags `r pc$n_flagged` of `r pc$n_interactions` strata. The more interesting question is whether a departure is *large enough to matter*. A **region of practical equivalence** (ROPE) sets a smallest intersectional effect of interest on the log-odds scale and classifies each stratum's interval as practically **relevant** (outside the ROPE), **negligible** (inside it), or **inconclusive** (Schuirmann 1987; Kruschke 2018). The `rope` argument of `maihda_interactions()` adds this `decision` column:
+
+```{r rope-code, eval = FALSE}
+maihda_interactions(brfss_fit, rope = 0.4)   # ROPE = +/- 0.4 log-odds (OR ~ 1.5)
+```
+
+At a ROPE of ±0.4 log-odds (an odds ratio within roughly 0.67--1.49 of the additive expectation), **`r pc$rope_primary$relevant` of `r pc$rope_primary$n`** strata are practically relevant, `r pc$rope_primary$negligible` negligible, and `r pc$rope_primary$inconclusive` inconclusive; at a stricter ±0.2 (OR ≈ 1.22) the relevant count rises to `r pc$rope_strict$relevant`. The full data is precise enough that the ROPE can actually resolve a handful of strata as practically relevant, where the per-stratum interactions are genuinely largest (up to about `r fmt(pc$max_abs_int, 2)` on the log-odds scale). Even so, the great majority are negligible or inconclusive: consistent with the high PCV (`r pct(pc$pcv)`), the structure is overwhelmingly additive, and only a small number of intersections carry a practically meaningful departure from additivity.
 
 ## Plot the case study
-
-Useful figures for showcasing the results are the variance partition, the ranked predicted strata, and the additive-vs-intersectional decomposition.
-
-```{r plots-code, eval = FALSE}
-plot(brfss_fit, type = "vpc")
-plot(brfss_fit, type = "predicted", n_strata = 30, highlight_interactions = TRUE)
-plot(brfss_fit, type = "effect_decomp", highlight_interactions = TRUE)
-```
 
 ```{r plot-vpc-cached, echo = FALSE, out.width = "100%", fig.cap = "Variance partition (VPC): share of latent-scale variation between intersectional strata."}
 knitr::include_graphics("figures/brfss_vpc.png")
 ```
 
-```{r plot-predicted-cached, echo = FALSE, out.width = "100%", fig.cap = "Top 30 strata by predicted risk of frequent mental distress; BH-flagged interactions highlighted."}
+```{r plot-predicted-cached, echo = FALSE, out.width = "100%", fig.cap = "Top 30 strata by predicted risk; BH-flagged interactions highlighted."}
 knitr::include_graphics("figures/brfss_predicted_top30.png")
 ```
 
@@ -256,24 +223,21 @@ knitr::include_graphics("figures/brfss_predicted_top30.png")
 knitr::include_graphics("figures/brfss_effect_decomp.png")
 ```
 
+The predicted-strata plot shows the inequality pattern; the effect-decomposition plot separates additive disadvantage from the (mostly small) residual intersectional deviation.
 
-## Reporting the results
 
-Pulling the analysis together, a concise write-up can separate the variance decomposition, the ranked predicted risks, and the residual interaction screen.
+## Results
 
-### Results
+We fitted two logistic MAIHDA models on `r big(pc$analytic_n)` adults from the 2024 BRFSS, nested within `r pc$n_strata` intersectional strata defined by the cross-classification of sex, race/ethnicity, age, education, household income, and disability. In the simple intersectional model, the variance partition coefficient indicated that `r pct(pc$vpc)` of the variance in the latent propensity for frequent mental distress lay between intersectional strata. The strata had moderate discriminatory accuracy (area under the ROC curve, AUC = `r fmt(pc$auc, 2)`) and a median odds ratio of `r fmt(pc$mor, 2)`.
 
-We fitted two logistic MAIHDA models with `r big(pc$analytic_n)` adults nested within `r pc$n_strata` intersectional strata defined by the cross-classification of sex, race/ethnicity, age, education, household income, and disability. The models applied the BRFSS final adult sampling weights to account for the survey design in this complete-case analysis. In the simple intersectional model, the variance partition coefficient indicated that `r pct(pc$vpc)` of the variance in the latent propensity for frequent mental distress lay between intersectional strata. The strata also had moderate discriminatory accuracy for the individual outcome (area under the ROC curve, AUC = `r fmt(pc$auc, 2)`), and the median odds ratio (MOR) was `r fmt(pc$mor, 2)`. In median pairwise comparisons, moving from a lower- to a higher-risk stratum was therefore associated with a little more than a threefold difference in the odds of frequent distress.
+After adding the additive main effects of the six dimensions, the between-stratum variance fell from `r fmt(pc$between_var_null, 2)` to `r fmt(pc$between_var_adjusted, 2)`, a proportional change in variance (PCV) of `r pct(pc$pcv)` (residual VPC `r pct(pc$vpc_adjusted)`). Almost all of the between-stratum inequality was additive. The highest-risk strata combined younger age, female sex, low income, and disability (top predicted prevalence `r pct(pc$top_strata$predicted[1])`).
 
-After adding the additive main effects of the six stratum-defining dimensions, the between-stratum variance fell from `r fmt(pc$between_var_null, 2)` to `r fmt(pc$between_var_adjusted, 2)`, a proportional change in variance (PCV) of `r pct(pc$pcv)`. The residual VPC was `r pct(pc$vpc_adjusted)` and the residual MOR was `r fmt(pc$mor_adjusted, 2)`. The additive main effects therefore reproduced roughly four-fifths of the between-stratum variance, leaving a smaller residual component for non-additive intersectional departures from the main-effect expectation.
-
-Predicted prevalences of frequent mental distress varied markedly across strata. The highest-ranked stratum combined female sex, age 18-34, other race/ethnicity, high school education or less, household income below \$25,000, and disability, with a predicted prevalence of `r pct(pc$top_strata$predicted[1])`; the other top-ranked strata similarly combined younger age, female sex, disability, and lower or middle household income. The residual interaction table answered the question which strata were higher or lower than expected after the additive main effects were included. The largest absolute residuals were concentrated mostly among older (65+) strata and ran in both directions, with both above- and below-additive deviations.
+Per-stratum interaction effects were small (largest ≈ `r fmt(pc$max_abs_int, 2)` on the log-odds scale). The FDR screen flagged `r pc$n_flagged` of `r pc$n_interactions` strata; a region of practical equivalence (±0.4 log-odds) classified `r pc$rope_primary$relevant` strata as practically relevant, `r pc$rope_primary$negligible` as negligible, and `r pc$rope_primary$inconclusive` as inconclusive. The defensible conclusion is a predominantly additive structure, with a small number of intersections showing a practically meaningful departure from additivity.
 
 ## References
 
 -   Centers for Disease Control and Prevention. Behavioral Risk Factor Surveillance System: 2024 Survey Data and Documentation.
--   Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J. (2024). A tutorial for conducting intersectional multilevel analysis of individual heterogeneity and discriminatory accuracy (MAIHDA). *SSM - Population Health*, 26,
-    101664.
+-   Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J. (2024). A tutorial for conducting intersectional multilevel analysis of individual heterogeneity and discriminatory accuracy (MAIHDA). *SSM - Population Health*, 26, 101664.
 -   Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V. (2018). A multilevel approach to modeling health inequalities at the intersection of multiple social identities. *Social Science & Medicine*, 203, 64-73.
 -   Merlo, J. (2018). Multilevel analysis of individual heterogeneity and discriminatory accuracy (MAIHDA) within an intersectional framework. *Social Science & Medicine*, 203, 74-80.
--   Rabe-Hesketh, S., & Skrondal, A. (2006). Multilevel modelling of complex survey data. *Journal of the Royal Statistical Society A*, 169(4), 805-827.
+```

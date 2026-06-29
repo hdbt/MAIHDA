@@ -1,16 +1,14 @@
 # Full reproducible pipeline for the BRFSS 2024 case study: download the public-use
-# file, build the collapsed analytic data, fit the weighted grouped-binomial MAIHDA,
-# and export results/figures under data/brfss-2024/.
+# file, build the collapsed analytic data, fit the grouped-binomial MAIHDA, and
+# export results under data/brfss-2024/.
 #
 # This script is the SINGLE SOURCE OF TRUTH for the case study. The recode/strata
 # logic in vignettes/real_data_brfss.Rmd mirrors the block below for illustration;
 # if you change the recoding here, mirror it there. Running this script to the end
-# also runs data-raw/brfss_wemix_precompute.R, which fits the design-weighted
-# (WeMix) MAIHDA on the full data and caches the numbers/figures the vignette
-# shows (vignettes/brfss_precomputed.rds + vignettes/figures/brfss_*.png), so the
-# rendered article cannot drift from this run. That WeMix fit is the slow step
-# (the price of design-consistent survey estimates), though brfss_wemix_precompute.R
-# now defaults to nQuad = 7 / fast = TRUE to keep it manageable.
+# also runs data-raw/brfss_precompute.R, which fits the unweighted MAIHDA on the
+# full data and caches the numbers/figures the vignette shows
+# (vignettes/brfss_precomputed.rds + vignettes/figures/brfss_*.png), so the rendered
+# article cannot drift from this run. That full-data fit is the slow step (minutes).
 
 suppressPackageStartupMessages({
   if (requireNamespace("pkgload", quietly = TRUE)) {
@@ -459,11 +457,11 @@ close(summary_con)
 log_msg("Done. Reduced results written under %s",
         normalizePath(data_dir, winslash = "/"))
 
-# Precompute the design-weighted (WeMix) MAIHDA on the full data and cache the
-# numbers/figures the vignette renders from. This is the slow step (tens of minutes:
-# WeMix quadrature over the intersectional strata), and it is why the vignette ships
-# a cache rather than fitting at build time.
-log_msg("Precomputing design-weighted (WeMix) MAIHDA for the vignette (slow)...")
-source(file.path("data-raw", "brfss_wemix_precompute.R"))
-run_brfss_wemix_precompute(data_dir = data_dir)
-log_msg("Vignette WeMix cache + figures refreshed.")
+# Precompute the unweighted full-data MAIHDA for the vignette (cache + figures).
+# This is the slow step (full-data glmer over the intersectional strata, two
+# models: minutes), and it is why the vignette ships a cache rather than fitting at
+# build time.
+log_msg("Precomputing unweighted full-data MAIHDA for the vignette (slow)...")
+source(file.path("data-raw", "brfss_precompute.R"))
+run_brfss_precompute(data_dir = data_dir)
+log_msg("Vignette cache + figures refreshed.")
