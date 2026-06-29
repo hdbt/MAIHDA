@@ -60,10 +60,24 @@ jobs:
           # brms + a Stan backend (rstan, the brms default) and the test runner.
           # Listing brms/rstan as required means the job fails fast if they cannot
           # be installed, rather than letting the tests silently skip.
+          #
+          # rstan's Stan-model compilation #includes Boost/Eigen/Stan headers from
+          # its LinkingTo packages (BH, StanHeaders, RcppEigen, RcppParallel, Rcpp).
+          # Those headers are needed only when a *downstream* model compiles, not to
+          # install the rstan *binary* itself, so the resolver prunes them for a
+          # binary rstan from RSPM -- leaving model compilation to die with
+          # "Boost not found; call install.packages('BH')". List them explicitly so
+          # the Stan toolchain headers are always present (the literal BH error that
+          # broke this job, plus the sibling headers, pre-empted in one shot).
           dependencies: '"hard"'
           extra-packages: |
             any::brms
             any::rstan
+            any::BH
+            any::StanHeaders
+            any::RcppEigen
+            any::RcppParallel
+            any::Rcpp
             any::testthat
             any::pkgload
 
@@ -73,6 +87,16 @@ jobs:
           cat("NOT_CRAN=", Sys.getenv("NOT_CRAN"), "\n", sep = "")
           cat("brms ", as.character(packageVersion("brms")), "\n", sep = "")
           cat("rstan ", as.character(packageVersion("rstan")), "\n", sep = "")
+          # The Stan-compilation headers. A missing BH include dir is the exact
+          # condition behind "Boost not found"; surface it (and fail loudly) before
+          # the slow Stan compiles rather than mid-suite.
+          for (p in c("BH", "StanHeaders", "RcppEigen", "RcppParallel", "Rcpp")) {
+            cat(p, " ", as.character(packageVersion(p)), "\n", sep = "")
+          }
+          boost_inc <- system.file("include", package = "BH")
+          if (!nzchar(boost_inc) || !dir.exists(boost_inc)) {
+            stop("BH (Boost) headers not found; Stan model compilation would fail.")
+          }
         shell: Rscript {0}
 
       - name: Run the Stan-backed (brms) tests
