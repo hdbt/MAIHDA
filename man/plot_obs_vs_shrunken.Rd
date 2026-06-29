@@ -16,11 +16,12 @@ plot_obs_vs_shrunken(
 
 \item{summary_obj}{A maihda_summary object}
 
-\item{highlight}{Optional character vector of flagged stratum ids (with the
-interaction-screen parameters attached as attributes).}
+\item{highlight}{Optional character vector of highlighted stratum ids (flagged,
+or ROPE-relevant under \code{highlight_by = "rope"}), with the
+interaction-screen parameters attached as attributes.}
 
-\item{only_flagged}{When TRUE, show only the flagged strata; a captioned empty
-panel is returned if none are flagged.}
+\item{only_flagged}{When TRUE, show only the highlighted strata; a captioned
+empty panel is returned if none are.}
 }
 \value{
 A ggplot2 object

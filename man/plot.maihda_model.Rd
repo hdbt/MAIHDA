@@ -13,6 +13,8 @@
   n_strata = 50,
   highlight_interactions = FALSE,
   only_flagged = FALSE,
+  highlight_by = c("flag", "rope"),
+  rope = NULL,
   select = c("order", "deviation"),
   ...
 )
@@ -61,13 +63,16 @@ pass a multiple-testing method such as \code{"BH"} or a
 \code{adjust}. For the pure-interaction reading the model should be the
 adjusted (or crossed-dimensions) model -- e.g. via
 \code{plot()} on a \code{\link{maihda}} analysis, which routes these views to
-the adjusted model automatically.}
+the adjusted model automatically. Which column of the screen drives the
+highlight set is governed by \code{highlight_by}.}
 
 \item{only_flagged}{Show \emph{only} the flagged strata rather than dimming the
 rest. \code{FALSE} (default) keeps every stratum (flagged ones highlighted);
 \code{TRUE} restricts the \code{"predicted"} and \code{"obs_vs_shrunken"}
-views to the strata carrying a credibly non-zero interaction, so a flagged
-stratum is never hidden by the \code{n_strata} cap. When \code{TRUE} and
+views to the highlighted strata (those carrying a credibly non-zero
+interaction, or -- under \code{highlight_by = "rope"} -- those classified
+ROPE-\code{"relevant"}), so a highlighted stratum is never hidden by the
+\code{n_strata} cap. When \code{TRUE} and
 \code{highlight_interactions} is left \code{FALSE}, the flags are computed
 with \code{\link{maihda_interactions}} defaults; pass
 \code{highlight_interactions} to choose the \code{conf_level}/\code{adjust}.
@@ -77,6 +82,25 @@ stratum's place in the \emph{full} distribution); that view stays highlighted.
 Independently of this argument, whenever interactions are highlighted the
 \code{n_strata} cap on \code{"predicted"} becomes flag-aware: every flagged
 stratum is kept and the remaining slots are filled according to \code{select}.}
+
+\item{highlight_by}{Which interaction-screen column defines the highlighted
+strata: \code{"flag"} (default) uses the zero-centred \code{flagged} column
+(credibly non-zero interaction), preserving the historical behaviour;
+\code{"rope"} uses the equivalence \code{decision} column, highlighting the
+strata classified \code{"relevant"} (interaction interval entirely outside the
+region of practical equivalence). \code{"rope"} requires a screen carrying a
+\code{decision} column: either pass \code{rope}, or supply a
+\code{maihda_interactions} object built with \code{rope}; otherwise it errors.}
+
+\item{rope}{Equivalence region (a "smallest interaction of interest") forwarded
+to \code{\link{maihda_interactions}} when the screen is computed here (i.e.
+when \code{highlight_interactions} is \code{TRUE} or a \code{p.adjust} method
+name). \code{NULL} (default) adds no equivalence classification; a single
+positive \code{d} means the symmetric region \code{c(-d, d)} on the latent
+(link) scale, or supply \code{c(lower, upper)}. Needed for
+\code{highlight_by = "rope"} unless the supplied \code{maihda_interactions}
+object already carries a \code{decision} column. Ignored when a precomputed
+\code{maihda_interactions} object is passed (its own \code{rope} is used).}
 
 \item{select}{When the \code{n_strata} cap must drop strata, which to keep:
 \code{"order"} (default; the first n_strata in stratum order, the historical

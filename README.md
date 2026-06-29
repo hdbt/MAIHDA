@@ -18,11 +18,11 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 - **One-call Workflow**: `maihda()` fits the null *and* adjusted models, summarises the VPC/ICC and the PCV decomposition (additive vs. intersectional), and (optionally) compares across a higher-level group in a single call
 - **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**: A fully-featured Shiny application (`run_maihda_app()`) for no-code exploratory data analysis and model fitting
 - **Model Fitting**: Multiple engines — `lme4` (frequentist), `brms` (Bayesian), `WeMix` (design-weighted pseudo-likelihood), and `ordinal` (`ordinal::clmm`, for cumulative/ordered-factor outcomes)
-- **Design-Weighted MAIHDA**: Survey/sampling weights via `sampling_weights` fit a population-weighted model using WeMix pseudo-maximum likelihood via `engine = "wemix"` or a brms pseudo-posterior via `engine = "brms"`. The WeMix path gives design-consistent (sandwich) SEs for the **fixed effects**; both paths give population-weighted point estimates for the VPC, PCV, stratum summaries and AUC. The intersectional strata are treated as exhaustively sampled population cells (level-2 weights = 1), and design-based (replicate-weight / linearised) variances for the variance components are not computed — so this is weighting to the population, not full complex-survey support for arbitrary clustered/stratified/replicate-weight designs
+- **Design-Weighted MAIHDA**: Survey/sampling weights via `sampling_weights` fit a population-weighted model using WeMix pseudo-maximum likelihood via `engine = "wemix"` or a brms pseudo-posterior via `engine = "brms"`. 
 - **Summaries & Decompositions**: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)
 - **Multiple Prediction Types**: Individual-level and stratum-level predictions
-- **Visualizations**: Predicted stratum values, VPC visualizations, mean-prediction vs. stratum-effect diagnostics, and observed vs. shrunken estimates
-- **Group Comparison**: `compare_maihda_groups()` contrasts the between-stratum *share* of variance (VPC/ICC) and the between-/within-stratum variance components across levels of a higher-level variable such as country or region. (The VPC/ICC is a share, not the absolute magnitude of intersectional inequality — read it alongside the absolute between-stratum variance.)
+- **Visualizations**: Predicted stratum values, VPC visualizations, mean-prediction vs. stratum-effect diagnostics, and observed vs. shrunken estimates, with multiplicity correction for flagged strata
+- **Group Comparison**: `compare_maihda_groups()` contrasts the between-stratum *share* of variance (VPC/ICC) and the between-/within-stratum variance components across levels of a higher-level variable such as country or region.
 - **Contextual Cross-Classified MAIHDA**: `context = "school"` crosses the intersectional strata with a place/institution level (school, hospital, region)
 
 ## Installation
@@ -51,25 +51,22 @@ summary(analysis)
 
 plot(analysis, type = "vpc")
 plot(analysis, type = "effect_decomp")
+plot(analysis, type = "predicted", highlight_interactions = TRUE)
 plot(analysis) # plots all plot types
 ```
 
 ## Main Functions
 
 ### `maihda()`
-A single high-level entry point that runs the standard two-model MAIHDA workflow: it
+A wrapper that runs the standard two-model MAIHDA workflow: it
 fits the **null** model (covariates only) and the **adjusted** model (plus the
-dimensions' additive main effects -- write them in the formula, or let `maihda()` add
-them with a message), summarises the null-model VPC/ICC, and reports the **PCV** (the
+dimensions' additive main effects, summarises the null-model VPC/ICC, and reports the **PCV** (the
 additive share of the intersectional inequality). When a `group` is supplied it also
 runs this decomposition within each group. Alternatively,
 `decomposition = "crossed-dimensions"` reads the additive/interaction split off a
 *single* model that enters each dimension's main effect as a random intercept.
 Returns one `maihda_analysis` object with
-`print()`, `summary()`, and `plot()` methods (`plot()` routes the VPC/shrinkage views to
-the null model and the additive-vs-intersectional views to the adjusted model). It is
-intrinsically a decomposition and has no single-model mode -- use `fit_maihda()` for a
-single fit.
+`print()`, `summary()`, and `plot()` methods
 
 ### `maihda_table()`
 Assembles the two standard MAIHDA write-up deliverables from a fitted `maihda()` analysis (or a single `fit_maihda()` model) in one call: (a) a **model-results table** contrasting the null (Model 1) and adjusted (Model 2) fits — intercept, between-stratum variance and SD, VPC/ICC, the PCV, and (for a binary outcome) the AUC and Median Odds Ratio — and (b) a **ranked-strata table** ordering every stratum by its predicted outcome, with conditional intervals and the stratum random effect. The `$models` data frame is numeric and export-ready (`write.csv()` / `knitr::kable()`); `print()` renders the familiar "estimate [low, high]" layout plus the top/bottom strata. It adapts to every fit type (crossed-dimensions shares, contextual `Context share (VPC)`) and engine (lme4/brms/WeMix/ordinal); for an ordinal model the intercept row is `NA` and the category thresholds are reported by `summary()`, not the table. For a longitudinal (growth-curve) fit each stratum is a trajectory rather than a single ranked value, so `$strata` is `NULL` (with a `$strata_note` pointing to `predict(type = "strata")` / `plot(type = "trajectories")`); the `$models` table is still produced.
@@ -89,7 +86,7 @@ Creates intersectional strata from multiple categorical variables with optional 
 Fits multilevel models using the lme4 (default), brms, WeMix (design-weighted, via `sampling_weights`), or ordinal (`ordinal::clmm`, selected automatically for ordered-factor outcomes) engine. Supports various families including gaussian, binomial, poisson, negbinomial (overdispersed counts; theta estimated via `lme4::glmer.nb()` or brms's `shape` parameter, with the VPC using the latent-scale level-1 variance of Nakagawa, Johnson & Schielzeth 2017), and ordinal/cumulative (proportional-odds models for ordered outcomes; latent-scale VPC with pi^2/3 logit / 1 probit level-1 variance, response-scale predictions as expected category scores).
 
 ### Contextual cross-classified MAIHDA (`context =`)
-The MAIHDA literature's *cross-classified* design crosses individuals' intersectional
+The *cross-classified* design crosses individuals' intersectional
 strata with a higher-level **context** -- hospitals (patient survival), schools
 (student achievement), neighbourhoods. Pass `context = "school"` to `fit_maihda()` or
 `maihda()` to fit `outcome ~ covars + (1 | stratum) + (1 | school)` in one model; the
@@ -137,7 +134,7 @@ Creates various visualizations:
 Generates a ternary diagnostic plot. For each stratum it normalizes three magnitudes to sum to 1: the additive signal (how far the fixed-effect-only prediction sits from the grand mean), the intersection-specific signal (the magnitude of the stratum random effect), and the uncertainty in that estimate. It is a relative-signal diagnostic, not a formal variance decomposition.
 
 ### `plot_prediction_deviation_panels()`
-Creates an advanced, publication-ready two-panel dashboard for visualizing predicted values and highlighting the most notable cases or strata. What counts as notable depends on the model type — the largest deviation from the mean prediction (Gaussian/Poisson), the largest absolute deviance residual (binomial), or the most surprising observation (ordinal) — and the labelled points are not regression-diagnostic outliers.
+Creates a two-panel dashboard for visualizing predicted values and highlighting the most notable cases or strata. What counts as notable depends on the model type — the largest deviation from the mean prediction (Gaussian/Poisson), the largest absolute deviance residual (binomial), or the most surprising observation (ordinal).
 
 ### `compare_maihda()`
 Compares VPC/ICC across multiple models with optional bootstrap confidence intervals, and (by default, `ic = TRUE`) appends relative-fit information criteria — AIC/BIC for the likelihood engines, WAIC/LOOIC for brms — for comparing model structures.
@@ -146,17 +143,17 @@ Compares VPC/ICC across multiple models with optional bootstrap confidence inter
 Reports the relative-fit information criteria for one or more models (or a `maihda()` analysis, expanded into its null and adjusted models) to help choose between model *structures* — a question the VPC/PCV do not address. AIC/BIC for the likelihood engines (lme4, ordinal) and the Bayesian WAIC/LOOIC for brms, with a `delta` column from the best model. REML `lmer` fits are refitted with ML so AIC/BIC are comparable across models with different fixed effects (the null-vs-adjusted case).
 
 ### `compare_maihda_groups()`
-Compares the between-stratum *share* of variance (VPC/ICC) and the between-/within-stratum variance components across the levels of a higher-level grouping variable such as country, region, or survey wave, fitting a stratified MAIHDA model per group. The VPC/ICC is a *share*, not the absolute magnitude of intersectional inequality, so a higher VPC need not mean more between-stratum variation — read it alongside the absolute `var_between` column. Visualize with `plot(result, type = "vpc")`. The bundled `maihda_country_data` (OECD PISA 2018; gender × socioeconomic-status strata across six countries) is built to demonstrate this.
+Compares the between-stratum *share* of variance (VPC/ICC) and the between-/within-stratum variance components across the levels of a higher-level grouping variable such as country, region, or survey wave, fitting a stratified MAIHDA model per group.
 
 ### `calculate_pvc()`
-Calculates the proportional change in between-stratum variance (PCV) between two models. It is the share of the baseline model's between-stratum variance explained by the second model only when the second nests the first (adding predictors on the same outcome, sample and strata); otherwise it is a model-dependent change in variance.
+Calculates the proportional change in between-stratum variance (PCV) between two models. 
 
 - Formula: PCV = (Var_model1 - Var_model2) / Var_model1
 - Point estimate works across all fitting engines (`lme4`, `brms`, `WeMix`, `ordinal`)
 - Supports bootstrap confidence intervals for lme4 models
 
 ### `stepwise_pcv()`
-Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step's PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model, so it is order-dependent rather than an order-invariant "unique" contribution. For a binary outcome it also reports the discriminatory-accuracy trajectory (`AUC`, the step/total change in AUC, and `MOR`) alongside the PCV, so the strata's discriminatory accuracy can be tracked as covariates are added.
+Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step's PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model. For a binary outcome it also reports the discriminatory-accuracy trajectory (`AUC`, the step/total change in AUC, and `MOR`) alongside the PCV, so the strata's discriminatory accuracy can be tracked as covariates are added.
 
 ### Longitudinal (growth-curve) MAIHDA
 Supply `id` and `time` to `fit_maihda()`/`maihda()` for a 3-level growth-curve MAIHDA (occasions within individuals within strata, with random intercept *and* slope on time at both levels), the life-course extension of Bell, Evans, Holman & Leckie (2024). The between-stratum VPC is then time-varying, and `maihda(decomposition = "longitudinal")` reports the PCV separately for the baseline (intercept) and the slope variance — the additive-vs-multiplicative split of the intersectional *trajectory* inequality.

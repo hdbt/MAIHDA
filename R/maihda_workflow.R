@@ -923,13 +923,26 @@ summary.maihda_analysis <- function(object, ...) {
 #'   crossed-dimensions model), a multiple-testing method such as \code{"BH"}, or
 #'   a \code{maihda_interactions} object. The flags are computed once from the
 #'   correct (adjusted) model and reused across views.
-#' @param only_flagged Show only the flagged strata on the \code{"predicted"} and
-#'   \code{"obs_vs_shrunken"} views instead of dimming the rest (see
+#' @param only_flagged Show only the highlighted strata on the \code{"predicted"}
+#'   and \code{"obs_vs_shrunken"} views instead of dimming the rest (see
 #'   \code{\link[=plot.maihda_model]{plot}}). \code{FALSE} (default) keeps every
-#'   stratum; \code{TRUE} restricts those views to the strata carrying a credibly
-#'   non-zero interaction and, when \code{highlight_interactions} is left
-#'   \code{FALSE}, turns the highlight on with this analysis's stored diagnostic.
-#'   \code{"effect_decomp"} ignores it (it stays highlighted in context).
+#'   stratum; \code{TRUE} restricts those views to the highlighted strata (those
+#'   carrying a credibly non-zero interaction, or -- under
+#'   \code{highlight_by = "rope"} -- those classified ROPE-\code{"relevant"}) and,
+#'   when \code{highlight_interactions} is left \code{FALSE}, turns the highlight on
+#'   with this analysis's stored diagnostic. \code{"effect_decomp"} ignores it (it
+#'   stays highlighted in context).
+#' @param highlight_by Which interaction-screen column defines the highlighted
+#'   strata: \code{"flag"} (default, the zero-centred \code{flagged} column) or
+#'   \code{"rope"} (the equivalence \code{decision} column, highlighting the
+#'   strata classified \code{"relevant"}). See
+#'   \code{\link[=plot.maihda_model]{plot}}. \code{"rope"} requires \code{rope}
+#'   (or a \code{highlight_interactions} object built with one).
+#' @param rope Equivalence region forwarded to \code{\link{maihda_interactions}}
+#'   when computing the screen, so \code{highlight_by = "rope"} has a
+#'   \code{decision} column to read: a single positive \code{d} for the symmetric
+#'   region \code{c(-d, d)} on the latent (link) scale, or \code{c(lower, upper)}.
+#'   \code{NULL} (default) adds no equivalence classification.
 #' @param select When the \code{n_strata} cap drops strata on the
 #'   \code{"predicted"} (or longitudinal \code{"trajectories"}) view, which to
 #'   keep: \code{"order"} (default, first n_strata in stratum order) or
@@ -939,7 +952,8 @@ summary.maihda_analysis <- function(object, ...) {
 #' @return A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
 #' @export
 plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE,
-                                 only_flagged = FALSE, select = c("order", "deviation"), ...) {
+                                 only_flagged = FALSE, highlight_by = c("flag", "rope"),
+                                 rope = NULL, select = c("order", "deviation"), ...) {
   type <- match.arg(type, c(
     "all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
     "effect_decomp", "ternary", "prediction_deviation", "context_vpc",
@@ -956,6 +970,8 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
   if (only_flagged && isFALSE(highlight_interactions)) {
     highlight_interactions <- TRUE
   }
+  # Which column of the interaction screen defines the highlighted set.
+  highlight_by <- match.arg(highlight_by)
   # Which strata survive the n_strata cap on the predicted / trajectory views.
   select <- match.arg(select)
 
@@ -1021,17 +1037,19 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
   # then forward the resolved maihda_interactions object to every model view -- the
   # null-model shrinkage views included -- so the same flagged strata are marked
   # everywhere without recomputation.
-  hl <- maihda_resolve_analysis_highlight(x, highlight_interactions)
+  hl <- maihda_resolve_analysis_highlight(x, highlight_interactions, rope = rope)
 
   if (type == "all") {
     null_plots <- list(vpc = plot(x$model, type = "vpc", summary_obj = x$summary, ...))
     null_plots$obs_vs_shrunken <- tryCatch(
       plot(x$model, type = "obs_vs_shrunken", summary_obj = x$summary,
-           highlight_interactions = hl, only_flagged = only_flagged, ...),
+           highlight_interactions = hl, only_flagged = only_flagged,
+           highlight_by = highlight_by, rope = rope, ...),
       error = function(e) NULL)
     null_plots$predicted <- tryCatch(
       plot(x$model, type = "predicted", summary_obj = x$summary,
-           highlight_interactions = hl, only_flagged = only_flagged, select = select, ...),
+           highlight_interactions = hl, only_flagged = only_flagged,
+           highlight_by = highlight_by, rope = rope, select = select, ...),
       error = function(e) NULL)
     if (!is.null(x$context_vars)) {
       null_plots$context_vpc <- tryCatch(
@@ -1043,7 +1061,7 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
     for (t in adjusted_types) {
       adj_plots[[t]] <- tryCatch(
         plot(adj_model, type = t, summary_obj = adj_summary,
-             highlight_interactions = hl, ...),
+             highlight_interactions = hl, highlight_by = highlight_by, rope = rope, ...),
         error = function(e) NULL)
     }
 
@@ -1064,12 +1082,14 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
 
   if (type %in% adjusted_types) {
     return(plot(adj_model, type = type, summary_obj = adj_summary,
-                highlight_interactions = hl, only_flagged = only_flagged, ...))
+                highlight_interactions = hl, only_flagged = only_flagged,
+                highlight_by = highlight_by, rope = rope, ...))
   }
 
   # vpc, obs_vs_shrunken, predicted -> null model
   plot(x$model, type = type, summary_obj = x$summary,
-       highlight_interactions = hl, only_flagged = only_flagged, select = select, ...)
+       highlight_interactions = hl, only_flagged = only_flagged,
+       highlight_by = highlight_by, rope = rope, select = select, ...)
 }
 
 # Resolve the highlight argument for a maihda_analysis: FALSE/NULL stays FALSE;
@@ -1079,7 +1099,13 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
 # interactions = FALSE. A p.adjust method name such as "BH" computes adjusted
 # flags from the analysis's adjusted/crossed-dimensions model. Either way the
 # downstream model plots receive a ready object and neither recompute nor warn.
-maihda_resolve_analysis_highlight <- function(x, highlight_interactions) {
+#
+# `rope` is forwarded when the screen is (re)computed here so a
+# highlight_by = "rope" caller gets a `decision` column to read. The stored
+# diagnostic (computed at maihda() time without a rope) is reused only when no rope
+# is requested or it already carries a decision column; otherwise the screen is
+# recomputed with the rope so the equivalence classification exists.
+maihda_resolve_analysis_highlight <- function(x, highlight_interactions, rope = NULL) {
   if (is.null(highlight_interactions) || isFALSE(highlight_interactions)) {
     return(FALSE)
   }
@@ -1087,10 +1113,11 @@ maihda_resolve_analysis_highlight <- function(x, highlight_interactions) {
     return(highlight_interactions)
   }
   if (isTRUE(highlight_interactions)) {
-    if (inherits(x$interactions, "maihda_interactions")) {
+    if (inherits(x$interactions, "maihda_interactions") &&
+        (is.null(rope) || "decision" %in% names(x$interactions))) {
       return(x$interactions)
     }
-    return(maihda_interactions(x))
+    return(maihda_interactions(x, rope = rope))
   }
   if (is.character(highlight_interactions) && length(highlight_interactions) == 1L) {
     choices <- c("none", stats::p.adjust.methods)
@@ -1099,7 +1126,7 @@ maihda_resolve_analysis_highlight <- function(x, highlight_interactions) {
            "method name (e.g. \"BH\"), or a maihda_interactions object from ",
            "maihda_interactions().", call. = FALSE)
     }
-    return(maihda_interactions(x, adjust = highlight_interactions))
+    return(maihda_interactions(x, adjust = highlight_interactions, rope = rope))
   }
   stop("'highlight_interactions' must be FALSE, TRUE, a multiple-comparison ",
        "method name (e.g. \"BH\"), or a maihda_interactions object from ",
