@@ -1,7 +1,5 @@
 # Real-data case study: BRFSS mental distress
 
-## 
-
 This case uses the 2024 Behavioral Risk Factor Surveillance System
 (BRFSS), a U.S. health survey released by the Centers for Disease
 Control and Prevention. The outcome is frequent mental distress: 14 or
@@ -9,12 +7,11 @@ more of the past 30 days when mental health was not good.
 
 The intersectional strata combine respondent sex, race/ethnicity, age,
 education, income, and disability. The question is whether mental
-distress is concentrated in particular social strata, and whether some
-of these intersections remain once the main effects of the dimensions
-are included.
+distress is concentrated in particular social strata, and whether any of
+these intersections remain once the additive main effects of the
+dimensions are included.
 
-CDC’s 2024 BRFSS page provides the data, codebook, and weighting
-documentation:
+CDC’s 2024 BRFSS page provides the data and codebook:
 
 - [2024 BRFSS survey data and
   documentation](https://www.cdc.gov/brfss/annual_data/annual_2024.html)
@@ -22,41 +19,20 @@ documentation:
   file](https://www.cdc.gov/brfss/annual_data/2024/files/LLCP2024XPT.zip)
 - [2024
   codebook](https://www.cdc.gov/brfss/annual_data/2024/zip/codebook24_llcp-v2-508.zip)
-- [2024 complex-sampling
-  guidance](https://www.cdc.gov/brfss/annual_data/2024/pdf/Complex-Sampling-Weights-and-Preparing-Module-Data-for-Analysis-2024-508.pdf)
 
-## Download only the needed columns
+## Data preparation
 
 BRFSS distributes the public-use file as a zipped SAS transport (`.XPT`)
-file. It is large (~1 GB unzipped).
+file (~1 GB unzipped).
 
 ``` r
 
 library(MAIHDA)
 library(dplyr)
 
-data_dir <- file.path("data", "brfss-2024")
-dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
-
-brfss_url <- "https://www.cdc.gov/brfss/annual_data/2024/files/LLCP2024XPT.zip"
-zip_file <- file.path(data_dir, "LLCP2024XPT.zip")
-
-if (!file.exists(zip_file)) {
-  download.file(brfss_url, zip_file, mode = "wb")
-}
-
-xpt_name <- unzip(zip_file, list = TRUE)$Name
-xpt_name <- xpt_name[grepl("\\.xpt$", xpt_name, ignore.case = TRUE)][1]
-xpt_file <- file.path(data_dir, basename(xpt_name))
-
-if (!file.exists(xpt_file)) {
-  unzip(zip_file, files = xpt_name, exdir = data_dir, overwrite = TRUE)
-}
-
 raw_cols <- c(
   "_MENT14D", "SEXVAR", "_IMPRACE", "_AGEG5YR", "EDUCA", "_INCOMG1",
-  "DEAF", "BLIND", "DECIDE", "DIFFWALK", "DIFFDRES", "DIFFALON",
-  "_STATE", "_LLCPWT"
+  "DEAF", "BLIND", "DECIDE", "DIFFWALK", "DIFFDRES", "DIFFALON"
 )
 
 brfss_raw <- haven::read_xpt(xpt_file, col_select = dplyr::all_of(raw_cols))
@@ -147,36 +123,30 @@ brfss_reduced <- brfss_raw |>
         TRUE ~ NA_character_
       ),
       levels = c("No disability", "Any disability")
-    ),
-    survey_weight = .data[["_LLCPWT"]]
+    )
   ) |>
   filter(
     !is.na(frequent_distress), !is.na(sex), !is.na(race_ethnicity),
-    !is.na(age_group), !is.na(education), !is.na(income),
-    !is.na(disability), !is.na(survey_weight), survey_weight > 0
+    !is.na(age_group), !is.na(education), !is.na(income), !is.na(disability)
   )
 ```
 
-This yields **352,714 complete-case adults** in **432 intersectional
-strata** (only 1 stratum with fewer than 20 observed adults, 20 with
+The complete-case recode yields **352,714 adults** in **432
+intersectional strata** (only 1 stratum has fewer than 20 adults, 20
 fewer than 50).
 
-## Fit the design-weighted MAIHDA
+## Fit the MAIHDA
 
-Passing the survey weight as `sampling_weights` switches the engine to
-WeMix. The individual weights enter at level 1, fixed-effect standard
-errors are design-consistent, and the same weights are used for the null
-and adjusted models so the PCV is a design-weighted decomposition.
+The analysis is a single call, a binomial MAIHDA fitting a null model
+(strata only) and an adjusted model (the six dimensions additive main
+effects), on the full individual data:
 
 ``` r
 
 brfss_fit <- maihda(
   frequent_distress ~ sex + race_ethnicity + age_group + education + income + disability +
     (1 | sex:race_ethnicity:age_group:education:income:disability),
-  data = brfss_reduced,
-  family = "binomial",
-  sampling_weights = "survey_weight",   # -> engine = "wemix", design-consistent SEs
-  interactions = "BH"
+  data = brfss_reduced, family = "binomial", interactions = "BH"
 )
 
 brfss_fit
@@ -185,107 +155,106 @@ generics::glance(brfss_fit)
 
 | Statistic                | Null (Model 1) | Adjusted (Model 2) |
 |:-------------------------|:---------------|:-------------------|
-| Intercept                | -1.647         | -1.648             |
-| Between-stratum variance | 1.426          | 0.289              |
-| Between-stratum SD       | 1.194          | 0.538              |
-| VPC/ICC                  | 0.302          | 0.081              |
-| PCV (null -\> adjusted)  |                | 0.797              |
-| AUC                      | 0.753          | 0.753              |
-| MOR                      | 3.124          | 1.671              |
+| Intercept                | -1.575         | -1.634             |
+| Between-stratum variance | 0.993          | 0.043              |
+| Between-stratum SD       | 0.997          | 0.207              |
+| VPC/ICC                  | 0.232          | 0.013              |
+| PCV (null -\> adjusted)  |                | 0.957              |
+| AUC                      | 0.756          | 0.755              |
+| MOR                      | 2.587          | 1.218              |
 
-Design-weighted model-results table (cached full-data WeMix run).
-{.table}
+Model-results table (unweighted, full data, cached). {.table}
 
-The design-weighted run gives a null-model **VPC of 0.302**, **PCV of
-0.797** (79.7%), **AUC of 0.753**, and **MOR of 3.12**. The collapsed
-intersectional strata carry between-stratum concentration of frequent
-mental distress, and most of it is captured by the additive main effects
-of the six dimensions under this specification (the between-stratum
-variance falls from 1.426 to 0.289 on the latent scale).
+The null model gives a **VPC of 0.232** (about 23.2% of the latent-scale
+variation lies between strata), with **AUC 0.76** and **MOR 2.59**.
+Adding the six dimensions’ additive main effects collapses the
+between-stratum variance from 0.99 to 0.04, a **PCV of 95.7%**. Almost
+all of the between-stratum inequality is additive and the residual
+intersectional component is small (residual VPC 1.3%, residual MOR
+1.22).
 
 ## Which strata drive the pattern?
 
-Now the next question is *where* the risk is concentrated.
 [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
 ranks strata by their null-model predicted risk (the
-simple-intersectional stratum predictions, pass `which = "adjusted"` to
-rank by the adjusted model instead), while the interaction table focuses
-on deviations from the additive expectation.
+simple-intersectional stratum predictions; pass `which = "adjusted"` to
+rank by the adjusted model).
 
-``` r
+| Rank | Stratum | Predicted | Observed | N |
+|---:|:---|:---|:---|:---|
+| 1 | Female × White, non-Hispanic × 18-34 × Some college × \<\$25k × Any disability | 0.630 | 0.637 | 284 |
+| 2 | Female × White, non-Hispanic × 18-34 × HS or less × \<\$25k × Any disability | 0.626 | 0.630 | 457 |
+| 3 | Female × White, non-Hispanic × 18-34 × HS or less × \$25k-\<\$50k × Any disability | 0.624 | 0.627 | 636 |
+| 4 | Female × Black, non-Hispanic × 18-34 × Some college × \$50k+ × Any disability | 0.576 | 0.607 | 61 |
+| 5 | Female × Other race/ethnicity × 18-34 × College graduate × \<\$25k × Any disability | 0.566 | 0.640 | 25 |
+| 6 | Female × White, non-Hispanic × 18-34 × College graduate × \<\$25k × Any disability | 0.564 | 0.578 | 128 |
+| 7 | Female × Other race/ethnicity × 18-34 × HS or less × \<\$25k × Any disability | 0.558 | 0.574 | 115 |
+| 8 | Female × White, non-Hispanic × 35-64 × College graduate × \<\$25k × Any disability | 0.558 | 0.560 | 730 |
+| 9 | Female × White, non-Hispanic × 18-34 × Some college × \$25k-\<\$50k × Any disability | 0.552 | 0.556 | 504 |
+| 10 | Female × Other race/ethnicity × 18-34 × Some college × \<\$25k × Any disability | 0.546 | 0.576 | 59 |
 
-tab <- maihda_table(brfss_fit)
-head(tab$strata, 10)   # highest predicted risk
-tail(tab$strata, 10)   # lowest predicted risk
-```
+Highest predicted-risk strata (cached). {.table}
 
-| Stratum | Predicted | Weighted prevalence | Raw n |
-|:---|:---|:---|:---|
-| Female × Other race/ethnicity × 18-34 × HS or less × \<\$25k × Any disability | 0.720 | 0.720 | 115 |
-| Female × Other race/ethnicity × 18-34 × Some college × \$25k-\<\$50k × Any disability | 0.682 | 0.682 | 86 |
-| Female × White, non-Hispanic × 18-34 × Some college × \<\$25k × Any disability | 0.669 | 0.669 | 284 |
-| Female × Hispanic × 18-34 × College graduate × \<\$25k × Any disability | 0.642 | 0.642 | 83 |
-| Female × Other race/ethnicity × 18-34 × College graduate × \<\$25k × Any disability | 0.631 | 0.631 | 25 |
-| Female × Other race/ethnicity × 18-34 × College graduate × \$25k-\<\$50k × Any disability | 0.623 | 0.623 | 53 |
-| Female × White, non-Hispanic × 18-34 × HS or less × \$25k-\<\$50k × Any disability | 0.622 | 0.622 | 636 |
-| Female × Black, non-Hispanic × 18-34 × College graduate × \$25k-\<\$50k × Any disability | 0.607 | 0.607 | 45 |
-| Female × Other race/ethnicity × 18-34 × Some college × \<\$25k × Any disability | 0.606 | 0.606 | 59 |
-| Female × White, non-Hispanic × 18-34 × HS or less × \<\$25k × Any disability | 0.599 | 0.599 | 457 |
+The highest-risk strata combine younger age, female sex, low income, and
+disability (top predicted prevalence around 63.0%) and race/ethnicity
+varies across the top group. These strata are high-risk because they
+stack several high-risk main-effect categories, not necessarily because
+of a large residual interaction.
 
-Highest predicted-risk strata (cached WeMix run). {.table}
+The interaction table instead asks which strata *depart* from the
+additive main-effect prediction:
 
-``` r
-
-brfss_fit$interactions |>
-  dplyr::arrange(dplyr::desc(abs(interaction))) |>
-  dplyr::select(stratum, label, interaction, lower, upper, p_adjusted, flagged) |>
-  head(20)
-```
-
-| Stratum | Interaction | Lower | Upper | FDR p | Direction |
+| Stratum | Interaction | Lower | Upper | Direction | ROPE (±0.4) |
 |:---|:---|:---|:---|:---|:---|
-| Male × Black, non-Hispanic × 65+ × College graduate × \<\$25k × No disability | -2.995 | -3.523 | -2.467 | 1.09e-28 | below |
-| Female × Hispanic × 65+ × College graduate × \$25k-\<\$50k × No disability | -2.351 | -2.494 | -2.208 | 7.56e-228 | below |
-| Female × Other race/ethnicity × 65+ × Some college × \<\$25k × No disability | -2.212 | -2.313 | -2.110 | 0.00e+00 | below |
-| Male × Other race/ethnicity × 65+ × Some college × \<\$25k × No disability | 1.746 | 1.714 | 1.779 | 0.00e+00 | above |
-| Female × Other race/ethnicity × 65+ × College graduate × \<\$25k × No disability | -1.697 | -1.886 | -1.509 | 1.85e-69 | below |
-| Female × Hispanic × 65+ × HS or less × \$50k+ × Any disability | -1.578 | -1.622 | -1.533 | 0.00e+00 | below |
-| Male × Black, non-Hispanic × 65+ × HS or less × \$50k+ × No disability | 1.554 | 1.539 | 1.569 | 0.00e+00 | above |
-| Female × Hispanic × 65+ × Some college × \$50k+ × No disability | -1.464 | -1.529 | -1.399 | 0.00e+00 | below |
-| Male × White, non-Hispanic × 65+ × College graduate × \<\$25k × No disability | 1.441 | 1.420 | 1.462 | 0.00e+00 | above |
-| Male × Other race/ethnicity × 65+ × College graduate × \$25k-\<\$50k × No disability | -1.433 | -1.527 | -1.339 | 1.87e-196 | below |
-| Male × Other race/ethnicity × 65+ × HS or less × \<\$25k × No disability | 1.432 | 1.401 | 1.462 | 0.00e+00 | above |
-| Female × Black, non-Hispanic × 18-34 × College graduate × \<\$25k × Any disability | -1.416 | -1.459 | -1.374 | 0.00e+00 | below |
-| Male × Other race/ethnicity × 65+ × HS or less × \<\$25k × Any disability | 1.386 | 1.373 | 1.398 | 0.00e+00 | above |
-| Male × Hispanic × 65+ × Some college × \$50k+ × No disability | -1.350 | -1.417 | -1.283 | 0.00e+00 | below |
-| Male × Other race/ethnicity × 65+ × College graduate × \<\$25k × No disability | -1.294 | -1.410 | -1.178 | 1.23e-105 | below |
-| Male × Black, non-Hispanic × 65+ × HS or less × \$25k-\<\$50k × No disability | 1.276 | 1.260 | 1.292 | 0.00e+00 | above |
-| Female × Hispanic × 65+ × HS or less × \$50k+ × No disability | 1.275 | 1.256 | 1.294 | 0.00e+00 | above |
-| Male × Hispanic × 65+ × Some college × \$50k+ × Any disability | 1.259 | 1.240 | 1.277 | 0.00e+00 | above |
-| Female × Black, non-Hispanic × 35-64 × College graduate × \<\$25k × No disability | 1.230 | 1.213 | 1.247 | 0.00e+00 | above |
-| Female × Black, non-Hispanic × 65+ × Some college × \<\$25k × No disability | 1.199 | 1.175 | 1.223 | 0.00e+00 | above |
+| Female × Hispanic × 18-34 × HS or less × \<\$25k × No disability | -0.669 | -0.866 | -0.472 | below | relevant |
+| Male × White, non-Hispanic × 65+ × College graduate × \$50k+ × Any disability | -0.597 | -0.691 | -0.503 | below | relevant |
+| Female × Hispanic × 18-34 × HS or less × \<\$25k × Any disability | -0.531 | -0.717 | -0.344 | below | inconclusive |
+| Male × Hispanic × 18-34 × HS or less × \<\$25k × Any disability | -0.508 | -0.721 | -0.294 | below | inconclusive |
+| Female × White, non-Hispanic × 18-34 × HS or less × \$25k-\<\$50k × Any disability | 0.428 | 0.280 | 0.577 | above | inconclusive |
+| Male × White, non-Hispanic × 65+ × HS or less × \$50k+ × No disability | -0.391 | -0.600 | -0.182 | below | inconclusive |
+| Male × White, non-Hispanic × 65+ × Some college × \$50k+ × Any disability | -0.388 | -0.507 | -0.269 | below | inconclusive |
+| Male × White, non-Hispanic × 65+ × College graduate × \<\$25k × No disability | 0.386 | 0.107 | 0.664 | above | inconclusive |
+| Male × White, non-Hispanic × 65+ × HS or less × \$50k+ × Any disability | -0.376 | -0.516 | -0.236 | below | inconclusive |
+| Male × White, non-Hispanic × 35-64 × College graduate × \$50k+ × No disability | -0.372 | -0.431 | -0.314 | below | inconclusive |
+| Female × White, non-Hispanic × 18-34 × HS or less × \$25k-\<\$50k × No disability | 0.365 | 0.222 | 0.508 | above | inconclusive |
+| Female × White, non-Hispanic × 35-64 × College graduate × \<\$25k × Any disability | 0.360 | 0.223 | 0.497 | above | inconclusive |
+| Female × White, non-Hispanic × 65+ × College graduate × \$50k+ × Any disability | -0.342 | -0.430 | -0.254 | below | inconclusive |
+| Male × Hispanic × 35-64 × College graduate × \$50k+ × Any disability | 0.337 | 0.108 | 0.565 | above | inconclusive |
+| Female × Hispanic × 35-64 × HS or less × \<\$25k × Any disability | -0.336 | -0.461 | -0.211 | below | inconclusive |
 
-Strongest interactions by absolute size (cached WeMix run). {.table}
+Strongest interactions by absolute size, with ROPE classification
+(cached). {.table style="width:100%;"}
 
-The two tables answer different questions. The ranked table identifies
-the highest and lowest predicted risks. The interaction table identifies
-strata whose predicted risks are higher or lower than expected from the
-additive main effects alone. A stratum can have high predicted risk
-because it stacks many high-risk main-effect categories, without having
-a large residual interaction.
+### How many interactions actually matter? A ROPE
+
+Flagging asks only whether an interaction differs statisticaly
+significantly from zero. On the full data the FDR screen flags 55 of 432
+strata. The more interesting question is whether a departure is *large
+enough to matter*. A **region of practical equivalence** (ROPE) sets a
+smallest intersectional effect of interest on the log-odds scale and
+classifies each stratum’s interval as practically **relevant** (outside
+the ROPE), **negligible** (inside it), or **inconclusive** (Schuirmann
+1987; Kruschke 2018). The `rope` argument of
+[`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+adds this `decision` column:
+
+``` r
+
+maihda_interactions(brfss_fit, rope = 0.4)   # ROPE = +/- 0.4 log-odds (OR ~ 1.5)
+```
+
+At a ROPE of ±0.4 log-odds (an odds ratio within roughly 0.67–1.49 of
+the additive expectation), **2 of 432** strata are practically relevant,
+266 negligible, and 164 inconclusive; at a stricter ±0.2 (OR ≈ 1.22) the
+relevant count rises to 15. The full data is precise enough that the
+ROPE can actually resolve a handful of strata as practically relevant,
+where the per-stratum interactions are genuinely largest (up to about
+0.67 on the log-odds scale). Even so, the great majority are negligible
+or inconclusive: consistent with the high PCV (95.7%), the structure is
+overwhelmingly additive, and only a small number of intersections carry
+a practically meaningful departure from additivity.
 
 ## Plot the case study
-
-Useful figures for showcasing the results are the variance partition,
-the ranked predicted strata, and the additive-vs-intersectional
-decomposition.
-
-``` r
-
-plot(brfss_fit, type = "vpc")
-plot(brfss_fit, type = "predicted", n_strata = 30, highlight_interactions = TRUE)
-plot(brfss_fit, type = "effect_decomp", highlight_interactions = TRUE)
-```
 
 ![Variance partition (VPC): share of latent-scale variation between
 intersectional strata.](figures/brfss_vpc.png)
@@ -293,11 +262,10 @@ intersectional strata.](figures/brfss_vpc.png)
 Variance partition (VPC): share of latent-scale variation between
 intersectional strata.
 
-![Top 30 strata by predicted risk of frequent mental distress;
-BH-flagged interactions highlighted.](figures/brfss_predicted_top30.png)
+![Top 30 strata by predicted risk; BH-flagged interactions
+highlighted.](figures/brfss_predicted_top30.png)
 
-Top 30 strata by predicted risk of frequent mental distress; BH-flagged
-interactions highlighted.
+Top 30 strata by predicted risk; BH-flagged interactions highlighted.
 
 ![Effect decomposition: additive disadvantage vs. residual
 intersectional deviation.](figures/brfss_effect_decomp.png)
@@ -305,47 +273,35 @@ intersectional deviation.](figures/brfss_effect_decomp.png)
 Effect decomposition: additive disadvantage vs. residual intersectional
 deviation.
 
-## Reporting the results
+The predicted-strata plot shows the inequality pattern; the
+effect-decomposition plot separates additive disadvantage from the
+(mostly small) residual intersectional deviation.
 
-Pulling the analysis together, a concise write-up can separate the
-variance decomposition, the ranked predicted risks, and the residual
-interaction screen.
+## Results
 
-### Results
+We fitted two logistic MAIHDA models on 352,714 adults from the 2024
+BRFSS, nested within 432 intersectional strata defined by the
+cross-classification of sex, race/ethnicity, age, education, household
+income, and disability. In the simple intersectional model, the variance
+partition coefficient indicated that 23.2% of the variance in the latent
+propensity for frequent mental distress lay between intersectional
+strata. The strata had moderate discriminatory accuracy (area under the
+ROC curve, AUC = 0.76) and a median odds ratio of 2.59.
 
-We fitted two logistic MAIHDA models with 352,714 adults nested within
-432 intersectional strata defined by the cross-classification of sex,
-race/ethnicity, age, education, household income, and disability. The
-models applied the BRFSS final adult sampling weights to account for the
-survey design in this complete-case analysis. In the simple
-intersectional model, the variance partition coefficient indicated that
-30.2% of the variance in the latent propensity for frequent mental
-distress lay between intersectional strata. The strata also had moderate
-discriminatory accuracy for the individual outcome (area under the ROC
-curve, AUC = 0.75), and the median odds ratio (MOR) was 3.12. In median
-pairwise comparisons, moving from a lower- to a higher-risk stratum was
-therefore associated with a little more than a threefold difference in
-the odds of frequent distress.
+After adding the additive main effects of the six dimensions, the
+between-stratum variance fell from 0.99 to 0.04, a proportional change
+in variance (PCV) of 95.7% (residual VPC 1.3%). Almost all of the
+between-stratum inequality was additive. The highest-risk strata
+combined younger age, female sex, low income, and disability (top
+predicted prevalence 63.0%).
 
-After adding the additive main effects of the six stratum-defining
-dimensions, the between-stratum variance fell from 1.43 to 0.29, a
-proportional change in variance (PCV) of 79.7%. The residual VPC was
-8.1% and the residual MOR was 1.67. The additive main effects therefore
-reproduced roughly four-fifths of the between-stratum variance, leaving
-a smaller residual component for non-additive intersectional departures
-from the main-effect expectation.
-
-Predicted prevalences of frequent mental distress varied markedly across
-strata. The highest-ranked stratum combined female sex, age 18-34, other
-race/ethnicity, high school education or less, household income below
-\$25,000, and disability, with a predicted prevalence of 72.0%; the
-other top-ranked strata similarly combined younger age, female sex,
-disability, and lower or middle household income. The residual
-interaction table answered the question which strata were higher or
-lower than expected after the additive main effects were included. The
-largest absolute residuals were concentrated mostly among older (65+)
-strata and ran in both directions, with both above- and below-additive
-deviations.
+Per-stratum interaction effects were small (largest ≈ 0.67 on the
+log-odds scale). The FDR screen flagged 55 of 432 strata; a region of
+practical equivalence (±0.4 log-odds) classified 2 strata as practically
+relevant, 266 as negligible, and 164 as inconclusive. The defensible
+conclusion is a predominantly additive structure, with a small number of
+intersections showing a practically meaningful departure from
+additivity.
 
 ## References
 
@@ -354,15 +310,11 @@ deviations.
 - Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J.
   (2024). A tutorial for conducting intersectional multilevel analysis
   of individual heterogeneity and discriminatory accuracy (MAIHDA).
-  *SSM - Population Health*, 26,
-  101664. 
+  *SSM - Population Health*, 26, 101664.
 - Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V.
   (2018). A multilevel approach to modeling health inequalities at the
   intersection of multiple social identities. *Social Science &
   Medicine*, 203, 64-73.
 - Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
   discriminatory accuracy (MAIHDA) within an intersectional framework.
-  *Social Science & Medicine*, 203, 74-80.
-- Rabe-Hesketh, S., & Skrondal, A. (2006). Multilevel modelling of
-  complex survey data. *Journal of the Royal Statistical Society A*,
-  169(4), 805-827.
+  *Social Science & Medicine*, 203, 74-80. \`\`\`
