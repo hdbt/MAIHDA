@@ -961,13 +961,13 @@ test_that("brms unseen stratum honours the zero-effect population-average fallba
 
   # Unseen row == the population-average (re_formula = NA) prediction: fixed effects
   # only, stratum random effect zero (NOT a sampled new-level effect).
-  popavg <- brms::fitted(m$model, newdata = nd, re_formula = NA,
+  popavg <- stats::fitted(m$model, newdata = nd, re_formula = NA,
                          summary = TRUE)[, "Estimate"]
   expect_equal(unname(pa[2]), unname(popavg[2]))
 
   # Seen row keeps its estimated stratum effect, so it differs from the fixed-only
   # prediction and matches the full-random-effects prediction.
-  seen_full <- brms::fitted(m$model, newdata = nd[1, , drop = FALSE],
+  seen_full <- stats::fitted(m$model, newdata = nd[1, , drop = FALSE],
                             summary = TRUE)[, "Estimate"]
   expect_equal(unname(pa[1]), unname(seen_full))
   expect_false(isTRUE(all.equal(unname(pa[1]), unname(popavg[1]))))
@@ -1018,9 +1018,9 @@ test_that("brms unseen stratum keeps a seen context random effect (lme4 parity)"
   pa <- predict_maihda(m, newdata = nd, type = "individual", scale = "response",
                        allow_new_levels = TRUE)
 
-  keep_school <- brms::fitted(m$model, newdata = nd, re_formula = ~ (1 | school),
+  keep_school <- stats::fitted(m$model, newdata = nd, re_formula = ~ (1 | school),
                               summary = TRUE)[, "Estimate"]
-  drop_all    <- brms::fitted(m$model, newdata = nd, re_formula = NA,
+  drop_all    <- stats::fitted(m$model, newdata = nd, re_formula = NA,
                               summary = TRUE)[, "Estimate"]
 
   # Unseen row == keep-school prediction (stratum dropped, school kept) ...
