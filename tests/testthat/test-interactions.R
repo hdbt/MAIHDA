@@ -585,3 +585,118 @@ test_that("rope print reports the equivalence breakdown", {
   mi <- maihda_interactions(a, rope = 0.5)
   expect_output(print(mi), "Equivalence vs ROPE")
 })
+
+# ---- highlight_by = "rope": highlight the ROPE-relevant strata ---------------
+
+test_that("highlight_by = 'rope' highlights exactly the decision == 'relevant' strata", {
+  a <- maihda_interaction_analysis()
+  mi <- maihda_interactions(a, rope = 0.5)
+  relevant <- sort(as.character(mi$stratum[mi$decision == "relevant"]))
+  expect_gt(length(relevant), 0L)
+
+  # predicted view, analysis path
+  p <- plot(a, type = "predicted", highlight_interactions = TRUE,
+            highlight_by = "rope", rope = 0.5)
+  expect_setequal(sort(as.character(p$data$stratum[p$data$.maihda_flag])), relevant)
+
+  # obs_vs_shrunken applies the same set (routed to the null model, flags reused)
+  po <- plot(a, type = "obs_vs_shrunken", highlight_interactions = TRUE,
+             highlight_by = "rope", rope = 0.5)
+  expect_setequal(sort(as.character(po$data$stratum[po$data$.maihda_flag])), relevant)
+
+  # model path (the adjusted model directly) gives the same set
+  pm <- plot(a$model_adjusted, type = "predicted", highlight_interactions = TRUE,
+             highlight_by = "rope", rope = 0.5)
+  expect_setequal(sort(as.character(pm$data$stratum[pm$data$.maihda_flag])), relevant)
+})
+
+test_that("highlight_by = 'rope' marks the ROPE-relevant strata on effect_decomp", {
+  a <- maihda_interaction_analysis()
+  mi <- maihda_interactions(a, rope = 0.5)
+  relevant <- sort(as.character(mi$stratum[mi$decision == "relevant"]))
+
+  p <- plot(a, type = "effect_decomp", highlight_interactions = TRUE,
+            highlight_by = "rope", rope = 0.5)
+  ld <- maihda_effect_decomp_label_data(p)
+  expect_setequal(sort(as.character(ld$stratum)), relevant)
+  expect_true(all(ld$.maihda_flag))
+})
+
+test_that("highlight_by switches the set: a wide ROPE flags nothing where the zero-test flags four", {
+  a <- maihda_interaction_analysis()
+  # The zero-centred flag marks the 4 planted block cells...
+  expect_equal(sum(maihda_interactions(a)$flagged), 4L)
+  # ...but a wide equivalence region (|effect| > 2.4) classifies none "relevant".
+  mi_rope <- maihda_interactions(a, rope = 2.4)
+  expect_equal(sum(mi_rope$decision == "relevant", na.rm = TRUE), 0L)
+
+  # Flag mode still highlights four; rope mode highlights none.
+  p_flag <- plot(a, type = "predicted", highlight_interactions = TRUE)
+  expect_equal(sum(p_flag$data$.maihda_flag), 4L)
+
+  # only_flagged + a wide ROPE -> a captioned empty panel with ROPE-specific wording
+  # (the flag-mode panel would have kept four strata).
+  p_rope <- plot(a, type = "predicted", highlight_by = "rope", rope = 2.4,
+                 only_flagged = TRUE)
+  expect_s3_class(p_rope, "ggplot")
+  expect_match(p_rope$labels$title, "Predicted Subgroup Values")
+  bdata <- ggplot2::ggplot_build(p_rope)$data[[1]]
+  expect_true(any(grepl("ROPE-relevant", bdata$label)))
+})
+
+test_that("only_flagged + highlight_by = 'rope' restricts to the ROPE-relevant strata", {
+  a <- maihda_interaction_analysis()
+  mi <- maihda_interactions(a, rope = 0.5)
+  relevant <- sort(as.character(mi$stratum[mi$decision == "relevant"]))
+
+  p <- plot(a, type = "predicted", highlight_by = "rope", rope = 0.5, only_flagged = TRUE)
+  expect_setequal(as.character(p$data$stratum), relevant)
+  expect_true(all(p$data$.maihda_flag))
+  # the caption names the ROPE screen honestly, not "flagged"/"BH-adjusted"
+  expect_match(p$labels$caption, "ROPE-relevant strata")
+  expect_match(p$labels$caption, "latent \\(link\\) scale")
+})
+
+test_that("a precomputed maihda_interactions(rope=) drives the ROPE highlight without recomputing", {
+  a <- maihda_interaction_analysis()
+  mi <- maihda_interactions(a, rope = 0.5)
+  relevant <- sort(as.character(mi$stratum[mi$decision == "relevant"]))
+
+  # No `rope` passed here: the decision column already rides on the object.
+  p <- plot(a, type = "predicted", highlight_interactions = mi, highlight_by = "rope")
+  expect_s3_class(p, "ggplot")
+  expect_setequal(sort(as.character(p$data$stratum[p$data$.maihda_flag])), relevant)
+
+  p2 <- plot(a, type = "effect_decomp", highlight_interactions = mi, highlight_by = "rope")
+  expect_s3_class(p2, "ggplot")
+})
+
+test_that("highlight_by = 'rope' without a usable rope errors with an actionable message", {
+  a <- maihda_interaction_analysis()
+  # analysis path (single type -> the error surfaces rather than being caught)
+  expect_error(
+    plot(a, type = "predicted", highlight_interactions = TRUE, highlight_by = "rope"),
+    "no 'decision' column")
+  # model path
+  expect_error(
+    plot(a$model_adjusted, type = "predicted", highlight_interactions = TRUE,
+         highlight_by = "rope"),
+    "rope")
+  # a precomputed screen built WITHOUT a rope is rejected the same way
+  mi_norope <- maihda_interactions(a)
+  expect_error(
+    plot(a, type = "predicted", highlight_interactions = mi_norope, highlight_by = "rope"),
+    "no 'decision' column")
+})
+
+test_that("highlight_by defaults to 'flag' and is validated", {
+  a <- maihda_interaction_analysis()
+  d_default <- plot(a, type = "predicted", highlight_interactions = TRUE)
+  d_flag <- plot(a, type = "predicted", highlight_interactions = TRUE, highlight_by = "flag")
+  expect_equal(sort(as.character(d_default$data$stratum[d_default$data$.maihda_flag])),
+               sort(as.character(d_flag$data$stratum[d_flag$data$.maihda_flag])))
+  expect_error(
+    plot(a, type = "predicted", highlight_interactions = TRUE, highlight_by = "nope"))
+  expect_error(
+    plot(a$model_adjusted, type = "predicted", highlight_by = "nope"))
+})

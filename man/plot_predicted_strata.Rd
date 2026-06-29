@@ -23,11 +23,13 @@ plot_predicted_strata(
 
 \item{scale}{Prediction scale: "response" (default) or "link"}
 
-\item{highlight}{Optional character vector of flagged stratum ids (with the
-interaction-screen parameters attached as attributes).}
+\item{highlight}{Optional character vector of highlighted stratum ids -- the
+flagged strata, or the ROPE-relevant strata under
+\code{highlight_by = "rope"} -- with the interaction-screen parameters
+attached as attributes (including \code{highlight_by} and \code{rope}).}
 
-\item{only_flagged}{When TRUE, show only the flagged strata (those in
-\code{highlight}); a captioned empty panel is returned if none are flagged.}
+\item{only_flagged}{When TRUE, show only the highlighted strata (those in
+\code{highlight}); a captioned empty panel is returned if none are.}
 
 \item{select}{When the \code{n_strata} cap drops strata, which to keep:
 \code{"order"} (default) the first n_strata in stratum order, or
