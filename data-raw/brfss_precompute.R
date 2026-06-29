@@ -9,9 +9,11 @@
 # stratum-defining dimension, this is EXACTLY the unweighted individual-level fit on
 # all 352,714 records -- the cell counts are sufficient statistics, so nothing is
 # lost (verified: identical VPC/PCV/BLUPs/ROPE to the individual fit, to ~1e-8). We
-# use the grouped form because it is instant and computes the AUC robustly, whereas
-# the literal 352k-row individual glmer is slow (~10 min) and its discriminatory-
-# accuracy step returned NA at that scale.
+# use the grouped form purely because it is instant; the literal 352k-row individual
+# glmer takes ~10 min for identical results. (Historical note: that individual fit
+# used to return AUC = NA via an integer overflow in maihda_auc's n1 * n0; fixed in
+# R/discriminatory_accuracy.R, with a regression test, so either form now gives the
+# same AUC.)
 #
 # Outputs:
 #   vignettes/brfss_precomputed.rds   -- small cache the vignette reads

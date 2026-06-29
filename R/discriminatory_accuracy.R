@@ -57,8 +57,12 @@ maihda_auc <- function(prob, y) {
          "convert it to 0/1 first (e.g. as.numeric(factor) - 1).", call. = FALSE)
   }
 
-  n1 <- sum(y == 1)
-  n0 <- sum(y == 0)
+  # Coerce to double: sum(<logical>) is integer, so n1 * n0 (and n1 * (n1 + 1))
+  # overflow the 32-bit integer limit for large samples -- n1 * n0 exceeds
+  # .Machine$integer.max once both classes are sizeable (around n ~ 130k at a 13%
+  # event rate) -- silently producing NA. Double arithmetic avoids the overflow.
+  n1 <- as.double(sum(y == 1))
+  n0 <- as.double(sum(y == 0))
   if (n1 == 0 || n0 == 0) {
     return(NA_real_)
   }
@@ -435,8 +439,11 @@ maihda_auc_weighted <- function(prob, successes, trials) {
   successes <- successes[keep]
   failures <- failures[keep]
 
-  n1 <- sum(successes)
-  n0 <- sum(failures)
+  # as.double guards against 32-bit integer overflow in n1 * n0 below when the
+  # counts are large integers (see maihda_auc); a count-weighted call already
+  # passes doubles, but an integer-count caller would otherwise silently get NA.
+  n1 <- as.double(sum(successes))
+  n0 <- as.double(sum(failures))
   if (n1 == 0 || n0 == 0) {
     return(NA_real_)
   }

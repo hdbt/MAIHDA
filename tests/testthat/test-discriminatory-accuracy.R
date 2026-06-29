@@ -21,6 +21,27 @@ test_that("maihda_auc validates inputs and handles degenerate classes", {
   expect_true(is.na(maihda_auc(c(0.1, 0.2, 0.3), c(1, 1, 1))))
 })
 
+test_that("maihda_auc does not integer-overflow on large samples", {
+  # Regression: n1 * n0 here is 5.625e9, past .Machine$integer.max (~2.15e9). With
+  # integer arithmetic (sum() of a logical is integer) the denominator overflowed to
+  # NA; double arithmetic fixes it. Perfect separation gives AUC exactly 1.
+  n_each <- 75000L
+  expect_gt(as.double(n_each)^2, .Machine$integer.max)  # the test's own premise
+  y <- rep(c(0L, 1L), each = n_each)
+  prob <- rep(c(0.2, 0.8), each = n_each)
+  expect_equal(maihda_auc(prob, y), 1)
+})
+
+test_that("maihda_auc_weighted does not integer-overflow on large integer counts", {
+  # Same overflow guard for the count-weighted path: 75000 cases vs 75000 controls,
+  # perfectly separated, as large integer counts (n1 * n0 = 5.625e9).
+  expect_equal(
+    maihda_auc_weighted(prob = c(0.2, 0.8),
+                        successes = c(0L, 75000L),
+                        trials    = c(75000L, 75000L)),
+    1)
+})
+
 # A binomial MAIHDA model on synthetic data with a real between-stratum signal.
 maihda_da_test_model <- function(seed = 123, n = 900, family = "binomial") {
   set.seed(seed)
