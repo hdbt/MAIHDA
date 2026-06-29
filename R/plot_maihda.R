@@ -43,7 +43,51 @@
 #'   \code{adjust}. For the pure-interaction reading the model should be the
 #'   adjusted (or crossed-dimensions) model -- e.g. via
 #'   \code{plot()} on a \code{\link{maihda}} analysis, which routes these views to
-#'   the adjusted model automatically.
+#'   the adjusted model automatically. Which column of the screen drives the
+#'   highlight set is governed by \code{highlight_by}.
+#' @param highlight_by Which interaction-screen column defines the highlighted
+#'   strata: \code{"flag"} (default) uses the zero-centred \code{flagged} column
+#'   (credibly non-zero interaction), preserving the historical behaviour;
+#'   \code{"rope"} uses the equivalence \code{decision} column, highlighting the
+#'   strata classified \code{"relevant"} (interaction interval entirely outside the
+#'   region of practical equivalence). \code{"rope"} requires a screen carrying a
+#'   \code{decision} column: either pass \code{rope}, or supply a
+#'   \code{maihda_interactions} object built with \code{rope}; otherwise it errors.
+#' @param rope Equivalence region (a "smallest interaction of interest") forwarded
+#'   to \code{\link{maihda_interactions}} when the screen is computed here (i.e.
+#'   when \code{highlight_interactions} is \code{TRUE} or a \code{p.adjust} method
+#'   name). \code{NULL} (default) adds no equivalence classification; a single
+#'   positive \code{d} means the symmetric region \code{c(-d, d)} on the latent
+#'   (link) scale, or supply \code{c(lower, upper)}. Needed for
+#'   \code{highlight_by = "rope"} unless the supplied \code{maihda_interactions}
+#'   object already carries a \code{decision} column. Ignored when a precomputed
+#'   \code{maihda_interactions} object is passed (its own \code{rope} is used).
+#' @param only_flagged Show \emph{only} the flagged strata rather than dimming the
+#'   rest. \code{FALSE} (default) keeps every stratum (flagged ones highlighted);
+#'   \code{TRUE} restricts the \code{"predicted"} and \code{"obs_vs_shrunken"}
+#'   views to the highlighted strata (those carrying a credibly non-zero
+#'   interaction, or -- under \code{highlight_by = "rope"} -- those classified
+#'   ROPE-\code{"relevant"}), so a highlighted stratum is never hidden by the
+#'   \code{n_strata} cap. When \code{TRUE} and
+#'   \code{highlight_interactions} is left \code{FALSE}, the flags are computed
+#'   with \code{\link{maihda_interactions}} defaults; pass
+#'   \code{highlight_interactions} to choose the \code{conf_level}/\code{adjust}.
+#'   A captioned empty panel is returned when no stratum is flagged. It does not
+#'   apply to \code{"effect_decomp"} (whose waterfall exists to show each flagged
+#'   stratum's place in the \emph{full} distribution); that view stays highlighted.
+#'   Independently of this argument, whenever interactions are highlighted the
+#'   \code{n_strata} cap on \code{"predicted"} becomes flag-aware: every flagged
+#'   stratum is kept and the remaining slots are filled according to \code{select}.
+#' @param select When the \code{n_strata} cap must drop strata, which to keep:
+#'   \code{"order"} (default; the first n_strata in stratum order, the historical
+#'   behaviour) or \code{"deviation"} (the n_strata furthest from the reference
+#'   line -- largest \code{|predicted - reference|}, so the most extreme strata in
+#'   \emph{both} directions). Applies to \code{"predicted"} and, for a longitudinal
+#'   fit, \code{"trajectories"} (where it keeps the strata whose trajectories swing
+#'   furthest from the population curve). Flagged strata are always kept; this
+#'   governs the fill and the unflagged case. The displayed x-axis stays in stratum
+#'   order regardless, so \code{select} changes \emph{which} strata appear, not
+#'   their left-to-right order.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return For a single \code{type}, a \pkg{ggplot2} object that you can extend
@@ -77,12 +121,25 @@
 #' @import ggplot2
 #' @importFrom dplyr arrange
 plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
-                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, ...) {
+                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, highlight_by = c("flag", "rope"), rope = NULL, select = c("order", "deviation"), ...) {
   if (!inherits(x, "maihda_model")) {
     stop("'x' must be a maihda_model object from fit_maihda()")
   }
 
   object <- x
+
+  # Restricting the view to flagged strata needs flags to restrict by; if the
+  # caller asked for only_flagged but no highlight, fall back to the default
+  # interaction screen so only_flagged works on its own.
+  only_flagged <- maihda_validate_only_flagged(only_flagged)
+  if (only_flagged && isFALSE(highlight_interactions)) {
+    highlight_interactions <- TRUE
+  }
+  # Which column of the interaction screen defines the highlighted set: the
+  # zero-centred flag ("flag") or the ROPE equivalence decision ("rope").
+  highlight_by <- match.arg(highlight_by)
+  # Which strata survive the n_strata cap on the predicted / trajectory views.
+  select <- match.arg(select)
 
 
   if (missing(type)) {
@@ -96,10 +153,12 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     summary_obj <- summary(object)
   }
 
-  # Resolve the set of strata to highlight as carrying a credibly non-zero
-  # intersectional interaction (NULL = no highlight). The BLUP-based views
-  # (effect_decomp / predicted / obs_vs_shrunken) mark them; other views ignore it.
-  highlight_ids <- maihda_resolve_highlight(object, highlight_interactions)
+  # Resolve the set of strata to highlight (NULL = no highlight). The BLUP-based
+  # views (effect_decomp / predicted / obs_vs_shrunken) mark them; other views
+  # ignore it. highlight_by chooses the screen column: the zero-centred flag, or
+  # the ROPE "relevant" classification (which needs a `rope`).
+  highlight_ids <- maihda_resolve_highlight(object, highlight_interactions,
+                                            highlight_by = highlight_by, rope = rope)
 
   # Longitudinal (growth-curve) models: the time-varying VPC and the stratum mean
   # trajectories replace the cross-sectional VPC bar (whose single proportion stack
@@ -110,7 +169,7 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
       plots <- list(
         vpc_trajectory = plot_vpc_trajectory(summary_obj),
         trajectories = tryCatch(
-          plot_stratum_trajectories(object, summary_obj, n_strata),
+          plot_stratum_trajectories(object, summary_obj, n_strata, select = select),
           error = function(e) NULL)
       )
       for (p in plots[!vapply(plots, is.null, logical(1))]) print(p)
@@ -120,7 +179,7 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
       return(plot_vpc_trajectory(summary_obj))
     }
     if (type == "trajectories") {
-      return(plot_stratum_trajectories(object, summary_obj, n_strata))
+      return(plot_stratum_trajectories(object, summary_obj, n_strata, select = select))
     }
     # Every remaining view (predicted, obs_vs_shrunken, risk_vs_effect,
     # effect_decomp, prediction_deviation, ternary) is a cross-sectional BLUP
@@ -139,10 +198,10 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
 
     # Try obs_vs_shrunken
     if ("stratum" %in% names(object$data)) {
-      plots$obs_vs_shrunken <- tryCatch(plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids), error = function(e) NULL)
+      plots$obs_vs_shrunken <- tryCatch(plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids, only_flagged = only_flagged), error = function(e) NULL)
     }
 
-    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids), error = function(e) NULL)
+    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select), error = function(e) NULL)
 
     top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
     plots$risk_vs_effect <- tryCatch(plot_risk_vs_effect(object, summary_obj, top_n_labels), error = function(e) NULL)
@@ -167,13 +226,20 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     } else if (type == "context_vpc") {
       plot <- plot_context_vpc(summary_obj)
     } else if (type == "obs_vs_shrunken") {
-      plot <- plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids)
+      plot <- plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids, only_flagged = only_flagged)
     } else if (type == "predicted") {
-      plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids)
+      plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select)
     } else if (type == "risk_vs_effect") {
       top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
       plot <- plot_risk_vs_effect(object, summary_obj, top_n_labels)
     } else if (type == "effect_decomp") {
+      # The waterfall's value IS the full-distribution context, so filtering it
+      # away defeats the view; keep it highlighted and say so rather than no-op.
+      if (only_flagged) {
+        message("plot(): 'only_flagged' does not apply to type = \"effect_decomp\" -- ",
+                "its waterfall exists to show each flagged stratum's place in the full ",
+                "distribution, so the flagged strata are highlighted in context instead.")
+      }
       top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
       plot <- plot_effect_decomposition(object, summary_obj, top_n_labels, highlight = highlight_ids)
     } else if (type == "ternary") {
@@ -187,18 +253,26 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
 }
 
 # Resolve the `highlight_interactions` plot argument to a character vector of
-# flagged stratum ids (or NULL = no highlight). Accepts FALSE/NULL (off), TRUE
-# (compute flags with maihda_interactions() defaults), a p.adjust method name
-# such as "BH" (compute flags with that adjustment), or a precomputed
-# maihda_interactions object (so callers can set conf_level/adjust once and reuse).
-maihda_resolve_highlight <- function(model, highlight_interactions) {
+# highlighted stratum ids (or NULL = no highlight). Accepts FALSE/NULL (off), TRUE
+# (compute the screen with maihda_interactions() defaults), a p.adjust method name
+# such as "BH" (compute the screen with that adjustment), or a precomputed
+# maihda_interactions object (so callers can set conf_level/adjust/rope once and
+# reuse). `highlight_by` selects which screen column defines the set: the
+# zero-centred `flagged` column ("flag") or the equivalence `decision` column
+# ("rope", the strata classified "relevant"). `rope` is forwarded to
+# maihda_interactions() when the screen is computed here so the decision column
+# exists; it is ignored when a precomputed object is supplied (that object's own
+# rope governs its decision column).
+maihda_resolve_highlight <- function(model, highlight_interactions,
+                                     highlight_by = c("flag", "rope"), rope = NULL) {
+  highlight_by <- match.arg(highlight_by)
   if (is.null(highlight_interactions) || isFALSE(highlight_interactions)) {
     return(NULL)
   }
   flags <- if (inherits(highlight_interactions, "maihda_interactions")) {
     highlight_interactions
   } else if (isTRUE(highlight_interactions)) {
-    maihda_interactions(model)
+    maihda_interactions(model, rope = rope)
   } else if (is.character(highlight_interactions) && length(highlight_interactions) == 1L) {
     choices <- c("none", stats::p.adjust.methods)
     if (!highlight_interactions %in% choices) {
@@ -206,13 +280,151 @@ maihda_resolve_highlight <- function(model, highlight_interactions) {
            "method name (e.g. \"BH\"), or a maihda_interactions object from ",
            "maihda_interactions().", call. = FALSE)
     }
-    maihda_interactions(model, adjust = highlight_interactions)
+    maihda_interactions(model, adjust = highlight_interactions, rope = rope)
   } else {
     stop("'highlight_interactions' must be FALSE, TRUE, a multiple-comparison ",
          "method name (e.g. \"BH\"), or a maihda_interactions object from ",
          "maihda_interactions().", call. = FALSE)
   }
-  as.character(flags$stratum[flags$flagged %in% TRUE])
+  ids <- maihda_highlight_ids(flags, highlight_by)
+  # Carry the screen's parameters along so downstream views can caption an
+  # only_flagged subset honestly (e.g. "95% interval, BH-adjusted", or the ROPE
+  # region for highlight_by = "rope"). Attributes ride harmlessly through the
+  # `as.character(stratum) %in% highlight` membership checks that consume `ids`
+  # elsewhere.
+  attr(ids, "conf_level") <- attr(flags, "conf_level")
+  attr(ids, "adjust") <- attr(flags, "adjust")
+  attr(ids, "engine") <- attr(flags, "engine")
+  attr(ids, "highlight_by") <- highlight_by
+  attr(ids, "rope") <- attr(flags, "rope")
+  ids
+}
+
+# Extract the highlighted stratum ids from a resolved interaction screen per
+# `highlight_by`: the zero-centred `flagged` column ("flag", the historical
+# default) or the equivalence `decision` column ("rope", the strata classified
+# "relevant"). The ROPE path needs a screen that was computed with a `rope`, so it
+# errors with an actionable message when the `decision` column is absent.
+maihda_highlight_ids <- function(flags, highlight_by) {
+  if (identical(highlight_by, "rope")) {
+    if (!"decision" %in% names(flags)) {
+      stop("highlight_by = \"rope\" highlights the ROPE-relevant strata, but the ",
+           "interaction screen has no 'decision' column (it was computed without a ",
+           "'rope'). Pass 'rope' -- a positive half-width d for the region ",
+           "c(-d, d), or c(lower, upper) on the latent (link) scale -- e.g. ",
+           "plot(fit, highlight_interactions = TRUE, highlight_by = \"rope\", ",
+           "rope = 0.4); or supply a maihda_interactions object built with ",
+           "maihda_interactions(fit, rope = ...).", call. = FALSE)
+    }
+    # NA decisions (interval not computable) are never "relevant"; %in% drops them.
+    as.character(flags$stratum[flags$decision %in% "relevant"])
+  } else {
+    as.character(flags$stratum[flags$flagged %in% TRUE])
+  }
+}
+
+# The noun naming the highlighted set, for honest captions/labels: "flagged"
+# (zero-centred screen) or "ROPE-relevant" (equivalence screen). Reads the
+# highlight_by attribute attached by maihda_resolve_highlight(); defaults to
+# "flagged" when absent (a bare id vector), preserving the historical wording.
+maihda_highlight_noun <- function(highlight) {
+  if (identical(attr(highlight, "highlight_by"), "rope")) "ROPE-relevant" else "flagged"
+}
+
+# Validate the `only_flagged` plot argument: NULL -> FALSE, otherwise a single
+# non-NA logical. Anything else is a usage error.
+maihda_validate_only_flagged <- function(only_flagged) {
+  if (is.null(only_flagged)) return(FALSE)
+  if (!is.logical(only_flagged) || length(only_flagged) != 1L || is.na(only_flagged)) {
+    stop("'only_flagged' must be a single TRUE or FALSE.", call. = FALSE)
+  }
+  only_flagged
+}
+
+# Human-readable description of the interaction screen behind a highlight set, for
+# an honest only_flagged caption. Mirrors the basis line of
+# maihda_print_interactions_line(): a credible interval for brms, otherwise the
+# conf_level interval with the multiplicity stance actually used. For a ROPE
+# highlight (highlight_by = "rope") it instead names the equivalence region the
+# "relevant" classification is read against. Reads the attributes attached by
+# maihda_resolve_highlight(); defaults to a 95% interval when they are absent
+# (e.g. a bare character vector of ids).
+maihda_highlight_screen_label <- function(highlight) {
+  conf <- attr(highlight, "conf_level")
+  conf_pct <- if (is.null(conf)) 95 else conf * 100
+
+  # ROPE highlight: the "relevant" decision is "conf_level interval entirely
+  # outside the region", so caption the region (symmetric -> |effect| > d) and the
+  # interval level, on the latent (link) scale the interaction lives on.
+  if (identical(attr(highlight, "highlight_by"), "rope")) {
+    rope <- attr(highlight, "rope")
+    region <- if (is.null(rope)) {
+      "the equivalence region"
+    } else if (isTRUE(all.equal(rope[1], -rope[2]))) {
+      sprintf("|effect| > %g", rope[2])
+    } else {
+      sprintf("interval outside [%g, %g]", rope[1], rope[2])
+    }
+    return(sprintf("%s on the latent (link) scale, %.0f%% interval",
+                   region, conf_pct))
+  }
+
+  adjust <- attr(highlight, "adjust")
+  engine <- attr(highlight, "engine")
+  if (identical(engine, "brms")) {
+    sprintf("%.0f%% credible interval", conf_pct)
+  } else if (is.null(adjust) || identical(adjust, "none")) {
+    sprintf("%.0f%% interval, unadjusted", conf_pct)
+  } else {
+    sprintf("%.0f%% interval, %s-adjusted", conf_pct, adjust)
+  }
+}
+
+# Placeholder for an only_flagged view when no stratum is highlighted: an empty
+# panel carrying the same title plus an explanatory annotation, so the filtered
+# view degrades gracefully instead of erroring or drawing a bare axis. Mirrors the
+# print method's "No strata show interaction credibly different from zero". The
+# lead phrase tracks the highlight mode (flag vs ROPE) read from `highlight`.
+maihda_no_flagged_plot <- function(title, screen_label, highlight = NULL) {
+  body <- if (identical(attr(highlight, "highlight_by"), "rope")) {
+    paste0("No strata classified as ROPE-relevant\n(", screen_label, ").")
+  } else {
+    paste0("No strata flagged as carrying a credibly\n",
+           "non-zero interaction (", screen_label, ").")
+  }
+  ggplot2::ggplot() +
+    ggplot2::annotate(
+      "text", x = 0, y = 0, size = 4, color = "grey30",
+      label = body) +
+    ggplot2::scale_x_continuous(limits = c(-1, 1)) +
+    ggplot2::scale_y_continuous(limits = c(-1, 1)) +
+    ggplot2::labs(title = title, x = NULL, y = NULL) +
+    theme_maihda() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      axis.text = ggplot2::element_blank(),
+      axis.ticks = ggplot2::element_blank(),
+      panel.grid = ggplot2::element_blank())
+}
+
+# Choose which `k` of the candidate row indices `cand_idx` to keep when a capped
+# view must drop strata, honouring the selection rule. "order" keeps the first k
+# (stratum order, the historical behaviour); "deviation" keeps the k most extreme
+# by |deviation| -- magnitude, so BOTH tails are pulled in, ranked by distance --
+# where `mag` is a per-row magnitude aligned to the full table (non-finite -> -Inf
+# so incomputable rows sort last). The returned indices are sorted ascending, so
+# the DISPLAYED x-axis stays in stratum order regardless of how the survivors were
+# chosen: selection and display order are deliberately separate.
+maihda_pick_strata <- function(cand_idx, k, select, mag) {
+  if (length(cand_idx) <= k) return(sort(cand_idx))
+  chosen <- if (identical(select, "deviation")) {
+    m <- mag[cand_idx]
+    m[!is.finite(m)] <- -Inf
+    cand_idx[order(m, decreasing = TRUE)[seq_len(k)]]
+  } else {
+    utils::head(cand_idx, k)
+  }
+  sort(chosen)
 }
 
 # Append a star to the strata flagged for highlighting, for use in plot labels.
@@ -404,12 +616,17 @@ plot_context_vpc <- function(summary_obj) {
 #'
 #' @param object A maihda_model object
 #' @param summary_obj A maihda_summary object
+#' @param highlight Optional character vector of highlighted stratum ids (flagged,
+#'   or ROPE-relevant under \code{highlight_by = "rope"}), with the
+#'   interaction-screen parameters attached as attributes.
+#' @param only_flagged When TRUE, show only the highlighted strata; a captioned
+#'   empty panel is returned if none are.
 #' @return A ggplot2 object
 #' @keywords internal
 #' @import ggplot2
 #' @importFrom dplyr group_by summarise
 #' @importFrom stats formula terms
-plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
+plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL, only_flagged = FALSE) {
   data <- object$data
 
   observed_response <- maihda_observed_response_from_model_frame(data, object$formula)
@@ -464,6 +681,24 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
     plot_data$shrunken <- pred_data$predicted_row[pred_idx]
     plot_data$.maihda_flag <- as.character(plot_data$stratum) %in% highlight
 
+    # The y = x diagonal is the only reference and is filtering-invariant, so an
+    # only_flagged subset is safe. With nothing flagged, degrade to a captioned
+    # empty panel rather than a bare diagonal.
+    caption_txt <- NULL
+    if (only_flagged) {
+      n_total <- nrow(plot_data)
+      n_flagged <- sum(plot_data$.maihda_flag)
+      screen_label <- maihda_highlight_screen_label(highlight)
+      noun <- maihda_highlight_noun(highlight)
+      if (n_flagged == 0) {
+        return(maihda_no_flagged_plot("Observed vs. Shrunken Stratum Estimates",
+                                      screen_label, highlight))
+      }
+      plot_data <- plot_data[plot_data$.maihda_flag, , drop = FALSE]
+      caption_txt <- sprintf("Showing the %d %s strata (%s) of %d total.",
+                             n_flagged, noun, screen_label, n_total)
+    }
+
     has_hl <- any(plot_data$.maihda_flag)
 
     # Create plot. When interactions are highlighted, focus by contrast -- flagged
@@ -481,11 +716,13 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL) {
         title = "Observed vs. Shrunken Stratum Estimates",
         x = "Observed Stratum Mean",
         y = "Shrunken Estimate (with Random Effect)",
-        size = "Sample Size"
+        size = "Sample Size",
+        caption = caption_txt
       ) +
       theme_maihda() +
       theme(
         plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
         legend.position = "right"
       )
     if (has_hl) {
@@ -611,12 +848,25 @@ maihda_observed_outcome_for_plot <- function(x, family = NULL) {
 #' @param summary_obj A maihda_summary object
 #' @param n_strata Maximum number of strata to display (the first n_strata, in stratum order)
 #' @param scale Prediction scale: "response" (default) or "link"
+#' @param highlight Optional character vector of highlighted stratum ids -- the
+#'   flagged strata, or the ROPE-relevant strata under
+#'   \code{highlight_by = "rope"} -- with the interaction-screen parameters
+#'   attached as attributes (including \code{highlight_by} and \code{rope}).
+#' @param only_flagged When TRUE, show only the highlighted strata (those in
+#'   \code{highlight}); a captioned empty panel is returned if none are.
+#' @param select When the \code{n_strata} cap drops strata, which to keep:
+#'   \code{"order"} (default) the first n_strata in stratum order, or
+#'   \code{"deviation"} the n_strata furthest from the reference line (largest
+#'   \code{|predicted - reference|}, so both tails). Flagged strata are kept
+#'   regardless; this governs the fill / the unflagged case. The displayed x-axis
+#'   stays in stratum order either way.
 #' @return A ggplot2 object
 #' @keywords internal
 #' @import ggplot2
 #' @importFrom dplyr arrange slice
-plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL) {
+plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL, only_flagged = FALSE, select = c("order", "deviation")) {
   scale <- match.arg(scale)
+  select <- match.arg(select)
 
   pred_data <- if (object$engine == "lme4") {
     maihda_stratum_predictions_lme4(object, summary_obj, scale = scale)
@@ -647,15 +897,88 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
   stratum_est$lower <- pred_data$lower_row[pred_idx]
   stratum_est$upper <- pred_data$upper_row[pred_idx]
 
-  # Keep original order (no sorting). n_strata is a MAXIMUM: when there are more
-  # strata than that, show the first n_strata in stratum order rather than
-  # thinning an evenly-spaced subset across all of them. The old stride sampling
-  # silently dropped strata from the middle while implying full coverage; the
-  # caption below records how many were omitted so the cap is not silent.
+  # Mark strata flagged as carrying a credibly non-zero interaction BEFORE any
+  # truncation, so the cap can be made flag-aware (a flagged stratum past the cap
+  # must not be silently dropped). The reference line above is already computed
+  # from ALL strata, so neither filtering nor capping below shifts it.
+  stratum_est$.maihda_flag <- as.character(stratum_est$stratum) %in% highlight
   n_total_strata <- nrow(stratum_est)
-  truncated_strata <- !is.null(n_strata) && n_total_strata > n_strata
-  if (truncated_strata) {
-    stratum_est <- utils::head(stratum_est, n_strata)
+  n_flagged_total <- sum(stratum_est$.maihda_flag)
+  screen_label <- maihda_highlight_screen_label(highlight)
+  # Noun for the highlighted set in captions: "flagged" or "ROPE-relevant".
+  noun <- maihda_highlight_noun(highlight)
+
+  # Per-stratum magnitude = visual distance from the reference line. select =
+  # "deviation" keeps the most extreme by this; "order" ignores it. The reference
+  # is computed from ALL strata above, so the ranking is stable under capping.
+  dev_mag <- abs(stratum_est$predicted - fixed_reference)
+  # Phrase a kept subset of size k to match the rule actually used, so a
+  # deviation-selected view is never read as a stratum-order one. Word order
+  # differs ("first 2" vs "2 most extreme"), so build the whole phrase here.
+  sel_phrase <- function(k) {
+    if (identical(select, "deviation")) sprintf("%d most extreme", k) else sprintf("first %d", k)
+  }
+
+  caption_txt <- ""
+  if (only_flagged) {
+    # Restrict to flagged strata. With none flagged, return a captioned empty
+    # panel rather than an error or a bare axis.
+    if (n_flagged_total == 0) {
+      return(maihda_no_flagged_plot(
+        "Predicted Subgroup Values with Conditional 95% Intervals", screen_label,
+        highlight))
+    }
+    flagged_idx <- which(stratum_est$.maihda_flag)
+    # A cap still applies for readability when MANY strata are flagged; which
+    # flagged strata survive it follows `select`.
+    k <- if (is.null(n_strata)) length(flagged_idx) else n_strata
+    keep_idx <- maihda_pick_strata(flagged_idx, k, select, dev_mag)
+    capped <- length(keep_idx) < n_flagged_total
+    stratum_est <- stratum_est[keep_idx, , drop = FALSE]
+    caption_txt <- if (capped) {
+      sprintf("\nShowing the %s of %d %s strata (%s); %d strata total.",
+              sel_phrase(length(keep_idx)), n_flagged_total, noun, screen_label, n_total_strata)
+    } else {
+      sprintf("\nShowing the %d %s strata (%s) of %d total.",
+              n_flagged_total, noun, screen_label, n_total_strata)
+    }
+  } else if (!is.null(n_strata) && n_total_strata > n_strata) {
+    # Cap exceeded. n_strata is a MAXIMUM: keep the first n_strata in stratum order
+    # (select = "order") or the n_strata furthest from the reference (select =
+    # "deviation") -- never an evenly-spaced stride, which silently dropped strata
+    # from the middle while implying full coverage.
+    if (n_flagged_total > 0) {
+      # Flag-aware cap: keep EVERY flagged stratum, then fill the remaining slots
+      # per `select`. A flagged stratum beyond the cap is the signal the highlight
+      # exists to surface, so it is never dropped -- even if that means showing
+      # more than n_strata.
+      flagged_idx <- which(stratum_est$.maihda_flag)
+      nonflag_idx <- which(!stratum_est$.maihda_flag)
+      n_fill <- max(0, n_strata - length(flagged_idx))
+      fill_idx <- maihda_pick_strata(nonflag_idx, n_fill, select, dev_mag)
+      keep_idx <- sort(union(flagged_idx, fill_idx))
+      stratum_est <- stratum_est[keep_idx, , drop = FALSE]
+      caption_txt <- if (length(flagged_idx) > n_strata) {
+        sprintf(paste0("\nShowing all %d %s strata of %d (n_strata = %d ",
+                       "exceeded to keep every %s stratum)."),
+                length(flagged_idx), noun, n_total_strata, n_strata, noun)
+      } else {
+        sprintf(paste0("\nShowing %d of %d strata: all %d %s plus the %s ",
+                       "others (n_strata = %d)."),
+                length(keep_idx), n_total_strata, length(flagged_idx), noun,
+                sel_phrase(n_fill), n_strata)
+      }
+    } else {
+      keep_idx <- maihda_pick_strata(seq_len(n_total_strata), n_strata, select, dev_mag)
+      stratum_est <- stratum_est[keep_idx, , drop = FALSE]
+      caption_txt <- if (identical(select, "deviation")) {
+        sprintf("\nShowing the %d strata furthest from the reference, of %d (n_strata = %d).",
+                n_strata, n_total_strata, n_strata)
+      } else {
+        sprintf("\nShowing the first %d of %d strata (n_strata = %d).",
+                n_strata, n_total_strata, n_strata)
+      }
+    }
   }
 
   # Use labels if available, otherwise use numeric stratum IDs
@@ -667,10 +990,10 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
     stratum_est$display_label <- stratum_est$stratum
   }
 
-  # Mark strata flagged as carrying a credibly non-zero interaction; star their
-  # axis labels so the highlight survives in the (possibly truncated) view.
-  stratum_est$.maihda_flag <- as.character(stratum_est$stratum) %in% highlight
-  if (any(stratum_est$.maihda_flag)) {
+  # Star the flagged strata's axis labels so the highlight survives the (possibly
+  # truncated) view. In only_flagged mode every shown stratum is flagged, so a
+  # star on each would be redundant noise -- skip it there.
+  if (!only_flagged && any(stratum_est$.maihda_flag)) {
     stratum_est$display_label <- maihda_highlight_label(
       stratum_est$display_label, stratum_est$stratum, highlight)
   }
@@ -703,12 +1026,7 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
       title = "Predicted Subgroup Values with Conditional 95% Intervals",
       x = "Stratum",
       y = "Predicted Value",
-      caption = if (truncated_strata) {
-        sprintf("\nShowing the first %d of %d strata (n_strata = %d).",
-                n_strata, n_total_strata, n_strata)
-      } else {
-        ""
-      }
+      caption = caption_txt
     ) +
     theme_maihda() +
     theme(
@@ -1180,12 +1498,17 @@ plot_vpc_trajectory <- function(summary_obj) {
 #'
 #' @param object A longitudinal \code{maihda_model}.
 #' @param summary_obj Its \code{maihda_summary}.
-#' @param n_strata Maximum number of strata to draw (by stratum order); the rest
-#'   are noted in the caption.
+#' @param n_strata Maximum number of strata to draw; the rest are noted in the
+#'   caption.
+#' @param select When the cap drops strata, which to keep: \code{"order"}
+#'   (default) the first n_strata in stratum order, or \code{"deviation"} the
+#'   n_strata whose trajectory swings furthest from the population curve (largest
+#'   peak \code{|random deviation|} over the time grid, either direction).
 #' @return A ggplot2 object.
 #' @keywords internal
 #' @import ggplot2
-plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50) {
+plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50, select = c("order", "deviation")) {
+  select <- match.arg(select)
   lng <- summary_obj$longitudinal
   if (is.null(lng)) {
     stop("plot_stratum_trajectories() needs a longitudinal model.", call. = FALSE)
@@ -1197,9 +1520,22 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50) {
   omitted <- 0L
   if (!is.null(n_strata) && length(strata) > n_strata) {
     omitted <- length(strata) - n_strata
-    keep <- strata[seq_len(n_strata)]
-    re <- re[re$stratum %in% keep, , drop = FALSE]
-    strata <- keep
+    keep_rows <- if (identical(select, "deviation")) {
+      # Peak absolute random deviation over the grid -- max_t |sum_j coef_j t^j|,
+      # the stratum's own departure from the fixed trajectory -- so the strata whose
+      # trajectories diverge most (either direction) survive the cap, not the first
+      # by stratum id. A scalar BLUP would miss a small-intercept/large-slope fan-out.
+      mag <- vapply(seq_len(nrow(re)), function(i) {
+        a <- vapply(grid, function(t) sum(re$coef[[i]] * t^(0:(length(re$coef[[i]]) - 1))),
+                    numeric(1))
+        max(abs(a))
+      }, numeric(1))
+      order(mag, decreasing = TRUE)[seq_len(n_strata)]
+    } else {
+      seq_len(n_strata)
+    }
+    re <- re[sort(keep_rows), , drop = FALSE]
+    strata <- re$stratum
   }
 
   # Fixed-part trajectory at the population mean covariate profile: predict on a
@@ -1214,8 +1550,12 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50) {
                time = grid, value = eta_fixed + a, stringsAsFactors = FALSE)
   }))
 
-  cap <- if (omitted > 0) sprintf("%d of %d strata shown; %d omitted.",
-                                  length(strata), length(strata) + omitted, omitted) else NULL
+  cap <- if (omitted > 0) {
+    sprintf("%d of %d strata shown%s; %d omitted.",
+            length(strata), length(strata) + omitted,
+            if (identical(select, "deviation")) " (most extreme by trajectory deviation)" else "",
+            omitted)
+  } else NULL
 
   ggplot(rows, aes(x = .data$time, y = .data$value, group = .data$stratum,
                    color = .data$label)) +

@@ -4,7 +4,16 @@
 \alias{plot.maihda_analysis}
 \title{Plot a MAIHDA Analysis}
 \usage{
-\method{plot}{maihda_analysis}(x, type = "all", highlight_interactions = FALSE, ...)
+\method{plot}{maihda_analysis}(
+  x,
+  type = "all",
+  highlight_interactions = FALSE,
+  only_flagged = FALSE,
+  highlight_by = c("flag", "rope"),
+  rope = NULL,
+  select = c("order", "deviation"),
+  ...
+)
 }
 \arguments{
 \item{x}{A \code{maihda_analysis} object from \code{\link{maihda}}.}
@@ -26,6 +35,35 @@ intersectional interaction on the BLUP-based views (see
 crossed-dimensions model), a multiple-testing method such as \code{"BH"}, or
 a \code{maihda_interactions} object. The flags are computed once from the
 correct (adjusted) model and reused across views.}
+
+\item{only_flagged}{Show only the highlighted strata on the \code{"predicted"}
+and \code{"obs_vs_shrunken"} views instead of dimming the rest (see
+\code{\link[=plot.maihda_model]{plot}}). \code{FALSE} (default) keeps every
+stratum; \code{TRUE} restricts those views to the highlighted strata (those
+carrying a credibly non-zero interaction, or -- under
+\code{highlight_by = "rope"} -- those classified ROPE-\code{"relevant"}) and,
+when \code{highlight_interactions} is left \code{FALSE}, turns the highlight on
+with this analysis's stored diagnostic. \code{"effect_decomp"} ignores it (it
+stays highlighted in context).}
+
+\item{highlight_by}{Which interaction-screen column defines the highlighted
+strata: \code{"flag"} (default, the zero-centred \code{flagged} column) or
+\code{"rope"} (the equivalence \code{decision} column, highlighting the
+strata classified \code{"relevant"}). See
+\code{\link[=plot.maihda_model]{plot}}. \code{"rope"} requires \code{rope}
+(or a \code{highlight_interactions} object built with one).}
+
+\item{rope}{Equivalence region forwarded to \code{\link{maihda_interactions}}
+when computing the screen, so \code{highlight_by = "rope"} has a
+\code{decision} column to read: a single positive \code{d} for the symmetric
+region \code{c(-d, d)} on the latent (link) scale, or \code{c(lower, upper)}.
+\code{NULL} (default) adds no equivalence classification.}
+
+\item{select}{When the \code{n_strata} cap drops strata on the
+\code{"predicted"} (or longitudinal \code{"trajectories"}) view, which to
+keep: \code{"order"} (default, first n_strata in stratum order) or
+\code{"deviation"} (the n_strata furthest from the reference, both tails). See
+\code{\link[=plot.maihda_model]{plot}}.}
 
 \item{...}{Additional arguments passed to the underlying plot method.}
 }

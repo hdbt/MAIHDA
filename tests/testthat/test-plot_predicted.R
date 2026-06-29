@@ -188,6 +188,45 @@ test_that("observed vs shrunken handles two-column binomial outcomes", {
   expect_equal(plot$data$observed, expected$observed[idx], tolerance = 1e-8)
 })
 
+test_that("select = 'deviation' keeps the most extreme strata (both tails), not the first", {
+  set.seed(303)
+  K <- 20L; per <- 30L
+  stratum <- rep(seq_len(K), each = per)
+  # Stratum mean rises with id; the overall mean sits at the centre (~10.5), so the
+  # most extreme strata by |predicted - reference| are the lowest AND highest ids.
+  outcome <- stratum + rnorm(K * per, sd = 0.3)
+  dat <- data.frame(stratum = stratum, outcome = outcome)
+  m <- fit_maihda(outcome ~ 1 + (1 | stratum), data = dat, engine = "lme4")
+
+  full_order <- as.integer(as.character(
+    plot(m, type = "predicted", n_strata = NULL)$data$stratum))
+  p_ord <- plot(m, type = "predicted", n_strata = 6, select = "order")
+  p_dev <- plot(m, type = "predicted", n_strata = 6, select = "deviation")
+  ord_shown <- as.integer(as.character(p_ord$data$stratum))
+  dev_shown <- as.integer(as.character(p_dev$data$stratum))
+
+  # order keeps the first 6 in the native (stratum) order
+  expect_equal(ord_shown, utils::head(full_order, 6))
+  # deviation keeps the 6 furthest from the centre -- three from each tail
+  expect_setequal(dev_shown, c(1, 2, 3, 18, 19, 20))
+  # selection != display order: the survivors still appear in native stratum order
+  expect_equal(dev_shown, full_order[full_order %in% dev_shown])
+  # captions name the rule actually used
+  expect_match(p_dev$labels$caption, "furthest from the reference")
+  expect_match(p_ord$labels$caption, "first 6 of 20")
+})
+
+test_that("select defaults to 'order' and is validated", {
+  set.seed(404)
+  dat <- data.frame(stratum = rep(1:8, each = 10), outcome = rnorm(80))
+  m <- fit_maihda(outcome ~ 1 + (1 | stratum), data = dat, engine = "lme4")
+  # default == explicit "order"
+  d_default <- as.character(plot(m, type = "predicted", n_strata = 4)$data$stratum)
+  d_order   <- as.character(plot(m, type = "predicted", n_strata = 4, select = "order")$data$stratum)
+  expect_equal(d_default, d_order)
+  expect_error(plot(m, type = "predicted", select = "nope"))
+})
+
 test_that("risk_vs_effect uses fixed-only marginal predictions on the x-axis", {
   set.seed(557)
   data <- data.frame(

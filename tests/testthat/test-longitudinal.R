@@ -283,6 +283,33 @@ test_that("plots return ggplot objects", {
   expect_s3_class(plot(a_g, type = "trajectories"), "ggplot")
 })
 
+test_that("trajectories select = 'deviation' keeps the most divergent strata", {
+  s <- summary(m_g)
+  all_strata <- unique(as.character(
+    plot(m_g, type = "trajectories", n_strata = NULL)$data$stratum))
+  cap <- 3L
+  skip_if(length(all_strata) <= cap, "not enough strata to exercise the cap")
+
+  p_dev <- plot(m_g, type = "trajectories", n_strata = cap, select = "deviation")
+  p_ord <- plot(m_g, type = "trajectories", n_strata = cap, select = "order")
+  dev <- unique(as.character(p_dev$data$stratum))
+  expect_length(dev, cap)
+  expect_length(unique(as.character(p_ord$data$stratum)), cap)
+  expect_match(p_dev$labels$caption, "most extreme by trajectory deviation")
+
+  # the survivors are exactly the most divergent by peak |random deviation| over
+  # the grid: every kept stratum's peak is at least every dropped stratum's peak.
+  re <- MAIHDA:::maihda_longitudinal_stratum_re(m_g)
+  grid <- s$longitudinal$time_grid
+  peak <- vapply(seq_len(nrow(re)), function(i) {
+    a <- vapply(grid, function(t) sum(re$coef[[i]] * t^(0:(length(re$coef[[i]]) - 1))),
+                numeric(1))
+    max(abs(a))
+  }, numeric(1))
+  names(peak) <- as.character(re$stratum)
+  expect_gte(min(peak[dev]), max(peak[setdiff(names(peak), dev)]))
+})
+
 test_that("print methods cover the longitudinal branches", {
   expect_output(print(m_g), "Longitudinal")
   expect_output(print(summary(m_g)), "baseline")
