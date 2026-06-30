@@ -1,10 +1,10 @@
 ---
-title: "Real-data case study: BRFSS mental distress"
+title: "Case study: BRFSS mental distress"
 author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Real-data case study: BRFSS mental distress}
+  %\VignetteIndexEntry{Case study: BRFSS mental distress}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -166,7 +166,7 @@ knitr::kable(
     `Adjusted (Model 2)` = fmt0(mt$adjusted),
     check.names = FALSE
   ),
-  caption = "Model-results table (unweighted, full data, cached)."
+  caption = "Model-results table."
 )
 ```
 
@@ -182,7 +182,7 @@ disp <- data.frame(Rank = ts$rank, Stratum = ts$label, Predicted = fmt(ts$predic
                    check.names = FALSE)
 if ("observed" %in% names(ts)) disp[["Observed"]] <- fmt(ts$observed)
 if ("raw_n" %in% names(ts)) disp[["N"]] <- big(ts$raw_n)
-knitr::kable(disp, caption = "Highest predicted-risk strata (cached).")
+knitr::kable(disp, caption = "Highest predicted-risk strata.")
 ```
 
 The highest-risk strata combine younger age, female sex, low income, and disability (top predicted prevalence around `r pct(pc$top_strata$predicted[1])`) and race/ethnicity varies across the top group. These strata are high-risk because they stack several high-risk main-effect categories, not necessarily because of a large residual interaction.
@@ -196,7 +196,7 @@ disp <- data.frame(Stratum = it$label, Interaction = fmt(it$interaction),
 if ("direction" %in% names(it)) disp[["Direction"]] <- it$direction
 if ("decision" %in% names(it)) disp[["ROPE (±0.4)"]] <- it$decision
 knitr::kable(head(disp, 15), digits = 3,
-             caption = "Strongest interactions by absolute size, with ROPE classification (cached).")
+             caption = "Strongest interactions by absolute size, with ROPE classification.")
 ```
 
 ### How many interactions actually matter? A ROPE
@@ -211,19 +211,30 @@ At a ROPE of ±0.4 log-odds (an odds ratio within roughly 0.67--1.49 of the addi
 
 ## Plot the case study
 
+The variance partition shows how much of the latent-scale variation lies between strata:
+
 ```{r plot-vpc-cached, echo = FALSE, out.width = "100%", fig.cap = "Variance partition (VPC): share of latent-scale variation between intersectional strata."}
 knitr::include_graphics("figures/brfss_vpc.png")
 ```
 
-```{r plot-predicted-cached, echo = FALSE, out.width = "100%", fig.cap = "Top 30 strata by predicted risk; BH-flagged interactions highlighted."}
-knitr::include_graphics("figures/brfss_predicted_top30.png")
+The next two views highlight strata by the **ROPE decision** rather than the zero-centred flag: `highlight_by = "rope"` marks the strata classified practically *relevant* at `rope = 0.4` -- here just the `r pc$rope_primary$relevant` strata whose interaction interval clears ±0.4. (Compare the FDR flag, which marks `r pc$n_flagged`.) The first is an **UpSet-style** view that swaps the unreadable intersectional axis labels for a category matrix -- a top bar of stratum sizes, a matrix of which level of each dimension defines the stratum, and the predicted values below, all sharing one column order.
+
+```{r plot-code, eval = FALSE}
+plot(brfss_fit, type = "upset", n_strata = 20, select = "deviation",
+     highlight_interactions = TRUE, highlight_by = "rope", rope = 0.4)
+plot(brfss_fit, type = "effect_decomp",
+     highlight_interactions = TRUE, highlight_by = "rope", rope = 0.4)
 ```
 
-```{r plot-effect-cached, echo = FALSE, out.width = "100%", fig.cap = "Effect decomposition: additive disadvantage vs. residual intersectional deviation."}
+```{r plot-upset-cached, echo = FALSE, out.width = "100%", fig.cap = "UpSet-style predicted-risk view: read each stratum's defining category off the matrix instead of a long text label. Columns are the most extreme-risk strata plus the ROPE-relevant ones (±0.4), which are highlighted."}
+knitr::include_graphics("figures/brfss_upset.png")
+```
+
+```{r plot-effect-cached, echo = FALSE, out.width = "100%", fig.cap = "Effect decomposition: additive (fixed-effect) vs. residual stratum (interaction) component per stratum; the two ROPE-relevant strata (±0.4) are labelled."}
 knitr::include_graphics("figures/brfss_effect_decomp.png")
 ```
 
-The predicted-strata plot shows the inequality pattern; the effect-decomposition plot separates additive disadvantage from the (mostly small) residual intersectional deviation.
+The UpSet view shows the predicted-risk inequality with each stratum's defining categories read off the matrix; the effect-decomposition plot separates the additive (fixed-effect) part from the residual stratum (interaction) part, with the ROPE-relevant strata picked out.
 
 
 ## Results

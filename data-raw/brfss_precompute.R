@@ -4,16 +4,14 @@
 # records. It is fitted ONCE here and the results/figures are cached for the article
 # to display (the vignette shows the individual-level call but does not evaluate it).
 #
-# HOW IT IS FITTED: on the grouped one-row-per-stratum table, cbind(cases, controls)
-# ~ dims + (1 | stratum). Because the outcome is binomial and every predictor is a
-# stratum-defining dimension, this is EXACTLY the unweighted individual-level fit on
-# all 352,714 records -- the cell counts are sufficient statistics, so nothing is
-# lost (verified: identical VPC/PCV/BLUPs/ROPE to the individual fit, to ~1e-8). We
-# use the grouped form purely because it is instant; the literal 352k-row individual
-# glmer takes ~10 min for identical results. (Historical note: that individual fit
-# used to return AUC = NA via an integer overflow in maihda_auc's n1 * n0; fixed in
-# R/discriminatory_accuracy.R, with a regression test, so either form now gives the
-# same AUC.)
+# HOW IT IS FITTED: on the full INDIVIDUAL records,
+# frequent_distress ~ dims + (1 | stratum). This is slow (~10 min) but it carries the
+# true per-stratum sample sizes, which the UpSet plot's intersection-size bars need.
+# (The equivalent grouped cbind(cases, controls) fit is instant and gives identical
+# VPC/PCV/BLUPs/ROPE/AUC -- the cell counts are sufficient statistics -- but it reports
+# a stratum "size" of 1 for every cell, so its UpSet size bars come out all equal.
+# Hence the individual fit here. AUC on the full individual fit relies on the integer-
+# overflow fix in R/discriminatory_accuracy.R.)
 #
 # Outputs:
 #   vignettes/brfss_precomputed.rds   -- small cache the vignette reads
@@ -39,32 +37,28 @@ run_brfss_precompute <- function(data_dir = file.path("data", "brfss-2024"),
   d <- as.data.frame(readRDS(analytic_path))[, c("frequent_distress", sv)]
   n_individuals <- nrow(d)
 
-  # Aggregate the full individual data to its sufficient statistics (one row per
-  # stratum). This loses nothing for a binomial model with stratum-level predictors.
-  strata <- d |>
-    group_by(across(all_of(sv))) |>
-    summarise(raw_n = n(), raw_cases = sum(frequent_distress),
-              raw_controls = raw_n - raw_cases, raw_prevalence = mean(frequent_distress),
-              .groups = "drop")
-  strata$label <- do.call(paste, c(strata[sv], sep = " × "))
   message("Fitting unweighted MAIHDA on ", format(n_individuals, big.mark = ","),
-          " records (", nrow(strata), " strata) ...")
-
+          " individual records (slow ~10 min) ...")
   fit <- suppressWarnings(maihda(
-    cbind(raw_cases, raw_controls) ~
+    frequent_distress ~
       sex + race_ethnicity + age_group + education + income + disability +
       (1 | sex:race_ethnicity:age_group:education:income:disability),
-    data = strata, family = "binomial", interactions = "BH"))
+    data = d, family = "binomial", interactions = "BH"))
 
   g  <- as.data.frame(generics::glance(fit))
   tab <- maihda_table(fit)
   mt <- tab$models
   mstat <- function(s, col) { v <- mt[mt$statistic == s, col]; if (length(v)) as.numeric(v[1]) else NA_real_ }
 
-  # Observed cell sizes / prevalences for the ranked table, attached from the
-  # aggregated table by the stratum label (maihda_table uses the same " × " labels).
+  # Observed cell sizes / prevalences for the ranked table + sparsity counts,
+  # aggregated from the (individual) model frame by stratum id.
+  counts <- fit$model$data |>
+    mutate(stratum = as.character(stratum)) |>
+    group_by(stratum) |>
+    summarise(raw_n = n(), observed = mean(frequent_distress), .groups = "drop")
   ranked <- tab$strata |>
-    left_join(dplyr::select(strata, label, raw_n, observed = raw_prevalence), by = "label")
+    mutate(stratum = as.character(stratum)) |>
+    left_join(counts, by = "stratum")
   rcols <- intersect(c("rank", "label", "predicted", "predicted_lower",
                        "predicted_upper", "observed", "raw_n"), names(ranked))
   ranked_small <- ranked[, rcols, drop = FALSE]
@@ -85,7 +79,7 @@ run_brfss_precompute <- function(data_dir = file.path("data", "brfss-2024"),
 
   pc <- list(
     analytic_n = n_individuals, n_strata = nrow(ranked),
-    n_sparse_lt20 = sum(strata$raw_n < 20), n_sparse_lt50 = sum(strata$raw_n < 50),
+    n_sparse_lt20 = sum(counts$raw_n < 20), n_sparse_lt50 = sum(counts$raw_n < 50),
     vpc = as.numeric(g$vpc), vpc_adjusted = mstat("VPC/ICC", "adjusted"),
     pcv = as.numeric(g$pcv), auc = as.numeric(g$auc),
     auc_adjusted = as.numeric(g$auc.adjusted), mor = as.numeric(g$mor),
@@ -111,14 +105,21 @@ run_brfss_precompute <- function(data_dir = file.path("data", "brfss-2024"),
                   pc$rope_primary$relevant, pc$rope_primary$negligible, pc$rope_primary$inconclusive))
 
   dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
-  save_fig <- function(p, name, h = 4.8) {
-    ggplot2::ggsave(file.path(figures_dir, name), plot = p, width = 7, height = h, dpi = 150)
+  save_fig <- function(p, name, h = 4.8, w = 7) {
+    ggplot2::ggsave(file.path(figures_dir, name), plot = p, width = w, height = h, dpi = 150)
     message("Wrote ", file.path(figures_dir, name))
   }
+  # Highlight by the ROPE equivalence decision (the practically-relevant strata at
+  # rope = 0.4), not the zero-centred FDR flag -- the substantive "which intersections
+  # matter" set rather than the much larger "differs from zero" set.
   save_fig(plot(fit, type = "vpc"), "brfss_vpc.png", h = 4.2)
-  save_fig(plot(fit, type = "predicted", n_strata = 30, highlight_interactions = TRUE),
-           "brfss_predicted_top30.png", h = 6.5)
-  save_fig(plot(fit, type = "effect_decomp", highlight_interactions = TRUE),
+  # UpSet-style alternative to the text "predicted" view: a category matrix replaces
+  # the long intersectional axis labels (legible at 432 strata).
+  save_fig(plot(fit, type = "upset", n_strata = 20, select = "deviation",
+                highlight_interactions = TRUE, highlight_by = "rope", rope = 0.4),
+           "brfss_upset.png", h = 8.5, w = 8)
+  save_fig(plot(fit, type = "effect_decomp",
+                highlight_interactions = TRUE, highlight_by = "rope", rope = 0.4),
            "brfss_effect_decomp.png", h = 6)
   message("DONE.")
   invisible(pc)
