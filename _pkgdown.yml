@@ -23,7 +23,7 @@ articles:
     navbar: Advanced topics
     contents:
       - finding_interactions
-      - real_data_brfss
+      - case_study_brfss
       - binary_outcomes
       - group_comparison
       - cross_classified

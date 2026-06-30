@@ -3,7 +3,7 @@
 # export results under data/brfss-2024/.
 #
 # This script is the SINGLE SOURCE OF TRUTH for the case study. The recode/strata
-# logic in vignettes/real_data_brfss.Rmd mirrors the block below for illustration;
+# logic in vignettes/case_study_brfss.Rmd mirrors the block below for illustration;
 # if you change the recoding here, mirror it there. Running this script to the end
 # also runs data-raw/brfss_precompute.R, which fits the unweighted MAIHDA on the
 # full data and caches the numbers/figures the vignette shows
