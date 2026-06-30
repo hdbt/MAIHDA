@@ -199,7 +199,7 @@ test_that("longitudinal PCV baseline is the variance at ref_time, not raw time 0
 test_that("longitudinal models refuse cross-sectional scalar rankings/plots", {
   # A growth model's stratum estimand is a trajectory, so the scalar BLUP views
   # are not defined and must redirect to the trajectory tools.
-  for (ty in c("predicted", "obs_vs_shrunken", "risk_vs_effect",
+  for (ty in c("predicted", "obs_vs_shrunken",
                "effect_decomp", "prediction_deviation", "ternary")) {
     expect_error(plot(m_g, type = ty), "longitudinal MAIHDA")
   }

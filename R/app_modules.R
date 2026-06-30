@@ -43,7 +43,6 @@ mod_visualizations_ui <- function(id) {
         shiny::selectInput(ns("plot_type"), "Select Plot Type:",
           choices = c(
             "Prediction Deviation Panels" = "pred_dev",
-            "Mean Prediction vs. Stratum Effect (Quadrant)" = "risk_vs_effect",
             "Effect Decomposition" = "effect_decomp",
             "Effect Decomposition (Ternary)" = "ternary",
             "VPC" = "vpc", "Observed VS Shrunken" = "obs_vs_shrunken",

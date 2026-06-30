@@ -131,11 +131,6 @@ plot(analysis, type = "predicted")
 plot(analysis, type = "effect_decomp")
 ```
 
-```{r maihda-plot-risk}
-# Mean predicted outcome against the stratum random effect -- adjusted model
-plot(analysis, type = "risk_vs_effect")
-```
-
 ```{r maihda-plot-deviation, warning = FALSE}
 # Individual prediction-deviance dashboard -- adjusted model
 plot(analysis, type = "prediction_deviation")

@@ -6,9 +6,8 @@
 \usage{
 \method{plot}{maihda_model}(
   x,
-  type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "risk_vs_effect",
-    "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory",
-    "trajectories"),
+  type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "effect_decomp",
+    "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
   summary_obj = NULL,
   n_strata = 50,
   highlight_interactions = FALSE,
@@ -38,7 +37,6 @@
     order. Replaces the long intersectional axis labels with the matrix.
     Binary 0/1 dimensions show as a single present/absent row; multi-level
     factors get one row per level
-  \item "risk_vs_effect": Quadrant scatterplot of each stratum's mean predicted outcome against its random effect
   \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
   \item "ternary": Ternary diagnostic of the relative additive, intersectional, and uncertainty signals per stratum (a normalized-magnitude diagnostic, not a variance decomposition)
   \item "prediction_deviation": Detailed deviation panels for individuals or strata

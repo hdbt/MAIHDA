@@ -127,7 +127,6 @@ Creates various visualizations:
 - **Predicted**: Predicted stratum values with confidence intervals
 - **VPC plots**: Visualizes variance partitioning
 - **Observed vs. Shrunken**: Shows shrinkage of stratum estimates
-- **Mean Prediction vs. Stratum Effect**: Plots each stratum's mean predicted outcome against its stratum random effect (the direction of "worse"/"better" depends on the outcome, so it is not framed as risk)
 - **Effect Decomp**: Additive versus specific interaction decompositions
 
 ### `maihda_ternary_plot()`

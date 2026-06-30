@@ -523,7 +523,7 @@ test_that("plot types build on a wemix fit", {
     fit_maihda(y ~ age + (1 | gender:race:edu), data = d,
                engine = "wemix", sampling_weights = "w"))
   s <- summary(m)
-  for (t in c("vpc", "predicted", "obs_vs_shrunken", "risk_vs_effect",
+  for (t in c("vpc", "predicted", "obs_vs_shrunken",
               "effect_decomp")) {
     p <- plot(m, type = t, summary_obj = s)
     expect_s3_class(p, "ggplot")

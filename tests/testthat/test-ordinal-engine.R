@@ -463,7 +463,6 @@ test_that("the plot layer renders a clmm MAIHDA (and the ternary errors cleanly)
   expect_s3_class(plot(m, type = "predicted", summary_obj = s), "ggplot")
   expect_s3_class(plot(m, type = "predicted", summary_obj = s, scale = "link"), "ggplot")
   expect_s3_class(plot(m, type = "obs_vs_shrunken", summary_obj = s), "ggplot")
-  expect_s3_class(plot(m, type = "risk_vs_effect", summary_obj = s), "ggplot")
   expect_s3_class(plot(m, type = "effect_decomp", summary_obj = s), "ggplot")
   expect_no_error(suppressWarnings(plot_prediction_deviation_panels(m)))
   expect_no_error(suppressWarnings(

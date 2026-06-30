@@ -43,7 +43,7 @@ compute_maihda_ternary_data <- function(
   if (identical(engine, "ordinal") || maihda_family_is_ordinal(model$family)) {
     stop("The ternary diagnostic is not supported for cumulative (ordinal) MAIHDA ",
          "models (engine = \"ordinal\" or brms::cumulative()). Use ",
-         "plot(type = \"predicted\"), \"risk_vs_effect\", \"effect_decomp\", or ",
+         "plot(type = \"predicted\"), \"effect_decomp\", or ",
          "plot_prediction_deviation_panels() for a cumulative MAIHDA model.",
          call. = FALSE)
   }

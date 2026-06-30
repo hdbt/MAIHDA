@@ -317,7 +317,6 @@ test_that("the plot layer treats a glmer.nb fit as a count model", {
   on.exit(dev.off(), add = TRUE)
   expect_s3_class(plot(m, type = "vpc", summary_obj = s), "ggplot")
   expect_s3_class(plot(m, type = "predicted", summary_obj = s), "ggplot")
-  expect_s3_class(plot(m, type = "risk_vs_effect", summary_obj = s), "ggplot")
   expect_s3_class(plot(m, type = "effect_decomp", summary_obj = s), "ggplot")
   expect_no_error(suppressWarnings(plot_prediction_deviation_panels(m)))
 })

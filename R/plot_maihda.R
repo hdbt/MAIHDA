@@ -20,7 +20,6 @@
 #'       order. Replaces the long intersectional axis labels with the matrix.
 #'       Binary 0/1 dimensions show as a single present/absent row; multi-level
 #'       factors get one row per level
-#'     \item "risk_vs_effect": Quadrant scatterplot of each stratum's mean predicted outcome against its random effect
 #'     \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
 #'     \item "ternary": Ternary diagnostic of the relative additive, intersectional, and uncertainty signals per stratum (a normalized-magnitude diagnostic, not a variance decomposition)
 #'     \item "prediction_deviation": Detailed deviation panels for individuals or strata
@@ -133,7 +132,7 @@
 #' @export
 #' @import ggplot2
 #' @importFrom dplyr arrange
-plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
+plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
                        summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, highlight_by = c("flag", "rope"), rope = NULL, select = c("order", "deviation"), quantity = c("predicted", "interaction"), ...) {
   if (!inherits(x, "maihda_model")) {
     stop("'x' must be a maihda_model object from fit_maihda()")
@@ -197,8 +196,8 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     if (type == "trajectories") {
       return(plot_stratum_trajectories(object, summary_obj, n_strata, select = select))
     }
-    # Every remaining view (predicted, obs_vs_shrunken, risk_vs_effect,
-    # effect_decomp, prediction_deviation, ternary) is a cross-sectional BLUP
+    # Every remaining view (predicted, obs_vs_shrunken, effect_decomp,
+    # prediction_deviation, ternary) is a cross-sectional BLUP
     # scalar per stratum, which misrepresents a growth model's trajectory
     # estimand. Refuse them and point to the trajectory views above.
     maihda_stop_longitudinal_scalar(paste0("plot(type = \"", type, "\")"))
@@ -220,8 +219,6 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select), error = function(e) NULL)
 
     top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
-    plots$risk_vs_effect <- tryCatch(plot_risk_vs_effect(object, summary_obj, top_n_labels), error = function(e) NULL)
-
     plots$effect_decomp <- tryCatch(plot_effect_decomposition(object, summary_obj, top_n_labels, highlight = highlight_ids), error = function(e) NULL)
 
     ternary_out <- tryCatch(maihda_ternary_plot(object)$plot, error = function(e) NULL)
@@ -247,9 +244,6 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
       plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select)
     } else if (type == "upset") {
       plot <- plot_upset_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select, quantity = quantity)
-    } else if (type == "risk_vs_effect") {
-      top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
-      plot <- plot_risk_vs_effect(object, summary_obj, top_n_labels)
     } else if (type == "effect_decomp") {
       # The waterfall's value IS the full-distribution context, so filtering it
       # away defeats the view; keep it highlighted and say so rather than no-op.
@@ -1379,185 +1373,6 @@ maihda_upset_size <- function(object, n_strata = 50) {
   )
 }
 
-#' Mean Prediction vs. Stratum Random Effect Plot
-#'
-#' Creates a quadrant scatterplot comparing each stratum's mean predicted outcome
-#' against its stratum random effect (shrunken between-stratum deviation). Points
-#' represent strata. Whether a higher predicted value is "worse" or "better"
-#' depends on the outcome, so the axes are not framed as risk. The random effect
-#' equals the \emph{pure} intersectional (interaction) component only when the
-#' additive main effects of the strata variables are included in the model;
-#' otherwise it also absorbs those omitted main effects.
-#'
-#' @param object A maihda_model object
-#' @param summary_obj A maihda_summary object
-#' @param top_n_labels Number of most extreme strata to label (by absolute effect size)
-#' @return A ggplot2 object
-#' @keywords internal
-#' @import ggplot2
-#' @importFrom dplyr group_by summarise n arrange desc
-#' @importFrom utils head
-#' @importFrom stats predict
-plot_risk_vs_effect <- function(object, summary_obj, top_n_labels = 10) {
-  data <- object$data
-
-  if (!"stratum" %in% names(data)) {
-    stop("'stratum' variable not found in data. Make sure to use data from make_strata().")
-  }
-
-  # 1. Retrieve the predicted values strictly across all cases in the data
-  # Safe approach matching what's used in plot_prediction_deviation_panels
-  model_type <- object$family$family
-
-  if (object$engine == "wemix") {
-    # Fixed-part prediction on the response scale, built from coef (WeMix's own
-    # predict() has no fixed-only form).
-    preds <- maihda_linkinv(object$family)(
-      maihda_wemix_linpred(object, include_re = FALSE)
-    )
-  } else if (object$engine == "ordinal") {
-    # Fixed-part expected category score, built from beta + thresholds
-    # (predict.clmm does not exist).
-    preds <- maihda_ordinal_eta_to_score(
-      maihda_clmm_linpred(object, include_re = FALSE),
-      object$model$alpha, object$family$link
-    )
-  } else if (object$engine == "brms" || inherits(object$model, "brmsfit")) {
-    if (!requireNamespace("brms", quietly = TRUE)) {
-      stop("Package 'brms' is required to plot the mean prediction vs. stratum ",
-           "random effect for brms models.", call. = FALSE)
-    }
-    f <- stats::fitted(object$model, newdata = data, re_formula = NA, summary = TRUE)
-    preds <- if (length(dim(f)) == 3) {
-      # Categorical likelihood (e.g. cumulative/ordinal): an nobs x summary x
-      # category array of per-category probabilities; collapse to the expected
-      # category score (categories scored 1..K in order).
-      est <- f[, "Estimate", ]
-      drop(est %*% seq_len(ncol(est)))
-    } else {
-      f[, "Estimate"]
-    }
-  } else if (model_type %in% c("binomial", "quasibinomial")) {
-    preds <- tryCatch(
-      predict(object$model, newdata = data, type = "response", re.form = NA),
-      error = function(e) predict(object$model, type = "response", re.form = NA)
-    )
-  } else if (inherits(object$model, "polr") || inherits(object$model, "clm") || inherits(object$model, "ordinal")) {
-    probs <- tryCatch(
-      predict(object$model, newdata = data, type = "probs"),
-      error = function(e) predict(object$model, newdata = data, type = "p")
-    )
-    if (is.matrix(probs) || is.data.frame(probs)) {
-      k_seq <- seq_len(ncol(probs))
-      preds <- rowSums(probs * matrix(k_seq, nrow = nrow(probs), ncol = ncol(probs), byrow = TRUE))
-    } else {
-      preds <- rep(NA, nrow(data))
-    }
-  } else {
-    preds <- tryCatch(
-      predict(object$model, newdata = data, type = "response", re.form = NA),
-      error = function(e) list(fit = predict(object$model, type = "response", re.form = NA))
-    )
-    if (is.list(preds) && "fit" %in% names(preds)) preds <- preds$fit
-  }
-
-  if (is.null(preds) || (is.numeric(preds) && length(preds) != nrow(data))) {
-      preds <- tryCatch(
-        predict(object$model, newdata = data, type = "response", re.form = NA, se.fit = FALSE),
-        error = function(e) rep(NA, nrow(data))
-      )
-  }
-  if (is.matrix(preds) || is.data.frame(preds)) {
-    preds <- preds[, 1]
-  }
-  preds <- as.numeric(preds)
-  if (length(preds) != nrow(data)) {
-    stop("Could not compute one prediction per analytic row.", call. = FALSE)
-  }
-
-  # Assign to dataframe and collapse to strata level average. The model's prediction
-  # weights make the per-stratum mean (and the reference centre below) reflect the
-  # weighted fit, and trial-weight each row of an aggregated-binomial fit; these are
-  # prior/precision (and trial) weights, not a complex survey design, so the result
-  # is not survey-representative. For an unweighted model the weights are all 1 and
-  # this reduces to the previous plain means.
-  data$pred_val <- preds
-  data$.maihda_w <- maihda_prediction_weights(object)
-
-  stratum_means <- data |>
-    dplyr::group_by(.data$stratum) |>
-    dplyr::summarize(
-      mean_predicted = stats::weighted.mean(.data$pred_val, .data$.maihda_w, na.rm = TRUE),
-      n = dplyr::n(),
-      w_sum = sum(.data$.maihda_w, na.rm = TRUE),
-      .groups = "drop"
-    )
-
-  stratum_means$stratum <- as.character(stratum_means$stratum)
-
-  # 2. Extract intersectional shrunken residuals
-  stratum_est <- summary_obj$stratum_estimates
-  if (is.null(stratum_est)) stop("No stratum estimates available for plotting")
-  stratum_est$stratum <- as.character(stratum_est$stratum)
-
-  # Merge mean prediction + stratum random effect
-  plot_data <- merge(stratum_means, stratum_est, by = "stratum")
-
-  # Map appropriate text labels to dots
-  if (!is.null(object$strata_info) && "label" %in% names(object$strata_info)) {
-    id_map <- setNames(object$strata_info$label, object$strata_info$stratum)
-    plot_data$label <- id_map[plot_data$stratum]
-  } else {
-    plot_data$label <- paste("Stratum", plot_data$stratum)
-  }
-
-  # Compute the reference centre as the population mean, weighting each stratum by
-  # its summed prior weights (w_sum, = stratum size for an unweighted model), so
-  # common and rare strata are represented in proportion to their weight -- matching
-  # the weighted reference line in plot_predicted_strata().
-  ref_w <- if ("w_sum" %in% names(plot_data)) plot_data$w_sum else plot_data$n
-  global_mean <- if (any(is.finite(ref_w))) {
-    stats::weighted.mean(plot_data$mean_predicted, ref_w, na.rm = TRUE)
-  } else {
-    mean(plot_data$mean_predicted, na.rm = TRUE)
-  }
-  x_title <- "Mean Predicted Value"
-  if (model_type %in% c("binomial", "quasibinomial")) x_title <- "Mean Predicted Probability"
-  if (inherits(object$model, "polr") || inherits(object$model, "clm") ||
-      inherits(object$model, "clmm") || inherits(object$model, "ordinal") ||
-      identical(maihda_normalize_family_name(model_type), "cumulative")) {
-    x_title <- "Average Expected Category Score"
-  }
-
-  # Label the ones with largest intersectional residuals (positive or negative)
-  label_data <- plot_data |>
-    dplyr::arrange(dplyr::desc(abs(.data$random_effect))) |>
-    utils::head(top_n_labels)
-
-  # Create quadrant plot
-  p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data$mean_predicted, y = .data$random_effect)) +
-    ggplot2::geom_vline(xintercept = global_mean, linetype = "dashed", color = "gray50") +
-    ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
-    ggplot2::geom_point(ggplot2::aes(size = .data$n), alpha = 0.6, color = "#0072B2") +
-    ggrepel::geom_label_repel(data = label_data, ggplot2::aes(label = .data$label), size = 3, min.segment.length = 0) +
-    ggplot2::labs(
-      title = "Mean Prediction vs. Stratum Random Effect",
-      subtitle = paste0(
-        "Mean predicted outcome per stratum vs the stratum random effect."
-      ),
-      x = x_title,
-      y = "Stratum random effect (between-stratum deviation)",
-      size = "Sample Size"
-    ) +
-    theme_maihda() +
-    ggplot2::theme(
-      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
-      plot.subtitle = ggplot2::element_text(hjust = 0.5, face = "italic", size = 9),
-      legend.position = "right"
-    )
-
-  return(p)
-}
 #' Effect Decomposition Plot
 #'
 #' Decomposes the total deviation from the overall mean into the additive (fixed) component
