@@ -10,7 +10,7 @@ estimates, and predicted subgroup values with confidence intervals.
 # S3 method for class 'maihda_model'
 plot(
   x,
-  type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
+  type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "risk_vs_effect",
     "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory",
     "trajectories"),
   summary_obj = NULL,
@@ -20,6 +20,7 @@ plot(
   highlight_by = c("flag", "rope"),
   rope = NULL,
   select = c("order", "deviation"),
+  quantity = c("predicted", "interaction"),
   ...
 )
 ```
@@ -45,6 +46,13 @@ plot(
 
   - "predicted": Predicted values for each stratum with confidence
     intervals
+
+  - "upset": UpSet-style alternative to `"predicted"` – an
+    intersection-size bar, a category matrix encoding each stratum's
+    level on every dimension, and the predicted-value panel, all sharing
+    one column order. Replaces the long intersectional axis labels with
+    the matrix. Binary 0/1 dimensions show as a single present/absent
+    row; multi-level factors get one row per level
 
   - "risk_vs_effect": Quadrant scatterplot of each stratum's mean
     predicted outcome against its random effect
@@ -159,6 +167,16 @@ plot(
   are always kept; this governs the fill and the unflagged case. The
   displayed x-axis stays in stratum order regardless, so `select`
   changes *which* strata appear, not their left-to-right order.
+
+- quantity:
+
+  For `type = "upset"`, which quantity the bottom panel shows:
+  `"predicted"` (default) the stratum's predicted value (fixed + random
+  effect) against the across-strata reference line, or `"interaction"`
+  the stratum random effect (the BLUP) against zero – the deviation from
+  the model's fixed prediction, which is the *pure* intersectional
+  interaction when the dimension main effects are in the model (the
+  adjusted model). Ignored by the other plot types.
 
 - ...:
 

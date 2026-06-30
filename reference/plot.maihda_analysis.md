@@ -39,15 +39,16 @@ plot(
 - type:
 
   One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
-  "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation"),
-  the contextual type ("context_vpc", a stratum-vs-context variance bar;
-  requires `maihda(context = )`), a longitudinal type ("vpc_trajectory",
-  "trajectories", "pcv_trajectory"; requires
-  `decomposition = "longitudinal"`), or a group type ("group_vpc",
-  "group_components", "group_between_variance", "group_pcv",
-  "group_additive_share"). Default "all". For a longitudinal analysis
-  "all" shows the VPC-over-time, the stratum trajectories, and the
-  time-specific PCV.
+  "upset" (the UpSet-style alternative to "predicted"; forwards
+  `quantity` via `...`), "risk_vs_effect", "effect_decomp", "ternary",
+  "prediction_deviation"), the contextual type ("context_vpc", a
+  stratum-vs-context variance bar; requires `maihda(context = )`), a
+  longitudinal type ("vpc_trajectory", "trajectories", "pcv_trajectory";
+  requires `decomposition = "longitudinal"`), or a group type
+  ("group_vpc", "group_components", "group_between_variance",
+  "group_pcv", "group_additive_share"). Default "all". For a
+  longitudinal analysis "all" shows the VPC-over-time, the stratum
+  trajectories, and the time-specific PCV.
 
 - highlight_interactions:
 

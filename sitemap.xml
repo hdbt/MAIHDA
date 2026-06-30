@@ -78,6 +78,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_table.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_upset_size.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_validate_longitudinal.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_validate_sampling_weights.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.html</loc></url>
@@ -101,6 +102,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_risk_vs_effect.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_stratum_trajectories.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/plot_upset_strata.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_vpc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_vpc_trajectory.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/predict_maihda.html</loc></url>
