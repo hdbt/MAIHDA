@@ -4,6 +4,7 @@ pkgdown_sha: ~
 articles:
   bayesian_sparse_maihda: bayesian_sparse_maihda.html
   binary_outcomes: binary_outcomes.html
+  case_study_brfss: case_study_brfss.html
   cross_classified: cross_classified.html
   finding_interactions: finding_interactions.html
   group_comparison: group_comparison.html
@@ -12,9 +13,8 @@ articles:
   introduction: introduction.html
   longitudinal: longitudinal.html
   planning_a_study: planning_a_study.html
-  real_data_brfss: real_data_brfss.html
   reporting_results: reporting_results.html
-last_built: 2026-06-30T15:04Z
+last_built: 2026-06-30T20:19Z
 urls:
   reference: https://hdbt.github.io/MAIHDA/reference
   article: https://hdbt.github.io/MAIHDA/articles

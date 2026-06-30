@@ -632,7 +632,7 @@ A BibTeX entry for LaTeX users is:
 - [Finding interaction
   patterns](https://hdbt.github.io/MAIHDA/articles/finding_interactions.md):
 - [Case study: BRFSS mental
-  distress](https://hdbt.github.io/MAIHDA/articles/real_data_brfss.md):
+  distress](https://hdbt.github.io/MAIHDA/articles/case_study_brfss.md):
 - [MAIHDA for Binary Outcomes (Discriminatory
   Accuracy)](https://hdbt.github.io/MAIHDA/articles/binary_outcomes.md):
 - [Comparing Intersectional Inequality Across
