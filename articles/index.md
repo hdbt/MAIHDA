@@ -17,7 +17,7 @@
 
 - [Finding interaction
   patterns](https://hdbt.github.io/MAIHDA/articles/finding_interactions.md):
-- [Real-data case study: BRFSS mental
+- [Case study: BRFSS mental
   distress](https://hdbt.github.io/MAIHDA/articles/real_data_brfss.md):
 - [MAIHDA for Binary Outcomes (Discriminatory
   Accuracy)](https://hdbt.github.io/MAIHDA/articles/binary_outcomes.md):

@@ -10,9 +10,8 @@ estimates, and predicted subgroup values with confidence intervals.
 # S3 method for class 'maihda_model'
 plot(
   x,
-  type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "risk_vs_effect",
-    "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory",
-    "trajectories"),
+  type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "effect_decomp",
+    "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
   summary_obj = NULL,
   n_strata = 50,
   highlight_interactions = FALSE,
@@ -53,9 +52,6 @@ plot(
     one column order. Replaces the long intersectional axis labels with
     the matrix. Binary 0/1 dimensions show as a single present/absent
     row; multi-level factors get one row per level
-
-  - "risk_vs_effect": Quadrant scatterplot of each stratum's mean
-    predicted outcome against its random effect
 
   - "effect_decomp": Visualizes additive vs intersectional deviation
     from global mean
@@ -213,7 +209,6 @@ plot(model, type = "vpc") +
 
 # Generate all plots (a named list); pick one out to restyle it:
 plots <- plot(model)
-
 
 
 

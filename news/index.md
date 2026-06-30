@@ -4,6 +4,14 @@
 
 ### New Features
 
+- **Removed the `"risk_vs_effect"` plot type (and the internal
+  `plot_risk_vs_effect()`).** The quadrant view of each stratum’s mean
+  prediction against its stratum random effect largely duplicated what
+  `"effect_decomp"` and `"predicted"` already show more directly, so it
+  has been dropped from
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) for both
+  `maihda_model` and `maihda_analysis` objects, from `type = "all"`, and
+  from the Shiny app’s plot menu.
 - **[`theme_maihda()`](https://hdbt.github.io/MAIHDA/reference/theme_maihda.md)
   now is set as standard theme for ggplot objects**
 - **The `predicted` (and longitudinal `trajectories`) plot can now keep
@@ -193,9 +201,9 @@
   is unchanged. This corrects the predicted stratum means and the
   `w_sum` weights feeding
   [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md),
-  the predicted-strata / risk-vs-effect / effect-decomposition plots,
-  and the prediction-deviation panels; unweighted and non-binomial fits
-  are unaffected (the weights reduce exactly to the previous values).
+  the predicted-strata / effect-decomposition plots, and the
+  prediction-deviation panels; unweighted and non-binomial fits are
+  unaffected (the weights reduce exactly to the previous values).
 
 - **`brms` cumulative (ordinal) stratum predictions were on the wrong
   response scale.** The stratum-level prediction helper applied the
@@ -231,7 +239,7 @@
   for a cumulative model, so the diagnostic now rejects **either**
   cumulative engine (detected by family, not just engine name), keeping
   the two cumulative paths consistent and pointing users at
-  `plot(type = "predicted")`, `"risk_vs_effect"`, `"effect_decomp"`, and
+  `plot(type = "predicted")`, `"effect_decomp"`, and
   [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md).
 
 - **[`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
@@ -1377,10 +1385,9 @@ CRAN release: 2026-05-16
   [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   function for visualizing predicted values and identifying deviant
   cases.
-- Added
-  [`plot_risk_vs_effect()`](https://hdbt.github.io/MAIHDA/reference/plot_risk_vs_effect.md)
-  function to create a quadrant scatterplot comparing overall marginal
-  predicted risk against pure intersectional effects.
+- Added `plot_risk_vs_effect()` function to create a quadrant
+  scatterplot comparing overall marginal predicted risk against pure
+  intersectional effects.
 - Added
   [`plot_effect_decomposition()`](https://hdbt.github.io/MAIHDA/reference/plot_effect_decomposition.md)
   function to visually decompose the total deviation from the overall

@@ -1,4 +1,4 @@
-# Real-data case study: BRFSS mental distress
+# Case study: BRFSS mental distress
 
 This case uses the 2024 Behavioral Risk Factor Surveillance System
 (BRFSS), a U.S. health survey released by the Centers for Disease
@@ -163,7 +163,7 @@ generics::glance(brfss_fit)
 | AUC                      | 0.756          | 0.755              |
 | MOR                      | 2.587          | 1.218              |
 
-Model-results table (unweighted, full data, cached). {.table}
+Model-results table. {.table}
 
 The null model gives a **VPC of 0.232** (about 23.2% of the latent-scale
 variation lies between strata), with **AUC 0.76** and **MOR 2.59**.
@@ -193,7 +193,7 @@ rank by the adjusted model).
 | 9 | Female × White, non-Hispanic × 18-34 × Some college × \$25k-\<\$50k × Any disability | 0.552 | 0.556 | 504 |
 | 10 | Female × Other race/ethnicity × 18-34 × Some college × \<\$25k × Any disability | 0.546 | 0.576 | 59 |
 
-Highest predicted-risk strata (cached). {.table}
+Highest predicted-risk strata. {.table}
 
 The highest-risk strata combine younger age, female sex, low income, and
 disability (top predicted prevalence around 63.0%) and race/ethnicity
@@ -208,22 +208,22 @@ additive main-effect prediction:
 |:---|:---|:---|:---|:---|:---|
 | Female × Hispanic × 18-34 × HS or less × \<\$25k × No disability | -0.669 | -0.866 | -0.472 | below | relevant |
 | Male × White, non-Hispanic × 65+ × College graduate × \$50k+ × Any disability | -0.597 | -0.691 | -0.503 | below | relevant |
-| Female × Hispanic × 18-34 × HS or less × \<\$25k × Any disability | -0.531 | -0.717 | -0.344 | below | inconclusive |
+| Female × Hispanic × 18-34 × HS or less × \<\$25k × Any disability | -0.531 | -0.717 | -0.345 | below | inconclusive |
 | Male × Hispanic × 18-34 × HS or less × \<\$25k × Any disability | -0.508 | -0.721 | -0.294 | below | inconclusive |
 | Female × White, non-Hispanic × 18-34 × HS or less × \$25k-\<\$50k × Any disability | 0.428 | 0.280 | 0.577 | above | inconclusive |
 | Male × White, non-Hispanic × 65+ × HS or less × \$50k+ × No disability | -0.391 | -0.600 | -0.182 | below | inconclusive |
 | Male × White, non-Hispanic × 65+ × Some college × \$50k+ × Any disability | -0.388 | -0.507 | -0.269 | below | inconclusive |
 | Male × White, non-Hispanic × 65+ × College graduate × \<\$25k × No disability | 0.386 | 0.107 | 0.664 | above | inconclusive |
 | Male × White, non-Hispanic × 65+ × HS or less × \$50k+ × Any disability | -0.376 | -0.516 | -0.236 | below | inconclusive |
-| Male × White, non-Hispanic × 35-64 × College graduate × \$50k+ × No disability | -0.372 | -0.431 | -0.314 | below | inconclusive |
+| Male × White, non-Hispanic × 35-64 × College graduate × \$50k+ × No disability | -0.372 | -0.430 | -0.314 | below | inconclusive |
 | Female × White, non-Hispanic × 18-34 × HS or less × \$25k-\<\$50k × No disability | 0.365 | 0.222 | 0.508 | above | inconclusive |
 | Female × White, non-Hispanic × 35-64 × College graduate × \<\$25k × Any disability | 0.360 | 0.223 | 0.497 | above | inconclusive |
 | Female × White, non-Hispanic × 65+ × College graduate × \$50k+ × Any disability | -0.342 | -0.430 | -0.254 | below | inconclusive |
-| Male × Hispanic × 35-64 × College graduate × \$50k+ × Any disability | 0.337 | 0.108 | 0.565 | above | inconclusive |
+| Male × Hispanic × 35-64 × College graduate × \$50k+ × Any disability | 0.337 | 0.108 | 0.566 | above | inconclusive |
 | Female × Hispanic × 35-64 × HS or less × \<\$25k × Any disability | -0.336 | -0.461 | -0.211 | below | inconclusive |
 
-Strongest interactions by absolute size, with ROPE classification
-(cached). {.table style="width:100%;"}
+Strongest interactions by absolute size, with ROPE classification.
+{.table style="width:100%;"}
 
 ### How many interactions actually matter? A ROPE
 
@@ -256,26 +256,54 @@ a practically meaningful departure from additivity.
 
 ## Plot the case study
 
+The variance partition shows how much of the latent-scale variation lies
+between strata:
+
 ![Variance partition (VPC): share of latent-scale variation between
 intersectional strata.](figures/brfss_vpc.png)
 
 Variance partition (VPC): share of latent-scale variation between
 intersectional strata.
 
-![Top 30 strata by predicted risk; BH-flagged interactions
-highlighted.](figures/brfss_predicted_top30.png)
+The next two views highlight strata by the **ROPE decision** rather than
+the zero-centred flag: `highlight_by = "rope"` marks the strata
+classified practically *relevant* at `rope = 0.4` – here just the 2
+strata whose interaction interval clears ±0.4. (Compare the FDR flag,
+which marks 55.) The first is an **UpSet-style** view that swaps the
+unreadable intersectional axis labels for a category matrix – a top bar
+of stratum sizes, a matrix of which level of each dimension defines the
+stratum, and the predicted values below, all sharing one column order.
 
-Top 30 strata by predicted risk; BH-flagged interactions highlighted.
+``` r
 
-![Effect decomposition: additive disadvantage vs. residual
-intersectional deviation.](figures/brfss_effect_decomp.png)
+plot(brfss_fit, type = "upset", n_strata = 20, select = "deviation",
+     highlight_interactions = TRUE, highlight_by = "rope", rope = 0.4)
+plot(brfss_fit, type = "effect_decomp",
+     highlight_interactions = TRUE, highlight_by = "rope", rope = 0.4)
+```
 
-Effect decomposition: additive disadvantage vs. residual intersectional
-deviation.
+![UpSet-style predicted-risk view: read each stratum's defining category
+off the matrix instead of a long text label. Columns are the most
+extreme-risk strata plus the ROPE-relevant ones (±0.4), which are
+highlighted.](figures/brfss_upset.png)
 
-The predicted-strata plot shows the inequality pattern; the
-effect-decomposition plot separates additive disadvantage from the
-(mostly small) residual intersectional deviation.
+UpSet-style predicted-risk view: read each stratum’s defining category
+off the matrix instead of a long text label. Columns are the most
+extreme-risk strata plus the ROPE-relevant ones (±0.4), which are
+highlighted.
+
+![Effect decomposition: additive (fixed-effect) vs. residual stratum
+(interaction) component per stratum; the two ROPE-relevant strata (±0.4)
+are labelled.](figures/brfss_effect_decomp.png)
+
+Effect decomposition: additive (fixed-effect) vs. residual stratum
+(interaction) component per stratum; the two ROPE-relevant strata (±0.4)
+are labelled.
+
+The UpSet view shows the predicted-risk inequality with each stratum’s
+defining categories read off the matrix; the effect-decomposition plot
+separates the additive (fixed-effect) part from the residual stratum
+(interaction) part, with the ROPE-relevant strata picked out.
 
 ## Results
 

@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x5596e17b55f0>
+#> <environment: 0x556241eac3d8>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x5596e09726e0>
+#> <environment: 0x556241065698>
 ```
 
 The returned object carries everything: the full variance components,
@@ -224,14 +224,6 @@ plot(analysis, type = "effect_decomp")
 ```
 
 ![](introduction_files/figure-html/maihda-plot-effect-decomp-1.png)
-
-``` r
-
-# Mean predicted outcome against the stratum random effect -- adjusted model
-plot(analysis, type = "risk_vs_effect")
-```
-
-![](introduction_files/figure-html/maihda-plot-risk-1.png)
 
 ``` r
 

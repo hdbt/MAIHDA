@@ -2,14 +2,13 @@
 
 Dispatches each `type` to the model it is valid on. The VPC and
 shrinkage views (`"vpc"`, `"obs_vs_shrunken"`, `"predicted"`) use the
-**null** model. The additive-vs-intersectional views
-(`"risk_vs_effect"`, `"effect_decomp"`, `"ternary"`,
-`"prediction_deviation"`) use the **adjusted** model, whose fixed
-effects carry the dimensions' additive part so the stratum random effect
-is the pure interaction; with fewer than two dimensions (no adjusted
-model) they fall back to the null model. Group types (`"group_vpc"`,
-`"group_components"`, `"group_between_variance"`, `"group_pcv"`,
-`"group_additive_share"`) use the group comparison when
+**null** model. The additive-vs-intersectional views (`"effect_decomp"`,
+`"ternary"`, `"prediction_deviation"`) use the **adjusted** model, whose
+fixed effects carry the dimensions' additive part so the stratum random
+effect is the pure interaction; with fewer than two dimensions (no
+adjusted model) they fall back to the null model. Group types
+(`"group_vpc"`, `"group_components"`, `"group_between_variance"`,
+`"group_pcv"`, `"group_additive_share"`) use the group comparison when
 [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) was called
 with a `group`.
 
@@ -40,7 +39,7 @@ plot(
 
   One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
   "upset" (the UpSet-style alternative to "predicted"; forwards
-  `quantity` via `...`), "risk_vs_effect", "effect_decomp", "ternary",
+  `quantity` via `...`), "effect_decomp", "ternary",
   "prediction_deviation"), the contextual type ("context_vpc", a
   stratum-vs-context variance bar; requires `maihda(context = )`), a
   longitudinal type ("vpc_trajectory", "trajectories", "pcv_trajectory";
