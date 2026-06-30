@@ -6,7 +6,7 @@
 \usage{
 \method{plot}{maihda_model}(
   x,
-  type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
+  type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "risk_vs_effect",
     "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory",
     "trajectories"),
   summary_obj = NULL,
@@ -16,6 +16,7 @@
   highlight_by = c("flag", "rope"),
   rope = NULL,
   select = c("order", "deviation"),
+  quantity = c("predicted", "interaction"),
   ...
 )
 }
@@ -31,6 +32,12 @@
     shrinkage \emph{and} covariate adjustment, not shrinkage alone; it is a
     pure shrinkage view only for an intercept-only (null) model
   \item "predicted": Predicted values for each stratum with confidence intervals
+  \item "upset": UpSet-style alternative to \code{"predicted"} -- an
+    intersection-size bar, a category matrix encoding each stratum's level on
+    every dimension, and the predicted-value panel, all sharing one column
+    order. Replaces the long intersectional axis labels with the matrix.
+    Binary 0/1 dimensions show as a single present/absent row; multi-level
+    factors get one row per level
   \item "risk_vs_effect": Quadrant scatterplot of each stratum's mean predicted outcome against its random effect
   \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
   \item "ternary": Ternary diagnostic of the relative additive, intersectional, and uncertainty signals per stratum (a normalized-magnitude diagnostic, not a variance decomposition)
@@ -112,6 +119,14 @@ furthest from the population curve). Flagged strata are always kept; this
 governs the fill and the unflagged case. The displayed x-axis stays in stratum
 order regardless, so \code{select} changes \emph{which} strata appear, not
 their left-to-right order.}
+
+\item{quantity}{For \code{type = "upset"}, which quantity the bottom panel
+shows: \code{"predicted"} (default) the stratum's predicted value (fixed +
+random effect) against the across-strata reference line, or
+\code{"interaction"} the stratum random effect (the BLUP) against zero --
+the deviation from the model's fixed prediction, which is the \emph{pure}
+intersectional interaction when the dimension main effects are in the model
+(the adjusted model). Ignored by the other plot types.}
 
 \item{...}{Additional arguments (not currently used).}
 }

@@ -19,7 +19,9 @@
 \item{x}{A \code{maihda_analysis} object from \code{\link{maihda}}.}
 
 \item{type}{One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
-"risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation"), the
+"upset" (the UpSet-style alternative to "predicted"; forwards \code{quantity}
+via \code{...}), "risk_vs_effect", "effect_decomp", "ternary",
+"prediction_deviation"), the
 contextual type ("context_vpc", a stratum-vs-context variance bar; requires
 \code{maihda(context = )}), a longitudinal type ("vpc_trajectory",
 "trajectories", "pcv_trajectory"; requires \code{decomposition =

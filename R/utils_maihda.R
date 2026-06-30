@@ -418,6 +418,39 @@ maihda_binary_to_01 <- function(x) {
   as.integer(out)
 }
 
+# All levels present in a stratum dimension, in display order (factor order,
+# FALSE/TRUE for logical, sorted unique for numeric). Generalises
+# maihda_binary_levels() to multi-level factors so the upset matrix can lay out
+# one row per level.
+maihda_dim_levels <- function(x) {
+  x <- x[!is.na(x)]
+  if (is.factor(x)) {
+    return(levels(droplevels(x)))
+  }
+  if (is.logical(x)) {
+    return(c(FALSE, TRUE))
+  }
+  if (is.numeric(x)) {
+    return(sort(unique(x)))
+  }
+  levels(factor(x))
+}
+
+# TRUE when a dimension is a clean present/absent indicator -- logical, or numeric
+# coded exactly {0, 1} -- so the upset matrix can collapse it to a single
+# present/absent row (the classic UpSet look). Factors (including two-level ones,
+# where neither level is an "absence") and other codings get one row per level.
+maihda_dim_is_indicator <- function(x) {
+  if (is.logical(x)) {
+    return(length(maihda_dim_levels(x)) == 2)
+  }
+  if (is.numeric(x)) {
+    lv <- maihda_dim_levels(x)
+    return(length(lv) == 2 && all(as.character(lv) %in% c("0", "1")))
+  }
+  FALSE
+}
+
 # Sampling/design weights are dropped by the weighted engines (WeMix, the brms
 # pseudo-likelihood) whenever they are non-finite or non-positive -- the
 # is.finite(w) & w > 0 rule in maihda_fit_wemix() / maihda_prepare_brms_sampling_weights().

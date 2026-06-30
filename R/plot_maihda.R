@@ -14,6 +14,12 @@
 #'       shrinkage \emph{and} covariate adjustment, not shrinkage alone; it is a
 #'       pure shrinkage view only for an intercept-only (null) model
 #'     \item "predicted": Predicted values for each stratum with confidence intervals
+#'     \item "upset": UpSet-style alternative to \code{"predicted"} -- an
+#'       intersection-size bar, a category matrix encoding each stratum's level on
+#'       every dimension, and the predicted-value panel, all sharing one column
+#'       order. Replaces the long intersectional axis labels with the matrix.
+#'       Binary 0/1 dimensions show as a single present/absent row; multi-level
+#'       factors get one row per level
 #'     \item "risk_vs_effect": Quadrant scatterplot of each stratum's mean predicted outcome against its random effect
 #'     \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
 #'     \item "ternary": Ternary diagnostic of the relative additive, intersectional, and uncertainty signals per stratum (a normalized-magnitude diagnostic, not a variance decomposition)
@@ -88,6 +94,13 @@
 #'   governs the fill and the unflagged case. The displayed x-axis stays in stratum
 #'   order regardless, so \code{select} changes \emph{which} strata appear, not
 #'   their left-to-right order.
+#' @param quantity For \code{type = "upset"}, which quantity the bottom panel
+#'   shows: \code{"predicted"} (default) the stratum's predicted value (fixed +
+#'   random effect) against the across-strata reference line, or
+#'   \code{"interaction"} the stratum random effect (the BLUP) against zero --
+#'   the deviation from the model's fixed prediction, which is the \emph{pure}
+#'   intersectional interaction when the dimension main effects are in the model
+#'   (the adjusted model). Ignored by the other plot types.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return For a single \code{type}, a \pkg{ggplot2} object that you can extend
@@ -120,8 +133,8 @@
 #' @export
 #' @import ggplot2
 #' @importFrom dplyr arrange
-plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
-                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, highlight_by = c("flag", "rope"), rope = NULL, select = c("order", "deviation"), ...) {
+plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
+                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, highlight_by = c("flag", "rope"), rope = NULL, select = c("order", "deviation"), quantity = c("predicted", "interaction"), ...) {
   if (!inherits(x, "maihda_model")) {
     stop("'x' must be a maihda_model object from fit_maihda()")
   }
@@ -140,6 +153,9 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
   highlight_by <- match.arg(highlight_by)
   # Which strata survive the n_strata cap on the predicted / trajectory views.
   select <- match.arg(select)
+  # Which quantity the upset view's estimate panel shows: the predicted value or
+  # the stratum random effect (interaction).
+  quantity <- match.arg(quantity)
 
 
   if (missing(type)) {
@@ -229,6 +245,8 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
       plot <- plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids, only_flagged = only_flagged)
     } else if (type == "predicted") {
       plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select)
+    } else if (type == "upset") {
+      plot <- plot_upset_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select, quantity = quantity)
     } else if (type == "risk_vs_effect") {
       top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
       plot <- plot_risk_vs_effect(object, summary_obj, top_n_labels)
@@ -865,6 +883,79 @@ maihda_observed_outcome_for_plot <- function(x, family = NULL) {
 #' @import ggplot2
 #' @importFrom dplyr arrange slice
 plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL, only_flagged = FALSE, select = c("order", "deviation")) {
+  prep <- maihda_prepare_predicted_strata(
+    object, summary_obj, n_strata, scale = scale,
+    highlight = highlight, only_flagged = only_flagged, select = select)
+  if (isTRUE(prep$no_flagged)) {
+    return(maihda_no_flagged_plot(
+      "Predicted Subgroup Values with Conditional 95% Intervals", prep$screen_label,
+      highlight))
+  }
+  stratum_est <- prep$stratum_est
+  fixed_reference <- prep$fixed_reference
+  caption_txt <- prep$caption_txt
+
+  # Create factor to preserve order for plotting. Levels are reversed so that
+  # after coord_flip() the first stratum sits at the top of the axis (natural
+  # top-to-bottom reading order) rather than the bottom.
+  stratum_est$display_label <- factor(stratum_est$display_label, levels = rev(stratum_est$display_label))
+
+  has_hl <- any(stratum_est$.maihda_flag)
+
+  # Create plot. Highlighted: flagged strata solid in the accent colour, the rest
+  # dimmed (focus by contrast rather than ringing); flagged labels are starred.
+  pt_layers <- if (has_hl) {
+    list(
+      geom_point(aes(color = .data$.maihda_flag, alpha = .data$.maihda_flag), size = 2),
+      geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper,
+                        color = .data$.maihda_flag, alpha = .data$.maihda_flag),
+                    width = 0.2)
+    )
+  } else {
+    list(
+      geom_point(size = 2, color = "#0072B2"),
+      geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper),
+                    width = 0.2, alpha = 0.5, color = "#0072B2")
+    )
+  }
+  p <- ggplot(stratum_est, aes(x = .data$display_label, y = .data$predicted)) +
+    pt_layers +
+    geom_hline(yintercept = fixed_reference, linetype = "dashed", color = "red", alpha = 0.7) +
+    labs(
+      title = "Predicted Subgroup Values with Conditional 95% Intervals",
+      x = "Stratum",
+      y = "Predicted Value",
+      caption = caption_txt
+    ) +
+    coord_flip() +
+    theme_maihda() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
+      panel.grid.minor = element_blank()
+    )
+  if (has_hl) {
+    p <- p +
+      scale_color_manual(values = maihda_highlight_palette(), guide = "none") +
+      scale_alpha_manual(values = maihda_highlight_alpha(), guide = "none")
+  }
+
+  return(p)
+}
+
+# Shared data preparation for the two stratum-prediction views: the text
+# `predicted` plot and the `upset` composite. Computes each stratum's predicted
+# value + conditional interval, the across-strata reference (the dashed line),
+# the flag/highlight membership, and applies the only_flagged filter / n_strata
+# cap / `select` rule -- everything both views need before they diverge on
+# layout. Returns a list with `stratum_est` (the kept strata, carrying
+# predicted/lower/upper/n/.maihda_flag/display_label), `fixed_reference`,
+# `caption_txt`, `screen_label`, and `no_flagged` (TRUE when only_flagged found
+# nothing flagged, so the caller returns its own titled empty panel).
+maihda_prepare_predicted_strata <- function(object, summary_obj, n_strata,
+                                            scale = c("response", "link"),
+                                            highlight = NULL, only_flagged = FALSE,
+                                            select = c("order", "deviation")) {
   scale <- match.arg(scale)
   select <- match.arg(select)
 
@@ -896,6 +987,9 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
   stratum_est$predicted <- pred_data$predicted_row[pred_idx]
   stratum_est$lower <- pred_data$lower_row[pred_idx]
   stratum_est$upper <- pred_data$upper_row[pred_idx]
+  # Carry the stratum size through for the upset view's intersection-size bars;
+  # the text view ignores it.
+  stratum_est$n <- pred_data$n[pred_idx]
 
   # Mark strata flagged as carrying a credibly non-zero interaction BEFORE any
   # truncation, so the cap can be made flag-aware (a flagged stratum past the cap
@@ -921,12 +1015,10 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
 
   caption_txt <- ""
   if (only_flagged) {
-    # Restrict to flagged strata. With none flagged, return a captioned empty
-    # panel rather than an error or a bare axis.
+    # Restrict to flagged strata. With none flagged, signal the caller to return
+    # its own titled empty panel rather than erroring or drawing a bare axis.
     if (n_flagged_total == 0) {
-      return(maihda_no_flagged_plot(
-        "Predicted Subgroup Values with Conditional 95% Intervals", screen_label,
-        highlight))
+      return(list(no_flagged = TRUE, screen_label = screen_label))
     }
     flagged_idx <- which(stratum_est$.maihda_flag)
     # A cap still applies for readability when MANY strata are flagged; which
@@ -998,50 +1090,293 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
       stratum_est$display_label, stratum_est$stratum, highlight)
   }
 
-  # Create factor to preserve order for plotting
-  stratum_est$display_label <- factor(stratum_est$display_label, levels = stratum_est$display_label)
+  list(
+    stratum_est = stratum_est,
+    fixed_reference = fixed_reference,
+    caption_txt = caption_txt,
+    screen_label = screen_label,
+    no_flagged = FALSE
+  )
+}
+
+#' UpSet-style Predicted Stratum Plot
+#'
+#' Composite alternative to the text-labelled \code{"predicted"} view that
+#' replaces the long intersectional axis labels with an UpSet-style category
+#' matrix. Three panels share one column order: a top bar of intersection
+#' (stratum) sizes, a middle matrix encoding each stratum's category on every
+#' dimension, and a bottom panel of predicted values with conditional intervals.
+#' Columns are ordered by intersection size (largest first). Binary 0/1 (or
+#' logical) dimensions collapse to a single present/absent row; multi-level
+#' factors get one row per level, and each column lights exactly one dot per
+#' dimension.
+#'
+#' @inheritParams plot_predicted_strata
+#' @return A \pkg{patchwork} object stacking the three panels.
+#' @keywords internal
+#' @import ggplot2
+plot_upset_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"),
+                              highlight = NULL, only_flagged = FALSE,
+                              select = c("order", "deviation"),
+                              quantity = c("predicted", "interaction")) {
+  scale <- match.arg(scale)
+  select <- match.arg(select)
+  quantity <- match.arg(quantity)
+  is_interaction <- quantity == "interaction"
+  plot_title <- if (is_interaction) {
+    "Stratum Random Effects by Intersection (UpSet)"
+  } else {
+    "Predicted Subgroup Values by Intersection (UpSet)"
+  }
+
+  # The matrix encodes each stratum's category on every dimension, so it needs
+  # the per-dimension stratum table from make_strata(); refuse a model that
+  # carries only a bare stratum id.
+  strata_vars <- object$strata_vars
+  strata_info <- object$strata_info
+  if (is.null(strata_vars) || length(strata_vars) == 0 || is.null(strata_info) ||
+      !all(strata_vars %in% names(strata_info))) {
+    stop("type = \"upset\" needs the per-dimension stratum table from ",
+         "make_strata(); this model does not carry one. Use type = \"predicted\".",
+         call. = FALSE)
+  }
+
+  prep <- maihda_prepare_predicted_strata(
+    object, summary_obj, n_strata, scale = scale,
+    highlight = highlight, only_flagged = only_flagged, select = select)
+  if (isTRUE(prep$no_flagged)) {
+    return(maihda_no_flagged_plot(plot_title, prep$screen_label, highlight))
+  }
+  stratum_est <- prep$stratum_est
+  fixed_reference <- prep$fixed_reference
+  caption_txt <- prep$caption_txt
+
+  # The interaction view plots the stratum random effect (the BLUP) against a
+  # zero line -- the deviation from the model's fixed prediction, which is the
+  # pure interaction only when the dimension main effects are in the model. It
+  # needs the random-effect interval the summary attaches.
+  if (is_interaction &&
+      !all(c("random_effect", "lower_95", "upper_95") %in% names(stratum_est))) {
+    stop("quantity = \"interaction\" needs the stratum random-effect interval, ",
+         "which this fit does not expose. Use quantity = \"predicted\".",
+         call. = FALSE)
+  }
+
+  # Order the kept strata by intersection size (largest first) -- the UpSet
+  # convention, and the most useful here since the largest strata carry the most
+  # reliably estimated effects. `select` already chose WHICH strata survive the
+  # cap; this governs only their left-to-right order.
+  ord <- order(stratum_est$n, decreasing = TRUE)
+  stratum_est <- stratum_est[ord, , drop = FALSE]
+  stratum_est$rank <- seq_len(nrow(stratum_est))
+  k <- nrow(stratum_est)
+  info_idx <- match(as.character(stratum_est$stratum), as.character(strata_info$stratum))
+
+  # Lay out the matrix rows: a binary 0/1 (or logical) dimension is a single
+  # present/absent row, while a multi-level factor expands to one row per level.
+  # Each row records the level it lights up for (`on_level`) and a display label
+  # (the variable name for an indicator, "var: level" for a factor level). Rows
+  # stack top-to-bottom in `strata_vars` order; within a factor, levels keep
+  # their natural order.
+  row_specs <- list()
+  for (v in strata_vars) {
+    col <- strata_info[[v]]
+    if (maihda_dim_is_indicator(col)) {
+      row_specs[[length(row_specs) + 1L]] <- list(
+        var = v, on_level = maihda_dim_levels(col)[2], label = v)
+    } else {
+      for (lev in maihda_dim_levels(col)) {
+        row_specs[[length(row_specs) + 1L]] <- list(
+          var = v, on_level = lev, label = paste0(v, ": ", lev))
+      }
+    }
+  }
+  n_rows <- length(row_specs)
+  # Descending y so the first row sits at the top of the panel.
+  for (i in seq_len(n_rows)) row_specs[[i]]$y <- n_rows - i + 1L
+  y_breaks <- vapply(row_specs, function(s) s$y, numeric(1))
+  y_labels <- vapply(row_specs, function(s) s$label, character(1))
+
+  # Long matrix: one entry per (stratum, matrix-row). A cell is "on" when the
+  # stratum's value on that dimension equals the row's level, so each column
+  # lights exactly one dot per dimension (or none, for an absent indicator).
+  mat <- do.call(rbind, lapply(row_specs, function(s) {
+    vals <- strata_info[[s$var]][info_idx]
+    data.frame(
+      rank = stratum_est$rank,
+      dim_y = s$y,
+      on = as.character(vals) == as.character(s$on_level),
+      stringsAsFactors = FALSE
+    )
+  }))
+
+  # Vertical connector spanning the "on" dots within each column (the UpSet line).
+  on_mat <- mat[mat$on, , drop = FALSE]
+  seg <- do.call(rbind, lapply(split(on_mat, on_mat$rank), function(d) {
+    if (nrow(d) < 2) return(NULL)
+    data.frame(rank = d$rank[1], y0 = min(d$dim_y), y1 = max(d$dim_y))
+  }))
+
+  on_col <- "#2B2D42"
+  off_col <- "#D9D9D9"
+  x_scale <- scale_x_continuous(limits = c(0.5, k + 0.5), expand = c(0, 0))
+  base_theme <- theme_maihda() +
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor = element_blank(),
+      plot.margin = margin(2, 6, 2, 6)
+    )
+
+  # Panel 1: intersection (stratum) sizes.
+  p_bar <- ggplot(stratum_est, aes(x = .data$rank, y = .data$n)) +
+    geom_col(fill = on_col, width = 0.7) +
+    x_scale +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.10))) +
+    labs(x = NULL, y = "Intersection\nsize") +
+    base_theme
+
+  # Panel 2: the dot matrix -- this replaces the long text axis labels. Segments
+  # are drawn first so the dots sit on top of the connector.
+  matrix_layers <- list(
+    geom_point(data = mat,
+               aes(x = .data$rank, y = .data$dim_y, color = .data$on), size = 2.3)
+  )
+  if (!is.null(seg)) {
+    matrix_layers <- c(
+      list(geom_segment(data = seg,
+                        aes(x = .data$rank, xend = .data$rank,
+                            y = .data$y0, yend = .data$y1),
+                        color = on_col, linewidth = 0.7)),
+      matrix_layers)
+  }
+  p_matrix <- ggplot() +
+    matrix_layers +
+    scale_color_manual(values = c(`TRUE` = on_col, `FALSE` = off_col), guide = "none") +
+    x_scale +
+    scale_y_continuous(breaks = y_breaks, labels = y_labels,
+                       limits = c(0.5, n_rows + 0.5), expand = c(0, 0)) +
+    labs(x = NULL, y = NULL) +
+    base_theme +
+    theme(panel.grid.major.y = element_blank())
+
+  # Panel 3: the per-stratum estimate (inherits the highlight). `quantity` picks
+  # the column shown: the predicted value against the across-strata reference, or
+  # the random effect (interaction) against zero.
+  est_y   <- if (is_interaction) "random_effect" else "predicted"
+  est_lo  <- if (is_interaction) "lower_95" else "lower"
+  est_hi  <- if (is_interaction) "upper_95" else "upper"
+  est_ref <- if (is_interaction) 0 else fixed_reference
+  est_ylab <- if (is_interaction) "Stratum random effect" else "Predicted Value"
 
   has_hl <- any(stratum_est$.maihda_flag)
-
-  # Create plot. Highlighted: flagged strata solid in the accent colour, the rest
-  # dimmed (focus by contrast rather than ringing); flagged labels are starred.
-  pt_layers <- if (has_hl) {
+  est_layers <- if (has_hl) {
     list(
       geom_point(aes(color = .data$.maihda_flag, alpha = .data$.maihda_flag), size = 2),
-      geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper,
+      geom_errorbar(aes(ymin = .data[[est_lo]], ymax = .data[[est_hi]],
                         color = .data$.maihda_flag, alpha = .data$.maihda_flag),
-                    width = 0.2)
+                    width = 0.25)
     )
   } else {
     list(
       geom_point(size = 2, color = "#0072B2"),
-      geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper),
-                    width = 0.2, alpha = 0.5, color = "#0072B2")
+      geom_errorbar(aes(ymin = .data[[est_lo]], ymax = .data[[est_hi]]),
+                    width = 0.25, alpha = 0.5, color = "#0072B2")
     )
   }
-  p <- ggplot(stratum_est, aes(x = .data$display_label, y = .data$predicted)) +
-    pt_layers +
-    geom_hline(yintercept = fixed_reference, linetype = "dashed", color = "red", alpha = 0.7) +
-    labs(
-      title = "Predicted Subgroup Values with Conditional 95% Intervals",
-      x = "Stratum",
-      y = "Predicted Value",
-      caption = caption_txt
-    ) +
-    theme_maihda() +
-    theme(
-      plot.title = element_text(hjust = 0.5, face = "bold"),
-      plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
-      panel.grid.minor = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
-    )
+  note <- paste0("Dark dot = the stratum's category on each dimension; columns ",
+                 "ordered by intersection size (largest first).")
+  if (is_interaction) {
+    note <- paste0(note, "\nLower panel: stratum random effect on the link scale ",
+                   "(deviation from the model's fixed prediction; the pure ",
+                   "interaction when the dimension main effects are in the model).")
+  }
+  p_est <- ggplot(stratum_est, aes(x = .data$rank, y = .data[[est_y]])) +
+    geom_hline(yintercept = est_ref, linetype = "dashed", color = "red", alpha = 0.7) +
+    est_layers +
+    x_scale +
+    labs(x = NULL, y = est_ylab, caption = paste0(note, caption_txt)) +
+    base_theme +
+    theme(plot.caption = element_text(hjust = 0.5, face = "italic", size = 9))
   if (has_hl) {
-    p <- p +
+    p_est <- p_est +
       scale_color_manual(values = maihda_highlight_palette(), guide = "none") +
       scale_alpha_manual(values = maihda_highlight_alpha(), guide = "none")
   }
 
-  return(p)
+  patchwork::wrap_plots(p_bar, p_matrix, p_est, ncol = 1,
+                        heights = c(2.2, 0.45 * n_rows + 0.4, 3.0)) +
+    patchwork::plot_annotation(
+      title = plot_title,
+      theme = theme(plot.title = element_text(hjust = 0.5, face = "bold")))
+}
+
+#' Recommended Figure Size for the UpSet Stratum Plot
+#'
+#' Computes sensible \code{width} and \code{height} (in inches) for
+#' \code{plot(object, type = "upset")}, so a knitr chunk or
+#' \code{\link[ggplot2]{ggsave}()} call can size the figure to its content. The
+#' UpSet composite grows \emph{taller} with the number of matrix rows (one per
+#' binary 0/1 dimension, one per level of a multi-level factor) and \emph{wider}
+#' with the number of strata columns shown, so a single fixed size tends to crop
+#' or stretch it -- particularly for multi-level designs (many rows) or a large
+#' \code{n_strata} (many columns; UpSet is an inherently wide format).
+#'
+#' @param object A \code{maihda_model} from \code{\link{fit_maihda}} or a
+#'   \code{maihda} analysis from \code{\link{maihda}}; it must carry the
+#'   per-dimension stratum table from \code{\link{make_strata}}.
+#' @param n_strata Maximum number of strata the plot will show -- pass the same
+#'   value you give \code{plot()}. \code{NULL} means all strata. Default 50.
+#' @return A list with numeric \code{width} and \code{height} (inches) plus the
+#'   \code{rows} (matrix rows) and \code{cols} (strata shown) they derive from.
+#' @examples
+#' \donttest{
+#' strata <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+#' model <- fit_maihda(health_outcome ~ (1 | stratum), data = strata$data)
+#' sz <- maihda_upset_size(model, n_strata = 30)
+#' ggplot2::ggsave(
+#'   tempfile(fileext = ".png"),
+#'   plot(model, type = "upset", n_strata = 30),
+#'   width = sz$width, height = sz$height)
+#' }
+#' @seealso \code{\link{plot.maihda_model}}
+#' @export
+maihda_upset_size <- function(object, n_strata = 50) {
+  model <- if (inherits(object, "maihda_analysis")) object$model else object
+  strata_vars <- model$strata_vars
+  strata_info <- model$strata_info
+  if (is.null(strata_vars) || length(strata_vars) == 0 || is.null(strata_info) ||
+      !all(strata_vars %in% names(strata_info))) {
+    stop("maihda_upset_size() needs the per-dimension stratum table from ",
+         "make_strata(); this object does not carry one.", call. = FALSE)
+  }
+  if (!is.null(n_strata) &&
+      (!is.numeric(n_strata) || length(n_strata) != 1 ||
+       is.na(n_strata) || n_strata < 1)) {
+    stop("'n_strata' must be a single positive number or NULL.", call. = FALSE)
+  }
+
+  # Matrix rows: one for a binary 0/1 (or logical) indicator, one per level for a
+  # multi-level factor -- matching the layout plot_upset_strata() builds, so the
+  # row count is exactly what will be drawn.
+  n_rows <- sum(vapply(strata_vars, function(v) {
+    col <- strata_info[[v]]
+    if (maihda_dim_is_indicator(col)) 1L else length(maihda_dim_levels(col))
+  }, integer(1)))
+
+  n_total <- nrow(strata_info)
+  n_cols <- if (is.null(n_strata)) n_total else min(n_total, as.integer(n_strata))
+
+  # ~0.28 in per column and ~0.25 in per row, atop fixed gutters for the y-axis
+  # labels (width) and the bar + estimate panels + caption (height); floored so
+  # tiny designs still get a usable canvas.
+  list(
+    width  = max(6, round(2 + 0.28 * n_cols, 1)),
+    height = max(4.5, round(4 + 0.25 * n_rows, 1)),
+    rows   = n_rows,
+    cols   = n_cols
+  )
 }
 
 #' Mean Prediction vs. Stratum Random Effect Plot

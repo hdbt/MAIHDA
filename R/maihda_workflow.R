@@ -908,7 +908,9 @@ summary.maihda_analysis <- function(object, ...) {
 #'
 #' @param x A \code{maihda_analysis} object from \code{\link{maihda}}.
 #' @param type One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
-#'   "risk_vs_effect", "effect_decomp", "ternary", "prediction_deviation"), the
+#'   "upset" (the UpSet-style alternative to "predicted"; forwards \code{quantity}
+#'   via \code{...}), "risk_vs_effect", "effect_decomp", "ternary",
+#'   "prediction_deviation"), the
 #'   contextual type ("context_vpc", a stratum-vs-context variance bar; requires
 #'   \code{maihda(context = )}), a longitudinal type ("vpc_trajectory",
 #'   "trajectories", "pcv_trajectory"; requires \code{decomposition =
@@ -955,7 +957,7 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
                                  only_flagged = FALSE, highlight_by = c("flag", "rope"),
                                  rope = NULL, select = c("order", "deviation"), ...) {
   type <- match.arg(type, c(
-    "all", "vpc", "obs_vs_shrunken", "predicted", "risk_vs_effect",
+    "all", "vpc", "obs_vs_shrunken", "predicted", "upset", "risk_vs_effect",
     "effect_decomp", "ternary", "prediction_deviation", "context_vpc",
     "vpc_trajectory", "trajectories", "pcv_trajectory",
     "group_vpc", "group_components", "group_between_variance", "group_pcv",
