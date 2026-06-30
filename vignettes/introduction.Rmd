@@ -121,9 +121,31 @@ to read each one.
 plot(analysis, type = "vpc")
 ```
 
-```{r maihda-plot-predicted}
-# Predicted stratum values with 95% CIs -- null model
+```{r maihda-plot-predicted, fig.height = 10}
+# Predicted stratum values with 95% CIs -- null model.
+# 50 strata (Gender x Race x Education), so the figure is tall to keep the
+# rotated stratum labels readable.
 plot(analysis, type = "predicted")
+```
+
+When there are many strata, the **UpSet view** (`type = "upset"`) is a more compact
+alternative to the rotated labels above. A dot matrix encodes each stratum's
+category on every dimension -- a single present/absent row for a binary 0/1
+dimension, one row per level for a multi-level factor such as `Race` or
+`Education` -- with an intersection-size bar above and the predicted values below,
+all sharing one column order (largest stratum first). Highlighting carries over:
+with `highlight_by = "rope"`, strata whose interaction is credibly outside a
+*region of practical equivalence* are drawn in the accent colour. Here a ROPE of
++/-0.25 BMI flags only two intersections -- a reminder that the intersectional
+interactions are mostly negligible in this small teaching subset (the
+[BRFSS case study](case_study_brfss.html) runs on full data, where more surface).
+`n_strata` caps the columns for readability, but any flagged stratum is always
+kept. Use `maihda_upset_size()` to get a width/height matched to the content.
+
+```{r maihda-plot-upset, fig.width = 9, fig.height = 7}
+# UpSet view of the same strata, highlighting ROPE-relevant interactions.
+plot(analysis, type = "upset", n_strata = 25, select = "deviation",
+     highlight_interactions = TRUE, highlight_by = "rope", rope = 0.25)
 ```
 
 ```{r maihda-plot-effect-decomp}
