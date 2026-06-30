@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x563be12a00c8>
+#> <environment: 0x562727097a88>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x563be045d1b8>
+#> <environment: 0x562726243368>
 ```
 
 The returned object carries everything: the full variance components,
@@ -211,11 +211,40 @@ plot(analysis, type = "vpc")
 
 ``` r
 
-# Predicted stratum values with 95% CIs -- null model
+# Predicted stratum values with 95% CIs -- null model.
+# 50 strata (Gender x Race x Education), so the figure is tall to keep the
+# rotated stratum labels readable.
 plot(analysis, type = "predicted")
 ```
 
 ![](introduction_files/figure-html/maihda-plot-predicted-1.png)
+
+When there are many strata, the **UpSet view** (`type = "upset"`) is a
+more compact alternative to the rotated labels above. A dot matrix
+encodes each stratum’s category on every dimension – a single
+present/absent row for a binary 0/1 dimension, one row per level for a
+multi-level factor such as `Race` or `Education` – with an
+intersection-size bar above and the predicted values below, all sharing
+one column order (largest stratum first). Highlighting carries over:
+with `highlight_by = "rope"`, strata whose interaction is credibly
+outside a *region of practical equivalence* are drawn in the accent
+colour. Here a ROPE of +/-0.25 BMI flags only two intersections – a
+reminder that the intersectional interactions are mostly negligible in
+this small teaching subset (the [BRFSS case
+study](https://hdbt.github.io/MAIHDA/articles/case_study_brfss.md) runs
+on full data, where more surface). `n_strata` caps the columns for
+readability, but any flagged stratum is always kept. Use
+[`maihda_upset_size()`](https://hdbt.github.io/MAIHDA/reference/maihda_upset_size.md)
+to get a width/height matched to the content.
+
+``` r
+
+# UpSet view of the same strata, highlighting ROPE-relevant interactions.
+plot(analysis, type = "upset", n_strata = 25, select = "deviation",
+     highlight_interactions = TRUE, highlight_by = "rope", rope = 0.25)
+```
+
+![](introduction_files/figure-html/maihda-plot-upset-1.png)
 
 ``` r
 
