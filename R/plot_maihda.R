@@ -1118,9 +1118,9 @@ plot_upset_strata <- function(object, summary_obj, n_strata, scale = c("response
   quantity <- match.arg(quantity)
   is_interaction <- quantity == "interaction"
   plot_title <- if (is_interaction) {
-    "Stratum Random Effects by Intersection (UpSet)"
+    "Stratum Random Effects by Intersection"
   } else {
-    "Predicted Subgroup Values by Intersection (UpSet)"
+    "Predicted Subgroup Values by Intersection"
   }
 
   # The matrix encodes each stratum's category on every dimension, so it needs
