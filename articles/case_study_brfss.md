@@ -227,7 +227,7 @@ Strongest interactions by absolute size, with ROPE classification.
 
 ### How many interactions actually matter? A ROPE
 
-Flagging asks only whether an interaction differs statisticaly
+Flagging asks only whether an interaction differs statistically
 significantly from zero. On the full data the FDR screen flags 55 of 432
 strata. The more interesting question is whether a departure is *large
 enough to matter*. A **region of practical equivalence** (ROPE) sets a

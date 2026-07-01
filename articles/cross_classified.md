@@ -126,7 +126,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x556c143aad38>
+#> <environment: 0x5634b00e1778>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -460,7 +460,7 @@ if you supply both.
 ### Notes
 
 - Few context levels identify the context variance weakly. The
-  `maihda_country_data` example has only 6 countrie resulting in
+  `maihda_country_data` example has only 6 countries resulting in
   imprecise estimates and `lme4` may fit it singular. Prefer many-level
   contexts, or `engine = "brms"`, whose priors regularise the variance.
 - A manually written `+ (1 | school)` in the formula fits the same
