@@ -51,6 +51,11 @@ An object of class \code{maihda_table}: a list with
   \item{strata_note}{a character note explaining why \code{strata} is \code{NULL}
     (e.g. a longitudinal fit), or \code{NULL} when a ranked-strata table was
     produced}
+  \item{models_note}{a character note (or \code{NULL}) flagging that the PCV was
+    computed from maximum-likelihood-refitted between-stratum variances while the
+    variance/VPC rows are each model's own (REML) estimate, so the PCV need not
+    equal the reduction implied by the displayed variance rows; see
+    \code{\link{calculate_pvc}}}
   \item{model_keys, model_labels}{the estimate-column keys and their display labels}
   \item{family, engine, mode, scale, ranked_by, n_obs, n_strata_total, context_vars}{
     metadata used by \code{print()}}

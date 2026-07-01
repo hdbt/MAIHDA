@@ -1,3 +1,35 @@
+# Reserved column-name prefix for the internal binned-dimension factors that the
+# decomposition machinery writes when a numeric stratum dimension was auto-binned:
+# maihda_adjusted_terms() adds them at fit time (the adjusted / crossed formulae
+# reference them) and maihda_add_binned_dim_columns() rebuilds them at predict time.
+# Centralised so the two writers cannot drift on the naming, and so make_strata()
+# can reserve it up front. Mirrors the reserved weight-column constants in
+# design_weights.R.
+.maihda_dim_prefix <- ".maihda_dim_"
+
+# Internal column name carrying the reconstructed tertile factor for auto-binned
+# dimension `v`.
+maihda_dim_col <- function(v) paste0(.maihda_dim_prefix, v)
+
+# Guard the reserved '.maihda_dim_<v>' column an auto-binned dimension will write
+# against silently overwriting a user column of the same name. Called from
+# make_strata() -- the SOLE producer of the auto-bin recipe -- on the raw user data,
+# so it fires before any internal augmentation and never false-positives on the
+# '.maihda_dim_*' columns the package itself adds to a fitted model's `original_data`
+# downstream (those are re-augmented idempotently, not user data). Errors with a
+# rename hint, mirroring maihda_guard_reserved_weight_col().
+maihda_guard_reserved_dim_col <- function(v, data) {
+  col <- maihda_dim_col(v)
+  if (col %in% names(data)) {
+    stop("Auto-binning the numeric stratum variable '", v, "' would create the ",
+         "reserved internal column '", col, "', but 'data' already contains a column ",
+         "of that name; auto-binning would overwrite it. Rename or remove '", col,
+         "', or pass autobin = FALSE and bin '", v, "' yourself before creating strata.",
+         call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
 #' Reconstruct the adjusted-model main-effect terms for a MAIHDA decomposition
 #'
 #' For each stratum-defining variable, returns the model term to add as an additive
@@ -23,7 +55,7 @@ maihda_adjusted_terms <- function(strata_vars, autobin_info, data) {
       # The dimension was auto-binned for the strata; the additive main effect must
       # be the SAME tertile factor (make_strata left the original column numeric).
       info <- autobin_info[[v]]
-      new_col <- paste0(".maihda_dim_", v)
+      new_col <- maihda_dim_col(v)
       data[[new_col]] <- cut(data[[v]], breaks = info$breaks,
                              include.lowest = TRUE, labels = info$labels)
       terms <- c(terms, new_col)

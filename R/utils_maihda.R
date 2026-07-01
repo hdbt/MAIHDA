@@ -2184,7 +2184,11 @@ maihda_add_binned_dim_columns <- function(data, autobin_info) {
   for (v in intersect(names(autobin_info), names(data))) {
     info <- autobin_info[[v]]
     if (!is.null(info$breaks) && !is.null(info$labels)) {
-      data[[paste0(".maihda_dim_", v)]] <- cut(
+      # Overwriting any '.maihda_dim_<v>' already in newdata is intentional: it is
+      # the model's internal term, reserved at fit time (make_strata() rejects a
+      # user column of this name), so predicting on the fitted data -- which already
+      # carries the package's own copy -- rebuilds the identical factor.
+      data[[maihda_dim_col(v)]] <- cut(
         data[[v]], breaks = info$breaks,
         include.lowest = TRUE, labels = info$labels
       )

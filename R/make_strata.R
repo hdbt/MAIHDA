@@ -32,6 +32,13 @@
 #' allows fit_maihda() to automatically capture stratum labels for use in plots
 #' and summaries.
 #'
+#' When \code{autobin} discretises a numeric grouping variable \code{v}, the
+#' adjusted-model and prediction machinery later add an internal factor column named
+#' \code{.maihda_dim_<v>}; the \code{.maihda_dim_} prefix is therefore reserved.
+#' \code{make_strata()} errors if \code{data} already holds the \code{.maihda_dim_<v>}
+#' column for a variable it is about to auto-bin, so an existing user column is never
+#' silently overwritten (rename it, or pass \code{autobin = FALSE}).
+#'
 #' @examples
 #' # Create strata from gender and race variables
 #' result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
@@ -76,6 +83,11 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
     for (v in vars) {
       val <- strata_data[[v]]
       if (is.numeric(val) && length(unique(stats::na.omit(val))) > 10) {
+        # This numeric dimension will be discretised, so the adjusted-model and
+        # prediction machinery later add the reserved '.maihda_dim_<v>' factor column.
+        # Reject a pre-existing user column of that name now -- before any
+        # augmentation -- rather than silently overwriting it downstream.
+        maihda_guard_reserved_dim_col(v, data)
         q <- stats::quantile(val, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)
         labels <- c(paste0(v, "_Low"), paste0(v, "_Mid"), paste0(v, "_High"))
         tertiles_ok <- length(unique(q)) == 4

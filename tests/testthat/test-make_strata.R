@@ -112,6 +112,48 @@ test_that("make_strata handles missing values correctly", {
   expect_equal(sum(is.na(result$data$stratum)), 2)
 })
 
+test_that("make_strata reserves the .maihda_dim_ prefix against user columns", {
+  set.seed(11)
+  # `age` is numeric with >10 unique values, so it is auto-binned and the machinery
+  # would later write the reserved '.maihda_dim_age' factor column. A user column of
+  # that name must be rejected up front, not silently overwritten.
+  d <- data.frame(
+    g = sample(c("a", "b"), 60, replace = TRUE),
+    age = rnorm(60)
+  )
+  d[[".maihda_dim_age"]] <- seq_len(60)
+
+  expect_error(
+    suppressMessages(make_strata(d, vars = c("g", "age"))),
+    "reserved internal column '.maihda_dim_age'",
+    fixed = TRUE
+  )
+
+  # A '.maihda_dim_*' column for a variable that is NOT auto-binned (a categorical
+  # dimension writes no such column) is unrelated and left untouched.
+  d2 <- data.frame(
+    g = sample(c("a", "b"), 60, replace = TRUE),
+    race = sample(c("x", "y", "z"), 60, replace = TRUE)
+  )
+  d2[[".maihda_dim_race"]] <- seq_len(60)
+  res <- make_strata(d2, vars = c("g", "race"))
+  expect_s3_class(res, "maihda_strata")
+  expect_equal(res$data[[".maihda_dim_race"]], seq_len(60))
+})
+
+test_that("fit_maihda() auto-strata rejects a reserved .maihda_dim_ collision", {
+  set.seed(12)
+  n <- 200
+  d <- data.frame(g = sample(c("a", "b"), n, TRUE), age = rnorm(n), y = rnorm(n))
+  d[[".maihda_dim_age"]] <- 1                 # collides with the auto-binned `age`
+  # The (1 | g:age) shorthand auto-creates strata via make_strata(), so the guard
+  # fires through the modelling entry point too.
+  expect_error(
+    suppressMessages(fit_maihda(y ~ (1 | g:age), data = d)),
+    "reserved internal column",
+  )
+})
+
 test_that("make_strata handles all missing values in one variable", {
   # Create test data where one variable is entirely missing
   data <- data.frame(

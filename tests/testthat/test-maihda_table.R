@@ -165,6 +165,37 @@ test_that("maihda_table() reports the context share for a contextual fit", {
   expect_true(any(grepl("Context: country", out, fixed = TRUE)))
 })
 
+test_that("maihda_table() notes the REML-variance / ML-PCV basis mismatch", {
+  d <- make_table_data(7011)
+  a <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d))
+
+  tab <- maihda_table(a)
+  # A Gaussian lme4 two-model fit reports REML variance rows but an ML-refitted PCV,
+  # so a clarifying note is attached...
+  expect_type(tab$models_note, "character")
+  expect_match(tab$models_note, "maximum-likelihood")
+
+  # ...and the note is warranted: the ML between-stratum variance the PCV is built
+  # from genuinely differs from the displayed REML variance row.
+  v_null_disp <- tab$models[tab$models$statistic == "Between-stratum variance", "null"]
+  expect_false(isTRUE(all.equal(a$pcv$var_model1, v_null_disp)))
+
+  # The note surfaces in print().
+  out <- capture.output(print(tab))
+  expect_true(any(grepl("Note:", out, fixed = TRUE)))
+})
+
+test_that("maihda_table() attaches no PCV note for single or crossed-dimensions fits", {
+  d <- make_table_data(7012)
+
+  m <- suppressMessages(fit_maihda(y ~ age + (1 | gender:race), data = d))
+  expect_null(maihda_table(m)$models_note)
+
+  a <- suppressWarnings(suppressMessages(
+    maihda(y ~ age + (1 | gender:race), data = d, decomposition = "crossed-dimensions")))
+  expect_null(maihda_table(a)$models_note)
+})
+
 test_that("maihda_extract_intercept handles every fixed-effects shape", {
   # brms-style matrix with an Intercept row + Estimate column.
   m <- matrix(c(1.5, 0.2, 1.1, 1.9), nrow = 1,
