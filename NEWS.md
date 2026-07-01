@@ -1,4 +1,4 @@
-# MAIHDA 0.1.12
+# MAIHDA 0.2.0
 
 ## New Features
 
