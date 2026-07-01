@@ -264,7 +264,7 @@ Because they answer different questions, `maihda()` errors if you supply both.
 ### Notes
 
 - Few context levels identify the context variance weakly. The
-  `maihda_country_data` example has only 6 countrie resulting in imprecise estimates and `lme4` may fit it singular. Prefer many-level contexts, or `engine = "brms"`, whose priors
+  `maihda_country_data` example has only 6 countries resulting in imprecise estimates and `lme4` may fit it singular. Prefer many-level contexts, or `engine = "brms"`, whose priors
   regularise the variance.
 - A manually written `+ (1 | school)` in the formula fits the same model, but is
   summarised generically as "Other random effects". Only `context =` activates the

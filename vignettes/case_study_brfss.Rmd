@@ -201,7 +201,7 @@ knitr::kable(head(disp, 15), digits = 3,
 
 ### How many interactions actually matter? A ROPE
 
-Flagging asks only whether an interaction differs statisticaly significantly from zero. On the full data the FDR screen flags `r pc$n_flagged` of `r pc$n_interactions` strata. The more interesting question is whether a departure is *large enough to matter*. A **region of practical equivalence** (ROPE) sets a smallest intersectional effect of interest on the log-odds scale and classifies each stratum's interval as practically **relevant** (outside the ROPE), **negligible** (inside it), or **inconclusive** (Schuirmann 1987; Kruschke 2018). The `rope` argument of `maihda_interactions()` adds this `decision` column:
+Flagging asks only whether an interaction differs statistically significantly from zero. On the full data the FDR screen flags `r pc$n_flagged` of `r pc$n_interactions` strata. The more interesting question is whether a departure is *large enough to matter*. A **region of practical equivalence** (ROPE) sets a smallest intersectional effect of interest on the log-odds scale and classifies each stratum's interval as practically **relevant** (outside the ROPE), **negligible** (inside it), or **inconclusive** (Schuirmann 1987; Kruschke 2018). The `rope` argument of `maihda_interactions()` adds this `decision` column:
 
 ```{r rope-code, eval = FALSE}
 maihda_interactions(brfss_fit, rope = 0.4)   # ROPE = +/- 0.4 log-odds (OR ~ 1.5)

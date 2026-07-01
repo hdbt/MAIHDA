@@ -18,7 +18,7 @@ The MAIHDA package provides a comprehensive toolkit for conducting Multilevel An
 - **One-call Workflow**: `maihda()` fits the null *and* adjusted models, summarises the VPC/ICC and the PCV decomposition (additive vs. intersectional), and (optionally) compares across a higher-level group in a single call
 - **[Interactive Dashboard](https://hdbt.shinyapps.io/shiny/)**: A fully-featured Shiny application (`run_maihda_app()`) for no-code exploratory data analysis and model fitting
 - **Model Fitting**: Multiple engines — `lme4` (frequentist), `brms` (Bayesian), `WeMix` (design-weighted pseudo-likelihood), and `ordinal` (`ordinal::clmm`, for cumulative/ordered-factor outcomes)
-- **Design-Weighted MAIHDA**: Survey/sampling weights via `sampling_weights` fit a population-weighted model using WeMix pseudo-maximum likelihood via `engine = "wemix"` or a brms pseudo-posterior via `engine = "brms"`. 
+- **Design-Weighted MAIHDA**: Survey/sampling weights via `sampling_weights` fit a population-weighted model using WeMix pseudo-maximum likelihood via `engine = "wemix"` or a brms pseudo-posterior via `engine = "brms"`.
 - **Summaries & Decompositions**: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)
 - **Multiple Prediction Types**: Individual-level and stratum-level predictions
 - **Visualizations**: Predicted stratum values, VPC visualizations, mean-prediction vs. stratum-effect diagnostics, and observed vs. shrunken estimates, with multiplicity correction for flagged strata
@@ -142,7 +142,7 @@ Reports the relative-fit information criteria for one or more models (or a `maih
 Compares the between-stratum *share* of variance (VPC/ICC) and the between-/within-stratum variance components across the levels of a higher-level grouping variable such as country, region, or survey wave, fitting a stratified MAIHDA model per group.
 
 ### `calculate_pvc()`
-Calculates the proportional change in between-stratum variance (PCV) between two models. 
+Calculates the proportional change in between-stratum variance (PCV) between two models.
 
 - Formula: PCV = (Var_model1 - Var_model2) / Var_model1
 - Point estimate works across all fitting engines (`lme4`, `brms`, `WeMix`, `ordinal`)
@@ -323,7 +323,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use this package in your research, please cite:
 
 ```text
-Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.1.12, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
+Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.2.0, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA
 ```
 
 A BibTeX entry for LaTeX users is:
@@ -333,7 +333,7 @@ A BibTeX entry for LaTeX users is:
   title  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},
   author = {Hamid Bulut},
   year   = {2025},
-  note   = {R package version 0.1.12},
+  note   = {R package version 0.2.0},
   url    = {https://github.com/hdbt/MAIHDA},
   doi    = {10.32614/CRAN.package.MAIHDA}
 }

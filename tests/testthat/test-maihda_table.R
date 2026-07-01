@@ -147,6 +147,18 @@ test_that("maihda_table() errors on an unsupported input", {
   expect_error(maihda_table(list(a = 1)), "maihda_analysis|maihda_model")
 })
 
+test_that("maihda_table() rejects a non-finite, missing, or negative n_strata", {
+  d <- make_table_data(7010)
+  a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
+
+  for (bad in list(NA, NA_integer_, NaN, Inf, -Inf, 0, -1, c(1, 2), "5")) {
+    expect_error(maihda_table(a, n_strata = bad),
+                 "'n_strata' must be a single positive number")
+  }
+  # A valid value still builds and prints.
+  expect_s3_class(maihda_table(a, n_strata = 2), "maihda_table")
+})
+
 test_that("maihda_table() reports the context share for a contextual fit", {
   d <- make_table_data(7009)
   a <- suppressWarnings(suppressMessages(

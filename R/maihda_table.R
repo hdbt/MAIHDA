@@ -112,6 +112,13 @@ maihda_table <- function(x, n_strata = 10L, scale = c("response", "link"),
                          which = c("null", "adjusted"), digits = 3, ...) {
   scale <- match.arg(scale)
   which <- match.arg(which)
+  # n_strata caps how many strata print() shows at each end; validate before it
+  # is coerced (as.integer(NA) etc. would otherwise reach print() and error there
+  # on `if (nrow(st) > 2 * n)`).
+  if (!is.numeric(n_strata) || length(n_strata) != 1L ||
+      !is.finite(n_strata) || n_strata < 1) {
+    stop("'n_strata' must be a single positive number.", call. = FALSE)
+  }
 
   # Resolve the inputs to: the per-model summaries to tabulate, the PCV (if any),
   # the model/summary the strata are ranked from, and a little metadata. Two shapes

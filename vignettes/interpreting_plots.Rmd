@@ -62,7 +62,7 @@ scale.
 
 ## `predicted` -- stratum predictions with intervals
 
-```{r predicted}
+```{r predicted, fig.height = 10}
 plot(model, type = "predicted")
 ```
 
