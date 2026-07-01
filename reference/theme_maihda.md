@@ -48,13 +48,6 @@ rather than automatic.
 
 ``` r
 library(ggplot2)
-#> 
-#> Attaching package: ‘ggplot2’
-#> The following objects are masked from ‘package:ggtern’:
-#> 
-#>     aes, annotate, ggplot, ggplotGrob, ggplot_build, ggplot_gtable,
-#>     ggsave, layer_data, theme_bw, theme_classic, theme_dark,
-#>     theme_gray, theme_light, theme_linedraw, theme_minimal, theme_void
 ggplot(mtcars, aes(mpg, wt)) +
   geom_point(colour = "#0072B2") +
   labs(title = "MAIHDA brand theme", x = "MPG", y = "Weight") +

@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x562727097a88>
+#> <environment: 0x564b60895cc0>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x562726243368>
+#> <environment: 0x564b5ee7ee00>
 ```
 
 The returned object carries everything: the full variance components,
@@ -261,17 +261,6 @@ plot(analysis, type = "prediction_deviation")
 ```
 
 ![](introduction_files/figure-html/maihda-plot-deviation-1.png)
-
-The ternary diagnostic needs the optional `ggtern` package, so it is
-only drawn when that package is installed:
-
-``` r
-
-# Ternary diagnostic: additive vs intersection-specific signal vs uncertainty
-plot(analysis, type = "ternary")
-```
-
-![](introduction_files/figure-html/maihda-plot-ternary-1.png)
 
 ### A crossed-dimensions alternative
 

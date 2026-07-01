@@ -11,7 +11,7 @@ estimates, and predicted subgroup values with confidence intervals.
 plot(
   x,
   type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "effect_decomp",
-    "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
+    "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
   summary_obj = NULL,
   n_strata = 50,
   highlight_interactions = FALSE,
@@ -55,10 +55,6 @@ plot(
 
   - "effect_decomp": Visualizes additive vs intersectional deviation
     from global mean
-
-  - "ternary": Ternary diagnostic of the relative additive,
-    intersectional, and uncertainty signals per stratum (a
-    normalized-magnitude diagnostic, not a variance decomposition)
 
   - "prediction_deviation": Detailed deviation panels for individuals or
     strata
@@ -185,10 +181,8 @@ For a single `type`, a ggplot2 object that you can extend with the usual
 [`labs()`](https://ggplot2.tidyverse.org/reference/labs.html), added
 layers, or a replacement fill/colour scale). Two types return a richer
 object: `"prediction_deviation"` returns a patchwork of two panels
-(theme every panel at once with `& theme_*()`), and `"ternary"` returns
-a ggtern object (use the `ggtern::theme_*()` family rather than the
-standard ggplot2 themes). `type = "all"` returns a named list of ggplot2
-objects.
+(theme every panel at once with `& theme_*()`). `type = "all"` returns a
+named list of ggplot2 objects.
 
 ## Examples
 
@@ -212,8 +206,6 @@ plots <- plot(model)
 
 
 
-
-#> Warning: Removing Layer 2 ('PositionNudge'), as it is not an approved position (for ternary plots) under the present ggtern package.
 
 
 plots$predicted + ggplot2::theme_bw()

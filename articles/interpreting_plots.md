@@ -96,26 +96,6 @@ the parts” intersections, but treat them as hypotheses to probe, not as
 confirmed interactions, since they also absorb sample composition and
 estimation noise.
 
-## `ternary` – relative signal diagnostic
-
-The ternary plot needs the optional `ggtern` package, so it is only
-drawn here when that package is installed.
-
-``` r
-
-plot(model, type = "ternary")
-```
-
-![](interpreting_plots_files/figure-html/ternary-1.png)
-
-**How to read it.** For each stratum the plot normalises three
-magnitudes to sum to 1: the additive signal (how far the
-fixed-effect-only prediction sits from the grand mean), the
-intersection-specific signal (the size of the stratum random effect),
-and the uncertainty in that estimate. A stratum near the “uncertainty”
-corner is dominated by noise; one near the “intersection” corner carries
-signal beyond the additive main effects.
-
 ## `prediction_deviation` – the deviation dashboard
 
 ``` r
@@ -155,13 +135,6 @@ layers compose cleanly:
 ``` r
 
 library(ggplot2)
-#> 
-#> Attaching package: 'ggplot2'
-#> The following objects are masked from 'package:ggtern':
-#> 
-#>     aes, annotate, ggplot, ggplot_build, ggplot_gtable, ggplotGrob,
-#>     ggsave, layer_data, theme_bw, theme_classic, theme_dark,
-#>     theme_gray, theme_light, theme_linedraw, theme_minimal, theme_void
 
 plot(model, type = "vpc") +
   theme_classic(base_size = 13) +
@@ -207,10 +180,6 @@ restyle slightly differently:
   plots <- plot(model)          # list: vpc, predicted, effect_decomp, ...
   plots$predicted + theme_bw()
   ```
-
-- **`ternary`** is a `ggtern` object with its own coordinate system –
-  reach for the `ggtern::theme_*()` family rather than the standard
-  ggplot2 themes.
 
 ## See also
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## MAIHDA 0.1.12
+## MAIHDA 0.2.0
 
 ### New Features
 
@@ -12,6 +12,31 @@
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html) for both
   `maihda_model` and `maihda_analysis` objects, from `type = "all"`, and
   from the Shiny app’s plot menu.
+- **Removed the `"ternary"` plot type and the
+  `compute_maihda_ternary_data()`, `maihda_ternary_plot()`, and
+  `plot_maihda_ternary()` functions.** The ternary diagnostic normalised
+  each stratum’s additive, intersection-specific, and uncertainty
+  signals to sum to 1, which discards effect magnitude – the quantity
+  MAIHDA exists to measure – and puts two effect components and an
+  estimation-error term on a single triangle. Its content is covered
+  more directly by `"effect_decomp"` (the additive-vs-intersectional
+  split with magnitudes intact) and the `"predicted"` / `"upset"` views
+  (uncertainty shown as intervals), so it has been dropped from
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) for both
+  `maihda_model` and `maihda_analysis` objects, from `type = "all"`, and
+  from the Shiny app, and the optional `ggtern` dependency removed.
+- **Added the `"upset"` plot type and
+  [`maihda_upset_size()`](https://hdbt.github.io/MAIHDA/reference/maihda_upset_size.md).**
+  An UpSet-style alternative to `"predicted"` that replaces the long
+  intersectional axis labels with a category matrix (an
+  intersection-size bar, a dot matrix encoding each stratum’s level on
+  every dimension, and a predicted-value panel, all sharing one column
+  order). Binary 0/1 dimensions collapse to a present/absent row;
+  multi-level factors get one row per level. A `quantity` argument
+  switches the bottom panel between the predicted value (fixed + random)
+  and the stratum random effect (interaction).
+  [`maihda_upset_size()`](https://hdbt.github.io/MAIHDA/reference/maihda_upset_size.md)
+  returns content-scaled figure dimensions.
 - **[`theme_maihda()`](https://hdbt.github.io/MAIHDA/reference/theme_maihda.md)
   now is set as standard theme for ggplot objects**
 - **The `predicted` (and longitudinal `trajectories`) plot can now keep
@@ -225,22 +250,6 @@
   posterior-mean thresholds), so the brms and `clmm` cumulative paths
   agree and match the documented response scale; the link scale is
   unchanged.
-
-- **The ternary decomposition diagnostic let a `brms` cumulative
-  (ordinal) fit through on the wrong scale.**
-  [`compute_maihda_ternary_data()`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
-  blocked the `clmm` (`engine = "ordinal"`) cumulative path entirely but
-  only checked the engine, so a
-  [`brms::cumulative()`](https://paulbuerkner.com/brms/reference/brmsfamily.html)
-  fit slipped through to the same scalar inverse-link code and reported
-  cumulative probabilities in `[0, 1]` on the response scale rather than
-  expected category scores. The ternary “additive vs interaction signal”
-  split is a latent-scale concept with no coherent response-scale form
-  for a cumulative model, so the diagnostic now rejects **either**
-  cumulative engine (detected by family, not just engine name), keeping
-  the two cumulative paths consistent and pointing users at
-  `plot(type = "predicted")`, `"effect_decomp"`, and
-  [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md).
 
 - **[`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
   returned a meaningless scalar diagnostic for a longitudinal fit.** A
@@ -959,9 +968,7 @@ CRAN release: 2026-06-18
 - Plotting is now unified under the base
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html) generic.
   [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
-  and
-  [`compute_maihda_ternary_data()`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
-  now return classed objects, so
+  and `compute_maihda_ternary_data()` now return classed objects, so
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html) dispatches
   automatically:
   - [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a
@@ -973,16 +980,12 @@ CRAN release: 2026-06-18
     result, with `type = "vpc"`/“components” (was
     [`plot_group_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.md))
   - [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a
-    [`compute_maihda_ternary_data()`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
-    result (was
-    [`plot_maihda_ternary()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda_ternary.md))
+    `compute_maihda_ternary_data()` result (was `plot_maihda_ternary()`)
 - The old
   [`plot_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_comparison.md),
   [`plot_group_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.md),
-  and
-  [`plot_maihda_ternary()`](https://hdbt.github.io/MAIHDA/reference/plot_maihda_ternary.md)
-  functions still work but are **deprecated** and emit a one-time
-  warning pointing to
+  and `plot_maihda_ternary()` functions still work but are
+  **deprecated** and emit a one-time warning pointing to
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html).
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   now records lme4 fit-quality diagnostics (singular fit and convergence

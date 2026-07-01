@@ -8,8 +8,6 @@
   : Compare MAIHDA Models
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   : Compare MAIHDA Metrics Across Levels of a Grouping Variable
-- [`compute_maihda_ternary_data()`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
-  : Compute Ternary Data for MAIHDA Models
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   : Fit MAIHDA Model
 - [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) : Run
@@ -42,8 +40,6 @@
   : Sparse Intersectional Data for Bayesian MAIHDA
 - [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
   : Canonical MAIHDA results table and ranked-strata table
-- [`maihda_ternary_plot()`](https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.md)
-  : Generate Ternary Plot from MAIHDA Model
 - [`tidy(`*`<maihda_summary>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md)
   [`tidy(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md)
   [`tidy(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md)
@@ -62,8 +58,6 @@
   : Plot a MAIHDA Group Comparison
 - [`plot(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)
   : Plot MAIHDA Model Results
-- [`plot(`*`<maihda_ternary>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_ternary.md)
-  : Plot MAIHDA Ternary Diagram
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   : Plot Prediction Deviation Panels
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)

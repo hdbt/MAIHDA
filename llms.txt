@@ -219,15 +219,6 @@ Creates various visualizations:
 - **Observed vs. Shrunken**: Shows shrinkage of stratum estimates
 - **Effect Decomp**: Additive versus specific interaction decompositions
 
-### `maihda_ternary_plot()`
-
-Generates a ternary diagnostic plot. For each stratum it normalizes
-three magnitudes to sum to 1: the additive signal (how far the
-fixed-effect-only prediction sits from the grand mean), the
-intersection-specific signal (the magnitude of the stratum random
-effect), and the uncertainty in that estimate. It is a relative-signal
-diagnostic, not a formal variance decomposition.
-
 ### `plot_prediction_deviation_panels()`
 
 Creates a two-panel dashboard for visualizing predicted values and
@@ -455,7 +446,6 @@ vignette("introduction", package = "MAIHDA")
   `sampling_weights`
 - ordinal - for cumulative link mixed models
 - MASS - for fixed-theta negative-binomial family objects
-- ggtern - for ternary diagrams
 - shiny, bslib, DT, plotly, shinyjs, shinycssloaders, future, promises -
   for the interactive dashboard
   ([`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md))
@@ -519,8 +509,6 @@ A BibTeX entry for LaTeX users is:
   : Compare MAIHDA Models
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   : Compare MAIHDA Metrics Across Levels of a Grouping Variable
-- [`compute_maihda_ternary_data()`](https://hdbt.github.io/MAIHDA/reference/compute_maihda_ternary_data.md)
-  : Compute Ternary Data for MAIHDA Models
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   : Fit MAIHDA Model
 - [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) : Run
@@ -553,8 +541,6 @@ A BibTeX entry for LaTeX users is:
   : Sparse Intersectional Data for Bayesian MAIHDA
 - [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
   : Canonical MAIHDA results table and ranked-strata table
-- [`maihda_ternary_plot()`](https://hdbt.github.io/MAIHDA/reference/maihda_ternary_plot.md)
-  : Generate Ternary Plot from MAIHDA Model
 - [`tidy(`*`<maihda_summary>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md)
   [`tidy(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md)
   [`tidy(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md)
@@ -573,8 +559,6 @@ A BibTeX entry for LaTeX users is:
   : Plot a MAIHDA Group Comparison
 - [`plot(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)
   : Plot MAIHDA Model Results
-- [`plot(`*`<maihda_ternary>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_ternary.md)
-  : Plot MAIHDA Ternary Diagram
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   : Plot Prediction Deviation Panels
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)

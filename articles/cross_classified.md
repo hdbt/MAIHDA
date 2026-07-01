@@ -9,21 +9,19 @@ confuse:
 
 1.  The crossed-dimensions decomposition
     (`maihda(decomposition = "crossed-dimensions")`): the stratum
-    dimensions’ own main effects enter as random intercepts alongside
+    dimensions’ *own* main effects enter as random intercepts alongside
     the intersection, in order to estimate a model-based split of the
     between-strata variance into additive and interaction parts within a
-    single model. This mode was called `"cross-classified"` in earlier
-    versions of this package; that value still works as a deprecated
-    alias.
+    single model.
 
 2.  The contextual cross-classified MAIHDA (`context =`): individuals
     are cross-classified by their intersectional stratum and a
     higher-level place or institution, patients within strata and
     hospitals, students within strata and schools. This is what the
-    MAIHDA literature usually means by “cross-classified MAIHDA”
-    (e.g. hospital differences in patient survival, or schools crossed
-    with sociodemographic strata in student achievement). It partitions
-    the unexplained variance into between-stratum vs. between-context
+    literature usually means by “cross-classified MAIHDA” (e.g. hospital
+    differences in patient survival, or schools crossed with
+    sociodemographic strata in student achievement). It partitions the
+    unexplained variance into between-stratum vs. between-context
     vs. residual.
 
 The two answer different questions, “how much of the intersectional
@@ -128,7 +126,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x563d1665dab8>
+#> <environment: 0x5645db565178>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -243,16 +241,6 @@ plot(cc, type = "effect_decomp")  # additive vs. interaction, per stratum
 ```
 
 ![](cross_classified_files/figure-html/plots-2.png)
-
-The ternary diagnostic needs the optional `ggtern` package, so it is
-only drawn when that package is installed.
-
-``` r
-
-plot(cc, type = "ternary")        # additive / interaction / uncertainty per stratum
-```
-
-![](cross_classified_files/figure-html/plots-ternary-1.png)
 
 ### Comparing across a higher-level group
 
@@ -469,18 +457,12 @@ Because they answer different questions,
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) errors
 if you supply both.
 
-### Caveats
+### Notes
 
 - Few context levels identify the context variance weakly. The
-  `maihda_country_data` example has only 6 countries, fine for
-  illustration, but a 6-level context variance is imprecise and `lme4`
-  may fit it singular. The published contextual MAIHDA studies use
-  dozens to hundreds of contexts (hospitals, schools). Prefer many-level
+  `maihda_country_data` example has only 6 countrie resulting in
+  imprecise estimates and `lme4` may fit it singular. Prefer many-level
   contexts, or `engine = "brms"`, whose priors regularise the variance.
-- The partition is descriptive, not causal. A large context share says
-  outcomes cluster by place; it does not say place causes the outcome,
-  nor does the stratum share identify discrimination. The usual MAIHDA
-  interpretation caveats apply at both levels.
 - A manually written `+ (1 | school)` in the formula fits the same
   model, but is summarised generically as “Other random effects”. Only
   `context =` activates the labelled stratum-vs-context partition.

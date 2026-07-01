@@ -29,7 +29,7 @@
 
     <a class="navbar-brand me-2" href="index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.12</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -226,12 +226,6 @@
 </ul>
 </div>
 <div class="section level3">
-<h3 id="maihda_ternary_plot">
-<code>maihda_ternary_plot()</code><a class="anchor" aria-label="anchor" href="#maihda_ternary_plot"></a>
-</h3>
-<p>Generates a ternary diagnostic plot. For each stratum it normalizes three magnitudes to sum to 1: the additive signal (how far the fixed-effect-only prediction sits from the grand mean), the intersection-specific signal (the magnitude of the stratum random effect), and the uncertainty in that estimate. It is a relative-signal diagnostic, not a formal variance decomposition.</p>
-</div>
-<div class="section level3">
 <h3 id="plot_prediction_deviation_panels">
 <code>plot_prediction_deviation_panels()</code><a class="anchor" aria-label="anchor" href="#plot_prediction_deviation_panels"></a>
 </h3>
@@ -411,7 +405,6 @@
 </li>
 <li>ordinal - for cumulative link mixed models</li>
 <li>MASS - for fixed-theta negative-binomial family objects</li>
-<li>ggtern - for ternary diagrams</li>
 <li>shiny, bslib, DT, plotly, shinyjs, shinycssloaders, future, promises - for the interactive dashboard (<code><a href="reference/run_maihda_app.html">run_maihda_app()</a></code>)</li>
 <li>haven - for uploading SPSS (.sav) / Stata (.dta) files in the dashboard</li>
 <li>knitr, rmarkdown - for building vignettes</li>
