@@ -142,13 +142,18 @@ multilevel models. <em>Understanding Statistics</em>, 1(4), 223-231.</p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="va">strata</span> <span class="op">&lt;-</span> <span class="fu"><a href="make_strata.html">make_strata</a></span><span class="op">(</span><span class="va">maihda_health_data</span>, vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Gender"</span>, <span class="st">"Race"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">d</span> <span class="op">&lt;-</span> <span class="va">maihda_health_data</span></span></span>
 <span class="r-in"><span><span class="va">d</span><span class="op">$</span><span class="va">stratum</span> <span class="op">&lt;-</span> <span class="va">strata</span><span class="op">$</span><span class="va">data</span><span class="op">$</span><span class="va">stratum</span></span></span>
 <span class="r-in"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">Obese</span> <span class="op">~</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">stratum</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">d</span>, family <span class="op">=</span> <span class="st">"binomial"</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.</span>
 <span class="r-in"><span><span class="fu">maihda_vpc_response</span><span class="op">(</span><span class="va">m</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Response-scale VPC (simulation method)</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   VPC: <span style="color: #D78700;">0.0370</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  10000 simulated stratum effects; between-stratum variance 0.1700 (latent scale).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

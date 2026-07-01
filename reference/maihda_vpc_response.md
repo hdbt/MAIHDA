@@ -76,11 +76,16 @@ in multilevel models. *Understanding Statistics*, 1(4), 223-231.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 strata <- make_strata(maihda_health_data, vars = c("Gender", "Race"))
 d <- maihda_health_data
 d$stratum <- strata$data$stratum
 m <- fit_maihda(Obese ~ (1 | stratum), data = d, family = "binomial")
+#> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.
 maihda_vpc_response(m, seed = 1)
-} # }
+#> Response-scale VPC (simulation method)
+#>   VPC: 0.0370
+#>   10000 simulated stratum effects; between-stratum variance 0.1700 (latent scale).
+#> 
+# }
 ```

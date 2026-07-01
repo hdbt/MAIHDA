@@ -56,12 +56,17 @@ discriminatory accuracy (MAIHDA) within an intersectional framework.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Obese (Yes/No) by intersectional strata of Gender x Race
 strata <- make_strata(maihda_health_data, vars = c("Gender", "Race"))
 d <- maihda_health_data
 d$stratum <- strata$data$stratum
 m <- fit_maihda(Obese ~ (1 | stratum), data = d, family = "binomial")
+#> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.
 maihda_discriminatory_accuracy(m)
-} # }
+#> Discriminatory accuracy (binomial MAIHDA)
+#>   AUC (C-statistic): 0.571
+#>   Median Odds Ratio: 1.482
+#>   Cases / controls:  1077 / 1923
+# }
 ```
