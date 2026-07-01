@@ -172,6 +172,8 @@ tab
 #>                   VPC/ICC          0.063              0.026
 #>    PCV (null -> adjusted)                             0.766
 #> 
+#> Note: The PCV is computed from maximum-likelihood-refitted between-stratum variances (required for a valid cross-model comparison; see ?calculate_pvc), while the Between-stratum variance/SD and VPC/ICC rows are each model's own REML estimate. The PCV therefore need not equal the variance reduction implied by the displayed variance rows.
+#> 
 #> Strata ranked by predicted value (null model):
 #>  Rank                          Stratum   N               Predicted
 #>     1     female × Black × High School  46 33.274 [31.621, 34.927]

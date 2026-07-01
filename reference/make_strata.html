@@ -115,6 +115,12 @@ creating a stratum that includes the missing value.</p>
 <p>The strata_info data frame is also attached as an attribute to the data, which
 allows fit_maihda() to automatically capture stratum labels for use in plots
 and summaries.</p>
+<p>When <code>autobin</code> discretises a numeric grouping variable <code>v</code>, the
+adjusted-model and prediction machinery later add an internal factor column named
+<code>.maihda_dim_&lt;v&gt;</code>; the <code>.maihda_dim_</code> prefix is therefore reserved.
+<code>make_strata()</code> errors if <code>data</code> already holds the <code>.maihda_dim_&lt;v&gt;</code>
+column for a variable it is about to auto-bin, so an existing user column is never
+silently overwritten (rename it, or pass <code>autobin = FALSE</code>).</p>
     </div>
 
     <div class="section level2">

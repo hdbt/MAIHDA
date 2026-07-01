@@ -65,6 +65,14 @@ The strata_info data frame is also attached as an attribute to the data,
 which allows fit_maihda() to automatically capture stratum labels for
 use in plots and summaries.
 
+When `autobin` discretises a numeric grouping variable `v`, the
+adjusted-model and prediction machinery later add an internal factor
+column named `.maihda_dim_<v>`; the `.maihda_dim_` prefix is therefore
+reserved. `make_strata()` errors if `data` already holds the
+`.maihda_dim_<v>` column for a variable it is about to auto-bin, so an
+existing user column is never silently overwritten (rename it, or pass
+`autobin = FALSE`).
+
 ## Examples
 
 ``` r

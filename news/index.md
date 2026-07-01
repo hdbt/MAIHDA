@@ -400,6 +400,51 @@
   each derived fit against `$original_data`, whose response has already
   been recoded to 0/1, selecting zero rows.
 
+- **Auto-binning a numeric stratum dimension could silently overwrite a
+  user column.** When
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  (or the `(1 | a:b)` shorthand) auto-bins a numeric dimension `v`, the
+  adjusted-model and prediction machinery add an internal factor column
+  named `.maihda_dim_<v>` (referenced by the adjusted /
+  crossed-dimensions formulae and rebuilt for prediction `newdata`).
+  Neither writer checked whether the user’s data already carried a
+  column of that name, so an existing `.maihda_dim_<v>` variable was
+  clobbered – and, because that column then enters the model, the fit or
+  prediction changed silently. The `.maihda_dim_` prefix is now
+  **reserved**:
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  rejects a pre-existing `.maihda_dim_<v>` column for any dimension it
+  is about to auto-bin, with an actionable rename hint (or set
+  `autobin = FALSE`), mirroring the existing reserved-weight-column
+  guard. The internal name is now generated through one shared helper so
+  the fit-time and predict-time writers cannot drift, and predicting on
+  a fitted model’s own data (which legitimately carries the package’s
+  copy) is unaffected.
+
+- **[`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
+  could show REML variance rows alongside an ML-based PCV without saying
+  so.**
+  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  refits a Gaussian `lme4` fit with maximum likelihood before
+  differencing the between-stratum variances (REML variances are not
+  comparable across models with different fixed effects), but the
+  table’s *Between-stratum variance* / *SD* and *VPC/ICC* rows are each
+  model’s own (REML) estimate – the quantities
+  [`summary()`](https://rdrr.io/r/base/summary.html) reports. The two
+  are on different variance bases by design, so
+  `PCV != (var_null - var_adj) / var_null` read off the table, which
+  looks like an inconsistency.
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
+  now attaches a `models_note` (shown by
+  [`print()`](https://rdrr.io/r/base/print.html)) explaining this
+  whenever the PCV’s variance basis actually differs from the displayed
+  rows; it stays silent for already-ML engines
+  (`glmer`/`brms`/`wemix`/`ordinal`) and for a boundary null where
+  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  keeps the REML fit. The displayed numbers are unchanged, so the table
+  still agrees exactly with
+  [`summary()`](https://rdrr.io/r/base/summary.html).
+
 ### Improvements
 
 - **Console output is now colour-coded** (via `cli`). The print methods

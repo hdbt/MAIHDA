@@ -157,6 +157,13 @@ crossed-dimensions analysis or a single model.</p></dd>
     (e.g. a longitudinal fit), or <code>NULL</code> when a ranked-strata table was
     produced</p></dd>
 
+  <dt>models_note</dt>
+<dd><p>a character note (or <code>NULL</code>) flagging that the PCV was
+    computed from maximum-likelihood-refitted between-stratum variances while the
+    variance/VPC rows are each model's own (REML) estimate, so the PCV need not
+    equal the reduction implied by the displayed variance rows; see
+    <code><a href="calculate_pvc.html">calculate_pvc</a></code></p></dd>
+
   <dt>model_keys, model_labels</dt>
 <dd><p>the estimate-column keys and their display labels</p></dd>
 
@@ -217,6 +224,8 @@ table is returned in <code>$strata</code>; <code><a href="https://rdrr.io/r/base
 <span class="r-out co"><span class="r-pr">#&gt;</span>        Between-stratum SD          1.655              1.174</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                   VPC/ICC          0.058              0.030</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>    PCV (null -&gt; adjusted)                             0.821</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Note: The PCV is computed from maximum-likelihood-refitted between-stratum variances (required for a valid cross-model comparison; see ?calculate_pvc), while the Between-stratum variance/SD and VPC/ICC rows are each model's own REML estimate. The PCV therefore need not equal the variance reduction implied by the displayed variance rows.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Strata ranked by predicted value (null model):</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  Rank           Stratum    N               Predicted              Stratum RE</span>

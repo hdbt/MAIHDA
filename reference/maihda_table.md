@@ -94,6 +94,15 @@ An object of class `maihda_table`: a list with
   a character note explaining why `strata` is `NULL` (e.g. a
   longitudinal fit), or `NULL` when a ranked-strata table was produced
 
+- models_note:
+
+  a character note (or `NULL`) flagging that the PCV was computed from
+  maximum-likelihood-refitted between-stratum variances while the
+  variance/VPC rows are each model's own (REML) estimate, so the PCV
+  need not equal the reduction implied by the displayed variance rows;
+  see
+  [`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+
 - model_keys, model_labels:
 
   the estimate-column keys and their display labels
@@ -164,6 +173,8 @@ tab                 # printed: model-results table + top/bottom strata
 #>        Between-stratum SD          1.655              1.174
 #>                   VPC/ICC          0.058              0.030
 #>    PCV (null -> adjusted)                             0.821
+#> 
+#> Note: The PCV is computed from maximum-likelihood-refitted between-stratum variances (required for a valid cross-model comparison; see ?calculate_pvc), while the Between-stratum variance/SD and VPC/ICC rows are each model's own REML estimate. The PCV therefore need not equal the variance reduction implied by the displayed variance rows.
 #> 
 #> Strata ranked by predicted value (null model):
 #>  Rank           Stratum    N               Predicted              Stratum RE
