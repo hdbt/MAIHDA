@@ -37,7 +37,7 @@ the AUC is the count-weighted C-statistic over the implied individual-level 0/1
 data, and \code{n_case} / \code{n_control} are the total successes / failures.
 }
 \examples{
-\dontrun{
+\donttest{
 # Obese (Yes/No) by intersectional strata of Gender x Race
 strata <- make_strata(maihda_health_data, vars = c("Gender", "Race"))
 d <- maihda_health_data

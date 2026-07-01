@@ -174,7 +174,7 @@ maihda_mor <- function(model) {
 #' @seealso \code{\link{maihda_auc}}, \code{\link{maihda_mor}}
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Obese (Yes/No) by intersectional strata of Gender x Race
 #' strata <- make_strata(maihda_health_data, vars = c("Gender", "Race"))
 #' d <- maihda_health_data

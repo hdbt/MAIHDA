@@ -60,7 +60,7 @@
 #' @seealso \code{\link{maihda_discriminatory_accuracy}}, \code{\link{summary.maihda_model}}
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' strata <- make_strata(maihda_health_data, vars = c("Gender", "Race"))
 #' d <- maihda_health_data
 #' d$stratum <- strata$data$stratum

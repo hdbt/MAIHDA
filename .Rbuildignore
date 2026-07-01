@@ -19,3 +19,6 @@
 ^playground\.R$
 ^inst/shiny/rsconnect$
 ^vignettes/.*\.html$
+^.*\.Rcheck$
+^check$
+^.*\.tar\.gz$
