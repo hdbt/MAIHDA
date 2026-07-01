@@ -77,7 +77,7 @@ plot(model_bh, type = "effect_decomp", highlight_interactions = TRUE)
 
 The same flags can be reused in the predicted-strata view.
 
-```{r plot-predicted, fig.height = 5}
+```{r plot-predicted, fig.height = 10}
 plot(model_bh, type = "predicted", highlight_interactions = TRUE)
 ```
 
