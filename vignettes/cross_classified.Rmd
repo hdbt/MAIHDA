@@ -25,17 +25,15 @@ random effect with other random intercepts, and disentangles two senses of the
 term "cross-classified" that are easy to confuse:
 
 1. The crossed-dimensions decomposition
-   (`maihda(decomposition = "crossed-dimensions")`): the stratum dimensions' own
+   (`maihda(decomposition = "crossed-dimensions")`): the stratum dimensions' *own*
    main effects enter as random intercepts alongside the intersection, in order to
    estimate a model-based split of the between-strata variance into additive
-   and interaction parts within a single model. This mode was called
-   `"cross-classified"` in earlier versions of this package; that value still
-   works as a deprecated alias.
+   and interaction parts within a single model.
 
 2. The contextual cross-classified MAIHDA (`context =`): individuals are
    cross-classified by their intersectional stratum and a higher-level
    place or institution, patients within strata and hospitals, students within
-   strata and schools. This is what the MAIHDA literature usually means by
+   strata and schools. This is what the literature usually means by
    "cross-classified MAIHDA" (e.g. hospital differences in patient survival, or
    schools crossed with sociodemographic strata in student achievement). It
    partitions the unexplained variance into between-stratum vs. between-context
@@ -263,18 +261,11 @@ Both bring in a higher-level variable, but they are different designs:
 
 Because they answer different questions, `maihda()` errors if you supply both.
 
-### Caveats
+### Notes
 
 - Few context levels identify the context variance weakly. The
-  `maihda_country_data` example has only 6 countries, fine for illustration, but a
-  6-level context variance is imprecise and `lme4` may fit it singular. The
-  published contextual MAIHDA studies use dozens to hundreds of contexts (hospitals,
-  schools). Prefer many-level contexts, or `engine = "brms"`, whose priors
+  `maihda_country_data` example has only 6 countrie resulting in imprecise estimates and `lme4` may fit it singular. Prefer many-level contexts, or `engine = "brms"`, whose priors
   regularise the variance.
-- The partition is descriptive, not causal. A large context share says outcomes
-  cluster by place; it does not say place causes the outcome, nor does the
-  stratum share identify discrimination. The usual MAIHDA interpretation caveats
-  apply at both levels.
 - A manually written `+ (1 | school)` in the formula fits the same model, but is
   summarised generically as "Other random effects". Only `context =` activates the
   labelled stratum-vs-context partition.
