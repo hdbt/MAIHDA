@@ -129,13 +129,6 @@ plot(cc, type = "vpc")            # per-dimension additive + interaction + resid
 plot(cc, type = "effect_decomp")  # additive vs. interaction, per stratum
 ```
 
-The ternary diagnostic needs the optional `ggtern` package, so it is only drawn
-when that package is installed.
-
-```{r plots-ternary, eval = requireNamespace("ggtern", quietly = TRUE), warning = FALSE, message = FALSE}
-plot(cc, type = "ternary")        # additive / interaction / uncertainty per stratum
-```
-
 ### Comparing across a higher-level group
 
 Pass a `group` to decompose within each level of a higher-level variable, here, how

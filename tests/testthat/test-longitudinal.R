@@ -200,7 +200,7 @@ test_that("longitudinal models refuse cross-sectional scalar rankings/plots", {
   # A growth model's stratum estimand is a trajectory, so the scalar BLUP views
   # are not defined and must redirect to the trajectory tools.
   for (ty in c("predicted", "obs_vs_shrunken",
-               "effect_decomp", "prediction_deviation", "ternary")) {
+               "effect_decomp", "prediction_deviation")) {
     expect_error(plot(m_g, type = ty), "longitudinal MAIHDA")
   }
   expect_error(maihda_strata_ranking(m_g, summary(m_g)), "longitudinal MAIHDA")

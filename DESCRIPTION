@@ -46,8 +46,7 @@ Suggests:
     testthat (>= 3.0.0),
     knitr,
     MASS,
-    rmarkdown,
-    ggtern
+    rmarkdown
 VignetteBuilder: knitr
 URL: https://github.com/hdbt/MAIHDA, https://hdbt.github.io/MAIHDA/
 BugReports: https://github.com/hdbt/MAIHDA/issues

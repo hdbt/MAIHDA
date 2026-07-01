@@ -1111,27 +1111,3 @@ test_that("bootstrap n_boot must clear the 10-refit minimum up front", {
   )
 })
 
-test_that("ternary additive component is invariant to row order", {
-  set.seed(1007)
-  d <- data.frame(
-    stratum = factor(rep(seq_len(6), each = 20)),
-    age = rep(seq(-2, 2, length.out = 20), 6)
-  )
-  stratum_u <- rnorm(6, sd = 0.5)[d$stratum]
-  d$y <- 10 + 3 * d$age + stratum_u + rnorm(nrow(d), sd = 0.2)
-
-  model <- fit_maihda(y ~ age + (1 | stratum), data = d)
-  reordered <- model
-  reordered$data <- model$data[order(model$data$stratum, -model$data$age), ]
-
-  td1 <- compute_maihda_ternary_data(model, verbose = FALSE)
-  td2 <- compute_maihda_ternary_data(reordered, verbose = FALSE)
-  comp <- merge(
-    as.data.frame(td1[, c("stratum", "additive_only")]),
-    as.data.frame(td2[, c("stratum", "additive_only")]),
-    by = "stratum",
-    suffixes = c("_original", "_reordered")
-  )
-
-  expect_equal(comp$additive_only_original, comp$additive_only_reordered, tolerance = 1e-8)
-})

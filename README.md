@@ -129,9 +129,6 @@ Creates various visualizations:
 - **Observed vs. Shrunken**: Shows shrinkage of stratum estimates
 - **Effect Decomp**: Additive versus specific interaction decompositions
 
-### `maihda_ternary_plot()`
-Generates a ternary diagnostic plot. For each stratum it normalizes three magnitudes to sum to 1: the additive signal (how far the fixed-effect-only prediction sits from the grand mean), the intersection-specific signal (the magnitude of the stratum random effect), and the uncertainty in that estimate. It is a relative-signal diagnostic, not a formal variance decomposition.
-
 ### `plot_prediction_deviation_panels()`
 Creates a two-panel dashboard for visualizing predicted values and highlighting the most notable cases or strata. What counts as notable depends on the model type — the largest deviation from the mean prediction (Gaussian/Poisson), the largest absolute deviance residual (binomial), or the most surprising observation (ordinal).
 
@@ -300,7 +297,6 @@ vignette("introduction", package = "MAIHDA")
 - WeMix (>= 4.0.0) - for design-weighted (survey) models via `sampling_weights`
 - ordinal - for cumulative link mixed models
 - MASS - for fixed-theta negative-binomial family objects
-- ggtern - for ternary diagrams
 - shiny, bslib, DT, plotly, shinyjs, shinycssloaders, future, promises - for the interactive dashboard (`run_maihda_app()`)
 - haven - for uploading SPSS (.sav) / Stata (.dta) files in the dashboard
 - knitr, rmarkdown - for building vignettes

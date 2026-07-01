@@ -20,7 +20,7 @@
 
 \item{type}{One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
 "upset" (the UpSet-style alternative to "predicted"; forwards \code{quantity}
-via \code{...}), "effect_decomp", "ternary",
+via \code{...}), "effect_decomp",
 "prediction_deviation"), the
 contextual type ("context_vpc", a stratum-vs-context variance bar; requires
 \code{maihda(context = )}), a longitudinal type ("vpc_trajectory",
@@ -76,7 +76,7 @@ A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
 Dispatches each \code{type} to the model it is valid on. The VPC and shrinkage
 views (\code{"vpc"}, \code{"obs_vs_shrunken"}, \code{"predicted"}) use the
 \strong{null} model. The additive-vs-intersectional views (\code{"effect_decomp"},
-\code{"ternary"}, \code{"prediction_deviation"}) use the
+\code{"prediction_deviation"}) use the
 \strong{adjusted} model, whose fixed effects carry the dimensions' additive part so
 the stratum random effect is the pure interaction; with fewer than two dimensions
 (no adjusted model) they fall back to the null model. Group types

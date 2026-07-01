@@ -77,7 +77,6 @@ jobs:
             promises
             shinyjs
             haven
-            ggtern
 
       # Install MAIHDA from THIS commit. Installing via install_github records a
       # GitHub source in the package metadata, so rsconnect tells shinyapps.io to

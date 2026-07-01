@@ -447,7 +447,7 @@ test_that("compare_maihda_groups and stepwise_pcv support the ordinal engine", {
 
 # ---- plots ---------------------------------------------------------------------
 
-test_that("the plot layer renders a clmm MAIHDA (and the ternary errors cleanly)", {
+test_that("the plot layer renders a clmm MAIHDA", {
   skip_on_cran()
   skip_if_not_installed("ordinal")
 
@@ -467,9 +467,6 @@ test_that("the plot layer renders a clmm MAIHDA (and the ternary errors cleanly)
   expect_no_error(suppressWarnings(plot_prediction_deviation_panels(m)))
   expect_no_error(suppressWarnings(
     plot_prediction_deviation_panels(m, ordinal_mode = "expected_score")))
-
-  expect_error(compute_maihda_ternary_data(m),
-               "not supported for cumulative \\(ordinal\\)")
 })
 
 # ---- fake-fixture accessor branches --------------------------------------------

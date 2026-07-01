@@ -21,7 +21,6 @@
 #'       Binary 0/1 dimensions show as a single present/absent row; multi-level
 #'       factors get one row per level
 #'     \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
-#'     \item "ternary": Ternary diagnostic of the relative additive, intersectional, and uncertainty signals per stratum (a normalized-magnitude diagnostic, not a variance decomposition)
 #'     \item "prediction_deviation": Detailed deviation panels for individuals or strata
 #'     \item "context_vpc": Stratum vs. context variance bars for a contextual
 #'       cross-classified fit (\code{fit_maihda(context = )}); errors otherwise
@@ -106,9 +105,7 @@
 #'   with the usual \code{+} grammar (themes, \code{\link[ggplot2]{labs}()},
 #'   added layers, or a replacement fill/colour scale). Two types return a richer
 #'   object: \code{"prediction_deviation"} returns a \pkg{patchwork} of two
-#'   panels (theme every panel at once with \code{& theme_*()}), and
-#'   \code{"ternary"} returns a \pkg{ggtern} object (use the
-#'   \code{ggtern::theme_*()} family rather than the standard ggplot2 themes).
+#'   panels (theme every panel at once with \code{& theme_*()}).
 #'   \code{type = "all"} returns a named list of ggplot2 objects.
 #'
 #' @examples
@@ -132,7 +129,7 @@
 #' @export
 #' @import ggplot2
 #' @importFrom dplyr arrange
-plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "effect_decomp", "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
+plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "effect_decomp", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
                        summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, highlight_by = c("flag", "rope"), rope = NULL, select = c("order", "deviation"), quantity = c("predicted", "interaction"), ...) {
   if (!inherits(x, "maihda_model")) {
     stop("'x' must be a maihda_model object from fit_maihda()")
@@ -197,9 +194,9 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
       return(plot_stratum_trajectories(object, summary_obj, n_strata, select = select))
     }
     # Every remaining view (predicted, obs_vs_shrunken, effect_decomp,
-    # prediction_deviation, ternary) is a cross-sectional BLUP
-    # scalar per stratum, which misrepresents a growth model's trajectory
-    # estimand. Refuse them and point to the trajectory views above.
+    # prediction_deviation) is a cross-sectional BLUP scalar per stratum, which
+    # misrepresents a growth model's trajectory estimand. Refuse them and point
+    # to the trajectory views above.
     maihda_stop_longitudinal_scalar(paste0("plot(type = \"", type, "\")"))
   } else if (type %in% c("vpc_trajectory", "trajectories")) {
     stop("type = \"", type, "\" is only available for a longitudinal MAIHDA ",
@@ -220,9 +217,6 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
 
     top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
     plots$effect_decomp <- tryCatch(plot_effect_decomposition(object, summary_obj, top_n_labels, highlight = highlight_ids), error = function(e) NULL)
-
-    ternary_out <- tryCatch(maihda_ternary_plot(object)$plot, error = function(e) NULL)
-    if (!is.null(ternary_out)) plots$ternary <- ternary_out
 
     plots$prediction_deviation <- tryCatch(plot_prediction_deviation_panels(object, type = "auto"), error = function(e) NULL)
 
@@ -254,8 +248,6 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
       }
       top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
       plot <- plot_effect_decomposition(object, summary_obj, top_n_labels, highlight = highlight_ids)
-    } else if (type == "ternary") {
-      plot <- maihda_ternary_plot(object)$plot
     } else if (type == "prediction_deviation") {
       plot <- plot_prediction_deviation_panels(object, type = "auto")
     }

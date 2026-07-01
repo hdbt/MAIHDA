@@ -97,22 +97,6 @@ the additive effects). Large intersection-specific bars are the candidate
 hypotheses to probe, not as confirmed interactions, since they also absorb sample
 composition and estimation noise.
 
-## `ternary` -- relative signal diagnostic
-
-The ternary plot needs the optional `ggtern` package, so it is only drawn here
-when that package is installed.
-
-```{r ternary, eval = requireNamespace("ggtern", quietly = TRUE), warning = FALSE, message = FALSE}
-plot(model, type = "ternary")
-```
-
-**How to read it.** For each stratum the plot normalises three magnitudes to sum
-to 1: the additive signal (how far the fixed-effect-only prediction sits from
-the grand mean), the intersection-specific signal (the size of the stratum
-random effect), and the uncertainty in that estimate. A stratum near the
-"uncertainty" corner is dominated by noise; one near the "intersection" corner
-carries signal beyond the additive main effects.
-
 ## `prediction_deviation` -- the deviation dashboard
 
 ```{r prediction-deviation}
@@ -177,9 +161,6 @@ slightly differently:
   plots <- plot(model)          # list: vpc, predicted, effect_decomp, ...
   plots$predicted + theme_bw()
   ```
-
-* **`ternary`** is a `ggtern` object with its own coordinate system -- reach for
-  the `ggtern::theme_*()` family rather than the standard ggplot2 themes.
 
 ## See also
 

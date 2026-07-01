@@ -117,18 +117,6 @@ test_that("plot.maihda_analysis dispatches to model and group plots", {
   expect_error(plot(a_nogroup, type = "group_vpc"), "group", ignore.case = TRUE)
 })
 
-test_that("compute_maihda_ternary_data is classed and plots via plot()", {
-  skip_if_not_installed("ggtern")
-  d <- make_workflow_data(4006)
-  model <- fit_maihda(y ~ age + (1 | gender:race), data = d)
-
-  td <- compute_maihda_ternary_data(model, verbose = FALSE)
-  expect_s3_class(td, "maihda_ternary")
-  expect_s3_class(plot(td), "ggplot")
-
-  expect_warning(plot_maihda_ternary(td), "deprecated")
-})
-
 test_that("maihda() fits the adjusted model and reports a PCV", {
   d <- make_workflow_data(4101)
   a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))

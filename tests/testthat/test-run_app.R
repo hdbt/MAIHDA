@@ -1,7 +1,3 @@
-test_that("Shiny app dependency gate includes ternary plotting dependency", {
-  expect_true("ggtern" %in% MAIHDA:::maihda_app_required_packages())
-})
-
 test_that("maihda_app_fit_models switches a binary factor outcome to binomial", {
   set.seed(11)
   d <- data.frame(
@@ -60,24 +56,6 @@ test_that("Shiny PVC HUD display separates residual variance from unmasking", {
   expect_equal(negative$value, "+12.5%")
   expect_equal(negative$remaining_value, "112.5%")
   expect_equal(negative$status, "negative")
-})
-
-test_that("Shiny ternary plotly helper includes boundary strata", {
-  skip_if_not_installed("plotly")
-
-  td <- data.frame(
-    additive_prop = c(0, 1),
-    interaction_prop = c(1, 0),
-    uncertainty_prop = c(0, 0),
-    label = c("A", "B"),
-    n = c(10, 25)
-  )
-
-  p <- plotly::plotly_build(MAIHDA:::maihda_app_ternary_plotly(td))
-
-  expect_equal(p$x$layout$ternary$aaxis$min, 0)
-  expect_equal(p$x$layout$ternary$baxis$min, 0)
-  expect_equal(p$x$layout$ternary$caxis$min, 0)
 })
 
 test_that("Shiny app fit helper builds the model objects used by the dashboard", {

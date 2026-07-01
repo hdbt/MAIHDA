@@ -7,7 +7,7 @@
 \method{plot}{maihda_model}(
   x,
   type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "effect_decomp",
-    "ternary", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
+    "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
   summary_obj = NULL,
   n_strata = 50,
   highlight_interactions = FALSE,
@@ -38,7 +38,6 @@
     Binary 0/1 dimensions show as a single present/absent row; multi-level
     factors get one row per level
   \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
-  \item "ternary": Ternary diagnostic of the relative additive, intersectional, and uncertainty signals per stratum (a normalized-magnitude diagnostic, not a variance decomposition)
   \item "prediction_deviation": Detailed deviation panels for individuals or strata
   \item "context_vpc": Stratum vs. context variance bars for a contextual
     cross-classified fit (\code{fit_maihda(context = )}); errors otherwise
@@ -133,9 +132,7 @@ For a single \code{type}, a \pkg{ggplot2} object that you can extend
   with the usual \code{+} grammar (themes, \code{\link[ggplot2]{labs}()},
   added layers, or a replacement fill/colour scale). Two types return a richer
   object: \code{"prediction_deviation"} returns a \pkg{patchwork} of two
-  panels (theme every panel at once with \code{& theme_*()}), and
-  \code{"ternary"} returns a \pkg{ggtern} object (use the
-  \code{ggtern::theme_*()} family rather than the standard ggplot2 themes).
+  panels (theme every panel at once with \code{& theme_*()}).
   \code{type = "all"} returns a named list of ggplot2 objects.
 }
 \description{

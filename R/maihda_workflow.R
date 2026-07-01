@@ -898,7 +898,7 @@ summary.maihda_analysis <- function(object, ...) {
 #' Dispatches each \code{type} to the model it is valid on. The VPC and shrinkage
 #' views (\code{"vpc"}, \code{"obs_vs_shrunken"}, \code{"predicted"}) use the
 #' \strong{null} model. The additive-vs-intersectional views (\code{"effect_decomp"},
-#' \code{"ternary"}, \code{"prediction_deviation"}) use the
+#' \code{"prediction_deviation"}) use the
 #' \strong{adjusted} model, whose fixed effects carry the dimensions' additive part so
 #' the stratum random effect is the pure interaction; with fewer than two dimensions
 #' (no adjusted model) they fall back to the null model. Group types
@@ -909,7 +909,7 @@ summary.maihda_analysis <- function(object, ...) {
 #' @param x A \code{maihda_analysis} object from \code{\link{maihda}}.
 #' @param type One of the model types ("all", "vpc", "obs_vs_shrunken", "predicted",
 #'   "upset" (the UpSet-style alternative to "predicted"; forwards \code{quantity}
-#'   via \code{...}), "effect_decomp", "ternary",
+#'   via \code{...}), "effect_decomp",
 #'   "prediction_deviation"), the
 #'   contextual type ("context_vpc", a stratum-vs-context variance bar; requires
 #'   \code{maihda(context = )}), a longitudinal type ("vpc_trajectory",
@@ -958,7 +958,7 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
                                  rope = NULL, select = c("order", "deviation"), ...) {
   type <- match.arg(type, c(
     "all", "vpc", "obs_vs_shrunken", "predicted", "upset",
-    "effect_decomp", "ternary", "prediction_deviation", "context_vpc",
+    "effect_decomp", "prediction_deviation", "context_vpc",
     "vpc_trajectory", "trajectories", "pcv_trajectory",
     "group_vpc", "group_components", "group_between_variance", "group_pcv",
     "group_additive_share"
@@ -1030,7 +1030,7 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
   # the null / crossed-dimensions model. In crossed-dimensions mode there is no
   # separate adjusted model, so all views use x$model (which already carries the
   # additive structure).
-  adjusted_types <- c("effect_decomp", "ternary", "prediction_deviation")
+  adjusted_types <- c("effect_decomp", "prediction_deviation")
   adj_model <- if (!is.null(x$model_adjusted)) x$model_adjusted else x$model
   adj_summary <- if (!is.null(x$model_adjusted)) x$summary_adjusted else x$summary
 

@@ -158,14 +158,6 @@ plot(analysis, type = "effect_decomp")
 plot(analysis, type = "prediction_deviation")
 ```
 
-The ternary diagnostic needs the optional `ggtern` package, so it is only drawn
-when that package is installed:
-
-```{r maihda-plot-ternary, eval = requireNamespace("ggtern", quietly = TRUE), warning = FALSE, message = FALSE}
-# Ternary diagnostic: additive vs intersection-specific signal vs uncertainty
-plot(analysis, type = "ternary")
-```
-
 ### A crossed-dimensions alternative
 
 Alongside the two-model PCV, `maihda()` offers a **crossed-dimensions**
