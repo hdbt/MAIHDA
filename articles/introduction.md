@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x564e97f0f6c8>
+#> <environment: 0x556a94462f08>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x564e964fa8c0>
+#> <environment: 0x556a92a4e400>
 ```
 
 The returned object carries everything: the full variance components,
@@ -427,7 +427,7 @@ calculate_pvc(model_null, model_cov)
 #> 
 #> Between-stratum variance:
 #>   Model 1: 2.830755
-#>   Model 2: 2.579769
+#>   Model 2: 2.579770
 #>   Change:  0.250986 (8.87%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
