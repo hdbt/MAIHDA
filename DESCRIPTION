@@ -5,7 +5,7 @@ Version: 0.2.0
 Authors@R: c(
     person("Hamid", "Bulut", email = "me@hamidbulut.com", role = c("aut", "cre"))
     )
-Description: PTools for Multilevel Analysis of Individual Heterogeneity and
+Description: Tools for Multilevel Analysis of Individual Heterogeneity and
     Discriminatory Accuracy (MAIHDA) for intersectional inequality research.
     Methods are described in Merlo (2018) <doi:10.1016/j.socscimed.2017.12.026>
     and Evans et al. (2018) <doi:10.1016/j.socscimed.2017.11.011>. The package
