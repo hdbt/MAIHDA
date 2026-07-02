@@ -45,13 +45,13 @@ test_that("Shiny app dependency gate leaves upload-only readers optional", {
   expect_false("haven" %in% MAIHDA:::maihda_app_required_packages())
 })
 
-test_that("Shiny PVC HUD display separates residual variance from unmasking", {
-  positive <- MAIHDA:::maihda_app_pvc_display(35)
+test_that("Shiny PCV HUD display separates residual variance from unmasking", {
+  positive <- MAIHDA:::maihda_app_pcv_display(35)
   expect_equal(positive$label, "Residual Strata Variance")
   expect_equal(positive$value, "65%")
   expect_equal(positive$status, "nonnegative")
 
-  negative <- MAIHDA:::maihda_app_pvc_display(-12.5)
+  negative <- MAIHDA:::maihda_app_pcv_display(-12.5)
   expect_equal(negative$label, "Unmasked Variance")
   expect_equal(negative$value, "+12.5%")
   expect_equal(negative$remaining_value, "112.5%")
@@ -75,7 +75,7 @@ test_that("Shiny app fit helper builds the model objects used by the dashboard",
 
   expect_s3_class(res$null_model, "maihda_model")
   expect_s3_class(res$model, "maihda_model")
-  expect_s3_class(res$pvc, "pvc_result")
+  expect_s3_class(res$pcv, "pcv_result")
   expect_s3_class(res$stepwise, "maihda_stepwise")
   expect_identical(row.names(res$null_model$data), row.names(res$model$data))
   expect_equal(res$model$strata_vars, c("gender", "race"))
@@ -84,7 +84,7 @@ test_that("Shiny app fit helper builds the model objects used by the dashboard",
 
 test_that("maihda_app_fit_models degrades gracefully when baseline between-stratum variance is zero", {
   # Four strata that each hold the IDENTICAL multiset of (>2) outcome values: the
-  # null model has exactly zero between-stratum variance, so calculate_pvc()
+  # null model has exactly zero between-stratum variance, so calculate_pcv()
   # errors by design. The fit itself is valid, though, so the helper must still
   # return the models (for the dashboard to show VPC/summaries/plots) and flag the
   # PCV as unavailable rather than aborting the whole analysis.
@@ -106,11 +106,11 @@ test_that("maihda_app_fit_models degrades gracefully when baseline between-strat
 
   expect_s3_class(res$null_model, "maihda_model")
   expect_s3_class(res$model, "maihda_model")
-  expect_s3_class(res$pvc, "pvc_result")
+  expect_s3_class(res$pcv, "pcv_result")
   # PCV flagged unavailable, with the underlying reason carried for the UI.
-  expect_true(is.na(res$pvc$pvc))
-  expect_false(isTRUE(res$pvc$available))
-  expect_true(is.character(res$pvc$message) && nzchar(res$pvc$message))
+  expect_true(is.na(res$pcv$pcv))
+  expect_false(isTRUE(res$pcv$available))
+  expect_true(is.character(res$pcv$message) && nzchar(res$pcv$message))
   # Stepwise PCV already tolerates zero variance (returns NA), so it still builds.
   expect_s3_class(res$stepwise, "maihda_stepwise")
 })
@@ -228,7 +228,7 @@ test_that("Explorer module derives HUD plot data from real results", {
       model_results = shiny::reactiveVal(res$model),
       null_summary_results = shiny::reactiveVal(summary(res$null_model)),
       summary_results = shiny::reactiveVal(summary(res$model)),
-      pvc_results = shiny::reactiveVal(res$pvc),
+      pcv_results = shiny::reactiveVal(res$pcv),
       group_vars = shiny::reactiveVal(c("gender", "race"))
     ),
     expr = {
@@ -530,7 +530,7 @@ test_that("maihda_app_fit_models supports the crossed-dimensions decomposition",
   expect_identical(res$decomposition_mode, "crossed-dimensions")
   expect_false(is.null(res$model$cc_info))
   expect_s3_class(res$summary_obj, "maihda_summary")
-  expect_null(res$pvc)
+  expect_null(res$pcv)
   expect_null(res$stepwise)
   d <- res$decomposition
   expect_false(is.null(d))
@@ -545,7 +545,7 @@ test_that("the two-model app fit still tags decomposition_mode", {
     family = "gaussian"
   )))
   expect_identical(res$decomposition_mode, "two-model")
-  expect_s3_class(res$pvc, "pvc_result")
+  expect_s3_class(res$pcv, "pcv_result")
 })
 
 test_that("crossed-dimensions app fit needs at least two grouping variables", {
@@ -585,7 +585,7 @@ test_that("Explorer renders in crossed-dimensions mode from the decomposition", 
       model_results = shiny::reactiveVal(res$model),
       null_summary_results = shiny::reactiveVal(res$summary_obj),
       summary_results = shiny::reactiveVal(res$summary_obj),
-      pvc_results = shiny::reactiveVal(NULL),
+      pcv_results = shiny::reactiveVal(NULL),
       group_vars = shiny::reactiveVal(c("gender", "race", "education")),
       decomposition_results = shiny::reactiveVal(res$decomposition)
     ),
@@ -615,11 +615,11 @@ test_that("Full server renders the crossed-dimensions decomposition on the PCV t
     null_summary_results(res$summary_obj)
     decomposition_results(res$decomposition)
     decomposition_mode("crossed-dimensions")
-    pvc_results(NULL)
+    pcv_results(NULL)
     stepwise_results(NULL)
     session$flushReact()
 
-    pcv_txt <- paste(unlist(output$pvc_summary_ui), collapse = " ")
+    pcv_txt <- paste(unlist(output$pcv_summary_ui), collapse = " ")
     expect_match(pcv_txt, "Additive vs. Intersectional Decomposition")
     expect_match(pcv_txt, "Additive share")
 

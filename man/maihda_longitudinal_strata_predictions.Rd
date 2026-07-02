@@ -16,15 +16,18 @@ A data frame: \code{stratum}, \code{stratum_id}, optional \code{label},
 \description{
 The stratum-level random-effect estimates as a wide table, one row per stratum:
 the stratum's deviation at the baseline time (\code{baseline}, the longitudinal
-analogue of a cross-sectional stratum BLUP), the raw random intercept at
-time 0 (\code{intercept}) and the random slope(s) on time (\code{slope}, ...).
+analogue of a cross-sectional stratum BLUP), the random intercept
+(\code{intercept}; the deviation at the model's coefficient origin -- the
+internal centering offset, i.e. the observed baseline, when centering applied,
+or raw time 0 otherwise) and the random slope(s) on time (\code{slope}, ...).
 This is the longitudinal shape of \code{predict_maihda(type = "strata")} -- a
 stratum is now a \emph{trajectory}, not a single value.
 }
 \details{
-\code{baseline} is \eqn{a(t_0)' coef} with \eqn{a(t) = (1, t, t^2, ...)} and
-\eqn{t_0 = } the reference (baseline) time \code{ref_time = min(time)}; the
-package defines the baseline at \code{ref_time}, so it equals the raw
-\code{intercept} (deviation at time 0) only when time is zero-referenced.
+\code{baseline} is \eqn{a(t_0 - c)' coef} with \eqn{a(t) = (1, t, t^2, ...)},
+\eqn{t_0 = } the reference (baseline) time \code{ref_time = min(time)} and
+\eqn{c} the internal centering offset; it equals \code{intercept} whenever
+\code{ref_time} coincides with the centering origin (the usual case for a
+centered fit, and the zero-anchored case for a raw fit).
 }
 \keyword{internal}

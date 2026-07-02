@@ -1,4 +1,4 @@
-test_that("calculate_pvc works with basic models", {
+test_that("calculate_pcv works with basic models", {
   # Create test data with actual stratum effects
   set.seed(123)
   n_strata <- 10
@@ -24,22 +24,22 @@ test_that("calculate_pvc works with basic models", {
                        data = data,
                        engine = "lme4")
   
-  # Calculate PVC
-  pvc_result <- calculate_pvc(model1, model2)
+  # Calculate PCV
+  pcv_result <- calculate_pcv(model1, model2)
   
   # Check structure
-  expect_true(inherits(pvc_result, "pvc_result"))
-  expect_true(is.numeric(pvc_result$pvc))
-  expect_true(is.numeric(pvc_result$var_model1))
-  expect_true(is.numeric(pvc_result$var_model2))
-  expect_false(pvc_result$bootstrap)
+  expect_true(inherits(pcv_result, "pcv_result"))
+  expect_true(is.numeric(pcv_result$pcv))
+  expect_true(is.numeric(pcv_result$var_model1))
+  expect_true(is.numeric(pcv_result$var_model2))
+  expect_false(pcv_result$bootstrap)
   
   # Check that variances are positive
-  expect_true(pvc_result$var_model1 > 0)
-  expect_true(pvc_result$var_model2 > 0)
+  expect_true(pcv_result$var_model1 > 0)
+  expect_true(pcv_result$var_model2 > 0)
 })
 
-test_that("calculate_pvc works with bootstrap", {
+test_that("calculate_pcv works with bootstrap", {
   # Create test data with actual stratum effects
   set.seed(456)
   n_strata <- 10
@@ -65,26 +65,26 @@ test_that("calculate_pvc works with bootstrap", {
                        data = data,
                        engine = "lme4")
   
-  # Calculate PVC with bootstrap (small number for testing)
-  pvc_result <- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 50)
+  # Calculate PCV with bootstrap (small number for testing)
+  pcv_result <- calculate_pcv(model1, model2, bootstrap = TRUE, n_boot = 50)
   
   # Check structure
-  expect_true(inherits(pvc_result, "pvc_result"))
-  expect_true(pvc_result$bootstrap)
-  expect_true(!is.null(pvc_result$ci_lower))
-  expect_true(!is.null(pvc_result$ci_upper))
-  expect_true(is.numeric(pvc_result$ci_lower))
-  expect_true(is.numeric(pvc_result$ci_upper))
+  expect_true(inherits(pcv_result, "pcv_result"))
+  expect_true(pcv_result$bootstrap)
+  expect_true(!is.null(pcv_result$ci_lower))
+  expect_true(!is.null(pcv_result$ci_upper))
+  expect_true(is.numeric(pcv_result$ci_lower))
+  expect_true(is.numeric(pcv_result$ci_upper))
   
   # A percentile bootstrap interval is well-ordered and finite, but it need NOT
   # contain the point estimate (the original-fit PCV): the bootstrap distribution can
   # be skewed -- especially at a small n_boot -- so containment is not a valid
   # invariant to assert.
-  expect_true(is.finite(pvc_result$ci_lower) && is.finite(pvc_result$ci_upper))
-  expect_true(pvc_result$ci_lower <= pvc_result$ci_upper)
+  expect_true(is.finite(pcv_result$ci_lower) && is.finite(pcv_result$ci_upper))
+  expect_true(pcv_result$ci_lower <= pcv_result$ci_upper)
 })
 
-test_that("calculate_pvc validates inputs", {
+test_that("calculate_pcv validates inputs", {
   # Create test data with actual stratum effects
   set.seed(789)
   n_strata <- 10
@@ -106,19 +106,19 @@ test_that("calculate_pvc validates inputs", {
                        engine = "lme4")
   
   # Invalid first argument
-  expect_error(calculate_pvc("not a model", model1),
+  expect_error(calculate_pcv("not a model", model1),
                "must be a maihda_model")
   
   # Invalid second argument
-  expect_error(calculate_pvc(model1, "not a model"),
+  expect_error(calculate_pcv(model1, "not a model"),
                "must be a maihda_model")
   
   # Both arguments invalid
-  expect_error(calculate_pvc(data, data),
+  expect_error(calculate_pcv(data, data),
                "must be a maihda_model")
 })
 
-test_that("calculate_pvc rejects row-wise different stratum assignments", {
+test_that("calculate_pcv rejects row-wise different stratum assignments", {
   set.seed(790)
   n <- 80
   d1 <- data.frame(
@@ -138,13 +138,13 @@ test_that("calculate_pvc rejects row-wise different stratum assignments", {
   ))
 
   expect_error(
-    calculate_pvc(model1, model2),
+    calculate_pcv(model1, model2),
     "assign each analytic row to the same stratum",
     fixed = TRUE
   )
 })
 
-test_that("calculate_pvc handles same model comparison", {
+test_that("calculate_pcv handles same model comparison", {
   # Create test data with actual stratum effects
   set.seed(111)
   n_strata <- 10
@@ -169,14 +169,14 @@ test_that("calculate_pvc handles same model comparison", {
                        data = data,
                        engine = "lme4")
   
-  # Calculate PVC
-  pvc_result <- calculate_pvc(model1, model2)
+  # Calculate PCV
+  pcv_result <- calculate_pcv(model1, model2)
   
-  # PVC should be very close to 0 (same model structure)
-  expect_true(abs(pvc_result$pvc) < 0.1)
+  # PCV should be very close to 0 (same model structure)
+  expect_true(abs(pcv_result$pcv) < 0.1)
 })
 
-test_that("calculate_pvc calculates correct direction", {
+test_that("calculate_pcv calculates correct direction", {
   # Create test data with known structure
   set.seed(222)
   n_strata <- 10
@@ -204,19 +204,19 @@ test_that("calculate_pvc calculates correct direction", {
                        data = data,
                        engine = "lme4")
   
-  # Calculate PVC
-  pvc_result <- calculate_pvc(model1, model2)
+  # Calculate PCV
+  pcv_result <- calculate_pcv(model1, model2)
   
   # Variances should be positive
-  expect_true(pvc_result$var_model1 > 0)
-  expect_true(pvc_result$var_model2 > 0)
+  expect_true(pcv_result$var_model1 > 0)
+  expect_true(pcv_result$var_model2 > 0)
   
-  # PVC formula: (var1 - var2) / var1
-  expected_pvc <- (pvc_result$var_model1 - pvc_result$var_model2) / pvc_result$var_model1
-  expect_equal(pvc_result$pvc, expected_pvc)
+  # PCV formula: (var1 - var2) / var1
+  expected_pcv <- (pcv_result$var_model1 - pcv_result$var_model2) / pcv_result$var_model1
+  expect_equal(pcv_result$pcv, expected_pcv)
 })
 
-test_that("calculate_pvc print method works", {
+test_that("calculate_pcv print method works", {
   # Create test data with actual stratum effects
   set.seed(333)
   n_strata <- 10
@@ -242,16 +242,16 @@ test_that("calculate_pvc print method works", {
                        data = data,
                        engine = "lme4")
   
-  # Calculate PVC
-  pvc_result <- calculate_pvc(model1, model2)
+  # Calculate PCV
+  pcv_result <- calculate_pcv(model1, model2)
   
   # Print should work without error
-  expect_output(print(pvc_result), "Proportional Change in Variance")
-  expect_output(print(pvc_result), "PCV:")
-  expect_output(print(pvc_result), "Between-stratum variance:")
+  expect_output(print(pcv_result), "Proportional Change in Variance")
+  expect_output(print(pcv_result), "PCV:")
+  expect_output(print(pcv_result), "Between-stratum variance:")
 })
 
-test_that("calculate_pvc handles binomial models", {
+test_that("calculate_pcv handles binomial models", {
   # Create test data for binomial with stratum effects on logit scale
   set.seed(444)
   n_strata <- 10
@@ -281,17 +281,17 @@ test_that("calculate_pvc handles binomial models", {
                        engine = "lme4",
                        family = "binomial")
   
-  # Calculate PVC
-  pvc_result <- calculate_pvc(model1, model2)
+  # Calculate PCV
+  pcv_result <- calculate_pcv(model1, model2)
   
   # Check structure
-  expect_true(inherits(pvc_result, "pvc_result"))
-  expect_true(is.numeric(pvc_result$pvc))
-  expect_true(pvc_result$var_model1 > 0)
-  expect_true(pvc_result$var_model2 > 0)
+  expect_true(inherits(pcv_result, "pcv_result"))
+  expect_true(is.numeric(pcv_result$pcv))
+  expect_true(pcv_result$var_model1 > 0)
+  expect_true(pcv_result$var_model2 > 0)
 })
 
-test_that("calculate_pvc handles zero variance error", {
+test_that("calculate_pcv handles zero variance error", {
   # Create test data with NO stratum effects (will result in singular fit)
   set.seed(555)
   data <- data.frame(
@@ -311,7 +311,7 @@ test_that("calculate_pvc handles zero variance error", {
   })
   
   # Should error due to zero/negative variance
-  expect_error(calculate_pvc(model1, model2),
+  expect_error(calculate_pcv(model1, model2),
                "Between-stratum variance")
 })
 
@@ -329,7 +329,7 @@ test_that("maihda_bootstrap_ci requires a minimum number of successful draws", {
   expect_true(ci[1] < ci[2])
 })
 
-test_that("calculate_pvc rejects models fitted to unrelated data of the same shape", {
+test_that("calculate_pcv rejects models fitted to unrelated data of the same shape", {
   mk <- function(seed) {
     set.seed(seed)
     d <- data.frame(stratum = factor(rep(seq_len(8), each = 20)), x = rnorm(160))
@@ -339,28 +339,51 @@ test_that("calculate_pvc rejects models fitted to unrelated data of the same sha
   # Same n, strata and default 1:160 row names, but different outcome values.
   m1 <- mk(101)
   m2 <- mk(202)
-  expect_error(calculate_pvc(m1, m2), "outcome values differ")
+  expect_error(calculate_pcv(m1, m2), "outcome values differ")
 })
 
-test_that("calculate_pvc validates bootstrap arguments before model comparison", {
+test_that("calculate_pcv validates bootstrap arguments before model comparison", {
   fake_model <- structure(
     list(engine = "lme4"),
     class = "maihda_model"
   )
 
   expect_error(
-    calculate_pvc(fake_model, fake_model, bootstrap = c(TRUE, FALSE)),
+    calculate_pcv(fake_model, fake_model, bootstrap = c(TRUE, FALSE)),
     "'bootstrap' must be TRUE or FALSE",
     fixed = TRUE
   )
   expect_error(
-    calculate_pvc(fake_model, fake_model, bootstrap = TRUE, n_boot = 0),
+    calculate_pcv(fake_model, fake_model, bootstrap = TRUE, n_boot = 0),
     "'n_boot' must be a single whole number >= 10",
     fixed = TRUE
   )
   expect_error(
-    calculate_pvc(fake_model, fake_model, bootstrap = TRUE, conf_level = 1),
+    calculate_pcv(fake_model, fake_model, bootstrap = TRUE, conf_level = 1),
     "'conf_level' must be a single number between 0 and 1",
     fixed = TRUE
   )
+})
+
+test_that("calculate_pvc is a deprecated alias of calculate_pcv", {
+  set.seed(42)
+  data <- data.frame(
+    stratum = factor(rep(1:8, each = 20)),
+    age = rnorm(160)
+  )
+  data$outcome <- 2 + 0.3 * data$age +
+    rnorm(8, sd = 0.8)[data$stratum] + rnorm(160, sd = 0.5)
+
+  model1 <- fit_maihda(outcome ~ 1 + (1 | stratum), data = data)
+  model2 <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
+
+  new <- calculate_pcv(model1, model2)
+  # Match on the condition class, not the message: .Deprecated()'s text is localized.
+  expect_warning(old <- calculate_pvc(model1, model2), class = "deprecatedWarning")
+  expect_identical(old, new)
+
+  # The result answers to both the new and the historical class/element names.
+  expect_s3_class(new, "pcv_result")
+  expect_s3_class(new, "pvc_result")
+  expect_identical(new$pvc, new$pcv)
 })

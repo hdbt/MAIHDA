@@ -55,7 +55,7 @@ An object of class \code{maihda_table}: a list with
     computed from maximum-likelihood-refitted between-stratum variances while the
     variance/VPC rows are each model's own (REML) estimate, so the PCV need not
     equal the reduction implied by the displayed variance rows; see
-    \code{\link{calculate_pvc}}}
+    \code{\link{calculate_pcv}}}
   \item{model_keys, model_labels}{the estimate-column keys and their display labels}
   \item{family, engine, mode, scale, ranked_by, n_obs, n_strata_total, context_vars}{
     metadata used by \code{print()}}
@@ -116,5 +116,5 @@ tab$strata          # all strata ranked by predicted BMI
 }
 \seealso{
 \code{\link{maihda}}, \code{\link{summary.maihda_model}},
-  \code{\link{calculate_pvc}}, \code{\link{maihda_discriminatory_accuracy}}.
+  \code{\link{calculate_pcv}}, \code{\link{maihda_discriminatory_accuracy}}.
 }

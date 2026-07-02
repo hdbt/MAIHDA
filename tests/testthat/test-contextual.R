@@ -268,7 +268,7 @@ test_that("the PCV is essentially unchanged by adding an orthogonal context", {
   d <- make_context_data()
   a0 <- suppressMessages(maihda(y ~ x + (1 | g1:g2), data = d))
   a1 <- suppressMessages(maihda(y ~ x + (1 | g1:g2), data = d, context = "site"))
-  expect_equal(a1$pcv$pvc, a0$pcv$pvc, tolerance = 0.05)
+  expect_equal(a1$pcv$pcv, a0$pcv$pcv, tolerance = 0.05)
 })
 
 test_that("maihda(group, context) errors: they are different designs", {

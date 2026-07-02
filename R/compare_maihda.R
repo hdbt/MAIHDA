@@ -98,7 +98,7 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     # Wrapper helpers fall back to the stored analytic $data for engines whose
     # fitted object exposes no model frame (WeMixResults), so the n, row-identity
     # and response checks below apply to those engines too instead of degrading to
-    # a silent NA pass (the same checks calculate_pvc() makes).
+    # a silent NA pass (the same checks calculate_pcv() makes).
     nobs_vec <- vapply(models, function(m) {
       n <- maihda_wrapper_nobs(m)
       if (is.finite(n)) as.integer(n) else NA_integer_
@@ -150,7 +150,7 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     # Likewise for SAMPLING weights (design-weighted fits): the prior-weight
     # fingerprint above cannot see them (it degrades to "unit" for wemix/brms),
     # so differing design weights -- or a weighted vs. unweighted mix -- get
-    # their own key, mirroring the calculate_pvc() guard.
+    # their own key, mirroring the calculate_pcv() guard.
     sampling_keys <- vapply(models, function(m) {
       maihda_sampling_weight_fingerprint(m)
     }, character(1))
@@ -437,7 +437,7 @@ plot_comparison <- function(comparison_df) {
 #'   dimensions, two further columns report the per-group null -> adjusted
 #'   decomposition: \code{pcv} (proportional change in between-stratum variance when
 #'   the dimensions' additive main effects are added; computed on the
-#'   maximum-likelihood scale -- see \code{\link{calculate_pvc}} -- because REML
+#'   maximum-likelihood scale -- see \code{\link{calculate_pcv}} -- because REML
 #'   variances are not comparable across the null vs. adjusted fixed effects),
 #'   \code{var_between_adjusted} (a \emph{derived} coherence quantity, reported as
 #'   \code{var_between * (1 - pcv)} so it shares the scale of the REML
@@ -467,7 +467,7 @@ plot_comparison <- function(comparison_df) {
 #' strata are rebuilt inside each group, so a degenerate single-stratum group is
 #' instead reported with a "fit failed" status rather than a pre-fit skip. A
 #' singular fit yields a VPC of 0 rather than an error (unlike
-#' \code{\link{calculate_pvc}}). A hard fit failure in one group records \code{NA}
+#' \code{\link{calculate_pcv}}). A hard fit failure in one group records \code{NA}
 #' and a status note without aborting the whole comparison.
 #'
 #' Fit-quality diagnostics: for the \code{lme4} engine, groups whose model is
@@ -945,21 +945,21 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                      sampling_weights = sampling_weights),
                 slice_dots_for_group(idx))
             )
-            calculate_pvc(fit_obj$model, adj_model)
+            calculate_pcv(fit_obj$model, adj_model)
           }, error = function(e) NULL)
           if (!is.null(pcv_obj)) {
-            row$pcv <- pcv_obj$pvc
+            row$pcv <- pcv_obj$pcv
             # Report the adjusted between-stratum variance on the SAME scale as
             # var_between / vpc (the REML single-model VPC variance), so the table stays
             # internally coherent: PCV = (var_between - var_between_adjusted) /
-            # var_between. The PCV itself is calculate_pvc()'s ML-refit value, since REML
+            # var_between. The PCV itself is calculate_pcv()'s ML-refit value, since REML
             # variances are not comparable across the null vs. adjusted fixed effects;
             # the small REML-vs-ML gap in the null variance is absorbed here rather than
             # left as an apparent inconsistency between the columns. NOTE: this is a
             # derived bookkeeping value, NOT the adjusted fit's own variance.
-            row$var_between_adjusted <- row$var_between * (1 - pcv_obj$pvc)
+            row$var_between_adjusted <- row$var_between * (1 - pcv_obj$pcv)
             # The adjusted MODEL's actual between-stratum variance, on the ML scale the
-            # PCV is computed on (var_model2 from calculate_pvc()). Unlike
+            # PCV is computed on (var_model2 from calculate_pcv()). Unlike
             # var_between_adjusted above, this is read straight off the adjusted fit, so
             # it is the literal "adjusted between-stratum variance" -- it differs from
             # var_between_adjusted only by the REML-vs-ML gap in the null variance.

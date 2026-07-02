@@ -19,7 +19,10 @@ maihda_longitudinal_adjusted_formula(
 \item{strata_vars, autobin_info, data}{Stratum metadata (as for
 \code{maihda_adjusted_formula}).}
 
-\item{time, time_degree}{The longitudinal specification.}
+\item{time, time_degree}{The longitudinal specification; \code{time} must be
+the variable the growth terms were built on (the internally centered column
+for a centered fit, \code{maihda_lng_time_term()}), so the \code{dim:time}
+interactions reference the same terms as the null formula.}
 }
 \value{
 A list with \code{formula} and \code{data}, or \code{NULL} if fewer

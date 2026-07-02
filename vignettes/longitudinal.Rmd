@@ -113,11 +113,19 @@ plot(a, type = "pcv_trajectory")   # the additive share over time
 
 ## Scope and cautions
 
+* **Time coding.** You can code time however is natural -- waves 0, 1, 2, ...,
+  waves 10, 11, ..., age, or calendar year. When the axis does not start at 0,
+  the growth terms are fit on internally *centered* time (`time - min(time)`,
+  with a message), because the raw polynomial basis over an offset range is
+  ill-conditioned and can silently converge to a wrong solution. All results --
+  the VPC trajectory, the PCV, plots, and predictions -- are reported on your
+  original time scale, and the baseline (`ref_time`) is always the earliest
+  observed time.
 * **Identifiability.** A stratum random slope needs enough occasions per stratum;
   sparse strata or few waves can give a singular lme4 fit (surfaced in the fit
   diagnostics) -- the brms engine handles this better.
 * **Not a single number.** The VPC is time-varying, so `extract_between_variance()`
-  and `calculate_pvc()` deliberately refuse a longitudinal model; use the
+  and `calculate_pcv()` deliberately refuse a longitudinal model; use the
   longitudinal decomposition above.
 * **Out of scope (v1).** Design-weighted, contextual (stratum $\times$ place
   $\times$ time), and `wemix`/`ordinal` longitudinal models are not yet supported.

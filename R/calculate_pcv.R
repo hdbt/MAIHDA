@@ -4,8 +4,6 @@
 #' two MAIHDA models. The PCV measures how much the between-stratum variance
 #' changes when moving from one model to another, and is calculated as:
 #' PCV = (Var_model1 - Var_model2) / Var_model1.
-#' (The function and result object retain the historical "pvc" naming;
-#' \dQuote{PVC} and \dQuote{PCV} refer to the same quantity.)
 #'
 #' @param model1 A maihda_model object from \code{fit_maihda()}. This is the
 #'   reference model (typically a simpler or baseline model).
@@ -17,7 +15,10 @@
 #' @param conf_level Confidence level for bootstrap intervals. Default is 0.95.
 #'
 #' @return A list containing:
-#'   \item{pvc}{The estimated proportional change in variance}
+#'   \item{pcv}{The estimated proportional change in variance}
+#'   \item{pvc}{Deprecated duplicate of \code{pcv}, kept so code written against
+#'     the historical \code{calculate_pvc()} spelling keeps working; it will be
+#'     removed in a future release}
 #'   \item{var_model1}{Between-stratum variance from model1}
 #'   \item{var_model2}{Between-stratum variance from model2}
 #'   \item{ci_lower}{Lower bound of confidence interval (if bootstrap = TRUE)}
@@ -25,19 +26,19 @@
 #'   \item{bootstrap}{Logical indicating if bootstrap was used}
 #'
 #' @details
-#' The PVC is the proportional change in between-stratum variance when moving from
+#' The PCV is the proportional change in between-stratum variance when moving from
 #' model1 to model2: a positive value means model2 has lower between-stratum
 #' variance, a negative value means higher. It is the share of model1's
 #' between-stratum variance \emph{explained} by model2 only in the canonical nested
 #' case, where model2 adds fixed-effect predictors to model1 on the same outcome,
 #' analytic sample and strata. The function does not require nesting, so for
-#' non-nested models the PVC is simply a model-dependent difference in variance,
+#' non-nested models the PCV is simply a model-dependent difference in variance,
 #' not an explained proportion.
 #'
 #' \strong{REML vs ML.} \code{lmer} fits Gaussian models by REML, whose
 #' between-stratum variance estimate is \emph{not} comparable across models with
 #' different fixed effects -- exactly the canonical null-vs-adjusted PCV, where the
-#' adjusted model adds the dimensions' main effects. \code{calculate_pvc()} therefore
+#' adjusted model adds the dimensions' main effects. \code{calculate_pcv()} therefore
 #' refits any REML \code{lmer} model with maximum likelihood
 #' (\code{\link[lme4]{refitML}}) before reading the variances (and before the
 #' parametric bootstrap, so the interval matches), matching \code{\link{maihda_ic}}
@@ -49,7 +50,7 @@
 #'
 #' When bootstrap = TRUE, the function uses a parametric bootstrap: it simulates
 #' new responses from model2 and refits both models with \code{lme4::refit()} for
-#' each simulated response to obtain confidence intervals for the PVC estimate.
+#' each simulated response to obtain confidence intervals for the PCV estimate.
 #' For negative-binomial models (\code{glmer.nb}) \code{refit()} holds the
 #' dispersion parameter theta fixed at its original estimate, so the interval is
 #' conditional on the estimated theta.
@@ -61,18 +62,21 @@
 #' model1 <- fit_maihda(health_outcome ~ age + (1 | stratum), data = strata_result$data)
 #' model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strata_result$data)
 #'
-#' # Calculate PVC without bootstrap
-#' pvc_result <- calculate_pvc(model1, model2)
-#' print(pvc_result$pvc)
+#' # Calculate PCV without bootstrap
+#' pcv_result <- calculate_pcv(model1, model2)
+#' print(pcv_result$pcv)
 #'
-#' # Calculate PVC with bootstrap CI
-#' # pvc_boot <- calculate_pvc(model1, model2, bootstrap = TRUE, n_boot = 500)
-#' # print(pvc_boot)
+#' # Calculate PCV with bootstrap CI
+#' # pcv_boot <- calculate_pcv(model1, model2, bootstrap = TRUE, n_boot = 500)
+#' # print(pcv_boot)
 #' }
 #'
+#' @seealso \code{\link{stepwise_pcv}} for the sequential (one-variable-at-a-time)
+#'   PCV, and \code{\link{maihda}} which computes the canonical null-vs-adjusted
+#'   PCV automatically.
 #' @export
 #' @importFrom lme4 lmer glmer VarCorr
-calculate_pvc <- function(model1, model2, bootstrap = FALSE,
+calculate_pcv <- function(model1, model2, bootstrap = FALSE,
                          n_boot = 1000, conf_level = 0.95) {
   # Input validation
   if (!inherits(model1, "maihda_model")) {
@@ -96,7 +100,7 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
     conf_level <- bootstrap_args$conf_level
   }
 
-  validate_pvc_models(model1, model2)
+  validate_pcv_models(model1, model2)
 
   # REML vs ML: lmer fits Gaussian models by REML, whose between-stratum variance is
   # NOT comparable across models with different fixed effects -- exactly the canonical
@@ -117,16 +121,19 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
   }
 
   if (var1 <= 0) {
-    stop("Between-stratum variance in model1 is zero or negative. PVC cannot be calculated. ",
+    stop("Between-stratum variance in model1 is zero or negative. PCV cannot be calculated. ",
          "This may indicate a singular fit or no between-stratum variation.")
   }
 
-  # Calculate PVC
-  pvc <- (var1 - var2) / var1
+  # Calculate PCV
+  pcv <- (var1 - var2) / var1
 
-  # Create result object
+  # Create result object. The 'pvc' element and the trailing "pvc_result" class
+  # duplicate 'pcv'/"pcv_result" for code written against the historical
+  # calculate_pvc() spelling.
   result <- list(
-    pvc = pvc,
+    pcv = pcv,
+    pvc = pcv,
     var_model1 = var1,
     var_model2 = var2,
     bootstrap = FALSE
@@ -134,17 +141,35 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
 
   # Bootstrap confidence intervals if requested
   if (bootstrap) {
-    pvc_ci <- bootstrap_pvc(model1, model2, n_boot, conf_level)
-    result$ci_lower <- pvc_ci[1]
-    result$ci_upper <- pvc_ci[2]
+    pcv_ci <- bootstrap_pcv(model1, model2, n_boot, conf_level)
+    result$ci_lower <- pcv_ci[1]
+    result$ci_upper <- pcv_ci[2]
     result$bootstrap <- TRUE
     result$conf_level <- conf_level
-    result$n_boot_ok <- attr(pvc_ci, "n_ok")
-    result$mc_se <- attr(pvc_ci, "mc_se")
+    result$n_boot_ok <- attr(pcv_ci, "n_ok")
+    result$mc_se <- attr(pcv_ci, "mc_se")
   }
 
-  class(result) <- "pvc_result"
+  class(result) <- c("pcv_result", "pvc_result")
   return(result)
+}
+
+#' Deprecated: use calculate_pcv()
+#'
+#' \code{calculate_pvc()} is the former name of \code{\link{calculate_pcv}}: the
+#' statistic is the PCV (proportional change in variance), but the historical
+#' function name transposed the acronym. \code{calculate_pvc()} now forwards to
+#' \code{calculate_pcv()} with a deprecation warning and will be removed in a
+#' future release.
+#'
+#' @inheritParams calculate_pcv
+#' @return See \code{\link{calculate_pcv}}.
+#' @export
+calculate_pvc <- function(model1, model2, bootstrap = FALSE,
+                          n_boot = 1000, conf_level = 0.95) {
+  .Deprecated("calculate_pcv")
+  calculate_pcv(model1, model2, bootstrap = bootstrap,
+                n_boot = n_boot, conf_level = conf_level)
 }
 
 # REML lmer between-stratum variance estimates are not comparable across models with
@@ -165,7 +190,7 @@ maihda_pcv_refit_ml <- function(model) {
   # (effectively zero): there its between-stratum variance is ~0 under either
   # criterion, re-optimising only adds optimiser instability, and the refit would
   # nudge an exact-zero variance off the boundary, masking the zero-variance guard in
-  # calculate_pvc(). A fit can be globally singular because a NON-stratum random
+  # calculate_pcv(). A fit can be globally singular because a NON-stratum random
   # effect (e.g. an extra grouping factor like (1 | site)) sits on the boundary while
   # the stratum variance is comfortably nonzero -- testing global isSingular() here
   # wrongly skipped those, leaving the REML-vs-ML discrepancy this corrects in place.
@@ -183,7 +208,7 @@ maihda_pcv_refit_ml <- function(model) {
 # Used by maihda_pcv_refit_ml() to decide whether an ML refit is worthwhile -- it is
 # not when the stratum is itself at zero, but it IS when only another grouping factor
 # is on the boundary. Returns TRUE (skip the refit) if the stratum variance cannot be
-# read at all; calculate_pvc()'s own zero-variance guard then surfaces the problem.
+# read at all; calculate_pcv()'s own zero-variance guard then surfaces the problem.
 maihda_stratum_at_boundary_lme4 <- function(model, tol = 1e-4) {
   stratum_var <- tryCatch(maihda_stratum_variance_lme4(model),
                           error = function(e) NA_real_)
@@ -223,7 +248,7 @@ extract_between_variance <- function(model) {
   if (engine == "lme4") {
     maihda_validate_intercept_only_random_effects_lme4(
       fitted_model,
-      context = "PVC calculations"
+      context = "PCV calculations"
     )
     return(maihda_stratum_variance_lme4(fitted_model))
 
@@ -244,7 +269,7 @@ extract_between_variance <- function(model) {
     }
     maihda_validate_intercept_only_random_effects_brms(
       brms::VarCorr(fitted_model),
-      context = "PVC calculations"
+      context = "PCV calculations"
     )
     return(maihda_stratum_variance_brms(fitted_model))
 
@@ -254,11 +279,11 @@ extract_between_variance <- function(model) {
   }
 }
 
-validate_pvc_models <- function(model1, model2) {
+validate_pcv_models <- function(model1, model2) {
   response1 <- paste(deparse(model1$formula[[2]]), collapse = "")
   response2 <- paste(deparse(model2$formula[[2]]), collapse = "")
   if (!identical(response1, response2)) {
-    stop("PVC requires both models to use the same outcome. ",
+    stop("PCV requires both models to use the same outcome. ",
          "Model 1 uses '", response1, "' and Model 2 uses '", response2, "'.",
          call. = FALSE)
   }
@@ -270,7 +295,7 @@ validate_pvc_models <- function(model1, model2) {
   fam_key1 <- maihda_model_family_key(model1)
   fam_key2 <- maihda_model_family_key(model2)
   if (!identical(fam_key1, fam_key2)) {
-    stop("PVC requires both models to use the same model family and link. ",
+    stop("PCV requires both models to use the same model family and link. ",
          "Model 1 uses ", fam_key1, " and Model 2 uses ", fam_key2, ".",
          call. = FALSE)
   }
@@ -282,7 +307,7 @@ validate_pvc_models <- function(model1, model2) {
   n1 <- maihda_wrapper_nobs(model1)
   n2 <- maihda_wrapper_nobs(model2)
   if (is.finite(n1) && is.finite(n2) && n1 != n2) {
-    stop("PVC requires both models to use the same analytic sample. ",
+    stop("PCV requires both models to use the same analytic sample. ",
          "Model 1 used ", n1, " observations and Model 2 used ", n2, ".",
          call. = FALSE)
   }
@@ -290,7 +315,7 @@ validate_pvc_models <- function(model1, model2) {
   rows1 <- maihda_wrapper_row_ids(model1)
   rows2 <- maihda_wrapper_row_ids(model2)
   if (!is.null(rows1) && !is.null(rows2) && !identical(rows1, rows2)) {
-    stop("PVC requires both models to use the same analytic sample in the same row order.",
+    stop("PCV requires both models to use the same analytic sample in the same row order.",
          call. = FALSE)
   }
 
@@ -299,7 +324,7 @@ validate_pvc_models <- function(model1, model2) {
   fp1 <- maihda_wrapper_response_fingerprint(model1)
   fp2 <- maihda_wrapper_response_fingerprint(model2)
   if (!is.na(fp1) && !is.na(fp2) && !identical(fp1, fp2)) {
-    stop("PVC requires both models to be fitted to the same analytic data; the ",
+    stop("PCV requires both models to be fitted to the same analytic data; the ",
          "outcome values differ between the two models.", call. = FALSE)
   }
 
@@ -308,7 +333,7 @@ validate_pvc_models <- function(model1, model2) {
   # an explicit weights = rep(1, n) fit are treated as equal.)
   if (!identical(maihda_weight_fingerprint(model1$model),
                  maihda_weight_fingerprint(model2$model))) {
-    stop("PVC requires both models to use the same prior weights; the two models ",
+    stop("PCV requires both models to use the same prior weights; the two models ",
          "were fit with different weights.", call. = FALSE)
   }
 
@@ -318,19 +343,19 @@ validate_pvc_models <- function(model1, model2) {
   # column name and its values on the analytic rows.
   if (!identical(maihda_sampling_weight_fingerprint(model1),
                  maihda_sampling_weight_fingerprint(model2))) {
-    stop("PVC requires both models to use the same sampling weights; the two ",
+    stop("PCV requires both models to use the same sampling weights; the two ",
          "models were fit with different (or differently specified) ",
          "sampling weights.", call. = FALSE)
   }
 
   if (!"stratum" %in% names(model1$data) || !"stratum" %in% names(model2$data)) {
-    stop("PVC requires both models to include a 'stratum' column in their analytic data.",
+    stop("PCV requires both models to include a 'stratum' column in their analytic data.",
          call. = FALSE)
   }
   row_strata1 <- as.character(model1$data$stratum)
   row_strata2 <- as.character(model2$data$stratum)
   if (!identical(row_strata1, row_strata2)) {
-    stop("PVC requires both models to assign each analytic row to the same stratum.",
+    stop("PCV requires both models to assign each analytic row to the same stratum.",
          call. = FALSE)
   }
 
@@ -339,7 +364,7 @@ validate_pvc_models <- function(model1, model2) {
   strata1 <- sort(strata1[!is.na(strata1)])
   strata2 <- sort(strata2[!is.na(strata2)])
   if (!identical(strata1, strata2)) {
-    stop("PVC requires both models to use the same stratum definitions.",
+    stop("PCV requires both models to use the same stratum definitions.",
          call. = FALSE)
   }
 
@@ -351,7 +376,7 @@ validate_pvc_models <- function(model1, model2) {
     labels1 <- info1$label[order(as.character(info1$stratum))]
     labels2 <- info2$label[order(as.character(info2$stratum))]
     if (!identical(labels1, labels2)) {
-      stop("PVC requires both models to use the same stratum labels.",
+      stop("PCV requires both models to use the same stratum labels.",
            call. = FALSE)
     }
   }
@@ -359,9 +384,9 @@ validate_pvc_models <- function(model1, model2) {
   invisible(TRUE)
 }
 
-#' Bootstrap PVC
+#' Bootstrap PCV
 #'
-#' Internal function to compute bootstrap confidence intervals for PVC.
+#' Internal function to compute bootstrap confidence intervals for PCV.
 #'
 #' @param model1 First maihda_model object
 #' @param model2 Second maihda_model object
@@ -371,7 +396,7 @@ validate_pvc_models <- function(model1, model2) {
 #' @return A vector with lower and upper confidence bounds
 #' @keywords internal
 #' @importFrom lme4 lmer glmer VarCorr
-bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
+bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
   engine <- model1$engine
   if (engine != "lme4") {
     stop("Bootstrap is currently only supported for lme4 models (it relies on ",
@@ -383,7 +408,7 @@ bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
   # assignment inside the tryCatch body — stay NA rather than the numeric() default of 0.
   # The error handler runs in its own scope and cannot write back to this vector,
   # so the initial value is what survives a failure.
-  pvc_boot <- rep(NA_real_, n_boot)
+  pcv_boot <- rep(NA_real_, n_boot)
 
   # Parametric Bootstrap: Simulate new responses from the adjusted model (model2)
   # This mathematically preserves the hierarchical structure (random effects)
@@ -400,25 +425,27 @@ bootstrap_pvc <- function(model1, model2, n_boot, conf_level) {
       var1 <- maihda_stratum_variance_lme4(boot_model1)
       var2 <- maihda_stratum_variance_lme4(boot_model2)
 
-      # Calculate PVC
-      pvc_boot[i] <- if (is.finite(var1) && var1 > 0) (var1 - var2) / var1 else NA_real_
+      # Calculate PCV
+      pcv_boot[i] <- if (is.finite(var1) && var1 > 0) (var1 - var2) / var1 else NA_real_
     }, error = function(e) NULL)
   }
 
   # Reduce to an interval, requiring a minimum number of successful refits and
   # warning on a high failure rate.
-  ci <- maihda_bootstrap_ci(pvc_boot, n_boot, conf_level, "PVC")
+  ci <- maihda_bootstrap_ci(pcv_boot, n_boot, conf_level, "PCV")
 
   return(ci)
 }
 
-#' Print method for PVC results
+#' Print method for PCV results
 #'
-#' @param x A pvc_result object
+#' @param x A pcv_result object from \code{\link{calculate_pcv}}
 #' @param ... Additional arguments
 #' @return No return value, called for side effects.
 #' @export
-print.pvc_result <- function(x, ...) {
+print.pcv_result <- function(x, ...) {
+  # An object saved by a pre-rename version of the package carries only 'pvc'.
+  pcv <- if (is.null(x$pcv)) x$pvc else x$pcv
   pal <- maihda_palette()
   cat(pal$bold("Proportional Change in Variance (PCV)"), "\n", sep = "")
   cat("=====================================\n\n")
@@ -426,7 +453,7 @@ print.pvc_result <- function(x, ...) {
   if (x$bootstrap) {
     conf_pct <- if (!is.null(x$conf_level)) x$conf_level * 100 else 95
     cat(sprintf("PCV: %s [%.4f, %.4f]\n",
-                pal$accent(sprintf("%.4f", x$pvc)), x$ci_lower, x$ci_upper))
+                pal$accent(sprintf("%.4f", pcv)), x$ci_lower, x$ci_upper))
     cat(pal$muted(sprintf("(Bootstrap %.0f%% CI)\n", conf_pct)))
     if (!is.null(x$mc_se) && is.finite(x$mc_se)) {
       cat(pal$muted(sprintf("(%d successful bootstrap draws; Monte Carlo SE %.4f)\n",
@@ -434,7 +461,7 @@ print.pvc_result <- function(x, ...) {
     }
     cat("\n")
   } else {
-    cat(sprintf("PCV: %s\n\n", pal$accent(sprintf("%.4f", x$pvc))))
+    cat(sprintf("PCV: %s\n\n", pal$accent(sprintf("%.4f", pcv))))
   }
 
   cat(pal$bold("Between-stratum variance:"), "\n", sep = "")
@@ -442,21 +469,27 @@ print.pvc_result <- function(x, ...) {
   cat(sprintf("  Model 2: %.6f\n", x$var_model2))
   cat(sprintf("  Change:  %.6f (%.2f%%)\n",
               x$var_model1 - x$var_model2,
-              x$pvc * 100))
+              pcv * 100))
 
   cat(pal$muted("\nInterpretation (PCV is the proportional change in between-stratum\nvariance between the models):\n"))
-  if (x$pvc > 0) {
+  if (pcv > 0) {
     cat(sprintf("  Between-stratum variance is %.1f%% lower in Model 2 than in Model 1.\n",
-                x$pvc * 100))
-  } else if (x$pvc < 0) {
+                pcv * 100))
+  } else if (pcv < 0) {
     cat(sprintf("  Between-stratum variance is %.1f%% higher in Model 2 than in Model 1.\n",
-                abs(x$pvc) * 100))
+                abs(pcv) * 100))
   } else {
     cat("  No change in between-stratum variance between models.\n")
   }
 
   invisible(x)
 }
+
+# Objects saved by a pre-rename version of the package carry only the "pvc_result"
+# class, so the legacy S3 method must stay registered for them to print.
+#' @rdname print.pcv_result
+#' @export
+print.pvc_result <- print.pcv_result
 
 #' Stepwise Proportional Change in Variance (PCV)
 #'
@@ -630,7 +663,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
 
   # Model 0: Null Model. Each step compares the stratum variance across models that
   # differ in fixed effects, so refit any REML lmer fit with ML first (see
-  # calculate_pvc()); a no-op for glmer/wemix/ordinal binary fits used for the DA
+  # calculate_pcv()); a no-op for glmer/wemix/ordinal binary fits used for the DA
   # trajectory below.
   null_fmla <- maihda_formula_with_stratum(outcome)
   null_mod <- maihda_pcv_refit_ml(fit_maihda(null_fmla, data, engine = engine,

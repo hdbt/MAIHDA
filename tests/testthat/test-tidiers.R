@@ -89,7 +89,7 @@ test_that("glance.maihda_analysis adds PCV, adjusted-model and mode columns", {
       "auc", "auc.adjusted", "mor",
       "n_strata", "nobs", "engine", "family", "mode")
   )
-  expect_equal(g$pcv, a$pcv$pvc, tolerance = 1e-8)
+  expect_equal(g$pcv, a$pcv$pcv, tolerance = 1e-8)
   expect_identical(g$mode, "two-model")
   expect_equal(g$nobs, nrow(d))
   expect_equal(g$n_strata, N_STRATA)

@@ -133,7 +133,7 @@ ui <- page_navbar(
             uiOutput("model_summary_ui")),
   nav_panel("PCV Results", value = "pcv", icon = icon("arrow-down-wide-short"),
             navset_pill(
-              nav_panel("PCV summary", uiOutput("pvc_summary_ui")),
+              nav_panel("PCV summary", uiOutput("pcv_summary_ui")),
               nav_panel("Stepwise decomposition", uiOutput("stepwise_pcv_ui"))
             )),
   nav_panel("Model Comparison", value = "compare", icon = icon("code-compare"),
@@ -347,7 +347,7 @@ server <- function(input, output, session) {
   model_results <- reactiveVal(NULL)
   null_summary_results <- reactiveVal(NULL)
   summary_results <- reactiveVal(NULL)
-  pvc_results <- reactiveVal(NULL)
+  pcv_results <- reactiveVal(NULL)
   stepwise_results <- reactiveVal(NULL)
   fitted_family <- reactiveVal(NULL)   # resolved family of the last fit (for display)
   fit_params <- reactiveVal(NULL)      # inputs of the last fit (for the "Reproduce in R" dialog)
@@ -404,7 +404,7 @@ server <- function(input, output, session) {
     model_results(NULL)
     null_summary_results(NULL)
     summary_results(NULL)
-    pvc_results(NULL)
+    pcv_results(NULL)
     stepwise_results(NULL)
     fitted_family(NULL)
     da_results(NULL)
@@ -444,7 +444,7 @@ server <- function(input, output, session) {
           # separate null/adjusted pair, PCV, stepwise or nested comparison.
           summary_results(res$summary_obj)
           null_summary_results(res$summary_obj)
-          pvc_results(NULL)
+          pcv_results(NULL)
           stepwise_results(NULL)
           decomposition_results(res$decomposition)
           comparison_results(NULL)
@@ -461,7 +461,7 @@ server <- function(input, output, session) {
           # in the background worker (see maihda_app_bootstrap_vpc_cis()).
           null_summary_results(MAIHDA:::maihda_app_attach_vpc_ci(summary(res$null_model), res$vpc_ci_null))
           summary_results(MAIHDA:::maihda_app_attach_vpc_ci(summary(res$model), res$vpc_ci_adjusted))
-          pvc_results(res$pvc)
+          pcv_results(res$pcv)
           stepwise_results(res$stepwise)
           decomposition_results(NULL)
           # Discriminatory accuracy is only defined for binomial fits. Compute AUC/MOR
@@ -672,7 +672,7 @@ server <- function(input, output, session) {
     datatable(head(summary_results()$stratum_estimates, 10), options = list(dom = 't', paging = FALSE))
   })
 
-  output$pvc_summary_ui <- renderUI({
+  output$pcv_summary_ui <- renderUI({
     # Crossed-dimensions mode: show the additive/interaction partition read off the
     # single model instead of the two-model PCV.
     if (identical(decomposition_mode(), "crossed-dimensions")) {
@@ -745,14 +745,14 @@ server <- function(input, output, session) {
       ))
     }
 
-    if (is.null(pvc_results()) || is.null(model_results())) {
+    if (is.null(pcv_results()) || is.null(model_results())) {
       return(MAIHDA:::maihda_app_empty_state(
         "No PCV results yet",
         "Fit a MAIHDA model from the sidebar to see the proportional change in
         between-stratum variance between the null and adjusted models."))
     }
 
-    pvc <- pvc_results()
+    pcv <- pcv_results()
     mod <- model_results()
 
     adjusted_formula <- deparse(mod$formula)
@@ -767,14 +767,14 @@ server <- function(input, output, session) {
       collapse = ""
     )
 
-    bootstrap_ui <- if (isTRUE(pvc$bootstrap) && !is.null(pvc$ci_lower) && !is.null(pvc$ci_upper)) {
+    bootstrap_ui <- if (isTRUE(pcv$bootstrap) && !is.null(pcv$ci_lower) && !is.null(pcv$ci_upper)) {
         div(class = "mt-4 text-center text-muted",
             h5("Bootstrap 95% Confidence Interval"),
-            tags$p(sprintf("[%.2f%%, %.2f%%]", pvc$ci_lower * 100, pvc$ci_upper * 100))
+            tags$p(sprintf("[%.2f%%, %.2f%%]", pcv$ci_lower * 100, pcv$ci_upper * 100))
         )
-    } else if (!is.null(pvc$boot_message)) {
+    } else if (!is.null(pcv$boot_message)) {
         div(class = "mt-4 text-center text-muted",
-            tags$p(sprintf("Bootstrap CI unavailable: %s", pvc$boot_message))
+            tags$p(sprintf("Bootstrap CI unavailable: %s", pcv$boot_message))
         )
     } else {
         NULL
@@ -788,13 +788,13 @@ server <- function(input, output, session) {
           class = "maihda-metric-row mb-2",
           value_box(
             title = "Null model variance",
-            value = if (!is.null(pvc$var_model1) && is.finite(pvc$var_model1)) sprintf("%.4f", pvc$var_model1) else "N/A",
+            value = if (!is.null(pcv$var_model1) && is.finite(pcv$var_model1)) sprintf("%.4f", pcv$var_model1) else "N/A",
             showcase = icon("seedling"), theme = "secondary",
             p(class = "mb-0", "Model 1: null (strata + any covariates)")
           ),
           value_box(
             title = "Adjusted model variance",
-            value = if (!is.null(pvc$var_model2) && is.finite(pvc$var_model2)) sprintf("%.4f", pvc$var_model2) else "N/A",
+            value = if (!is.null(pcv$var_model2) && is.finite(pcv$var_model2)) sprintf("%.4f", pcv$var_model2) else "N/A",
             showcase = icon("layer-group"), theme = "info",
             p(class = "mb-0", "Model 2: + strata main effects")
           ),
@@ -803,21 +803,21 @@ server <- function(input, output, session) {
                             tooltip(
                               shiny::icon("info-circle"),
                               "PCV is the proportional change in between-stratum variance from the Null to the Adjusted model. The two models hold any selected covariates fixed and differ only by the strata dimensions' additive main effects, so the PCV is the additive share of those dimensions. A high PCV means the between-stratum variance is much smaller after adding those main effects; a low or negative PCV means little change (or an increase). This is a model-dependent change, not proof that inequality was causally 'explained away' -- it can also reflect suppression, rescaling, sample composition, or uncertainty, not interaction alone.")),
-            value = if (is.finite(pvc$pvc)) sprintf("%.2f%%", pvc$pvc * 100) else "N/A",
+            value = if (is.finite(pcv$pcv)) sprintf("%.2f%%", pcv$pcv * 100) else "N/A",
             showcase = icon("arrow-down-wide-short"),
-            theme = if (is.finite(pvc$pvc)) "success" else "warning",
+            theme = if (is.finite(pcv$pcv)) "success" else "warning",
             p(class = "mb-0",
-              if (is.finite(pvc$pvc)) "Proportional change vs the null model" else "Undefined for this fit")
+              if (is.finite(pcv$pcv)) "Proportional change vs the null model" else "Undefined for this fit")
           )
         ),
         div(class = "small text-muted mb-3",
             tagList("Null: ", tags$code(null_formula),
                     HTML("&nbsp;&bull;&nbsp;"),
                     "Adjusted: ", tags$code(paste(adjusted_formula, collapse = "")))),
-        if (!is.finite(pvc$pvc)) {
+        if (!is.finite(pcv$pcv)) {
           div(class = "alert alert-warning",
               tags$strong("PCV could not be calculated. "),
-              if (!is.null(pvc$message)) pvc$message else
+              if (!is.null(pcv$message)) pcv$message else
                 "The baseline between-stratum variance is zero, so the proportional change is undefined. The model fit, VPC and visualizations above remain valid.")
         } else NULL,
         bootstrap_ui
@@ -909,7 +909,7 @@ server <- function(input, output, session) {
     model_results = model_results,
     null_summary_results = null_summary_results,
     summary_results = summary_results,
-    pvc_results = pvc_results,
+    pcv_results = pcv_results,
     group_vars = reactive(input$group_vars),
     decomposition_results = decomposition_results
   )

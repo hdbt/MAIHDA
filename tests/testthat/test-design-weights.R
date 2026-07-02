@@ -419,7 +419,7 @@ test_that("wemix predictions add the formula offset", {
   expect_gt(max(abs(off)), 0.5)
 })
 
-test_that("calculate_pvc works across wemix fits and guards mismatched weights", {
+test_that("calculate_pcv works across wemix fits and guards mismatched weights", {
   skip_on_cran()
   skip_if_not_installed("WeMix")
 
@@ -432,11 +432,11 @@ test_that("calculate_pvc works across wemix fits and guards mismatched weights",
                data = m0$original_data, engine = "wemix",
                sampling_weights = "w"))
 
-  pv <- calculate_pvc(m0, madj)
-  expect_s3_class(pv, "pvc_result")
-  expect_true(is.finite(pv$pvc))
-  expect_gt(pv$pvc, 0)
-  expect_lt(pv$pvc, 1)
+  pv <- calculate_pcv(m0, madj)
+  expect_s3_class(pv, "pcv_result")
+  expect_true(is.finite(pv$pcv))
+  expect_gt(pv$pcv, 0)
+  expect_lt(pv$pcv, 1)
 
   # Different sampling weights on the same rows are not comparable.
   d2 <- m0$original_data
@@ -444,10 +444,10 @@ test_that("calculate_pvc works across wemix fits and guards mismatched weights",
   m_other <- suppressMessages(
     fit_maihda(y ~ age + gender + race + edu + (1 | stratum), data = d2,
                engine = "wemix", sampling_weights = "w2"))
-  expect_error(calculate_pvc(m0, m_other), "same sampling weights")
+  expect_error(calculate_pcv(m0, m_other), "same sampling weights")
 })
 
-test_that("calculate_pvc/compare_maihda catch DIFFERENT wemix outcomes", {
+test_that("calculate_pcv/compare_maihda catch DIFFERENT wemix outcomes", {
   skip_on_cran()
   skip_if_not_installed("WeMix")
 
@@ -464,7 +464,7 @@ test_that("calculate_pvc/compare_maihda catch DIFFERENT wemix outcomes", {
     fit_maihda(y ~ age + (1 | gender:race:edu), data = d_diff,
                engine = "wemix", sampling_weights = "w"))
 
-  expect_error(calculate_pvc(m0, m_diff), "outcome values differ")
+  expect_error(calculate_pcv(m0, m_diff), "outcome values differ")
   expect_warning(compare_maihda(m0, m_diff), "analytic sample")
 })
 
@@ -480,7 +480,7 @@ test_that("maihda() runs the design-weighted two-model decomposition", {
   expect_identical(a$model$engine, "wemix")
   expect_identical(a$model_adjusted$engine, "wemix")
   expect_false(is.null(a$pcv))
-  expect_true(is.finite(a$pcv$pvc))
+  expect_true(is.finite(a$pcv$pcv))
   expect_output(print(a), "PCV")
 })
 

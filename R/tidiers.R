@@ -218,7 +218,7 @@ glance.maihda_analysis <- function(x, ...) {
   g <- glance(x$summary)
 
   pcv <- x$pcv
-  g$pcv          <- maihda_num(pcv$pvc)
+  g$pcv          <- maihda_num(pcv$pcv)
   g$pcv.conf.low <- maihda_num(pcv$ci_lower)
   g$pcv.conf.high <- maihda_num(pcv$ci_upper)
 

@@ -85,13 +85,13 @@
 #'     computed from maximum-likelihood-refitted between-stratum variances while the
 #'     variance/VPC rows are each model's own (REML) estimate, so the PCV need not
 #'     equal the reduction implied by the displayed variance rows; see
-#'     \code{\link{calculate_pvc}}}
+#'     \code{\link{calculate_pcv}}}
 #'   \item{model_keys, model_labels}{the estimate-column keys and their display labels}
 #'   \item{family, engine, mode, scale, ranked_by, n_obs, n_strata_total, context_vars}{
 #'     metadata used by \code{print()}}
 #'
 #' @seealso \code{\link{maihda}}, \code{\link{summary.maihda_model}},
-#'   \code{\link{calculate_pvc}}, \code{\link{maihda_discriminatory_accuracy}}.
+#'   \code{\link{calculate_pcv}}, \code{\link{maihda_discriminatory_accuracy}}.
 #'
 #' @examples
 #' \donttest{
@@ -334,7 +334,10 @@ maihda_between_stratum_variance <- function(s) {
   if (!is.null(s$longitudinal)) {
     lng <- s$longitudinal
     if (!is.null(lng$Sigma_stratum) && !is.null(lng$ref_time)) {
-      return(as.numeric(maihda_var_at_time(lng$Sigma_stratum, lng$ref_time)))
+      # The covariance block is in the model's (possibly centered) coefficient
+      # coordinates; evaluate at ref_time - center (see maihda_var_at_time()).
+      ref_c <- lng$ref_time - maihda_lng_time_center(lng)
+      return(as.numeric(maihda_var_at_time(lng$Sigma_stratum, ref_c)))
     }
     return(NA_real_)
   }
@@ -376,7 +379,7 @@ maihda_build_results_table <- function(model_stats, pcv = NULL) {
     has_ci <- isTRUE(pcv$bootstrap) && !is.null(pcv$ci_lower) && !is.null(pcv$ci_upper)
     pcv_row <- data.frame(statistic = "PCV (null -> adjusted)",
                           null = NA_real_, null_lower = NA_real_, null_upper = NA_real_,
-                          adjusted = as.numeric(pcv$pvc),
+                          adjusted = as.numeric(pcv$pcv),
                           adjusted_lower = if (has_ci) as.numeric(pcv$ci_lower) else NA_real_,
                           adjusted_upper = if (has_ci) as.numeric(pcv$ci_upper) else NA_real_,
                           stringsAsFactors = FALSE)
@@ -394,15 +397,15 @@ maihda_build_results_table <- function(model_stats, pcv = NULL) {
 }
 
 # Note flagging that a two-model PCV was computed on a different variance basis than
-# the displayed single-model variance rows. calculate_pvc() refits a Gaussian lme4
+# the displayed single-model variance rows. calculate_pcv() refits a Gaussian lme4
 # fit to ML before differencing the between-stratum variances (REML variances are not
-# comparable across models with different fixed effects; see ?calculate_pvc), whereas
+# comparable across models with different fixed effects; see ?calculate_pcv), whereas
 # the "Between-stratum variance"/SD and VPC/ICC rows are read from each model's own
 # (REML) fit -- the same quantities summary() reports. When the two bases differ, the
 # displayed PCV does not equal (var_null - var_adj)/var_null read off the table, which
 # reads as an inconsistency unless explained. Returns NULL (no note) when the bases
 # coincide: an already-ML engine (glmer/brms/wemix/ordinal), or a boundary null where
-# calculate_pvc() kept the REML fit -- detected directly by comparing the PCV's own
+# calculate_pcv() kept the REML fit -- detected directly by comparing the PCV's own
 # between-stratum variances to the displayed ones rather than proxying on isREML().
 maihda_table_pcv_note <- function(model_stats, pcv, model_keys, engine) {
   if (is.null(pcv) || !identical(engine, "lme4") ||
@@ -418,7 +421,7 @@ maihda_table_pcv_note <- function(model_stats, pcv, model_keys, engine) {
   if (!differs(disp1, v1) && !differs(disp2, v2)) return(NULL)
   paste0("The PCV is computed from maximum-likelihood-refitted between-stratum ",
          "variances (required for a valid cross-model comparison; see ",
-         "?calculate_pvc), while the Between-stratum variance/SD and VPC/ICC rows are ",
+         "?calculate_pcv), while the Between-stratum variance/SD and VPC/ICC rows are ",
          "each model's own REML estimate. The PCV therefore need not equal the ",
          "variance reduction implied by the displayed variance rows.")
 }

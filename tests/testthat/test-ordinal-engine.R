@@ -377,7 +377,7 @@ test_that("maihda_mor returns the median cumulative odds ratio for a logit fit",
 
 # ---- PCV / workflows -----------------------------------------------------------
 
-test_that("calculate_pvc and maihda() run the two-model ordinal decomposition", {
+test_that("calculate_pcv and maihda() run the two-model ordinal decomposition", {
   skip_on_cran()
   skip_if_not_installed("ordinal")
 
@@ -388,21 +388,21 @@ test_that("calculate_pvc and maihda() run the two-model ordinal decomposition", 
   ))
   expect_s3_class(a, "maihda_analysis")
   expect_identical(a$model$engine, "ordinal")
-  expect_true(is.finite(a$pcv$pvc))
+  expect_true(is.finite(a$pcv$pcv))
   expect_output(print(a), "cumulative")
 
-  # The standalone PVC over the pair agrees and the bootstrap is rejected.
-  pcv <- calculate_pvc(a$model, a$model_adjusted)
-  expect_equal(pcv$pvc, a$pcv$pvc)
+  # The standalone PCV over the pair agrees and the bootstrap is rejected.
+  pcv <- calculate_pcv(a$model, a$model_adjusted)
+  expect_equal(pcv$pcv, a$pcv$pcv)
   expect_error(
-    calculate_pvc(a$model, a$model_adjusted, bootstrap = TRUE, n_boot = 10),
+    calculate_pcv(a$model, a$model_adjusted, bootstrap = TRUE, n_boot = 10),
     "engine = \"brms\""
   )
 
   # All-defaults path: the ordered factor selects the ordinal model end-to-end.
   a2 <- suppressMessages(suppressWarnings(maihda(y ~ x + (1 | gender:race), data = d)))
   expect_identical(a2$model$engine, "ordinal")
-  expect_true(is.finite(a2$pcv$pvc))
+  expect_true(is.finite(a2$pcv$pcv))
 
   expect_error(
     suppressMessages(maihda(y ~ x + (1 | gender:race), data = d,

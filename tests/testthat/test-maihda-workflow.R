@@ -47,7 +47,7 @@ test_that("the formula builders quote non-syntactic dimension names safely", {
   a2 <- suppressMessages(suppressWarnings(maihda(y ~ (1 | `gender var`:race), data = d)))
   expect_match(paste(deparse(a2$adjusted_formula), collapse = " "), "`gender var`",
                fixed = TRUE)
-  expect_true(is.finite(a2$pcv$pvc))
+  expect_true(is.finite(a2$pcv$pcv))
 
   # Crossed-dimensions path strips the explicit main effects via remove_terms().
   a3 <- suppressMessages(suppressWarnings(
@@ -123,8 +123,8 @@ test_that("maihda() fits the adjusted model and reports a PCV", {
 
   expect_s3_class(a$model_adjusted, "maihda_model")
   expect_s3_class(a$summary_adjusted, "maihda_summary")
-  expect_s3_class(a$pcv, "pvc_result")
-  expect_true(is.finite(a$pcv$pvc))
+  expect_s3_class(a$pcv, "pcv_result")
+  expect_true(is.finite(a$pcv$pcv))
 
   # Adjusted formula = null formula + the dimensions' additive main effects;
   # the null model carries NO dimension main effects.
@@ -133,9 +133,9 @@ test_that("maihda() fits the adjusted model and reports a PCV", {
   expect_true(all(c("gender", "race") %in% adj_terms))
   expect_false(any(c("gender", "race") %in% null_terms))
 
-  # PCV matches a manual calculate_pvc() on the two fitted models
-  manual <- calculate_pvc(a$model, a$model_adjusted)
-  expect_equal(a$pcv$pvc, manual$pvc, tolerance = 1e-8)
+  # PCV matches a manual calculate_pcv() on the two fitted models
+  manual <- calculate_pcv(a$model, a$model_adjusted)
+  expect_equal(a$pcv$pcv, manual$pcv, tolerance = 1e-8)
 })
 
 test_that("maihda() print and summary surface the PCV and adjusted model", {
@@ -146,7 +146,7 @@ test_that("maihda() print and summary surface the PCV and adjusted model", {
   expect_output(print(a), "Adjusted formula")
 
   s <- summary(a)
-  expect_s3_class(attr(s, "pcv"), "pvc_result")
+  expect_s3_class(attr(s, "pcv"), "pcv_result")
   expect_s3_class(attr(s, "adjusted"), "maihda_summary")
 })
 
@@ -168,7 +168,7 @@ test_that("maihda() enters an auto-binned numeric dimension as the tertile facto
   binned <- a$model_adjusted$original_data[[".maihda_dim_ses"]]
   expect_s3_class(binned, "factor")
   expect_equal(nlevels(binned), 3L)
-  expect_true(is.finite(a$pcv$pvc))
+  expect_true(is.finite(a$pcv$pcv))
 })
 
 test_that("maihda() errors with a single stratum dimension (no intersection)", {
@@ -233,11 +233,11 @@ test_that("maihda() accepts the dimensions' main effects in the formula (no PCV-
   adj_terms  <- attr(stats::terms(reformulas::nobars(b$adjusted_formula)), "term.labels")
   expect_false(any(c("gender", "race") %in% null_terms))   # null excludes the dimensions
   expect_true(all(c("gender", "race") %in% adj_terms))      # adjusted includes them
-  expect_true(is.finite(b$pcv$pvc) && b$pcv$pvc != 0)
+  expect_true(is.finite(b$pcv$pcv) && b$pcv$pcv != 0)
 
   # Equivalent to omitting the main effects (the legacy form): identical null VPC + PCV.
   a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
-  expect_equal(b$pcv$pvc, a$pcv$pvc, tolerance = 1e-8)
+  expect_equal(b$pcv$pcv, a$pcv$pcv, tolerance = 1e-8)
   expect_equal(b$summary$vpc$estimate, a$summary$vpc$estimate, tolerance = 1e-8)
 })
 
@@ -267,7 +267,7 @@ test_that("maihda() rejects a fixed interaction among the stratum dimensions", {
   )
   # The additive form is unaffected (no false positive).
   a <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d))
-  expect_true(is.finite(a$pcv$pvc))
+  expect_true(is.finite(a$pcv$pcv))
 })
 
 test_that("maihda_dimension_interaction_terms() flags only dimension-only interactions", {

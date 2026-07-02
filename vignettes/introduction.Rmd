@@ -220,7 +220,7 @@ plot(by_country, type = "group_vpc")
 ## Under the hood: the building blocks
 
 `maihda()` is a convenience wrapper around a set of lower-level functions:
-`fit_maihda()` fits one model, `calculate_pvc()` compares two, `summary()` reads
+`fit_maihda()` fits one model, `calculate_pcv()` compares two, `summary()` reads
 the variance components, and `compare_maihda_groups()` runs the group comparison.
 Reach for them directly when you need finer control than the one-call workflow
 gives. In particular, a custom adjusted model, a stepwise decomposition,
@@ -242,14 +242,14 @@ summary(model_null)
 adjusted model. To ask a different question (like how much of the between-stratum
 variance is explained by individual-level covariates that are not strata
 dimensions, here Age and Poverty) build the two models yourself and compare them
-with `calculate_pvc()`. PCV compares variances across models, so both must use the
+with `calculate_pcv()`. PCV compares variances across models, so both must use the
 same sample (the `health_complete` data we prepared above):
 
 ```{r bb-custom-pcv}
 model_cov <- fit_maihda(BMI ~ Age + Poverty + (1 | Gender:Race:Education),
                         data = health_complete)
 
-calculate_pvc(model_null, model_cov)
+calculate_pcv(model_null, model_cov)
 ```
 
 This PCV answers "how much between-stratum variance do Age and Poverty account
@@ -258,7 +258,7 @@ Add `bootstrap = TRUE` for parametric-bootstrap confidence intervals (omitted he
 because it refits the model many times):
 
 ```{r bb-pcv-boot, eval=FALSE}
-calculate_pvc(model_null, model_cov, bootstrap = TRUE, n_boot = 500)
+calculate_pcv(model_null, model_cov, bootstrap = TRUE, n_boot = 500)
 ```
 
 ### Stepwise PCV

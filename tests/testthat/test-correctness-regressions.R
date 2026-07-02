@@ -116,7 +116,7 @@ test_that("maihda_match_strata_rows is collision-safe and keeps row-by-row seman
   )
 })
 
-test_that("calculate_pvc errors for different analytic samples", {
+test_that("calculate_pcv errors for different analytic samples", {
   set.seed(1004)
   d <- data.frame(
     stratum = factor(rep(seq_len(10), each = 10)),
@@ -129,10 +129,10 @@ test_that("calculate_pvc errors for different analytic samples", {
   model1 <- fit_maihda(y ~ x + (1 | stratum), data = d)
   model2 <- fit_maihda(y ~ x + z + (1 | stratum), data = d)
 
-  expect_error(calculate_pvc(model1, model2), "same analytic sample")
+  expect_error(calculate_pcv(model1, model2), "same analytic sample")
 })
 
-test_that("calculate_pvc rejects different outcomes and families", {
+test_that("calculate_pcv rejects different outcomes and families", {
   set.seed(1018)
   d <- data.frame(
     stratum = factor(rep(seq_len(8), each = 25)),
@@ -147,12 +147,12 @@ test_that("calculate_pvc rejects different outcomes and families", {
   count_gaussian_model <- fit_maihda(y_count ~ x + (1 | stratum), data = d)
 
   expect_error(
-    calculate_pvc(gaussian_model, poisson_model),
+    calculate_pcv(gaussian_model, poisson_model),
     "same outcome",
     fixed = TRUE
   )
   expect_error(
-    calculate_pvc(count_gaussian_model, poisson_model),
+    calculate_pcv(count_gaussian_model, poisson_model),
     "same model family and link",
     fixed = TRUE
   )
@@ -273,7 +273,7 @@ test_that("stepwise_pcv uses one complete analytic sample across steps", {
   out <- stepwise_pcv(d, "y", c("x", "z"))
   complete_d <- d[stats::complete.cases(d[, c("y", "stratum", "x", "z")]), ]
   # stepwise_pcv refits REML lmer fits with ML before the cross-step variance
-  # comparison (see calculate_pvc()), so the reference models must be refit likewise.
+  # comparison (see calculate_pcv()), so the reference models must be refit likewise.
   ml <- function(m) MAIHDA:::extract_between_variance(MAIHDA:::maihda_pcv_refit_ml(m))
   null_model <- fit_maihda(y ~ 1 + (1 | stratum), complete_d)
   x_model <- fit_maihda(y ~ x + (1 | stratum), complete_d)
@@ -472,7 +472,7 @@ test_that("summary rejects random-slope models for VPC accounting", {
   )
 })
 
-test_that("calculate_pvc rejects random-slope models for PVC accounting", {
+test_that("calculate_pcv rejects random-slope models for PCV accounting", {
   set.seed(1017)
   d <- data.frame(
     stratum = factor(rep(seq_len(8), each = 25)),
@@ -488,13 +488,13 @@ test_that("calculate_pvc rejects random-slope models for PVC accounting", {
   model2 <- fit_maihda(y ~ age + poverty + (age | stratum), data = d)
 
   expect_error(
-    calculate_pvc(model1, model2),
+    calculate_pcv(model1, model2),
     "intercept-only random effects",
     fixed = TRUE
   )
 })
 
-test_that("calculate_pvc refits with ML when a non-stratum RE is on the boundary", {
+test_that("calculate_pcv refits with ML when a non-stratum RE is on the boundary", {
   # A fit can be globally singular because an EXTRA grouping factor ((1 | site))
   # sits on the boundary while the stratum variance is comfortably nonzero. The ML
   # refit must still run there -- testing global isSingular() wrongly skipped it and
@@ -528,7 +528,7 @@ test_that("calculate_pvc refits with ML when a non-stratum RE is on the boundary
   # The two genuinely differ here, so the comparison below is meaningful.
   expect_false(isTRUE(all.equal(reml_pcv, ml_pcv)))
 
-  pcv <- calculate_pvc(m1, m2)$pvc
+  pcv <- calculate_pcv(m1, m2)$pcv
   expect_equal(pcv, ml_pcv, tolerance = 1e-8)               # uses the ML refit
   expect_false(isTRUE(all.equal(pcv, reml_pcv)))            # not the REML estimate
 })
@@ -536,7 +536,7 @@ test_that("calculate_pvc refits with ML when a non-stratum RE is on the boundary
 test_that("maihda_pcv_refit_ml skips the refit when the stratum is at the boundary", {
   # When the STRATUM itself is on the boundary, the refit is skipped: its variance is
   # ~0 under either criterion, and re-optimising would nudge an exact zero off the
-  # boundary, masking the zero-variance guard in calculate_pvc().
+  # boundary, masking the zero-variance guard in calculate_pcv().
   set.seed(2)
   d <- data.frame(stratum = factor(rep(seq_len(12), each = 8)))
   d$x <- rnorm(nrow(d))
@@ -718,7 +718,7 @@ test_that("weighted Gaussian VPC uses the mean conditional residual variance", {
                                 var_between / (var_between + sigma2))))
 })
 
-test_that("PVC/comparison flag models that differ only in prior weights", {
+test_that("PCV/comparison flag models that differ only in prior weights", {
   set.seed(2401)
   d <- make_strata(maihda_sim_data, vars = c("gender", "race"))$data
   n <- nrow(d)
@@ -728,16 +728,16 @@ test_that("PVC/comparison flag models that differ only in prior weights", {
   m_w    <- fit_maihda(health_outcome ~ age + (1 | stratum), data = d, weights = w)
   m_unit <- fit_maihda(health_outcome ~ age + (1 | stratum), data = d, weights = rep(1, n))
 
-  # Different weights, same rows/outcome/strata: hard error in PVC, warning in compare.
-  expect_error(calculate_pvc(m_unw, m_w), "same prior weights", fixed = TRUE)
+  # Different weights, same rows/outcome/strata: hard error in PCV, warning in compare.
+  expect_error(calculate_pcv(m_unw, m_w), "same prior weights", fixed = TRUE)
   expect_true(any(grepl("prior weights",
                         testthat::capture_warnings(compare_maihda(m_unw, m_w)))))
 
   # Unweighted and explicit unit weights are equivalent (no weight complaint).
-  expect_s3_class(calculate_pvc(m_unw, m_unit), "pvc_result")
+  expect_s3_class(calculate_pcv(m_unw, m_unit), "pcv_result")
   expect_false(any(grepl("prior weights",
                          testthat::capture_warnings(compare_maihda(m_unw, m_unit)))))
-  expect_s3_class(calculate_pvc(m_unw, m_unw2), "pvc_result")
+  expect_s3_class(calculate_pcv(m_unw, m_unw2), "pcv_result")
 })
 
 test_that("binary recoding records and reports the level -> 0/1 mapping", {

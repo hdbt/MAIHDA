@@ -1,4 +1,4 @@
-# Internal helpers shared across model summaries, PVC, predictions, and plots.
+# Internal helpers shared across model summaries, PCV, predictions, and plots.
 
 # Map engine-specific family labels onto the package's canonical names so every
 # downstream `fam$family ==` / `%in%` comparison sees one spelling per family.
@@ -737,7 +737,7 @@ maihda_nobs <- function(model) {
 # Content fingerprint of a model's analytic response vector. Two models fitted to
 # the same data share a fingerprint even if the rows were reordered or carry
 # default 1:n names; models fitted to unrelated data do not. Used to catch
-# comparisons/PVC across different datasets that happen to share n, row names and
+# comparisons/PCV across different datasets that happen to share n, row names and
 # stratum ids.
 maihda_response_fingerprint <- function(model) {
   frame <- maihda_model_frame(model)
@@ -756,7 +756,7 @@ maihda_response_fingerprint <- function(model) {
   }
 }
 
-# Fingerprint of a model's prior weights, so PVC / model comparisons do not
+# Fingerprint of a model's prior weights, so PCV / model comparisons do not
 # silently combine fits that share an outcome, sample and strata but used DIFFERENT
 # prior weights (which change the variance estimates). An unweighted fit and an
 # explicit weights = rep(1, n) fit both map to "unit", so they compare as equal;
@@ -787,7 +787,7 @@ maihda_row_ids <- function(model) {
 # object's model frame, which is undefined for some engines -- notably
 # WeMixResults, whose stats::nobs()/model.frame() are not implemented. These
 # wrapper-level companions take the maihda_model and fall back to its stored
-# analytic $data (the exact rows the engine fit) so the PVC and model-comparison
+# analytic $data (the exact rows the engine fit) so the PCV and model-comparison
 # sample-identity checks are NOT silently skipped for those engines (two WeMix
 # fits with the same formula/n/strata but different outcome values must still be
 # distinguished).
@@ -987,7 +987,7 @@ maihda_stratum_variance_brms <- function(model, group = "stratum") {
 
   # Posterior-mean between-stratum variance E[sd^2] from the SD draws. Using the
   # draws (rather than the posterior summary SD squared, E[sd]^2) keeps
-  # calculate_pvc()/stepwise_pcv() consistent with the draws-based VPC reported by
+  # calculate_pcv()/stepwise_pcv() consistent with the draws-based VPC reported by
   # summary.maihda_model(). Falls back to the summary SD if draws are unavailable.
   draws <- tryCatch(maihda_posterior_draws_brms(model), error = function(e) NULL)
   if (!is.null(draws)) {
@@ -2316,6 +2316,24 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
   # caller already supplies a 'stratum' column (as long as the numeric source columns
   # are present).
   newdata <- maihda_add_binned_dim_columns(newdata, object$strata_autobin_info)
+
+  # A longitudinal fit on internally centered time references the derived
+  # .maihda_ctime column; rebuild it from the original time column so newdata in
+  # original time units predicts correctly. Always recomputed (idempotent when
+  # predicting on the fitted data, which already carries the package's own copy),
+  # so a caller can never double-center by passing rows copied from object$data.
+  lng <- object$longitudinal_info
+  if (!is.null(lng)) {
+    time_term <- maihda_lng_time_term(lng)
+    if (!identical(time_term, lng$time)) {
+      if (lng$time %in% names(newdata)) {
+        newdata[[time_term]] <- newdata[[lng$time]] - maihda_lng_time_center(lng)
+      } else if (!time_term %in% names(newdata)) {
+        stop("Cannot predict from this longitudinal model: newdata must contain ",
+             "the time column '", lng$time, "'.", call. = FALSE)
+      }
+    }
+  }
 
   # allow_new_levels only relaxes individual-level predictions (which fall back to
   # the population average); stratum-level predictions always require known strata.

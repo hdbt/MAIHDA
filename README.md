@@ -141,7 +141,7 @@ Reports the relative-fit information criteria for one or more models (or a `maih
 ### `compare_maihda_groups()`
 Compares the between-stratum *share* of variance (VPC/ICC) and the between-/within-stratum variance components across the levels of a higher-level grouping variable such as country, region, or survey wave, fitting a stratified MAIHDA model per group.
 
-### `calculate_pvc()`
+### `calculate_pcv()`
 Calculates the proportional change in between-stratum variance (PCV) between two models.
 
 - Formula: PCV = (Var_model1 - Var_model2) / Var_model1

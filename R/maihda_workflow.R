@@ -18,7 +18,7 @@
 #' \code{summary_adjusted}, and the headline \code{print()} shows the null-model AUC.
 #'
 #' This is a convenience wrapper around \code{\link{fit_maihda}},
-#' \code{\link{calculate_pvc}}, \code{\link{summary.maihda_model}} and
+#' \code{\link{calculate_pcv}}, \code{\link{summary.maihda_model}} and
 #' \code{\link{compare_maihda_groups}}. It is \emph{intrinsically} a two-model
 #' decomposition and has no single-model mode -- for a single fit (e.g. just the
 #' null-model VPC / discriminatory accuracy), call \code{\link{fit_maihda}} directly.
@@ -167,8 +167,8 @@
 #'   \item{model_adjusted}{the fitted \strong{adjusted} \code{maihda_model}
 #'     (\code{"two-model"} and \code{"longitudinal"} modes; \code{NULL} otherwise)}
 #'   \item{summary_adjusted}{the adjusted model's \code{maihda_summary}, or \code{NULL}}
-#'   \item{pcv}{the proportional change in variance: the \code{pvc_result} from
-#'     \code{\link{calculate_pvc}} in \code{"two-model"} mode, or a
+#'   \item{pcv}{the proportional change in variance: the \code{pcv_result} from
+#'     \code{\link{calculate_pcv}} in \code{"two-model"} mode, or a
 #'     \code{maihda_long_pcv} (the intercept/slope and time-specific PCV) in
 #'     \code{"longitudinal"} mode; \code{NULL} otherwise}
 #'   \item{decomposition}{the additive/interaction partition (additive and interaction
@@ -549,9 +549,15 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     } else {
       model
     }
+    # The dim:time interaction terms must reference the variable the growth terms
+    # were actually built on -- the internally centered column for a fit whose
+    # time axis does not start at 0 -- not the raw user column, which the growth
+    # formula no longer carries there.
     laf <- maihda_longitudinal_adjusted_formula(
       null_model$formula, strata_vars, null_model$strata_autobin_info,
-      null_model$original_data, time = time, time_degree = time_degree)
+      null_model$original_data,
+      time = maihda_lng_time_term(null_model$longitudinal_info),
+      time_degree = time_degree)
     adjusted_model <- fit_maihda_fwd(laf$formula, laf$data, engine = engine,
                                      family = family_used, id = id, time = time,
                                      time_degree = time_degree)
@@ -649,7 +655,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # has zero between-stratum variance (a boundary/singular fit); keep both models and
   # warn rather than aborting in that numerical edge case.
   pcv <- tryCatch(
-    calculate_pvc(null_model, adjusted_model, bootstrap = bootstrap, n_boot = n_boot,
+    calculate_pcv(null_model, adjusted_model, bootstrap = bootstrap, n_boot = n_boot,
                   conf_level = conf_level),
     error = function(e) {
       warning("maihda(): the PCV could not be computed (", conditionMessage(e),
@@ -839,18 +845,18 @@ print.maihda_analysis <- function(x, ...) {
     pcv <- x$pcv
     if (isTRUE(pcv$bootstrap) && !is.null(pcv$ci_lower)) {
       cat(sprintf("PCV (null -> adjusted): %s [%.4f, %.4f]\n",
-                  pal$accent(sprintf("%.4f", pcv$pvc)), pcv$ci_lower, pcv$ci_upper))
+                  pal$accent(sprintf("%.4f", pcv$pcv)), pcv$ci_lower, pcv$ci_upper))
     } else {
-      cat(sprintf("PCV (null -> adjusted): %s\n", pal$accent(sprintf("%.4f", pcv$pvc))))
+      cat(sprintf("PCV (null -> adjusted): %s\n", pal$accent(sprintf("%.4f", pcv$pcv))))
     }
     cat(sprintf("Between-stratum variance: %.4f (null) -> %.4f (adjusted)\n",
                 pcv$var_model1, pcv$var_model2))
-    if (pcv$pvc >= 0) {
+    if (pcv$pcv >= 0) {
       cat(sprintf(paste0("  ~%.1f%% of the between-stratum variance is additive (the ",
                          "dimensions' main\n  effects); the remainder is the between-stratum ",
                          "variance remaining after the\n  additive main effects -- a ",
                          "model-dependent quantity\n"),
-                  pcv$pvc * 100))
+                  pcv$pcv * 100))
     } else {
       cat("  PCV < 0: the additive main effects do not account for the between-stratum\n",
           "  variance (possible suppression/rescaling).\n", sep = "")

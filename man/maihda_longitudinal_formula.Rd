@@ -4,12 +4,23 @@
 \alias{maihda_longitudinal_formula}
 \title{Build the 3-level growth formula for a longitudinal MAIHDA}
 \usage{
-maihda_longitudinal_formula(base_formula, id, time, time_degree)
+maihda_longitudinal_formula(
+  base_formula,
+  id,
+  time,
+  time_degree,
+  orig_time = time
+)
 }
 \arguments{
 \item{base_formula}{The resolved formula (fixed part + stratum grouping).}
 
-\item{id, time, time_degree}{The longitudinal specification.}
+\item{id, time, time_degree}{The longitudinal specification; \code{time} is the
+model variable the growth terms are built on (the centered column when
+centering applies).}
+
+\item{orig_time}{The user's original time column name; differs from
+\code{time} only when centering applies.}
 }
 \value{
 The growth formula (same environment as \code{base_formula}).
@@ -21,5 +32,12 @@ grouping (\code{y ~ covars + (1 | stratum)}), returns the growth formula
 the time polynomial enters the fixed part (if absent) and a random
 intercept+slope block is placed at both the individual and stratum levels. Any
 random effects in the base formula are replaced by this canonical structure.
+}
+\details{
+When the growth terms are built on internally centered time (\code{time} is
+the derived \code{.maihda_ctime} column; see the file header), any bare
+raw-time polynomial the user wrote in the fixed part (\code{orig_time},
+\code{I(orig_time^2)}, ...) is \emph{replaced} by the centered terms rather
+than kept alongside them, which would be perfectly collinear.
 }
 \keyword{internal}

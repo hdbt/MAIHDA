@@ -120,7 +120,7 @@ mod_explorer_ui <- function(id) {
 
 #' @noRd
 mod_explorer_server <- function(id, model_results, null_summary_results,
-                                summary_results, pvc_results, group_vars,
+                                summary_results, pcv_results, group_vars,
                                 decomposition_results = function() NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
@@ -128,7 +128,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
     output$interactive_explorer_ui <- shiny::renderUI({
       if (is.null(model_results()) || is.null(null_summary_results()) ||
           is.null(summary_results()) ||
-          (is.null(pvc_results()) && is.null(decomposition_results()))) {
+          (is.null(pcv_results()) && is.null(decomposition_results()))) {
         return(maihda_app_empty_state(
           "Nothing to explore yet",
           "Fit a MAIHDA model from the sidebar to unlock the interactive strata
@@ -183,10 +183,10 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
         - **Interaction share** is the complement -- the intersectional interaction beyond the additive parts. Interpret it cautiously; dimensions with few levels are poorly identified.
         ")
       } else {
-        pvc <- pvc_results()
-        pvc_val <- round(pvc$pvc * 100, 2)
-        pvc_val_display <- if (is.finite(pvc_val)) paste0(pvc_val, "%") else "N/A"
-        pvc_display <- maihda_app_pvc_display(pvc_val)
+        pcv <- pcv_results()
+        pcv_val <- round(pcv$pcv * 100, 2)
+        pcv_val_display <- if (is.finite(pcv_val)) paste0(pcv_val, "%") else "N/A"
+        pcv_display <- maihda_app_pcv_display(pcv_val)
         metric_boxes <- bslib::layout_columns(
           col_widths = c(4, 4, 4),
           class = "maihda-metric-row",
@@ -200,18 +200,18 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
           ),
           bslib::value_box(
             title = "PCV (Adjusted)",
-            value = pvc_val_display,
+            value = pcv_val_display,
             showcase = shiny::icon("arrow-down-wide-short"),
             theme = "info",
             shiny::p(class = "mb-0", "Between-stratum variance change from the strata's additive main effects (covariates held in both models)")
           ),
           bslib::value_box(
-            title = pvc_display$label,
-            value = pvc_display$value,
+            title = pcv_display$label,
+            value = pcv_display$value,
             showcase = shiny::icon("chart-pie"),
-            theme = switch(pvc_display$status,
+            theme = switch(pcv_display$status,
                            negative = "warning", unknown = "secondary", "success"),
-            shiny::p(class = "mb-0", pvc_display$description)
+            shiny::p(class = "mb-0", pcv_display$description)
           )
         )
         interpretation_md <- shiny::markdown("
@@ -377,7 +377,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
     output$dynamic_interpretation <- shiny::renderUI({
       shiny::req(null_summary_results(), summary_results())
       cc_mode <- !is.null(decomposition_results())
-      if (!cc_mode) shiny::req(pvc_results())
+      if (!cc_mode) shiny::req(pcv_results())
 
       # Grab data
       null_res <- null_summary_results()
@@ -412,7 +412,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
         # Crossed-dimensions: split the between-strata variance into additive and
         # interaction shares read off the single model.
         d <- decomposition_results()
-        pvc_interpretation <- shiny::tagList(
+        pcv_interpretation <- shiny::tagList(
           "Of that between-strata variance, ",
           shiny::tags$strong(sprintf("%.1f%%", d$additive_share * 100)),
           " is additive (the dimensions' main effects, entered as random intercepts) and ",
@@ -422,18 +422,18 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
           "cautiously; dimensions with few levels are poorly identified. "
         )
       } else {
-        pvc <- pvc_results()
-        pvc_val <- round(pvc$pvc * 100, 2)
-        pvc_display <- maihda_app_pvc_display(pvc_val)
-        pvc_interpretation <- if (identical(pvc_display$status, "negative")) {
+        pcv <- pcv_results()
+        pcv_val <- round(pcv$pcv * 100, 2)
+        pcv_display <- maihda_app_pcv_display(pcv_val)
+        pcv_interpretation <- if (identical(pcv_display$status, "negative")) {
           shiny::tagList(
             "After adding the strata's additive main effects, between-strata variance increases by ",
-            shiny::tags$strong(pvc_display$value),
+            shiny::tags$strong(pcv_display$value),
             ", a suppression or unmasking pattern. The adjusted model therefore has ",
-            shiny::tags$strong(pvc_display$remaining_value),
+            shiny::tags$strong(pcv_display$remaining_value),
             " of the null between-strata variance, rather than an explained-away share. "
           )
-        } else if (identical(pvc_display$status, "unknown")) {
+        } else if (identical(pcv_display$status, "unknown")) {
           shiny::tagList(
             "The proportional change in variance could not be summarized for this fit, ",
             "so the adjusted-model share of between-strata variance is not available. "
@@ -441,9 +441,9 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
         } else {
           shiny::tagList(
             "After adding the strata's additive (main) effects to the model (which already holds any selected covariates), the between-strata variance is ",
-            shiny::tags$strong(paste0(pvc_val, "%")),
+            shiny::tags$strong(paste0(pcv_val, "%")),
             " smaller, leaving ",
-            shiny::tags$strong(pvc_display$remaining_value),
+            shiny::tags$strong(pcv_display$remaining_value),
             " of the original between-strata variance in the adjusted model. This is a ",
             "model-dependent change, not necessarily variance causally explained by those effects. "
           )
@@ -456,7 +456,7 @@ mod_explorer_server <- function(id, model_results, null_summary_results,
         "In this analysis, ", shiny::tags$strong(paste0(vpc_val, "%")),
         " of the (null-model) variance in the outcome lies between the defined intersecting demographic or social strata",
         " -- a between-stratum share of variance (on the model's latent scale for binary or count outcomes), not variance causally attributable to those strata. ",
-        pvc_interpretation,
+        pcv_interpretation,
         "Among these residuals, the largest between-stratum departure from what the additive main effects alone would predict is in ",
         shiny::tags$strong(dev_label), " (N = ", dev_n, "), with an intersectional deviation score of ",
         shiny::tags$strong(dev_effect), ". Treat this as a descriptive screening flag rather than a confirmed disparity, especially for non-representative data, latent-scale models, or conditional intervals."

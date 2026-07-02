@@ -100,7 +100,7 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   dimensions, two further columns report the per-group null -> adjusted
   decomposition: \code{pcv} (proportional change in between-stratum variance when
   the dimensions' additive main effects are added; computed on the
-  maximum-likelihood scale -- see \code{\link{calculate_pvc}} -- because REML
+  maximum-likelihood scale -- see \code{\link{calculate_pcv}} -- because REML
   variances are not comparable across the null vs. adjusted fixed effects),
   \code{var_between_adjusted} (a \emph{derived} coherence quantity, reported as
   \code{var_between * (1 - pcv)} so it shares the scale of the REML
@@ -162,7 +162,7 @@ already carries a \code{stratum} column. Under \code{shared_strata = FALSE}
 strata are rebuilt inside each group, so a degenerate single-stratum group is
 instead reported with a "fit failed" status rather than a pre-fit skip. A
 singular fit yields a VPC of 0 rather than an error (unlike
-\code{\link{calculate_pvc}}). A hard fit failure in one group records \code{NA}
+\code{\link{calculate_pcv}}). A hard fit failure in one group records \code{NA}
 and a status note without aborting the whole comparison.
 
 Fit-quality diagnostics: for the \code{lme4} engine, groups whose model is

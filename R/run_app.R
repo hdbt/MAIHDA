@@ -50,11 +50,11 @@ maihda_app_default_vars <- function(dataset, data) {
   list(outcome = outcome, groups = groups)
 }
 
-maihda_app_pvc_display <- function(pvc_percent) {
-  pvc_percent <- suppressWarnings(as.numeric(pvc_percent)[1])
+maihda_app_pcv_display <- function(pcv_percent) {
+  pcv_percent <- suppressWarnings(as.numeric(pcv_percent)[1])
   fmt_percent <- function(x) paste0(round(x, 2), "%")
 
-  if (!is.finite(pvc_percent)) {
+  if (!is.finite(pcv_percent)) {
     return(list(
       label = "Residual Strata Variance",
       value = "N/A",
@@ -64,11 +64,11 @@ maihda_app_pvc_display <- function(pvc_percent) {
     ))
   }
 
-  remaining_percent <- 100 - pvc_percent
-  if (pvc_percent < 0) {
+  remaining_percent <- 100 - pcv_percent
+  if (pcv_percent < 0) {
     return(list(
       label = "Unmasked Variance",
-      value = paste0("+", round(abs(pvc_percent), 2), "%"),
+      value = paste0("+", round(abs(pcv_percent), 2), "%"),
       description = "Increase in between-strata variance after adjustment",
       remaining_value = fmt_percent(remaining_percent),
       status = "negative"
@@ -86,18 +86,18 @@ maihda_app_pvc_display <- function(pvc_percent) {
 
 # PCV is genuinely undefined for some otherwise valid fits -- most commonly when
 # the baseline (null) model has zero or negative between-stratum variance (a
-# singular fit / no between-stratum variation). calculate_pvc() errors in that
+# singular fit / no between-stratum variation). calculate_pcv() errors in that
 # case by design, but the dashboard should still show the fitted model, VPC,
 # summaries and plots rather than aborting the whole analysis. This wrapper
-# returns calculate_pvc()'s result when it succeeds and, when it does not, a
-# sentinel pvc_result (pvc = NA, available = FALSE) the UI can recognise. A
+# returns calculate_pcv()'s result when it succeeds and, when it does not, a
+# sentinel pcv_result (pcv = NA, available = FALSE) the UI can recognise. A
 # bootstrap-only failure (the point PCV is fine but its CI could not be formed)
 # degrades to the point estimate with a note rather than discarding the PCV.
-maihda_app_calculate_pvc_safe <- function(null_model, adjusted_model,
+maihda_app_calculate_pcv_safe <- function(null_model, adjusted_model,
                                           use_boot = FALSE, n_boot = 100) {
   attempt <- function(bootstrap) {
     tryCatch(
-      calculate_pvc(null_model, adjusted_model, bootstrap = bootstrap, n_boot = n_boot),
+      calculate_pcv(null_model, adjusted_model, bootstrap = bootstrap, n_boot = n_boot),
       error = function(e) conditionMessage(e)
     )
   }
@@ -105,7 +105,7 @@ maihda_app_calculate_pvc_safe <- function(null_model, adjusted_model,
   boot_message <- NULL
   if (isTRUE(use_boot)) {
     res <- attempt(TRUE)
-    if (inherits(res, "pvc_result")) {
+    if (inherits(res, "pcv_result")) {
       return(res)
     }
     # The bootstrap leg failed; remember why, then retry for just the point PCV so
@@ -114,7 +114,7 @@ maihda_app_calculate_pvc_safe <- function(null_model, adjusted_model,
   }
 
   res <- attempt(FALSE)
-  if (inherits(res, "pvc_result")) {
+  if (inherits(res, "pcv_result")) {
     if (!is.null(boot_message)) {
       res$boot_message <- boot_message
     }
@@ -127,14 +127,14 @@ maihda_app_calculate_pvc_safe <- function(null_model, adjusted_model,
   var2 <- tryCatch(extract_between_variance(adjusted_model), error = function(e) NA_real_)
   structure(
     list(
-      pvc = NA_real_,
+      pcv = NA_real_,
       var_model1 = var1,
       var_model2 = var2,
       bootstrap = FALSE,
       available = FALSE,
       message = res
     ),
-    class = "pvc_result"
+    class = "pcv_result"
   )
 }
 
@@ -287,7 +287,7 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
       model = cc_model,
       summary_obj = cc_summary,
       decomposition = cc_summary$decomposition,
-      pvc = NULL,
+      pcv = NULL,
       stepwise = NULL,
       vpc_ci_null = NULL,
       vpc_ci_adjusted = NULL,
@@ -321,7 +321,7 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
   # PCV degrades gracefully (a sentinel, not an error) when it is undefined; the
   # VPC/ICC bootstrap intervals are computed here in the worker and merged into
   # the main-session summaries by the app.
-  pvc <- maihda_app_calculate_pvc_safe(null_model, adjusted_model, use_boot, n_boot)
+  pcv <- maihda_app_calculate_pcv_safe(null_model, adjusted_model, use_boot, n_boot)
   vpc_ci <- maihda_app_bootstrap_vpc_cis(null_model, adjusted_model, use_boot, n_boot)
 
   # Stepwise PCV: pass the raw grouping/covariate names. model_dat carries the
@@ -339,7 +339,7 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
   list(
     null_model = null_model,
     model = adjusted_model,
-    pvc = pvc,
+    pcv = pcv,
     stepwise = stepwise,
     vpc_ci_null = vpc_ci$null,
     vpc_ci_adjusted = vpc_ci$adjusted,

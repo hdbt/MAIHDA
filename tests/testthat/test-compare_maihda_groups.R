@@ -571,13 +571,13 @@ test_that("compare_maihda_groups reports a per-group PCV with >= 2 dimensions", 
 
   # var_between_adjusted_ml is the adjusted fit's ACTUAL between-stratum variance, so
   # it must reproduce the per-group adjusted model fitted on the same sample/strata
-  # (the ML-refit var_model2 from calculate_pvc()). It is nonzero here and -- because
+  # (the ML-refit var_model2 from calculate_pcv()). It is nonzero here and -- because
   # of the REML-vs-ML gap in the null variance -- not identical to the derived
   # var_between_adjusted coherence value.
   d_ok <- droplevels(d[d$country == "A", ])
   null_a <- fit_maihda(y ~ age + (1 | gender:race), data = d_ok)
   adj_a  <- fit_maihda(y ~ age + gender + race + (1 | gender:race), data = d_ok)
-  ml_a   <- calculate_pvc(null_a, adj_a)$var_model2
+  ml_a   <- calculate_pcv(null_a, adj_a)$var_model2
   expect_equal(cmp$var_between_adjusted_ml[cmp$group == "A"], ml_a, tolerance = 1e-6)
   expect_false(isTRUE(all.equal(
     cmp$var_between_adjusted[cmp$group == "A"],

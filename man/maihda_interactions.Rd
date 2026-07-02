@@ -166,7 +166,7 @@ estimation. \emph{Advances in Methods and Practices in Psychological Science},
 1(2), 270-280.
 }
 \seealso{
-\code{\link{maihda}}, \code{\link{calculate_pvc}},
+\code{\link{maihda}}, \code{\link{calculate_pcv}},
   \code{\link{summary.maihda_model}}; and \code{plot(\dots,
   highlight_interactions = TRUE)} to mark the flagged strata on the
   effect-decomposition / predicted / shrinkage plots.

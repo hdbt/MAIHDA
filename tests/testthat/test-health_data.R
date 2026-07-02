@@ -25,7 +25,7 @@ test_that("fit_maihda works on maihda_health_data summary", {
   expect_true(!is.na(summ$vpc$estimate))
 })
 
-test_that("documented health-data PVC workflow uses a common analytic sample", {
+test_that("documented health-data PCV workflow uses a common analytic sample", {
   vars <- c("BMI", "Age", "Gender", "Race", "Education", "Poverty")
   health_complete <- maihda_health_data[stats::complete.cases(maihda_health_data[, vars]), ]
   health_subset <- health_complete[seq_len(300), ]
@@ -40,5 +40,5 @@ test_that("documented health-data PVC workflow uses a common analytic sample", {
   )
 
   expect_identical(row.names(model_null$data), row.names(model_adj$data))
-  expect_s3_class(calculate_pvc(model_null, model_adj), "pvc_result")
+  expect_s3_class(calculate_pcv(model_null, model_adj), "pcv_result")
 })

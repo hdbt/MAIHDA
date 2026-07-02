@@ -254,7 +254,7 @@ test_that("brms summary returns a posterior credible interval for the VPC/ICC", 
   # bootstrap = TRUE remains rejected for brms with a clear message.
   expect_error(summary(model, bootstrap = TRUE), "only supported for lme4", fixed = TRUE)
 
-  # PVC / stepwise use the SAME E[sd^2] between-stratum variance as summary()
+  # PCV / stepwise use the SAME E[sd^2] between-stratum variance as summary()
   # (both from posterior draws), not the older E[sd]^2 summary-SD-squared.
   vb_summary <- summ$variance_components$variance[
     summ$variance_components$component == "Between-stratum (random)"

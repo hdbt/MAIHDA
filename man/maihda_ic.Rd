@@ -76,5 +76,5 @@ maihda_ic(a)
 }
 \seealso{
 \code{\link{compare_maihda}}, which reports these criteria alongside the
-  VPC/ICC, and \code{\link{calculate_pvc}} for the variance decomposition.
+  VPC/ICC, and \code{\link{calculate_pcv}} for the variance decomposition.
 }

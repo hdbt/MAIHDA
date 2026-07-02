@@ -1656,6 +1656,10 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50, select
     stop("plot_stratum_trajectories() needs a longitudinal model.", call. = FALSE)
   }
   grid <- lng$time_grid
+  # The stratum coefficient vectors are in the model's (possibly centered)
+  # coordinates; the displayed grid stays on the original time scale, so the
+  # per-stratum polynomial is evaluated at grid - center.
+  grid_c <- grid - maihda_lng_time_center(object$longitudinal_info)
   # Per-stratum random intercept + slope (BLUPs) on the time polynomial.
   re <- maihda_longitudinal_stratum_re(object)
   strata <- re$stratum
@@ -1668,7 +1672,7 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50, select
       # trajectories diverge most (either direction) survive the cap, not the first
       # by stratum id. A scalar BLUP would miss a small-intercept/large-slope fan-out.
       mag <- vapply(seq_len(nrow(re)), function(i) {
-        a <- vapply(grid, function(t) sum(re$coef[[i]] * t^(0:(length(re$coef[[i]]) - 1))),
+        a <- vapply(grid_c, function(t) sum(re$coef[[i]] * t^(0:(length(re$coef[[i]]) - 1))),
                     numeric(1))
         max(abs(a))
       }, numeric(1))
@@ -1685,7 +1689,7 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50, select
   eta_fixed <- maihda_longitudinal_fixed_trajectory(object, grid)
 
   rows <- do.call(rbind, lapply(seq_len(nrow(re)), function(i) {
-    a <- vapply(grid, function(t) sum(re$coef[[i]] * t^(0:(length(re$coef[[i]]) - 1))),
+    a <- vapply(grid_c, function(t) sum(re$coef[[i]] * t^(0:(length(re$coef[[i]]) - 1))),
                 numeric(1))
     data.frame(stratum = re$stratum[i],
                label = if (!is.null(re$label)) re$label[i] else re$stratum[i],
@@ -1775,11 +1779,12 @@ maihda_longitudinal_stratum_re <- function(object) {
 # covariate at its mean (numeric) or modal (factor) value and varying only time.
 maihda_longitudinal_fixed_trajectory <- function(object, grid) {
   lng <- object$longitudinal_info
+  time_term <- maihda_lng_time_term(lng)
   data <- object$data
   fixed_vars <- all.vars(reformulas::nobars(object$formula))[-1]
   nd <- data[rep(1L, length(grid)), , drop = FALSE]
   for (v in intersect(fixed_vars, names(nd))) {
-    if (identical(v, lng$time)) next
+    if (v %in% c(lng$time, time_term)) next
     col <- data[[v]]
     nd[[v]] <- if (is.numeric(col)) mean(col, na.rm = TRUE) else {
       tb <- sort(table(col), decreasing = TRUE)
@@ -1787,6 +1792,11 @@ maihda_longitudinal_fixed_trajectory <- function(object, grid) {
     }
   }
   nd[[lng$time]] <- grid
+  # A centered fit's formula references the derived centered column, not the
+  # original time; keep it aligned with the (original-scale) grid.
+  if (!identical(time_term, lng$time)) {
+    nd[[time_term]] <- grid - maihda_lng_time_center(lng)
+  }
 
   if (identical(object$engine, "lme4")) {
     as.numeric(stats::predict(object$model, newdata = nd, re.form = NA))

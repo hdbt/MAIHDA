@@ -34,7 +34,7 @@ test_that("maihda_table() on a two-model analysis assembles the canonical result
   expect_equal(vpc_row$null, a$summary$vpc$estimate, tolerance = 1e-10)
 
   pcv_row <- tab$models[tab$models$statistic == "PCV (null -> adjusted)", ]
-  expect_equal(pcv_row$adjusted, a$pcv$pvc, tolerance = 1e-10)
+  expect_equal(pcv_row$adjusted, a$pcv$pcv, tolerance = 1e-10)
   expect_true(is.na(pcv_row$null))   # PCV is a null -> adjusted quantity
 
   # SD is sqrt of the between-stratum variance.

@@ -122,7 +122,7 @@ profile, so it is best read from the null model.
 A "Model 2" adds individual-level covariates to ask how much of the
 between-stratum variation they account for. Here we adjust for age, fit on the
 **same analytic sample and strata** as the null model, and compare with
-`calculate_pvc()`. PCV compares variances across models, so both must use the same
+`calculate_pcv()`. PCV compares variances across models, so both must use the same
 complete-case sample:
 
 ```{r adjusted}
@@ -141,7 +141,7 @@ model_adj <- fit_maihda(
   data = health_complete, family = "binomial"
 )
 
-pcv <- calculate_pvc(model_null2, model_adj)
+pcv <- calculate_pcv(model_null2, model_adj)
 print(pcv)
 ```
 

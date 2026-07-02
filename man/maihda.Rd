@@ -167,8 +167,8 @@ An object of class \code{maihda_analysis}: a list with
   \item{model_adjusted}{the fitted \strong{adjusted} \code{maihda_model}
     (\code{"two-model"} and \code{"longitudinal"} modes; \code{NULL} otherwise)}
   \item{summary_adjusted}{the adjusted model's \code{maihda_summary}, or \code{NULL}}
-  \item{pcv}{the proportional change in variance: the \code{pvc_result} from
-    \code{\link{calculate_pvc}} in \code{"two-model"} mode, or a
+  \item{pcv}{the proportional change in variance: the \code{pcv_result} from
+    \code{\link{calculate_pcv}} in \code{"two-model"} mode, or a
     \code{maihda_long_pcv} (the intercept/slope and time-specific PCV) in
     \code{"longitudinal"} mode; \code{NULL} otherwise}
   \item{decomposition}{the additive/interaction partition (additive and interaction
@@ -204,7 +204,7 @@ VPC as well. These are read from \code{summary(x)} and the attached
 \code{summary_adjusted}, and the headline \code{print()} shows the null-model AUC.
 
 This is a convenience wrapper around \code{\link{fit_maihda}},
-\code{\link{calculate_pvc}}, \code{\link{summary.maihda_model}} and
+\code{\link{calculate_pcv}}, \code{\link{summary.maihda_model}} and
 \code{\link{compare_maihda_groups}}. It is \emph{intrinsically} a two-model
 decomposition and has no single-model mode -- for a single fit (e.g. just the
 null-model VPC / discriminatory accuracy), call \code{\link{fit_maihda}} directly.

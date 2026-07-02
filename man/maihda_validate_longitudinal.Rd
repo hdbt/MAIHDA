@@ -11,7 +11,8 @@ maihda_validate_longitudinal(
   data,
   engine = "lme4",
   sampling_weights = NULL,
-  context = NULL
+  context = NULL,
+  formula = NULL
 )
 }
 \arguments{
@@ -29,6 +30,10 @@ growth structure.}
 
 \item{sampling_weights, context}{Must be NULL -- design-weighted and contextual
 longitudinal models are out of scope.}
+
+\item{formula}{Optional model formula, used only to tell a package-derived
+refit (whose formula already references the reserved \code{.maihda_ctime}
+column) from a fresh user call when guarding that reserved name.}
 }
 \value{
 A list \code{list(id, time, time_degree)}.

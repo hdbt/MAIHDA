@@ -133,7 +133,14 @@
 #'   Bell, Evans, Holman & Leckie (2024).
 #' @param time Optional single character string naming a numeric measurement-time
 #'   column (e.g. wave 0, 1, 2, ... or age), required for a longitudinal MAIHDA;
-#'   see \code{id}. Default \code{NULL}.
+#'   see \code{id}. When the time axis does not start at 0 (age, calendar year,
+#'   waves coded 10, 11, ...), the growth terms are fit on internally
+#'   \emph{centered} time (\code{time - min(time)}, with a message): the raw
+#'   polynomial basis over an offset range is ill-conditioned and can silently
+#'   converge to a wrong solution. All results (the time-varying VPC, the
+#'   PCV, plots, predictions) are reported on the original \code{time} scale;
+#'   the column name \code{.maihda_ctime} is reserved for the internal centered
+#'   variable. Default \code{NULL}.
 #' @param time_degree Polynomial degree of the growth curve when \code{time} is
 #'   supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
 #'   degree 1 only.
@@ -370,7 +377,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     lng_spec <- maihda_validate_longitudinal(id, time, time_degree, data,
                                              engine = engine,
                                              sampling_weights = sampling_weights,
-                                             context = context)
+                                             context = context,
+                                             formula = formula)
   }
 
   # Parse formula to find grouping variables. Automatic strata creation is only
@@ -457,14 +465,44 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
            "(1 | var1:var2) or include (1 | stratum); the id/time growth slopes are ",
            "added automatically (do not write them in the formula).", call. = FALSE)
     }
-    formula <- maihda_longitudinal_formula(formula, lng_spec$id, lng_spec$time,
-                                           lng_spec$time_degree)
+    # Fit the growth terms on internally CENTERED time whenever the time axis
+    # does not start at 0 (age, calendar year, waves coded 10, 11, ...): the raw
+    # polynomial basis over an offset range is near-collinear, and lme4 can
+    # converge to a false optimum WITHOUT flagging a convergence failure,
+    # silently corrupting the time-varying VPC and the PCV. Centering makes the
+    # fit the same optimization problem as the equivalent 0-anchored coding.
+    # Every user-facing time (ref_time, reporting grids, plots) stays on the
+    # original scale, and prediction newdata rebuilds the derived column from the
+    # original time column (see maihda_prepare_prediction_data).
+    tv <- data[[lng_spec$time]]
+    center <- maihda_longitudinal_center(tv)
+    time_term <- lng_spec$time
+    if (center != 0) {
+      # A formula already referencing the derived column is a package-derived
+      # refit (maihda()'s null/adjusted pair re-entering with the first fit's
+      # original_data): recomputing the column from the original time column is
+      # idempotent and needs no repeat message. A fresh user column of the
+      # reserved name was rejected by maihda_validate_longitudinal() above.
+      derived_refit <- .maihda_ctime_col %in% all.vars(formula)
+      data[[.maihda_ctime_col]] <- tv - center
+      time_term <- .maihda_ctime_col
+      if (!derived_refit) {
+        message("fit_maihda(): the time axis '", lng_spec$time, "' starts at ",
+                center, ", not 0, so the growth terms are fit on internally ",
+                "centered time (", lng_spec$time, " - ", center, ") for ",
+                "numerical stability. All results are reported on the original '",
+                lng_spec$time, "' scale.")
+      }
+    }
+    formula <- maihda_longitudinal_formula(formula, lng_spec$id, time_term,
+                                           lng_spec$time_degree,
+                                           orig_time = lng_spec$time)
     # time_range/ref_time here are provisional (pre-fit): they are recomputed
     # from the fitted analytic frame after the engine drops rows (see below),
     # so a baseline wave lost to missing outcomes does not anchor the VPC/PCV.
-    tv <- data[[lng_spec$time]]
     longitudinal_info <- list(id = lng_spec$id, time = lng_spec$time,
                               time_degree = lng_spec$time_degree,
+                              time_term = time_term, time_center = center,
                               time_range = range(tv, na.rm = TRUE),
                               ref_time = min(tv, na.rm = TRUE))
   }
@@ -762,6 +800,17 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # holds the rows the engine actually used, so its min/range are the analytic
   # baseline and span.
   if (!is.null(longitudinal_info)) {
+    # A centered fit's model frame carries only the derived centered column;
+    # re-attach the original time (centered + offset) so every consumer reading
+    # object$data[[time]] -- the reporting grids, the ref_time recomputation
+    # below, the trajectory plots -- stays on the user's original time scale.
+    tt <- longitudinal_info$time_term
+    if (!identical(tt, longitudinal_info$time) &&
+        !longitudinal_info$time %in% names(model_data) &&
+        tt %in% names(model_data)) {
+      model_data[[longitudinal_info$time]] <-
+        model_data[[tt]] + longitudinal_info$time_center
+    }
     tv_fit <- model_data[[longitudinal_info$time]]
     longitudinal_info$time_range <- range(tv_fit, na.rm = TRUE)
     longitudinal_info$ref_time <- min(tv_fit, na.rm = TRUE)
@@ -845,8 +894,11 @@ print.maihda_model <- function(x, ...) {
   }
   if (!is.null(x$longitudinal_info)) {
     lng <- x$longitudinal_info
-    cat(sprintf("Longitudinal: id = %s, time = %s, degree = %d (3-level growth)\n",
-                lng$id, lng$time, lng$time_degree))
+    ct <- maihda_lng_time_center(lng)
+    cat(sprintf("Longitudinal: id = %s, time = %s%s, degree = %d (3-level growth)\n",
+                lng$id, lng$time,
+                if (ct != 0) sprintf(" (growth terms internally centered at %g)", ct) else "",
+                lng$time_degree))
   }
   if (!is.null(x$sampling_weights)) {
     cat("Sampling weights:", x$sampling_weights,

@@ -24,6 +24,63 @@
 #
 # Method follows Bell, Evans, Holman & Leckie (2024, Soc Sci Med 351:116955,
 # <doi:10.1016/j.socscimed.2024.116955>).
+#
+# INTERNAL TIME CENTERING. The growth terms are fit on internally centered time
+# (t - min(t)) whenever the time axis does not start at 0 (age, calendar year,
+# waves coded 10, 11, ...). The raw polynomial basis (1, t, t^2, ...) over an
+# offset range is near-collinear and its random-effect covariance scales are
+# wildly heterogeneous, so lme4 can converge to a false optimum -- observed on a
+# quadratic fit anchored at wave 10: ~128 log-likelihood units below the true
+# optimum with NO convergence warning, and a baseline between-stratum variance
+# three orders of magnitude off. Centering makes the offset-axis fit the SAME
+# optimization problem as the equivalent 0-anchored coding, and anchors the
+# covariance blocks at the observed baseline (Sigma[1,1] is the baseline
+# intercept variance). Every user-facing time -- ref_time, reporting grids,
+# plots, prediction newdata -- stays on the original scale; only the model terms
+# use the derived column below, and a(t)' Sigma a(t) evaluations subtract the
+# stored centering offset first.
+
+# ---- internal time centering -------------------------------------------------
+
+# Reserved column name for the internally centered time variable, mirroring the
+# reserved-column pattern of .maihda_dim_* (decompose_maihda.R) and .maihda_sw
+# (design_weights.R). Written into the analytic data by fit_maihda() when
+# centering applies; prediction newdata rebuilds it from the original time column
+# (maihda_prepare_prediction_data), so callers always work in original units.
+.maihda_ctime_col <- ".maihda_ctime"
+
+# The model variable the growth terms were built on: the original time column
+# when no centering was needed, else the derived centered column. NULL-safe for
+# maihda_model objects stored by package versions that predate internal
+# centering (they fall back to the original column, matching their fits).
+maihda_lng_time_term <- function(lng) {
+  if (!is.null(lng$time_term)) lng$time_term else lng$time
+}
+
+# The centering offset (0 when the fit used raw time). An original-scale time t
+# maps to the model's coefficient coordinates as t - center; every
+# a(t)' Sigma a(t) evaluation of a (possibly centered) covariance block must
+# subtract this first. NULL-safe like maihda_lng_time_term().
+maihda_lng_time_center <- function(lng) {
+  if (!is.null(lng$time_center) && is.numeric(lng$time_center) &&
+      length(lng$time_center) == 1 && is.finite(lng$time_center)) {
+    lng$time_center
+  } else {
+    0
+  }
+}
+
+# Centering offset for a time vector: its minimum finite value, anchoring the
+# growth terms at the observed baseline. 0 (no centering; the historical raw-time
+# path, byte-identical results) when the axis already starts at 0.
+maihda_longitudinal_center <- function(time_values) {
+  tv <- time_values[is.finite(time_values)]
+  if (length(tv) == 0) {
+    return(0)
+  }
+  m <- min(tv)
+  if (m == 0) 0 else m
+}
 
 # ---- validation -------------------------------------------------------------
 
@@ -38,12 +95,16 @@
 #'   growth structure.
 #' @param sampling_weights,context Must be NULL -- design-weighted and contextual
 #'   longitudinal models are out of scope.
+#' @param formula Optional model formula, used only to tell a package-derived
+#'   refit (whose formula already references the reserved \code{.maihda_ctime}
+#'   column) from a fresh user call when guarding that reserved name.
 #' @return A list \code{list(id, time, time_degree)}.
 #' @keywords internal
 maihda_validate_longitudinal <- function(id, time, time_degree, data,
                                          engine = "lme4",
                                          sampling_weights = NULL,
-                                         context = NULL) {
+                                         context = NULL,
+                                         formula = NULL) {
   if (!is.character(time) || length(time) != 1 || is.na(time) || !nzchar(time)) {
     stop("'time' must be a single column name (a character string) naming the ",
          "measurement-time variable for a longitudinal MAIHDA.", call. = FALSE)
@@ -64,6 +125,11 @@ maihda_validate_longitudinal <- function(id, time, time_degree, data,
   if (identical(id, "stratum") || identical(time, "stratum")) {
     stop("'id'/'time' may not be named 'stratum' (reserved for the intersectional ",
          "grouping).", call. = FALSE)
+  }
+  if (.maihda_ctime_col %in% c(id, time)) {
+    stop("'id'/'time' may not use the reserved internal column name '",
+         .maihda_ctime_col, "' (it carries the internally centered time).",
+         call. = FALSE)
   }
   if (!is.numeric(data[[time]])) {
     stop("The 'time' column '", time, "' must be numeric (the growth curve is a ",
@@ -107,6 +173,22 @@ maihda_validate_longitudinal <- function(id, time, time_degree, data,
          call. = FALSE)
   }
 
+  # Guard the reserved centered-time column against silently overwriting a user
+  # variable of the same name. Only fires when centering will actually occur
+  # (min(time) != 0 writes the column) AND the formula does not already reference
+  # it -- a formula that does is a package-derived refit (maihda()'s null/adjusted
+  # pair re-entering fit_maihda with the first fit's original_data), whose column
+  # is the package's own and is recomputed idempotently.
+  if (.maihda_ctime_col %in% names(data) &&
+      maihda_longitudinal_center(data[[time]]) != 0 &&
+      (is.null(formula) || !.maihda_ctime_col %in% all.vars(formula))) {
+    stop("'", .maihda_ctime_col, "' is a reserved internal column name for the ",
+         "longitudinal MAIHDA fit (it carries the internally centered time, ",
+         "needed because '", time, "' does not start at 0), but 'data' already ",
+         "contains a column of that name; fitting would overwrite it. Rename ",
+         "your '", .maihda_ctime_col, "' column before fitting.", call. = FALSE)
+  }
+
   list(id = id, time = time, time_degree = time_degree)
 }
 
@@ -136,17 +218,38 @@ maihda_time_terms <- function(time, time_degree) {
 #' intercept+slope block is placed at both the individual and stratum levels. Any
 #' random effects in the base formula are replaced by this canonical structure.
 #'
+#' When the growth terms are built on internally centered time (\code{time} is
+#' the derived \code{.maihda_ctime} column; see the file header), any bare
+#' raw-time polynomial the user wrote in the fixed part (\code{orig_time},
+#' \code{I(orig_time^2)}, ...) is \emph{replaced} by the centered terms rather
+#' than kept alongside them, which would be perfectly collinear.
+#'
 #' @param base_formula The resolved formula (fixed part + stratum grouping).
-#' @param id,time,time_degree The longitudinal specification.
+#' @param id,time,time_degree The longitudinal specification; \code{time} is the
+#'   model variable the growth terms are built on (the centered column when
+#'   centering applies).
+#' @param orig_time The user's original time column name; differs from
+#'   \code{time} only when centering applies.
 #' @return The growth formula (same environment as \code{base_formula}).
 #' @keywords internal
 #' @importFrom stats update as.formula terms
-maihda_longitudinal_formula <- function(base_formula, id, time, time_degree) {
+maihda_longitudinal_formula <- function(base_formula, id, time, time_degree,
+                                        orig_time = time) {
   poly_terms <- maihda_time_terms(time, time_degree)
   ptime <- paste(poly_terms, collapse = " + ")
 
   fixed <- reformulas::nobars(base_formula)
   fixed_labels <- attr(stats::terms(fixed), "term.labels")
+  if (!identical(orig_time, time)) {
+    # Centering active: drop any bare raw-time polynomial from the fixed part --
+    # the centered terms below replace it (keeping both would be collinear).
+    raw_terms <- intersect(maihda_time_terms(orig_time, time_degree), fixed_labels)
+    if (length(raw_terms) > 0) {
+      fixed <- stats::update(fixed, stats::as.formula(
+        paste(". ~ . -", paste(raw_terms, collapse = " - "))))
+      fixed_labels <- attr(stats::terms(fixed), "term.labels")
+    }
+  }
   add_fixed <- setdiff(poly_terms, fixed_labels)
   if (length(add_fixed) > 0) {
     fixed <- stats::update(fixed, stats::as.formula(
@@ -171,7 +274,10 @@ maihda_longitudinal_formula <- function(base_formula, id, time, time_degree) {
 #' @param null_formula The fitted null growth formula.
 #' @param strata_vars,autobin_info,data Stratum metadata (as for
 #'   \code{maihda_adjusted_formula}).
-#' @param time,time_degree The longitudinal specification.
+#' @param time,time_degree The longitudinal specification; \code{time} must be
+#'   the variable the growth terms were built on (the internally centered column
+#'   for a centered fit, \code{maihda_lng_time_term()}), so the \code{dim:time}
+#'   interactions reference the same terms as the null formula.
 #' @return A list with \code{formula} and \code{data}, or \code{NULL} if fewer
 #'   than two dimensions are available.
 #' @keywords internal
@@ -235,24 +341,44 @@ maihda_re_block_brms <- function(model, group, time, time_degree) {
 }
 
 # Engine-agnostic ordered covariance block (point estimate) for a maihda_model.
+# The block is in the model's coefficient coordinates -- CENTERED time when the
+# fit used the internal centering -- so evaluations at an original-scale time t
+# must subtract maihda_lng_time_center() first.
 maihda_re_block <- function(object, group) {
   lng <- object$longitudinal_info
+  time_term <- maihda_lng_time_term(lng)
   if (identical(object$engine, "lme4")) {
-    maihda_re_block_lme4(object$model, group, lng$time, lng$time_degree)
+    maihda_re_block_lme4(object$model, group, time_term, lng$time_degree)
   } else if (identical(object$engine, "brms")) {
-    maihda_re_block_brms(object$model, group, lng$time, lng$time_degree)
+    maihda_re_block_brms(object$model, group, time_term, lng$time_degree)
   } else {
     stop("Longitudinal MAIHDA is supported only for lme4/brms.", call. = FALSE)
   }
 }
 
 # Between-level variance implied by a covariance block at time(s) t:
-# a(t)' Sigma a(t) with a(t) = (1, t, t^2, ...). Vectorised over t.
+# a(t)' Sigma a(t) with a(t) = (1, t, t^2, ...). Vectorised over t. t must be on
+# the block's own coefficient scale: for a fit on internally centered time,
+# convert an original-scale time first (t - maihda_lng_time_center(lng)).
 maihda_var_at_time <- function(Sigma, t) {
   degree <- nrow(Sigma) - 1L
   vapply(t, function(ti) {
     a <- ti^(0:degree)
     as.numeric(crossprod(a, Sigma %*% a))
+  }, numeric(1))
+}
+
+# Between-level variance of the INSTANTANEOUS SLOPE implied by a covariance
+# block at time(s) t: b(t)' Sigma b(t) with b(t) = d a(t)/dt = (0, 1, 2t, 3t^2,
+# ...). For a linear (2x2) block this is Sigma[2,2] at every t; for higher
+# degrees the slope variance is itself time-varying, so -- exactly as for
+# maihda_var_at_time() -- t must be on the block's (possibly centered)
+# coefficient scale. Vectorised over t.
+maihda_slope_var_at_time <- function(Sigma, t) {
+  degree <- nrow(Sigma) - 1L
+  vapply(t, function(ti) {
+    b <- c(0, seq_len(degree) * ti^(seq_len(degree) - 1L))
+    as.numeric(crossprod(b, Sigma %*% b))
   }, numeric(1))
 }
 
@@ -295,20 +421,27 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
                                              n_boot = 1000, conf_level = 0.95) {
   lng <- object$longitudinal_info
   model <- object$model
-  Sigma_s <- maihda_re_block_lme4(model, "stratum", lng$time, lng$time_degree)
-  Sigma_i <- maihda_re_block_lme4(model, lng$id, lng$time, lng$time_degree)
+  time_term <- maihda_lng_time_term(lng)
+  center <- maihda_lng_time_center(lng)
+  Sigma_s <- maihda_re_block_lme4(model, "stratum", time_term, lng$time_degree)
+  Sigma_i <- maihda_re_block_lme4(model, lng$id, time_term, lng$time_degree)
   var_resid <- maihda_residual_variance_lme4(model)
 
   grid <- maihda_longitudinal_time_grid(object$data[[lng$time]])
   ref_time <- lng$ref_time
+  # Times are user-facing (original scale); the covariance blocks are in the
+  # (possibly centered) coefficient coordinates, so every a(t)' Sigma a(t)
+  # evaluation subtracts the centering offset first.
+  grid_c <- grid - center
+  ref_c <- ref_time - center
 
-  vpc_fun <- function(Ss, Si, t) {
-    vs <- maihda_var_at_time(Ss, t)
-    vi <- maihda_var_at_time(Si, t)
+  vpc_fun <- function(Ss, Si, t_c) {
+    vs <- maihda_var_at_time(Ss, t_c)
+    vi <- maihda_var_at_time(Si, t_c)
     vs / (vs + vi + var_resid)
   }
-  vpc_t_est <- vpc_fun(Sigma_s, Sigma_i, grid)
-  ref_vpc <- vpc_fun(Sigma_s, Sigma_i, ref_time)
+  vpc_t_est <- vpc_fun(Sigma_s, Sigma_i, grid_c)
+  ref_vpc <- vpc_fun(Sigma_s, Sigma_i, ref_c)
 
   vpc_lower <- rep(NA_real_, length(grid))
   vpc_upper <- rep(NA_real_, length(grid))
@@ -320,12 +453,12 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
     for (i in seq_len(n_boot)) {
       tryCatch({
         bm <- lme4::refit(model, newresp = sim[[i]])
-        Ss <- maihda_re_block_lme4(bm, "stratum", lng$time, lng$time_degree)
-        Si <- maihda_re_block_lme4(bm, lng$id, lng$time, lng$time_degree)
+        Ss <- maihda_re_block_lme4(bm, "stratum", time_term, lng$time_degree)
+        Si <- maihda_re_block_lme4(bm, lng$id, time_term, lng$time_degree)
         vr <- maihda_residual_variance_lme4(bm)
-        vs <- maihda_var_at_time(Ss, grid); vi <- maihda_var_at_time(Si, grid)
+        vs <- maihda_var_at_time(Ss, grid_c); vi <- maihda_var_at_time(Si, grid_c)
         boot[i, ] <- vs / (vs + vi + vr)
-        rs <- maihda_var_at_time(Ss, ref_time); ri <- maihda_var_at_time(Si, ref_time)
+        rs <- maihda_var_at_time(Ss, ref_c); ri <- maihda_var_at_time(Si, ref_c)
         ref_boot[i] <- rs / (rs + ri + vr)
       }, error = function(e) NULL)
     }
@@ -352,14 +485,16 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   longitudinal <- list(
     vpc_t = data.frame(time = grid, estimate = vpc_t_est,
                        lower = vpc_lower, upper = vpc_upper),
-    var_stratum_t = maihda_var_at_time(Sigma_s, grid),
-    var_id_t = maihda_var_at_time(Sigma_i, grid),
+    var_stratum_t = maihda_var_at_time(Sigma_s, grid_c),
+    var_id_t = maihda_var_at_time(Sigma_i, grid_c),
     var_resid = var_resid,
     Sigma_stratum = Sigma_s,
     Sigma_id = Sigma_i,
     time_grid = grid,
     ref_time = ref_time,
     time = lng$time,
+    time_term = time_term,
+    time_center = center,
     time_degree = lng$time_degree,
     id = lng$id,
     bootstrap = isTRUE(bootstrap),
@@ -369,7 +504,7 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   list(
     vpc_result = vpc_result,
     variance_components = maihda_longitudinal_components_table(
-      Sigma_s, Sigma_i, var_resid, lng$time, lng$id),
+      Sigma_s, Sigma_i, var_resid, lng$time, lng$id, center = center),
     longitudinal = longitudinal
   )
 }
@@ -386,9 +521,11 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
   }
   lng <- object$longitudinal_info
   model <- object$model
+  time_term <- maihda_lng_time_term(lng)
+  center <- maihda_lng_time_center(lng)
   draws <- maihda_posterior_draws_brms(model)
-  sig_s <- maihda_re_cov_draws_brms(draws, "stratum", lng$time)
-  sig_i <- maihda_re_cov_draws_brms(draws, lng$id, lng$time)
+  sig_s <- maihda_re_cov_draws_brms(draws, "stratum", time_term)
+  sig_i <- maihda_re_cov_draws_brms(draws, lng$id, time_term)
   var_resid_draws <- maihda_residual_variance_draws_brms(model, draws)
   if (length(var_resid_draws) == 1L) {
     var_resid_draws <- rep(var_resid_draws, length(sig_s$v0))
@@ -396,13 +533,17 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
 
   grid <- maihda_longitudinal_time_grid(object$data[[lng$time]])
   ref_time <- lng$ref_time
+  # As in the lme4 sibling: reporting times are on the original scale, the
+  # posterior blocks are in (possibly centered) coefficient coordinates.
+  grid_c <- grid - center
+  ref_c <- ref_time - center
   a <- 1 - conf_level
 
   # Per-draw VarS(t) / VarI(t) for the linear block:
-  # a(t)'Sigma a(t) = v0 + 2 t cov + t^2 v1.
-  var_at <- function(blk, t) blk$v0 + 2 * t * blk$cov + t^2 * blk$v1
-  vpc_draws_at <- function(t) {
-    vs <- var_at(sig_s, t); vi <- var_at(sig_i, t)
+  # a(t)'Sigma a(t) = v0 + 2 t cov + t^2 v1, t on the coefficient scale.
+  var_at <- function(blk, t_c) blk$v0 + 2 * t_c * blk$cov + t_c^2 * blk$v1
+  vpc_draws_at <- function(t_c) {
+    vs <- var_at(sig_s, t_c); vi <- var_at(sig_i, t_c)
     vs / (vs + vi + var_resid_draws)
   }
 
@@ -412,28 +553,30 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
     c(stats::median(v), stats::quantile(v, a / 2, names = FALSE),
       stats::quantile(v, 1 - a / 2, names = FALSE))
   }
-  mat <- vapply(grid, function(t) summ(vpc_draws_at(t)), numeric(3))
-  ref <- summ(vpc_draws_at(ref_time))
+  mat <- vapply(grid_c, function(t_c) summ(vpc_draws_at(t_c)), numeric(3))
+  ref <- summ(vpc_draws_at(ref_c))
 
   vpc_result <- list(estimate = ref[1], ci_lower = ref[2], ci_upper = ref[3],
                      conf_level = conf_level, bootstrap = FALSE,
                      method = "posterior", ref_time = ref_time)
 
-  Sigma_s <- maihda_re_block_brms(model, "stratum", lng$time, lng$time_degree)
-  Sigma_i <- maihda_re_block_brms(model, lng$id, lng$time, lng$time_degree)
+  Sigma_s <- maihda_re_block_brms(model, "stratum", time_term, lng$time_degree)
+  Sigma_i <- maihda_re_block_brms(model, lng$id, time_term, lng$time_degree)
   var_resid <- mean(var_resid_draws)
 
   longitudinal <- list(
     vpc_t = data.frame(time = grid, estimate = mat[1, ],
                        lower = mat[2, ], upper = mat[3, ]),
-    var_stratum_t = maihda_var_at_time(Sigma_s, grid),
-    var_id_t = maihda_var_at_time(Sigma_i, grid),
+    var_stratum_t = maihda_var_at_time(Sigma_s, grid_c),
+    var_id_t = maihda_var_at_time(Sigma_i, grid_c),
     var_resid = var_resid,
     Sigma_stratum = Sigma_s,
     Sigma_id = Sigma_i,
     time_grid = grid,
     ref_time = ref_time,
     time = lng$time,
+    time_term = time_term,
+    time_center = center,
     time_degree = lng$time_degree,
     id = lng$id,
     bootstrap = FALSE,
@@ -443,7 +586,7 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
   list(
     vpc_result = vpc_result,
     variance_components = maihda_longitudinal_components_table(
-      Sigma_s, Sigma_i, var_resid, lng$time, lng$id),
+      Sigma_s, Sigma_i, var_resid, lng$time, lng$id, center = center),
     longitudinal = longitudinal
   )
 }
@@ -471,15 +614,18 @@ maihda_re_cov_draws_brms <- function(draws, group, time) {
 # share over time). Tagged kind = "longitudinal" so plot_vpc()/print route around
 # the proportion-stack logic.
 maihda_longitudinal_components_table <- function(Sigma_s, Sigma_i, var_resid,
-                                                 time, id) {
+                                                 time, id, center = 0) {
   block_rows <- function(Sigma, level) {
     deg <- nrow(Sigma) - 1L
-    # Diagonal (variance) rows. The first is the random-INTERCEPT variance, i.e.
-    # the between-level variance at time = 0 -- NOT the variance at the baseline
-    # (ref_time = min(time)); the two coincide only when time is zero-referenced.
-    # The baseline variance is reported by the VPC summary and the longitudinal
-    # PCV as a(t)'Sigma a(t) evaluated at ref_time (see maihda_var_at_time()).
-    diag_names <- c("intercept (time = 0)",
+    # Diagonal (variance) rows. The first is the random-INTERCEPT variance -- the
+    # between-level variance at the model's coefficient origin, labelled with
+    # that origin: raw time 0 for a zero-anchored fit, or the centering offset
+    # (the observed baseline) when the growth terms were fit on internally
+    # centered time. The baseline variance the VPC summary and the longitudinal
+    # PCV report is a(t)'Sigma a(t) evaluated at ref_time (see
+    # maihda_var_at_time()); under centering the two coincide whenever
+    # ref_time equals the centering offset (the usual case).
+    diag_names <- c(sprintf("intercept (time = %g)", center),
                     if (deg >= 1) paste0("slope (", time, ")"),
                     if (deg >= 2) paste0("slope^", 2:deg, " (", time, ")"))
     vars <- diag(Sigma)
@@ -519,10 +665,13 @@ maihda_longitudinal_components_table <- function(Sigma_s, Sigma_i, var_resid,
 #'
 #' Compares the stratum-level random-effect covariance block of the null growth
 #' model with that of the adjusted model (null + dimension main effects + their
-#' \code{dim:time} interactions). Reports the PCV in the baseline (intercept)
-#' variance and in the slope variance -- the additive-vs-multiplicative split of
-#' the intersectional trajectory inequality (Bell, Evans, Holman & Leckie 2024) --
-#' and the time-specific PCV over the supplied times.
+#' \code{dim:time} interactions). Reports the PCV in the baseline variance and in
+#' the instantaneous-slope variance at baseline -- the additive-vs-multiplicative
+#' split of the intersectional trajectory inequality (Bell, Evans, Holman &
+#' Leckie 2024) -- and the time-specific PCV over the supplied times. Both are
+#' evaluated at the observed baseline time (\code{ref_time}), so they are
+#' invariant to how the time axis is coded (for linear growth the slope variance
+#' is the same at every time, so this reduces to the slope-variance cell).
 #'
 #' @param null_model,adjusted_model Longitudinal \code{maihda_model}s from a
 #'   \code{maihda(decomposition = "longitudinal")} pair.
@@ -532,6 +681,14 @@ maihda_longitudinal_components_table <- function(Sigma_s, Sigma_i, var_resid,
 #' @keywords internal
 maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
   lng <- null_model$longitudinal_info
+  center <- maihda_lng_time_center(lng)
+  adj_center <- maihda_lng_time_center(adjusted_model$longitudinal_info)
+  if (!isTRUE(all.equal(center, adj_center))) {
+    stop("The null and adjusted longitudinal models were fit with different ",
+         "internal time centerings (", center, " vs ", adj_center, "), so their ",
+         "covariance blocks are in different coordinates and cannot be compared.",
+         call. = FALSE)
+  }
   Sn <- maihda_re_block(null_model, "stratum")
   Sa <- maihda_re_block(adjusted_model, "stratum")
   deg <- nrow(Sn) - 1L
@@ -539,24 +696,31 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
   pcv_cell <- function(vn, va) if (is.finite(vn) && vn > 0) (vn - va) / vn else NA_real_
 
   # The "baseline" PCV is the proportional change in the between-stratum variance
-  # at the OBSERVED baseline time (lng$ref_time = min(time)), not the raw-time-0
-  # intercept variance Sn[1, 1]. The two coincide only when time is centred so the
-  # baseline is 0; for waves like 10:12 the time-0 intercept variance is an
-  # extrapolation and its PCV is meaningless (it can even go negative). Evaluating
-  # a(t)'Sigma a(t) at ref_time matches how the VPC summary reports its baseline.
+  # at the OBSERVED baseline time (lng$ref_time = min(time)), not the raw
+  # intercept-variance cell Sn[1, 1]. The covariance blocks are in the model's
+  # (possibly centered) coefficient coordinates, so a(t)'Sigma a(t) is evaluated
+  # at ref_time - center; under the internal centering (center = min(time)) this
+  # is usually 0, making the baseline the intercept cell itself. Matches how the
+  # VPC summary reports its baseline.
   ref_time <- lng$ref_time
-  var_baseline_null <- maihda_var_at_time(Sn, ref_time)
-  var_baseline_adjusted <- maihda_var_at_time(Sa, ref_time)
+  ref_c <- ref_time - center
+  var_baseline_null <- maihda_var_at_time(Sn, ref_c)
+  var_baseline_adjusted <- maihda_var_at_time(Sa, ref_c)
   pcv_intercept <- pcv_cell(var_baseline_null, var_baseline_adjusted)
-  # The slope variance is invariant to where time is zeroed, so Sn[2, 2]/Sa[2, 2]
-  # are already the right cells.
-  pcv_slope <- if (deg >= 1) pcv_cell(Sn[2, 2], Sa[2, 2]) else NA_real_
+  # The slope PCV compares the INSTANTANEOUS-slope variance at the baseline,
+  # b(t)'Sigma b(t) with b = da/dt -- not the raw Sn[2, 2] cell, which is the
+  # slope variance at the coefficient origin and is NOT invariant to where time
+  # is zeroed once time_degree >= 2 (for linear growth the two coincide at every
+  # t, so this reduces to Sn[2, 2] there).
+  var_slope_null <- if (deg >= 1) maihda_slope_var_at_time(Sn, ref_c) else NA_real_
+  var_slope_adjusted <- if (deg >= 1) maihda_slope_var_at_time(Sa, ref_c) else NA_real_
+  pcv_slope <- if (deg >= 1) pcv_cell(var_slope_null, var_slope_adjusted) else NA_real_
 
   if (is.null(times)) {
     times <- maihda_longitudinal_time_grid(null_model$data[[lng$time]])
   }
-  vn_t <- maihda_var_at_time(Sn, times)
-  va_t <- maihda_var_at_time(Sa, times)
+  vn_t <- maihda_var_at_time(Sn, times - center)
+  va_t <- maihda_var_at_time(Sa, times - center)
   pcv_t <- ifelse(vn_t > 0, (vn_t - va_t) / vn_t, NA_real_)
 
   structure(
@@ -565,7 +729,10 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
       pcv_slope = pcv_slope,
       var_baseline_null = var_baseline_null,
       var_baseline_adjusted = var_baseline_adjusted,
+      var_slope_null = var_slope_null,
+      var_slope_adjusted = var_slope_adjusted,
       ref_time = ref_time,
+      time_center = center,
       pcv_t = data.frame(time = times, var_null = vn_t, var_adjusted = va_t,
                          pcv = pcv_t),
       Sigma_stratum_null = Sn,
@@ -581,15 +748,18 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
 #'
 #' The stratum-level random-effect estimates as a wide table, one row per stratum:
 #' the stratum's deviation at the baseline time (\code{baseline}, the longitudinal
-#' analogue of a cross-sectional stratum BLUP), the raw random intercept at
-#' time 0 (\code{intercept}) and the random slope(s) on time (\code{slope}, ...).
+#' analogue of a cross-sectional stratum BLUP), the random intercept
+#' (\code{intercept}; the deviation at the model's coefficient origin -- the
+#' internal centering offset, i.e. the observed baseline, when centering applied,
+#' or raw time 0 otherwise) and the random slope(s) on time (\code{slope}, ...).
 #' This is the longitudinal shape of \code{predict_maihda(type = "strata")} -- a
 #' stratum is now a \emph{trajectory}, not a single value.
 #'
-#' \code{baseline} is \eqn{a(t_0)' coef} with \eqn{a(t) = (1, t, t^2, ...)} and
-#' \eqn{t_0 = } the reference (baseline) time \code{ref_time = min(time)}; the
-#' package defines the baseline at \code{ref_time}, so it equals the raw
-#' \code{intercept} (deviation at time 0) only when time is zero-referenced.
+#' \code{baseline} is \eqn{a(t_0 - c)' coef} with \eqn{a(t) = (1, t, t^2, ...)},
+#' \eqn{t_0 = } the reference (baseline) time \code{ref_time = min(time)} and
+#' \eqn{c} the internal centering offset; it equals \code{intercept} whenever
+#' \code{ref_time} coincides with the centering origin (the usual case for a
+#' centered fit, and the zero-anchored case for a raw fit).
 #'
 #' @param object A longitudinal \code{maihda_model}.
 #' @return A data frame: \code{stratum}, \code{stratum_id}, optional \code{label},
@@ -597,8 +767,11 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
 #' @keywords internal
 maihda_longitudinal_strata_predictions <- function(object) {
   re <- maihda_longitudinal_stratum_re(object)
-  deg <- object$longitudinal_info$time_degree
-  ref_time <- object$longitudinal_info$ref_time
+  lng <- object$longitudinal_info
+  deg <- lng$time_degree
+  # The coefficients are in the model's (possibly centered) coordinates, so the
+  # baseline deviation is evaluated at ref_time - center.
+  ref_c <- lng$ref_time - maihda_lng_time_center(lng)
   mat <- do.call(rbind, lapply(re$coef, function(co) {
     out <- rep(NA_real_, deg + 1L)
     out[seq_along(co)] <- co
@@ -607,9 +780,8 @@ maihda_longitudinal_strata_predictions <- function(object) {
   colnames(mat) <- c("intercept",
                      if (deg >= 1) "slope",
                      if (deg >= 2) paste0("slope", 2:deg))
-  # Deviation at the baseline time, a(ref_time)' coef, NOT the raw time-0
-  # intercept -- these differ whenever time is not zero-referenced.
-  baseline <- as.numeric(mat %*% ref_time^(0:deg))
+  # Deviation at the baseline time, a(ref_time - center)' coef.
+  baseline <- as.numeric(mat %*% ref_c^(0:deg))
   df <- data.frame(stratum = re$stratum, stratum_id = re$stratum_id,
                    stringsAsFactors = FALSE)
   if (!is.null(re$label)) df$label <- re$label
@@ -629,15 +801,20 @@ print.maihda_long_pcv <- function(x, ...) {
   cat(pal$bold("Longitudinal PCV (additive vs. multiplicative intersectionality)"), "\n", sep = "")
   cat("================================================================\n\n")
   # Baseline = the between-stratum variance at the observed baseline time
-  # (ref_time), not the raw time-0 intercept variance Sigma[1, 1] (see
-  # maihda_longitudinal_pcv); the two coincide only when time is centred.
+  # (ref_time), evaluated in the model's (possibly centered) coefficient
+  # coordinates (see maihda_longitudinal_pcv).
   cat(sprintf("Baseline (%s = %g) variance: %.4f (null) -> %.4f (adjusted)\n",
               x$time, x$ref_time, x$var_baseline_null, x$var_baseline_adjusted))
   cat(sprintf("  PCV_intercept: %s of the baseline between-stratum inequality is additive.\n",
               fmt(x$pcv_intercept)))
   if (nrow(x$Sigma_stratum_null) >= 2) {
-    cat(sprintf("Slope (%s) variance:          %.4f (null) -> %.4f (adjusted)\n",
-                x$time, x$Sigma_stratum_null[2, 2], x$Sigma_stratum_adjusted[2, 2]))
+    # Instantaneous-slope variance at the baseline (see maihda_slope_var_at_time);
+    # objects stored by older package versions carry no var_slope_* fields, so
+    # fall back to the slope-variance cell they reported.
+    vsn <- if (!is.null(x$var_slope_null)) x$var_slope_null else x$Sigma_stratum_null[2, 2]
+    vsa <- if (!is.null(x$var_slope_adjusted)) x$var_slope_adjusted else x$Sigma_stratum_adjusted[2, 2]
+    cat(sprintf("Slope (%s) variance at baseline: %.4f (null) -> %.4f (adjusted)\n",
+                x$time, vsn, vsa))
     cat(sprintf("  PCV_slope:     %s of the *trajectory* between-stratum inequality is additive\n",
                 fmt(x$pcv_slope)))
     cat("                 (the remainder is the multiplicative/interaction part).\n")

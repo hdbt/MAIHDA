@@ -156,7 +156,14 @@ Bell, Evans, Holman & Leckie (2024).}
 
 \item{time}{Optional single character string naming a numeric measurement-time
 column (e.g. wave 0, 1, 2, ... or age), required for a longitudinal MAIHDA;
-see \code{id}. Default \code{NULL}.}
+see \code{id}. When the time axis does not start at 0 (age, calendar year,
+waves coded 10, 11, ...), the growth terms are fit on internally
+\emph{centered} time (\code{time - min(time)}, with a message): the raw
+polynomial basis over an offset range is ill-conditioned and can silently
+converge to a wrong solution. All results (the time-varying VPC, the
+PCV, plots, predictions) are reported on the original \code{time} scale;
+the column name \code{.maihda_ctime} is reserved for the internal centered
+variable. Default \code{NULL}.}
 
 \item{time_degree}{Polynomial degree of the growth curve when \code{time} is
 supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
