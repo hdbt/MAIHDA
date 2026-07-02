@@ -236,7 +236,14 @@ Bell, Evans, Holman &amp; Leckie (2024).</p></dd>
 <dt id="arg-time">time<a class="anchor" aria-label="anchor" href="#arg-time"></a></dt>
 <dd><p>Optional single character string naming a numeric measurement-time
 column (e.g. wave 0, 1, 2, ... or age), required for a longitudinal MAIHDA;
-see <code>id</code>. Default <code>NULL</code>.</p></dd>
+see <code>id</code>. When the time axis does not start at 0 (age, calendar year,
+waves coded 10, 11, ...), the growth terms are fit on internally
+<em>centered</em> time (<code>time - min(time)</code>, with a message): the raw
+polynomial basis over an offset range is ill-conditioned and can silently
+converge to a wrong solution. All results (the time-varying VPC, the
+PCV, plots, predictions) are reported on the original <code>time</code> scale;
+the column name <code>.maihda_ctime</code> is reserved for the internal centered
+variable. Default <code>NULL</code>.</p></dd>
 
 
 <dt id="arg-time-degree">time_degree<a class="anchor" aria-label="anchor" href="#arg-time-degree"></a></dt>

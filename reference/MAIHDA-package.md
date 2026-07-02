@@ -1,6 +1,6 @@
 # MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy
 
-PTools for Multilevel Analysis of Individual Heterogeneity and
+Tools for Multilevel Analysis of Individual Heterogeneity and
 Discriminatory Accuracy (MAIHDA) for intersectional inequality research.
 Methods are described in Merlo (2018)
 [doi:10.1016/j.socscimed.2017.12.026](https://doi.org/10.1016/j.socscimed.2017.12.026)

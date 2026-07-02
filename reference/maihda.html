@@ -296,8 +296,8 @@ summary already holds; no refit).</p></dd>
 <dd><p>the adjusted model's <code>maihda_summary</code>, or <code>NULL</code></p></dd>
 
   <dt>pcv</dt>
-<dd><p>the proportional change in variance: the <code>pvc_result</code> from
-    <code><a href="calculate_pvc.html">calculate_pvc</a></code> in <code>"two-model"</code> mode, or a
+<dd><p>the proportional change in variance: the <code>pcv_result</code> from
+    <code><a href="calculate_pcv.html">calculate_pcv</a></code> in <code>"two-model"</code> mode, or a
     <code>maihda_long_pcv</code> (the intercept/slope and time-specific PCV) in
     <code>"longitudinal"</code> mode; <code>NULL</code> otherwise</p></dd>
 
@@ -335,7 +335,7 @@ VPC; set <code>response_vpc = TRUE</code> to add the (simulation-based) response
 VPC as well. These are read from <code>summary(x)</code> and the attached
 <code>summary_adjusted</code>, and the headline <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows the null-model AUC.</p>
 <p>This is a convenience wrapper around <code><a href="fit_maihda.html">fit_maihda</a></code>,
-<code><a href="calculate_pvc.html">calculate_pvc</a></code>, <code><a href="summary.maihda_model.html">summary.maihda_model</a></code> and
+<code><a href="calculate_pcv.html">calculate_pcv</a></code>, <code><a href="summary.maihda_model.html">summary.maihda_model</a></code> and
 <code><a href="compare_maihda_groups.html">compare_maihda_groups</a></code>. It is <em>intrinsically</em> a two-model
 decomposition and has no single-model mode – for a single fit (e.g. just the
 null-model VPC / discriminatory accuracy), call <code><a href="fit_maihda.html">fit_maihda</a></code> directly.</p>
@@ -415,10 +415,10 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55a754afe378&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55b4cd93f8d0&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55a753bc7fd0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55b4cd318d50&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -473,7 +473,7 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55a752ebd220&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55b4cb186ce8&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>

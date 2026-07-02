@@ -252,7 +252,7 @@ null model.</p>
 <p>A “Model 2” adds individual-level covariates to ask how much of the
 between-stratum variation they account for. Here we adjust for age, fit
 on the <strong>same analytic sample and strata</strong> as the null
-model, and compare with <code><a href="../reference/calculate_pvc.html">calculate_pvc()</a></code>. PCV compares
+model, and compare with <code><a href="../reference/calculate_pcv.html">calculate_pcv()</a></code>. PCV compares
 variances across models, so both must use the same complete-case
 sample:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
@@ -273,7 +273,7 @@ sample:</p>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.</span></span>
 <span></span>
-<span><span class="va">pcv</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calculate_pvc.html">calculate_pvc</a></span><span class="op">(</span><span class="va">model_null2</span>, <span class="va">model_adj</span><span class="op">)</span></span>
+<span><span class="va">pcv</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calculate_pcv.html">calculate_pcv</a></span><span class="op">(</span><span class="va">model_null2</span>, <span class="va">model_adj</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">pcv</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Proportional Change in Variance (PCV)</span></span></span>
 <span><span class="co">#&gt; =====================================</span></span>

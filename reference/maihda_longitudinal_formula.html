@@ -72,7 +72,13 @@ random effects in the base formula are replaced by this canonical structure.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">maihda_longitudinal_formula</span><span class="op">(</span><span class="va">base_formula</span>, <span class="va">id</span>, <span class="va">time</span>, <span class="va">time_degree</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">maihda_longitudinal_formula</span><span class="op">(</span></span>
+<span>  <span class="va">base_formula</span>,</span>
+<span>  <span class="va">id</span>,</span>
+<span>  <span class="va">time</span>,</span>
+<span>  <span class="va">time_degree</span>,</span>
+<span>  orig_time <span class="op">=</span> <span class="va">time</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -84,12 +90,27 @@ random effects in the base formula are replaced by this canonical structure.</p>
 
 
 <dt id="arg-id-time-time-degree">id, time, time_degree<a class="anchor" aria-label="anchor" href="#arg-id-time-time-degree"></a></dt>
-<dd><p>The longitudinal specification.</p></dd>
+<dd><p>The longitudinal specification; <code>time</code> is the
+model variable the growth terms are built on (the centered column when
+centering applies).</p></dd>
+
+
+<dt id="arg-orig-time">orig_time<a class="anchor" aria-label="anchor" href="#arg-orig-time"></a></dt>
+<dd><p>The user's original time column name; differs from
+<code>time</code> only when centering applies.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>The growth formula (same environment as <code>base_formula</code>).</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>When the growth terms are built on internally centered time (<code>time</code> is
+the derived <code>.maihda_ctime</code> column; see the file header), any bare
+raw-time polynomial the user wrote in the fixed part (<code>orig_time</code>,
+<code>I(orig_time^2)</code>, ...) is <em>replaced</em> by the centered terms rather
+than kept alongside them, which would be perfectly collinear.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

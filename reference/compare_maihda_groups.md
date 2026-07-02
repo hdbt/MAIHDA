@@ -149,7 +149,7 @@ dimensions, two further columns report the per-group null -\> adjusted
 decomposition: `pcv` (proportional change in between-stratum variance
 when the dimensions' additive main effects are added; computed on the
 maximum-likelihood scale – see
-[`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
 – because REML variances are not comparable across the null vs. adjusted
 fixed effects), `var_between_adjusted` (a *derived* coherence quantity,
 reported as `var_between * (1 - pcv)` so it shares the scale of the REML
@@ -203,7 +203,7 @@ already carries a `stratum` column. Under `shared_strata = FALSE` strata
 are rebuilt inside each group, so a degenerate single-stratum group is
 instead reported with a "fit failed" status rather than a pre-fit skip.
 A singular fit yields a VPC of 0 rather than an error (unlike
-[`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)).
+[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)).
 A hard fit failure in one group records `NA` and a status note without
 aborting the whole comparison.
 

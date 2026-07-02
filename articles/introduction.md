@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x556a94462f08>
+#> <environment: 0x555748865bd8>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x556a92a4e400>
+#> <environment: 0x555746e4edc0>
 ```
 
 The returned object carries everything: the full variance components,
@@ -340,7 +340,7 @@ plot(by_country, type = "group_vpc")
 convenience wrapper around a set of lower-level functions:
 [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
 fits one model,
-[`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+[`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
 compares two, [`summary()`](https://rdrr.io/r/base/summary.html) reads
 the variance components, and
 [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
@@ -410,7 +410,7 @@ model. To ask a different question (like how much of the between-stratum
 variance is explained by individual-level covariates that are not strata
 dimensions, here Age and Poverty) build the two models yourself and
 compare them with
-[`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md).
+[`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
 PCV compares variances across models, so both must use the same sample
 (the `health_complete` data we prepared above):
 
@@ -419,7 +419,7 @@ PCV compares variances across models, so both must use the same sample
 model_cov <- fit_maihda(BMI ~ Age + Poverty + (1 | Gender:Race:Education),
                         data = health_complete)
 
-calculate_pvc(model_null, model_cov)
+calculate_pcv(model_null, model_cov)
 #> Proportional Change in Variance (PCV)
 #> =====================================
 #> 
@@ -427,7 +427,7 @@ calculate_pvc(model_null, model_cov)
 #> 
 #> Between-stratum variance:
 #>   Model 1: 2.830755
-#>   Model 2: 2.579770
+#>   Model 2: 2.579769
 #>   Change:  0.250986 (8.87%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
@@ -443,7 +443,7 @@ Add `bootstrap = TRUE` for parametric-bootstrap confidence intervals
 
 ``` r
 
-calculate_pvc(model_null, model_cov, bootstrap = TRUE, n_boot = 500)
+calculate_pcv(model_null, model_cov, bootstrap = TRUE, n_boot = 500)
 ```
 
 ### Stepwise PCV

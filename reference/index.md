@@ -2,8 +2,10 @@
 
 ## All functions
 
-- [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+- [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
   : Calculate Proportional Change in Between-Stratum Variance (PCV)
+- [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  : Deprecated: use calculate_pcv()
 - [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
   : Compare MAIHDA Models
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
@@ -82,8 +84,9 @@
   : Print method for maihda_summary objects
 - [`print(`*`<maihda_table>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_table.md)
   : Print a MAIHDA results table
-- [`print(`*`<pvc_result>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.pvc_result.md)
-  : Print method for PVC results
+- [`print(`*`<pcv_result>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.pcv_result.md)
+  [`print(`*`<pvc_result>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.pcv_result.md)
+  : Print method for PCV results
 - [`run_maihda_app()`](https://hdbt.github.io/MAIHDA/reference/run_maihda_app.md)
   : Run MAIHDA Shiny Application
 - [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)

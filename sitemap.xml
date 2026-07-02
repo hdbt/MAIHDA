@@ -21,8 +21,9 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/add_stratum_labels.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_cc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_context.html</loc></url>
-<url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_pvc.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_pcv.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_vpc.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/calculate_pcv.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/calculate_pvc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/compare_maihda.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.html</loc></url>
@@ -111,7 +112,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_strata.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_summary.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_table.html</loc></url>
-<url><loc>https://hdbt.github.io/MAIHDA/reference/print.pvc_result.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/print.pcv_result.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/reexports.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/run_maihda_app.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.html</loc></url>

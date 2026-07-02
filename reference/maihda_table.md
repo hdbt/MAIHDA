@@ -101,7 +101,7 @@ An object of class `maihda_table`: a list with
   variance/VPC rows are each model's own (REML) estimate, so the PCV
   need not equal the reduction implied by the displayed variance rows;
   see
-  [`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
 
 - model_keys, model_labels:
 
@@ -148,7 +148,7 @@ adjusted model instead. The full ranked table is returned in `$strata`;
 
 [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md),
 [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md),
-[`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md),
+[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
 [`maihda_discriminatory_accuracy`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md).
 
 ## Examples
@@ -174,7 +174,7 @@ tab                 # printed: model-results table + top/bottom strata
 #>                   VPC/ICC          0.058              0.030
 #>    PCV (null -> adjusted)                             0.821
 #> 
-#> Note: The PCV is computed from maximum-likelihood-refitted between-stratum variances (required for a valid cross-model comparison; see ?calculate_pvc), while the Between-stratum variance/SD and VPC/ICC rows are each model's own REML estimate. The PCV therefore need not equal the variance reduction implied by the displayed variance rows.
+#> Note: The PCV is computed from maximum-likelihood-refitted between-stratum variances (required for a valid cross-model comparison; see ?calculate_pcv), while the Between-stratum variance/SD and VPC/ICC rows are each model's own REML estimate. The PCV therefore need not equal the variance reduction implied by the displayed variance rows.
 #> 
 #> Strata ranked by predicted value (null model):
 #>  Rank           Stratum    N               Predicted              Stratum RE

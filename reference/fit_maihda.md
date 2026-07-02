@@ -198,7 +198,14 @@ fit_maihda(
 
   Optional single character string naming a numeric measurement-time
   column (e.g. wave 0, 1, 2, ... or age), required for a longitudinal
-  MAIHDA; see `id`. Default `NULL`.
+  MAIHDA; see `id`. When the time axis does not start at 0 (age,
+  calendar year, waves coded 10, 11, ...), the growth terms are fit on
+  internally *centered* time (`time - min(time)`, with a message): the
+  raw polynomial basis over an offset range is ill-conditioned and can
+  silently converge to a wrong solution. All results (the time-varying
+  VPC, the PCV, plots, predictions) are reported on the original `time`
+  scale; the column name `.maihda_ctime` is reserved for the internal
+  centered variable. Default `NULL`.
 
 - time_degree:
 

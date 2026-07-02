@@ -252,7 +252,7 @@ between-/within-stratum variance components across the levels of a
 higher-level grouping variable such as country, region, or survey wave,
 fitting a stratified MAIHDA model per group.
 
-### `calculate_pvc()`
+### `calculate_pcv()`
 
 Calculates the proportional change in between-stratum variance (PCV)
 between two models.

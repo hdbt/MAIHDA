@@ -180,7 +180,7 @@ A “Model 2” adds individual-level covariates to ask how much of the
 between-stratum variation they account for. Here we adjust for age, fit
 on the **same analytic sample and strata** as the null model, and
 compare with
-[`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md).
+[`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
 PCV compares variances across models, so both must use the same
 complete-case sample:
 
@@ -203,7 +203,7 @@ model_adj <- fit_maihda(
 )
 #> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.
 
-pcv <- calculate_pvc(model_null2, model_adj)
+pcv <- calculate_pcv(model_null2, model_adj)
 print(pcv)
 #> Proportional Change in Variance (PCV)
 #> =====================================

@@ -74,7 +74,7 @@ does not define a standard AIC/BIC.
 
 [`compare_maihda`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md),
 which reports these criteria alongside the VPC/ICC, and
-[`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
 for the variance decomposition.
 
 ## Examples

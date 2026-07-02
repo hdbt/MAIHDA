@@ -210,7 +210,7 @@ its own members' weights. Not compatible with <code>engine = "lme4"</code>,
   dimensions, two further columns report the per-group null -&gt; adjusted
   decomposition: <code>pcv</code> (proportional change in between-stratum variance when
   the dimensions' additive main effects are added; computed on the
-  maximum-likelihood scale – see <code><a href="calculate_pvc.html">calculate_pvc</a></code> – because REML
+  maximum-likelihood scale – see <code><a href="calculate_pcv.html">calculate_pcv</a></code> – because REML
   variances are not comparable across the null vs. adjusted fixed effects),
   <code>var_between_adjusted</code> (a <em>derived</em> coherence quantity, reported as
   <code>var_between * (1 - pcv)</code> so it shares the scale of the REML
@@ -259,7 +259,7 @@ already carries a <code>stratum</code> column. Under <code>shared_strata = FALSE
 strata are rebuilt inside each group, so a degenerate single-stratum group is
 instead reported with a "fit failed" status rather than a pre-fit skip. A
 singular fit yields a VPC of 0 rather than an error (unlike
-<code><a href="calculate_pvc.html">calculate_pvc</a></code>). A hard fit failure in one group records <code>NA</code>
+<code><a href="calculate_pcv.html">calculate_pcv</a></code>). A hard fit failure in one group records <code>NA</code>
 and a status note without aborting the whole comparison.</p>
 <p>Fit-quality diagnostics: for the <code>lme4</code> engine, groups whose model is
 singular or fails to converge keep a <code>status</code> of <code>"ok"</code> (the fit did

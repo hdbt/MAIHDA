@@ -181,7 +181,7 @@ Science*, 1(2), 270-280.
 ## See also
 
 [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md),
-[`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md),
+[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
 [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md);
 and `plot(..., highlight_interactions = TRUE)` to mark the flagged
 strata on the effect-decomposition / predicted / shrinkage plots.

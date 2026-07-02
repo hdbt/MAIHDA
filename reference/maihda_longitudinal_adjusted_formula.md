@@ -34,7 +34,10 @@ maihda_longitudinal_adjusted_formula(
 
 - time, time_degree:
 
-  The longitudinal specification.
+  The longitudinal specification; `time` must be the variable the growth
+  terms were built on (the internally centered column for a centered
+  fit, `maihda_lng_time_term()`), so the `dim:time` interactions
+  reference the same terms as the null formula.
 
 ## Value
 

@@ -12,7 +12,13 @@ canonical structure.
 ## Usage
 
 ``` r
-maihda_longitudinal_formula(base_formula, id, time, time_degree)
+maihda_longitudinal_formula(
+  base_formula,
+  id,
+  time,
+  time_degree,
+  orig_time = time
+)
 ```
 
 ## Arguments
@@ -23,8 +29,23 @@ maihda_longitudinal_formula(base_formula, id, time, time_degree)
 
 - id, time, time_degree:
 
-  The longitudinal specification.
+  The longitudinal specification; `time` is the model variable the
+  growth terms are built on (the centered column when centering
+  applies).
+
+- orig_time:
+
+  The user's original time column name; differs from `time` only when
+  centering applies.
 
 ## Value
 
 The growth formula (same environment as `base_formula`).
+
+## Details
+
+When the growth terms are built on internally centered time (`time` is
+the derived `.maihda_ctime` column; see the file header), any bare
+raw-time polynomial the user wrote in the fixed part (`orig_time`,
+`I(orig_time^2)`, ...) is *replaced* by the centered terms rather than
+kept alongside them, which would be perfectly collinear.

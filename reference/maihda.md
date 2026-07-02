@@ -257,8 +257,8 @@ An object of class `maihda_analysis`: a list with
 
 - pcv:
 
-  the proportional change in variance: the `pvc_result` from
-  [`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
+  the proportional change in variance: the `pcv_result` from
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
   in `"two-model"` mode, or a `maihda_long_pcv` (the intercept/slope and
   time-specific PCV) in `"longitudinal"` mode; `NULL` otherwise
 
@@ -302,7 +302,7 @@ the (simulation-based) response-scale VPC as well. These are read from
 
 This is a convenience wrapper around
 [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
-[`calculate_pvc`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md),
+[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
 [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
 and
 [`compare_maihda_groups`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md).
@@ -397,10 +397,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x55a754afe378>
+#> <environment: 0x55b4cd93f8d0>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x55a753bc7fd0>
+#> <environment: 0x55b4cd318d50>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -455,7 +455,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x55a752ebd220>
+#> <environment: 0x55b4cb186ce8>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

@@ -3,10 +3,13 @@
 Compares the stratum-level random-effect covariance block of the null
 growth model with that of the adjusted model (null + dimension main
 effects + their `dim:time` interactions). Reports the PCV in the
-baseline (intercept) variance and in the slope variance – the
-additive-vs-multiplicative split of the intersectional trajectory
+baseline variance and in the instantaneous-slope variance at baseline –
+the additive-vs-multiplicative split of the intersectional trajectory
 inequality (Bell, Evans, Holman & Leckie 2024) – and the time-specific
-PCV over the supplied times.
+PCV over the supplied times. Both are evaluated at the observed baseline
+time (`ref_time`), so they are invariant to how the time axis is coded
+(for linear growth the slope variance is the same at every time, so this
+reduces to the slope-variance cell).
 
 ## Usage
 

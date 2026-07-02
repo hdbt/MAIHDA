@@ -12,7 +12,8 @@ maihda_validate_longitudinal(
   data,
   engine = "lme4",
   sampling_weights = NULL,
-  context = NULL
+  context = NULL,
+  formula = NULL
 )
 ```
 
@@ -44,6 +45,12 @@ maihda_validate_longitudinal(
 
   Must be NULL – design-weighted and contextual longitudinal models are
   out of scope.
+
+- formula:
+
+  Optional model formula, used only to tell a package-derived refit
+  (whose formula already references the reserved `.maihda_ctime` column)
+  from a fresh user call when guarding that reserved name.
 
 ## Value
 
