@@ -110,7 +110,12 @@
 #'   (\code{dim:time}). The between-stratum variance is then time-varying and the
 #'   PCV is reported separately for the baseline (intercept) and the slope variance
 #'   -- the additive-vs-multiplicative split of the intersectional trajectory
-#'   inequality (Bell, Evans, Holman & Leckie 2024). See \code{\link{fit_maihda}}.
+#'   inequality (Bell, Evans, Holman & Leckie 2024). As with the two-model PCV,
+#'   REML \code{lmer} growth fits are refitted with maximum likelihood before the
+#'   null-vs-adjusted variance comparison (REML variances are not comparable
+#'   across different fixed effects; see \code{\link{calculate_pcv}}), while the
+#'   reported time-varying VPC keeps each fit's own (REML) estimate.
+#'   See \code{\link{fit_maihda}}.
 #' @param id,time,time_degree For a \strong{longitudinal} MAIHDA: the person/unit
 #'   identifier column, the numeric measurement-time column, and the growth-curve
 #'   polynomial degree (1 = linear). Supplying \code{id}/\code{time} selects
@@ -170,7 +175,9 @@
 #'   \item{pcv}{the proportional change in variance: the \code{pcv_result} from
 #'     \code{\link{calculate_pcv}} in \code{"two-model"} mode, or a
 #'     \code{maihda_long_pcv} (the intercept/slope and time-specific PCV) in
-#'     \code{"longitudinal"} mode; \code{NULL} otherwise}
+#'     \code{"longitudinal"} mode; \code{NULL} otherwise. Both are computed on
+#'     the maximum-likelihood scale (REML \code{lmer} fits are ML-refitted for
+#'     the comparison; see \code{\link{calculate_pcv}})}
 #'   \item{decomposition}{the additive/interaction partition (additive and interaction
 #'     variances and shares, per-dimension variances; \code{"crossed-dimensions"} mode
 #'     only, \code{NULL} otherwise)}

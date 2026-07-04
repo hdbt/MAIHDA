@@ -187,6 +187,58 @@ test_that("maihda_residual_variance_draws_brms returns per-draw residual varianc
   expect_equal(MAIHDA:::maihda_residual_variance_draws_brms(probit, draws), c(1, 1))
 })
 
+# ---- marginal count mean helpers (pure, Stan-free) ---------------------------
+
+test_that("maihda_latent_re_variance_rows sums z' Sigma z per observation", {
+  # Intercept-only group g plus a growth term (t | id): the per-row latent
+  # random-effect variance is the constant intercept variance plus the growth
+  # block's time-varying quadratic form v0 + 2 t cov + t^2 v1.
+  bars <- reformulas::findbars(y ~ x + (1 | g) + (t | id))
+  d <- data.frame(g = c("a", "b", "a"), id = c(1, 1, 2), t = c(0, 2, 1))
+  blocks <- list(
+    matrix(0.5, 1, 1, dimnames = list("(Intercept)", "(Intercept)")),
+    matrix(c(1, 0.2, 0.2, 0.3), 2, 2,
+           dimnames = list(c("(Intercept)", "t"), c("(Intercept)", "t")))
+  )
+  v <- MAIHDA:::maihda_latent_re_variance_rows(bars, blocks, d)
+  expect_equal(v, 0.5 + 1 + 2 * d$t * 0.2 + d$t^2 * 0.3)
+
+  # A block naming a design column the bar cannot produce is a clear error, not
+  # a silent misalignment.
+  bad <- list(matrix(0.5, 1, 1, dimnames = list("nope", "nope")))
+  expect_error(
+    MAIHDA:::maihda_latent_re_variance_rows(bars[1], bad, d),
+    "align the random-effect design column"
+  )
+})
+
+test_that("maihda_brms_re_block_mean rebuilds the posterior-mean covariance block", {
+  # Hand-built draws in brms' sd_/cor_ naming; the block is keyed by the DESIGN
+  # names ("(Intercept)") so it feeds maihda_latent_re_variance_rows directly.
+  draws <- data.frame(
+    sd_stratum__Intercept = c(2, 4),
+    sd_stratum__wave = c(0.5, 1),
+    cor_stratum__Intercept__wave = c(0.5, -0.5)
+  )
+  S <- MAIHDA:::maihda_brms_re_block_mean(draws, "stratum", c("(Intercept)", "wave"))
+  expect_equal(dimnames(S), list(c("(Intercept)", "wave"), c("(Intercept)", "wave")))
+  expect_equal(S["(Intercept)", "(Intercept)"], mean(c(4, 16)))          # E[sd0^2]
+  expect_equal(S["wave", "wave"], mean(c(0.25, 1)))                      # E[sd1^2]
+  expect_equal(S["(Intercept)", "wave"],
+               mean(c(0.5 * 2 * 0.5, -0.5 * 4 * 1)))                     # E[cor sd0 sd1]
+  expect_equal(S["wave", "(Intercept)"], S["(Intercept)", "wave"])
+
+  # An intercept-only group is the 1x1 E[sd^2] block.
+  S1 <- MAIHDA:::maihda_brms_re_block_mean(draws, "stratum", "(Intercept)")
+  expect_equal(unname(S1[1, 1]), mean(c(4, 16)))
+
+  # A group with no sd draws is a clear error.
+  expect_error(
+    MAIHDA:::maihda_brms_re_block_mean(draws, "id", "(Intercept)"),
+    "No 'sd_id__Intercept' draws"
+  )
+})
+
 test_that("print.maihda_summary labels the brms posterior credible interval", {
   fake <- structure(
     list(

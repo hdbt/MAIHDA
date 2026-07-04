@@ -27,4 +27,15 @@ evaluated at the observed baseline time (\code{ref_time}), so they are
 invariant to how the time axis is coded (for linear growth the slope variance
 is the same at every time, so this reduces to the slope-variance cell).
 }
+\details{
+As in \code{\link{calculate_pcv}}, REML \code{lmer} growth fits are refitted
+with maximum likelihood (\code{\link[lme4]{refitML}}) before the comparison:
+the null and adjusted models differ in fixed effects (the dimensions' main
+effects and their \code{dim:time} interactions), across which REML variance
+estimates are not comparable -- using them biases both PCVs downward,
+overstating the multiplicative/interaction share. The stored models (and the
+single-model summaries computed from them, e.g. the time-varying VPC) keep
+their REML fit; \code{ml_refit} on the result records whether the refit
+applied. glmer (GLMM) and brms fits are already on the ML / posterior scale.
+}
 \keyword{internal}

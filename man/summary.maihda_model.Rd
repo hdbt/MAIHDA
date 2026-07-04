@@ -96,9 +96,11 @@ The variance-components table reports the posterior-mean variance components,
 so the stratum proportion shown there may differ slightly from the headline
 VPC because the median of a ratio is not the ratio of means. For non-Gaussian
 \code{brms} families the level-1 (residual) variance uses the usual
-latent-scale approximation; for \code{poisson(log)} it is evaluated at the
-posterior-mean fitted values rather than per draw to avoid an expensive
-\eqn{ndraws \times nobs} computation.
+latent-scale approximation; for the count families the marginal expected
+counts are built from the posterior-mean fixed effects and random-effect
+variances rather than per draw, to avoid an expensive
+\eqn{ndraws \times nobs} computation (the negative-binomial \code{shape}
+draws are still propagated).
 }
 \section{Interpreting the VPC/ICC}{
  The VPC is the between-stratum variance
@@ -112,10 +114,17 @@ posterior-mean fitted values rather than per draw to avoid an expensive
   on them. It is most commonly read from the null model
   \code{outcome ~ 1 + (1 | stratum)}, where it is the total between-stratum
   share. For non-Gaussian families the level-1 (residual) variance uses a
-  latent/distributional approximation (\eqn{\pi^2/3} for logistic,
-  \eqn{\log(1 + 1/\mu)} for Poisson per Stryhn et al. 2006, and
-  \eqn{\log(1 + 1/\mu + 1/\theta)} for the negative binomial per Nakagawa,
-  Johnson & Schielzeth 2017), so the
+  latent/distributional approximation (\eqn{\pi^2/3} for logistic;
+  \eqn{\log(1 + 1/\lambda)} for Poisson per Stryhn et al. 2006 and
+  \eqn{\log(1 + 1/\lambda + 1/\theta)} for the negative binomial per Nakagawa,
+  Johnson & Schielzeth 2017, each evaluated at the \emph{marginal} expected
+  count \eqn{\lambda_i = \exp(x_i'\beta + v_i/2)} -- the fixed-part prediction
+  with the log-normal correction for the row's total random-effect variance
+  \eqn{v_i}, which reduces to Nakagawa et al.'s
+  \eqn{\lambda = \exp(\beta_0 + \sigma^2/2)} in the null model -- and
+  averaged over the analytic sample, \emph{not} at the conditional fitted
+  means, whose BLUPs would tie the level-1 variance to the realized random
+  effects), so the
   VPC is on that latent scale; for a \emph{weighted} Gaussian model the level-1
   variance is the mean conditional residual variance,
   \eqn{\bar{\sigma^2 / w_i}}, since the per-observation residual variance is

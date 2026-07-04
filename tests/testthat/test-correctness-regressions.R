@@ -158,7 +158,7 @@ test_that("calculate_pcv rejects different outcomes and families", {
   )
 })
 
-test_that("poisson summaries use fitted mean based residual variance", {
+test_that("poisson summaries evaluate the level-1 variance at the marginal mean", {
   set.seed(1005)
   d <- data.frame(
     stratum = factor(rep(seq_len(12), each = 25)),
@@ -173,9 +173,30 @@ test_that("poisson summaries use fitted mean based residual variance", {
   observed <- summ$variance_components$variance[
     summ$variance_components$component == "Within-stratum (residual)"
   ]
-  expected <- mean(log1p(1 / pmax(stats::fitted(model$model), .Machine$double.eps)))
+  # Stryhn/Nakagawa level-1 variance at the MARGINAL expected count
+  # lambda_i = exp(x_i'beta + v/2), with v the (constant, intercept-only)
+  # between-stratum variance -- the lognormal mean correction -- averaged over
+  # the sample. NOT the conditional fitted mean exp(x'beta + u_hat).
+  eta <- as.numeric(stats::predict(model$model, re.form = NA, type = "link"))
+  v <- as.numeric(lme4::VarCorr(model$model)$stratum[1, 1])
+  lambda <- pmax(exp(eta + v / 2), .Machine$double.eps)
+  expected <- mean(log1p(1 / lambda))
   expect_equal(observed, expected, tolerance = 1e-8)
   expect_false(isTRUE(all.equal(observed, 1)))
+
+  # ... and it genuinely differs from the conditional-fitted version it replaces.
+  cond <- mean(log1p(1 / pmax(stats::fitted(model$model), .Machine$double.eps)))
+  expect_false(isTRUE(all.equal(observed, cond, tolerance = 1e-6)))
+
+  # In the null model every row's lambda is exactly Nakagawa et al.'s single
+  # plug-in exp(beta0 + sigma^2/2) -- the marginal mean of the outcome.
+  m0 <- fit_maihda(y ~ (1 | stratum), data = d, family = "poisson")
+  b0 <- unname(lme4::fixef(m0$model)[1])
+  s2 <- as.numeric(lme4::VarCorr(m0$model)$stratum[1, 1])
+  expect_equal(MAIHDA:::maihda_residual_variance_lme4(m0$model),
+               log1p(1 / exp(b0 + s2 / 2)), tolerance = 1e-10)
+  expect_equal(unique(MAIHDA:::maihda_count_marginal_mu_lme4(m0$model)),
+               exp(b0 + s2 / 2), tolerance = 1e-10)
 })
 
 test_that("binomial predict_maihda defaults to response scale and supports link scale", {

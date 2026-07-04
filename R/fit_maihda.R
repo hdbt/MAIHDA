@@ -59,8 +59,10 @@
 #'   summaries (\code{\link{summary.maihda_model}}, VPC/ICC, PCV) are only defined
 #'   for \code{gaussian("identity")}, the binomial/Bernoulli families with a logit
 #'   or probit link, \code{poisson("log")}, and the negative binomial with a log
-#'   link (level-1 variance \code{log(1 + 1/mu + 1/theta)}; Nakagawa, Johnson &
-#'   Schielzeth 2017). Other families (for example \code{Gamma(link = "log")})
+#'   link (level-1 variance \code{log(1 + 1/lambda + 1/theta)} at the
+#'   \emph{marginal} expected count \code{lambda}; Nakagawa, Johnson & Schielzeth
+#'   2017 -- see \code{\link{summary.maihda_model}} for how \code{lambda} is
+#'   computed). Other families (for example \code{Gamma(link = "log")})
 #'   will fit, but \code{summary()} and the VPC/PCV helpers will stop with an
 #'   "not implemented" error because no level-1 variance is defined for them.
 #' @param autobin Logical indicating whether numeric variables used only for

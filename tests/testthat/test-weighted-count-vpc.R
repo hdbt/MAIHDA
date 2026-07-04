@@ -63,7 +63,9 @@ test_that("weighted Poisson residual variance matches the duplicated-row fit", {
   # The pre-fix behaviour (ignore the weights, plain mean over the un-expanded
   # rows) is materially different -- the bug this regression guards against. The
   # negative-binomial path averages through the same helper, so it is covered too.
-  mu_wt <- pmax(as.numeric(stats::fitted(m_wt$model)), .Machine$double.eps)
+  # (The per-row term is computed at the same marginal means the package uses,
+  # so the contrast isolates the weighting alone.)
+  mu_wt <- MAIHDA:::maihda_count_marginal_mu_lme4(m_wt$model)
   expect_false(isTRUE(all.equal(rv_wt, mean(log1p(1 / mu_wt)), tolerance = 1e-3)))
 })
 
@@ -105,12 +107,14 @@ test_that("brms Poisson count VPC averages the latent variance by the sampling w
   expect_false(is.null(w_read))
   expect_equal(length(w_read), maihda_nobs(m$model))
 
-  mu <- pmax(as.numeric(stats::fitted(m$model, summary = TRUE)[, "Estimate"]),
-             .Machine$double.eps)
+  # Per-row latent variance at the same marginal expected counts the package
+  # uses, so the weighted-vs-unweighted contrast isolates the weighting alone.
+  draws <- as.data.frame(m$model)
+  mu <- MAIHDA:::maihda_count_marginal_mu_brms(m$model, draws)
   rv_unwt <- mean(log1p(1 / mu))
   rv_wt   <- maihda_weighted_obs_mean(log1p(1 / mu), w_read)
 
-  rv_path <- maihda_residual_variance_draws_brms(m$model, as.data.frame(m$model))
+  rv_path <- maihda_residual_variance_draws_brms(m$model, draws)
   expect_equal(rv_path[1], rv_wt)                          # uses the weighted average
   expect_false(isTRUE(all.equal(rv_path[1], rv_unwt)))     # not the old unweighted one
 })

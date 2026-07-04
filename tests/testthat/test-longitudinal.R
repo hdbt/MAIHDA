@@ -234,6 +234,51 @@ test_that("longitudinal PCV recovers a mostly-additive trajectory split", {
   expect_gt(a$pcv$Sigma_stratum_adjusted[2, 2], 0)
 })
 
+test_that("longitudinal PCV compares ML-refitted variances, not REML", {
+  # The null and adjusted growth models differ in fixed effects (the dimensions'
+  # main effects + dim:time), across which REML between-stratum variances are not
+  # comparable -- the same pitfall calculate_pcv() ML-refits for. The stored fits
+  # (and hence summary()'s time-varying VPC) keep REML; only the PCV comparison
+  # is on the ML scale, and the object records that basis.
+  expect_true(lme4::isREML(a_g$model$model))
+  expect_true(lme4::isREML(a_g$model_adjusted$model))
+  expect_true(isTRUE(a_g$pcv$ml_refit))
+
+  # Recompute the baseline PCV from hand-ML-refitted blocks: must match exactly.
+  null_ml <- a_g$model
+  null_ml$model <- lme4::refitML(a_g$model$model)
+  adj_ml <- a_g$model_adjusted
+  adj_ml$model <- lme4::refitML(a_g$model_adjusted$model)
+  ref_c <- a_g$model$longitudinal_info$ref_time -
+    maihda_lng_time_center(a_g$model$longitudinal_info)
+  vn <- maihda_var_at_time(maihda_re_block(null_ml, "stratum"), ref_c)
+  va <- maihda_var_at_time(maihda_re_block(adj_ml, "stratum"), ref_c)
+  expect_equal(a_g$pcv$var_baseline_null, vn, tolerance = 1e-6)
+  expect_equal(a_g$pcv$var_baseline_adjusted, va, tolerance = 1e-6)
+  expect_equal(a_g$pcv$pcv_intercept, (vn - va) / vn, tolerance = 1e-6)
+
+  # ... and it genuinely differs from the naive REML-block value it replaces.
+  vn_reml <- maihda_var_at_time(maihda_re_block(a_g$model, "stratum"), ref_c)
+  expect_false(isTRUE(all.equal(a_g$pcv$var_baseline_null, vn_reml,
+                                tolerance = 1e-6)))
+
+  # An explicitly ML-fitted pair (REML = FALSE forwarded to both growth fits)
+  # reproduces the same decomposition: the internal refit is a no-op there.
+  a_ml <- suppressMessages(
+    maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+           data = maihda_long_data, id = "id", time = "wave",
+           decomposition = "longitudinal", REML = FALSE))
+  expect_false(isTRUE(a_ml$pcv$ml_refit))   # nothing needed refitting
+  expect_equal(a_ml$pcv$pcv_intercept, a_g$pcv$pcv_intercept, tolerance = 1e-4)
+  expect_equal(a_ml$pcv$pcv_slope, a_g$pcv$pcv_slope, tolerance = 1e-4)
+
+  # The print method discloses the ML basis when (and only when) a refit ran.
+  expect_output(print(a_g$pcv), "refitted with maximum likelihood")
+  expect_output(print(a_ml$pcv), "mostly additive")
+  expect_false(any(grepl("refitted with maximum likelihood",
+                         capture.output(print(a_ml$pcv)))))
+})
+
 test_that("maihda_interactions refuses a longitudinal analysis or model", {
   # A direct call must NOT fall through to the scalar crossed-dimensions diagnostic:
   # each stratum's interaction is a TRAJECTORY (intercept + slope), so the single
@@ -515,6 +560,31 @@ test_that("binomial longitudinal fit gives a latent-scale time-varying VPC", {
   s <- summary(mb)
   expect_false(is.null(s$longitudinal))
   expect_true(all(is.finite(s$longitudinal$vpc_t$estimate)))
+})
+
+test_that("count longitudinal fit evaluates the level-1 variance at time-varying marginal means", {
+  # A Poisson growth model's marginal expected count carries a TIME-VARYING
+  # lognormal correction: lambda_i = exp(x_i'beta + v_i/2) with v_i the stratum
+  # plus individual growth-block variance a(t_i)' Sigma a(t_i) at the row's
+  # time -- not the conditional fitted mean, whose BLUPs the level-1 variance
+  # must not depend on. Recompute v_i independently from the summary's blocks.
+  d <- subset(maihda_long_data, id %in% unique(maihda_long_data$id)[1:150])
+  set.seed(909)
+  d$events <- rpois(nrow(d), lambda = exp(0.6 + 0.15 * d$wave))
+  mp <- suppressWarnings(suppressMessages(
+    fit_maihda(events ~ wave + (1 | gender:ethnicity:education), data = d,
+               id = "id", time = "wave", family = "poisson")))
+  s <- suppressWarnings(summary(mp))
+  expect_false(is.null(s$longitudinal))
+  expect_true(all(is.finite(s$longitudinal$vpc_t$estimate)))
+
+  tv <- mp$data$wave - s$longitudinal$time_center
+  v_rows <- maihda_var_at_time(s$longitudinal$Sigma_stratum, tv) +
+    maihda_var_at_time(s$longitudinal$Sigma_id, tv)
+  eta <- as.numeric(stats::predict(mp$model, re.form = NA, type = "link"))
+  lambda <- pmax(exp(eta + v_rows / 2), .Machine$double.eps)
+  expect_equal(s$longitudinal$var_resid, mean(log1p(1 / lambda)),
+               tolerance = 1e-8)
 })
 
 # ---- edge cases: higher time_degree, singular fits, explicit-times PCV ------

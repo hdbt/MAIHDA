@@ -176,9 +176,13 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
 # different fixed effects (the canonical null-vs-adjusted PCV), because the REML
 # criterion conditions on the fixed-effects design. Refit a REML lmer fit with ML
 # (lme4::refitML) before any cross-model variance comparison, matching maihda_ic() and
-# anova.merMod. Non-REML fits (glmer / the GLMM families), the brms/wemix/ordinal
-# engines, and longitudinal fits (time-varying variance, handled elsewhere) are
-# returned unchanged. Single-model VPC/ICC summaries deliberately keep their REML fit.
+# anova.merMod. Non-REML fits (glmer / the GLMM families) and the brms/wemix/ordinal
+# engines are returned unchanged. Longitudinal fits are returned unchanged TOO, but
+# only because their null-vs-adjusted comparison applies the same rule itself:
+# maihda_longitudinal_pcv() ML-refits its growth models via
+# maihda_longitudinal_refit_ml() (longitudinal.R), whose boundary guard reads the
+# whole stratum growth block rather than the single intercept cell checked here.
+# Single-model VPC/ICC summaries deliberately keep their REML fit.
 maihda_pcv_refit_ml <- function(model) {
   if (!inherits(model, "maihda_model") || !identical(model$engine, "lme4") ||
       !is.null(model$longitudinal_info)) {

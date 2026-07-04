@@ -661,6 +661,65 @@ maihda_longitudinal_components_table <- function(Sigma_s, Sigma_i, var_resid,
 
 # ---- proportional change in variance (additive vs multiplicative) -----------
 
+# REML lmer between-stratum (co)variance estimates are not comparable across
+# models with different fixed effects -- exactly the longitudinal null-vs-adjusted
+# pair, where the adjusted growth model adds the dimensions' main effects and
+# their dim:time interactions. This applies maihda_pcv_refit_ml()'s rule (see
+# calculate_pcv.R) to the growth models that helper deliberately skips: refit a
+# REML lmer growth fit with ML (lme4::refitML) before maihda_longitudinal_pcv()
+# reads its stratum covariance block. Left on REML, the comparison biases both
+# PCVs downward (overstating the multiplicative/interaction share) and can flip
+# their sign outright with few strata. glmer (GLMM) fits and the brms engine are
+# already on the ML / posterior scale and are returned unchanged, as is a fit
+# whose stratum growth block sits on the boundary (see below). The single-model
+# summaries (the time-varying VPC, the components table) deliberately keep their
+# REML fit, exactly like the cross-sectional VPC/ICC summaries.
+maihda_longitudinal_refit_ml <- function(model) {
+  if (!inherits(model, "maihda_model") || !identical(model$engine, "lme4") ||
+      is.null(model$longitudinal_info)) {
+    return(model)
+  }
+  is_reml <- tryCatch(isTRUE(lme4::isREML(model$model)), error = function(e) FALSE)
+  if (!is_reml) return(model)
+  # Skip the ML refit when the stratum growth block is itself on the boundary
+  # (every variance effectively zero): a(t)' Sigma a(t) is ~0 under either
+  # criterion, the PCV degrades to NA (null at boundary) or ~1 (adjusted at
+  # boundary) either way, and re-optimising would only nudge an exact-zero block
+  # off the boundary. Mirrors maihda_pcv_refit_ml()'s boundary guard. If
+  # refitML() itself fails, the tryCatch below keeps the original (REML) fit.
+  if (maihda_stratum_growth_at_boundary_lme4(model$model)) return(model)
+  refit <- tryCatch(lme4::refitML(model$model), error = function(e) NULL)
+  if (!is.null(refit)) model$model <- refit
+  model
+}
+
+# TRUE when EVERY variance of the stratum growth block sits on the lower boundary
+# (effectively zero), reproducing lme4::isSingular()'s relative tolerance per
+# component: each scaled SD sqrt(var)/sigma_resid is below `tol`. Zero diagonals
+# bound the covariances (|cov| <= sqrt(v_i v_j)), so the whole block -- and hence
+# a(t)' Sigma a(t) at every t -- is ~0. A block with ANY non-negligible variance
+# is worth the ML refit. The growth analogue of
+# maihda_stratum_at_boundary_lme4() (calculate_pcv.R), which reads only the
+# single intercept cell. Returns TRUE (skip the refit) if the block cannot be
+# read at all; maihda_longitudinal_pcv()'s own NA guards then surface the problem.
+maihda_stratum_growth_at_boundary_lme4 <- function(model, tol = 1e-4) {
+  d <- tryCatch({
+    vc <- lme4::VarCorr(model)
+    if (!"stratum" %in% names(vc)) {
+      NA_real_
+    } else {
+      as.numeric(diag(as.matrix(vc[["stratum"]])))
+    }
+  }, error = function(e) NA_real_)
+  if (length(d) == 0 || anyNA(d)) return(TRUE)
+  sigma_resid <- tryCatch(stats::sigma(model), error = function(e) NA_real_)
+  if (!is.finite(sigma_resid) || sigma_resid <= 0) {
+    # No usable residual scale: fall back to an absolute near-zero test.
+    return(all(d <= .Machine$double.eps))
+  }
+  all(sqrt(pmax(d, 0)) / sigma_resid < tol)
+}
+
 #' Longitudinal MAIHDA proportional change in variance (PCV)
 #'
 #' Compares the stratum-level random-effect covariance block of the null growth
@@ -672,6 +731,16 @@ maihda_longitudinal_components_table <- function(Sigma_s, Sigma_i, var_resid,
 #' evaluated at the observed baseline time (\code{ref_time}), so they are
 #' invariant to how the time axis is coded (for linear growth the slope variance
 #' is the same at every time, so this reduces to the slope-variance cell).
+#'
+#' As in \code{\link{calculate_pcv}}, REML \code{lmer} growth fits are refitted
+#' with maximum likelihood (\code{\link[lme4]{refitML}}) before the comparison:
+#' the null and adjusted models differ in fixed effects (the dimensions' main
+#' effects and their \code{dim:time} interactions), across which REML variance
+#' estimates are not comparable -- using them biases both PCVs downward,
+#' overstating the multiplicative/interaction share. The stored models (and the
+#' single-model summaries computed from them, e.g. the time-varying VPC) keep
+#' their REML fit; \code{ml_refit} on the result records whether the refit
+#' applied. glmer (GLMM) and brms fits are already on the ML / posterior scale.
 #'
 #' @param null_model,adjusted_model Longitudinal \code{maihda_model}s from a
 #'   \code{maihda(decomposition = "longitudinal")} pair.
@@ -689,6 +758,24 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
          "covariance blocks are in different coordinates and cannot be compared.",
          call. = FALSE)
   }
+
+  # REML vs ML: the two growth models differ in fixed effects, so their REML
+  # between-stratum covariance blocks are not comparable (see calculate_pcv()).
+  # Refit REML lmer fits with ML before reading the blocks; the caller's stored
+  # models are untouched (copy semantics), so summary()'s time-varying VPC keeps
+  # each fit's own REML estimate. ml_refit records whether the comparison is on
+  # the ML scale -- FALSE also when a boundary skip or a failed refitML() left a
+  # REML fit in place (the print method then makes no ML claim).
+  is_reml_lng <- function(m) {
+    identical(m$engine, "lme4") &&
+      tryCatch(isTRUE(lme4::isREML(m$model)), error = function(e) FALSE)
+  }
+  refit_needed <- is_reml_lng(null_model) || is_reml_lng(adjusted_model)
+  null_model <- maihda_longitudinal_refit_ml(null_model)
+  adjusted_model <- maihda_longitudinal_refit_ml(adjusted_model)
+  ml_refit <- refit_needed &&
+    !(is_reml_lng(null_model) || is_reml_lng(adjusted_model))
+
   Sn <- maihda_re_block(null_model, "stratum")
   Sa <- maihda_re_block(adjusted_model, "stratum")
   deg <- nrow(Sn) - 1L
@@ -738,7 +825,8 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
       Sigma_stratum_null = Sn,
       Sigma_stratum_adjusted = Sa,
       time = lng$time,
-      time_degree = lng$time_degree
+      time_degree = lng$time_degree,
+      ml_refit = ml_refit
     ),
     class = "maihda_long_pcv"
   )
@@ -823,5 +911,16 @@ print.maihda_long_pcv <- function(x, ...) {
       "\nThe PCV is the share of the null model's between-stratum (trajectory) variance\n",
       "explained by the dimensions' additive main effects and their time interactions;\n",
       "a high PCV_slope means trajectory inequalities are 'mostly additive'.\n")))
+  if (isTRUE(x$ml_refit)) {
+    # REML growth fits were ML-refitted for this comparison (see
+    # maihda_longitudinal_pcv), so the variances above are on the ML scale while
+    # summary()'s time-varying VPC keeps each fit's own REML estimate -- say so,
+    # mirroring maihda_table()'s basis note for the cross-sectional PCV.
+    cat(pal$muted(paste0(
+        "(REML growth fits were refitted with maximum likelihood for this comparison --\n",
+        "REML variances are not comparable across the null vs. adjusted fixed effects --\n",
+        "so these variances are on the ML scale; summary()'s time-varying VPC keeps\n",
+        "each fit's own REML estimate. See ?calculate_pcv.)\n")))
+  }
   invisible(x)
 }
