@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-07-02</h4>
+            <h4 data-toc-skip class="date">2026-07-04</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/longitudinal.Rmd" class="external-link"><code>vignettes/longitudinal.Rmd</code></a></small>
       <div class="d-none name"><code>longitudinal.Rmd</code></div>
@@ -222,15 +222,19 @@ is the interaction beyond additive.</p>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Longitudinal PCV (additive vs. multiplicative intersectionality)</span></span></span>
 <span><span class="co">#&gt; ================================================================</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Baseline (wave = 0) variance: 0.4077 (null) -&gt; 0.0332 (adjusted)</span></span>
-<span><span class="co">#&gt;   PCV_intercept: <span style="color: #D78700;">91.9%</span> of the baseline between-stratum inequality is additive.</span></span>
-<span><span class="co">#&gt; Slope (wave) variance at baseline: 0.0428 (null) -&gt; 0.0058 (adjusted)</span></span>
-<span><span class="co">#&gt;   PCV_slope:     <span style="color: #D78700;">86.6%</span> of the *trajectory* between-stratum inequality is additive</span></span>
+<span><span class="co">#&gt; Baseline (wave = 0) variance: 0.3726 (null) -&gt; 0.0166 (adjusted)</span></span>
+<span><span class="co">#&gt;   PCV_intercept: <span style="color: #D78700;">95.5%</span> of the baseline between-stratum inequality is additive.</span></span>
+<span><span class="co">#&gt; Slope (wave) variance at baseline: 0.0392 (null) -&gt; 0.0031 (adjusted)</span></span>
+<span><span class="co">#&gt;   PCV_slope:     <span style="color: #D78700;">92.2%</span> of the *trajectory* between-stratum inequality is additive</span></span>
 <span><span class="co">#&gt;                  (the remainder is the multiplicative/interaction part).</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; The PCV is the share of the null model's between-stratum (trajectory) variance</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; explained by the dimensions' additive main effects and their time interactions;</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; a high PCV_slope means trajectory inequalities are 'mostly additive'.</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; (REML growth fits were refitted with maximum likelihood for this comparison --</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; REML variances are not comparable across the null vs. adjusted fixed effects --</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; so these variances are on the ML scale; summary()'s time-varying VPC keeps</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; each fit's own REML estimate. See ?calculate_pcv.)</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span></code></pre></div>
 <p>The PCV is reported separately for the two pieces of the
 trajectory:</p>

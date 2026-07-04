@@ -134,7 +134,13 @@ maihda(
   the PCV is reported separately for the baseline (intercept) and the
   slope variance – the additive-vs-multiplicative split of the
   intersectional trajectory inequality (Bell, Evans, Holman & Leckie
-  2024). See
+  2024). As with the two-model PCV, REML `lmer` growth fits are refitted
+  with maximum likelihood before the null-vs-adjusted variance
+  comparison (REML variances are not comparable across different fixed
+  effects; see
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)),
+  while the reported time-varying VPC keeps each fit's own (REML)
+  estimate. See
   [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md).
 
 - autobin:
@@ -260,7 +266,10 @@ An object of class `maihda_analysis`: a list with
   the proportional change in variance: the `pcv_result` from
   [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
   in `"two-model"` mode, or a `maihda_long_pcv` (the intercept/slope and
-  time-specific PCV) in `"longitudinal"` mode; `NULL` otherwise
+  time-specific PCV) in `"longitudinal"` mode; `NULL` otherwise. Both
+  are computed on the maximum-likelihood scale (REML `lmer` fits are
+  ML-refitted for the comparison; see
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md))
 
 - decomposition:
 
@@ -397,10 +406,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x55b4cd93f8d0>
+#> <environment: 0x5586aa2aa598>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x55b4cd318d50>
+#> <environment: 0x5586aa22f8e8>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -455,7 +464,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x55b4cb186ce8>
+#> <environment: 0x5586a8e760a0>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

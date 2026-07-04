@@ -32,3 +32,18 @@ maihda_longitudinal_pcv(null_model, adjusted_model, times = NULL)
 ## Value
 
 An object of class `maihda_long_pcv`.
+
+## Details
+
+As in
+[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
+REML `lmer` growth fits are refitted with maximum likelihood
+([`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html)) before the
+comparison: the null and adjusted models differ in fixed effects (the
+dimensions' main effects and their `dim:time` interactions), across
+which REML variance estimates are not comparable – using them biases
+both PCVs downward, overstating the multiplicative/interaction share.
+The stored models (and the single-model summaries computed from them,
+e.g. the time-varying VPC) keep their REML fit; `ml_refit` on the result
+records whether the refit applied. glmer (GLMM) and brms fits are
+already on the ML / posterior scale.

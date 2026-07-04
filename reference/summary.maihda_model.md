@@ -145,9 +145,11 @@ needed. The variance-components table reports the posterior-mean
 variance components, so the stratum proportion shown there may differ
 slightly from the headline VPC because the median of a ratio is not the
 ratio of means. For non-Gaussian `brms` families the level-1 (residual)
-variance uses the usual latent-scale approximation; for `poisson(log)`
-it is evaluated at the posterior-mean fitted values rather than per draw
-to avoid an expensive \\ndraws \times nobs\\ computation.
+variance uses the usual latent-scale approximation; for the count
+families the marginal expected counts are built from the posterior-mean
+fixed effects and random-effect variances rather than per draw, to avoid
+an expensive \\ndraws \times nobs\\ computation (the negative-binomial
+`shape` draws are still propagated).
 
 ## Interpreting the VPC/ICC
 
@@ -162,14 +164,21 @@ captured by the fixed effects, so for models with covariates it is
 conditional on them. It is most commonly read from the null model
 `outcome ~ 1 + (1 | stratum)`, where it is the total between-stratum
 share. For non-Gaussian families the level-1 (residual) variance uses a
-latent/distributional approximation (\\\pi^2/3\\ for logistic,
-\\\log(1 + 1/\mu)\\ for Poisson per Stryhn et al. 2006, and \\\log(1 +
-1/\mu + 1/\theta)\\ for the negative binomial per Nakagawa, Johnson &
-Schielzeth 2017), so the VPC is on that latent scale; for a *weighted*
-Gaussian model the level-1 variance is the mean conditional residual
-variance, \\\bar{\sigma^2 / w_i}\\, since the per-observation residual
-variance is \\\sigma^2 / w_i\\. The stratum random effects represent the
-total between-stratum deviation; they equal the *pure* intersectional
+latent/distributional approximation (\\\pi^2/3\\ for logistic;
+\\\log(1 + 1/\lambda)\\ for Poisson per Stryhn et al. 2006 and
+\\\log(1 + 1/\lambda + 1/\theta)\\ for the negative binomial per
+Nakagawa, Johnson & Schielzeth 2017, each evaluated at the *marginal*
+expected count \\\lambda_i = \exp(x_i'\beta + v_i/2)\\ – the fixed-part
+prediction with the log-normal correction for the row's total
+random-effect variance \\v_i\\, which reduces to Nakagawa et al.'s
+\\\lambda = \exp(\beta_0 + \sigma^2/2)\\ in the null model – and
+averaged over the analytic sample, *not* at the conditional fitted
+means, whose BLUPs would tie the level-1 variance to the realized random
+effects), so the VPC is on that latent scale; for a *weighted* Gaussian
+model the level-1 variance is the mean conditional residual variance,
+\\\bar{\sigma^2 / w_i}\\, since the per-observation residual variance is
+\\\sigma^2 / w_i\\. The stratum random effects represent the total
+between-stratum deviation; they equal the *pure* intersectional
 (interaction) component only when the additive main effects of the
 strata variables are included in the model.
 

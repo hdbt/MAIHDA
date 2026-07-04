@@ -102,9 +102,12 @@ fit_maihda(
   VPC/ICC, PCV) are only defined for `gaussian("identity")`, the
   binomial/Bernoulli families with a logit or probit link,
   `poisson("log")`, and the negative binomial with a log link (level-1
-  variance `log(1 + 1/mu + 1/theta)`; Nakagawa, Johnson & Schielzeth
-  2017). Other families (for example `Gamma(link = "log")`) will fit,
-  but [`summary()`](https://rdrr.io/r/base/summary.html) and the VPC/PCV
+  variance `log(1 + 1/lambda + 1/theta)` at the *marginal* expected
+  count `lambda`; Nakagawa, Johnson & Schielzeth 2017 – see
+  [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
+  for how `lambda` is computed). Other families (for example
+  `Gamma(link = "log")`) will fit, but
+  [`summary()`](https://rdrr.io/r/base/summary.html) and the VPC/PCV
   helpers will stop with an "not implemented" error because no level-1
   variance is defined for them.
 

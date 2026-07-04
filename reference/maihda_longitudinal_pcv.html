@@ -102,6 +102,18 @@ null model's reporting grid.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An object of class <code>maihda_long_pcv</code>.</p>
     </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>As in <code><a href="calculate_pcv.html">calculate_pcv</a></code>, REML <code>lmer</code> growth fits are refitted
+with maximum likelihood (<code><a href="https://rdrr.io/pkg/lme4/man/refitML.html" class="external-link">refitML</a></code>) before the comparison:
+the null and adjusted models differ in fixed effects (the dimensions' main
+effects and their <code>dim:time</code> interactions), across which REML variance
+estimates are not comparable – using them biases both PCVs downward,
+overstating the multiplicative/interaction share. The stored models (and the
+single-model summaries computed from them, e.g. the time-varying VPC) keep
+their REML fit; <code>ml_refit</code> on the result records whether the refit
+applied. glmer (GLMM) and brms fits are already on the ML / posterior scale.</p>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
