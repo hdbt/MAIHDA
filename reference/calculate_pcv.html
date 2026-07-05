@@ -91,7 +91,10 @@ comparison model (typically a more complex model with additional predictors).</p
 
 <dt id="arg-bootstrap">bootstrap<a class="anchor" aria-label="anchor" href="#arg-bootstrap"></a></dt>
 <dd><p>Logical indicating whether to compute bootstrap confidence
-intervals for the PCV. Default is FALSE.</p></dd>
+intervals for the PCV. Default is FALSE. <strong>lme4 engine only</strong>: the
+parametric bootstrap relies on lme4's <code><a href="https://rdrr.io/r/stats/simulate.html" class="external-link">simulate()</a></code>/<code>refit()</code>, so
+for the brms, wemix, and ordinal engines the PCV is reported as a point
+estimate and <code>bootstrap = TRUE</code> is an error (see Details).</p></dd>
 
 
 <dt id="arg-n-boot">n_boot<a class="anchor" aria-label="anchor" href="#arg-n-boot"></a></dt>
@@ -151,12 +154,44 @@ and <code><a href="https://rdrr.io/r/stats/anova.html" class="external-link">ano
 fits (<code>glmer</code>) and the brms/wemix/ordinal engines are already on the
 maximum-likelihood scale and are unaffected; single-model VPC/ICC summaries keep
 their REML fit, since that comparison-free quantity is not subject to the pitfall.</p>
+<p><strong>Latent-scale families and rescaling.</strong> For families whose level-1
+variance is a fixed latent-scale constant – binomial/Bernoulli
+(\(\pi^2/3\) logit, 1 probit) and the cumulative (ordinal) model – the
+linear predictor is identified only up to scale. Adding predictors that
+explain <em>within-stratum</em> (individual-level) variation cannot shrink that
+fixed level-1 variance; the latent scale stretches instead, inflating the
+coefficients and the between-stratum variance alike (Bauer 2009; Mood 2010).
+Part of a null-vs-adjusted change in the between-stratum variance is then
+rescaling rather than genuinely explained variance, so latent-scale PCVs tend
+to be understated and can turn negative on this account alone. The canonical
+MAIHDA adjusted model – which adds the stratum dimensions' main effects,
+constant <em>within</em> each stratum – is largely unaffected, but the caveat
+is first-order whenever an added predictor varies within strata (an
+individual-level covariate, as in the <code><a href="stepwise_pcv.html">stepwise_pcv</a></code> steps that
+add one). The count families' level-1 variance is not a fixed constant, but
+as with any non-identity link the same non-collapsibility logic applies in
+attenuated form. Gaussian identity-link PCVs are not subject to this.</p>
 <p>When bootstrap = TRUE, the function uses a parametric bootstrap: it simulates
 new responses from model2 and refits both models with <code><a href="https://rdrr.io/pkg/lme4/man/refit.html" class="external-link">lme4::refit()</a></code> for
 each simulated response to obtain confidence intervals for the PCV estimate.
 For negative-binomial models (<code>glmer.nb</code>) <code>refit()</code> holds the
 dispersion parameter theta fixed at its original estimate, so the interval is
 conditional on the estimated theta.</p>
+<p>The bootstrap is available for the <code>lme4</code> engine only. For the other
+engines the PCV is a <em>point estimate</em>: a brms fit's posterior credible
+interval (reported by <code><a href="summary.maihda_model.html">summary.maihda_model</a></code>) covers a single
+fit's VPC/ICC, not the PCV, which compares two separately fitted models – no
+posterior interval for the PCV itself is computed – and a design-based
+(wemix) interval would require replicate weights.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
+    <p>Bauer, D. J. (2009). A note on comparing the estimates of models for
+cluster-correlated or longitudinal data with binary or ordinal outcomes.
+<em>Psychometrika</em>, 74(1), 97-105.</p>
+<p>Mood, C. (2010). Logistic regression: why we cannot do what we think we can
+do, and what we can do about it. <em>European Sociological Review</em>, 26(1),
+67-82.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

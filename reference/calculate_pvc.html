@@ -94,7 +94,10 @@ comparison model (typically a more complex model with additional predictors).</p
 
 <dt id="arg-bootstrap">bootstrap<a class="anchor" aria-label="anchor" href="#arg-bootstrap"></a></dt>
 <dd><p>Logical indicating whether to compute bootstrap confidence
-intervals for the PCV. Default is FALSE.</p></dd>
+intervals for the PCV. Default is FALSE. <strong>lme4 engine only</strong>: the
+parametric bootstrap relies on lme4's <code><a href="https://rdrr.io/r/stats/simulate.html" class="external-link">simulate()</a></code>/<code>refit()</code>, so
+for the brms, wemix, and ordinal engines the PCV is reported as a point
+estimate and <code>bootstrap = TRUE</code> is an error (see Details).</p></dd>
 
 
 <dt id="arg-n-boot">n_boot<a class="anchor" aria-label="anchor" href="#arg-n-boot"></a></dt>

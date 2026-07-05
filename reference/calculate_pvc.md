@@ -38,7 +38,11 @@ calculate_pvc(
 - bootstrap:
 
   Logical indicating whether to compute bootstrap confidence intervals
-  for the PCV. Default is FALSE.
+  for the PCV. Default is FALSE. **lme4 engine only**: the parametric
+  bootstrap relies on lme4's
+  [`simulate()`](https://rdrr.io/r/stats/simulate.html)/`refit()`, so
+  for the brms, wemix, and ordinal engines the PCV is reported as a
+  point estimate and `bootstrap = TRUE` is an error (see Details).
 
 - n_boot:
 
