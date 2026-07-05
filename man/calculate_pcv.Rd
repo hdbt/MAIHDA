@@ -20,7 +20,10 @@ reference model (typically a simpler or baseline model).}
 comparison model (typically a more complex model with additional predictors).}
 
 \item{bootstrap}{Logical indicating whether to compute bootstrap confidence
-intervals for the PCV. Default is FALSE.}
+intervals for the PCV. Default is FALSE. \strong{lme4 engine only}: the
+parametric bootstrap relies on lme4's \code{simulate()}/\code{refit()}, so
+for the brms, wemix, and ordinal engines the PCV is reported as a point
+estimate and \code{bootstrap = TRUE} is an error (see Details).}
 
 \item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.}
 
@@ -67,12 +70,37 @@ fits (\code{glmer}) and the brms/wemix/ordinal engines are already on the
 maximum-likelihood scale and are unaffected; single-model VPC/ICC summaries keep
 their REML fit, since that comparison-free quantity is not subject to the pitfall.
 
+\strong{Latent-scale families and rescaling.} For families whose level-1
+variance is a fixed latent-scale constant -- binomial/Bernoulli
+(\eqn{\pi^2/3} logit, 1 probit) and the cumulative (ordinal) model -- the
+linear predictor is identified only up to scale. Adding predictors that
+explain \emph{within-stratum} (individual-level) variation cannot shrink that
+fixed level-1 variance; the latent scale stretches instead, inflating the
+coefficients and the between-stratum variance alike (Bauer 2009; Mood 2010).
+Part of a null-vs-adjusted change in the between-stratum variance is then
+rescaling rather than genuinely explained variance, so latent-scale PCVs tend
+to be understated and can turn negative on this account alone. The canonical
+MAIHDA adjusted model -- which adds the stratum dimensions' main effects,
+constant \emph{within} each stratum -- is largely unaffected, but the caveat
+is first-order whenever an added predictor varies within strata (an
+individual-level covariate, as in the \code{\link{stepwise_pcv}} steps that
+add one). The count families' level-1 variance is not a fixed constant, but
+as with any non-identity link the same non-collapsibility logic applies in
+attenuated form. Gaussian identity-link PCVs are not subject to this.
+
 When bootstrap = TRUE, the function uses a parametric bootstrap: it simulates
 new responses from model2 and refits both models with \code{lme4::refit()} for
 each simulated response to obtain confidence intervals for the PCV estimate.
 For negative-binomial models (\code{glmer.nb}) \code{refit()} holds the
 dispersion parameter theta fixed at its original estimate, so the interval is
 conditional on the estimated theta.
+
+The bootstrap is available for the \code{lme4} engine only. For the other
+engines the PCV is a \emph{point estimate}: a brms fit's posterior credible
+interval (reported by \code{\link{summary.maihda_model}}) covers a single
+fit's VPC/ICC, not the PCV, which compares two separately fitted models -- no
+posterior interval for the PCV itself is computed -- and a design-based
+(wemix) interval would require replicate weights.
 }
 \examples{
 \donttest{
@@ -90,6 +118,15 @@ print(pcv_result$pcv)
 # print(pcv_boot)
 }
 
+}
+\references{
+Bauer, D. J. (2009). A note on comparing the estimates of models for
+cluster-correlated or longitudinal data with binary or ordinal outcomes.
+\emph{Psychometrika}, 74(1), 97-105.
+
+Mood, C. (2010). Logistic regression: why we cannot do what we think we can
+do, and what we can do about it. \emph{European Sociological Review}, 26(1),
+67-82.
 }
 \seealso{
 \code{\link{stepwise_pcv}} for the sequential (one-variable-at-a-time)

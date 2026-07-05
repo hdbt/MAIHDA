@@ -57,6 +57,15 @@ All models are fit on the complete cases for `outcome`, `stratum`, and all
 variables in `vars` so that each sequential variance comparison uses the same
 analytic sample.
 
+For a binary (or ordinal) outcome the sequential between-stratum variances
+live on the latent scale, whose level-1 variance is fixed by the link: a step
+that adds an \emph{individual-level} variable (one varying within strata)
+rescales the latent metric itself, so its \code{Step_PCV} mixes explained
+variance with rescaling and can be understated or negative on that account --
+see the \dQuote{Latent-scale families and rescaling} note in
+\code{\link{calculate_pcv}}. Steps that add a stratum-constant dimension are
+largely unaffected.
+
 For a binary outcome the table additionally tracks discriminatory accuracy
 (Merlo et al. 2016): \code{AUC} is each model's C-statistic and \code{Step_AUC} /
 \code{Total_AUC} are its \emph{absolute} change (delta-AUC), in contrast to the

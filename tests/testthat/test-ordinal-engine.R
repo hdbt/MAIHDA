@@ -391,12 +391,14 @@ test_that("calculate_pcv and maihda() run the two-model ordinal decomposition", 
   expect_true(is.finite(a$pcv$pcv))
   expect_output(print(a), "cumulative")
 
-  # The standalone PCV over the pair agrees and the bootstrap is rejected.
+  # The standalone PCV over the pair agrees and the bootstrap is rejected with
+  # the honest point-estimate guidance (not an engine-switch suggestion: no
+  # engine computes a PCV interval).
   pcv <- calculate_pcv(a$model, a$model_adjusted)
   expect_equal(pcv$pcv, a$pcv$pcv)
   expect_error(
     calculate_pcv(a$model, a$model_adjusted, bootstrap = TRUE, n_boot = 10),
-    "engine = \"brms\""
+    "point estimate"
   )
 
   # All-defaults path: the ordered factor selects the ordinal model end-to-end.

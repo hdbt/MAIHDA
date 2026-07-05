@@ -20,7 +20,10 @@ reference model (typically a simpler or baseline model).}
 comparison model (typically a more complex model with additional predictors).}
 
 \item{bootstrap}{Logical indicating whether to compute bootstrap confidence
-intervals for the PCV. Default is FALSE.}
+intervals for the PCV. Default is FALSE. \strong{lme4 engine only}: the
+parametric bootstrap relies on lme4's \code{simulate()}/\code{refit()}, so
+for the brms, wemix, and ordinal engines the PCV is reported as a point
+estimate and \code{bootstrap = TRUE} is an error (see Details).}
 
 \item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.}
 

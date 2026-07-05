@@ -365,6 +365,29 @@ test_that("calculate_pcv validates bootstrap arguments before model comparison",
   )
 })
 
+test_that("bootstrap_pcv rejects non-lme4 engines with honest per-engine guidance", {
+  fake <- function(engine) {
+    structure(list(engine = engine), class = "maihda_model")
+  }
+  # brms: the old message circularly told brms users to "refit with brms";
+  # the honest guidance is that no PCV interval exists (point estimate only).
+  expect_error(
+    MAIHDA:::bootstrap_pcv(fake("brms"), fake("brms"), 10, 0.95),
+    "point estimate"
+  )
+  brms_msg <- tryCatch(MAIHDA:::bootstrap_pcv(fake("brms"), fake("brms"), 10, 0.95),
+                       error = conditionMessage)
+  expect_false(grepl("refit with engine", brms_msg, fixed = TRUE))
+  expect_error(
+    MAIHDA:::bootstrap_pcv(fake("wemix"), fake("wemix"), 10, 0.95),
+    "replicate weights"
+  )
+  expect_error(
+    MAIHDA:::bootstrap_pcv(fake("ordinal"), fake("ordinal"), 10, 0.95),
+    "point estimate"
+  )
+})
+
 test_that("calculate_pvc is a deprecated alias of calculate_pcv", {
   set.seed(42)
   data <- data.frame(
