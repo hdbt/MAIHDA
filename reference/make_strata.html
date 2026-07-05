@@ -128,15 +128,15 @@ silently overwritten (rename it, or pass <code>autobin = FALSE</code>).</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Create strata from gender and race variables</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">make_strata</span><span class="op">(</span><span class="va">maihda_sim_data</span>, vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">strata_info</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    stratum             label   n gender     race</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1        1      Male × White 152   Male    White</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4        2    Female × White 150 Female    White</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9        3   Male × Hispanic  52   Male Hispanic</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 13       4 Female × Hispanic  32 Female Hispanic</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 15       5    Female × Black  50 Female    Black</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 18       6      Male × Black  44   Male    Black</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 29       7      Male × Asian  13   Male    Asian</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 89       8    Female × Asian   7 Female    Asian</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   stratum             label   n gender     race</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1       1      Male × White 152   Male    White</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2       2    Female × White 150 Female    White</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3       3   Male × Hispanic  52   Male Hispanic</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4       4 Female × Hispanic  32 Female Hispanic</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5       5    Female × Black  50 Female    Black</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6       6      Male × Black  44   Male    Black</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7       7      Male × Asian  13   Male    Asian</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8       8    Female × Asian   7 Female    Asian</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

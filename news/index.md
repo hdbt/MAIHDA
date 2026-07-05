@@ -118,6 +118,32 @@
   longitudinal fits were never affected (already ML / posterior). Fits
   made with `REML = FALSE` are unchanged (the refit is a no-op and
   reproduces the same decomposition).
+- **Stratum display labels are no longer whitespace-padded for
+  mixed-type dimensions.**
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  (and the internal prediction-side label builder) constructed labels by
+  [`apply()`](https://rdrr.io/r/base/apply.html)ing over the
+  stratum-defining columns; on a mixed-type frame
+  [`apply()`](https://rdrr.io/r/base/apply.html)’s
+  [`as.matrix()`](https://rdrr.io/r/base/matrix.html) coercion runs
+  numeric columns through
+  [`format()`](https://rdrr.io/r/base/format.html), padding them to a
+  common width – an unbinned numeric dimension with values 1 and 10
+  produced labels like `"m × 1"` (stray double space) next to
+  `"m × 10"`. Labels are now built from each column’s plain
+  [`as.character()`](https://rdrr.io/r/base/character.html) encoding,
+  the same encoding the value-based stratum matcher uses, so labels and
+  matching agree and no padding is introduced. Display-only: stratum
+  assignment, matching, and estimation were never affected.
+- **`maihda_country_data$low_math` now matches its documented rule
+  exactly.** The flag was derived from the unrounded PISA score before
+  `math` was rounded to one decimal for shipping, so two students at a
+  raw score of ~419.96 carried `math = 420.0` with `low_math = "Yes"`,
+  contradicting the documented “below 420” rule. The flag is now
+  computed from the rounded (stored) score – both in the shipped data
+  and in the `data-raw` script, which also gained a consistency
+  [`stopifnot()`](https://rdrr.io/r/base/stopifnot.html) – flipping
+  those two boundary rows to `"No"` (809 -\> 807 “Yes” of 3,600).
 - **The longitudinal slope PCV read the wrong covariance cell for
   `time_degree >= 2`.** `pcv_slope` compared the raw `Sigma[2, 2]` cells
   of the null and adjusted stratum blocks, on the
