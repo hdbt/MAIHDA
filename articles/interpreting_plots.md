@@ -9,7 +9,7 @@ shows, how to read it, and what not to conclude from it. Calling
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html) with no
 specified `type` draws them all.
 
-Lets start with fitting the model.
+Let’s start with fitting the model.
 
 ``` r
 
@@ -24,12 +24,23 @@ model <- maihda(
   BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
   data = health_complete
 )
-# or equivalently with the helper:
-# model <- fit_maihda(
-#   BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
-#   data = health_complete
-# )
 ```
+
+We fit with
+[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) rather
+than a bare
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+because [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on the
+analysis routes each view to the model it is valid on: the VPC,
+predicted, and shrinkage views below read the **null** model (the total
+between-stratum inequality), while the effect-decomposition views read
+the **adjusted** model (whose fixed effects carry the additive part, so
+the stratum random effect is the pure interaction).
+[`plot()`](https://rdrr.io/r/graphics/plot.default.html) on a single
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+fit shows every view on that one model – with this formula that would be
+the adjusted model, whose VPC is the much smaller *residual interaction*
+share, not the headline between-stratum share.
 
 ## `vpc` – variance partition
 

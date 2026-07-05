@@ -125,7 +125,11 @@ tidy(a, component = "fixed", which = "adjusted")
 Because the output is a plain tibble, you can build your *own* figure
 instead of using the built-in
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html) – here a
-caterpillar of the stratum interaction estimates, ordered by magnitude:
+caterpillar of the stratum estimates, ordered by size. The default
+(`which = "null"`) estimates plotted below are the null model’s *total*
+between-stratum deviations (additive + interaction); for a caterpillar
+of the pure interaction estimates, tidy the adjusted model instead:
+`tidy(a, component = "strata", which = "adjusted")`.
 
 ``` r
 

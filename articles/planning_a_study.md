@@ -2,9 +2,12 @@
 
 ## Before you fit
 
-through those design decisions, with small runnable checks you can do on
-your own data first to evaluate dimensions, the number of strata, and
-the analytic sample
+Most of the decisions that make or break a MAIHDA analysis are taken
+before any model is fitted: which dimensions define the strata, how many
+cells that implies, and whether the sample can populate them. This
+vignette walks through those design decisions, with small runnable
+checks you can do on your own data first to evaluate the dimensions, the
+number of strata, and the analytic sample.
 
 ``` r
 

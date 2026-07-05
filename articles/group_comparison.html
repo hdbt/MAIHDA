@@ -26,7 +26,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -222,7 +222,10 @@ a larger share of mathematics score variation lies between the
 intersectional strata within that country; the <code>pcv</code> column
 shows how much of each country’s between-stratum variance is the
 additive sum of the gender and SES main effects (so a lower PCV flags
-inequality that is more intersection-specific).</p>
+inequality that is more intersection-specific). Here the
+<code>pcv</code> is essentially 1 in every country – a real feature of
+this data, not an artefact; the PCV section below explains why that flat
+result is itself the finding.</p>
 </div>
 <div class="section level2">
 <h2 id="visualizing-the-comparison">Visualizing the comparison<a class="anchor" aria-label="anchor" href="#visualizing-the-comparison"></a>
@@ -269,6 +272,18 @@ inequality is largely the additive sum of its parts; a low (or negative)
 bar flags inequality that is more intersection-specific. (With strata
 defined by a single dimension there is no intersection to decompose, so
 this view and the <code>pcv</code> column are unavailable.)</p>
+<p>In this real-data example the view is deliberately anticlimactic:
+every bar sits at (essentially) 100%. The PISA gender-by-SES achievement
+gaps are almost purely additive, so once the two main effects enter the
+model no between-stratum variance remains in any country – each
+per-country adjusted fit lands on the singular boundary, which is what
+the <code>boundary (singular) fit</code> messages emitted while the
+models were fitted mean here. The flat row of full-height bars is itself
+the substantive result: none of these six countries shows
+intersection-specific gender-by-SES inequality in mathematics. The view
+earns its keep when the bars <em>differ</em> – a country with a visibly
+lower (or negative) bar would be the one whose inequality is more than
+the sum of its parts.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">analysis</span>, type <span class="op">=</span> <span class="st">"group_pcv"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="group_comparison_files/figure-html/group-pcv-plot-1.png" class="r-plt" alt="" width="672"></p>

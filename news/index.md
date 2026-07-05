@@ -137,6 +137,69 @@
   together with the internal centering it makes the whole longitudinal
   decomposition invariant to how the time axis is coded.
 
+### Improvements
+
+- **`calculate_pcv(bootstrap = TRUE)` on a non-lme4 engine now explains
+  what *is* available instead of pointing brms users in a circle.** The
+  old error told every non-lme4 caller to “refit with engine = "brms"
+  (posterior credible intervals)” – circular advice for a brms user, and
+  misleading in general: no engine computes an interval for the PCV
+  itself, because the PCV compares two *separately fitted* models, while
+  the brms credible interval
+  [`summary()`](https://rdrr.io/r/base/summary.html) reports covers a
+  single fit’s VPC/ICC. The message now gives engine-specific, honest
+  guidance (brms: the PCV is a point estimate – the ratio of
+  posterior-mean between-stratum variances – and no posterior PCV
+  interval is computed; wemix: a design-based interval would require
+  replicate weights, not implemented; ordinal: `clmm` has no
+  [`simulate()`](https://rdrr.io/r/stats/simulate.html)/`refit()`
+  machinery), each ending in the actionable advice to call
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  with `bootstrap = FALSE`. The `bootstrap` argument documentation now
+  states the lme4-only restriction up front.
+- **Documented the latent-scale rescaling caveat on the PCV.**
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  and
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  gain a “Latent-scale families and rescaling” note (Bauer 2009,
+  *Psychometrika*; Mood 2010, *Eur Sociol Rev*): for the
+  binomial/Bernoulli and cumulative (ordinal) families the level-1
+  variance is a fixed latent constant, so adding a predictor that varies
+  *within* strata cannot shrink it – the latent scale stretches instead,
+  inflating the between-stratum variance alongside the coefficients.
+  Part of a null-vs-adjusted variance change is then rescaling rather
+  than explained variance, so such PCVs tend to be understated and can
+  turn negative on this account alone. The canonical MAIHDA adjusted
+  model (stratum-constant main effects) is largely unaffected; the
+  caveat is first-order for individual-level covariates, e.g. the
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  steps that add one. Gaussian identity-link PCVs are not subject to it.
+
+### Documentation
+
+- Fixed a mislabelled figure in the reporting vignette: the
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html) caterpillar
+  plotted the null model’s stratum estimates – the *total*
+  between-stratum deviations – but the text called them “interaction
+  estimates” (the pure interactions require
+  `tidy(a, which = "adjusted")`; the vignette now says so).
+- The plot-interpretation vignette no longer claims a bare
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  fit is “equivalent” to the
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis for its plots:
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on the
+  analysis routes the VPC/predicted/shrinkage views to the *null* model
+  and the effect-decomposition views to the *adjusted* model, which a
+  single fit cannot do.
+- The group-comparison vignette now explains its own `group_pcv` figure:
+  with the real PISA data every country’s PCV is essentially 1 (the
+  gender-by-SES gaps are purely additive, so the per-country adjusted
+  fits are singular-boundary), and the flat row of 100% bars is itself
+  the substantive result, not a rendering problem.
+- Restored the accidentally truncated opening paragraph of the “Planning
+  a MAIHDA analysis” vignette.
+
 ## MAIHDA 0.2.0
 
 CRAN release: 2026-07-02
