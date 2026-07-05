@@ -65,6 +65,11 @@ maihda_country_data <- sampled %>%
   mutate(
     ses = cut(.data$escs, breaks = ses_breaks,
               labels = c("Low", "Medium", "High"), include.lowest = TRUE),
+    # Round the score BEFORE deriving the flag, so the shipped data satisfies the
+    # documented rule exactly (low_math == "Yes" iff math < 420 on the stored,
+    # rounded column). Flagging from the raw score put students at ~419.96 into
+    # low_math == "Yes" with a stored math of 420.0.
+    math = round(.data$math, 1),
     # PISA proficiency Level 2 baseline in mathematics is ~420 points.
     low_math = factor(ifelse(.data$math < 420, "Yes", "No"), levels = c("No", "Yes"))
   ) %>%
@@ -73,11 +78,16 @@ maihda_country_data <- sampled %>%
     gender = .data$gender,
     ses = .data$ses,
     escs = round(.data$escs, 3),
-    math = round(.data$math, 1),
+    math = .data$math,
     reading = round(.data$reading, 1),
     low_math = .data$low_math
   ) %>%
   as.data.frame()
+
+stopifnot(identical(
+  maihda_country_data$low_math == "Yes",
+  maihda_country_data$math < 420
+))
 
 stopifnot(
   nrow(maihda_country_data) == n_per_country * length(country_map),

@@ -22,3 +22,4 @@
 ^.*\.Rcheck$
 ^check$
 ^.*\.tar\.gz$
+^tests/testthat/_problems$

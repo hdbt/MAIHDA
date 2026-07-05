@@ -2371,16 +2371,28 @@ maihda_autobin_out_of_range <- function(data, autobin_info) {
   out
 }
 
+# Row-wise display labels from stratum-defining columns, joining each row's
+# values with `sep`. Each column is converted with as.character() individually --
+# NOT via apply(), whose as.matrix() coercion runs numeric columns through
+# format() in a mixed-type frame and pads them to a common width (values 1 and
+# 10 would label as " 1" / "10", leaving a stray space in "m \u00d7  1"). Using
+# as.character() also matches the value encoding of the stratum matcher
+# (maihda_match_strata_rows), so labels and matching agree. unname() keeps a
+# stratum variable literally named "sep"/"collapse" from being captured by
+# paste()'s own arguments.
+maihda_paste_label_rows <- function(df, sep) {
+  cols <- unname(lapply(df, as.character))
+  do.call(paste, c(cols, list(sep = sep)))
+}
+
 maihda_stratum_labels <- function(data, vars, sep = " \u00d7 ", autobin_info = NULL) {
   strata_data <- data[, vars, drop = FALSE]
   strata_data <- maihda_apply_autobin_info(strata_data, autobin_info)
 
   has_missing <- apply(strata_data, 1, function(x) any(is.na(x)))
   labels <- rep(NA_character_, nrow(strata_data))
-  labels[!has_missing] <- apply(
-    strata_data[!has_missing, , drop = FALSE],
-    1,
-    function(x) paste(x, collapse = sep)
+  labels[!has_missing] <- maihda_paste_label_rows(
+    strata_data[!has_missing, , drop = FALSE], sep
   )
   labels
 }

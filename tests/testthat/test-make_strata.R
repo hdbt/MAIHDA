@@ -171,3 +171,30 @@ test_that("make_strata handles all missing values in one variable", {
   # No valid strata should be created
   expect_equal(nrow(result$strata_info), 0)
 })
+
+test_that("labels are not whitespace-padded for mixed-type dimensions", {
+  # A numeric dimension with <= 10 unique values stays numeric, so a factor
+  # alongside it makes the label frame mixed-type. Building labels through
+  # apply()/as.matrix() format()-padded the numeric values to a common width
+  # ("m ×  1" next to "m × 10"); labels must use the plain as.character()
+  # encoding, matching the value-based stratum matching.
+  d <- data.frame(
+    g = factor(rep(c("m", "f"), 3)),
+    k = rep(c(1, 5, 10), each = 2)
+  )
+  s <- make_strata(d, vars = c("g", "k"))
+  expect_setequal(
+    s$strata_info$label,
+    c("m × 1", "f × 5", "m × 5", "f × 1", "m × 10", "f × 10")
+  )
+  expect_false(any(grepl("  ", s$strata_info$label, fixed = TRUE)))
+
+  # The prediction-side label builder must agree with strata_info$label.
+  expect_identical(
+    MAIHDA:::maihda_stratum_labels(d, c("g", "k")),
+    s$strata_info$label[match(
+      paste(d$g, d$k),
+      paste(s$strata_info$g, s$strata_info$k)
+    )]
+  )
+})
