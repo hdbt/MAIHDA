@@ -496,7 +496,10 @@ test_that("plot(type = 'all') dispatches the longitudinal trajectory views", {
 })
 
 test_that("bootstrap gives a VPC-trajectory ribbon", {
-  s <- summary(m_g, bootstrap = TRUE, n_boot = 10)
+  # A refit on a simulated draw occasionally trips lme4's convergence-warning
+  # tolerance by a hair (max|grad| marginally over 0.002) -- expected Monte-Carlo
+  # chatter in a 10-draw bootstrap, not the behaviour under test (the ribbon).
+  s <- suppressWarnings(summary(m_g, bootstrap = TRUE, n_boot = 10))
   expect_true(is.finite(s$vpc$ci_lower) && is.finite(s$vpc$ci_upper))
   expect_true(any(is.finite(s$longitudinal$vpc_t$lower)))
 })

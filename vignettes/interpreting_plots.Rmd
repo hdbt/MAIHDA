@@ -25,7 +25,7 @@ answering a different question. This vignette explains, for every plot type, wha
 it shows, how to read it, and what not to conclude from it. Calling `plot()`
 with no specified `type` draws them all.
 
-Lets start with fitting the model.
+Let's start with fitting the model.
 
 ```{r model}
 library(MAIHDA)
@@ -39,12 +39,17 @@ model <- maihda(
   BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
   data = health_complete
 )
-# or equivalently with the helper:
-# model <- fit_maihda(
-#   BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
-#   data = health_complete
-# )
 ```
+
+We fit with `maihda()` rather than a bare `fit_maihda()` because `plot()` on the
+analysis routes each view to the model it is valid on: the VPC, predicted, and
+shrinkage views below read the **null** model (the total between-stratum
+inequality), while the effect-decomposition views read the **adjusted** model
+(whose fixed effects carry the additive part, so the stratum random effect is the
+pure interaction). `plot()` on a single `fit_maihda()` fit shows every view on
+that one model -- with this formula that would be the adjusted model, whose VPC is
+the much smaller *residual interaction* share, not the headline between-stratum
+share.
 
 ## `vpc` -- variance partition
 

@@ -89,7 +89,9 @@ are populated. Higher VPC/ICC values indicate that a larger share of mathematics
 score variation lies between the intersectional strata within that country; the
 `pcv` column shows how much of each country's between-stratum variance is the
 additive sum of the gender and SES main effects (so a lower PCV flags inequality
-that is more intersection-specific).
+that is more intersection-specific). Here the `pcv` is essentially 1 in every
+country -- a real feature of this data, not an artefact; the PCV section below
+explains why that flat result is itself the finding.
 
 ## Visualizing the comparison
 
@@ -136,6 +138,17 @@ bar means that country's intersectional inequality is largely the additive sum o
 its parts; a low (or negative) bar flags inequality that is more
 intersection-specific. (With strata defined by a single dimension there is no
 intersection to decompose, so this view and the `pcv` column are unavailable.)
+
+In this real-data example the view is deliberately anticlimactic: every bar sits
+at (essentially) 100%. The PISA gender-by-SES achievement gaps are almost purely
+additive, so once the two main effects enter the model no between-stratum
+variance remains in any country -- each per-country adjusted fit lands on the
+singular boundary, which is what the `boundary (singular) fit` messages emitted
+while the models were fitted mean here. The flat row of full-height bars is
+itself the substantive result: none of these six countries shows
+intersection-specific gender-by-SES inequality in mathematics. The view earns its
+keep when the bars *differ* -- a country with a visibly lower (or negative) bar
+would be the one whose inequality is more than the sum of its parts.
 
 ```{r group-pcv-plot}
 plot(analysis, type = "group_pcv")
