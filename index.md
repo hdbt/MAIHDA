@@ -101,7 +101,7 @@ plot(analysis) # plots all plot types
 
 A wrapper that runs the standard two-model MAIHDA workflow: it fits the
 **null** model (covariates only) and the **adjusted** model (plus the
-dimensions’ additive main effects, summarises the null-model VPC/ICC,
+dimensions’ additive main effects), summarises the null-model VPC/ICC,
 and reports the **PCV** (the additive share of the intersectional
 inequality). When a `group` is supplied it also runs this decomposition
 within each group. Alternatively, `decomposition = "crossed-dimensions"`
