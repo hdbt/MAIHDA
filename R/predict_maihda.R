@@ -290,20 +290,31 @@ maihda_brms_unseen_re_formula <- function(object) {
 # scale an aggregated-binomial `y | trials(n)` fit returns the expected COUNT
 # (trials * p), so it is normalised to a probability (matching lme4's cbind() fit);
 # a categorical-likelihood fit returns an nobs x summary x category array, collapsed
-# to the expected category score (categories scored 1..K in order).
+# to the expected category score (categories scored 1..K in order). The link scale
+# is the posterior-mean linear predictor (maihda_brms_linpred_mean; brms's
+# posterior_linpred returns draws and ignores a summary= argument).
 maihda_brms_predict_rows <- function(object, nd, scale, dots) {
   model <- object$model
   if (scale == "response") {
     f <- do.call(stats::fitted,
                  c(list(model, newdata = nd, summary = TRUE), dots))
     if (length(dim(f)) == 3) {
-      est <- f[, "Estimate", ]
-      return(drop(est %*% seq_len(ncol(est))))
+      return(maihda_brms_fitted_array_scores(f))
     }
     return(maihda_brms_response_to_prob(object, f[, "Estimate"], nd))
   }
-  do.call(brms::posterior_linpred,
-          c(list(model, newdata = nd, summary = TRUE), dots))[, "Estimate"]
+  do.call(maihda_brms_linpred_mean, c(list(model, newdata = nd), dots))
+}
+
+# Expected category scores sum_k k * P(Y = k) from a brms fitted() SUMMARY array
+# (nobs x summary-statistics x category), as returned for a cumulative /
+# categorical likelihood. The Estimate slice is rebuilt as an explicit
+# nobs x ncat matrix: plain f[, "Estimate", ] drops BOTH unit margins for a
+# single prediction row, leaving a bare category vector whose ncol() is NULL
+# (seq_len() then errors), so one-row newdata used to fail here.
+maihda_brms_fitted_array_scores <- function(f) {
+  est <- matrix(f[, "Estimate", ], nrow = dim(f)[1], ncol = dim(f)[3])
+  drop(est %*% seq_len(ncol(est)))
 }
 
 # Restrict a per-stratum prediction table to the strata present in `newdata` so

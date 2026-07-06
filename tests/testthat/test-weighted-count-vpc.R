@@ -117,4 +117,16 @@ test_that("brms Poisson count VPC averages the latent variance by the sampling w
   rv_path <- maihda_residual_variance_draws_brms(m$model, draws)
   expect_equal(rv_path[1], rv_wt)                          # uses the weighted average
   expect_false(isTRUE(all.equal(rv_path[1], rv_unwt)))     # not the old unweighted one
+
+  # Public paths over the same fit -- regression guards for the draws-only
+  # posterior_linpred (real brms ignores summary = TRUE): summary() of a brms
+  # count fit, link-scale prediction, and the stratum predictions behind
+  # plot(type = "predicted") / maihda_table() must all work against real brms.
+  s <- suppressWarnings(summary(m))
+  expect_true(is.finite(s$vpc$estimate) && s$vpc$estimate > 0 && s$vpc$estimate < 1)
+  eta <- predict_maihda(m, type = "individual", scale = "link")
+  expect_length(eta, maihda_nobs(m$model))
+  expect_true(all(is.finite(eta)))
+  sp <- MAIHDA:::maihda_stratum_predictions_brms(m, s, scale = "response")
+  expect_true(all(is.finite(sp$predicted_row)))
 })

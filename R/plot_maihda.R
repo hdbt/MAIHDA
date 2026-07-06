@@ -1404,8 +1404,8 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
     preds_total <- tryCatch(predict(object$model, type = "link"), error = function(e) rep(NA, nrow(data)))
     preds_fixed <- tryCatch(predict(object$model, type = "link", re.form = NA), error = function(e) rep(NA, nrow(data)))
   } else if (object$engine == "brms") {
-    preds_total <- tryCatch(brms::posterior_linpred(object$model, summary = TRUE)[, "Estimate"], error = function(e) rep(NA, nrow(data)))
-    preds_fixed <- tryCatch(brms::posterior_linpred(object$model, re_formula = NA, summary = TRUE)[, "Estimate"], error = function(e) rep(NA, nrow(data)))
+    preds_total <- tryCatch(maihda_brms_linpred_mean(object$model), error = function(e) rep(NA, nrow(data)))
+    preds_fixed <- tryCatch(maihda_brms_linpred_mean(object$model, re_formula = NA), error = function(e) rep(NA, nrow(data)))
   } else if (object$engine == "wemix") {
     preds_total <- tryCatch(maihda_wemix_linpred(object, include_re = TRUE), error = function(e) rep(NA, nrow(data)))
     preds_fixed <- tryCatch(maihda_wemix_linpred(object, include_re = FALSE), error = function(e) rep(NA, nrow(data)))
@@ -1801,8 +1801,7 @@ maihda_longitudinal_fixed_trajectory <- function(object, grid) {
   if (identical(object$engine, "lme4")) {
     as.numeric(stats::predict(object$model, newdata = nd, re.form = NA))
   } else if (identical(object$engine, "brms")) {
-    as.numeric(colMeans(brms::posterior_linpred(object$model, newdata = nd,
-                                                re_formula = NA)))
+    maihda_brms_linpred_mean(object$model, newdata = nd, re_formula = NA)
   } else {
     stop("Longitudinal trajectories are available for lme4/brms only.", call. = FALSE)
   }

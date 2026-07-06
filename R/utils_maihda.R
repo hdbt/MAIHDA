@@ -1659,6 +1659,31 @@ maihda_brms_re_block_mean <- function(draws, group, design_names) {
   S
 }
 
+# Posterior-mean linear predictor of a brms fit, one value per prediction row.
+# brms's posterior_linpred() returns the ndraws x nobs DRAWS matrix and has no
+# summary argument: a `summary = TRUE` passed by the caller is silently
+# swallowed by prepare_predictions() (brms hard-codes summary = FALSE in its
+# internal posterior_epred() call), so the historical
+# posterior_linpred(..., summary = TRUE)[, "Estimate"] idiom fails on the
+# unnamed draws matrix ("no 'dimnames' attribute"). Collapse the draws to their
+# posterior mean here -- the same estimand that idiom intended -- in one shared
+# place. `...` is forwarded to posterior_linpred (newdata, re_formula,
+# allow_new_levels, ...). If a brms version ever returns a summary matrix
+# again, its "Estimate" column is that same posterior mean, so it is accepted.
+maihda_brms_linpred_mean <- function(model, ...) {
+  draws <- brms::posterior_linpred(model, ...)
+  if (!is.null(colnames(draws)) && "Estimate" %in% colnames(draws)) {
+    return(as.numeric(draws[, "Estimate"]))
+  }
+  if (is.null(dim(draws))) {
+    # Defensive: a dimensionless return can only be the draws of a single
+    # prediction row (brms never returns one draw), so its mean is that row's
+    # posterior-mean linear predictor.
+    return(mean(as.numeric(draws)))
+  }
+  as.numeric(colMeans(draws))
+}
+
 # brms counterpart of maihda_count_marginal_mu_lme4(): lambda_i =
 # exp(eta_i + v_i/2) with eta the posterior-mean fixed-part linear predictor
 # and v_i built from the posterior-mean covariance blocks -- point-estimate
@@ -1666,8 +1691,7 @@ maihda_brms_re_block_mean <- function(draws, group, design_names) {
 # per-draw residual-variance path documents.
 maihda_count_marginal_mu_brms <- function(model,
                                           draws = maihda_posterior_draws_brms(model)) {
-  eta <- as.numeric(
-    brms::posterior_linpred(model, re_formula = NA, summary = TRUE)[, "Estimate"])
+  eta <- maihda_brms_linpred_mean(model, re_formula = NA)
   f <- model$formula
   if (inherits(f, "brmsformula") && inherits(f$formula, "formula")) {
     f <- f$formula
@@ -2598,7 +2622,7 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
   fam <- maihda_family(model)
   linkinv <- maihda_linkinv(fam)
   prior_w <- maihda_prediction_weights(object)
-  eta_fixed <- brms::posterior_linpred(model, newdata = data, re_formula = NA, summary = TRUE)[, "Estimate"]
+  eta_fixed <- maihda_brms_linpred_mean(model, newdata = data, re_formula = NA)
 
   # A cumulative (ordinal) brms fit's response scale is the EXPECTED CATEGORY
   # SCORE sum_k k * P(Y = k) in [1, K], NOT the scalar inverse link (which would
@@ -2641,11 +2665,10 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
   # eta(all REs) - u_stratum, so adding the stratum RE recovers the full prediction.
   eta_base <- eta_fixed
   if (!is.null(object$cc_info)) {
-    eta_allre <- brms::posterior_linpred(model, newdata = data,
-                                         summary = TRUE)[, "Estimate"]
+    eta_allre <- maihda_brms_linpred_mean(model, newdata = data)
     u_row <- stratum_est$random_effect[idx]
     u_row[is.na(u_row)] <- 0
-    eta_base <- as.numeric(eta_allre) - u_row
+    eta_base <- eta_allre - u_row
   }
 
   pred_df <- data.frame(

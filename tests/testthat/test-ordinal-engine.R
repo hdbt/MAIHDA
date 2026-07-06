@@ -531,10 +531,17 @@ test_that("brms cumulative stratum predictions are expected category scores (Sta
 
   # posterior_linpred(re_formula = NA) returns the location mu; fixef() carries
   # the thresholds as Intercept[1], Intercept[2] PLUS a location predictor row
-  # 'x' that the threshold extractor must ignore.
+  # 'x' that the threshold extractor must ignore. The mock returns what real
+  # brms returns: the ndraws x nobs DRAWS matrix (no dimnames, no summary
+  # columns; a summary= argument is ignored), which the package collapses via
+  # maihda_brms_linpred_mean(). Symmetric +/- 0.05 jitter keeps the posterior
+  # mean exactly eta_fixed while failing any non-averaging read of the matrix.
   local_mocked_bindings(
     posterior_linpred = function(object, ...) {
-      matrix(eta_fixed, ncol = 1, dimnames = list(NULL, "Estimate"))
+      rbind(
+        matrix(rep(eta_fixed + 0.05, each = 20), nrow = 20),
+        matrix(rep(eta_fixed - 0.05, each = 20), nrow = 20)
+      )
     },
     fixef = function(object, ...) {
       matrix(c(thresholds, 0.4), ncol = 1,
@@ -614,4 +621,11 @@ test_that("brms cumulative summary returns a draws-based latent VPC", {
   # expected category score.
   sc <- predict_maihda(m, type = "individual", scale = "response")
   expect_true(all(sc >= 1 & sc <= 4))
+
+  # A SINGLE prediction row must work too: the fitted() array's Estimate slice
+  # drops to a bare vector for one row, which used to error (ncol() = NULL).
+  sc1 <- predict_maihda(m, newdata = d[1, , drop = FALSE],
+                        type = "individual", scale = "response")
+  expect_length(sc1, 1L)
+  expect_true(sc1 >= 1 && sc1 <= 4)
 })

@@ -1132,3 +1132,113 @@ test_that("bootstrap n_boot must clear the 10-refit minimum up front", {
   )
 })
 
+
+test_that("maihda_brms_linpred_mean collapses the posterior_linpred draws matrix (Stan-free)", {
+  # Regression for the audit finding: brms's posterior_linpred() returns the
+  # ndraws x nobs DRAWS matrix and silently IGNORES a summary = TRUE argument
+  # (it is swallowed by prepare_predictions(); summary = FALSE is hard-coded in
+  # the internal posterior_epred() call). Every
+  # posterior_linpred(..., summary = TRUE)[, "Estimate"] site therefore failed
+  # with "no 'dimnames' attribute" on real brms >= ~2.16: summary() of a brms
+  # Poisson/negbin fit, predict_maihda(scale = "link"), the stratum-prediction
+  # plots/tables, and (silently, via tryCatch) the brms effect-decomposition
+  # panel. All sites now collapse the draws through this shared helper.
+  skip_if_not_installed("brms")
+
+  eta <- c(-0.4, 0.2, 1.1)
+  captured <- NULL
+  local_mocked_bindings(
+    posterior_linpred = function(object, ...) {
+      captured <<- list(...)
+      # Real-brms shape: draws matrix, no dimnames. +/- 0.3 symmetric jitter
+      # keeps colMeans exactly eta while failing a first-row (non-averaging)
+      # or an [, "Estimate"]-style read.
+      rbind(
+        matrix(rep(eta + 0.3, each = 10), nrow = 10),
+        matrix(rep(eta - 0.3, each = 10), nrow = 10)
+      )
+    },
+    .package = "brms"
+  )
+
+  fit <- structure(list(), class = "brmsfit")
+  got <- MAIHDA:::maihda_brms_linpred_mean(fit, re_formula = NA)
+  expect_equal(got, eta, tolerance = 1e-12)
+  # Arguments are forwarded to posterior_linpred verbatim.
+  expect_true("re_formula" %in% names(captured))
+
+  # Forward/backward compatibility: a summary-shaped return (an "Estimate"
+  # column, the pre-draws brms contract the old idiom assumed) is still read
+  # correctly rather than column-averaged.
+  local_mocked_bindings(
+    posterior_linpred = function(object, ...) {
+      matrix(eta, ncol = 1, dimnames = list(NULL, "Estimate"))
+    },
+    .package = "brms"
+  )
+  expect_equal(MAIHDA:::maihda_brms_linpred_mean(fit), eta, tolerance = 1e-12)
+})
+
+test_that("brms count marginal means survive the draws-only posterior_linpred (Stan-free)", {
+  # The count-family VPC reads its marginal expected counts through
+  # maihda_count_marginal_mu_brms(); with the old summary = TRUE idiom this was
+  # the line that made summary() ERROR on every real brms Poisson/negbin fit.
+  skip_if_not_installed("brms")
+
+  eta <- c(0.2, 0.2, 0.9, 0.9)
+  local_mocked_bindings(
+    posterior_linpred = function(object, ...) {
+      rbind(
+        matrix(rep(eta + 0.1, each = 8), nrow = 8),
+        matrix(rep(eta - 0.1, each = 8), nrow = 8)
+      )
+    },
+    .package = "brms"
+  )
+
+  d <- data.frame(y = c(1, 2, 3, 4),
+                  stratum = c("s1", "s1", "s2", "s2"),
+                  stringsAsFactors = FALSE)
+  fit <- structure(list(formula = y ~ (1 | stratum), data = d),
+                   class = "brmsfit")
+  # Hand-built posterior draws: intercept-only stratum RE with sd draws whose
+  # mean square is 0.25, so v_i = 0.25 for every row.
+  draws <- data.frame(sd_stratum__Intercept = c(0.3, 0.7))
+  v <- mean(c(0.3, 0.7)^2)
+
+  mu <- MAIHDA:::maihda_count_marginal_mu_brms(fit, draws)
+  expect_equal(mu, exp(eta + v / 2), tolerance = 1e-12)
+})
+
+test_that("brms fitted() category arrays collapse to scores for a single row (Stan-free)", {
+  # Regression for the audit finding: for a cumulative/categorical brms fit,
+  # fitted(summary = TRUE) returns an nobs x summary x category array, and the
+  # response-scale collapse did f[, "Estimate", ], which for ONE prediction row
+  # drops both unit margins to a bare category vector -- ncol() is then NULL and
+  # seq_len(NULL) errors. So predict_maihda(<brms cumulative>, newdata = <one
+  # row>, scale = "response") failed. The Estimate slice is now rebuilt as an
+  # explicit nobs x ncat matrix.
+  stat_names <- c("Estimate", "Est.Error", "Q2.5", "Q97.5")
+  probs <- rbind(c(0.2, 0.5, 0.3),
+                 c(0.6, 0.3, 0.1))
+  want <- drop(probs %*% 1:3)
+
+  make_f <- function(p) {
+    k <- ncol(p)
+    f <- array(NA_real_, dim = c(nrow(p), 4, k),
+               dimnames = list(NULL, stat_names, NULL))
+    f[, "Estimate", ] <- p
+    f[, "Est.Error", ] <- 0.01
+    f[, "Q2.5", ] <- p - 0.02
+    f[, "Q97.5", ] <- p + 0.02
+    f
+  }
+
+  # Multi-row arrays keep working...
+  expect_equal(MAIHDA:::maihda_brms_fitted_array_scores(make_f(probs)), want,
+               tolerance = 1e-12)
+  # ...and a single-row array no longer errors and gives that row's score.
+  f1 <- make_f(probs[1, , drop = FALSE])
+  expect_equal(MAIHDA:::maihda_brms_fitted_array_scores(f1), want[1],
+               tolerance = 1e-12)
+})
