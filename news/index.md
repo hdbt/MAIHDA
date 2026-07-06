@@ -7,15 +7,6 @@
 - **[`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
   has been renamed to
   [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).**
-  The function computes the PCV (proportional change in variance), but
-  its historical name transposed the acronym – inconsistently with
-  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
-  [`maihda_longitudinal_pcv()`](https://hdbt.github.io/MAIHDA/reference/maihda_longitudinal_pcv.md),
-  the `pcv` column of
-  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md),
-  and its own documentation and output, which all spell it PCV.
-  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
-  is now the canonical name;
   [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
   remains as a deprecated alias that warns and forwards, and will be
   removed in a future release. The result object carries the estimate in
@@ -32,6 +23,48 @@
 
 ### Bug Fixes
 
+- **The brms engine’s linear-predictor reads were broken under current
+  brms (\>= ~2.16): `posterior_linpred()` ignores a `summary = TRUE`
+  argument and returns the raw draws matrix, so several brms paths
+  errored.** The package read posterior-mean linear predictors via
+  `brms::posterior_linpred(..., summary = TRUE)[, "Estimate"]` – the
+  pre-draws brms contract. Modern brms silently swallows
+  `summary = TRUE` (it is absorbed by `prepare_predictions()`;
+  `summary = FALSE` is hard-coded internally) and returns the unnamed
+  `ndraws x nobs` draws matrix, so the `[, "Estimate"]` subscript failed
+  with *“no ‘dimnames’ attribute for arrays”*. Consequences on real brms
+  fits: [`summary()`](https://rdrr.io/r/base/summary.html) of a
+  **Poisson/negative-binomial** brms MAIHDA **errored** (the count VPC’s
+  marginal expected counts read the fixed-part predictor this way),
+  `predict_maihda(scale = "link")` errored for every brms fit, the
+  stratum predictions behind
+  `plot(type = "predicted"/"obs_vs_shrunken"/"upset")` and
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
+  errored for every brms fit, and the brms branch of
+  `plot(type = "effect_decomp")` silently rendered from all-`NA`
+  predictions (its `tryCatch` swallowed the error). All five call sites
+  now collapse the draws to their posterior mean through one shared
+  helper (`maihda_brms_linpred_mean()`, which also still accepts a
+  summary-shaped return for compatibility) – the same estimand the old
+  idiom intended, so results on brms versions where the old idiom worked
+  are unchanged. The escape from the test suite is closed too: the
+  Stan-free tests had mocked `posterior_linpred()` with the obsolete
+  summary-shaped return, and the real-Stan tests are opt-in; the mocks
+  now return real-shaped draws matrices, and the opt-in brms tests
+  additionally exercise
+  [`summary()`](https://rdrr.io/r/base/summary.html), link-scale
+  prediction, and the stratum predictions on a real count fit.
+- **A single-row `newdata` errored for response-scale predictions from a
+  brms cumulative (ordinal) fit.**
+  [`fitted()`](https://rdrr.io/r/stats/fitted.values.html) returns an
+  `nobs x summary x category` array for a cumulative likelihood;
+  collapsing it to expected category scores indexed `[, "Estimate", ]`,
+  which for one prediction row drops both unit margins to a bare vector,
+  so [`ncol()`](https://rdrr.io/r/base/nrow.html) was `NULL` and
+  [`seq_len()`](https://rdrr.io/r/base/seq.html) errored. The Estimate
+  slice is now rebuilt as an explicit `nobs x ncat` matrix (new helper
+  `maihda_brms_fitted_array_scores()`), so predicting a single profile
+  works; multi-row predictions are numerically unchanged.
 - **Longitudinal (growth-curve) fits on a time axis that does not start
   at 0 could silently converge to a wrong solution; the growth terms are
   now fit on internally centered time.** The 3-level growth model was
