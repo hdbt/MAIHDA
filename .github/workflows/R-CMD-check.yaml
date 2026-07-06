@@ -5,6 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   R-CMD-check:
@@ -45,3 +46,79 @@ jobs:
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
+
+  CRAN-brms-check:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+       contains(join(github.event.commits.*.message, '\n'), 'CRAN'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      # Both gates must be open for the Stan-backed tests:
+      # MAIHDA_TEST_BRMS enables the package's brms opt-in tests, while NOT_CRAN
+      # prevents testthat::skip_on_cran() from skipping those slow paths.
+      MAIHDA_TEST_BRMS: "true"
+      NOT_CRAN: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-tinytex@v2
+
+      - name: Install system tools for CRAN-style checks
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qpdf
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          dependencies: '"all"'
+          extra-packages: |
+            any::rcmdcheck
+            any::brms
+            any::rstan
+            any::BH
+            any::StanHeaders
+            any::RcppEigen
+            any::RcppParallel
+            any::Rcpp
+
+      - name: Report environment and Stan backend
+        run: |
+          cat("MAIHDA_TEST_BRMS=", Sys.getenv("MAIHDA_TEST_BRMS"), "\n", sep = "")
+          cat("NOT_CRAN=", Sys.getenv("NOT_CRAN"), "\n", sep = "")
+          for (p in c("brms", "rstan", "BH", "StanHeaders", "RcppEigen",
+                      "RcppParallel", "Rcpp")) {
+            cat(p, " ", as.character(packageVersion(p)), "\n", sep = "")
+          }
+          boost_inc <- system.file("include", package = "BH")
+          if (!nzchar(boost_inc) || !dir.exists(boost_inc)) {
+            stop("BH (Boost) headers not found; Stan model compilation would fail.")
+          }
+        shell: Rscript {0}
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          args: 'c("--as-cran")'
+          build_args: 'character()'
+          check-dir: '"check"'
+          error-on: '"warning"'
+          upload-snapshots: true
+
+      - name: Show check output on failure
+        if: failure()
+        run: |
+          find check -name '00check.log' -print -exec cat '{}' \; || true
+          find check -name 'testthat.Rout*' -print -exec cat '{}' \; || true
+        shell: bash
