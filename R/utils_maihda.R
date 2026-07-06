@@ -1672,6 +1672,19 @@ maihda_brms_re_block_mean <- function(draws, group, design_names) {
 # again, its "Estimate" column is that same posterior mean, so it is accepted.
 maihda_brms_linpred_mean <- function(model, ...) {
   draws <- brms::posterior_linpred(model, ...)
+  # A categorical() likelihood returns a 3-D ndraws x nobs x ncat array (one
+  # linear predictor per response category), for which a single posterior-mean
+  # linear predictor per row is undefined -- and colMeans() below would silently
+  # flatten it to a wrong-length nobs * ncat vector. No family the MAIHDA
+  # summaries support produces more than 2 dims; reject rather than return
+  # garbage.
+  if (length(dim(draws)) > 2L) {
+    stop("brms::posterior_linpred() returned a ", length(dim(draws)),
+         "-dimensional draws array (one linear predictor per response ",
+         "category, as for a categorical() likelihood), so a single ",
+         "posterior-mean linear predictor per row is not defined for this ",
+         "model's family.", call. = FALSE)
+  }
   if (!is.null(colnames(draws)) && "Estimate" %in% colnames(draws)) {
     return(as.numeric(draws[, "Estimate"]))
   }

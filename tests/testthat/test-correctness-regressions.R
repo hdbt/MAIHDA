@@ -1179,6 +1179,29 @@ test_that("maihda_brms_linpred_mean collapses the posterior_linpred draws matrix
   expect_equal(MAIHDA:::maihda_brms_linpred_mean(fit), eta, tolerance = 1e-12)
 })
 
+test_that("maihda_brms_linpred_mean rejects a 3-D per-category draws array (Stan-free)", {
+  # Hardening: a categorical() likelihood (not a supported MAIHDA family, but
+  # fittable through fit_maihda(engine = "brms")) makes posterior_linpred()
+  # return a 3-D ndraws x nobs x ncat array -- one linear predictor per response
+  # category. colMeans() would silently flatten that to a wrong-length
+  # nobs * ncat vector; the pre-helper code errored loudly there, so the shared
+  # helper must reject it rather than return garbage.
+  skip_if_not_installed("brms")
+
+  local_mocked_bindings(
+    posterior_linpred = function(object, ...) {
+      array(seq_len(10 * 3 * 4) / 10, dim = c(10, 3, 4))
+    },
+    .package = "brms"
+  )
+
+  fit <- structure(list(), class = "brmsfit")
+  expect_error(
+    MAIHDA:::maihda_brms_linpred_mean(fit),
+    "one linear predictor per response category"
+  )
+})
+
 test_that("brms count marginal means survive the draws-only posterior_linpred (Stan-free)", {
   # The count-family VPC reads its marginal expected counts through
   # maihda_count_marginal_mu_brms(); with the old summary = TRUE idiom this was

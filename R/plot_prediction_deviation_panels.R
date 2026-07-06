@@ -449,7 +449,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
         weight = prior_w
       )
 
-is_aggregated <- "stratum" %in% names(df)
+    is_aggregated <- "stratum" %in% names(df)
 
     if (is_aggregated) {
       # Prior-weight-weighted per-stratum means (fitted probability, SE, and
