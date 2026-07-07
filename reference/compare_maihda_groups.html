@@ -94,6 +94,7 @@ share of that group's intersectional inequality.</p>
 <span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
 <span>  autobin <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  decomposition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"two-model"</span>, <span class="st">"crossed-dimensions"</span><span class="op">)</span>,</span>
+<span>  context <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sampling_weights <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -186,6 +187,25 @@ variance (additive + interaction). See <code><a href="maihda.html">maihda</a></c
 model and its caveats.</p></dd>
 
 
+<dt id="arg-context">context<a class="anchor" aria-label="anchor" href="#arg-context"></a></dt>
+<dd><p>Optional character vector naming higher-level <em>context</em>
+column(s) in <code>data</code> (e.g. <code>"school"</code>, <code>"region"</code>). Each
+per-group fit then becomes a contextual cross-classified model –
+<code>outcome ~ covars + (1 | stratum) + (1 | context)</code> – so within every
+group the stratum random intercept is crossed with the context random
+intercept(s). <code>vpc</code>/<code>var_between</code> are then the between-stratum
+quantities <em>net of</em> the context, and two columns report the per-group
+context partition: <code>var_context</code> (the between-context variance, summed
+over contexts) and <code>vpc_context</code> (the contexts' share of the group's
+unexplained variance). The per-context split is kept on the
+<code>"context_per"</code> attribute. A per-group subset shrinks each context's
+level count, so groups with too few context levels (&lt; 10) to identify the
+context variance are named in a single warning. Forwarded to
+<code><a href="fit_maihda.html">fit_maihda</a></code>; not available for the <code>wemix</code>/<code>ordinal</code>
+engines (they fit no crossed random effect), and the <code>context</code> may not
+name the <code>group</code> variable itself.</p></dd>
+
+
 <dt id="arg-sampling-weights">sampling_weights<a class="anchor" aria-label="anchor" href="#arg-sampling-weights"></a></dt>
 <dd><p>Optional name of a sampling-weight column in
 <code>data</code> for design-weighted per-group fits; see <code><a href="fit_maihda.html">fit_maihda</a></code>.
@@ -222,7 +242,13 @@ its own members' weights. Not compatible with <code>engine = "lme4"</code>,
   maximum-likelihood scale as the PCV; it differs from <code>var_between_adjusted</code>
   only by the small REML-vs-ML gap in the null variance). All three are
   <code>NA</code> for a group whose adjusted fit failed, and the columns are
-  omitted entirely when the strata have a single dimension. <code>n</code> is the analytic sample size used by the
+  omitted entirely when the strata have a single dimension. When <code>context</code>
+  is supplied, two further columns report each group's contextual partition:
+  <code>var_context</code> (the between-context variance, summed over contexts) and
+  <code>vpc_context</code> (the contexts' share of the group's unexplained variance);
+  the per-context split is on the <code>"context_per"</code> attribute and the
+  context name(s) on <code>"context_var"</code>. These are dropped when no context is
+  supplied. <code>n</code> is the analytic sample size used by the
   model (after dropping rows with a missing outcome/covariate) for both fitted
   and skipped groups, falling back to the raw row count only when the model
   frame cannot be built. <code>var_other</code> is the variance of any additional

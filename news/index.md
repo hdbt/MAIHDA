@@ -4,6 +4,47 @@
 
 ### New Features
 
+- **[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now accept `group` and `context` together (stratified × contextual
+  MAIHDA).** The two were previously mutually exclusive, which was a
+  scope choice rather than a statistical constraint: fitting a
+  contextual cross-classified model *within* each group stratum is
+  coherent, and is the natural design when the grouping variable has too
+  few levels to identify its own random effect (e.g. a two-country study
+  stratified by country, where each country’s fit still needs
+  `(1 | samcnty)` and `(1 | respid)` for geography and repeated
+  measures). Supplying both now runs the stratified comparison where
+  **each per-group fit is itself a contextual cross-classified model** —
+  `context` is forwarded into every per-group
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  call (null, adjusted, and crossed-dimensions), so
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)/[`summary()`](https://rdrr.io/r/base/summary.html)
+  need no change. Each group’s `vpc`/`var_between` become the
+  between-stratum quantities **net of** the context, the per-group **PCV
+  is also net of context** (the context random intercept sits in both
+  the null and adjusted per-group fits, and
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  reads only the `stratum` variance, so no PCV math changed), and the
+  `maihda_group_comparison` gains two columns — **`var_context`** (the
+  between-context variance, summed over contexts) and **`vpc_context`**
+  (the contexts’ share of the group’s unexplained variance) — with the
+  per-context split kept on the new `"context_per"` attribute (and the
+  name(s) on `"context_var"`).
+  [`print()`](https://rdrr.io/r/base/print.html) labels the context and
+  flags that the VPC is net of it; `plot(type = "components")` gains a
+  separate context slice (with the denominator corrected so shares still
+  sum to 1), reachable from the analysis via
+  `plot(a, type = "group_components")`. Because stratifying by group
+  shrinks each group × context cell, groups whose analytic sample holds
+  too few context levels (\< 10) to identify the context variance are
+  named in a single aggregated warning (use `engine = "brms"` for
+  weakly-informative regularisation). Supported by the `lme4` and `brms`
+  engines; `wemix`/`ordinal` (which fit no crossed random effect) reject
+  `context` up front, and `context` may not name the `group` variable
+  itself. Non-contextual group comparisons are unchanged — the context
+  columns and attributes are omitted entirely.
+
 - **[`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   gains a `context` argument for a contextual cross-classified stepwise
   PCV.** [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)

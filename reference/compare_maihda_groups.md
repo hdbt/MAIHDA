@@ -27,6 +27,7 @@ compare_maihda_groups(
   conf_level = 0.95,
   autobin = TRUE,
   decomposition = c("two-model", "crossed-dimensions"),
+  context = NULL,
   sampling_weights = NULL,
   ...
 )
@@ -123,6 +124,26 @@ compare_maihda_groups(
   [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) for the
   underlying model and its caveats.
 
+- context:
+
+  Optional character vector naming higher-level *context* column(s) in
+  `data` (e.g. `"school"`, `"region"`). Each per-group fit then becomes
+  a contextual cross-classified model –
+  `outcome ~ covars + (1 | stratum) + (1 | context)` – so within every
+  group the stratum random intercept is crossed with the context random
+  intercept(s). `vpc`/`var_between` are then the between-stratum
+  quantities *net of* the context, and two columns report the per-group
+  context partition: `var_context` (the between-context variance, summed
+  over contexts) and `vpc_context` (the contexts' share of the group's
+  unexplained variance). The per-context split is kept on the
+  `"context_per"` attribute. A per-group subset shrinks each context's
+  level count, so groups with too few context levels (\< 10) to identify
+  the context variance are named in a single warning. Forwarded to
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md);
+  not available for the `wemix`/`ordinal` engines (they fit no crossed
+  random effect), and the `context` may not name the `group` variable
+  itself.
+
 - sampling_weights:
 
   Optional name of a sampling-weight column in `data` for
@@ -162,13 +183,18 @@ maximum-likelihood scale as the PCV; it differs from
 `var_between_adjusted` only by the small REML-vs-ML gap in the null
 variance). All three are `NA` for a group whose adjusted fit failed, and
 the columns are omitted entirely when the strata have a single
-dimension. `n` is the analytic sample size used by the model (after
-dropping rows with a missing outcome/covariate) for both fitted and
-skipped groups, falling back to the raw row count only when the model
-frame cannot be built. `var_other` is the variance of any additional
-random effects and is 0 for the canonical single-stratum model. Groups
-that were skipped or failed have `NA` metrics and an explanatory
-`status`.
+dimension. When `context` is supplied, two further columns report each
+group's contextual partition: `var_context` (the between-context
+variance, summed over contexts) and `vpc_context` (the contexts' share
+of the group's unexplained variance); the per-context split is on the
+`"context_per"` attribute and the context name(s) on `"context_var"`.
+These are dropped when no context is supplied. `n` is the analytic
+sample size used by the model (after dropping rows with a missing
+outcome/covariate) for both fitted and skipped groups, falling back to
+the raw row count only when the model frame cannot be built. `var_other`
+is the variance of any additional random effects and is 0 for the
+canonical single-stratum model. Groups that were skipped or failed have
+`NA` metrics and an explanatory `status`.
 
 ## Details
 

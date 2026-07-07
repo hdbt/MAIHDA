@@ -65,7 +65,9 @@ maihda(
   is run and attached to the result. `group` runs a *stratified*
   analysis (one independent model per level); to instead model a higher
   level *jointly*, crossed with the strata, use `context`. The two are
-  different designs, so supplying both errors.
+  different designs but they *compose*: supplying both runs the
+  stratified comparison where each per-group fit is itself a contextual
+  cross-classified model (see `context`).
 
 - context:
 
@@ -79,8 +81,13 @@ maihda(
   between-context vs. residual, the headline VPC/ICC becomes the
   between-stratum share *net of* the context, and the PCV decomposition
   is computed with the context partialled out (the context random
-  intercept is carried by both the null and the adjusted model). Cannot
-  be combined with `group`; a context with few levels weakly identifies
+  intercept is carried by both the null and the adjusted model). May be
+  combined with `group`: the stratified comparison then fits a
+  contextual cross-classified model within each group and reports each
+  group's stratum-vs-context partition (a per-group subset shrinks the
+  context level count, so weak identification is warned about per
+  group). Not available for the `wemix`/`ordinal` engines (they fit no
+  crossed random effect); a context with few levels weakly identifies
   its variance (consider `engine = "brms"`).
 
 - engine:
@@ -406,10 +413,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x5564b0e03ae8>
+#> <environment: 0x5617da3171a8>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x5564b2c47620>
+#> <environment: 0x5617df0f55f0>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -464,7 +471,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x5564afd4f720>
+#> <environment: 0x5617d7f32088>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):
