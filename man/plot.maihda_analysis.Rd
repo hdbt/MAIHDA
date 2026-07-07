@@ -12,6 +12,7 @@
   highlight_by = c("flag", "rope"),
   rope = NULL,
   select = c("order", "deviation"),
+  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
   ...
 )
 }
@@ -65,6 +66,13 @@ region \code{c(-d, d)} on the latent (link) scale, or \code{c(lower, upper)}.
 \code{"predicted"} (or longitudinal \code{"trajectories"}) view, which to
 keep: \code{"order"} (default, first n_strata in stratum order) or
 \code{"deviation"} (the n_strata furthest from the reference, both tails). See
+\code{\link[=plot.maihda_model]{plot}}.}
+
+\item{order_by}{Display order of the strata on the \code{"predicted"} view
+(display-only; does not change which strata are shown, nor any value):
+\code{"predicted_desc"} (default) highest predicted first, \code{"stratum"}
+native order, \code{"predicted_asc"} lowest first, or \code{"deviation"}
+largest \code{|predicted - reference|} first. See
 \code{\link[=plot.maihda_model]{plot}}.}
 
 \item{...}{Additional arguments passed to the underlying plot method.}

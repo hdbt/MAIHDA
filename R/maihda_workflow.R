@@ -982,12 +982,20 @@ summary.maihda_analysis <- function(object, ...) {
 #'   keep: \code{"order"} (default, first n_strata in stratum order) or
 #'   \code{"deviation"} (the n_strata furthest from the reference, both tails). See
 #'   \code{\link[=plot.maihda_model]{plot}}.
+#' @param order_by Display order of the strata on the \code{"predicted"} view
+#'   (display-only; does not change which strata are shown, nor any value):
+#'   \code{"predicted_desc"} (default) highest predicted first, \code{"stratum"}
+#'   native order, \code{"predicted_asc"} lowest first, or \code{"deviation"}
+#'   largest \code{|predicted - reference|} first. See
+#'   \code{\link[=plot.maihda_model]{plot}}.
 #' @param ... Additional arguments passed to the underlying plot method.
 #' @return A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
 #' @export
 plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE,
                                  only_flagged = FALSE, highlight_by = c("flag", "rope"),
-                                 rope = NULL, select = c("order", "deviation"), ...) {
+                                 rope = NULL, select = c("order", "deviation"),
+                                 order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
+                                 ...) {
   type <- match.arg(type, c(
     "all", "vpc", "obs_vs_shrunken", "predicted", "upset",
     "effect_decomp", "prediction_deviation", "context_vpc",
@@ -1008,6 +1016,8 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
   highlight_by <- match.arg(highlight_by)
   # Which strata survive the n_strata cap on the predicted / trajectory views.
   select <- match.arg(select)
+  # Display order for the predicted view (display-only; see plot.maihda_model()).
+  order_by <- match.arg(order_by)
 
   # Longitudinal analysis: the trajectory views replace the cross-sectional ones.
   # "all" shows the VPC-over-time and the stratum mean trajectories; "pcv_trajectory"
@@ -1083,7 +1093,8 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
     null_plots$predicted <- tryCatch(
       plot(x$model, type = "predicted", summary_obj = x$summary,
            highlight_interactions = hl, only_flagged = only_flagged,
-           highlight_by = highlight_by, rope = rope, select = select, ...),
+           highlight_by = highlight_by, rope = rope, select = select,
+           order_by = order_by, ...),
       error = function(e) NULL)
     if (!is.null(x$context_vars)) {
       null_plots$context_vpc <- tryCatch(
@@ -1123,7 +1134,8 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
   # vpc, obs_vs_shrunken, predicted -> null model
   plot(x$model, type = type, summary_obj = x$summary,
        highlight_interactions = hl, only_flagged = only_flagged,
-       highlight_by = highlight_by, rope = rope, select = select, ...)
+       highlight_by = highlight_by, rope = rope, select = select,
+       order_by = order_by, ...)
 }
 
 # Resolve the highlight argument for a maihda_analysis: FALSE/NULL stays FALSE;

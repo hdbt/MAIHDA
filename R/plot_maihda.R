@@ -13,7 +13,10 @@
 #'       covariate-adjusted model the distance from the diagonal reflects both
 #'       shrinkage \emph{and} covariate adjustment, not shrinkage alone; it is a
 #'       pure shrinkage view only for an intercept-only (null) model
-#'     \item "predicted": Predicted values for each stratum with confidence intervals
+#'     \item "predicted": Predicted values for each stratum with confidence
+#'       intervals. By default the strata are ordered highest-to-lowest predicted
+#'       value (a ranked caterpillar plot); see \code{order_by} to change or
+#'       disable the ordering
 #'     \item "upset": UpSet-style alternative to \code{"predicted"} -- an
 #'       intersection-size bar, a category matrix encoding each stratum's level on
 #'       every dimension, and the predicted-value panel, all sharing one column
@@ -89,9 +92,19 @@
 #'   \emph{both} directions). Applies to \code{"predicted"} and, for a longitudinal
 #'   fit, \code{"trajectories"} (where it keeps the strata whose trajectories swing
 #'   furthest from the population curve). Flagged strata are always kept; this
-#'   governs the fill and the unflagged case. The displayed x-axis stays in stratum
-#'   order regardless, so \code{select} changes \emph{which} strata appear, not
-#'   their left-to-right order.
+#'   governs the fill and the unflagged case. \code{select} changes \emph{which}
+#'   strata appear; their left-to-right display order is a separate choice governed
+#'   by \code{order_by}.
+#' @param order_by For \code{type = "predicted"}, how to order the strata that are
+#'   displayed (\strong{display-only} -- it does not change \emph{which} strata are
+#'   shown, that is \code{n_strata}/\code{select}, nor the predicted values,
+#'   intervals, reference line, or highlighted set): \code{"predicted_desc"}
+#'   (default) orders labels from the highest predicted value to the lowest,
+#'   \code{"stratum"} keeps the native stratum order (the previous behaviour),
+#'   \code{"predicted_asc"} orders from lowest to highest, and \code{"deviation"}
+#'   orders by largest absolute deviation from the reference line
+#'   (\code{|predicted - reference|}). Ignored by the other plot types
+#'   (\code{"upset"} orders by intersection size).
 #' @param quantity For \code{type = "upset"}, which quantity the bottom panel
 #'   shows: \code{"predicted"} (default) the stratum's predicted value (fixed +
 #'   random effect) against the across-strata reference line, or
@@ -130,7 +143,7 @@
 #' @import ggplot2
 #' @importFrom dplyr arrange
 plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "effect_decomp", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
-                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, highlight_by = c("flag", "rope"), rope = NULL, select = c("order", "deviation"), quantity = c("predicted", "interaction"), ...) {
+                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, highlight_by = c("flag", "rope"), rope = NULL, select = c("order", "deviation"), order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"), quantity = c("predicted", "interaction"), ...) {
   if (!inherits(x, "maihda_model")) {
     stop("'x' must be a maihda_model object from fit_maihda()")
   }
@@ -149,6 +162,9 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
   highlight_by <- match.arg(highlight_by)
   # Which strata survive the n_strata cap on the predicted / trajectory views.
   select <- match.arg(select)
+  # How the predicted view orders the strata it displays (display-only; does not
+  # change which strata are shown -- that is n_strata / select).
+  order_by <- match.arg(order_by)
   # Which quantity the upset view's estimate panel shows: the predicted value or
   # the stratum random effect (interaction).
   quantity <- match.arg(quantity)
@@ -213,7 +229,7 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
       plots$obs_vs_shrunken <- tryCatch(plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids, only_flagged = only_flagged), error = function(e) NULL)
     }
 
-    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select), error = function(e) NULL)
+    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select, order_by = order_by), error = function(e) NULL)
 
     top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
     plots$effect_decomp <- tryCatch(plot_effect_decomposition(object, summary_obj, top_n_labels, highlight = highlight_ids), error = function(e) NULL)
@@ -235,7 +251,7 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     } else if (type == "obs_vs_shrunken") {
       plot <- plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids, only_flagged = only_flagged)
     } else if (type == "predicted") {
-      plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select)
+      plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select, order_by = order_by)
     } else if (type == "upset") {
       plot <- plot_upset_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select, quantity = quantity)
     } else if (type == "effect_decomp") {
@@ -862,13 +878,21 @@ maihda_observed_outcome_for_plot <- function(x, family = NULL) {
 #'   \code{"order"} (default) the first n_strata in stratum order, or
 #'   \code{"deviation"} the n_strata furthest from the reference line (largest
 #'   \code{|predicted - reference|}, so both tails). Flagged strata are kept
-#'   regardless; this governs the fill / the unflagged case. The displayed x-axis
-#'   stays in stratum order either way.
+#'   regardless; this governs the fill / the unflagged case. It controls
+#'   \emph{which} strata are shown, separately from how they are ordered for
+#'   display.
+#' @param order_by Display order of the shown strata (\strong{display-only}; does
+#'   not change which strata are shown -- that is \code{n_strata}/\code{select} --
+#'   nor the predicted values, intervals, or reference line): \code{"predicted_desc"}
+#'   (default) highest predicted at the top, \code{"stratum"} native stratum order,
+#'   \code{"predicted_asc"} lowest at the top, or \code{"deviation"} largest
+#'   \code{|predicted - reference|} at the top.
 #' @return A ggplot2 object
 #' @keywords internal
 #' @import ggplot2
 #' @importFrom dplyr arrange slice
-plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL, only_flagged = FALSE, select = c("order", "deviation")) {
+plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL, only_flagged = FALSE, select = c("order", "deviation"), order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation")) {
+  order_by <- match.arg(order_by)
   prep <- maihda_prepare_predicted_strata(
     object, summary_obj, n_strata, scale = scale,
     highlight = highlight, only_flagged = only_flagged, select = select)
@@ -880,6 +904,19 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
   stratum_est <- prep$stratum_est
   fixed_reference <- prep$fixed_reference
   caption_txt <- prep$caption_txt
+
+  # Display order of the kept strata. This is purely cosmetic: the strata were
+  # already selected (n_strata / select) and the reference line fixed from ALL
+  # strata, so reordering here changes neither the shown set nor any value. order()
+  # sinks any NA predictions to the bottom. Because the factor levels below are
+  # reversed and the view is coord_flip()ped, the first row renders at the top --
+  # so decreasing = TRUE puts the largest value on top.
+  ord <- switch(order_by,
+    stratum        = seq_len(nrow(stratum_est)),
+    predicted_desc = order(stratum_est$predicted, decreasing = TRUE),
+    predicted_asc  = order(stratum_est$predicted, decreasing = FALSE),
+    deviation      = order(abs(stratum_est$predicted - fixed_reference), decreasing = TRUE))
+  stratum_est <- stratum_est[ord, , drop = FALSE]
 
   # Create factor to preserve order for plotting. Levels are reversed so that
   # after coord_flip() the first stratum sits at the top of the axis (natural

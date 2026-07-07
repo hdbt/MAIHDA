@@ -11,7 +11,8 @@ plot_predicted_strata(
   scale = c("response", "link"),
   highlight = NULL,
   only_flagged = FALSE,
-  select = c("order", "deviation")
+  select = c("order", "deviation"),
+  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation")
 )
 }
 \arguments{
@@ -35,8 +36,16 @@ attached as attributes (including \code{highlight_by} and \code{rope}).}
 \code{"order"} (default) the first n_strata in stratum order, or
 \code{"deviation"} the n_strata furthest from the reference line (largest
 \code{|predicted - reference|}, so both tails). Flagged strata are kept
-regardless; this governs the fill / the unflagged case. The displayed x-axis
-stays in stratum order either way.}
+regardless; this governs the fill / the unflagged case. It controls
+\emph{which} strata are shown, separately from how they are ordered for
+display.}
+
+\item{order_by}{Display order of the shown strata (\strong{display-only}; does
+not change which strata are shown -- that is \code{n_strata}/\code{select} --
+nor the predicted values, intervals, or reference line): \code{"predicted_desc"}
+(default) highest predicted at the top, \code{"stratum"} native stratum order,
+\code{"predicted_asc"} lowest at the top, or \code{"deviation"} largest
+\code{|predicted - reference|} at the top.}
 }
 \value{
 A ggplot2 object

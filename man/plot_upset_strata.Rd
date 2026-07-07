@@ -36,8 +36,9 @@ attached as attributes (including \code{highlight_by} and \code{rope}).}
 \code{"order"} (default) the first n_strata in stratum order, or
 \code{"deviation"} the n_strata furthest from the reference line (largest
 \code{|predicted - reference|}, so both tails). Flagged strata are kept
-regardless; this governs the fill / the unflagged case. The displayed x-axis
-stays in stratum order either way.}
+regardless; this governs the fill / the unflagged case. It controls
+\emph{which} strata are shown, separately from how they are ordered for
+display.}
 }
 \value{
 A \pkg{patchwork} object stacking the three panels.

@@ -15,6 +15,7 @@
   highlight_by = c("flag", "rope"),
   rope = NULL,
   select = c("order", "deviation"),
+  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
   quantity = c("predicted", "interaction"),
   ...
 )
@@ -30,7 +31,10 @@
     covariate-adjusted model the distance from the diagonal reflects both
     shrinkage \emph{and} covariate adjustment, not shrinkage alone; it is a
     pure shrinkage view only for an intercept-only (null) model
-  \item "predicted": Predicted values for each stratum with confidence intervals
+  \item "predicted": Predicted values for each stratum with confidence
+    intervals. By default the strata are ordered highest-to-lowest predicted
+    value (a ranked caterpillar plot); see \code{order_by} to change or
+    disable the ordering
   \item "upset": UpSet-style alternative to \code{"predicted"} -- an
     intersection-size bar, a category matrix encoding each stratum's level on
     every dimension, and the predicted-value panel, all sharing one column
@@ -113,9 +117,20 @@ line -- largest \code{|predicted - reference|}, so the most extreme strata in
 \emph{both} directions). Applies to \code{"predicted"} and, for a longitudinal
 fit, \code{"trajectories"} (where it keeps the strata whose trajectories swing
 furthest from the population curve). Flagged strata are always kept; this
-governs the fill and the unflagged case. The displayed x-axis stays in stratum
-order regardless, so \code{select} changes \emph{which} strata appear, not
-their left-to-right order.}
+governs the fill and the unflagged case. \code{select} changes \emph{which}
+strata appear; their left-to-right display order is a separate choice governed
+by \code{order_by}.}
+
+\item{order_by}{For \code{type = "predicted"}, how to order the strata that are
+displayed (\strong{display-only} -- it does not change \emph{which} strata are
+shown, that is \code{n_strata}/\code{select}, nor the predicted values,
+intervals, reference line, or highlighted set): \code{"predicted_desc"}
+(default) orders labels from the highest predicted value to the lowest,
+\code{"stratum"} keeps the native stratum order (the previous behaviour),
+\code{"predicted_asc"} orders from lowest to highest, and \code{"deviation"}
+orders by largest absolute deviation from the reference line
+(\code{|predicted - reference|}). Ignored by the other plot types
+(\code{"upset"} orders by intersection size).}
 
 \item{quantity}{For \code{type = "upset"}, which quantity the bottom panel
 shows: \code{"predicted"} (default) the stratum's predicted value (fixed +
