@@ -17,7 +17,8 @@
 \item{type}{One of "vpc" (default) for VPC by group with optional bootstrap
 confidence intervals, "components" for stacked variance proportions (additive /
 interaction / residual for a crossed-dimensions comparison, between / other /
-residual otherwise), "between_variance" for the absolute between-stratum variance
+residual otherwise, with a separate context slice for a contextual comparison),
+"between_variance" for the absolute between-stratum variance
 by group, "pcv" for the two-model additive share (null -> adjusted proportional
 change in between-stratum variance) by group, or "additive_share" for the
 crossed-dimensions additive share by group. The VPC is a \emph{share} of the

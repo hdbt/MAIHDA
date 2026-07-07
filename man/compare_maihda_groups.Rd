@@ -17,6 +17,7 @@ compare_maihda_groups(
   conf_level = 0.95,
   autobin = TRUE,
   decomposition = c("two-model", "crossed-dimensions"),
+  context = NULL,
   sampling_weights = NULL,
   ...
 )
@@ -81,6 +82,23 @@ alias that warns). The crossed-dimensions form requires
 variance (additive + interaction). See \code{\link{maihda}} for the underlying
 model and its caveats.}
 
+\item{context}{Optional character vector naming higher-level \emph{context}
+column(s) in \code{data} (e.g. \code{"school"}, \code{"region"}). Each
+per-group fit then becomes a contextual cross-classified model --
+\code{outcome ~ covars + (1 | stratum) + (1 | context)} -- so within every
+group the stratum random intercept is crossed with the context random
+intercept(s). \code{vpc}/\code{var_between} are then the between-stratum
+quantities \emph{net of} the context, and two columns report the per-group
+context partition: \code{var_context} (the between-context variance, summed
+over contexts) and \code{vpc_context} (the contexts' share of the group's
+unexplained variance). The per-context split is kept on the
+\code{"context_per"} attribute. A per-group subset shrinks each context's
+level count, so groups with too few context levels (< 10) to identify the
+context variance are named in a single warning. Forwarded to
+\code{\link{fit_maihda}}; not available for the \code{wemix}/\code{ordinal}
+engines (they fit no crossed random effect), and the \code{context} may not
+name the \code{group} variable itself.}
+
 \item{sampling_weights}{Optional name of a sampling-weight column in
 \code{data} for design-weighted per-group fits; see \code{\link{fit_maihda}}.
 The column is sliced with each group's rows, so every group is fitted with
@@ -112,7 +130,13 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   maximum-likelihood scale as the PCV; it differs from \code{var_between_adjusted}
   only by the small REML-vs-ML gap in the null variance). All three are
   \code{NA} for a group whose adjusted fit failed, and the columns are
-  omitted entirely when the strata have a single dimension. \code{n} is the analytic sample size used by the
+  omitted entirely when the strata have a single dimension. When \code{context}
+  is supplied, two further columns report each group's contextual partition:
+  \code{var_context} (the between-context variance, summed over contexts) and
+  \code{vpc_context} (the contexts' share of the group's unexplained variance);
+  the per-context split is on the \code{"context_per"} attribute and the
+  context name(s) on \code{"context_var"}. These are dropped when no context is
+  supplied. \code{n} is the analytic sample size used by the
   model (after dropping rows with a missing outcome/covariate) for both fitted
   and skipped groups, falling back to the raw row count only when the model
   frame cannot be built. \code{var_other} is the variance of any additional

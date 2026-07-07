@@ -60,7 +60,9 @@
 #'   is run and attached to the result. \code{group} runs a \emph{stratified}
 #'   analysis (one independent model per level); to instead model a higher level
 #'   \emph{jointly}, crossed with the strata, use \code{context}. The two are
-#'   different designs, so supplying both errors.
+#'   different designs but they \emph{compose}: supplying both runs the stratified
+#'   comparison where each per-group fit is itself a contextual cross-classified
+#'   model (see \code{context}).
 #' @param context Optional character vector naming higher-level \emph{context}
 #'   column(s) in \code{data} (e.g. \code{"school"}, \code{"hospital"},
 #'   \code{"region"}), forwarded to \code{\link{fit_maihda}}. Each context enters
@@ -71,8 +73,13 @@
 #'   between-context vs. residual, the headline VPC/ICC becomes the between-stratum
 #'   share \emph{net of} the context, and the PCV decomposition is computed with the
 #'   context partialled out (the context random intercept is carried by both the
-#'   null and the adjusted model). Cannot be combined with \code{group}; a context
-#'   with few levels weakly identifies its variance (consider \code{engine = "brms"}).
+#'   null and the adjusted model). May be combined with \code{group}: the
+#'   stratified comparison then fits a contextual cross-classified model within
+#'   each group and reports each group's stratum-vs-context partition (a per-group
+#'   subset shrinks the context level count, so weak identification is warned about
+#'   per group). Not available for the \code{wemix}/\code{ordinal} engines (they
+#'   fit no crossed random effect); a context with few levels weakly identifies its
+#'   variance (consider \code{engine = "brms"}).
 #' @param engine Modeling engine, "lme4" (default), "brms", "wemix" (the
 #'   design-weighted pseudo-maximum-likelihood fit; requires
 #'   \code{sampling_weights} and is selected automatically when they are supplied
@@ -285,14 +292,14 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
          call. = FALSE)
   }
 
-  # group= (stratified: one independent model per level) and context= (joint:
-  # strata crossed with the higher level in ONE model) are different designs for
-  # bringing in a higher level; combining them is ambiguous, so error early.
-  if (!is.null(group) && !is.null(context)) {
-    stop("Supply either 'group' (stratified comparison: one independent model per ",
-         "level) or 'context' (contextual cross-classified model: strata crossed ",
-         "with the higher level in one fit), not both.", call. = FALSE)
-  }
+  # group= (stratified: one independent model per level) and context= (a
+  # higher-level crossed random intercept) compose: when both are supplied the
+  # stratified comparison runs where each per-group fit is itself a contextual
+  # cross-classified model (see compare_maihda_groups(context=)). This was a
+  # historical scope choice, not a statistical constraint -- fitting a contextual
+  # model within each group stratum is coherent. wemix/ordinal fit no crossed
+  # context random effect, so context is rejected per-engine in the handshakes
+  # below (mirroring fit_maihda()).
 
   # Sampling weights select the design-weighted engine, mirroring fit_maihda():
   # the default engine switches to "wemix" (with a message), an explicit lme4 is
@@ -322,6 +329,11 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
       stop("Bootstrap intervals are not available for engine = \"wemix\" (a ",
            "design-based interval would require replicate weights). Set ",
            "bootstrap = FALSE.", call. = FALSE)
+    }
+    if (!is.null(context)) {
+      stop("engine = \"wemix\" does not support 'context' (WeMix fits no crossed ",
+           "random effects). Use engine = \"lme4\" or \"brms\" for a contextual ",
+           "cross-classified model.", call. = FALSE)
     }
   }
 
@@ -393,6 +405,12 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
            "(ordinal::clmm has no simulate()/refit() machinery). Set ",
            "bootstrap = FALSE, or use engine = \"brms\" for posterior credible ",
            "intervals.", call. = FALSE)
+    }
+    if (!is.null(context)) {
+      stop("engine = \"ordinal\" does not support 'context' (the clmm path fits ",
+           "the canonical single (1 | stratum) structure only). Use engine = ",
+           "\"brms\" for a contextual cross-classified cumulative model.",
+           call. = FALSE)
     }
   }
 
@@ -514,7 +532,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
         shared_strata = shared_strata, min_group_n = min_group_n,
         autobin = autobin, bootstrap = bootstrap, n_boot = n_boot,
         conf_level = conf_level, decomposition = "crossed-dimensions",
-        sampling_weights = sampling_weights, ...
+        context = context, sampling_weights = sampling_weights, ...
       )
     }
 
@@ -685,7 +703,8 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
       group_formula, data, group = group, engine = engine, family = family_used,
       shared_strata = shared_strata, min_group_n = min_group_n,
       autobin = autobin, bootstrap = bootstrap, n_boot = n_boot,
-      conf_level = conf_level, sampling_weights = sampling_weights, ...
+      conf_level = conf_level, context = context,
+      sampling_weights = sampling_weights, ...
     )
   }
 

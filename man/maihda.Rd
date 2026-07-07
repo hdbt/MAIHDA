@@ -43,7 +43,9 @@ variable, if used).}
 is run and attached to the result. \code{group} runs a \emph{stratified}
 analysis (one independent model per level); to instead model a higher level
 \emph{jointly}, crossed with the strata, use \code{context}. The two are
-different designs, so supplying both errors.}
+different designs but they \emph{compose}: supplying both runs the stratified
+comparison where each per-group fit is itself a contextual cross-classified
+model (see \code{context}).}
 
 \item{context}{Optional character vector naming higher-level \emph{context}
 column(s) in \code{data} (e.g. \code{"school"}, \code{"hospital"},
@@ -55,8 +57,13 @@ then partition the unexplained variance into between-stratum vs.
 between-context vs. residual, the headline VPC/ICC becomes the between-stratum
 share \emph{net of} the context, and the PCV decomposition is computed with the
 context partialled out (the context random intercept is carried by both the
-null and the adjusted model). Cannot be combined with \code{group}; a context
-with few levels weakly identifies its variance (consider \code{engine = "brms"}).}
+null and the adjusted model). May be combined with \code{group}: the
+stratified comparison then fits a contextual cross-classified model within
+each group and reports each group's stratum-vs-context partition (a per-group
+subset shrinks the context level count, so weak identification is warned about
+per group). Not available for the \code{wemix}/\code{ordinal} engines (they
+fit no crossed random effect); a context with few levels weakly identifies its
+variance (consider \code{engine = "brms"}).}
 
 \item{engine}{Modeling engine, "lme4" (default), "brms", "wemix" (the
 design-weighted pseudo-maximum-likelihood fit; requires

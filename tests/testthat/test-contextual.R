@@ -271,11 +271,123 @@ test_that("the PCV is essentially unchanged by adding an orthogonal context", {
   expect_equal(a1$pcv$pcv, a0$pcv$pcv, tolerance = 0.05)
 })
 
-test_that("maihda(group, context) errors: they are different designs", {
+# ---- group + context compose (stratified x contextual) -----------------------
+
+test_that("maihda(group, context) composes: per-group contextual fits", {
+  d <- make_context_data()
+  a <- suppressWarnings(suppressMessages(
+    maihda(y ~ x + (1 | g1:g2), data = d, group = "region", context = "site")))
+  expect_s3_class(a, "maihda_analysis")
+  expect_false(is.null(a$groups))
+  # The per-group table carries the contextual partition columns and attribute.
+  expect_true(all(c("var_context", "vpc_context") %in% names(a$groups)))
+  expect_identical(attr(a$groups, "context_var"), "site")
+  expect_false(is.null(attr(a$groups, "context_per")))
+  # Net-of-context share is a valid proportion for every fitted group.
+  ok <- a$groups[a$groups$status == "ok", , drop = FALSE]
+  expect_gt(nrow(ok), 0)
+  expect_true(all(is.finite(ok$vpc_context)))
+  expect_true(all(ok$vpc_context >= 0 & ok$vpc_context <= 1))
+  # The headline analysis still prints and reports the group comparison.
+  expect_output(print(a), "Group comparison")
+})
+
+test_that("compare_maihda_groups(context =) reports the per-group context partition", {
+  d <- make_context_data()
+  cmp <- suppressWarnings(compare_maihda_groups(
+    y ~ x + (1 | g1:g2), data = d, group = "region", context = "site"))
+  expect_true(all(c("var_context", "vpc_context") %in% names(cmp)))
+  per <- attr(cmp, "context_per")
+  expect_false(is.null(per))
+  ok <- cmp[cmp$status == "ok", , drop = FALSE]
+  g1 <- as.character(ok$group[1])
+  # The summed per-context split equals the reported (summed) var_context.
+  expect_equal(sum(per[[g1]]), ok$var_context[as.character(ok$group) == g1],
+               tolerance = 1e-6)
+  expect_output(print(cmp), "Context: site")
+})
+
+test_that("per-group PCV is essentially unchanged by an orthogonal context", {
+  # site membership is independent of the strata by construction, so adding the
+  # (1 | site) context RE to each per-group fit should barely move the between-
+  # stratum PCV (which reads only the stratum variance component).
+  d <- make_context_data()
+  base <- suppressWarnings(as.data.frame(compare_maihda_groups(
+    y ~ x + (1 | g1:g2), data = d, group = "region")))
+  ctx <- suppressWarnings(as.data.frame(compare_maihda_groups(
+    y ~ x + (1 | g1:g2), data = d, group = "region", context = "site")))
+  m <- merge(base[, c("group", "pcv")], ctx[, c("group", "pcv")],
+             by = "group", suffixes = c("_base", "_ctx"))
+  ok <- is.finite(m$pcv_base) & is.finite(m$pcv_ctx)
+  expect_gt(sum(ok), 0)
+  expect_equal(mean(m$pcv_ctx[ok]), mean(m$pcv_base[ok]), tolerance = 0.1)
+})
+
+test_that("group + context is rejected up front for wemix / ordinal", {
   d <- make_context_data()
   expect_error(
-    maihda(y ~ x + (1 | g1:g2), data = d, group = "region", context = "site"),
-    "either 'group'.*or 'context'")
+    maihda(y ~ x + (1 | g1:g2), data = d, group = "region", context = "site",
+           engine = "wemix"),
+    "does not support 'context'")
+  expect_error(
+    maihda(y ~ x + (1 | g1:g2), data = d, group = "region", context = "site",
+           engine = "ordinal"),
+    "does not support 'context'")
+  expect_error(
+    compare_maihda_groups(y ~ x + (1 | g1:g2), data = d, group = "region",
+                          context = "site", engine = "wemix"),
+    "does not support 'context'")
+})
+
+test_that("context may not name the group variable", {
+  d <- make_context_data()
+  expect_error(
+    compare_maihda_groups(y ~ x + (1 | g1:g2), data = d, group = "region",
+                          context = "region"),
+    "cannot include the group variable")
+})
+
+test_that("group + context warns when a group has too few context levels", {
+  set.seed(11)
+  n <- 600
+  region <- sample(c("A", "B"), n, replace = TRUE)
+  # Region A sees only 3 sites (weakly identified); region B sees 20.
+  site <- ifelse(region == "A",
+                 sample(paste0("a", 1:3), n, replace = TRUE),
+                 sample(paste0("b", 1:20), n, replace = TRUE))
+  d <- data.frame(
+    g1 = sample(c("m", "f"), n, replace = TRUE),
+    g2 = sample(c("lo", "hi"), n, replace = TRUE),
+    region = region, site = site, x = rnorm(n),
+    stringsAsFactors = FALSE
+  )
+  d$y <- 0.3 * d$x + rnorm(n)
+  # Other (singular-fit) warnings may fire too; capture all and assert the
+  # weak-identification one names region A x site.
+  w <- capture_warnings(
+    compare_maihda_groups(y ~ x + (1 | g1:g2), data = d, group = "region",
+                          context = "site"))
+  expect_true(any(grepl("few context levels", w)))
+  expect_true(any(grepl("A x site", w)))
+})
+
+test_that("plot(type = 'components') gains a context slice that still sums to 1", {
+  d <- make_context_data()
+  cmp <- suppressWarnings(compare_maihda_groups(
+    y ~ x + (1 | g1:g2), data = d, group = "region", context = "site"))
+  p <- plot(cmp, type = "components")
+  expect_s3_class(p, "ggplot")
+  expect_true("Context (higher level)" %in% as.character(p$data$component))
+  agg <- tapply(p$data$proportion, p$data$group, sum)
+  expect_true(all(abs(agg - 1) < 1e-6))
+})
+
+test_that("a non-contextual group comparison keeps no context columns", {
+  d <- make_context_data()
+  cmp <- suppressWarnings(compare_maihda_groups(
+    y ~ x + (1 | g1:g2), data = d, group = "region"))
+  expect_false(any(c("var_context", "vpc_context") %in% names(cmp)))
+  expect_null(attr(cmp, "context_var"))
 })
 
 test_that("maihda(decomposition = 'crossed-dimensions', context = ) composes", {

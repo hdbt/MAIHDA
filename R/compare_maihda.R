@@ -420,6 +420,22 @@ plot_comparison <- function(comparison_df) {
 #'   \code{var_between_adjusted}); \code{var_between} is then the total between-strata
 #'   variance (additive + interaction). See \code{\link{maihda}} for the underlying
 #'   model and its caveats.
+#' @param context Optional character vector naming higher-level \emph{context}
+#'   column(s) in \code{data} (e.g. \code{"school"}, \code{"region"}). Each
+#'   per-group fit then becomes a contextual cross-classified model --
+#'   \code{outcome ~ covars + (1 | stratum) + (1 | context)} -- so within every
+#'   group the stratum random intercept is crossed with the context random
+#'   intercept(s). \code{vpc}/\code{var_between} are then the between-stratum
+#'   quantities \emph{net of} the context, and two columns report the per-group
+#'   context partition: \code{var_context} (the between-context variance, summed
+#'   over contexts) and \code{vpc_context} (the contexts' share of the group's
+#'   unexplained variance). The per-context split is kept on the
+#'   \code{"context_per"} attribute. A per-group subset shrinks each context's
+#'   level count, so groups with too few context levels (< 10) to identify the
+#'   context variance are named in a single warning. Forwarded to
+#'   \code{\link{fit_maihda}}; not available for the \code{wemix}/\code{ordinal}
+#'   engines (they fit no crossed random effect), and the \code{context} may not
+#'   name the \code{group} variable itself.
 #' @param sampling_weights Optional name of a sampling-weight column in
 #'   \code{data} for design-weighted per-group fits; see \code{\link{fit_maihda}}.
 #'   The column is sliced with each group's rows, so every group is fitted with
@@ -449,7 +465,13 @@ plot_comparison <- function(comparison_df) {
 #'   maximum-likelihood scale as the PCV; it differs from \code{var_between_adjusted}
 #'   only by the small REML-vs-ML gap in the null variance). All three are
 #'   \code{NA} for a group whose adjusted fit failed, and the columns are
-#'   omitted entirely when the strata have a single dimension. \code{n} is the analytic sample size used by the
+#'   omitted entirely when the strata have a single dimension. When \code{context}
+#'   is supplied, two further columns report each group's contextual partition:
+#'   \code{var_context} (the between-context variance, summed over contexts) and
+#'   \code{vpc_context} (the contexts' share of the group's unexplained variance);
+#'   the per-context split is on the \code{"context_per"} attribute and the
+#'   context name(s) on \code{"context_var"}. These are dropped when no context is
+#'   supplied. \code{n} is the analytic sample size used by the
 #'   model (after dropping rows with a missing outcome/covariate) for both fitted
 #'   and skipped groups, falling back to the raw row count only when the model
 #'   frame cannot be built. \code{var_other} is the variance of any additional
@@ -500,6 +522,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                                   n_boot = 1000, conf_level = 0.95,
                                   autobin = TRUE,
                                   decomposition = c("two-model", "crossed-dimensions"),
+                                  context = NULL,
                                   sampling_weights = NULL,
                                   ...) {
   decomposition <- maihda_resolve_decomposition(decomposition)
@@ -526,6 +549,19 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   }
   if (!group %in% names(data)) {
     stop("Group variable not found in data: ", group, call. = FALSE)
+  }
+
+  # Contextual cross-classified comparison: each per-group fit carries the
+  # higher-level context random intercept(s). Validate the names/collisions once
+  # on the full data (mirrors fit_maihda()); the columns then ride along in each
+  # per-group slice and only the name(s) are forwarded to each fit. The
+  # wemix/ordinal engines fit no crossed context random effect, so they reject it
+  # up front (below) instead of failing every per-group fit.
+  context <- maihda_validate_context(context, data)
+  if (!is.null(context) && any(context %in% group)) {
+    stop("'context' cannot include the group variable '", group, "': it defines ",
+         "the stratified comparison (one independent fit per level), not a ",
+         "within-group crossed context. Drop it from 'context'.", call. = FALSE)
   }
 
   # Sampling weights select the design-weighted engine, mirroring fit_maihda().
@@ -615,11 +651,18 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       !engine %in% c("lme4", "brms", "wemix", "ordinal")) {
     stop("'engine' should be one of: lme4, brms, wemix, ordinal", call. = FALSE)
   }
-  if (identical(engine, "wemix") && decomposition == "crossed-dimensions") {
-    stop("decomposition = \"crossed-dimensions\" needs crossed random effects, ",
-         "which WeMix does not fit. Use the default two-model decomposition with ",
-         "engine = \"wemix\", or engine = \"brms\" for the crossed-dimensions form.",
-         call. = FALSE)
+  if (identical(engine, "wemix")) {
+    if (decomposition == "crossed-dimensions") {
+      stop("decomposition = \"crossed-dimensions\" needs crossed random effects, ",
+           "which WeMix does not fit. Use the default two-model decomposition with ",
+           "engine = \"wemix\", or engine = \"brms\" for the crossed-dimensions form.",
+           call. = FALSE)
+    }
+    if (!is.null(context)) {
+      stop("engine = \"wemix\" does not support 'context' (WeMix fits no crossed ",
+           "random effects). Use engine = \"lme4\" or \"brms\" for a contextual ",
+           "cross-classified model.", call. = FALSE)
+    }
   }
   if (identical(engine, "ordinal")) {
     if (decomposition == "crossed-dimensions") {
@@ -633,6 +676,12 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
            "(ordinal::clmm has no simulate()/refit() machinery). Set ",
            "bootstrap = FALSE, or use engine = \"brms\" for posterior credible ",
            "intervals.", call. = FALSE)
+    }
+    if (!is.null(context)) {
+      stop("engine = \"ordinal\" does not support 'context' (the clmm path fits ",
+           "the canonical single (1 | stratum) structure only). Use engine = ",
+           "\"brms\" for a contextual cross-classified cumulative model.",
+           call. = FALSE)
     }
   }
   if (!is.logical(shared_strata) || length(shared_strata) != 1 || is.na(shared_strata)) {
@@ -785,6 +834,13 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # warn when shared strata still leave groups with different stratum support
   # (their VPCs are then estimated over different level sets).
   populated_strata <- list()
+  # For a contextual comparison: the per-context between-context variances of each
+  # fitted group (a named numeric vector), stashed on the "context_per" attribute
+  # so the summed table columns keep the per-context split available. And the
+  # group x context cells whose context level count is too small to identify the
+  # context variance, aggregated into a single weak-identification warning below.
+  context_per <- list()
+  weak_context_cells <- character(0)
 
   for (gi in seq_along(group_levels)) {
     g <- group_levels[gi]
@@ -821,6 +877,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       var_between_adjusted_ml = NA_real_,
       var_additive = NA_real_, var_interaction = NA_real_,
       additive_share = NA_real_, interaction_share = NA_real_,
+      var_context = NA_real_, vpc_context = NA_real_,
       ci_lower = NA_real_, ci_upper = NA_real_,
       status = NA_character_, stringsAsFactors = FALSE
     )
@@ -867,7 +924,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
           model <- do.call(
             fit_maihda,
             c(list(cc$formula, cc$data, engine = engine, family = family,
-                   sampling_weights = sampling_weights),
+                   context = context, sampling_weights = sampling_weights),
               slice_dots_for_group(idx))
           )
           model$cc_info <- list(dim_groups = cc$dim_groups,
@@ -877,7 +934,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
           model <- do.call(
             fit_maihda,
             c(list(fit_formula, sub, engine = engine, family = family,
-                   sampling_weights = sampling_weights),
+                   context = context, sampling_weights = sampling_weights),
               slice_dots_for_group(idx))
           )
         }
@@ -904,6 +961,31 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     row$n_strata <- length(group_strata)
     populated_strata[[g]] <- group_strata
     row$status <- "ok"
+
+    # Contextual partition (when context = ): summary()$context carries the summed
+    # between-context variance and the contexts' total share of the unexplained
+    # variance; row$vpc above is already the between-stratum share NET of the
+    # context. Read the same way in both the two-model and crossed-dimensions
+    # branches (all four summary builders expose these fields). The per-context
+    # split is stashed for the "context_per" attribute so the summed table columns
+    # do not lose it. A per-group subset shrinks each context's level count, so
+    # flag the group x context cells whose analytic sample holds too few context
+    # levels (< 10, the documented weak-identification threshold) for one
+    # aggregated warning after the loop.
+    if (!is.null(context) && !is.null(fit_obj$summ$context)) {
+      cs <- fit_obj$summ$context
+      row$var_context <- cs$context_var_total
+      row$vpc_context <- cs$vpc_context_total
+      if (!is.null(cs$per_context)) context_per[[g]] <- cs$per_context
+      for (cv in context) {
+        n_lvl <- length(unique(stats::na.omit(fit_obj$model$data[[cv]])))
+        if (is.finite(n_lvl) && n_lvl < 10) {
+          weak_context_cells <- c(weak_context_cells,
+                                  sprintf("%s x %s (%d level%s)", g, cv, n_lvl,
+                                          if (n_lvl == 1) "" else "s"))
+        }
+      }
+    }
 
     if (do_cc) {
       # Crossed-dimensions partition read from the single fit: var_between is the total
@@ -942,7 +1024,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
             adj_model <- do.call(
               fit_maihda,
               c(list(af$formula, af$data, engine = engine, family = family,
-                     sampling_weights = sampling_weights),
+                     context = context, sampling_weights = sampling_weights),
                 slice_dots_for_group(idx))
             )
             calculate_pcv(fit_obj$model, adj_model)
@@ -1024,6 +1106,19 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
             "groups' VPC/ICC values with caution.", call. = FALSE)
   }
 
+  # Contextual weak identification: stratifying by group shrinks each group x
+  # context cell, so a context that identifies its variance on the pooled data can
+  # have too few levels within a group. Name the offending cells in one warning so
+  # the per-group context variances there are read with caution (the brms engine's
+  # weakly-informative priors regularise this better than lme4).
+  if (length(weak_context_cells) > 0) {
+    warning("compare_maihda_groups(): few context levels within group(s) (",
+            paste(weak_context_cells, collapse = "; "),
+            "). A context with < 10 levels weakly identifies its variance (often a ",
+            "singular lme4 fit, VPC_context near 0); interpret those groups' context ",
+            "partition with caution or use engine = \"brms\".", call. = FALSE)
+  }
+
   out <- do.call(rbind, rows)
   # Drop the interval columns only when no group supplied one (e.g. unbootstrapped
   # lme4); brms groups carry a posterior credible interval without bootstrap.
@@ -1047,6 +1142,12 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     out$additive_share <- NULL
     out$interaction_share <- NULL
   }
+  # The contextual columns only apply to a contextual comparison (context = );
+  # drop them entirely otherwise, mirroring the decomposition columns above.
+  if (is.null(context)) {
+    out$var_context <- NULL
+    out$vpc_context <- NULL
+  }
   rownames(out) <- NULL
 
   attr(out, "group_var") <- group
@@ -1054,6 +1155,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   attr(out, "family") <- if (is.character(family)) family else family$family
   attr(out, "shared_strata") <- shared_strata
   attr(out, "decomposition") <- decomposition
+  # The context variable name(s) and the per-group, per-context between-context
+  # variances (a named list keyed by group). NULL when no context was supplied.
+  attr(out, "context_var") <- context
+  attr(out, "context_per") <- if (is.null(context)) NULL else context_per
   class(out) <- c("maihda_group_comparison", "data.frame")
   out
 }
@@ -1158,7 +1263,17 @@ print.maihda_group_comparison <- function(x, ...) {
     cat("Engine:", attr(x, "engine"),
         " | Family:", attr(x, "family"),
         " | Strata:", if (isTRUE(attr(x, "shared_strata"))) "shared/global" else "per-group",
-        "\n\n")
+        "\n")
+    # Contextual comparison: each per-group fit is a contextual cross-classified
+    # model, so vpc/var_between are the between-stratum share NET of the context and
+    # var_context/vpc_context are the (summed) between-context partition.
+    context_var <- attr(x, "context_var")
+    if (!is.null(context_var)) {
+      cat("Context: ", paste(context_var, collapse = ", "),
+          " (per-group crossed contextual random intercept; vpc/var_between are ",
+          "net of context)\n", sep = "")
+    }
+    cat("\n")
   }
   print(as.data.frame(x), row.names = FALSE, digits = 4)
   invisible(x)
@@ -1184,7 +1299,8 @@ print.maihda_group_comparison <- function(x, ...) {
   # unclassed. Otherwise restore the class and the metadata attributes the print
   # method relies on.
   if (is.data.frame(out)) {
-    for (a in c("group_var", "engine", "family", "shared_strata", "decomposition")) {
+    for (a in c("group_var", "engine", "family", "shared_strata", "decomposition",
+                "context_var", "context_per")) {
       attr(out, a) <- attr(x, a)
     }
     class(out) <- class(x)
@@ -1223,7 +1339,8 @@ maihda_compose_caption <- function(...) {
 #' @param type One of "vpc" (default) for VPC by group with optional bootstrap
 #'   confidence intervals, "components" for stacked variance proportions (additive /
 #'   interaction / residual for a crossed-dimensions comparison, between / other /
-#'   residual otherwise), "between_variance" for the absolute between-stratum variance
+#'   residual otherwise, with a separate context slice for a contextual comparison),
+#'   "between_variance" for the absolute between-stratum variance
 #'   by group, "pcv" for the two-model additive share (null -> adjusted proportional
 #'   change in between-stratum variance) by group, or "additive_share" for the
 #'   crossed-dimensions additive share by group. The VPC is a \emph{share} of the
@@ -1414,26 +1531,40 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
   if ("var_additive" %in% names(df) && "var_interaction" %in% names(df)) {
     var_add <- df$var_additive; var_add[is.na(var_add)] <- 0
     var_int <- df$var_interaction; var_int[is.na(var_int)] <- 0
-    totals <- var_add + var_int + df$var_residual
-    comp <- rbind(
+    # A contextual crossed-dimensions comparison also carries a between-context
+    # slice, which must enter the denominator alongside additive + interaction +
+    # residual so the shares still sum to 1. 0/absent otherwise.
+    var_context <- if ("var_context" %in% names(df)) df$var_context else rep(0, nrow(df))
+    var_context[is.na(var_context)] <- 0
+    has_context <- any(var_context > sqrt(.Machine$double.eps))
+    totals <- var_add + var_int + var_context + df$var_residual
+    comp_blocks <- list(
       data.frame(group = df$group, component = "Additive (dimension main effects)",
                  variance = var_add, stringsAsFactors = FALSE),
       data.frame(group = df$group, component = "Intersectional interaction",
-                 variance = var_int, stringsAsFactors = FALSE),
-      data.frame(group = df$group, component = "Within-stratum (residual)",
-                 variance = df$var_residual, stringsAsFactors = FALSE)
+                 variance = var_int, stringsAsFactors = FALSE)
     )
+    if (has_context) {
+      comp_blocks <- c(comp_blocks, list(
+        data.frame(group = df$group, component = "Context (higher level)",
+                   variance = var_context, stringsAsFactors = FALSE)))
+    }
+    comp_blocks <- c(comp_blocks, list(
+      data.frame(group = df$group, component = "Within-stratum (residual)",
+                 variance = df$var_residual, stringsAsFactors = FALSE)))
+    comp <- do.call(rbind, comp_blocks)
     total_map <- stats::setNames(totals, as.character(df$group))
     comp$proportion <- comp$variance / total_map[as.character(comp$group)]
     comp$group <- factor(comp$group, levels = df$group[order(df$vpc)])
     comp$component <- factor(
       comp$component,
       levels = c("Additive (dimension main effects)", "Intersectional interaction",
-                 "Within-stratum (residual)")
+                 "Context (higher level)", "Within-stratum (residual)")
     )
     cc_colors <- c(
       "Additive (dimension main effects)" = "#CC79A7",
       "Intersectional interaction" = "#E69F00",
+      "Context (higher level)" = "#009E73",
       "Within-stratum (residual)" = "#56B4E9"
     )
     return(
@@ -1458,12 +1589,24 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
 
   var_other <- if ("var_other" %in% names(df)) df$var_other else rep(0, nrow(df))
   var_other[is.na(var_other)] <- 0
-  totals <- df$var_between + var_other + df$var_residual
+  # Contextual comparison: the (summed) between-context variance is its own slice
+  # (the "general contextual effect"), so it must enter the VPC denominator too --
+  # otherwise the between-stratum share would be overstated. 0/absent otherwise.
+  var_context <- if ("var_context" %in% names(df)) df$var_context else rep(0, nrow(df))
+  var_context[is.na(var_context)] <- 0
+  has_context <- any(var_context > sqrt(.Machine$double.eps))
+  totals <- df$var_between + var_context + var_other + df$var_residual
 
   comp_blocks <- list(
     data.frame(group = df$group, component = "Between-stratum (random)",
                variance = df$var_between, stringsAsFactors = FALSE)
   )
+  if (has_context) {
+    comp_blocks <- c(comp_blocks, list(
+      data.frame(group = df$group, component = "Context (higher level)",
+                 variance = var_context, stringsAsFactors = FALSE)
+    ))
+  }
   if (any(var_other > sqrt(.Machine$double.eps))) {
     comp_blocks <- c(comp_blocks, list(
       data.frame(group = df$group, component = "Other random effects",
@@ -1481,11 +1624,12 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
   comp$group <- factor(comp$group, levels = df$group[order(df$vpc)])
   comp$component <- factor(
     comp$component,
-    levels = c("Between-stratum (random)", "Other random effects",
-               "Within-stratum (residual)")
+    levels = c("Between-stratum (random)", "Context (higher level)",
+               "Other random effects", "Within-stratum (residual)")
   )
   component_colors <- c(
     "Between-stratum (random)" = "#E69F00",
+    "Context (higher level)" = "#CC79A7",
     "Other random effects" = "#009E73",
     "Within-stratum (residual)" = "#56B4E9"
   )
