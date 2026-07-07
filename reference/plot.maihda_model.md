@@ -19,6 +19,7 @@ plot(
   highlight_by = c("flag", "rope"),
   rope = NULL,
   select = c("order", "deviation"),
+  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
   quantity = c("predicted", "interaction"),
   ...
 )
@@ -44,7 +45,9 @@ plot(
     is a pure shrinkage view only for an intercept-only (null) model
 
   - "predicted": Predicted values for each stratum with confidence
-    intervals
+    intervals. By default the strata are ordered highest-to-lowest
+    predicted value (a ranked caterpillar plot); see `order_by` to
+    change or disable the ordering
 
   - "upset": UpSet-style alternative to `"predicted"` – an
     intersection-size bar, a category matrix encoding each stratum's
@@ -156,9 +159,22 @@ plot(
   in *both* directions). Applies to `"predicted"` and, for a
   longitudinal fit, `"trajectories"` (where it keeps the strata whose
   trajectories swing furthest from the population curve). Flagged strata
-  are always kept; this governs the fill and the unflagged case. The
-  displayed x-axis stays in stratum order regardless, so `select`
-  changes *which* strata appear, not their left-to-right order.
+  are always kept; this governs the fill and the unflagged case.
+  `select` changes *which* strata appear; their left-to-right display
+  order is a separate choice governed by `order_by`.
+
+- order_by:
+
+  For `type = "predicted"`, how to order the strata that are displayed
+  (**display-only** – it does not change *which* strata are shown, that
+  is `n_strata`/`select`, nor the predicted values, intervals, reference
+  line, or highlighted set): `"predicted_desc"` (default) orders labels
+  from the highest predicted value to the lowest, `"stratum"` keeps the
+  native stratum order (the previous behaviour), `"predicted_asc"`
+  orders from lowest to highest, and `"deviation"` orders by largest
+  absolute deviation from the reference line
+  (`|predicted - reference|`). Ignored by the other plot types
+  (`"upset"` orders by intersection size).
 
 - quantity:
 

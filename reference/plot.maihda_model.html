@@ -75,6 +75,7 @@ and predicted subgroup values with confidence intervals.</p>
 <span>  highlight_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"flag"</span>, <span class="st">"rope"</span><span class="op">)</span>,</span>
 <span>  rope <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  select <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"order"</span>, <span class="st">"deviation"</span><span class="op">)</span>,</span>
+<span>  order_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"predicted_desc"</span>, <span class="st">"stratum"</span>, <span class="st">"predicted_asc"</span>, <span class="st">"deviation"</span><span class="op">)</span>,</span>
 <span>  quantity <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"predicted"</span>, <span class="st">"interaction"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -95,7 +96,10 @@ and predicted subgroup values with confidence intervals.</p>
     covariate-adjusted model the distance from the diagonal reflects both
     shrinkage <em>and</em> covariate adjustment, not shrinkage alone; it is a
     pure shrinkage view only for an intercept-only (null) model</p></li>
-<li><p>"predicted": Predicted values for each stratum with confidence intervals</p></li>
+<li><p>"predicted": Predicted values for each stratum with confidence
+    intervals. By default the strata are ordered highest-to-lowest predicted
+    value (a ranked caterpillar plot); see <code>order_by</code> to change or
+    disable the ordering</p></li>
 <li><p>"upset": UpSet-style alternative to <code>"predicted"</code> – an
     intersection-size bar, a category matrix encoding each stratum's level on
     every dimension, and the predicted-value panel, all sharing one column
@@ -192,9 +196,22 @@ line – largest <code>|predicted - reference|</code>, so the most extreme strat
 <em>both</em> directions). Applies to <code>"predicted"</code> and, for a longitudinal
 fit, <code>"trajectories"</code> (where it keeps the strata whose trajectories swing
 furthest from the population curve). Flagged strata are always kept; this
-governs the fill and the unflagged case. The displayed x-axis stays in stratum
-order regardless, so <code>select</code> changes <em>which</em> strata appear, not
-their left-to-right order.</p></dd>
+governs the fill and the unflagged case. <code>select</code> changes <em>which</em>
+strata appear; their left-to-right display order is a separate choice governed
+by <code>order_by</code>.</p></dd>
+
+
+<dt id="arg-order-by">order_by<a class="anchor" aria-label="anchor" href="#arg-order-by"></a></dt>
+<dd><p>For <code>type = "predicted"</code>, how to order the strata that are
+displayed (<strong>display-only</strong> – it does not change <em>which</em> strata are
+shown, that is <code>n_strata</code>/<code>select</code>, nor the predicted values,
+intervals, reference line, or highlighted set): <code>"predicted_desc"</code>
+(default) orders labels from the highest predicted value to the lowest,
+<code>"stratum"</code> keeps the native stratum order (the previous behaviour),
+<code>"predicted_asc"</code> orders from lowest to highest, and <code>"deviation"</code>
+orders by largest absolute deviation from the reference line
+(<code>|predicted - reference|</code>). Ignored by the other plot types
+(<code>"upset"</code> orders by intersection size).</p></dd>
 
 
 <dt id="arg-quantity">quantity<a class="anchor" aria-label="anchor" href="#arg-quantity"></a></dt>

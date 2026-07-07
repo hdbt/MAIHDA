@@ -24,6 +24,7 @@ plot(
   highlight_by = c("flag", "rope"),
   rope = NULL,
   select = c("order", "deviation"),
+  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
   ...
 )
 ```
@@ -98,6 +99,15 @@ plot(
   longitudinal `"trajectories"`) view, which to keep: `"order"`
   (default, first n_strata in stratum order) or `"deviation"` (the
   n_strata furthest from the reference, both tails). See
+  [`plot`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md).
+
+- order_by:
+
+  Display order of the strata on the `"predicted"` view (display-only;
+  does not change which strata are shown, nor any value):
+  `"predicted_desc"` (default) highest predicted first, `"stratum"`
+  native order, `"predicted_asc"` lowest first, or `"deviation"` largest
+  `|predicted - reference|` first. See
   [`plot`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md).
 
 - ...:

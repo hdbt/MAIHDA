@@ -93,6 +93,7 @@ the stratum random effect is the pure interaction; with fewer than two dimension
 <span>  highlight_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"flag"</span>, <span class="st">"rope"</span><span class="op">)</span>,</span>
 <span>  rope <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  select <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"order"</span>, <span class="st">"deviation"</span><span class="op">)</span>,</span>
+<span>  order_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"predicted_desc"</span>, <span class="st">"stratum"</span>, <span class="st">"predicted_asc"</span>, <span class="st">"deviation"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -163,6 +164,15 @@ region <code>c(-d, d)</code> on the latent (link) scale, or <code>c(lower, upper
 <code>"predicted"</code> (or longitudinal <code>"trajectories"</code>) view, which to
 keep: <code>"order"</code> (default, first n_strata in stratum order) or
 <code>"deviation"</code> (the n_strata furthest from the reference, both tails). See
+<code><a href="plot.maihda_model.html">plot</a></code>.</p></dd>
+
+
+<dt id="arg-order-by">order_by<a class="anchor" aria-label="anchor" href="#arg-order-by"></a></dt>
+<dd><p>Display order of the strata on the <code>"predicted"</code> view
+(display-only; does not change which strata are shown, nor any value):
+<code>"predicted_desc"</code> (default) highest predicted first, <code>"stratum"</code>
+native order, <code>"predicted_asc"</code> lowest first, or <code>"deviation"</code>
+largest <code>|predicted - reference|</code> first. See
 <code><a href="plot.maihda_model.html">plot</a></code>.</p></dd>
 
 

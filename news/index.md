@@ -45,6 +45,30 @@
   itself. Non-contextual group comparisons are unchanged — the context
   columns and attributes are omitted entirely.
 
+- **`plot(type = "predicted")` gains an `order_by` argument and now
+  orders the strata by predicted value by default (a ranked caterpillar
+  plot).** The predicted-values plot previously drew the strata in
+  native stratum order, while `maihda_table()$strata` already ranked
+  them by predicted outcome — so the figure and the canonical
+  ranked-strata table disagreed on ordering.
+  `plot(model, type = "predicted", order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"))`
+  now exposes the ordering: `"predicted_desc"` (the new **default**)
+  puts the highest-predicted stratum at the top, `"predicted_asc"` the
+  lowest, `"deviation"` orders by largest absolute deviation from the
+  reference line (the same `|predicted - reference|` metric as
+  `select = "deviation"`), and `"stratum"` restores the previous
+  native-order behaviour. The ordering is **display-only**: it changes
+  neither the predicted values and intervals, nor *which* strata are
+  shown (that is still governed by `n_strata` and `select`), nor the
+  reference line or the highlighted set, and the strata keep their
+  meaningful
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  labels. Only the text `"predicted"` view is affected —
+  `type = "upset"` keeps its intersection-size ordering. Reachable
+  through the analysis wrapper too
+  (`plot(analysis, type = "predicted", order_by = ...)`). Callers who
+  relied on the native order can pass `order_by = "stratum"`.
+
 - **[`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   gains a `context` argument for a contextual cross-classified stepwise
   PCV.** [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)

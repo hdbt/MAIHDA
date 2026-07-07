@@ -62,8 +62,9 @@ plot_upset_strata(
   (default) the first n_strata in stratum order, or `"deviation"` the
   n_strata furthest from the reference line (largest
   `|predicted - reference|`, so both tails). Flagged strata are kept
-  regardless; this governs the fill / the unflagged case. The displayed
-  x-axis stays in stratum order either way.
+  regardless; this governs the fill / the unflagged case. It controls
+  *which* strata are shown, separately from how they are ordered for
+  display.
 
 ## Value
 
