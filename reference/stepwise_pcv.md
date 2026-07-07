@@ -17,6 +17,7 @@ stepwise_pcv(
   vars,
   engine = "lme4",
   family = "gaussian",
+  context = NULL,
   sampling_weights = NULL
 )
 ```
@@ -48,6 +49,28 @@ stepwise_pcv(
 
   Error distribution and link function. Default is "gaussian".
 
+- context:
+
+  Optional character vector naming one or more higher-level *context*
+  columns in `data` (e.g. `"school"`, `"region"`), forwarded to every
+  step's
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  call so that each model carries a crossed contextual random intercept,
+  `(1 | context)`, alongside the intersectional stratum effect – the
+  stepwise analogue of `maihda(context = )` (the literature's contextual
+  cross-classified MAIHDA). The reported `Step_PCV` / `Total_PCV` are
+  then the between-stratum PCV **net of** the context (the context
+  intercept is held in the null model and every step, so the stratum
+  variance is isolated from it), and an extra `Context_Variance` column
+  reports the between-context variance held at each step. Context
+  columns join the complete-case filter so every step shares one
+  analytic sample. A context variable may not be a stratum dimension,
+  `"stratum"` itself, or one of `vars`. Supported by the `lme4` and
+  `brms` engines only (`wemix` and `ordinal` fit no crossed random
+  effects). See
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  for the full contextual-model semantics. Default `NULL` (no context).
+
 - sampling_weights:
 
   Optional name of a sampling-weight column for design-weighted stepwise
@@ -66,7 +89,13 @@ of each step's model – step 0 is the strata-only discriminatory
 accuracy), `Step_AUC` and `Total_AUC` (the *absolute* change in AUC,
 delta-AUC, versus the previous step and versus the null), and `MOR` (the
 Median Odds Ratio, logit link only). These columns are absent for
-non-binary outcomes.
+non-binary outcomes. When `context` is supplied, a `Context_Variance`
+column reports the between-context variance held at each step, and the
+discriminatory-accuracy trajectory is omitted even for a binary outcome
+– the AUC would include the context random effect and so mismatch the
+net-of-context `Step_PCV` / `Total_PCV`, exactly as
+[`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
+drops it for a contextual fit.
 
 ## Details
 
@@ -119,5 +148,24 @@ stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
 #>     1    Model 1                gender 2.290e+01  0.01457   0.01457
 #>     2    Model 2                  race 7.564e-14  1.00000   1.00000
 #>     3    Model 3                   age 0.000e+00  1.00000   1.00000
+
+# Contextual cross-classified stepwise PCV: strata crossed with a higher-level
+# context (country). Step_PCV / Total_PCV are then net of the country intercept,
+# and a Context_Variance column reports the between-country variance per step.
+cc <- make_strata(maihda_country_data, c("gender", "ses"))
+stepwise_pcv(cc$data, "math", c("gender", "ses"), context = "country")
+#>  Step      Model        Added_Variable Variance Context_Variance Step_PCV
+#>     0 Null Model None (Intercept only)    838.4           1023.1  0.00000
+#>     1    Model 1                gender    815.2           1021.9  0.02767
+#>     2    Model 2                   ses      0.0            937.3  1.00000
+#>  Total_PCV
+#>    0.00000
+#>    0.02767
+#>    1.00000
+#> 
+#> Step_PCV / Total_PCV are the between-stratum PCV NET OF the context random
+#> intercept held in every model; Context_Variance is that (summed)
+#> between-context variance at each step.
+#> 
 # }
 ```

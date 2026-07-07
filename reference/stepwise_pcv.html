@@ -78,6 +78,7 @@ model-dependent change, not an order-invariant “unique” contribution.</p>
 <span>  <span class="va">vars</span>,</span>
 <span>  engine <span class="op">=</span> <span class="st">"lme4"</span>,</span>
 <span>  family <span class="op">=</span> <span class="st">"gaussian"</span>,</span>
+<span>  context <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sampling_weights <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -110,6 +111,25 @@ supplied, and to "ordinal" for an ordinal family or ordered-factor outcome.</p><
 <dd><p>Error distribution and link function. Default is "gaussian".</p></dd>
 
 
+<dt id="arg-context">context<a class="anchor" aria-label="anchor" href="#arg-context"></a></dt>
+<dd><p>Optional character vector naming one or more higher-level
+<em>context</em> columns in <code>data</code> (e.g. <code>"school"</code>, <code>"region"</code>),
+forwarded to every step's <code><a href="fit_maihda.html">fit_maihda</a></code> call so that each model
+carries a crossed contextual random intercept, <code>(1 | context)</code>, alongside
+the intersectional stratum effect – the stepwise analogue of
+<code>maihda(context = )</code> (the literature's contextual cross-classified MAIHDA).
+The reported <code>Step_PCV</code> / <code>Total_PCV</code> are then the between-stratum PCV
+<strong>net of</strong> the context (the context intercept is held in the null model and
+every step, so the stratum variance is isolated from it), and an extra
+<code>Context_Variance</code> column reports the between-context variance held at each
+step. Context columns join the complete-case filter so every step shares one
+analytic sample. A context variable may not be a stratum dimension, <code>"stratum"</code>
+itself, or one of <code>vars</code>. Supported by the <code>lme4</code> and <code>brms</code> engines
+only (<code>wemix</code> and <code>ordinal</code> fit no crossed random effects). See
+<code><a href="fit_maihda.html">fit_maihda</a></code> for the full contextual-model semantics. Default
+<code>NULL</code> (no context).</p></dd>
+
+
 <dt id="arg-sampling-weights">sampling_weights<a class="anchor" aria-label="anchor" href="#arg-sampling-weights"></a></dt>
 <dd><p>Optional name of a sampling-weight column for
 design-weighted stepwise fits; see <code><a href="fit_maihda.html">fit_maihda</a></code>. The weight
@@ -127,7 +147,12 @@ sample.</p></dd>
   <code>Step_AUC</code> and <code>Total_AUC</code> (the <em>absolute</em> change in AUC,
   delta-AUC, versus the previous step and versus the null), and <code>MOR</code> (the
   Median Odds Ratio, logit link only). These columns are absent for non-binary
-  outcomes.</p>
+  outcomes. When <code>context</code> is supplied, a <code>Context_Variance</code> column
+  reports the between-context variance held at each step, and the
+  discriminatory-accuracy trajectory is omitted even for a binary outcome – the
+  AUC would include the context random effect and so mismatch the net-of-context
+  <code>Step_PCV</code> / <code>Total_PCV</code>, exactly as <code><a href="summary.maihda_model.html">summary.maihda_model</a></code>
+  drops it for a contextual fit.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -174,6 +199,25 @@ neighbourhoods and health. <em>PLOS ONE</em>, 11(4), e0153778.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     1    Model 1                gender 2.290e+01  0.01457   0.01457</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     2    Model 2                  race 7.564e-14  1.00000   1.00000</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     3    Model 3                   age 0.000e+00  1.00000   1.00000</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Contextual cross-classified stepwise PCV: strata crossed with a higher-level</span></span></span>
+<span class="r-in"><span><span class="co"># context (country). Step_PCV / Total_PCV are then net of the country intercept,</span></span></span>
+<span class="r-in"><span><span class="co"># and a Context_Variance column reports the between-country variance per step.</span></span></span>
+<span class="r-in"><span><span class="va">cc</span> <span class="op">&lt;-</span> <span class="fu"><a href="make_strata.html">make_strata</a></span><span class="op">(</span><span class="va">maihda_country_data</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"ses"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">stepwise_pcv</span><span class="op">(</span><span class="va">cc</span><span class="op">$</span><span class="va">data</span>, <span class="st">"math"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"ses"</span><span class="op">)</span>, context <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  Step      Model        Added_Variable Variance Context_Variance Step_PCV</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     0 Null Model None (Intercept only)    838.4           1023.1  0.00000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     1    Model 1                gender    815.2           1021.9  0.02767</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     2    Model 2                   ses      0.0            937.3  1.00000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  Total_PCV</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    0.00000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    0.02767</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    1.00000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Step_PCV / Total_PCV are the between-stratum PCV NET OF the context random</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">intercept held in every model; Context_Variance is that (summed)</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">between-context variance at each step.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

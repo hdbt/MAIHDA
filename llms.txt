@@ -270,7 +270,10 @@ contributed by a predictor given the variables already in the model. For
 a binary outcome it also reports the discriminatory-accuracy trajectory
 (`AUC`, the step/total change in AUC, and `MOR`) alongside the PCV, so
 the strata’s discriminatory accuracy can be tracked as covariates are
-added.
+added. Pass `context =` to run it as a contextual cross-classified model
+(a `(1 | context)` intercept held in every step, as in
+`maihda(context = )`): the reported PCV is then net of the context, and
+a `Context_Variance` column surfaces the between-context share.
 
 ### Longitudinal (growth-curve) MAIHDA
 

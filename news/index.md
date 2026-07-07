@@ -2,6 +2,40 @@
 
 ## MAIHDA 0.2.1
 
+### New Features
+
+- **[`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  gains a `context` argument for a contextual cross-classified stepwise
+  PCV.** [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  and
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  already accept `context` (a higher-level crossed random intercept
+  `(1 | context)` — school, hospital, region — giving the literature’s
+  contextual cross-classified MAIHDA), but the sequential
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  did not, an API inconsistency rather than a statistical barrier: every
+  step is fit through
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+  which adds the `(1 | context)` term itself.
+  `stepwise_pcv(..., context = c(...))` now forwards the context to the
+  null model and every step, so the reported `Step_PCV` / `Total_PCV`
+  are the between-stratum PCV **net of** the context (the stratum
+  variance is isolated from it —
+  [`extract_between_variance()`](https://hdbt.github.io/MAIHDA/reference/extract_between_variance.md)
+  already reads only the `stratum` variance component, so no PCV-math
+  changed). The context column(s) join the complete-case filter so all
+  steps share one analytic sample, and a new **`Context_Variance`**
+  column reports the (summed) between-context variance held at each
+  step, shown next to the net-of-context stratum `Variance`. For a
+  **binary** contextual fit the discriminatory-accuracy trajectory
+  (`AUC` / `MOR`) is omitted — the AUC would include the context random
+  effect and so mismatch the net-of-context PCV columns, exactly as
+  [`summary.maihda_model()`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
+  drops it for a contextual fit. Supported by the `lme4` and `brms`
+  engines; `wemix` and `ordinal` (which fit no crossed random effects)
+  reject `context` with a clear message. Non-contextual tables are
+  byte-for-byte unchanged.
+
 ### API Changes
 
 - **[`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
