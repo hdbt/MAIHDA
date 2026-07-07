@@ -517,3 +517,140 @@ test_that("contextual brms summary returns posterior shares with intervals", {
   expect_true("Context: site" %in% vc$component)
   expect_equal(sum(vc$proportion[vc$component != "Total"]), 1, tolerance = 1e-6)
 })
+
+# ---- stepwise_pcv(context = ) --------------------------------------------------
+# The stepwise between-stratum PCV as a contextual cross-classified model: the
+# (1 | context) intercept is held in the null model and every step, so Step_PCV /
+# Total_PCV are the between-stratum PCV NET OF the context. Every step is fit through
+# fit_maihda(context = ), and extract_between_variance() already reads only the
+# stratum component, so the isolation is automatic; these tests pin the forwarding,
+# the shared complete-case sample, the Context_Variance column, and the engine guards.
+
+test_that("stepwise_pcv(context = ) isolates the between-stratum PCV net of context (lme4 gaussian)", {
+  d <- make_context_data()
+  s <- make_strata(d, vars = c("g1", "g2"))
+
+  out <- suppressWarnings(suppressMessages(
+    stepwise_pcv(s$data, "y", c("g1", "g2", "x"), context = "site")))
+  expect_s3_class(out, "maihda_stepwise")
+  expect_true(all(is.finite(out$Total_PCV)))
+  expect_true("Context_Variance" %in% names(out))
+
+  # The final step's between-stratum Variance equals the direct contextual fit's
+  # (ML-refit) stratum variance -- proving the (1 | site) effect is held every step
+  # and the stratum variance is read net of it.
+  m_ctx <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ g1 + g2 + x + (1 | stratum), data = s$data, context = "site")))
+  v_ctx <- extract_between_variance(maihda_pcv_refit_ml(m_ctx))
+  expect_equal(out$Variance[nrow(out)], v_ctx, tolerance = 1e-6)
+
+  # Context genuinely matters for this data: the same fit WITHOUT the context has a
+  # materially different stratum variance, so the match above is discriminating.
+  m_noctx <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ g1 + g2 + x + (1 | stratum), data = s$data)))
+  v_noctx <- extract_between_variance(maihda_pcv_refit_ml(m_noctx))
+  expect_false(isTRUE(all.equal(v_ctx, v_noctx, tolerance = 1e-4)))
+})
+
+test_that("stepwise_pcv Context_Variance reports the between-context variance and leaves other tables unchanged", {
+  d <- make_context_data()
+  s <- make_strata(d, vars = c("g1", "g2"))
+
+  out    <- suppressWarnings(suppressMessages(
+    stepwise_pcv(s$data, "y", c("g1", "g2", "x"), context = "site")))
+  out_no <- suppressWarnings(suppressMessages(
+    stepwise_pcv(s$data, "y", c("g1", "g2", "x"))))
+
+  # Present only with context =; the non-contextual gaussian table is byte-for-byte
+  # the historical six columns.
+  expect_true("Context_Variance" %in% names(out))
+  expect_identical(names(out_no),
+                   c("Step", "Model", "Added_Variable", "Variance",
+                     "Step_PCV", "Total_PCV"))
+  # ...and Context_Variance sits directly after the stratum Variance.
+  expect_equal(which(names(out) == "Context_Variance"),
+               which(names(out) == "Variance") + 1L)
+
+  # Positive at every step and equal to the fitted site variance at the final step.
+  expect_true(all(out$Context_Variance > 0))
+  m_ctx <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ g1 + g2 + x + (1 | stratum), data = s$data, context = "site")))
+  site_var <- unname(maihda_random_variances_lme4(
+    maihda_pcv_refit_ml(m_ctx)$model)["site"])
+  expect_equal(out$Context_Variance[nrow(out)], site_var, tolerance = 1e-6)
+})
+
+test_that("stepwise_pcv(context = ) filters context to one shared complete-case sample", {
+  d <- make_context_data()
+  d$site[1:50] <- NA
+  s <- make_strata(d, vars = c("g1", "g2"))
+
+  out <- suppressWarnings(suppressMessages(
+    stepwise_pcv(s$data, "y", c("g1", "g2", "x"), context = "site")))
+
+  # The 50 NA-site rows are dropped once, up front, so every step (here the null)
+  # uses the same reduced analytic sample as a manual complete-site fit.
+  s_cc <- s$data[!is.na(s$data$site), , drop = FALSE]
+  m_null <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ (1 | stratum), data = s_cc, context = "site")))
+  expect_equal(out$Variance[1],
+               extract_between_variance(maihda_pcv_refit_ml(m_null)),
+               tolerance = 1e-6)
+})
+
+test_that("stepwise_pcv omits the AUC/MOR trajectory for a binary contextual fit", {
+  set.seed(4242)
+  d <- make_context_data(n = 1500, n_sites = 20)
+  d$yb <- stats::rbinom(nrow(d), 1, stats::plogis(d$y - mean(d$y)))
+  s <- make_strata(d, vars = c("g1", "g2"))
+
+  # No discriminatory-accuracy columns (the AUC would include the context effect),
+  # but the net-of-context PCV trajectory and the context variance are reported.
+  outb <- suppressWarnings(suppressMessages(
+    stepwise_pcv(s$data, "yb", c("g1", "g2"), family = "binomial",
+                 context = "site")))
+  expect_false(any(c("AUC", "Step_AUC", "Total_AUC", "MOR") %in% names(outb)))
+  expect_true("Context_Variance" %in% names(outb))
+  expect_true(all(is.finite(outb$Total_PCV)))
+
+  # The same binary stepwise WITHOUT context still carries the AUC trajectory --
+  # confirming the omission is specific to the contextual structure, not the family.
+  outb0 <- suppressWarnings(suppressMessages(
+    stepwise_pcv(s$data, "yb", c("g1", "g2"), family = "binomial")))
+  expect_true(all(c("AUC", "MOR") %in% names(outb0)))
+})
+
+test_that("stepwise_pcv(context = ) rejects the wemix and ordinal engines", {
+  d <- make_context_data()
+  d$w <- stats::runif(nrow(d), 0.5, 2)
+  s <- make_strata(d, vars = c("g1", "g2"))
+
+  # sampling_weights routes to wemix, which fits no crossed random effects.
+  expect_error(
+    suppressMessages(stepwise_pcv(s$data, "y", c("g1", "g2"), context = "site",
+                                  sampling_weights = "w")),
+    "does not support 'context'")
+  # An ordinal family routes to the clmm engine, likewise no crossed REs.
+  expect_error(
+    suppressMessages(stepwise_pcv(s$data, "y", c("g1", "g2"), context = "site",
+                                  family = "ordinal")),
+    "does not support 'context'")
+})
+
+test_that("stepwise_pcv(context = ) works on the brms engine", {
+  # Compiles a Stan model per step, so OPT-IN (set MAIHDA_TEST_BRMS=true).
+  # stepwise_pcv() takes no `...`, so the per-step brms fits use default sampling;
+  # a two-fit trajectory (null + one step) keeps the opt-in run bounded.
+  skip_on_cran()
+  skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
+          "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
+  skip_if_not_installed("brms")
+
+  d <- make_context_data(seed = 8300, n = 400, n_sites = 12)
+  s <- make_strata(d, vars = c("g1", "g2"))
+  out <- suppressWarnings(suppressMessages(
+    stepwise_pcv(s$data, "y", c("g1"), engine = "brms", context = "site")))
+  expect_s3_class(out, "maihda_stepwise")
+  expect_true("Context_Variance" %in% names(out))
+  expect_true(all(is.finite(out$Context_Variance)))
+})

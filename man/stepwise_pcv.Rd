@@ -10,6 +10,7 @@ stepwise_pcv(
   vars,
   engine = "lme4",
   family = "gaussian",
+  context = NULL,
   sampling_weights = NULL
 )
 }
@@ -28,6 +29,23 @@ supplied, and to "ordinal" for an ordinal family or ordered-factor outcome.}
 
 \item{family}{Error distribution and link function. Default is "gaussian".}
 
+\item{context}{Optional character vector naming one or more higher-level
+\emph{context} columns in \code{data} (e.g. \code{"school"}, \code{"region"}),
+forwarded to every step's \code{\link{fit_maihda}} call so that each model
+carries a crossed contextual random intercept, \code{(1 | context)}, alongside
+the intersectional stratum effect -- the stepwise analogue of
+\code{maihda(context = )} (the literature's contextual cross-classified MAIHDA).
+The reported \code{Step_PCV} / \code{Total_PCV} are then the between-stratum PCV
+\strong{net of} the context (the context intercept is held in the null model and
+every step, so the stratum variance is isolated from it), and an extra
+\code{Context_Variance} column reports the between-context variance held at each
+step. Context columns join the complete-case filter so every step shares one
+analytic sample. A context variable may not be a stratum dimension, \code{"stratum"}
+itself, or one of \code{vars}. Supported by the \code{lme4} and \code{brms} engines
+only (\code{wemix} and \code{ordinal} fit no crossed random effects). See
+\code{\link{fit_maihda}} for the full contextual-model semantics. Default
+\code{NULL} (no context).}
+
 \item{sampling_weights}{Optional name of a sampling-weight column for
 design-weighted stepwise fits; see \code{\link{fit_maihda}}. The weight
 column joins the complete-case filter so every step uses the same analytic
@@ -42,7 +60,12 @@ A data.frame (class \code{maihda_stepwise}) showing the sequential
   \code{Step_AUC} and \code{Total_AUC} (the \emph{absolute} change in AUC,
   delta-AUC, versus the previous step and versus the null), and \code{MOR} (the
   Median Odds Ratio, logit link only). These columns are absent for non-binary
-  outcomes.
+  outcomes. When \code{context} is supplied, a \code{Context_Variance} column
+  reports the between-context variance held at each step, and the
+  discriminatory-accuracy trajectory is omitted even for a binary outcome -- the
+  AUC would include the context random effect and so mismatch the net-of-context
+  \code{Step_PCV} / \code{Total_PCV}, exactly as \code{\link{summary.maihda_model}}
+  drops it for a contextual fit.
 }
 \description{
 Estimates the proportional change in variance (PCV) sequentially by fitting
@@ -85,6 +108,12 @@ strata.
 \donttest{
 strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
 stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
+
+# Contextual cross-classified stepwise PCV: strata crossed with a higher-level
+# context (country). Step_PCV / Total_PCV are then net of the country intercept,
+# and a Context_Variance column reports the between-country variance per step.
+cc <- make_strata(maihda_country_data, c("gender", "ses"))
+stepwise_pcv(cc$data, "math", c("gender", "ses"), context = "country")
 }
 
 }

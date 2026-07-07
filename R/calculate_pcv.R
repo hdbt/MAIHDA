@@ -556,6 +556,31 @@ print.pcv_result <- function(x, ...) {
 #' @export
 print.pvc_result <- print.pcv_result
 
+# Total between-context variance held in a stepwise model (the crossed contextual
+# random intercept(s) added by fit_maihda(context = )). Reads the per-group intercept
+# variances and sums the context component(s), so multiple context columns collapse to
+# one total -- the share reported alongside the net-of-context stratum PCV. Reads from
+# the same fitted object stepwise_pcv() uses for the stratum variance (the ML-refit fit
+# for a REML lmer model), keeping the two variances on one scale. Returns NA for an
+# engine without a recoverable per-group split (wemix/ordinal never reach here: they
+# reject context up front).
+maihda_stepwise_context_variance <- function(mod, context) {
+  v <- switch(mod$engine,
+    lme4 = tryCatch(maihda_random_variances_lme4(mod$model),
+                    error = function(e) NULL),
+    brms = tryCatch(maihda_random_variances_brms(mod$model),
+                    error = function(e) NULL),
+    NULL)
+  if (is.null(v)) {
+    return(NA_real_)
+  }
+  present <- intersect(context, names(v))
+  if (length(present) == 0) {
+    return(NA_real_)
+  }
+  sum(v[present], na.rm = TRUE)
+}
+
 #' Stepwise Proportional Change in Variance (PCV)
 #'
 #' @description
@@ -575,6 +600,22 @@ print.pvc_result <- print.pcv_result
 #'   is "lme4"; switches to "wemix" automatically when \code{sampling_weights} is
 #'   supplied, and to "ordinal" for an ordinal family or ordered-factor outcome.
 #' @param family Error distribution and link function. Default is "gaussian".
+#' @param context Optional character vector naming one or more higher-level
+#'   \emph{context} columns in \code{data} (e.g. \code{"school"}, \code{"region"}),
+#'   forwarded to every step's \code{\link{fit_maihda}} call so that each model
+#'   carries a crossed contextual random intercept, \code{(1 | context)}, alongside
+#'   the intersectional stratum effect -- the stepwise analogue of
+#'   \code{maihda(context = )} (the literature's contextual cross-classified MAIHDA).
+#'   The reported \code{Step_PCV} / \code{Total_PCV} are then the between-stratum PCV
+#'   \strong{net of} the context (the context intercept is held in the null model and
+#'   every step, so the stratum variance is isolated from it), and an extra
+#'   \code{Context_Variance} column reports the between-context variance held at each
+#'   step. Context columns join the complete-case filter so every step shares one
+#'   analytic sample. A context variable may not be a stratum dimension, \code{"stratum"}
+#'   itself, or one of \code{vars}. Supported by the \code{lme4} and \code{brms} engines
+#'   only (\code{wemix} and \code{ordinal} fit no crossed random effects). See
+#'   \code{\link{fit_maihda}} for the full contextual-model semantics. Default
+#'   \code{NULL} (no context).
 #' @param sampling_weights Optional name of a sampling-weight column for
 #'   design-weighted stepwise fits; see \code{\link{fit_maihda}}. The weight
 #'   column joins the complete-case filter so every step uses the same analytic
@@ -588,7 +629,12 @@ print.pvc_result <- print.pcv_result
 #'   \code{Step_AUC} and \code{Total_AUC} (the \emph{absolute} change in AUC,
 #'   delta-AUC, versus the previous step and versus the null), and \code{MOR} (the
 #'   Median Odds Ratio, logit link only). These columns are absent for non-binary
-#'   outcomes.
+#'   outcomes. When \code{context} is supplied, a \code{Context_Variance} column
+#'   reports the between-context variance held at each step, and the
+#'   discriminatory-accuracy trajectory is omitted even for a binary outcome -- the
+#'   AUC would include the context random effect and so mismatch the net-of-context
+#'   \code{Step_PCV} / \code{Total_PCV}, exactly as \code{\link{summary.maihda_model}}
+#'   drops it for a contextual fit.
 #'
 #' @details
 #' All models are fit on the complete cases for `outcome`, `stratum`, and all
@@ -628,15 +674,27 @@ print.pvc_result <- print.pcv_result
 #' \donttest{
 #' strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
 #' stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
+#'
+#' # Contextual cross-classified stepwise PCV: strata crossed with a higher-level
+#' # context (country). Step_PCV / Total_PCV are then net of the country intercept,
+#' # and a Context_Variance column reports the between-country variance per step.
+#' cc <- make_strata(maihda_country_data, c("gender", "ses"))
+#' stepwise_pcv(cc$data, "math", c("gender", "ses"), context = "country")
 #' }
 #'
 #' @export
 stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussian",
-                         sampling_weights = NULL) {
+                         context = NULL, sampling_weights = NULL) {
 
   if (!"stratum" %in% names(data)) {
     stop("Variable 'stratum' not found in data. Please run make_strata() first.")
   }
+  # Validate the higher-level context column(s) up front, mirroring fit_maihda()
+  # (which each step calls). The clash-with-stratum-dimension and
+  # clash-with-fixed-part checks fire per-step inside fit_maihda(); here we only
+  # normalise and confirm existence so the context columns can join the shared
+  # complete-case filter below (and every step then holds the (1 | context) effect).
+  context <- maihda_validate_context(context, data)
   # Sampling weights select the design-weighted engine, mirroring fit_maihda();
   # the weight column joins the complete-case filter below so all steps share one
   # analytic sample.
@@ -652,7 +710,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
            "engine = \"wemix\" or \"brms\".", call. = FALSE)
     }
   }
-  required_vars <- unique(c(outcome, "stratum", vars, sampling_weights))
+  required_vars <- unique(c(outcome, "stratum", vars, context, sampling_weights))
   missing_vars <- setdiff(required_vars, names(data))
   if (length(missing_vars) > 0) {
     stop("Variables not found in data: ", paste(missing_vars, collapse = ", "))
@@ -725,6 +783,16 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     }
   }
 
+  # Context is a crossed random effect, which the design-weighted (wemix) and
+  # cumulative (ordinal) engines cannot fit -- mirroring fit_maihda()'s guards
+  # (which each step would otherwise hit at the null fit). Checked on the RESOLVED
+  # engine, so a valid context + sampling_weights + engine = "brms" still passes.
+  if (!is.null(context) && engine %in% c("wemix", "ordinal")) {
+    stop("stepwise_pcv(): engine = \"", engine, "\" does not support 'context' ",
+         "(it fits no crossed random effects). Use engine = \"lme4\" or ",
+         "\"brms\" for a contextual cross-classified stepwise PCV.", call. = FALSE)
+  }
+
   results <- data.frame(
     Step = integer(length(vars) + 1),
     Model = character(length(vars) + 1),
@@ -741,7 +809,8 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   # trajectory below.
   null_fmla <- maihda_formula_with_stratum(outcome)
   null_mod <- maihda_pcv_refit_ml(fit_maihda(null_fmla, data, engine = engine,
-                         family = family, sampling_weights = sampling_weights))
+                         family = family, context = context,
+                         sampling_weights = sampling_weights))
   null_var <- extract_between_variance(null_mod)
 
   # Discriminatory-accuracy trajectory (binary outcomes only): read the AUC and MOR
@@ -751,7 +820,13 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   # byte-for-byte unchanged. maihda_discriminatory_accuracy() already handles
   # aggregated-binomial, design-weighted (wemix) AUC and the logit-only MOR gate, so a
   # design-weighted stepwise yields the design-weighted AUC here too.
-  da_applies <- isTRUE(maihda_model_family_name(null_mod) %in% c("binomial", "bernoulli"))
+  #
+  # Suppressed for a CONTEXTUAL fit (context = ), mirroring summary.maihda_model():
+  # the AUC is built from full predictions that INCLUDE the context random effect, so
+  # it would not match the net-of-context (stratum-only) Step_PCV/Total_PCV columns
+  # here. A contextual binary stepwise therefore reports the PCV trajectory only.
+  da_applies <- isTRUE(maihda_model_family_name(null_mod) %in%
+                       c("binomial", "bernoulli")) && is.null(context)
   auc_vec <- rep(NA_real_, length(vars) + 1)
   mor_vec <- rep(NA_real_, length(vars) + 1)
   read_da <- function(m) {
@@ -762,6 +837,17 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     da0 <- read_da(null_mod)
     auc_vec[1] <- da0[1]
     mor_vec[1] <- da0[2]
+  }
+
+  # Between-context variance trajectory (only when context = is supplied): the
+  # crossed contextual random intercept held in every model, read from the same
+  # (ML-refit, for lme4) fit used for the stratum variance. Surfaced as the
+  # Context_Variance column so the context share is visible alongside the
+  # net-of-context stratum PCV. NA (and the column dropped) otherwise, so the
+  # non-contextual table is byte-for-byte unchanged.
+  ctx_var_vec <- rep(NA_real_, length(vars) + 1)
+  if (!is.null(context)) {
+    ctx_var_vec[1] <- maihda_stepwise_context_variance(null_mod, context)
   }
 
   results[1, ] <- list(
@@ -784,7 +870,8 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
 
     fmla <- maihda_formula_with_stratum(outcome, current_terms)
     mod <- maihda_pcv_refit_ml(fit_maihda(fmla, data, engine = engine,
-                      family = family, sampling_weights = sampling_weights))
+                      family = family, context = context,
+                      sampling_weights = sampling_weights))
 
     curr_var <- extract_between_variance(mod)
 
@@ -792,6 +879,10 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
       dai <- read_da(mod)
       auc_vec[i + 1] <- dai[1]
       mor_vec[i + 1] <- dai[2]
+    }
+
+    if (!is.null(context)) {
+      ctx_var_vec[i + 1] <- maihda_stepwise_context_variance(mod, context)
     }
 
     step_pcv <- if (prev_var > 0) (prev_var - curr_var) / prev_var else NA
@@ -820,6 +911,18 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     results$MOR <- mor_vec
   }
 
+  # Attach the between-context variance held in every model as an extra column, only
+  # when context = was supplied (so the non-contextual table is unchanged). Placed
+  # next to the net-of-context stratum Variance so the partition reads together.
+  # A contextual fit never carries the AUC columns above (da_applies is FALSE when
+  # context is set), so the column set here is exactly the PCV trajectory plus this.
+  if (!is.null(context)) {
+    results$Context_Variance <- ctx_var_vec
+    base_cols <- setdiff(names(results), "Context_Variance")
+    results <- results[append(base_cols, "Context_Variance",
+                              after = match("Variance", base_cols))]
+  }
+
   class(results) <- c("maihda_stepwise", "data.frame")
   return(results)
 }
@@ -837,6 +940,12 @@ print.maihda_stepwise <- function(x, ...) {
         "\nStep_PCV / Total_PCV are proportional changes in between-stratum variance;\n",
         "Step_AUC / Total_AUC are absolute changes in AUC (delta-AUC). MOR is the\n",
         "median odds ratio (logit link only).\n")))
+  }
+  if ("Context_Variance" %in% names(x)) {
+    cat(maihda_palette()$muted(paste0(
+        "\nStep_PCV / Total_PCV are the between-stratum PCV NET OF the context random\n",
+        "intercept held in every model; Context_Variance is that (summed)\n",
+        "between-context variance at each step.\n")))
   }
   invisible(x)
 }
