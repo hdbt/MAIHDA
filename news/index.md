@@ -321,6 +321,33 @@
 
 ### Improvements
 
+- **[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) now
+  warns when a numeric stratum-defining dimension would enter the
+  adjusted model as a linear fixed effect instead of categorical main
+  effects.** The variables that define intersectional strata are
+  conceptually categorical, and
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  already treats them so when forming strata (each distinct value is a
+  stratum level; a numeric dimension with more than 10 unique values is
+  tertile-binned when `autobin = TRUE`). But the adjusted/decomposition
+  model added an un-binned numeric dimension by its raw column name — so
+  a category code such as `education = 1, 2, 3` (10 or fewer unique
+  values), or a many-valued numeric fitted with `autobin = FALSE`,
+  silently entered as a single **linear** slope rather than one main
+  effect per level, quietly changing the PCV/decomposition
+  interpretation.
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) (and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md),
+  and the Shiny app’s decomposition) now emit a clear warning that names
+  the offending dimension(s) and points to the fix — wrap category codes
+  in [`factor()`](https://rdrr.io/r/base/factor.html) before fitting, or
+  use a genuinely continuous variable as a covariate rather than a
+  stratum dimension. The behaviour is **warn-only**: the term still
+  enters exactly as before, so results (and PCV values) of existing
+  analyses are unchanged; auto-binned numeric dimensions and
+  factor/character dimensions are correctly not flagged.
+  ([\#56](https://github.com/hdbt/MAIHDA/issues/56))
+
 - **`calculate_pcv(bootstrap = TRUE)` on a non-lme4 engine now explains
   what *is* available instead of pointing brms users in a circle.** The
   old error told every non-lme4 caller to “refit with engine = "brms"
@@ -339,6 +366,7 @@
   [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
   with `bootstrap = FALSE`. The `bootstrap` argument documentation now
   states the lme4-only restriction up front.
+
 - **Documented the latent-scale rescaling caveat on the PCV.**
   [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
   and

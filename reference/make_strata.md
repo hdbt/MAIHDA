@@ -73,6 +73,18 @@ reserved. `make_strata()` errors if `data` already holds the
 existing user column is never silently overwritten (rename it, or pass
 `autobin = FALSE`).
 
+A numeric grouping variable with 10 or fewer unique values (or any
+numeric when `autobin = FALSE`) is kept as its raw values: distinct
+values still define distinct strata, but the variable is *not* binned.
+If such a variable is then used to build an adjusted MAIHDA
+([`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)), it
+enters the adjusted model as a linear fixed effect rather than
+categorical main effects, and
+[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) warns
+(when it has three or more distinct values). Wrap category codes in
+[`factor()`](https://rdrr.io/r/base/factor.html) before creating strata
+if you want them treated categorically.
+
 ## Examples
 
 ``` r

@@ -379,6 +379,23 @@ there is only one dimension (no intersection to decompose). Use <code><a href="f
 for those single-model fits.</p>
     </div>
     <div class="section level2">
+    <h2 id="numeric-stratum-dimensions">Numeric stratum dimensions<a class="anchor" aria-label="anchor" href="#numeric-stratum-dimensions"></a></h2>
+
+
+<p>The stratum-defining dimensions are categorical. A factor or character dimension
+enters the adjusted model as a categorical main effect, and a numeric dimension with
+more than 10 unique values is tertile-binned when <code>autobin = TRUE</code> (see
+<code><a href="make_strata.html">make_strata</a></code>). A numeric dimension that is <em>not</em> auto-binned – a
+category code such as <code>education = 1, 2, 3</code> (few unique values), or a many-valued
+numeric fitted with <code>autobin = FALSE</code> – enters the adjusted model as a single
+<em>linear</em> fixed effect rather than categorical main effects, which changes the
+PCV/decomposition interpretation. <code>maihda()</code> therefore <strong>warns</strong> in that
+case (for three or more distinct values – a binary numeric dimension is exempt, since
+with two levels a linear term and a factor are equivalent): wrap category codes in
+<code><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor()</a></code> before fitting, or, for a genuinely continuous variable, use it as a
+covariate rather than a stratum dimension.</p>
+    </div>
+    <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="fit_maihda.html">fit_maihda</a></code> for the single-model fitter,
   <code><a href="compare_maihda_groups.html">compare_maihda_groups</a></code> for the group comparison, and
@@ -429,10 +446,10 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55570f59bbb8&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d2fd6ee0d8&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55571323d9c8&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d2fd0728e0&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -487,7 +504,7 @@ for those single-model fits.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55570e262f88&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d2fbdb64b0&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>

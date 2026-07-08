@@ -121,6 +121,13 @@ adjusted-model and prediction machinery later add an internal factor column name
 <code>make_strata()</code> errors if <code>data</code> already holds the <code>.maihda_dim_&lt;v&gt;</code>
 column for a variable it is about to auto-bin, so an existing user column is never
 silently overwritten (rename it, or pass <code>autobin = FALSE</code>).</p>
+<p>A numeric grouping variable with 10 or fewer unique values (or any numeric when
+<code>autobin = FALSE</code>) is kept as its raw values: distinct values still define
+distinct strata, but the variable is <em>not</em> binned. If such a variable is then
+used to build an adjusted MAIHDA (<code><a href="maihda.html">maihda</a></code>), it enters the adjusted model
+as a linear fixed effect rather than categorical main effects, and <code><a href="maihda.html">maihda()</a></code>
+warns (when it has three or more distinct values). Wrap category codes in
+<code><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor()</a></code> before creating strata if you want them treated categorically.</p>
     </div>
 
     <div class="section level2">

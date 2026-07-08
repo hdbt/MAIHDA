@@ -359,6 +359,25 @@ none) or there is only one dimension (no intersection to decompose). Use
 [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
 for those single-model fits.
 
+## Numeric stratum dimensions
+
+The stratum-defining dimensions are categorical. A factor or character
+dimension enters the adjusted model as a categorical main effect, and a
+numeric dimension with more than 10 unique values is tertile-binned when
+`autobin = TRUE` (see
+[`make_strata`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)).
+A numeric dimension that is *not* auto-binned – a category code such as
+`education = 1, 2, 3` (few unique values), or a many-valued numeric
+fitted with `autobin = FALSE` – enters the adjusted model as a single
+*linear* fixed effect rather than categorical main effects, which
+changes the PCV/decomposition interpretation. `maihda()` therefore
+**warns** in that case (for three or more distinct values – a binary
+numeric dimension is exempt, since with two levels a linear term and a
+factor are equivalent): wrap category codes in
+[`factor()`](https://rdrr.io/r/base/factor.html) before fitting, or, for
+a genuinely continuous variable, use it as a covariate rather than a
+stratum dimension.
+
 ## See also
 
 [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
@@ -413,10 +432,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x55570f59bbb8>
+#> <environment: 0x55d2fd6ee0d8>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x55571323d9c8>
+#> <environment: 0x55d2fd0728e0>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -471,7 +490,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x55570e262f88>
+#> <environment: 0x55d2fbdb64b0>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):
