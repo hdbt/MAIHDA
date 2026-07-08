@@ -211,6 +211,47 @@ test_that("compare_maihda_groups(decomposition = 'crossed-dimensions') reports s
   expect_identical(attr(g, "decomposition"), "crossed-dimensions")
 })
 
+test_that("plot(type = 'all') includes group_additive_share for a crossed-dimensions group analysis", {
+  skip_if_not_installed("ggplot2")
+  d <- make_cc_data()
+  a <- suppressWarnings(suppressMessages(
+    maihda(y ~ x + (1 | a:b:cc), data = d, group = "grp",
+           decomposition = "crossed-dimensions")))
+
+  # The group comparison carries the crossed-dimensions additive share, not the
+  # two-model PCV -- the two are mutually exclusive by decomposition mode.
+  expect_true("additive_share" %in% names(a$groups))
+  expect_false("pcv" %in% names(a$groups))
+
+  grDevices::pdf(NULL)
+  on.exit(grDevices::dev.off())
+  plots <- suppressWarnings(plot(a))          # type = "all"
+
+  # Regression: the additive-share-by-group view (the one estimable for this mode)
+  # must appear in the default plot(); the inapplicable group_pcv drops out.
+  expect_s3_class(plots$group_additive_share, "ggplot")
+  expect_null(plots$group_pcv)
+})
+
+test_that("plot(type = 'all') keeps group_pcv (not additive_share) for a two-model group analysis", {
+  skip_if_not_installed("ggplot2")
+  d <- make_cc_data()
+  a <- suppressWarnings(suppressMessages(
+    maihda(y ~ x + (1 | a:b), data = d, group = "grp")))   # default: two-model
+
+  expect_true("pcv" %in% names(a$groups))
+  expect_false("additive_share" %in% names(a$groups))
+
+  grDevices::pdf(NULL)
+  on.exit(grDevices::dev.off())
+  plots <- suppressWarnings(plot(a))          # type = "all"
+
+  # The mutual exclusion holds in the other direction: two-model shows the PCV
+  # view and drops the crossed-dimensions additive share.
+  expect_s3_class(plots$group_pcv, "ggplot")
+  expect_null(plots$group_additive_share)
+})
+
 test_that("crossed-dimensions group comparison requires shared_strata = TRUE", {
   d <- make_cc_data()
   expect_error(

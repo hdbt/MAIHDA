@@ -1181,8 +1181,15 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
         group_components = plot(x$groups, type = "components"),
         group_between_variance = plot(x$groups, type = "between_variance")
       )
+      # PCV (two-model) and additive_share (crossed-dimensions) are mutually
+      # exclusive by decomposition mode: the group comparison carries exactly one
+      # of the two columns. Attempt both under tryCatch so the estimable one shows
+      # and the inapplicable one drops out cleanly -- otherwise a crossed-dimensions
+      # group analysis loses its additive-share view from the default plot().
       group_plots$group_pcv <- tryCatch(plot(x$groups, type = "pcv"),
                                          error = function(e) NULL)
+      group_plots$group_additive_share <- tryCatch(
+        plot(x$groups, type = "additive_share"), error = function(e) NULL)
       model_plots <- c(model_plots, group_plots)
     }
     for (p in model_plots[!vapply(model_plots, is.null, logical(1))]) print(p)
