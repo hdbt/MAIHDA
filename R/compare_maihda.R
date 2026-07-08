@@ -442,6 +442,13 @@ plot_comparison <- function(comparison_df) {
 #'   its own members' weights. Not compatible with \code{engine = "lme4"},
 #'   \code{bootstrap = TRUE}, or (under the wemix engine)
 #'   \code{decomposition = "crossed-dimensions"}.
+#' @param warn_linear Logical; when \code{TRUE} (default) a one-time warning is
+#'   emitted if a numeric stratum-defining dimension enters the per-group
+#'   \emph{adjusted} models as a raw linear slope rather than as categorical main
+#'   effects, which silently changes the PCV/decomposition interpretation (see
+#'   \code{\link{maihda_adjusted_terms}}). Set to \code{FALSE} internally when
+#'   \code{\link{maihda}} delegates here, because it has already warned on the same
+#'   data.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'

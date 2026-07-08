@@ -1270,7 +1270,7 @@ maihda_analysis_vpc_plot <- function(x, model = c("null", "adjusted", "both"), .
       new_sub <- if (is.null(existing) || !nzchar(existing)) {
         label
       } else {
-        paste0(label, " — ", existing)
+        paste0(label, " \u2014 ", existing)
       }
       p <- p + ggplot2::labs(subtitle = new_sub)
     }

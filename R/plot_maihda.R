@@ -607,7 +607,7 @@ plot_vpc_change <- function(null_summary, adjusted_summary, pcv = NULL) {
   # the between-stratum variance) when it is available.
   null_vpc <- null_summary$vpc$estimate
   adj_vpc  <- adjusted_summary$vpc$estimate
-  subtitle <- sprintf("Between-stratum VPC/ICC: %.1f%% (null) → %.1f%% (adjusted)",
+  subtitle <- sprintf("Between-stratum VPC/ICC: %.1f%% (null) \u2192 %.1f%% (adjusted)",
                       null_vpc * 100, adj_vpc * 100)
   pcv_val <- if (!is.null(pcv)) pcv$pcv else NULL
   if (!is.null(pcv_val) && is.finite(pcv_val)) {
