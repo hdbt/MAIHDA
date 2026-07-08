@@ -117,6 +117,68 @@ test_that("plot.maihda_analysis dispatches to model and group plots", {
   expect_error(plot(a_nogroup, type = "group_vpc"), "group", ignore.case = TRUE)
 })
 
+test_that("plot(type = 'vpc') honours model = null / adjusted / both", {
+  d <- make_workflow_data(4006)
+  a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
+  expect_true(is.finite(a$pcv$pcv))
+
+  # Default: the null-model VPC (backward compatible), now labelled "Null model";
+  # the title carries the null model's VPC/ICC value.
+  p_null <- plot(a, type = "vpc")
+  expect_s3_class(p_null, "ggplot")
+  expect_false(inherits(p_null, "patchwork"))
+  expect_identical(p_null$labels$subtitle, "Null model")
+  expect_true(grepl(sprintf("%.3f", a$summary$vpc$estimate), p_null$labels$title))
+
+  # Adjusted-model VPC: drawn from the adjusted summary (its distinct VPC/ICC value)
+  # and labelled "Adjusted model".
+  p_adj <- plot(a, type = "vpc", model = "adjusted")
+  expect_s3_class(p_adj, "ggplot")
+  expect_identical(p_adj$labels$subtitle, "Adjusted model")
+  expect_true(grepl(sprintf("%.3f", a$summary_adjusted$vpc$estimate), p_adj$labels$title))
+
+  # both: ONE change plot (a single ggplot, not a patchwork or a list) holding both
+  # models, with the PCV in the subtitle.
+  p_both <- plot(a, type = "vpc", model = "both")
+  expect_s3_class(p_both, "ggplot")
+  expect_false(inherits(p_both, "patchwork"))
+  expect_setequal(as.character(unique(p_both$data$model)),
+                  c("Null model", "Adjusted model"))
+  expect_match(p_both$labels$subtitle, "PCV")
+
+  # `model` applies to the VPC view only.
+  expect_error(plot(a, type = "predicted", model = "adjusted"), "vpc")
+})
+
+test_that("plot(type = 'vpc', model = ) on a crossed-dimensions analysis", {
+  set.seed(4211)
+  n <- 900
+  d <- data.frame(
+    a = sample(c("a1", "a2", "a3"), n, replace = TRUE),
+    b = sample(c("b1", "b2", "b3"), n, replace = TRUE),
+    x = rnorm(n),
+    stringsAsFactors = FALSE
+  )
+  sk <- interaction(d$a, d$b, drop = TRUE)
+  d$y <- 1 + 0.3 * d$x +
+    stats::setNames(rnorm(3, sd = 0.8), c("a1", "a2", "a3"))[d$a] +
+    stats::setNames(rnorm(3, sd = 0.6), c("b1", "b2", "b3"))[d$b] +
+    rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 1)
+  cc <- suppressWarnings(suppressMessages(
+    maihda(y ~ x + (1 | a:b), data = d, decomposition = "crossed-dimensions")))
+  expect_identical(cc$mode, "crossed-dimensions")
+  expect_null(cc$model_adjusted)
+
+  # A single crossed-dimensions model: model = "null" draws it (no misleading label).
+  p <- plot(cc, type = "vpc")
+  expect_s3_class(p, "ggplot")
+  expect_null(p$labels$subtitle)
+
+  # No null/adjusted pair to compare -> "adjusted"/"both" error with a clear message.
+  expect_error(plot(cc, type = "vpc", model = "adjusted"), "crossed-dimensions")
+  expect_error(plot(cc, type = "vpc", model = "both"), "crossed-dimensions")
+})
+
 test_that("maihda() fits the adjusted model and reports a PCV", {
   d <- make_workflow_data(4101)
   a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))

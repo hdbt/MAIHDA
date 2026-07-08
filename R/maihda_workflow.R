@@ -929,7 +929,10 @@ summary.maihda_analysis <- function(object, ...) {
 #'
 #' Dispatches each \code{type} to the model it is valid on. The VPC and shrinkage
 #' views (\code{"vpc"}, \code{"obs_vs_shrunken"}, \code{"predicted"}) use the
-#' \strong{null} model. The additive-vs-intersectional views (\code{"effect_decomp"},
+#' \strong{null} model by default; for \code{type = "vpc"} the \code{model} argument
+#' selects the null model, the adjusted model, or \code{"both"} -- one combined plot
+#' that shows the null-to-adjusted change with the PCV annotated. The
+#' additive-vs-intersectional views (\code{"effect_decomp"},
 #' \code{"prediction_deviation"}) use the
 #' \strong{adjusted} model, whose fixed effects carry the dimensions' additive part so
 #' the stratum random effect is the pure interaction; with fewer than two dimensions
@@ -988,13 +991,30 @@ summary.maihda_analysis <- function(object, ...) {
 #'   native order, \code{"predicted_asc"} lowest first, or \code{"deviation"}
 #'   largest \code{|predicted - reference|} first. See
 #'   \code{\link[=plot.maihda_model]{plot}}.
+#' @param model For \code{type = "vpc"}, which model's variance partition to show:
+#'   \code{"null"} (default) the total between-stratum heterogeneity (the previous,
+#'   backward-compatible behaviour), \code{"adjusted"} the between-stratum
+#'   heterogeneity remaining after the dimensions' additive main effects (closer to
+#'   the pure intersectional component), or \code{"both"} -- a \strong{single} plot
+#'   placing the two partitions together and annotating the PCV, so the
+#'   null-to-adjusted change is visible in one figure. The null and adjusted single
+#'   views are labelled with a \code{"Null model"} / \code{"Adjusted model"}
+#'   subtitle. For a \strong{longitudinal} analysis the VPC view is the time-varying
+#'   VPC trajectory, and \code{"both"} overlays the null and adjusted curves. A
+#'   \code{"crossed-dimensions"} analysis fits a single model (no null/adjusted
+#'   pair), so only \code{"null"} is valid there; \code{"adjusted"}/\code{"both"}
+#'   error. \code{model} applies to the VPC view only -- combining a non-default
+#'   \code{model} with another \code{type} is an error.
 #' @param ... Additional arguments passed to the underlying plot method.
-#' @return A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
+#' @return A ggplot2 object -- including \code{type = "vpc", model = "both"}, which
+#'   is a single combined change plot -- or (for \code{type = "all"}) an invisible
+#'   list of them.
 #' @export
 plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE,
                                  only_flagged = FALSE, highlight_by = c("flag", "rope"),
                                  rope = NULL, select = c("order", "deviation"),
                                  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
+                                 model = c("null", "adjusted", "both"),
                                  ...) {
   type <- match.arg(type, c(
     "all", "vpc", "obs_vs_shrunken", "predicted", "upset",
@@ -1018,6 +1038,17 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
   select <- match.arg(select)
   # Display order for the predicted view (display-only; see plot.maihda_model()).
   order_by <- match.arg(order_by)
+  # Which model's VPC the "vpc" view shows: the null model (default, backward
+  # compatible), the adjusted model, or "both" as a single change plot. It selects
+  # the VPC view only -- pairing a non-default `model` with any other `type` is a
+  # usage error rather than a silent no-op.
+  model <- match.arg(model)
+  if (model != "null" && !type %in% c("vpc", "vpc_trajectory")) {
+    stop("`model` selects which model's VPC to draw and only applies to ",
+         "type = \"vpc\"; got type = \"", type, "\". The additive-vs-intersectional ",
+         "views (effect_decomp, prediction_deviation) already use the adjusted model, ",
+         "and obs_vs_shrunken / predicted use the null model.", call. = FALSE)
+  }
 
   # Longitudinal analysis: the trajectory views replace the cross-sectional ones.
   # "all" shows the VPC-over-time and the stratum mean trajectories; "pcv_trajectory"
@@ -1042,9 +1073,13 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
       for (p in plots[!vapply(plots, is.null, logical(1))]) print(p)
       return(invisible(plots))
     }
-    if (type %in% c("vpc_trajectory", "trajectories", "vpc")) {
-      t <- if (type == "vpc") "vpc_trajectory" else type
-      return(plot(x$model, type = t, summary_obj = x$summary, select = select, ...))
+    if (type %in% c("vpc", "vpc_trajectory")) {
+      # The VPC-over-time view, honouring `model` (null / adjusted / both curves).
+      return(maihda_analysis_vpc_plot(x, model, ...))
+    }
+    if (type == "trajectories") {
+      return(plot(x$model, type = "trajectories", summary_obj = x$summary,
+                  select = select, ...))
     }
     # Other cross-sectional types fall through to the adjusted growth model below.
   }
@@ -1063,6 +1098,13 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
     }
     gtype <- sub("^group_", "", type)
     return(plot(x$groups, type = gtype))
+  }
+
+  # The VPC view: the null model (default), the adjusted model, or "both" as a
+  # single change plot. Handled here -- before the highlight resolution below --
+  # because the VPC bar ignores the highlight / select / order_by arguments.
+  if (type == "vpc") {
+    return(maihda_analysis_vpc_plot(x, model, ...))
   }
 
   # The additive-vs-intersectional views are only interpretable on the adjusted
@@ -1177,4 +1219,74 @@ maihda_resolve_analysis_highlight <- function(x, highlight_interactions, rope = 
   stop("'highlight_interactions' must be FALSE, TRUE, a multiple-comparison ",
        "method name (e.g. \"BH\"), or a maihda_interactions object from ",
        "maihda_interactions().", call. = FALSE)
+}
+
+# Build the VPC view for a maihda_analysis honouring `model`:
+#   "null"     - the null model's VPC (the default; total between-stratum share)
+#   "adjusted" - the adjusted model's VPC (between-stratum share net of the
+#                dimensions' additive main effects)
+#   "both"     - ONE combined change plot: the null and adjusted partitions
+#                together with the PCV annotated (cross-sectional), or the null and
+#                adjusted VPC-over-time curves overlaid (longitudinal).
+# A longitudinal analysis uses the time-varying VPC trajectory in place of the
+# cross-sectional bar. A crossed-dimensions analysis fits a single model (no
+# null/adjusted pair), so only "null" is valid there. The null / adjusted single
+# views get a clarifying "Null model" / "Adjusted model" subtitle (prepended to any
+# subtitle the underlying plot already carries, e.g. the trajectory's reference-time
+# note); the crossed-dimensions single model gets none (there is nothing to
+# distinguish, so the historical output is preserved).
+maihda_analysis_vpc_plot <- function(x, model = c("null", "adjusted", "both"), ...) {
+  model <- match.arg(model)
+  is_long <- identical(x$mode, "longitudinal")
+  is_cc   <- identical(x$mode, "crossed-dimensions")
+  vpc_type <- if (is_long) "vpc_trajectory" else "vpc"
+
+  labeled <- function(m, s, label) {
+    p <- plot(m, type = vpc_type, summary_obj = s, ...)
+    if (!is.null(label)) {
+      existing <- p$labels$subtitle
+      new_sub <- if (is.null(existing) || !nzchar(existing)) {
+        label
+      } else {
+        paste0(label, " — ", existing)
+      }
+      p <- p + ggplot2::labs(subtitle = new_sub)
+    }
+    p
+  }
+
+  # Crossed-dimensions: a single fitted model already carrying the additive
+  # structure -- there is no null/adjusted pair to choose between.
+  if (is_cc) {
+    if (model != "null") {
+      stop("model = \"", model, "\" needs a null and an adjusted model, but a ",
+           "crossed-dimensions analysis (decomposition = \"crossed-dimensions\") ",
+           "fits a single model whose VPC already separates the additive dimensions ",
+           "from the intersectional interaction. Use model = \"null\" (the default).",
+           call. = FALSE)
+    }
+    return(labeled(x$model, x$summary, NULL))
+  }
+
+  if (model == "null") {
+    return(labeled(x$model, x$summary, "Null model"))
+  }
+
+  # adjusted / both need the adjusted model. maihda() always fits it for the
+  # two-model and longitudinal decompositions, so a NULL here means there is no
+  # adjusted model to compare against.
+  if (is.null(x$model_adjusted) || is.null(x$summary_adjusted)) {
+    stop("model = \"", model, "\" requested, but this analysis has no adjusted ",
+         "model to compare against. Use model = \"null\".", call. = FALSE)
+  }
+
+  if (model == "adjusted") {
+    return(labeled(x$model_adjusted, x$summary_adjusted, "Adjusted model"))
+  }
+
+  # both -> one combined change plot.
+  if (is_long) {
+    return(plot_vpc_trajectory_change(x$summary, x$summary_adjusted))
+  }
+  plot_vpc_change(x$summary, x$summary_adjusted, x$pcv)
 }

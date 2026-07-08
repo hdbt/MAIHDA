@@ -261,6 +261,26 @@ test_that("maihda(context = ) carries the context through null and adjusted", {
   expect_output(print(a), "Context share \\(null\\)")
 })
 
+test_that("plot(type = 'vpc', model = ) works for a contextual analysis", {
+  d <- make_context_data()
+  a <- suppressMessages(maihda(y ~ x + (1 | g1:g2), data = d, context = "site"))
+
+  # model = "both" -> one change plot carrying BOTH models, the broken-out context
+  # slice, and the PCV in the subtitle.
+  p_both <- plot(a, type = "vpc", model = "both")
+  expect_s3_class(p_both, "ggplot")
+  expect_false(inherits(p_both, "patchwork"))
+  expect_true("Context: site" %in% as.character(p_both$data$component))
+  expect_setequal(as.character(unique(p_both$data$model)),
+                  c("Null model", "Adjusted model"))
+  expect_match(p_both$labels$subtitle, "PCV")
+
+  # The null and adjusted single views keep the contextual bar and their labels.
+  expect_identical(plot(a, type = "vpc")$labels$subtitle, "Null model")
+  expect_identical(plot(a, type = "vpc", model = "adjusted")$labels$subtitle,
+                   "Adjusted model")
+})
+
 test_that("the PCV is essentially unchanged by adding an orthogonal context", {
   # The context RE sits in both the null and adjusted models, and site membership
   # is independent of the strata by construction, so the PCV (a ratio of

@@ -506,30 +506,12 @@ plot_vpc <- function(summary_obj) {
     # slice, one slice per context (the general contextual effects), any other
     # random effects, and the residual. Stratum keeps the canonical orange so the
     # plot reads like the single-stratum VPC bar with the context broken out.
-    ctx_comps <- vpc_data$component[grepl("^Context: ", vpc_data$component)]
-    component_colors <- stats::setNames(rep("#999999", nrow(vpc_data)),
-                                        vpc_data$component)
-    component_colors["Between-stratum (random)"] <- "#E69F00"
-    if (length(ctx_comps) > 0) {
-      ctx_palette <- c("#117733", "#44AA99", "#999933", "#DDCC77")
-      component_colors[ctx_comps] <-
-        ctx_palette[((seq_along(ctx_comps) - 1) %% length(ctx_palette)) + 1]
-    }
-    component_colors["Other random effects"] <- "#009E73"
-    component_colors["Within-stratum (residual)"] <- "#56B4E9"
+    component_colors <- maihda_vpc_component_colors(vpc_data$component)
     plot_title <- sprintf("Variance Partition (stratum x context), VPC/ICC = %.3f",
                           summary_obj$vpc$estimate)
     vpc_data$component <- factor(vpc_data$component, levels = vpc_data$component)
   } else {
-    component_colors <- c(
-      "Between-stratum (random)" = "#E69F00",
-      "Other random effects" = "#009E73",
-      "Within-stratum (residual)" = "#56B4E9"
-    )
-    missing_colors <- setdiff(vpc_data$component, names(component_colors))
-    if (length(missing_colors) > 0) {
-      component_colors[missing_colors] <- "#999999"
-    }
+    component_colors <- maihda_vpc_component_colors(vpc_data$component)
     plot_title <- sprintf("Variance Partition Coefficient (VPC/ICC) = %.3f",
                           summary_obj$vpc$estimate)
   }
@@ -557,6 +539,145 @@ plot_vpc <- function(summary_obj) {
               color = "white", fontface = "bold", size = 5)
 
   return(p)
+}
+
+# Map a set of variance-partition component names to fill colours, shared by the
+# single stacked VPC bar (plot_vpc, its standard and contextual branches) and the
+# null-vs-adjusted change bar (plot_vpc_change) so the two views never drift.
+# Between-stratum stays the canonical orange, each "Context: <var>" slice draws from
+# the green context palette, the other-random-effects and residual slices keep their
+# hues, and anything unmapped falls back to grey.
+maihda_vpc_component_colors <- function(components) {
+  components <- as.character(components)
+  colors <- stats::setNames(rep("#999999", length(components)), components)
+  ctx <- components[grepl("^Context: ", components)]
+  if (length(ctx) > 0) {
+    ctx_palette <- c("#117733", "#44AA99", "#999933", "#DDCC77")
+    colors[ctx] <- ctx_palette[((seq_along(ctx) - 1) %% length(ctx_palette)) + 1]
+  }
+  fixed <- c(
+    "Between-stratum (random)"  = "#E69F00",
+    "Other random effects"      = "#009E73",
+    "Within-stratum (residual)" = "#56B4E9"
+  )
+  present <- intersect(names(fixed), components)
+  colors[present] <- fixed[present]
+  colors
+}
+
+#' Null-vs-Adjusted Variance-Partition Change Plot
+#'
+#' Draws the null and adjusted models' variance partitions as two stacked bars on a
+#' shared axis and annotates the PCV, so the drop in the between-stratum share after
+#' accounting for the dimensions' additive main effects is visible in one figure.
+#' Backs \code{plot(<maihda_analysis>, type = "vpc", model = "both")} for a
+#' cross-sectional analysis.
+#'
+#' @param null_summary,adjusted_summary The \code{maihda_summary} objects of the
+#'   null and adjusted models of a \code{\link{maihda}} analysis.
+#' @param pcv Optional \code{pcv_result} (the analysis's \code{$pcv}); its estimate
+#'   is shown in the subtitle. \code{NULL} or a non-finite estimate drops the PCV
+#'   clause (e.g. a boundary fit where the PCV is undefined).
+#' @return A ggplot2 object.
+#' @keywords internal
+#' @import ggplot2
+plot_vpc_change <- function(null_summary, adjusted_summary, pcv = NULL) {
+  one <- function(s, label) {
+    vc <- s$variance_components
+    d <- vc[vc$component != "Total", c("component", "proportion"), drop = FALSE]
+    d$model <- label
+    d
+  }
+  dat <- rbind(one(null_summary, "Null model"),
+               one(adjusted_summary, "Adjusted model"))
+
+  # Component fill order: the null model's component order first (between-stratum
+  # -> ... -> residual), then any adjusted-only components, so the stack and legend
+  # read consistently across the two bars.
+  comp_levels <- unique(as.character(dat$component))
+  dat$component <- factor(dat$component, levels = comp_levels)
+  # After coord_flip() the first factor level sits at the bottom, so order the
+  # models adjusted-then-null to put the null bar on top (natural null -> adjusted
+  # top-to-bottom reading).
+  dat$model <- factor(dat$model, levels = c("Adjusted model", "Null model"))
+
+  component_colors <- maihda_vpc_component_colors(comp_levels)
+
+  # Subtitle: the between-stratum VPC/ICC shift, then the PCV (the additive share of
+  # the between-stratum variance) when it is available.
+  null_vpc <- null_summary$vpc$estimate
+  adj_vpc  <- adjusted_summary$vpc$estimate
+  subtitle <- sprintf("Between-stratum VPC/ICC: %.1f%% (null) → %.1f%% (adjusted)",
+                      null_vpc * 100, adj_vpc * 100)
+  pcv_val <- if (!is.null(pcv)) pcv$pcv else NULL
+  if (!is.null(pcv_val) && is.finite(pcv_val)) {
+    subtitle <- paste0(subtitle, sprintf("  |  PCV = %.1f%%", pcv_val * 100))
+  }
+
+  ggplot(dat, aes(x = .data$model, y = .data$proportion, fill = .data$component)) +
+    geom_bar(stat = "identity", width = 0.7, color = "white") +
+    coord_flip() +
+    scale_fill_manual(values = component_colors) +
+    geom_text(aes(label = sprintf("%.1f%%", .data$proportion * 100)),
+              position = position_stack(vjust = 0.5),
+              color = "white", fontface = "bold", size = 4) +
+    labs(
+      title = "Variance Partition: Null vs. Adjusted Model",
+      subtitle = subtitle,
+      x = NULL,
+      y = "Proportion of Variance",
+      fill = "Component",
+      caption = "PCV: proportional change in the between-stratum variance (null -> adjusted)."
+    ) +
+    theme_maihda() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      plot.subtitle = element_text(hjust = 0.5),
+      panel.grid = element_blank()
+    )
+}
+
+#' Null-vs-Adjusted VPC-over-time Change Plot (longitudinal MAIHDA)
+#'
+#' Overlays the null and adjusted models' time-varying VPC/ICC curves on one axis,
+#' so the reduction in the between-stratum share after adjustment is visible over
+#' the whole time range. Backs \code{plot(<maihda_analysis>, type = "vpc",
+#' model = "both")} for a longitudinal analysis; complements
+#' \code{\link{plot_pcv_trajectory}} (the additive-share PCV(t)).
+#'
+#' @param null_summary,adjusted_summary Longitudinal \code{maihda_summary} objects.
+#' @return A ggplot2 object.
+#' @keywords internal
+#' @import ggplot2
+plot_vpc_trajectory_change <- function(null_summary, adjusted_summary) {
+  lng_n <- null_summary$longitudinal
+  lng_a <- adjusted_summary$longitudinal
+  if (is.null(lng_n) || is.null(lng_a)) {
+    stop("plot_vpc_trajectory_change() needs two longitudinal summaries.",
+         call. = FALSE)
+  }
+  vt_n <- lng_n$vpc_t; vt_n$model <- "Null model"
+  vt_a <- lng_a$vpc_t; vt_a$model <- "Adjusted model"
+  dat <- rbind(vt_n[, c("time", "estimate", "model")],
+               vt_a[, c("time", "estimate", "model")])
+  dat$model <- factor(dat$model, levels = c("Null model", "Adjusted model"))
+
+  ggplot(dat, aes(x = .data$time, y = .data$estimate, color = .data$model)) +
+    geom_line(linewidth = 1.1) +
+    geom_point(size = 2) +
+    geom_vline(xintercept = lng_n$ref_time, linetype = "dashed", color = "grey50") +
+    scale_color_manual(values = c("Null model" = "#E69F00",
+                                  "Adjusted model" = "#0072B2")) +
+    labs(
+      title = "Time-varying VPC/ICC: Null vs. Adjusted Model",
+      subtitle = sprintf("Dashed line: reference time %s = %g",
+                         lng_n$time, lng_n$ref_time),
+      x = lng_n$time,
+      y = "VPC/ICC (between-stratum share of variance)",
+      color = "Model"
+    ) +
+    theme_maihda() +
+    theme(plot.title = element_text(face = "bold"))
 }
 
 #' Stratum vs. Context Variance Plot (contextual cross-classified MAIHDA)

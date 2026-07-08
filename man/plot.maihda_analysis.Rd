@@ -13,6 +13,7 @@
   rope = NULL,
   select = c("order", "deviation"),
   order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
+  model = c("null", "adjusted", "both"),
   ...
 )
 }
@@ -75,15 +76,35 @@ native order, \code{"predicted_asc"} lowest first, or \code{"deviation"}
 largest \code{|predicted - reference|} first. See
 \code{\link[=plot.maihda_model]{plot}}.}
 
+\item{model}{For \code{type = "vpc"}, which model's variance partition to show:
+\code{"null"} (default) the total between-stratum heterogeneity (the previous,
+backward-compatible behaviour), \code{"adjusted"} the between-stratum
+heterogeneity remaining after the dimensions' additive main effects (closer to
+the pure intersectional component), or \code{"both"} -- a \strong{single} plot
+placing the two partitions together and annotating the PCV, so the
+null-to-adjusted change is visible in one figure. The null and adjusted single
+views are labelled with a \code{"Null model"} / \code{"Adjusted model"}
+subtitle. For a \strong{longitudinal} analysis the VPC view is the time-varying
+VPC trajectory, and \code{"both"} overlays the null and adjusted curves. A
+\code{"crossed-dimensions"} analysis fits a single model (no null/adjusted
+pair), so only \code{"null"} is valid there; \code{"adjusted"}/\code{"both"}
+error. \code{model} applies to the VPC view only -- combining a non-default
+\code{model} with another \code{type} is an error.}
+
 \item{...}{Additional arguments passed to the underlying plot method.}
 }
 \value{
-A ggplot2 object, or (for \code{type = "all"}) an invisible list of them.
+A ggplot2 object -- including \code{type = "vpc", model = "both"}, which
+  is a single combined change plot -- or (for \code{type = "all"}) an invisible
+  list of them.
 }
 \description{
 Dispatches each \code{type} to the model it is valid on. The VPC and shrinkage
 views (\code{"vpc"}, \code{"obs_vs_shrunken"}, \code{"predicted"}) use the
-\strong{null} model. The additive-vs-intersectional views (\code{"effect_decomp"},
+\strong{null} model by default; for \code{type = "vpc"} the \code{model} argument
+selects the null model, the adjusted model, or \code{"both"} -- one combined plot
+that shows the null-to-adjusted change with the PCV annotated. The
+additive-vs-intersectional views (\code{"effect_decomp"},
 \code{"prediction_deviation"}) use the
 \strong{adjusted} model, whose fixed effects carry the dimensions' additive part so
 the stratum random effect is the pure interaction; with fewer than two dimensions
