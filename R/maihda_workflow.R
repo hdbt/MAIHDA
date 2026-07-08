@@ -168,6 +168,20 @@
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'
+#' @section Numeric stratum dimensions:
+#' The stratum-defining dimensions are categorical. A factor or character dimension
+#' enters the adjusted model as a categorical main effect, and a numeric dimension with
+#' more than 10 unique values is tertile-binned when \code{autobin = TRUE} (see
+#' \code{\link{make_strata}}). A numeric dimension that is \emph{not} auto-binned -- a
+#' category code such as \code{education = 1, 2, 3} (few unique values), or a many-valued
+#' numeric fitted with \code{autobin = FALSE} -- enters the adjusted model as a single
+#' \emph{linear} fixed effect rather than categorical main effects, which changes the
+#' PCV/decomposition interpretation. \code{maihda()} therefore \strong{warns} in that
+#' case (for three or more distinct values -- a binary numeric dimension is exempt, since
+#' with two levels a linear term and a factor are equivalent): wrap category codes in
+#' \code{factor()} before fitting, or, for a genuinely continuous variable, use it as a
+#' covariate rather than a stratum dimension.
+#'
 #' @return An object of class \code{maihda_analysis}: a list with
 #'   \item{model}{the fitted \code{maihda_model} (see \code{\link{fit_maihda}}); the
 #'     \strong{null} model in \code{"two-model"} mode, or the single
@@ -471,6 +485,13 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # before the two-model / crossed-dimensions / longitudinal branches split.
   maihda_check_no_dimension_interaction(model$formula, strata_vars, dim_terms,
                                         fn = "maihda")
+  # Warn if a numeric stratum dimension will enter the adjusted model as a raw linear
+  # term (a category code, or a many-valued numeric with autobin = FALSE) rather than
+  # categorical main effects -- once here, before the mode branches, on the overall
+  # data. The internal compare_maihda_groups() calls below pass warn_linear = FALSE so
+  # the group path does not warn about the same dimensions again.
+  maihda_warn_linear_strata_dims(strata_vars, model$strata_autobin_info,
+                                 model$original_data, fn = "maihda")
   supplied_fixed <- attr(stats::terms(reformulas::nobars(model$formula)), "term.labels")
   # terms() backtick-quotes non-syntactic term labels (e.g. `gender var`), so the
   # dimension main effects must be compared in their quoted form -- a raw-name
@@ -532,7 +553,8 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
         shared_strata = shared_strata, min_group_n = min_group_n,
         autobin = autobin, bootstrap = bootstrap, n_boot = n_boot,
         conf_level = conf_level, decomposition = "crossed-dimensions",
-        context = context, sampling_weights = sampling_weights, ...
+        context = context, sampling_weights = sampling_weights,
+        warn_linear = FALSE, ...
       )
     }
 
@@ -704,7 +726,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
       shared_strata = shared_strata, min_group_n = min_group_n,
       autobin = autobin, bootstrap = bootstrap, n_boot = n_boot,
       conf_level = conf_level, context = context,
-      sampling_weights = sampling_weights, ...
+      sampling_weights = sampling_weights, warn_linear = FALSE, ...
     )
   }
 

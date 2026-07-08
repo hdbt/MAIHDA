@@ -233,6 +233,64 @@ test_that("maihda() enters an auto-binned numeric dimension as the tertile facto
   expect_true(is.finite(a$pcv$pcv))
 })
 
+test_that("maihda() warns when a numeric coded stratum dimension enters as a linear term", {
+  set.seed(4105)
+  n <- 400
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, TRUE),
+    edu = sample(1:3, n, TRUE)          # numeric category code: 3 unique values (<= 10)
+  )
+  sk <- interaction(d$gender, d$edu, drop = TRUE)
+  d$y <- 1 + rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
+
+  w <- capture_warnings(a <- suppressMessages(maihda(y ~ 1 + (1 | gender:edu), data = d)))
+  expect_match(w, "linear fixed effect", all = FALSE)
+
+  # Warn-only: the dimension still enters as its raw (linear) numeric column, NOT a
+  # reconstructed factor -- the model is unchanged, only no longer silent.
+  adj_terms <- attr(stats::terms(reformulas::nobars(a$adjusted_formula)), "term.labels")
+  expect_true("edu" %in% adj_terms)
+  expect_false(".maihda_dim_edu" %in% adj_terms)
+  expect_true(is.numeric(a$model_adjusted$original_data$edu))
+})
+
+test_that("maihda() does not warn once a coded dimension is wrapped in factor()", {
+  set.seed(4105)
+  n <- 400
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, TRUE),
+    edu = sample(1:3, n, TRUE)
+  )
+  sk <- interaction(d$gender, d$edu, drop = TRUE)
+  d$y <- 1 + rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
+  d$edu <- factor(d$edu)                # the documented fix
+
+  w <- capture_warnings(a <- suppressMessages(maihda(y ~ 1 + (1 | gender:edu), data = d)))
+  expect_false(any(grepl("linear fixed effect", w)))
+  # The factor enters the adjusted model categorically (one term, factor levels).
+  adj_terms <- attr(stats::terms(reformulas::nobars(a$adjusted_formula)), "term.labels")
+  expect_true("edu" %in% adj_terms)
+  expect_true(is.factor(a$model_adjusted$original_data$edu))
+})
+
+test_that("maihda() warns for a many-valued numeric dimension with autobin = FALSE", {
+  set.seed(4106)
+  n <- 500
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, TRUE),
+    score = sample(11:22, n, TRUE)      # 12 unique values (> 10), not binned when autobin = FALSE
+  )
+  sk <- interaction(d$gender, d$score, drop = TRUE)
+  d$y <- 1 + rnorm(nlevels(sk), sd = 0.6)[sk] + rnorm(n, sd = 0.4)
+
+  w <- capture_warnings(
+    a <- suppressMessages(maihda(y ~ 1 + (1 | gender:score), data = d, autobin = FALSE))
+  )
+  expect_match(w, "linear fixed effect", all = FALSE)
+  adj_terms <- attr(stats::terms(reformulas::nobars(a$adjusted_formula)), "term.labels")
+  expect_true("score" %in% adj_terms)
+})
+
 test_that("maihda() errors with a single stratum dimension (no intersection)", {
   d <- make_workflow_data(4104)
   expect_error(

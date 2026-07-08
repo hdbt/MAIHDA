@@ -248,6 +248,22 @@ dimensions cannot be recovered (a hand-built \code{stratum} column records none)
 there is only one dimension (no intersection to decompose). Use \code{\link{fit_maihda}}
 for those single-model fits.
 }
+\section{Numeric stratum dimensions}{
+
+The stratum-defining dimensions are categorical. A factor or character dimension
+enters the adjusted model as a categorical main effect, and a numeric dimension with
+more than 10 unique values is tertile-binned when \code{autobin = TRUE} (see
+\code{\link{make_strata}}). A numeric dimension that is \emph{not} auto-binned -- a
+category code such as \code{education = 1, 2, 3} (few unique values), or a many-valued
+numeric fitted with \code{autobin = FALSE} -- enters the adjusted model as a single
+\emph{linear} fixed effect rather than categorical main effects, which changes the
+PCV/decomposition interpretation. \code{maihda()} therefore \strong{warns} in that
+case (for three or more distinct values -- a binary numeric dimension is exempt, since
+with two levels a linear term and a factor are equivalent): wrap category codes in
+\code{factor()} before fitting, or, for a genuinely continuous variable, use it as a
+covariate rather than a stratum dimension.
+}
+
 \examples{
 \donttest{
 data(maihda_health_data)

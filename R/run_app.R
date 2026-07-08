@@ -234,6 +234,11 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
   # additive main effect must be that SAME binned factor (.maihda_dim_*), not a raw
   # linear term -- mirroring core maihda()/maihda_adjusted_terms(). Covariates are not
   # stratum dimensions and enter as their raw columns (appended below).
+  # Warn if a numeric stratum dimension enters the adjusted model as a raw linear term
+  # (a category code, or a many-valued numeric with autobin = FALSE) -- this path builds
+  # the adjusted terms directly rather than via maihda(), so it warns for itself.
+  maihda_warn_linear_strata_dims(grouping_vars, strata_dat$autobin_info, model_dat,
+                                 fn = "maihda")
   adj_terms <- maihda_adjusted_terms(grouping_vars, strata_dat$autobin_info, model_dat)
   model_dat <- adj_terms$data
 

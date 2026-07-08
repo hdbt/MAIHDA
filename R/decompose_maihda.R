@@ -66,6 +66,60 @@ maihda_adjusted_terms <- function(strata_vars, autobin_info, data) {
   list(terms = terms, data = data)
 }
 
+#' Warn when a numeric stratum dimension enters the adjusted model as a linear term
+#'
+#' In MAIHDA the stratum-defining dimensions are categorical, but the adjusted /
+#' decomposition model adds an un-binned numeric dimension by its raw column name --
+#' i.e. as a single linear slope, not categorical main effects (see the \code{else}
+#' branch of \code{\link{maihda_adjusted_terms}}). That silently changes the
+#' PCV/decomposition interpretation. This helper flags the offending dimensions and
+#' warns; it does \emph{not} alter the model (the term is still entered as-is). The
+#' flagged case is a stratum variable that is \emph{numeric} in the data, \emph{not} a
+#' key in \code{autobin_info}, and has \strong{three or more} distinct values -- either
+#' a category code with few unique values, or a many-valued numeric fitted with
+#' \code{autobin = FALSE}. Categorical (factor/character) dimensions and auto-binned
+#' numerics -- reconstructed as the \code{.maihda_dim_*} tertile factors -- are excluded,
+#' and so is a binary (two-level) numeric dimension: with only two levels a linear term
+#' and the two-level factor span the same design space, so the fit and the PCV coincide
+#' and there is nothing to warn about.
+#'
+#' Called once per decomposition at each public entry point (not inside
+#' \code{maihda_adjusted_terms()}, which runs several times per decomposition), so the
+#' warning fires exactly once.
+#'
+#' @param strata_vars Character vector of stratum-defining variable names.
+#' @param autobin_info Auto-binning recipe (\code{strata_autobin_info}); its names are
+#'   the auto-binned numeric dimensions, which are excluded from the warning.
+#' @param data Data frame carrying the original stratum-defining columns.
+#' @param fn Name of the calling function, used in the warning prefix.
+#' @return Invisibly, the character vector of flagged dimension names (empty if none).
+#' @keywords internal
+maihda_warn_linear_strata_dims <- function(strata_vars, autobin_info, data,
+                                           fn = "maihda") {
+  # names(NULL) is NULL, so an absent/empty autobin_info flags every numeric dimension.
+  # Require >= 3 distinct values: a binary (two-level) numeric enters identically as a
+  # linear term or a two-level factor, so there is no linear-vs-categorical discrepancy.
+  binned <- names(autobin_info)
+  offenders <- strata_vars[vapply(strata_vars, function(v) {
+    !(v %in% binned) && v %in% names(data) && is.numeric(data[[v]]) &&
+      length(unique(stats::na.omit(data[[v]]))) >= 3L
+  }, logical(1))]
+  if (length(offenders) == 0L) {
+    return(invisible(character(0)))
+  }
+  warning(fn, "(): the numeric stratum dimension(s) ",
+          paste(offenders, collapse = ", "),
+          " enter the adjusted/decomposition model as linear fixed effect(s), not ",
+          "categorical main effects. In MAIHDA the stratum dimensions are categorical, ",
+          "so a linear term changes the PCV/decomposition interpretation. If these hold ",
+          "category codes, convert them with factor() before fitting (e.g. data$",
+          offenders[1], " <- factor(data$", offenders[1], ")); if a variable is ",
+          "genuinely continuous, use it as a covariate rather than a stratum dimension. ",
+          "(Numeric dimensions with >10 values are auto-binned into tertiles when ",
+          "autobin = TRUE.)", call. = FALSE)
+  invisible(offenders)
+}
+
 #' Build the adjusted-model formula and data for a MAIHDA decomposition
 #'
 #' Given a fitted null model's formula (in \code{(1 | stratum)} form) and its stored

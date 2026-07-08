@@ -524,6 +524,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                                   decomposition = c("two-model", "crossed-dimensions"),
                                   context = NULL,
                                   sampling_weights = NULL,
+                                  warn_linear = TRUE,
                                   ...) {
   decomposition <- maihda_resolve_decomposition(decomposition)
   if (identical(decomposition, "longitudinal")) {
@@ -803,6 +804,14 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     # PCV to NA. (maihda() catches this earlier; this guards a direct call.)
     maihda_check_no_dimension_interaction(fit_formula, decomp_vars, dim_terms,
                                           fn = "compare_maihda_groups")
+    # Warn once about any numeric stratum dimension entering the per-group adjusted
+    # models as a raw linear term. Suppressed (warn_linear = FALSE) when maihda()
+    # delegates here, because it already warned on the same overall data.
+    if (isTRUE(warn_linear)) {
+      maihda_warn_linear_strata_dims(decomp_vars,
+                                     carried_attrs[["strata_autobin_info"]], data,
+                                     fn = "compare_maihda_groups")
+    }
     supplied_fixed <- attr(stats::terms(reformulas::nobars(fit_formula)),
                            "term.labels")
     present_terms <- dim_terms[

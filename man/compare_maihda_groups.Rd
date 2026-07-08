@@ -19,6 +19,7 @@ compare_maihda_groups(
   decomposition = c("two-model", "crossed-dimensions"),
   context = NULL,
   sampling_weights = NULL,
+  warn_linear = TRUE,
   ...
 )
 }

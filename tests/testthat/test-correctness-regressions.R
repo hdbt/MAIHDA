@@ -81,6 +81,39 @@ test_that("make_strata preserves original numeric grouping variables", {
   expect_true(any(grepl("age_", strata$strata_info$label)))
 })
 
+test_that("numeric coded stratum dimensions warn instead of silently entering linearly (#56)", {
+  set.seed(1004)
+  n <- 300
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    education = sample(1:3, n, replace = TRUE)   # numeric category code, few unique values
+  )
+  sk <- interaction(d$gender, d$education, drop = TRUE)
+  d$y <- 1 + rnorm(nlevels(sk), sd = 0.6)[sk] + rnorm(n, sd = 0.4)
+
+  # A numeric coded strata dimension warns rather than silently entering as a linear term.
+  w <- capture_warnings(
+    a <- suppressMessages(maihda(y ~ 1 + (1 | gender:education), data = d))
+  )
+  expect_match(w, "linear fixed effect", all = FALSE)
+
+  # Warn-only: the term is still the raw numeric column (behaviour, and therefore the
+  # PCV, unchanged from prior versions), NOT a reconstructed factor.
+  adj_terms <- attr(stats::terms(reformulas::nobars(a$adjusted_formula)), "term.labels")
+  expect_true("education" %in% adj_terms)
+  expect_false(".maihda_dim_education" %in% adj_terms)
+  expect_true(is.numeric(a$model_adjusted$original_data$education))
+
+  # Wrapping the code in factor() beforehand silences the warning and enters it as a
+  # categorical main effect.
+  d$education <- factor(d$education)
+  w2 <- capture_warnings(
+    a2 <- suppressMessages(maihda(y ~ 1 + (1 | gender:education), data = d))
+  )
+  expect_false(any(grepl("linear fixed effect", w2)))
+  expect_true(is.factor(a2$model_adjusted$original_data$education))
+})
+
 test_that("make_strata does not collapse values that contain the display separator", {
   d <- data.frame(
     a = rep(c("A \u00d7 B", "A"), each = 20),

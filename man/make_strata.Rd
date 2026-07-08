@@ -51,6 +51,14 @@ adjusted-model and prediction machinery later add an internal factor column name
 \code{make_strata()} errors if \code{data} already holds the \code{.maihda_dim_<v>}
 column for a variable it is about to auto-bin, so an existing user column is never
 silently overwritten (rename it, or pass \code{autobin = FALSE}).
+
+A numeric grouping variable with 10 or fewer unique values (or any numeric when
+\code{autobin = FALSE}) is kept as its raw values: distinct values still define
+distinct strata, but the variable is \emph{not} binned. If such a variable is then
+used to build an adjusted MAIHDA (\code{\link{maihda}}), it enters the adjusted model
+as a linear fixed effect rather than categorical main effects, and \code{maihda()}
+warns (when it has three or more distinct values). Wrap category codes in
+\code{factor()} before creating strata if you want them treated categorically.
 }
 \examples{
 # Create strata from gender and race variables
