@@ -155,6 +155,17 @@ compare_maihda_groups(
   `bootstrap = TRUE`, or (under the wemix engine)
   `decomposition = "crossed-dimensions"`.
 
+- warn_linear:
+
+  Logical; when `TRUE` (default) a one-time warning is emitted if a
+  numeric stratum-defining dimension enters the per-group *adjusted*
+  models as a raw linear slope rather than as categorical main effects,
+  which silently changes the PCV/decomposition interpretation (see
+  [`maihda_adjusted_terms`](https://hdbt.github.io/MAIHDA/reference/maihda_adjusted_terms.md)).
+  Set to `FALSE` internally when
+  [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  delegates here, because it has already warned on the same data.
+
 - ...:
 
   Additional arguments passed to

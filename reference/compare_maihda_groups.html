@@ -216,6 +216,16 @@ its own members' weights. Not compatible with <code>engine = "lme4"</code>,
 <code>decomposition = "crossed-dimensions"</code>.</p></dd>
 
 
+<dt id="arg-warn-linear">warn_linear<a class="anchor" aria-label="anchor" href="#arg-warn-linear"></a></dt>
+<dd><p>Logical; when <code>TRUE</code> (default) a one-time warning is
+emitted if a numeric stratum-defining dimension enters the per-group
+<em>adjusted</em> models as a raw linear slope rather than as categorical main
+effects, which silently changes the PCV/decomposition interpretation (see
+<code><a href="maihda_adjusted_terms.html">maihda_adjusted_terms</a></code>). Set to <code>FALSE</code> internally when
+<code><a href="maihda.html">maihda</a></code> delegates here, because it has already warned on the same
+data.</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code><a href="fit_maihda.html">fit_maihda</a></code> (and on to
 <code>lmer</code>/<code>glmer</code>).</p></dd>
