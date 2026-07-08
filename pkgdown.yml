@@ -1,5 +1,5 @@
 pandoc: 3.8.3
-pkgdown: 2.2.0
+pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   bayesian_sparse_maihda: bayesian_sparse_maihda.html
@@ -14,7 +14,7 @@ articles:
   longitudinal: longitudinal.html
   planning_a_study: planning_a_study.html
   reporting_results: reporting_results.html
-last_built: 2026-07-07T18:17Z
+last_built: 2026-07-08T08:23Z
 urls:
   reference: https://hdbt.github.io/MAIHDA/reference
   article: https://hdbt.github.io/MAIHDA/articles

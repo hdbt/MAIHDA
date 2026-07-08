@@ -69,6 +69,30 @@
   (`plot(analysis, type = "predicted", order_by = ...)`). Callers who
   relied on the native order can pass `order_by = "stratum"`.
 
+- **`plot(<maihda_analysis>, type = "vpc")` gains a `model` argument to
+  show the null VPC, the adjusted VPC, or both as one change plot.** A
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis carries both a null and an adjusted model, but
+  `plot(a, type = "vpc")` only ever drew the null-model VPC, with no way
+  to see the adjusted partition and no cue as to which model was shown.
+  `plot(a, type = "vpc", model = c("null", "adjusted", "both"))` now
+  selects it: `"null"` (the **default**, unchanged between-stratum
+  partition, now captioned “Null model”), `"adjusted"` (the
+  between-stratum share remaining after the dimensions’ additive main
+  effects — closer to the pure intersectional component), or `"both"` —
+  a **single new plot** that places the two partitions on a shared axis
+  and annotates the **PCV** and the between-stratum VPC/ICC shift, so
+  the null→adjusted change (the substance of the two-model comparison)
+  reads off one figure. For a **longitudinal** analysis the VPC view is
+  the time-varying VPC trajectory and `"both"` overlays the null and
+  adjusted curves; a **crossed-dimensions** analysis fits a single model
+  (no null/adjusted pair), so `"adjusted"`/`"both"` error there with an
+  explanatory message. `model` applies to the VPC view only — pairing a
+  non-default `model` with another `type` errors rather than silently
+  no-op’ing. The default call still returns a single ggplot showing the
+  null VPC, so existing code
+  (`plot(a, type = "vpc") + ggplot2::theme_bw()`) is unaffected.
+
 - **[`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   gains a `context` argument for a contextual cross-classified stepwise
   PCV.** [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
