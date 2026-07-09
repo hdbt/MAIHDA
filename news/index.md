@@ -51,61 +51,61 @@
 
 ### Bug Fixes
 
-- **The brms engine’s linear-predictor reads were broken under current
+- The brms engine’s linear-predictor reads were broken under current
   brms (\>= ~2.16): `posterior_linpred()` ignores a `summary = TRUE`
   argument and returns the raw draws matrix, so several brms paths
-  errored.**
+  errored.
 
-- **A single-row `newdata` errored for response-scale predictions from a
-  brms cumulative (ordinal) fit.** \`
+- A single-row `newdata` errored for response-scale predictions from a
+  brms cumulative (ordinal) fit.
 
-- **Longitudinal (growth-curve) fits on a time axis that does not start
-  at 0 could silently converge to a wrong solution; the growth terms are
-  now fit on internally centered time.**
+- Longitudinal (growth-curve) fits on a time axis that does not start at
+  0 could silently converge to a wrong solution; the growth terms are
+  now fit on internally centered time.
 
-- **The Poisson / negative-binomial latent-scale level-1 variance was
+- The Poisson / negative-binomial latent-scale level-1 variance was
   evaluated at the conditional fitted means (BLUPs included); it is now
   evaluated at the marginal expected count, matching the cited
-  references.**
+  references.
 
-- **The longitudinal PCV compared REML variances across models with
+- The longitudinal PCV compared REML variances across models with
   different fixed effects; it is now computed from ML-refitted growth
-  models.**
+  models.
 
-- **Stratum display labels are no longer whitespace-padded for
-  mixed-type dimensions.**
+- Stratum display labels are no longer whitespace-padded for mixed-type
+  dimensions.
 
-- **The longitudinal slope PCV read the wrong covariance cell for
-  `time_degree >= 2`.** \`
+- The longitudinal slope PCV read the wrong covariance cell for
+  `time_degree >= 2`
 
 ### Improvements
 
-- **[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) now
+- [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) now
   warns when a numeric stratum-defining dimension would enter the
   adjusted model as a linear fixed effect instead of categorical main
-  effects.**
+  effects.
 
-- **`calculate_pcv(bootstrap = TRUE)` on a non-lme4 engine now explains
-  what *is* available instead of pointing brms users in a circle.**
+- calculate_pcv(bootstrap = TRUE)\` on a non-lme4 engine now explains
+  what is available.
 
-- **Documented the latent-scale rescaling caveat on the PCV.**
+- Documented the latent-scale rescaling caveat on the PCV.
 
 ### Documentation
 
 - Fixed a mislabelled figure in the reporting vignette: the
   [`tidy()`](https://generics.r-lib.org/reference/tidy.html) caterpillar
-  plotted the null model’s stratum estimates – the *total*
-  between-stratum deviations – but the text called them “interaction
-  estimates” (the pure interactions require
-  `tidy(a, which = "adjusted")`; the vignette now says so).
+  plotted the null model’s stratum estimates, the total between-stratum
+  deviations, but the text called them “interaction estimates” (the pure
+  interactions require `tidy(a, which = "adjusted")`; the vignette now
+  says so).
 - The plot-interpretation vignette no longer claims a bare
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   fit is “equivalent” to the
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
   analysis for its plots:
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on the
-  analysis routes the VPC/predicted/shrinkage views to the *null* model
-  and the effect-decomposition views to the *adjusted* model, which a
+  analysis routes the VPC/predicted/shrinkage views to the null model
+  and the effect-decomposition views to the adjusted model, which a
   single fit cannot do.
 - The group-comparison vignette now explains its own `group_pcv` figure:
   with the real PISA data every country’s PCV is essentially 1 (the
@@ -129,9 +129,9 @@ CRAN release: 2026-07-02
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html) for both
   `maihda_model` and `maihda_analysis` objects, from `type = "all"`, and
   from the Shiny app’s plot menu.
-- **Removed the `"ternary"` plot type and the
+- Removed the `"ternary"` plot type and the
   `compute_maihda_ternary_data()`, `maihda_ternary_plot()`, and
-  `plot_maihda_ternary()` functions.** The ternary diagnostic normalised
+  `plot_maihda_ternary()` functions. The ternary diagnostic normalised
   each stratum’s additive, intersection-specific, and uncertainty
   signals to sum to 1, which discards effect magnitude and puts two
   effect components and an estimation-error term on a single triangle.
@@ -159,18 +159,18 @@ CRAN release: 2026-07-02
 - **The `predicted` (and longitudinal `trajectories`) plot can now keep
   the most extreme strata when it truncates, instead of the first by
   stratum order.** When there are more strata than the `n_strata` cap,
-  the view dropped strata in *stratum order* – effectively arbitrary
-  with respect to how far a subgroup sits from the population mean, so
-  the most striking strata could be the ones omitted.
+  the view dropped strata in stratum order, effectively arbitrary with
+  respect to how far a subgroup sits from the population mean, so the
+  most striking strata could be the ones omitted.
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html) gains an
-  opt-in **`select`** argument: `"order"` (default, unchanged) keeps the
+  opt-in `select` argument: `"order"` (default, unchanged) keeps the
   first n_strata in stratum order; `"deviation"` keeps the n_strata
   furthest from the reference line (largest `|predicted - reference|`,
-  so the most extreme strata in *both* directions, not just one tail).
-  For a longitudinal `trajectories` plot it keeps the strata whose
+  so the most extreme strata in both directions, not just one tail). For
+  a longitudinal `trajectories` plot it keeps the strata whose
   trajectories swing furthest from the population curve (peak
   `|random deviation|` over the time grid). Selection and display are
-  kept separate: `select` changes *which* strata appear, but the x-axis
+  kept separate: `select` changes which strata appear, but the x-axis
   stays in stratum order. It composes with the flag-aware cap (flagged
   strata are always kept; `select` governs the fill) and the caption
   names the rule used (“the 12 strata furthest from the reference, of
@@ -180,18 +180,18 @@ CRAN release: 2026-07-02
   the `"predicted"` view caps the number drawn (`n_strata`, default 50)
   and kept them in stratum order, so a stratum flagged by
   [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
-  that fell past the cap was dropped from the figure entirely – the
+  that fell past the cap was dropped from the figure entirely; the
   highlight could not reach it.
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html) gains
-  **`only_flagged`**: `TRUE` restricts the `"predicted"` and
+  `only_flagged`: `TRUE` restricts the `"predicted"` and
   `"obs_vs_shrunken"` views to the strata carrying a credibly non-zero
   interaction (and turns the highlight on with the stored diagnostic if
   it was off), with a caption naming the screen (e.g. “Showing the 7
   flagged strata (95% interval, BH-adjusted) of 200 total”) and a
   graceful captioned empty panel when none are flagged. Independently,
   whenever interactions are highlighted the `n_strata` cap on
-  `"predicted"` is now **flag-aware**: every flagged stratum is kept and
-  the remaining slots are filled in stratum order, so the signal the
+  `"predicted"` is now flag-aware: every flagged stratum is kept and the
+  remaining slots are filled in stratum order, so the signal the
   highlight exists to surface is never silently truncated away. The
   across-strata reference line is still computed from the full set, so
   filtering never shifts it. `"effect_decomp"` deliberately ignores
@@ -207,14 +207,13 @@ CRAN release: 2026-07-02
   screening question, so the flags should control the false-discovery
   rate by default. Pass `adjust = "none"` (or `interactions = "none"` to
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)/[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md))
-  for the uncorrected, per-stratum individual-testing view. A new
-  **`rope`** argument adds an equivalence /
-  smallest-interaction-of-interest reading (Schuirmann 1987; Kruschke
-  2018): supply a region of practical equivalence (a half-width `d` for
-  `c(-d, d)`, or `c(lower, upper)`, on the link scale) and each stratum
-  gains a `decision` of `"relevant"` (interval entirely outside the
-  region), `"negligible"` (entirely inside), or `"inconclusive"`
-  (straddling a bound), reported by
+  for the uncorrected, per-stratum individual-testing view. A new `rope`
+  argument adds an equivalence / smallest-interaction-of-interest
+  reading (Schuirmann 1987; Kruschke 2018): supply a region of practical
+  equivalence (a half-width `d` for `c(-d, d)`, or `c(lower, upper)`, on
+  the link scale) and each stratum gains a `decision` of `"relevant"`
+  (interval entirely outside the region), `"negligible"` (entirely
+  inside), or `"inconclusive"` (straddling a bound), reported by
   [`print()`](https://rdrr.io/r/base/print.html). The documentation now
   also keeps two ideas the literature distinguishes apart – partial
   pooling regularises magnitude/sign (Gelman, Hill & Yajima 2012) while
@@ -228,8 +227,8 @@ CRAN release: 2026-07-02
   incompatible scales without a warning.** The comparability check only
   warned when the models differed in outcome, weights, family/link,
   analytic sample, or strata, then appended whichever
-  information-criterion columns existed. Two *same-family* models fitted
-  on different engines – e.g. a Gaussian `lme4` fit (reporting AIC/BIC)
+  information-criterion columns existed. Two same-family models fitted
+  on different engines, e.g. a Gaussian `lme4` fit (reporting AIC/BIC)
   and a Gaussian `brms` fit (reporting WAIC/LOOIC) – agree on all the
   checked aspects, so no warning fired, yet the appended table placed
   the likelihood AIC/BIC and the Bayesian WAIC/LOOIC side by side. Those
@@ -246,7 +245,7 @@ CRAN release: 2026-07-02
 - **A fixed interaction among the stratum dimensions
   (e.g. `Gender * Race`) silently corrupted the decomposition.** R
   expands `Gender * Race` to `Gender + Race + Gender:Race`, but the
-  workflow only looked for the dimensions’ additive *main effects* when
+  workflow only looked for the dimensions’ additive main effects when
   deciding whether the supplied formula was the fully-specified adjusted
   model. It found both `Gender` and `Race`, treated the fit as the
   adjusted model, and derived the null by removing only those main
@@ -262,8 +261,8 @@ CRAN release: 2026-07-02
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   now **reject** such a formula up front with an actionable error – the
   MAIHDA adjusted model is defined to carry only the dimensions’
-  *additive* main effects, with the intersection estimated by the
-  stratum random effect (write `Gender + Race`, and use
+  additive main effects, with the intersection estimated by the stratum
+  random effect (write `Gender + Race`, and use
   `decomposition = "crossed-dimensions"` or
   [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
   to quantify the interaction).
@@ -285,7 +284,7 @@ CRAN release: 2026-07-02
   `cbind(success, failure)` fits. A `brms` `y | trials(n)` fit therefore
   reached
   [`maihda_auc()`](https://hdbt.github.io/MAIHDA/reference/maihda_auc.md)
-  with the per-row success *counts* as the response, errored on the
+  with the per-row success counts\* as the response, errored on the
   non-0/1 values, and the summary quietly omitted the DA. It now detects
   a `brms` aggregated binomial via the existing trial-count extraction
   path (`maihda_brms_trial_counts()`, which parses the `trials()`
@@ -310,7 +309,7 @@ CRAN release: 2026-07-02
   ([`lme4::refitML()`](https://rdrr.io/pkg/lme4/man/refitML.html),
   needed because REML between-stratum variances are not comparable
   across models with different fixed effects) was skipped whenever the
-  fit was *globally* singular – but a fit can be singular because a
+  fit was globally singular, but a fit can be singular because a
   **non-stratum** random effect (e.g. an extra `(1 | site)` grouping
   factor) is on the boundary while the stratum variance is comfortably
   nonzero. In that case the package returned the REML PCV instead of the
@@ -326,11 +325,11 @@ CRAN release: 2026-07-02
 - **Aggregated-binomial stratum predictions were row-weighted instead of
   trial-weighted.** For a `cbind(success, failure)` (or `y | trials(n)`)
   fit the rows of an intersectional stratum can carry very different
-  numbers of binomial trials, but the per-stratum *prediction* means
-  averaged the fitted probabilities / linear predictors with **unit**
+  numbers of binomial trials, but the per-stratum prediction means
+  averaged the fitted probabilities / linear predictors with unit
   weights, so a 5-trial row counted as much as a 200-trial row. The unit
-  weighting is correct for the **observed** stratum summaries (which sum
-  successes over summed trials – the trials are already in the
+  weighting is correct for the observed stratum summaries (which sum
+  successes over summed trials, the trials are already in the
   denominator), but wrong for the model predictions. Prediction
   aggregation now uses a dedicated `maihda_prediction_weights()` that
   weights each row by its binomial trial count – read from
@@ -351,7 +350,7 @@ CRAN release: 2026-07-02
   response scale.** The stratum-level prediction helper applied the
   **scalar inverse link** for the `engine = "brms"`,
   `family = "ordinal"` response scale, returning a single cumulative
-  probability in `[0, 1]` rather than the **expected category score**
+  probability in `[0, 1]` rather than the expected category score
   `sum_k k * P(Y = k)` in `[1, K]` that the rest of the package
   documents and computes – the individual
   [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
@@ -394,22 +393,22 @@ CRAN release: 2026-07-02
   preparation step returned early and skipped the unseen-stratum check,
   so a misspelled or genuinely new stratum flowed through to the
   WeMix/`clmm` linear-predictor helpers, which map a missing random
-  effect to 0 – yielding a fixed-only prediction that *looked* valid and
+  effect to 0, yielding a fixed-only prediction that looked valid and
   contradicted both the documented contract (unseen strata are an error,
   as for `type = "strata"`) and `lme4`’s default behaviour.
   [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
-  now rejects an unseen stratum by default for **every** engine and
+  now rejects an unseen stratum by default for every engine and
   prediction type, whether the stratum is supplied directly or rebuilt
-  from the grouping variables. A new **`allow_new_levels`** argument
-  (default `FALSE`) opts into the previous behaviour *explicitly*: for
-  `type = "individual"` it returns a **population-average**
-  (fixed-effects-only) prediction for unseen strata, dropping the
-  stratum random effect (forwarded as `allow.new.levels` to lme4 and
-  `allow_new_levels` to brms). Stratum-level predictions have no random
-  effect to report for an unseen stratum, so they remain an error
-  regardless.
+  from the grouping variables. A new `allow_new_levels` argument
+  (default `FALSE`) opts into the previous behaviour explicitly: for
+  `type = "individual"` it returns a
+  population-average(fixed-effects-only) prediction for unseen strata,
+  dropping the stratum random effect (forwarded as `allow.new.levels` to
+  lme4 and `allow_new_levels` to brms). Stratum-level predictions have
+  no random effect to report for an unseen stratum, so they remain an
+  error regardless.
 
-- **`predict_maihda(scale = "response")` returned expected *counts*, not
+- **`predict_maihda(scale = "response")` returned expected counts, not
   probabilities, for a `brms` aggregated-binomial (`y | trials(n)`)
   fit.** `brms`’s
   [`fitted()`](https://rdrr.io/r/stats/fitted.values.html) /
@@ -434,16 +433,16 @@ CRAN release: 2026-07-02
   engine.** The contract is to drop the stratum random effect (treat it
   as zero) for a stratum the model never saw. The `brms` path merely
   forwarded `allow_new_levels = TRUE`, but `brms`’s default
-  `sample_new_levels = "uncertainty"` *draws* a new-stratum effect from
+  `sample_new_levels = "uncertainty"` draws a new-stratum effect from
   the estimated random-effects distribution rather than zeroing it, so
   the prediction silently carried a random per-call group effect.
   Unseen-stratum rows are now split off and predicted with an
   `re_formula` that excludes the stratum term, while seen-stratum rows
   keep their estimated effect (a blanket exclusion would have dropped
-  the seen strata’s effects too). Any **other** random effect the unseen
-  row participates in – a contextual `(1 | school)` intercept from
+  the seen strata’s effects too). Any other random effect the unseen row
+  participates in – a contextual `(1 | school)` intercept from
   `fit_maihda(context = )`, a longitudinal `(time | id)` growth term –
-  is **kept**, exactly as `lme4`’s `allow.new.levels` zeroes only the
+  is kept , exactly as `lme4`’s `allow.new.levels` zeroes only the
   unseen level’s effect and retains seen ones; for the usual
   single-stratum model the excluding `re_formula` is `NA`, the
   fixed-effects-only population average. `lme4` and the
@@ -453,8 +452,8 @@ CRAN release: 2026-07-02
 - **The crossed-dimensions decomposition reported `NaN` additive /
   interaction shares when there was no between-stratum variance.** The
   shares split the between-strata variance, so for a degenerate fit
-  whose additive *and* interaction variances are both estimated at
-  exactly zero they are `0 / 0 = NaN`, which leaked through
+  whose additive and interaction variances are both estimated at exactly
+  zero they are `0 / 0 = NaN`, which leaked through
   [`summary()`](https://rdrr.io/r/base/summary.html) and the
   comparison/tidier outputs. `maihda_cc_partition()` now returns `NA` (a
   defined “undefined”) for the shares when `between == 0`, and for the
@@ -482,8 +481,8 @@ CRAN release: 2026-07-02
   probabilities, which rebuild the `clmm` location independently. The
   helpers now evaluate the formula’s offset on the prediction data
   ([`stats::model.offset()`](https://rdrr.io/r/stats/model.extract.html)
-  of the rebuilt model frame) and add it back, **including for an
-  offset-only null model** whose location is otherwise identically zero.
+  of the rebuilt model frame) and add it back, including for an
+  offset-only null model whose location is otherwise identically zero.
   Fits with no offset are unaffected.
 
 - **[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
@@ -491,11 +490,11 @@ CRAN release: 2026-07-02
   chose the engine from the raw outcome, before `subset`/weights.** The
   wrappers pass `engine` explicitly to every sub-fit, so they
   pre-selected `engine = "ordinal"` from an ordered-factor outcome – but
-  they checked the *raw* column, while
+  they checked the raw column, while
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  detects the family on the **analytic sample** (after `subset` and
-  weight filtering). An ordered 3-level outcome subset to two observed
-  levels is a binary analytic sample: a direct
+  detects the family on the analytic sample (after `subset` and weight
+  filtering). An ordered 3-level outcome subset to two observed levels
+  is a binary analytic sample: a direct
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   fits it as `binomial`/`lme4`, but the wrappers pinned
   `engine = "ordinal"` and then errored
@@ -509,8 +508,8 @@ CRAN release: 2026-07-02
   mask first), so the engine choice can no longer contradict the
   resolved family. Relatedly,
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) now
-  forwards the **evaluated** `subset`/`weights` (not the raw
-  expressions) to its derived null/adjusted fits, mirroring
+  forwards the evaluated `subset`/`weights` (not the raw expressions) to
+  its derived null/adjusted fits, mirroring
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md):
   a response-referencing `subset`
   (e.g. `subset = y %in% c("lo", "mid")`) was otherwise re-evaluated by
