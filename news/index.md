@@ -7,67 +7,17 @@
 - **[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   now accept `group` and `context` together (stratified × contextual
-  MAIHDA).** The two were previously mutually exclusive, which was a
-  scope choice rather than a statistical constraint: fitting a
-  contextual cross-classified model *within* each group stratum is
-  coherent, and is the natural design when the grouping variable has too
-  few levels to identify its own random effect (e.g. a two-country study
-  stratified by country, where each country’s fit still needs
-  `(1 | samcnty)` and `(1 | respid)` for geography and repeated
-  measures). Supplying both now runs the stratified comparison where
+  MAIHDA).** Supplying both now runs the stratified comparison where
   **each per-group fit is itself a contextual cross-classified model** —
   `context` is forwarded into every per-group
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  call (null, adjusted, and crossed-dimensions), so
-  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)/[`summary()`](https://rdrr.io/r/base/summary.html)
-  need no change. Each group’s `vpc`/`var_between` become the
-  between-stratum quantities **net of** the context, the per-group **PCV
-  is also net of context** (the context random intercept sits in both
-  the null and adjusted per-group fits, and
-  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
-  reads only the `stratum` variance, so no PCV math changed), and the
-  `maihda_group_comparison` gains two columns — **`var_context`** (the
-  between-context variance, summed over contexts) and **`vpc_context`**
-  (the contexts’ share of the group’s unexplained variance) — with the
-  per-context split kept on the new `"context_per"` attribute (and the
-  name(s) on `"context_var"`).
-  [`print()`](https://rdrr.io/r/base/print.html) labels the context and
-  flags that the VPC is net of it; `plot(type = "components")` gains a
-  separate context slice (with the denominator corrected so shares still
-  sum to 1), reachable from the analysis via
-  `plot(a, type = "group_components")`. Because stratifying by group
-  shrinks each group × context cell, groups whose analytic sample holds
-  too few context levels (\< 10) to identify the context variance are
-  named in a single aggregated warning (use `engine = "brms"` for
-  weakly-informative regularisation). Supported by the `lme4` and `brms`
-  engines; `wemix`/`ordinal` (which fit no crossed random effect) reject
-  `context` up front, and `context` may not name the `group` variable
-  itself. Non-contextual group comparisons are unchanged — the context
-  columns and attributes are omitted entirely.
+  call.
 
 - **`plot(type = "predicted")` gains an `order_by` argument and now
   orders the strata by predicted value by default (a ranked caterpillar
   plot).** The predicted-values plot previously drew the strata in
   native stratum order, while `maihda_table()$strata` already ranked
-  them by predicted outcome — so the figure and the canonical
-  ranked-strata table disagreed on ordering.
-  `plot(model, type = "predicted", order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"))`
-  now exposes the ordering: `"predicted_desc"` (the new **default**)
-  puts the highest-predicted stratum at the top, `"predicted_asc"` the
-  lowest, `"deviation"` orders by largest absolute deviation from the
-  reference line (the same `|predicted - reference|` metric as
-  `select = "deviation"`), and `"stratum"` restores the previous
-  native-order behaviour. The ordering is **display-only**: it changes
-  neither the predicted values and intervals, nor *which* strata are
-  shown (that is still governed by `n_strata` and `select`), nor the
-  reference line or the highlighted set, and the strata keep their
-  meaningful
-  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
-  labels. Only the text `"predicted"` view is affected —
-  `type = "upset"` keeps its intersection-size ordering. Reachable
-  through the analysis wrapper too
-  (`plot(analysis, type = "predicted", order_by = ...)`). Callers who
-  relied on the native order can pass `order_by = "stratum"`.
+  them by predicted outcome.
 
 - **`plot(<maihda_analysis>, type = "vpc")` gains a `model` argument to
   show the null VPC, the adjusted VPC, or both as one change plot.** A
@@ -75,55 +25,10 @@
   analysis carries both a null and an adjusted model, but
   `plot(a, type = "vpc")` only ever drew the null-model VPC, with no way
   to see the adjusted partition and no cue as to which model was shown.
-  `plot(a, type = "vpc", model = c("null", "adjusted", "both"))` now
-  selects it: `"null"` (the **default**, unchanged between-stratum
-  partition, now captioned “Null model”), `"adjusted"` (the
-  between-stratum share remaining after the dimensions’ additive main
-  effects — closer to the pure intersectional component), or `"both"` —
-  a **single new plot** that places the two partitions on a shared axis
-  and annotates the **PCV** and the between-stratum VPC/ICC shift, so
-  the null→adjusted change (the substance of the two-model comparison)
-  reads off one figure. For a **longitudinal** analysis the VPC view is
-  the time-varying VPC trajectory and `"both"` overlays the null and
-  adjusted curves; a **crossed-dimensions** analysis fits a single model
-  (no null/adjusted pair), so `"adjusted"`/`"both"` error there with an
-  explanatory message. `model` applies to the VPC view only — pairing a
-  non-default `model` with another `type` errors rather than silently
-  no-op’ing. The default call still returns a single ggplot showing the
-  null VPC, so existing code
-  (`plot(a, type = "vpc") + ggplot2::theme_bw()`) is unaffected.
 
 - **[`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   gains a `context` argument for a contextual cross-classified stepwise
-  PCV.** [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
-  and
-  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  already accept `context` (a higher-level crossed random intercept
-  `(1 | context)` — school, hospital, region — giving the literature’s
-  contextual cross-classified MAIHDA), but the sequential
-  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
-  did not, an API inconsistency rather than a statistical barrier: every
-  step is fit through
-  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
-  which adds the `(1 | context)` term itself.
-  `stepwise_pcv(..., context = c(...))` now forwards the context to the
-  null model and every step, so the reported `Step_PCV` / `Total_PCV`
-  are the between-stratum PCV **net of** the context (the stratum
-  variance is isolated from it —
-  [`extract_between_variance()`](https://hdbt.github.io/MAIHDA/reference/extract_between_variance.md)
-  already reads only the `stratum` variance component, so no PCV-math
-  changed). The context column(s) join the complete-case filter so all
-  steps share one analytic sample, and a new **`Context_Variance`**
-  column reports the (summed) between-context variance held at each
-  step, shown next to the net-of-context stratum `Variance`. For a
-  **binary** contextual fit the discriminatory-accuracy trajectory
-  (`AUC` / `MOR`) is omitted — the AUC would include the context random
-  effect and so mismatch the net-of-context PCV columns, exactly as
-  [`summary.maihda_model()`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
-  drops it for a contextual fit. Supported by the `lme4` and `brms`
-  engines; `wemix` and `ordinal` (which fit no crossed random effects)
-  reject `context` with a clear message. Non-contextual tables are
-  byte-for-byte unchanged.
+  PCV.**
 
 ### API Changes
 
@@ -149,241 +54,41 @@
 - **The brms engine’s linear-predictor reads were broken under current
   brms (\>= ~2.16): `posterior_linpred()` ignores a `summary = TRUE`
   argument and returns the raw draws matrix, so several brms paths
-  errored.** The package read posterior-mean linear predictors via
-  `brms::posterior_linpred(..., summary = TRUE)[, "Estimate"]` – the
-  pre-draws brms contract. Modern brms silently swallows
-  `summary = TRUE` (it is absorbed by `prepare_predictions()`;
-  `summary = FALSE` is hard-coded internally) and returns the unnamed
-  `ndraws x nobs` draws matrix, so the `[, "Estimate"]` subscript failed
-  with *“no ‘dimnames’ attribute for arrays”*. Consequences on real brms
-  fits: [`summary()`](https://rdrr.io/r/base/summary.html) of a
-  **Poisson/negative-binomial** brms MAIHDA **errored** (the count VPC’s
-  marginal expected counts read the fixed-part predictor this way),
-  `predict_maihda(scale = "link")` errored for every brms fit, the
-  stratum predictions behind
-  `plot(type = "predicted"/"obs_vs_shrunken"/"upset")` and
-  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
-  errored for every brms fit, and the brms branch of
-  `plot(type = "effect_decomp")` silently rendered from all-`NA`
-  predictions (its `tryCatch` swallowed the error). All five call sites
-  now collapse the draws to their posterior mean through one shared
-  helper (`maihda_brms_linpred_mean()`, which also still accepts a
-  summary-shaped return for compatibility) – the same estimand the old
-  idiom intended, so results on brms versions where the old idiom worked
-  are unchanged. The escape from the test suite is closed too: the
-  Stan-free tests had mocked `posterior_linpred()` with the obsolete
-  summary-shaped return, and the real-Stan tests are opt-in; the mocks
-  now return real-shaped draws matrices, and the opt-in brms tests
-  additionally exercise
-  [`summary()`](https://rdrr.io/r/base/summary.html), link-scale
-  prediction, and the stratum predictions on a real count fit.
+  errored.**
+
 - **A single-row `newdata` errored for response-scale predictions from a
-  brms cumulative (ordinal) fit.**
-  [`fitted()`](https://rdrr.io/r/stats/fitted.values.html) returns an
-  `nobs x summary x category` array for a cumulative likelihood;
-  collapsing it to expected category scores indexed `[, "Estimate", ]`,
-  which for one prediction row drops both unit margins to a bare vector,
-  so [`ncol()`](https://rdrr.io/r/base/nrow.html) was `NULL` and
-  [`seq_len()`](https://rdrr.io/r/base/seq.html) errored. The Estimate
-  slice is now rebuilt as an explicit `nobs x ncat` matrix (new helper
-  `maihda_brms_fitted_array_scores()`), so predicting a single profile
-  works; multi-row predictions are numerically unchanged.
+  brms cumulative (ordinal) fit.** \`
+
 - **Longitudinal (growth-curve) fits on a time axis that does not start
   at 0 could silently converge to a wrong solution; the growth terms are
-  now fit on internally centered time.** The 3-level growth model was
-  fit on the time variable exactly as coded, but the raw polynomial
-  basis `(1, t, t^2, ...)` over an offset range (age, calendar year,
-  waves coded 10, 11, …) is near-collinear and its random-effect
-  covariance scales are wildly heterogeneous, so `lme4` could converge
-  to a **false optimum** – observed on a quadratic fit anchored at wave
-  10: ~128 log-likelihood units below the true optimum with **no
-  convergence warning at all**, a baseline between-stratum variance
-  three orders of magnitude off, and a corrupted VPC/PCV; a linear fit
-  on an age-like axis (40..44) landed ~102 log-likelihood units low
-  (with a warning, but a badly wrong `pcv_slope`). Since the
-  documentation explicitly suggested using age as the time variable,
-  this was easy to hit.
-  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)/[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
-  now fit the growth terms on internally centered time
-  (`time - min(time)`, with a one-time message) whenever the axis does
-  not start at 0, which makes the offset-axis fit the *same*
-  optimization problem as the equivalent 0-anchored coding. Everything
-  user-facing stays on the original time scale: `ref_time`, the VPC/PCV
-  reporting grids, the trajectory plots, and prediction `newdata` (the
-  internal `.maihda_ctime` column – now a reserved name – is rebuilt
-  from the original time column on the fly). Zero-anchored fits take the
-  historical raw-time path and are byte-for-byte unchanged.
+  now fit on internally centered time.**
+
 - **The Poisson / negative-binomial latent-scale level-1 variance was
   evaluated at the conditional fitted means (BLUPs included); it is now
   evaluated at the marginal expected count, matching the cited
-  references.** The count-family VPC plugs a per-row mean into the
-  latent-scale approximations the documentation cites – Stryhn et
-  al. (2006) `log(1 + 1/lambda)` for Poisson, Nakagawa, Johnson &
-  Schielzeth (2017) `log(1 + 1/lambda + 1/theta)` for the negative
-  binomial – but the implementation read that mean from
-  [`stats::fitted()`](https://rdrr.io/r/stats/fitted.values.html), the
-  *conditional* mean `exp(x'beta + u_hat)`: the (shrunken) BLUPs made
-  the level-1 variance depend on the realized random effects, which none
-  of the cited references do, and shifted the null-model VPC away from
-  the referenced formula. The mean is now the **marginal** expected
-  count `lambda_i = exp(x_i'beta + v_i/2)`, the fixed-part prediction
-  with the log-normal correction for the row’s total latent
-  random-effect variance `v_i` – exactly Nakagawa et al.’s
-  `exp(beta0 + sigma^2/2)` plug-in in the null model, extended per row
-  across covariate profiles and averaged over the analytic sample
-  (prior/likelihood-weighted where applicable). `v_i` is built from the
-  random-effect design row and the fitted covariance blocks (new helpers
-  `maihda_count_marginal_mu_lme4()` / `maihda_count_marginal_mu_brms()`
-  over a shared, engine-agnostic `maihda_latent_re_variance_rows()`), so
-  a longitudinal count model’s correction is correctly *time-varying*
-  (the growth blocks enter at each row’s time). On the brms side the
-  marginal means are built from the posterior-mean fixed part and
-  posterior-mean covariance blocks (the negative-binomial `shape` draws
-  are still propagated per draw), replacing the posterior-mean
-  conditional [`fitted()`](https://rdrr.io/r/stats/fitted.values.html)
-  values. Binomial/Bernoulli (`pi^2/3`, probit 1), Gaussian, and ordinal
-  level-1 variances are unchanged.
+  references.**
+
 - **The longitudinal PCV compared REML variances across models with
   different fixed effects; it is now computed from ML-refitted growth
   models.**
-  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
-  has always refitted REML `lmer` fits with maximum likelihood before
-  differencing between-stratum variances, because REML variance
-  estimates are not comparable across models whose fixed effects differ
-  – but its refit helper deliberately skipped longitudinal fits, and
-  [`maihda_longitudinal_pcv()`](https://hdbt.github.io/MAIHDA/reference/maihda_longitudinal_pcv.md)
-  (the `decomposition = "longitudinal"` PCV) read the stratum covariance
-  blocks straight off the REML null and adjusted growth fits, which
-  differ in fixed effects by exactly the dimensions’ main effects and
-  their `dim:time` interactions. The REML comparison systematically
-  understates both `pcv_intercept` and `pcv_slope` – overstating the
-  multiplicative/interaction share of the trajectory inequality – by an
-  amount that grows as the added fixed effects consume stratum-level
-  degrees of freedom: ~0.18 absolute on both PCVs in a simulated
-  24-stratum design, with an outright **sign flip** (-0.53 vs. +0.41) in
-  a 2x3 design.
-  [`maihda_longitudinal_pcv()`](https://hdbt.github.io/MAIHDA/reference/maihda_longitudinal_pcv.md)
-  now ML-refits REML `lmer` growth fits before reading their blocks (new
-  helper `maihda_longitudinal_refit_ml()`, with a growth-block boundary
-  guard analogous to the cross-sectional one), stores whether it did so
-  (`$ml_refit`), and [`print()`](https://rdrr.io/r/base/print.html)
-  discloses the basis. The stored models – and
-  [`summary()`](https://rdrr.io/r/base/summary.html)’s time-varying VPC
-  and components table – keep their REML fit, exactly as the
-  cross-sectional single-model summaries do; `glmer` (GLMM) and `brms`
-  longitudinal fits were never affected (already ML / posterior). Fits
-  made with `REML = FALSE` are unchanged (the refit is a no-op and
-  reproduces the same decomposition).
+
 - **Stratum display labels are no longer whitespace-padded for
   mixed-type dimensions.**
-  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
-  (and the internal prediction-side label builder) constructed labels by
-  [`apply()`](https://rdrr.io/r/base/apply.html)ing over the
-  stratum-defining columns; on a mixed-type frame
-  [`apply()`](https://rdrr.io/r/base/apply.html)’s
-  [`as.matrix()`](https://rdrr.io/r/base/matrix.html) coercion runs
-  numeric columns through
-  [`format()`](https://rdrr.io/r/base/format.html), padding them to a
-  common width – an unbinned numeric dimension with values 1 and 10
-  produced labels like `"m × 1"` (stray double space) next to
-  `"m × 10"`. Labels are now built from each column’s plain
-  [`as.character()`](https://rdrr.io/r/base/character.html) encoding,
-  the same encoding the value-based stratum matcher uses, so labels and
-  matching agree and no padding is introduced. Display-only: stratum
-  assignment, matching, and estimation were never affected.
-- **`maihda_country_data$low_math` now matches its documented rule
-  exactly.** The flag was derived from the unrounded PISA score before
-  `math` was rounded to one decimal for shipping, so two students at a
-  raw score of ~419.96 carried `math = 420.0` with `low_math = "Yes"`,
-  contradicting the documented “below 420” rule. The flag is now
-  computed from the rounded (stored) score – both in the shipped data
-  and in the `data-raw` script, which also gained a consistency
-  [`stopifnot()`](https://rdrr.io/r/base/stopifnot.html) – flipping
-  those two boundary rows to `"No"` (809 -\> 807 “Yes” of 3,600).
+
 - **The longitudinal slope PCV read the wrong covariance cell for
-  `time_degree >= 2`.** `pcv_slope` compared the raw `Sigma[2, 2]` cells
-  of the null and adjusted stratum blocks, on the
-  (correct-for-linear-growth) premise that the slope variance is
-  invariant to where time is zeroed. For a quadratic or higher growth
-  curve that cell is the variance of the *instantaneous slope at the
-  coefficient origin* – an extrapolation whenever time was not
-  zero-anchored, and not invariant to the time coding (shifting time by
-  `c` maps the linear coefficient to `u1 + 2c u2 + ...`). `pcv_slope` is
-  now the PCV of the **instantaneous-slope variance at the observed
-  baseline**, `b(t)' Sigma b(t)` with `b = da/dt` evaluated at
-  `ref_time` (new helper `maihda_slope_var_at_time()`; the
-  `maihda_long_pcv` object gains `var_slope_null`/`var_slope_adjusted`
-  and [`print()`](https://rdrr.io/r/base/print.html) labels the slope
-  variance “at baseline”). For linear growth this reduces to the same
-  `Sigma[2, 2]` cell as before, so degree-1 results are unchanged;
-  together with the internal centering it makes the whole longitudinal
-  decomposition invariant to how the time axis is coded.
+  `time_degree >= 2`.** \`
 
 ### Improvements
 
 - **[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) now
   warns when a numeric stratum-defining dimension would enter the
   adjusted model as a linear fixed effect instead of categorical main
-  effects.** The variables that define intersectional strata are
-  conceptually categorical, and
-  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
-  already treats them so when forming strata (each distinct value is a
-  stratum level; a numeric dimension with more than 10 unique values is
-  tertile-binned when `autobin = TRUE`). But the adjusted/decomposition
-  model added an un-binned numeric dimension by its raw column name — so
-  a category code such as `education = 1, 2, 3` (10 or fewer unique
-  values), or a many-valued numeric fitted with `autobin = FALSE`,
-  silently entered as a single **linear** slope rather than one main
-  effect per level, quietly changing the PCV/decomposition
-  interpretation.
-  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) (and
-  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md),
-  and the Shiny app’s decomposition) now emit a clear warning that names
-  the offending dimension(s) and points to the fix — wrap category codes
-  in [`factor()`](https://rdrr.io/r/base/factor.html) before fitting, or
-  use a genuinely continuous variable as a covariate rather than a
-  stratum dimension. The behaviour is **warn-only**: the term still
-  enters exactly as before, so results (and PCV values) of existing
-  analyses are unchanged; auto-binned numeric dimensions and
-  factor/character dimensions are correctly not flagged.
-  ([\#56](https://github.com/hdbt/MAIHDA/issues/56))
+  effects.**
 
 - **`calculate_pcv(bootstrap = TRUE)` on a non-lme4 engine now explains
-  what *is* available instead of pointing brms users in a circle.** The
-  old error told every non-lme4 caller to “refit with engine = "brms"
-  (posterior credible intervals)” – circular advice for a brms user, and
-  misleading in general: no engine computes an interval for the PCV
-  itself, because the PCV compares two *separately fitted* models, while
-  the brms credible interval
-  [`summary()`](https://rdrr.io/r/base/summary.html) reports covers a
-  single fit’s VPC/ICC. The message now gives engine-specific, honest
-  guidance (brms: the PCV is a point estimate – the ratio of
-  posterior-mean between-stratum variances – and no posterior PCV
-  interval is computed; wemix: a design-based interval would require
-  replicate weights, not implemented; ordinal: `clmm` has no
-  [`simulate()`](https://rdrr.io/r/stats/simulate.html)/`refit()`
-  machinery), each ending in the actionable advice to call
-  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
-  with `bootstrap = FALSE`. The `bootstrap` argument documentation now
-  states the lme4-only restriction up front.
+  what *is* available instead of pointing brms users in a circle.**
 
 - **Documented the latent-scale rescaling caveat on the PCV.**
-  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
-  and
-  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
-  gain a “Latent-scale families and rescaling” note (Bauer 2009,
-  *Psychometrika*; Mood 2010, *Eur Sociol Rev*): for the
-  binomial/Bernoulli and cumulative (ordinal) families the level-1
-  variance is a fixed latent constant, so adding a predictor that varies
-  *within* strata cannot shrink it – the latent scale stretches instead,
-  inflating the between-stratum variance alongside the coefficients.
-  Part of a null-vs-adjusted variance change is then rescaling rather
-  than explained variance, so such PCVs tend to be understated and can
-  turn negative on this account alone. The canonical MAIHDA adjusted
-  model (stratum-constant main effects) is largely unaffected; the
-  caveat is first-order for individual-level covariates, e.g. the
-  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
-  steps that add one. Gaussian identity-link PCVs are not subject to it.
 
 ### Documentation
 
@@ -428,12 +133,12 @@ CRAN release: 2026-07-02
   `compute_maihda_ternary_data()`, `maihda_ternary_plot()`, and
   `plot_maihda_ternary()` functions.** The ternary diagnostic normalised
   each stratum’s additive, intersection-specific, and uncertainty
-  signals to sum to 1, which discards effect magnitude – the quantity
-  MAIHDA exists to measure – and puts two effect components and an
-  estimation-error term on a single triangle. Its content is covered
-  more directly by `"effect_decomp"` (the additive-vs-intersectional
-  split with magnitudes intact) and the `"predicted"` / `"upset"` views
-  (uncertainty shown as intervals), so it has been dropped from
+  signals to sum to 1, which discards effect magnitude and puts two
+  effect components and an estimation-error term on a single triangle.
+  Its content is covered more directly by `"effect_decomp"` (the
+  additive-vs-intersectional split with magnitudes intact) and the
+  `"predicted"` / `"upset"` views (uncertainty shown as intervals), so
+  it has been dropped from
   [`plot()`](https://rdrr.io/r/graphics/plot.default.html) for both
   `maihda_model` and `maihda_analysis` objects, from `type = "all"`, and
   from the Shiny app, and the optional `ggtern` dependency removed.
