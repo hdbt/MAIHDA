@@ -221,7 +221,11 @@ variable of either name in its formula (fitting would error). Default
 <dt id="arg-id">id<a class="anchor" aria-label="anchor" href="#arg-id"></a></dt>
 <dd><p>Optional single character string naming a person/unit identifier
 column for a <strong>longitudinal (growth-curve) MAIHDA</strong> on long-format data
-(one row per measurement occasion). Supplied together with <code>time</code>, it
+(one row per measurement occasion). Id values must be <em>globally</em>
+unique to a person – ids numbered within a site or group (person "1" in
+every site) would merge different people's trajectories, and an id
+appearing in more than one stratum is rejected with an error. Supplied
+together with <code>time</code>, it
 makes the model a 3-level growth curve – occasions within individuals
 (<code>id</code>) within intersectional strata – with a random intercept and slope
 on <code>time</code> at <em>both</em> the individual and stratum levels. The growth
@@ -312,8 +316,10 @@ arguments are not supported by the wemix engine.</p></dd>
     recoding occurred</p></dd>
 
   <dt>diagnostics</dt>
-<dd><p>Fit-quality diagnostics (singular fit / convergence) for
-    lme4 models, surfaced by the print and summary methods</p></dd>
+<dd><p>Fit-quality diagnostics, surfaced by the print and
+    summary methods: singular fit / convergence for lme4 and WeMix, MCMC
+    convergence (maximum Rhat, divergent transitions) for brms, and the
+    optimizer convergence code for an ordinal (clmm) fit</p></dd>
 
 </dl></div>
 

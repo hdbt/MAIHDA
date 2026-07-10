@@ -322,8 +322,11 @@ This is a convenience wrapper around
 [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
 and
 [`compare_maihda_groups`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md).
-It is *intrinsically* a two-model decomposition and has no single-model
-mode – for a single fit (e.g. just the null-model VPC / discriminatory
+It *always* runs a decomposition, never a single plain fit: by default
+the two-model null/adjusted pair, or – with
+`decomposition = "crossed-dimensions"` – one crossed model whose
+additive dimension random effects carry the additive share. For a single
+undecomposed fit (e.g. just the null-model VPC / discriminatory
 accuracy), call
 [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
 directly.
@@ -432,10 +435,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x56302fb22918>
+#> <environment: 0x55e250afd4c0>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x56303047b750>
+#> <environment: 0x55e2510c08e8>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -490,7 +493,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x56303124bec8>
+#> <environment: 0x55e24f093680>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

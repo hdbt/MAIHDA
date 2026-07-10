@@ -176,12 +176,14 @@ compare_maihda_groups(
 
 A `data.frame` of class `maihda_group_comparison` with one row per group
 and columns `group`, `n`, `n_strata`, `vpc`, `var_between`, `var_other`,
-`var_residual`, `status` (and `ci_lower`/`ci_upper` when
-`bootstrap = TRUE`). When the strata are defined by at least two
-dimensions, two further columns report the per-group null -\> adjusted
-decomposition: `pcv` (proportional change in between-stratum variance
-when the dimensions' additive main effects are added; computed on the
-maximum-likelihood scale – see
+`var_residual`, `status` (and `ci_lower`/`ci_upper` whenever a group's
+summary supplies an interval: an lme4 bootstrap CI with
+`bootstrap = TRUE`, or a brms posterior credible interval, which is
+returned without bootstrapping). When the strata are defined by at least
+two dimensions, two further columns report the per-group null -\>
+adjusted decomposition: `pcv` (proportional change in between-stratum
+variance when the dimensions' additive main effects are added; computed
+on the maximum-likelihood scale – see
 [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
 – because REML variances are not comparable across the null vs. adjusted
 fixed effects), `var_between_adjusted` (a *derived* coherence quantity,
@@ -211,8 +213,12 @@ canonical single-stratum model. Groups that were skipped or failed have
 ## Details
 
 It estimates one VPC per group as a stratified analysis: each group is
-modelled independently. It is *not* a cross-classified model and does
-not adjust the strata for the grouping variable.
+modelled independently – the grouping variable itself is not modelled as
+a crossed random effect, and the strata are not adjusted for it. (A
+`context` argument, if supplied, does add a crossed contextual random
+intercept *within* each group's model, making each per-group fit
+contextual cross-classified; the groups themselves remain independently
+fitted.)
 
 The VPC is the *share* of the unexplained variance that lies between
 strata, not the absolute magnitude of intersectional inequality. Because

@@ -282,8 +282,9 @@ they sum to the same total. They are <em>not</em> the <code>Step_PCV</code> colu
 which normalises each step by the <em>previous</em> step's variance rather
 than by \(V_0\).</p>
 <p><strong>Exact vs. Monte-Carlo cost.</strong> The exact attribution fits
-\(2^k - 1\) subset models plus the null, with every fit cached and reused
-across all marginal differences: 255 fits at \(k = 8\), 1023 at
+\(2^k - 1\) non-empty subset models plus the null – \(2^k\) fits in
+total, with every fit cached and reused across all marginal differences:
+256 fits at \(k = 8\), 1024 at
 \(k = 10\). That is feasible for <code>lme4</code> but quickly infeasible
 beyond, and <em>each</em> of those fits is a separate Stan run under
 <code>engine = "brms"</code> – exact attribution on brms is therefore strongly

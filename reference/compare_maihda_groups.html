@@ -236,8 +236,10 @@ data.</p></dd>
     <p>A <code>data.frame</code> of class <code>maihda_group_comparison</code> with one
   row per group and columns <code>group</code>, <code>n</code>, <code>n_strata</code>,
   <code>vpc</code>, <code>var_between</code>, <code>var_other</code>, <code>var_residual</code>,
-  <code>status</code> (and <code>ci_lower</code>/<code>ci_upper</code> when
-  <code>bootstrap = TRUE</code>). When the strata are defined by at least two
+  <code>status</code> (and <code>ci_lower</code>/<code>ci_upper</code> whenever a group's
+  summary supplies an interval: an lme4 bootstrap CI with
+  <code>bootstrap = TRUE</code>, or a brms posterior credible interval, which is
+  returned without bootstrapping). When the strata are defined by at least two
   dimensions, two further columns report the per-group null -&gt; adjusted
   decomposition: <code>pcv</code> (proportional change in between-stratum variance when
   the dimensions' additive main effects are added; computed on the
@@ -270,8 +272,11 @@ data.</p></dd>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>It estimates one VPC per group as a stratified analysis: each group is modelled
-independently. It is <em>not</em> a cross-classified model and does not adjust the
-strata for the grouping variable.</p>
+independently – the grouping variable itself is not modelled as a crossed
+random effect, and the strata are not adjusted for it. (A <code>context</code>
+argument, if supplied, does add a crossed contextual random intercept
+<em>within</em> each group's model, making each per-group fit contextual
+cross-classified; the groups themselves remain independently fitted.)</p>
 <p>The VPC is the <em>share</em> of the unexplained variance that lies between strata,
 not the absolute magnitude of intersectional inequality. Because it is a ratio,
 a group's VPC can differ from another's because the between-stratum variance

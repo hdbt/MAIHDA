@@ -18,6 +18,15 @@ of being at or below any given outcome category between two randomly
 chosen strata (under the model's proportional-odds assumption it is the
 same for every category split).
 
+**Scope.** `V_A` is the *between-stratum* variance. For a
+crossed-dimensions fit (from
+`maihda(decomposition = "crossed-dimensions")`) that is the *total*
+intersectional variance – the additive dimension variances plus the
+interaction component, since the independent crossed random effects sum
+at the intersection level. Contextual (`context = `) and other
+non-stratum random effects are never included: the MOR compares two
+individuals from randomly chosen strata *within the same context*.
+
 ## Usage
 
 ``` r

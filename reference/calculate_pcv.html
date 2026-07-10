@@ -177,6 +177,13 @@ each simulated response to obtain confidence intervals for the PCV estimate.
 For negative-binomial models (<code>glmer.nb</code>) <code>refit()</code> holds the
 dispersion parameter theta fixed at its original estimate, so the interval is
 conditional on the estimated theta.</p>
+<p>A bootstrap draw whose <em>null-model</em> between-stratum variance lands on
+the zero boundary has no defined PCV (the denominator is zero); such draws
+are excluded, so the percentile interval is <em>conditional on estimating
+a positive null variance</em>. Whenever any draws hit the boundary the function
+warns, reports the count as <code>n_boot_boundary</code> on the result, and
+<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> repeats the caveat – a sizeable boundary share signals weak
+between-stratum variation, and the PCV itself is then fragile.</p>
 <p>The bootstrap is available for the <code>lme4</code> engine only. For the other
 engines the PCV is a <em>point estimate</em>: a brms fit's posterior credible
 interval (reported by <code><a href="summary.maihda_model.html">summary.maihda_model</a></code>) covers a single

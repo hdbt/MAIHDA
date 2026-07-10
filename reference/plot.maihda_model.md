@@ -195,10 +195,10 @@ plot(
 For a single `type`, a ggplot2 object that you can extend with the usual
 `+` grammar (themes,
 [`labs()`](https://ggplot2.tidyverse.org/reference/labs.html), added
-layers, or a replacement fill/colour scale). Two types return a richer
-object: `"prediction_deviation"` returns a patchwork of two panels
-(theme every panel at once with `& theme_*()`). `type = "all"` returns a
-named list of ggplot2 objects.
+layers, or a replacement fill/colour scale). Some types return a richer
+object: `"prediction_deviation"` returns a patchwork of two panels and
+`"upset"` a patchwork of three panels (theme every panel at once with
+`& theme_*()`). `type = "all"` returns a named list of ggplot2 objects.
 
 ## Examples
 

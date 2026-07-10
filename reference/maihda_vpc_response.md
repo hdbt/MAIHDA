@@ -40,8 +40,9 @@ maihda_vpc_response(model, n_sim = 10000, seed = NULL)
 
 An object of class `maihda_vpc_response`: a list with `estimate`,
 `scale = "response"`, `method = "simulation"`, `n_sim`, `var_between`
-(the latent-scale between-stratum variance) and `lp_fixed` (the mean
-fixed-part linear predictor).
+(the latent-scale between-stratum variance), `var_other` (the summed
+latent-scale variance of any non-stratum random intercepts, 0 when there
+are none) and `lp_fixed` (the mean fixed-part linear predictor).
 
 ## Details
 
@@ -62,6 +63,14 @@ The method is binomial-link agnostic: it maps the simulated stratum
 effects through whichever inverse link the model uses (logit, probit,
 cloglog, ...), so a non-logit binomial fit is computed on its own scale
 rather than rejected. Only the family is required to be binomial.
+
+When the model carries random intercepts *beyond* the stratum (a
+contextual `(1 | school)` or an explicit `(1 | site)`), the simulation
+integrates over them: the reported estimate is the *stratum share*
+\\Var(E\[p \mid u\_{stratum}\])\\ of the total response-scale variance,
+where the total includes the variation the other random effects induce
+in \\p\\ plus the binomial within-variance. Simulating the stratum
+effect alone would overstate the stratum share.
 
 ## References
 

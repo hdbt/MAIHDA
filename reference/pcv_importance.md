@@ -211,16 +211,16 @@ column, which normalises each step by the *previous* step's variance
 rather than by \\V_0\\.
 
 **Exact vs. Monte-Carlo cost.** The exact attribution fits \\2^k - 1\\
-subset models plus the null, with every fit cached and reused across all
-marginal differences: 255 fits at \\k = 8\\, 1023 at \\k = 10\\. That is
-feasible for `lme4` but quickly infeasible beyond, and *each* of those
-fits is a separate Stan run under `engine = "brms"` – exact attribution
-on brms is therefore strongly discouraged except for very small \\k\\.
-The Monte-Carlo route samples `n_perm` entry orders (unbiased for the
-Shapley values, since a uniform random permutation reproduces the
-Shapley weights), reports a per-variable Monte-Carlo standard error, and
-warns when the largest `MC_SE` exceeds 0.01 on the PCV scale (increase
-`n_perm`).
+non-empty subset models plus the null – \\2^k\\ fits in total, with
+every fit cached and reused across all marginal differences: 256 fits at
+\\k = 8\\, 1024 at \\k = 10\\. That is feasible for `lme4` but quickly
+infeasible beyond, and *each* of those fits is a separate Stan run under
+`engine = "brms"` – exact attribution on brms is therefore strongly
+discouraged except for very small \\k\\. The Monte-Carlo route samples
+`n_perm` entry orders (unbiased for the Shapley values, since a uniform
+random permutation reproduces the Shapley weights), reports a
+per-variable Monte-Carlo standard error, and warns when the largest
+`MC_SE` exceeds 0.01 on the PCV scale (increase `n_perm`).
 
 **Latent-scale families and rescaling.** For binomial/ordinal (and, in
 attenuated form, count) families, adding a predictor that varies

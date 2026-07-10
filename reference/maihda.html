@@ -350,9 +350,12 @@ VPC as well. These are read from <code>summary(x)</code> and the attached
 <code>summary_adjusted</code>, and the headline <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows the null-model AUC.</p>
 <p>This is a convenience wrapper around <code><a href="fit_maihda.html">fit_maihda</a></code>,
 <code><a href="calculate_pcv.html">calculate_pcv</a></code>, <code><a href="summary.maihda_model.html">summary.maihda_model</a></code> and
-<code><a href="compare_maihda_groups.html">compare_maihda_groups</a></code>. It is <em>intrinsically</em> a two-model
-decomposition and has no single-model mode – for a single fit (e.g. just the
-null-model VPC / discriminatory accuracy), call <code><a href="fit_maihda.html">fit_maihda</a></code> directly.</p>
+<code><a href="compare_maihda_groups.html">compare_maihda_groups</a></code>. It <em>always</em> runs a decomposition,
+never a single plain fit: by default the two-model null/adjusted pair, or –
+with <code>decomposition = "crossed-dimensions"</code> – one crossed model whose
+additive dimension random effects carry the additive share. For a single
+undecomposed fit (e.g. just the null-model VPC / discriminatory accuracy),
+call <code><a href="fit_maihda.html">fit_maihda</a></code> directly.</p>
 <p><strong>The dimensions' additive main effects.</strong> You may write them in the formula –
 the fully-specified, lme4-native adjusted model
 <code>outcome ~ covars + var1 + var2 + (1 | var1:var2)</code> – or omit them. Either way
@@ -446,10 +449,10 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x56302fb22918&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55e250afd4c0&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x56303047b750&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55e2510c08e8&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -504,7 +507,7 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x56303124bec8&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55e24f093680&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>

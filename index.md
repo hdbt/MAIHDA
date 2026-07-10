@@ -275,7 +275,8 @@ the strata’s discriminatory accuracy can be tracked as covariates are
 added. Pass `context =` to run it as a contextual cross-classified model
 (a `(1 | context)` intercept held in every step, as in
 `maihda(context = )`): the reported PCV is then net of the context, and
-a `Context_Variance` column surfaces the between-context share.
+a `Context_Variance` column reports the absolute between-context
+variance component (not a share of the total).
 
 ### `pcv_importance()`
 

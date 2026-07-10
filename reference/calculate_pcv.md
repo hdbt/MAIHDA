@@ -139,6 +139,15 @@ For negative-binomial models (`glmer.nb`) `refit()` holds the dispersion
 parameter theta fixed at its original estimate, so the interval is
 conditional on the estimated theta.
 
+A bootstrap draw whose *null-model* between-stratum variance lands on
+the zero boundary has no defined PCV (the denominator is zero); such
+draws are excluded, so the percentile interval is *conditional on
+estimating a positive null variance*. Whenever any draws hit the
+boundary the function warns, reports the count as `n_boot_boundary` on
+the result, and [`print()`](https://rdrr.io/r/base/print.html) repeats
+the caveat – a sizeable boundary share signals weak between-stratum
+variation, and the PCV itself is then fragile.
+
 The bootstrap is available for the `lme4` engine only. For the other
 engines the PCV is a *point estimate*: a brms fit's posterior credible
 interval (reported by

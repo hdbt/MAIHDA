@@ -264,7 +264,7 @@
 <h3 id="stepwise_pcv">
 <code>stepwise_pcv()</code><a class="anchor" aria-label="anchor" href="#stepwise_pcv"></a>
 </h3>
-<p>Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step’s PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model. For a binary outcome it also reports the discriminatory-accuracy trajectory (<code>AUC</code>, the step/total change in AUC, and <code>MOR</code>) alongside the PCV, so the strata’s discriminatory accuracy can be tracked as covariates are added. Pass <code>context =</code> to run it as a contextual cross-classified model (a <code>(1 | context)</code> intercept held in every step, as in <code>maihda(context = )</code>): the reported PCV is then net of the context, and a <code>Context_Variance</code> column surfaces the between-context share.</p>
+<p>Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step’s PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model. For a binary outcome it also reports the discriminatory-accuracy trajectory (<code>AUC</code>, the step/total change in AUC, and <code>MOR</code>) alongside the PCV, so the strata’s discriminatory accuracy can be tracked as covariates are added. Pass <code>context =</code> to run it as a contextual cross-classified model (a <code>(1 | context)</code> intercept held in every step, as in <code>maihda(context = )</code>): the reported PCV is then net of the context, and a <code>Context_Variance</code> column reports the absolute between-context variance component (not a share of the total).</p>
 </div>
 <div class="section level3">
 <h3 id="pcv_importance">

@@ -71,6 +71,8 @@
   : Plot a PCV importance attribution
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   : Plot Prediction Deviation Panels
+- [`predict(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/predict.maihda_model.md)
+  : Predict method for maihda_model objects
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
   : Predict from MAIHDA Model
 - [`print(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_analysis.md)

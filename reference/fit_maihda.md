@@ -183,14 +183,17 @@ fit_maihda(
 
   Optional single character string naming a person/unit identifier
   column for a **longitudinal (growth-curve) MAIHDA** on long-format
-  data (one row per measurement occasion). Supplied together with
-  `time`, it makes the model a 3-level growth curve – occasions within
-  individuals (`id`) within intersectional strata – with a random
-  intercept and slope on `time` at *both* the individual and stratum
-  levels. The growth random effects are added automatically: write the
-  strata shorthand `(1 | var1:var2)` (or `(1 | stratum)`) only, not the
-  slopes. The between-stratum variance (and hence the VPC) then becomes
-  a function of time;
+  data (one row per measurement occasion). Id values must be *globally*
+  unique to a person – ids numbered within a site or group (person "1"
+  in every site) would merge different people's trajectories, and an id
+  appearing in more than one stratum is rejected with an error. Supplied
+  together with `time`, it makes the model a 3-level growth curve –
+  occasions within individuals (`id`) within intersectional strata –
+  with a random intercept and slope on `time` at *both* the individual
+  and stratum levels. The growth random effects are added automatically:
+  write the strata shorthand `(1 | var1:var2)` (or `(1 | stratum)`)
+  only, not the slopes. The between-stratum variance (and hence the VPC)
+  then becomes a function of time;
   [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
   reports the time-varying VPC. Longitudinal fits are supported by
   `engine = "lme4"`/`"brms"` only (not `wemix`/`ordinal`), and are
@@ -289,8 +292,10 @@ A maihda_model object containing:
 
 - diagnostics:
 
-  Fit-quality diagnostics (singular fit / convergence) for lme4 models,
-  surfaced by the print and summary methods
+  Fit-quality diagnostics, surfaced by the print and summary methods:
+  singular fit / convergence for lme4 and WeMix, MCMC convergence
+  (maximum Rhat, divergent transitions) for brms, and the optimizer
+  convergence code for an ordinal (clmm) fit
 
 ## Examples
 

@@ -232,9 +232,10 @@ intersectional interaction when the dimension main effects are in the model
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>For a single <code>type</code>, a <span class="pkg">ggplot2</span> object that you can extend
   with the usual <code>+</code> grammar (themes, <code><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs()</a></code>,
-  added layers, or a replacement fill/colour scale). Two types return a richer
-  object: <code>"prediction_deviation"</code> returns a <span class="pkg">patchwork</span> of two
-  panels (theme every panel at once with <code>&amp; theme_*()</code>).
+  added layers, or a replacement fill/colour scale). Some types return a
+  richer object: <code>"prediction_deviation"</code> returns a <span class="pkg">patchwork</span> of
+  two panels and <code>"upset"</code> a <span class="pkg">patchwork</span> of three panels (theme
+  every panel at once with <code>&amp; theme_*()</code>).
   <code>type = "all"</code> returns a named list of ggplot2 objects.</p>
     </div>
 

@@ -13,7 +13,15 @@ applies to the latent logit-scale between-stratum variance and is the
 median cumulative odds ratio: the median relative change in the odds
 of being at or below any given outcome category between two randomly chosen
 strata (under the model's proportional-odds assumption it is the same for
-every category split)."><meta property="og:description" content="The Median Odds Ratio translates the between-stratum variance of a logistic
+every category split).
+Scope. V_A is the between-stratum variance. For a
+crossed-dimensions fit (from maihda(decomposition =
+&quot;crossed-dimensions&quot;)) that is the total intersectional variance –
+the additive dimension variances plus the interaction component, since the
+independent crossed random effects sum at the intersection level. Contextual
+(context = ) and other non-stratum random effects are never included:
+the MOR compares two individuals from randomly chosen strata within
+the same context."><meta property="og:description" content="The Median Odds Ratio translates the between-stratum variance of a logistic
 MAIHDA model onto the odds-ratio scale: the median relative change in the odds
 of the outcome when comparing two individuals from randomly chosen strata
 (higher- vs lower-risk). MOR = exp(sqrt(2 * V_A) * qnorm(0.75)), where
@@ -27,7 +35,15 @@ applies to the latent logit-scale between-stratum variance and is the
 median cumulative odds ratio: the median relative change in the odds
 of being at or below any given outcome category between two randomly chosen
 strata (under the model's proportional-odds assumption it is the same for
-every category split)."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
+every category split).
+Scope. V_A is the between-stratum variance. For a
+crossed-dimensions fit (from maihda(decomposition =
+&quot;crossed-dimensions&quot;)) that is the total intersectional variance –
+the additive dimension variances plus the interaction component, since the
+independent crossed random effects sum at the intersection level. Contextual
+(context = ) and other non-stratum random effects are never included:
+the MOR compares two individuals from randomly chosen strata within
+the same context."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -95,6 +111,14 @@ applies to the latent logit-scale between-stratum variance and is the
 of being at or below any given outcome category between two randomly chosen
 strata (under the model's proportional-odds assumption it is the same for
 every category split).</p>
+<p><strong>Scope.</strong> <code>V_A</code> is the <em>between-stratum</em> variance. For a
+crossed-dimensions fit (from <code>maihda(decomposition =
+"crossed-dimensions")</code>) that is the <em>total</em> intersectional variance –
+the additive dimension variances plus the interaction component, since the
+independent crossed random effects sum at the intersection level. Contextual
+(<code>context = </code>) and other non-stratum random effects are never included:
+the MOR compares two individuals from randomly chosen strata <em>within
+the same context</em>.</p>
     </div>
 
     <div class="section level2">

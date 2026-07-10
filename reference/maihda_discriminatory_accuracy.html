@@ -11,7 +11,18 @@ for a probit fit), since the MOR is an odds-ratio-scale quantity.
 Aggregated-binomial fits are supported on both engines that fit them – an lme4
 cbind(success, failure) response and a brms y | trials(n) response:
 the AUC is the count-weighted C-statistic over the implied individual-level 0/1
-data, and n_case / n_control are the total successes / failures."><meta property="og:description" content="Bundles the individual-level discriminatory-accuracy summaries for a binomial
+data, and n_case / n_control are the total successes / failures.
+Scope. When the model carries random effects beyond the
+intersectional partition – a contextual (1 | school) from
+fit_maihda(context = ) or an explicit extra grouping such as
+(1 | site) – the headline auc is the concordance of the
+intersectional strata (fixed effects plus the stratum random effect
+and, for a crossed-dimensions fit, the additive dimension effects), matching
+the scope of the MOR; the concordance of the full model including the other
+random effects is reported separately as auc_full
+(auc_scope = &quot;strata&quot;). For the canonical single-(1 | stratum)
+model the two coincide and only auc is reported
+(auc_scope = &quot;model&quot;, auc_full absent)."><meta property="og:description" content="Bundles the individual-level discriminatory-accuracy summaries for a binomial
 MAIHDA model: the AUC / C-statistic (how well the model's predicted
 probabilities separate cases from non-cases) and the Median Odds Ratio. Applied
 to a strata-only (null) model, the AUC is the discriminatory accuracy of the
@@ -23,7 +34,18 @@ for a probit fit), since the MOR is an odds-ratio-scale quantity.
 Aggregated-binomial fits are supported on both engines that fit them – an lme4
 cbind(success, failure) response and a brms y | trials(n) response:
 the AUC is the count-weighted C-statistic over the implied individual-level 0/1
-data, and n_case / n_control are the total successes / failures."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
+data, and n_case / n_control are the total successes / failures.
+Scope. When the model carries random effects beyond the
+intersectional partition – a contextual (1 | school) from
+fit_maihda(context = ) or an explicit extra grouping such as
+(1 | site) – the headline auc is the concordance of the
+intersectional strata (fixed effects plus the stratum random effect
+and, for a crossed-dimensions fit, the additive dimension effects), matching
+the scope of the MOR; the concordance of the full model including the other
+random effects is reported separately as auc_full
+(auc_scope = &quot;strata&quot;). For the canonical single-(1 | stratum)
+model the two coincide and only auc is reported
+(auc_scope = &quot;model&quot;, auc_full absent)."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -89,6 +111,17 @@ for a probit fit), since the MOR is an odds-ratio-scale quantity.</p>
 <code>cbind(success, failure)</code> response and a brms <code>y | trials(n)</code> response:
 the AUC is the count-weighted C-statistic over the implied individual-level 0/1
 data, and <code>n_case</code> / <code>n_control</code> are the total successes / failures.</p>
+<p><strong>Scope.</strong> When the model carries random effects <em>beyond</em> the
+intersectional partition – a contextual <code>(1 | school)</code> from
+<code>fit_maihda(context = )</code> or an explicit extra grouping such as
+<code>(1 | site)</code> – the headline <code>auc</code> is the concordance of the
+<em>intersectional strata</em> (fixed effects plus the stratum random effect
+and, for a crossed-dimensions fit, the additive dimension effects), matching
+the scope of the MOR; the concordance of the full model including the other
+random effects is reported separately as <code>auc_full</code>
+(<code>auc_scope = "strata"</code>). For the canonical single-<code>(1 | stratum)</code>
+model the two coincide and only <code>auc</code> is reported
+(<code>auc_scope = "model"</code>, <code>auc_full</code> absent).</p>
     </div>
 
     <div class="section level2">
@@ -110,11 +143,19 @@ data, and <code>n_case</code> / <code>n_control</code> are the total successes /
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>An object of class <code>maihda_da</code>: a list with <code>auc</code>, <code>mor</code>,
-  <code>n_case</code>, <code>n_control</code>, <code>family</code>, <code>link</code> and <code>engine</code>.
-  <code>mor</code> is <code>NA</code> for a non-logit binomial link, where the AUC is still
-  reported. For an aggregated-binomial fit <code>n_case</code> / <code>n_control</code> are
-  the total successes / failures.</p>
+    <p>An object of class <code>maihda_da</code>: a list with <code>auc</code>,
+  <code>auc_scope</code>, <code>auc_full</code>, <code>mor</code>,
+  <code>n_case</code>, <code>n_control</code>, <code>family</code>, <code>link</code>, <code>engine</code>,
+  <code>weighted</code> and <code>weight_type</code>. <code>mor</code> is <code>NA</code> for a
+  non-logit binomial link, where the AUC is still reported. For an
+  aggregated-binomial fit <code>n_case</code> / <code>n_control</code> are the total
+  successes / failures. <code>weighted</code> is <code>TRUE</code> when the AUC is a
+  weighted concordance – <code>weight_type</code> <code>"sampling"</code> for a
+  design-weighted fit (each observation contributes its sampling weight as
+  case/control mass, estimating the population discriminatory accuracy) or
+  <code>"precision"</code> for an lme4 fit with non-integer precision weights;
+  <code>n_case</code> / <code>n_control</code> stay unweighted observation counts either
+  way. <code>weight_type</code> is <code>NULL</code> for an unweighted AUC.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

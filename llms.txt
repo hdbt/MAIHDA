@@ -275,7 +275,8 @@ the strata’s discriminatory accuracy can be tracked as covariates are
 added. Pass `context =` to run it as a contextual cross-classified model
 (a `(1 | context)` intercept held in every step, as in
 `maihda(context = )`): the reported PCV is then net of the context, and
-a `Context_Variance` column surfaces the between-context share.
+a `Context_Variance` column reports the absolute between-context
+variance component (not a share of the total).
 
 ### `pcv_importance()`
 
@@ -626,6 +627,8 @@ A BibTeX entry for LaTeX users is:
   : Plot a PCV importance attribution
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   : Plot Prediction Deviation Panels
+- [`predict(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/predict.maihda_model.md)
+  : Predict method for maihda_model objects
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
   : Predict from MAIHDA Model
 - [`print(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_analysis.md)

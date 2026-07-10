@@ -34,10 +34,12 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_adjusted_formula.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_adjusted_terms.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_auc.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_brms_complete_rows.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_brms_ordinal_thresholds.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_brms_weights_formula.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_cc_summary_brms.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_cc_summary_lme4.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_check_longitudinal_ids.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_clmm_linpred.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_clmm_stratum_ranef.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_clmm_thresholds.html</loc></url>
@@ -108,6 +110,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_vpc_change.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_vpc_trajectory.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_vpc_trajectory_change.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/predict.maihda_model.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/predict_maihda.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_analysis.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_describe.html</loc></url>

@@ -109,8 +109,10 @@ Default 10000.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An object of class <code>maihda_vpc_response</code>: a list with
   <code>estimate</code>, <code>scale = "response"</code>, <code>method = "simulation"</code>,
-  <code>n_sim</code>, <code>var_between</code> (the latent-scale between-stratum variance) and
-  <code>lp_fixed</code> (the mean fixed-part linear predictor).</p>
+  <code>n_sim</code>, <code>var_between</code> (the latent-scale between-stratum variance),
+  <code>var_other</code> (the summed latent-scale variance of any non-stratum random
+  intercepts, 0 when there are none) and <code>lp_fixed</code> (the mean fixed-part
+  linear predictor).</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -129,6 +131,13 @@ conditional on the average covariate profile rather than as a covariate-averaged
 whichever inverse link the model uses (logit, probit, cloglog, ...), so a non-logit
 binomial fit is computed on its own scale rather than rejected. Only the family is
 required to be binomial.</p>
+<p>When the model carries random intercepts <em>beyond</em> the stratum (a
+contextual <code>(1 | school)</code> or an explicit <code>(1 | site)</code>), the
+simulation integrates over them: the reported estimate is the
+<em>stratum share</em> \(Var(E[p \mid u_{stratum}])\) of the total
+response-scale variance, where the total includes the variation the other
+random effects induce in \(p\) plus the binomial within-variance.
+Simulating the stratum effect alone would overstate the stratum share.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

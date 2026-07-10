@@ -17,6 +17,18 @@ response: the AUC is the count-weighted C-statistic over the implied
 individual-level 0/1 data, and `n_case` / `n_control` are the total
 successes / failures.
 
+**Scope.** When the model carries random effects *beyond* the
+intersectional partition – a contextual `(1 | school)` from
+`fit_maihda(context = )` or an explicit extra grouping such as
+`(1 | site)` – the headline `auc` is the concordance of the
+*intersectional strata* (fixed effects plus the stratum random effect
+and, for a crossed-dimensions fit, the additive dimension effects),
+matching the scope of the MOR; the concordance of the full model
+including the other random effects is reported separately as `auc_full`
+(`auc_scope = "strata"`). For the canonical single-`(1 | stratum)` model
+the two coincide and only `auc` is reported (`auc_scope = "model"`,
+`auc_full` absent).
+
 ## Usage
 
 ``` r
@@ -36,11 +48,18 @@ maihda_discriminatory_accuracy(model)
 
 ## Value
 
-An object of class `maihda_da`: a list with `auc`, `mor`, `n_case`,
-`n_control`, `family`, `link` and `engine`. `mor` is `NA` for a
-non-logit binomial link, where the AUC is still reported. For an
-aggregated-binomial fit `n_case` / `n_control` are the total successes /
-failures.
+An object of class `maihda_da`: a list with `auc`, `auc_scope`,
+`auc_full`, `mor`, `n_case`, `n_control`, `family`, `link`, `engine`,
+`weighted` and `weight_type`. `mor` is `NA` for a non-logit binomial
+link, where the AUC is still reported. For an aggregated-binomial fit
+`n_case` / `n_control` are the total successes / failures. `weighted` is
+`TRUE` when the AUC is a weighted concordance – `weight_type`
+`"sampling"` for a design-weighted fit (each observation contributes its
+sampling weight as case/control mass, estimating the population
+discriminatory accuracy) or `"precision"` for an lme4 fit with
+non-integer precision weights; `n_case` / `n_control` stay unweighted
+observation counts either way. `weight_type` is `NULL` for an unweighted
+AUC.
 
 ## References
 

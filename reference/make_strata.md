@@ -42,7 +42,7 @@ make_strata(data, vars, sep = " × ", min_n = 1, autobin = TRUE)
 
 ## Value
 
-A list with two elements:
+An object of class `maihda_strata`: a list with elements
 
 - data:
 
@@ -53,6 +53,23 @@ A list with two elements:
 
   A data frame with information about each stratum including counts and
   the combination of variable values
+
+- vars:
+
+  The stratum-defining variable names, as supplied.
+
+- sep:
+
+  The label separator used.
+
+- min_n:
+
+  The minimum stratum size applied.
+
+- autobin_info:
+
+  A named list with the `breaks` and `labels` of each auto-binned
+  numeric variable (empty when nothing was binned).
 
 ## Details
 
