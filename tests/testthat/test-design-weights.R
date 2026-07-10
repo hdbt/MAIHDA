@@ -228,6 +228,59 @@ test_that("maihda_prepare_brms_sampling_weights normalizes and drops bad rows", 
   )
 })
 
+test_that("brms sampling weights are normalized on the analysis sample", {
+  # Weights used to be normalized to mean 1 BEFORE brms excluded rows incomplete
+  # on the model variables, so the weights actually fitted had an arbitrary mean,
+  # scaling the pseudo-posterior's effective sample size. The two-row case: after
+  # mean-1 normalization over both rows the NA-outcome row is dropped by brms,
+  # leaving a single weight of 0.02 -- a ~50x-tempered likelihood.
+  d2 <- data.frame(y = c(1.5, NA), stratum = c("a", "b"), w = c(0.02, 1.98))
+  expect_warning(
+    prep2 <- maihda_prepare_brms_sampling_weights(d2, y ~ (1 | stratum), "w"),
+    "incomplete on the model variables"
+  )
+  expect_equal(prep2$data$.maihda_sw, 1)
+  expect_equal(prep2$keep, c(TRUE, FALSE))
+
+  # NA on a fixed-effect covariate and on a random-effect grouping variable also
+  # mark the row incomplete; the survivors' normalized weights keep mean 1.
+  d <- data.frame(
+    y = c(NA, rnorm(5)),
+    x = c(0, NA, rnorm(4)),
+    stratum = c("a", "b", NA, "b", "a", "b"),
+    w = c(50, 50, 50, 1, 2, 3)
+  )
+  expect_warning(
+    prep <- maihda_prepare_brms_sampling_weights(d, y ~ x + (1 | stratum), "w"),
+    "dropped 3 row\\(s\\) incomplete"
+  )
+  expect_equal(nrow(prep$data), 3)
+  expect_equal(mean(prep$data$.maihda_sw), 1)
+  expect_equal(prep$keep, c(FALSE, FALSE, FALSE, TRUE, TRUE, TRUE))
+
+  # A transformed predictor whose transformation yields NaN counts as incomplete
+  # (brms's model frame drops it, so the normalization must too).
+  d3 <- data.frame(y = rnorm(4), x = c(-1, 1, 2, 3),
+                   stratum = c("a", "b", "a", "b"), w = c(10, 1, 1, 1))
+  expect_warning(
+    prep3 <- maihda_prepare_brms_sampling_weights(d3, y ~ sqrt(x) + (1 | stratum), "w"),
+    "incomplete on the model variables"
+  )
+  expect_equal(nrow(prep3$data), 3)
+  expect_equal(mean(prep3$data$.maihda_sw), 1)
+
+  # An addition-term variable (y | trials(n)) is a model variable too.
+  d4 <- data.frame(y = c(2, 3, 4), n = c(10, NA, 10),
+                   stratum = c("a", "b", "a"), w = c(5, 5, 1))
+  expect_warning(
+    prep4 <- maihda_prepare_brms_sampling_weights(
+      d4, y | trials(n) ~ (1 | stratum), "w"),
+    "incomplete on the model variables"
+  )
+  expect_equal(nrow(prep4$data), 2)
+  expect_equal(mean(prep4$data$.maihda_sw), 1)
+})
+
 # ---- sampling-weight fingerprint ---------------------------------------------
 
 test_that("maihda_sampling_weight_fingerprint distinguishes weight specifications", {

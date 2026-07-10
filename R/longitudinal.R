@@ -192,6 +192,47 @@ maihda_validate_longitudinal <- function(id, time, time_degree, data,
   list(id = id, time = time, time_degree = time_degree)
 }
 
+#' Guard against longitudinal ids reused across strata
+#'
+#' \code{(time | id)} treats every row sharing an id value as the SAME person,
+#' so ids that are only unique within a site or group (person "1" in every
+#' site) silently merge different people's trajectories into one level-2 unit.
+#' An id appearing in more than one stratum is the observable symptom of that
+#' (a person's intersectional stratum is a person-level attribute, so a
+#' genuinely unique id maps to exactly one stratum); reject it with guidance
+#' rather than guessing a nesting. Called after strata resolution, when the
+#' \code{stratum} column exists. Rows missing id or stratum are ignored (the
+#' engines drop them).
+#'
+#' @param data The model data carrying the resolved \code{stratum} column.
+#' @param id Name of the person/unit identifier column.
+#' @return \code{NULL}, invisibly; stops on ambiguous ids.
+#' @keywords internal
+maihda_check_longitudinal_ids <- function(data, id) {
+  ids <- data[[id]]
+  strat <- data[["stratum"]]
+  ok <- !is.na(ids) & !is.na(strat)
+  pairs <- unique(data.frame(id = as.character(ids[ok]),
+                             stratum = as.character(strat[ok]),
+                             stringsAsFactors = FALSE))
+  dup <- unique(pairs$id[duplicated(pairs$id)])
+  if (length(dup) > 0) {
+    shown <- paste(utils::head(sort(dup), 5), collapse = ", ")
+    if (length(dup) > 5) shown <- paste0(shown, ", ...")
+    stop("Longitudinal '", id, "' values appear in more than one stratum (",
+         length(dup), " id value(s): ", shown, "). The growth model treats ",
+         "every row sharing an id as the same person, so ids that are only ",
+         "unique within a site or group would merge different people's ",
+         "trajectories. Give every person a globally unique id (e.g. ",
+         "paste(site, ", id, ")) before fitting. If instead a person's ",
+         "stratum variables changed between occasions, fix the stratum at a ",
+         "single reference occasion (e.g. baseline) first -- the strata are ",
+         "person-level groupings and must be constant within a person.",
+         call. = FALSE)
+  }
+  invisible(NULL)
+}
+
 # Polynomial-in-time term labels, e.g. c("wave", "I(wave^2)") for degree 2. The
 # first random/fixed term is the linear time; higher degrees use I(time^k) so the
 # design vector at time t is a(t) = (1, t, t^2, ..., t^degree).
@@ -238,7 +279,7 @@ maihda_longitudinal_formula <- function(base_formula, id, time, time_degree,
   poly_terms <- maihda_time_terms(time, time_degree)
   ptime <- paste(poly_terms, collapse = " + ")
 
-  fixed <- reformulas::nobars(base_formula)
+  fixed <- maihda_nobars(base_formula)
   fixed_labels <- attr(stats::terms(fixed), "term.labels")
   if (!identical(orig_time, time)) {
     # Centering active: drop any bare raw-time polynomial from the fixed part --

@@ -449,7 +449,7 @@ maihda_warn_if_not_adjusted <- function(model) {
     maihda_adjusted_terms(sv, model$strata_autobin_info, model$original_data)$terms,
     error = function(e) sv)
   fixed_terms <- tryCatch(
-    attr(stats::terms(reformulas::nobars(model$formula)), "term.labels"),
+    attr(stats::terms(maihda_nobars(model$formula)), "term.labels"),
     error = function(e) character(0))
   # terms() backtick-quotes non-syntactic labels (e.g. `gender var`), so the
   # expected dimension main effects must be compared in their quoted form -- a

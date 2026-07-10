@@ -42,6 +42,14 @@
 #' binomial fit is computed on its own scale rather than rejected. Only the family is
 #' required to be binomial.
 #'
+#' When the model carries random intercepts \emph{beyond} the stratum (a
+#' contextual \code{(1 | school)} or an explicit \code{(1 | site)}), the
+#' simulation integrates over them: the reported estimate is the
+#' \emph{stratum share} \eqn{Var(E[p \mid u_{stratum}])} of the total
+#' response-scale variance, where the total includes the variation the other
+#' random effects induce in \eqn{p} plus the binomial within-variance.
+#' Simulating the stratum effect alone would overstate the stratum share.
+#'
 #' @param model A binomial \code{maihda_model} (lme4 engine) from
 #'   \code{\link{fit_maihda}}.
 #' @param n_sim Number of Monte-Carlo draws of the stratum random effect (>= 100).
@@ -50,8 +58,10 @@
 #'
 #' @return An object of class \code{maihda_vpc_response}: a list with
 #'   \code{estimate}, \code{scale = "response"}, \code{method = "simulation"},
-#'   \code{n_sim}, \code{var_between} (the latent-scale between-stratum variance) and
-#'   \code{lp_fixed} (the mean fixed-part linear predictor).
+#'   \code{n_sim}, \code{var_between} (the latent-scale between-stratum variance),
+#'   \code{var_other} (the summed latent-scale variance of any non-stratum random
+#'   intercepts, 0 when there are none) and \code{lp_fixed} (the mean fixed-part
+#'   linear predictor).
 #'
 #' @references
 #' Goldstein, H., Browne, W., & Rasbash, J. (2002). Partitioning variation in
@@ -95,8 +105,23 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
       !is.finite(var_between) || var_between < 0) {
     return(structure(
       list(estimate = NA_real_, scale = "response", method = "simulation",
-           n_sim = n_sim, var_between = var_between, lp_fixed = NA_real_),
+           n_sim = n_sim, var_between = var_between, var_other = NA_real_,
+           lp_fixed = NA_real_),
       class = "maihda_vpc_response"))
+  }
+
+  # Non-stratum random-intercept variances (a contextual (1 | school) or an
+  # explicit (1 | site)). The simulation must integrate over them: they widen
+  # the distribution of p -- entering the total variance -- without separating
+  # strata, so simulating the stratum effect alone overstates the stratum
+  # share. Independent random intercepts sum on the link scale, so their
+  # combined effect is one normal with the summed variance.
+  all_vars <- tryCatch(maihda_random_variances_lme4(model$model),
+                       error = function(e) NULL)
+  var_other <- 0
+  if (!is.null(all_vars)) {
+    other <- all_vars[setdiff(names(all_vars), "stratum")]
+    var_other <- sum(other[is.finite(other)])
   }
 
   fitted_model <- model$model
@@ -130,14 +155,32 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
     set.seed(seed)
   }
   u <- stats::rnorm(n_sim, mean = 0, sd = sqrt(var_between))
-  p <- linkinv(lp_fixed + u)
-  v_between <- stats::var(p)
-  v_within <- mean(p * (1 - p))
-  vpc <- v_between / (v_between + v_within)
+  if (var_other > 0) {
+    # Nested integration: E[p | u_stratum] over the combined non-stratum
+    # effect, using ONE inner sample shared by every stratum draw (common
+    # random numbers), so the inner Monte-Carlo noise does not inflate the
+    # between-stratum variance. The stratum share is Var(E[p | u_stratum])
+    # over the TOTAL response-scale variance: Var(p) across strata and other
+    # effects plus the binomial within-variance E[p(1-p)].
+    n_inner <- 500L
+    u_other <- stats::rnorm(n_inner, mean = 0, sd = sqrt(var_other))
+    p_mat <- linkinv(outer(u, u_other, `+`) + lp_fixed)
+    m_stratum <- rowMeans(p_mat)
+    v_between <- stats::var(m_stratum)
+    v_total_p <- stats::var(as.vector(p_mat))
+    v_within <- mean(p_mat * (1 - p_mat))
+    vpc <- v_between / (v_total_p + v_within)
+  } else {
+    p <- linkinv(lp_fixed + u)
+    v_between <- stats::var(p)
+    v_within <- mean(p * (1 - p))
+    vpc <- v_between / (v_between + v_within)
+  }
 
   structure(
     list(estimate = vpc, scale = "response", method = "simulation",
-         n_sim = n_sim, var_between = var_between, lp_fixed = lp_fixed),
+         n_sim = n_sim, var_between = var_between, var_other = var_other,
+         lp_fixed = lp_fixed),
     class = "maihda_vpc_response"
   )
 }
@@ -150,5 +193,11 @@ print.maihda_vpc_response <- function(x, ...) {
               if (is.finite(x$estimate)) pal$accent(sprintf("%.4f", x$estimate)) else "NA"))
   cat(pal$muted(sprintf("  %d simulated stratum effects; between-stratum variance %.4f (latent scale).\n",
               x$n_sim, x$var_between)))
+  if (is.finite(x$var_other) && x$var_other > 0) {
+    cat(pal$muted(sprintf(paste0(
+      "  Integrated over non-stratum random effects (latent variance %.4f):\n",
+      "  the estimate is the stratum share of the total response-scale variance.\n"),
+      x$var_other)))
+  }
   invisible(x)
 }

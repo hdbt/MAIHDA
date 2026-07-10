@@ -17,11 +17,16 @@
 #'   Set \code{autobin = FALSE} to disable, or bin the variable yourself for
 #'   explicit, reproducible cut-points.
 #'
-#' @return A list with two elements:
+#' @return An object of class \code{maihda_strata}: a list with elements
 #'   \item{data}{The original data frame with an added 'stratum' column. The
 #'     strata_info is also attached as an attribute for use by fit_maihda()}
 #'   \item{strata_info}{A data frame with information about each stratum including
 #'     counts and the combination of variable values}
+#'   \item{vars}{The stratum-defining variable names, as supplied.}
+#'   \item{sep}{The label separator used.}
+#'   \item{min_n}{The minimum stratum size applied.}
+#'   \item{autobin_info}{A named list with the \code{breaks} and \code{labels}
+#'     of each auto-binned numeric variable (empty when nothing was binned).}
 #'
 #' @details
 #' If any of the specified variables has a missing value (NA) for a given observation,
@@ -61,6 +66,11 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
   # Input validation
   if (!is.data.frame(data)) {
     stop("'data' must be a data frame")
+  }
+
+  if (nrow(data) == 0) {
+    stop("'data' has no rows; strata cannot be created from an empty data ",
+         "frame.", call. = FALSE)
   }
 
   if (!is.character(vars) || length(vars) == 0) {

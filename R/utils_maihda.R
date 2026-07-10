@@ -262,11 +262,11 @@ maihda_bootstrap_ci <- function(values, n_boot, conf_level, what = "VPC") {
 
   alpha <- 1 - conf_level
   ci <- stats::quantile(values, probs = c(alpha / 2, 1 - alpha / 2), names = FALSE)
-  # Report the Monte Carlo error of the interval so users can judge whether enough
-  # draws were used. n_ok is the effective number of successful refits; mc_se is the
-  # Monte Carlo standard error of the bootstrap distribution's centre
-  # (sd / sqrt(n_ok)), a simple proxy for how much the interval would move with a
-  # different bootstrap seed. The print methods surface these.
+  # n_ok is the effective number of successful refits; mc_se is the Monte Carlo
+  # standard error OF THE BOOTSTRAP MEAN (sd / sqrt(n_ok)) -- a coarse gauge of
+  # bootstrap noise, NOT the uncertainty of the percentile interval's endpoints,
+  # which is a different (larger) order-statistic quantity. The print methods
+  # label it accordingly.
   attr(ci, "n_ok") <- n_ok
   attr(ci, "mc_se") <- if (n_ok > 1) stats::sd(values) / sqrt(n_ok) else NA_real_
   ci
@@ -296,6 +296,25 @@ maihda_quote_name <- function(name) {
   paste(deparse(as.name(name), backtick = TRUE), collapse = "")
 }
 
+# Drop random-effect bar terms from a formula, keeping the response intact.
+# reformulas::nobars() descends into the LEFT-hand side too, so a brms
+# addition-term response such as `y | trials(n)` is itself treated as a bar
+# term and stripped -- `y | trials(n) ~ x + (1 | g)` becomes `x ~ 1`, silently
+# promoting a predictor to the response. Stripping only the right-hand side
+# preserves the response expression exactly (also covering call-valued
+# responses like cbind(successes, failures), for which nobars() on a bars-only
+# RHS returns a bare call rather than a formula).
+maihda_nobars <- function(formula) {
+  if (!inherits(formula, "formula")) {
+    return(reformulas::nobars(formula))
+  }
+  out <- formula
+  rhs <- reformulas::nobars(formula[[length(formula)]])
+  if (is.null(rhs)) rhs <- 1
+  out[[length(out)]] <- rhs
+  out
+}
+
 # Detect fixed-effect interaction term(s) among the stratum dimensions in a formula's
 # fixed part -- the bug behind a corrupt MAIHDA decomposition. The shorthand
 # `var1 * var2` expands to `var1 + var2 + var1:var2`, so the dimensions' main-effect
@@ -321,7 +340,7 @@ maihda_dimension_interaction_terms <- function(formula, strata_vars,
   if (is.null(strata_vars) || length(strata_vars) < 2) {
     return(character(0))
   }
-  tt <- tryCatch(stats::terms(reformulas::nobars(formula)),
+  tt <- tryCatch(stats::terms(maihda_nobars(formula)),
                  error = function(e) NULL)
   if (is.null(tt)) return(character(0))
   factors <- attr(tt, "factors")

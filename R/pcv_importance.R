@@ -217,8 +217,9 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #' than by \eqn{V_0}.
 #'
 #' \strong{Exact vs. Monte-Carlo cost.} The exact attribution fits
-#' \eqn{2^k - 1} subset models plus the null, with every fit cached and reused
-#' across all marginal differences: 255 fits at \eqn{k = 8}, 1023 at
+#' \eqn{2^k - 1} non-empty subset models plus the null -- \eqn{2^k} fits in
+#' total, with every fit cached and reused across all marginal differences:
+#' 256 fits at \eqn{k = 8}, 1024 at
 #' \eqn{k = 10}. That is feasible for \code{lme4} but quickly infeasible
 #' beyond, and \emph{each} of those fits is a separate Stan run under
 #' \code{engine = "brms"} -- exact attribution on brms is therefore strongly

@@ -19,9 +19,12 @@
 #'
 #' This is a convenience wrapper around \code{\link{fit_maihda}},
 #' \code{\link{calculate_pcv}}, \code{\link{summary.maihda_model}} and
-#' \code{\link{compare_maihda_groups}}. It is \emph{intrinsically} a two-model
-#' decomposition and has no single-model mode -- for a single fit (e.g. just the
-#' null-model VPC / discriminatory accuracy), call \code{\link{fit_maihda}} directly.
+#' \code{\link{compare_maihda_groups}}. It \emph{always} runs a decomposition,
+#' never a single plain fit: by default the two-model null/adjusted pair, or --
+#' with \code{decomposition = "crossed-dimensions"} -- one crossed model whose
+#' additive dimension random effects carry the additive share. For a single
+#' undecomposed fit (e.g. just the null-model VPC / discriminatory accuracy),
+#' call \code{\link{fit_maihda}} directly.
 #'
 #' \strong{The dimensions' additive main effects.} You may write them in the formula --
 #' the fully-specified, lme4-native adjusted model
@@ -492,7 +495,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # the group path does not warn about the same dimensions again.
   maihda_warn_linear_strata_dims(strata_vars, model$strata_autobin_info,
                                  model$original_data, fn = "maihda")
-  supplied_fixed <- attr(stats::terms(reformulas::nobars(model$formula)), "term.labels")
+  supplied_fixed <- attr(stats::terms(maihda_nobars(model$formula)), "term.labels")
   # terms() backtick-quotes non-syntactic term labels (e.g. `gender var`), so the
   # dimension main effects must be compared in their quoted form -- a raw-name
   # intersect would miss them and misclassify a fully-specified adjusted formula as

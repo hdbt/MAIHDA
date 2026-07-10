@@ -121,7 +121,11 @@
 #'   \code{NULL} (unweighted).
 #' @param id Optional single character string naming a person/unit identifier
 #'   column for a \strong{longitudinal (growth-curve) MAIHDA} on long-format data
-#'   (one row per measurement occasion). Supplied together with \code{time}, it
+#'   (one row per measurement occasion). Id values must be \emph{globally}
+#'   unique to a person -- ids numbered within a site or group (person "1" in
+#'   every site) would merge different people's trajectories, and an id
+#'   appearing in more than one stratum is rejected with an error. Supplied
+#'   together with \code{time}, it
 #'   makes the model a 3-level growth curve -- occasions within individuals
 #'   (\code{id}) within intersectional strata -- with a random intercept and slope
 #'   on \code{time} at \emph{both} the individual and stratum levels. The growth
@@ -176,8 +180,10 @@
 #'   \item{response_recoding}{For a recoded two-level outcome, a data frame mapping
 #'     each original level to its 0/1 value and role (reference/event); NULL when no
 #'     recoding occurred}
-#'   \item{diagnostics}{Fit-quality diagnostics (singular fit / convergence) for
-#'     lme4 models, surfaced by the print and summary methods}
+#'   \item{diagnostics}{Fit-quality diagnostics, surfaced by the print and
+#'     summary methods: singular fit / convergence for lme4 and WeMix, MCMC
+#'     convergence (maximum Rhat, divergent transitions) for brms, and the
+#'     optimizer convergence code for an ordinal (clmm) fit}
 #'
 #' @examples
 #' \donttest{
@@ -409,6 +415,10 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
            "(1 | var1:var2) or include (1 | stratum); the id/time growth slopes are ",
            "added automatically (do not write them in the formula).", call. = FALSE)
     }
+    # Ids must identify people globally, not within a site/group: an id spanning
+    # more than one stratum would merge different people's trajectories in
+    # (time | id). Checked here because the stratum column only now exists.
+    maihda_check_longitudinal_ids(data, lng_spec$id)
     # Fit the growth terms on internally CENTERED time whenever the time axis
     # does not start at 0 (age, calendar year, waves coded 10, 11, ...): the raw
     # polynomial basis over an offset range is near-collinear, and lme4 can
@@ -812,15 +822,7 @@ maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE) {
       attr(data, "strata_sep") <- strata_sep
       attr(data, "strata_autobin_info") <- strata_autobin_info
 
-      fixed_formula <- reformulas::nobars(formula)
-      if (!inherits(fixed_formula, "formula")) {
-        # nobars() returns the bare response CALL (not a formula) when a
-        # call-valued response (e.g. cbind(successes, failures)) is combined
-        # with a bars-only right-hand side; rebuild `<response> ~ 1` so the
-        # update below has a formula to work on.
-        fixed_formula <- stats::as.formula(call("~", formula[[2]], 1),
-                                           env = environment(formula))
-      }
+      fixed_formula <- maihda_nobars(formula)
       formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
     }
   }
@@ -855,7 +857,7 @@ maihda_apply_context_formula <- function(formula, context, strata_vars) {
          "stratum dimension and a higher-level context; remove it from one of ",
          "the two roles.", call. = FALSE)
   }
-  clash_fixed <- intersect(context, all.vars(reformulas::nobars(formula)[[3]]))
+  clash_fixed <- intersect(context, all.vars(maihda_nobars(formula)[[3]]))
   if (length(clash_fixed) > 0) {
     stop("Context variable(s) ", paste(clash_fixed, collapse = ", "),
          " already appear in the fixed part of the formula, which would absorb ",

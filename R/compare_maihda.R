@@ -354,8 +354,11 @@ plot_comparison <- function(comparison_df) {
 #' share of that group's intersectional inequality.
 #'
 #' It estimates one VPC per group as a stratified analysis: each group is modelled
-#' independently. It is \emph{not} a cross-classified model and does not adjust the
-#' strata for the grouping variable.
+#' independently -- the grouping variable itself is not modelled as a crossed
+#' random effect, and the strata are not adjusted for it. (A \code{context}
+#' argument, if supplied, does add a crossed contextual random intercept
+#' \emph{within} each group's model, making each per-group fit contextual
+#' cross-classified; the groups themselves remain independently fitted.)
 #'
 #' The VPC is the \emph{share} of the unexplained variance that lies between strata,
 #' not the absolute magnitude of intersectional inequality. Because it is a ratio,
@@ -455,8 +458,10 @@ plot_comparison <- function(comparison_df) {
 #' @return A \code{data.frame} of class \code{maihda_group_comparison} with one
 #'   row per group and columns \code{group}, \code{n}, \code{n_strata},
 #'   \code{vpc}, \code{var_between}, \code{var_other}, \code{var_residual},
-#'   \code{status} (and \code{ci_lower}/\code{ci_upper} when
-#'   \code{bootstrap = TRUE}). When the strata are defined by at least two
+#'   \code{status} (and \code{ci_lower}/\code{ci_upper} whenever a group's
+#'   summary supplies an interval: an lme4 bootstrap CI with
+#'   \code{bootstrap = TRUE}, or a brms posterior credible interval, which is
+#'   returned without bootstrapping). When the strata are defined by at least two
 #'   dimensions, two further columns report the per-group null -> adjusted
 #'   decomposition: \code{pcv} (proportional change in between-stratum variance when
 #'   the dimensions' additive main effects are added; computed on the
@@ -819,7 +824,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                                      carried_attrs[["strata_autobin_info"]], data,
                                      fn = "compare_maihda_groups")
     }
-    supplied_fixed <- attr(stats::terms(reformulas::nobars(fit_formula)),
+    supplied_fixed <- attr(stats::terms(maihda_nobars(fit_formula)),
                            "term.labels")
     present_terms <- dim_terms[
       vapply(dim_terms, maihda_quote_name, character(1)) %in% supplied_fixed]
@@ -1247,7 +1252,7 @@ maihda_prepare_group_strata <- function(formula, data, shared_strata, autobin = 
          call. = FALSE)
   }
 
-  fixed_formula <- reformulas::nobars(formula)
+  fixed_formula <- maihda_nobars(formula)
   fit_formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
 
   if (shared_strata) {

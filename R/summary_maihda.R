@@ -1091,8 +1091,9 @@ print.maihda_summary <- function(x, ...) {
                 pal$accent(sprintf("%.4f", x$vpc$estimate)), x$vpc$ci_lower, x$vpc$ci_upper))
     cat("  ", pal$muted(maihda_vpc_interval_label(x$vpc)), "\n", sep = "")
     if (!is.null(x$vpc$mc_se) && is.finite(x$vpc$mc_se)) {
-      cat(pal$muted(sprintf("  (%d successful bootstrap draws; Monte Carlo SE %.4f)\n",
-                  as.integer(x$vpc$n_boot_ok), x$vpc$mc_se)))
+      cat(pal$muted(sprintf(
+        "  (%d successful bootstrap draws; Monte Carlo SE of the bootstrap mean %.4f)\n",
+        as.integer(x$vpc$n_boot_ok), x$vpc$mc_se)))
     }
     cat("\n")
   } else {

@@ -198,3 +198,11 @@ test_that("labels are not whitespace-padded for mixed-type dimensions", {
     )]
   )
 })
+
+test_that("make_strata rejects zero-row data with a clear message", {
+  # Regression: a 0-row data frame reached the stratum-column assignment and
+  # raised the base replacement error ("replacement has 1 row, data has 0")
+  # instead of an actionable message.
+  d0 <- data.frame(gender = character(0), race = character(0))
+  expect_error(make_strata(d0, vars = c("gender", "race")), "no rows")
+})

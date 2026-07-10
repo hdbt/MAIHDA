@@ -76,6 +76,14 @@
 #' dispersion parameter theta fixed at its original estimate, so the interval is
 #' conditional on the estimated theta.
 #'
+#' A bootstrap draw whose \emph{null-model} between-stratum variance lands on
+#' the zero boundary has no defined PCV (the denominator is zero); such draws
+#' are excluded, so the percentile interval is \emph{conditional on estimating
+#' a positive null variance}. Whenever any draws hit the boundary the function
+#' warns, reports the count as \code{n_boot_boundary} on the result, and
+#' \code{print()} repeats the caveat -- a sizeable boundary share signals weak
+#' between-stratum variation, and the PCV itself is then fragile.
+#'
 #' The bootstrap is available for the \code{lme4} engine only. For the other
 #' engines the PCV is a \emph{point estimate}: a brms fit's posterior credible
 #' interval (reported by \code{\link{summary.maihda_model}}) covers a single
@@ -161,6 +169,18 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
     stop("Between-stratum variance in model1 is zero or negative. PCV cannot be calculated. ",
          "This may indicate a singular fit or no between-stratum variation.")
   }
+  # A strictly positive but boundary-level variance (an effectively singular
+  # fit, e.g. 1e-9 after the ML refit) passes the check above yet makes the
+  # ratio explode -- PCVs in the thousands with no warning. Apply the same
+  # relative singularity tolerance lme4 uses to flag the stratum term.
+  if (identical(model1$engine, "lme4") &&
+      isTRUE(tryCatch(maihda_stratum_at_boundary_lme4(model1$model),
+                      error = function(e) FALSE))) {
+    stop("Between-stratum variance in model1 is at the zero boundary (an ",
+         "effectively singular fit), so the PCV denominator is degenerate ",
+         "and the ratio is not meaningful. This indicates no usable ",
+         "between-stratum variation.", call. = FALSE)
+  }
 
   # Calculate PCV
   pcv <- (var1 - var2) / var1
@@ -185,6 +205,7 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
     result$conf_level <- conf_level
     result$n_boot_ok <- attr(pcv_ci, "n_ok")
     result$mc_se <- attr(pcv_ci, "mc_se")
+    result$n_boot_boundary <- attr(pcv_ci, "n_boundary")
   }
 
   class(result) <- c("pcv_result", "pvc_result")
@@ -474,6 +495,7 @@ bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
   # The error handler runs in its own scope and cannot write back to this vector,
   # so the initial value is what survives a failure.
   pcv_boot <- rep(NA_real_, n_boot)
+  boundary <- rep(FALSE, n_boot)
 
   # Parametric Bootstrap: Simulate new responses from the adjusted model (model2)
   # This mathematically preserves the hierarchical structure (random effects)
@@ -490,14 +512,41 @@ bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
       var1 <- maihda_stratum_variance_lme4(boot_model1)
       var2 <- maihda_stratum_variance_lme4(boot_model2)
 
-      # Calculate PCV
-      pcv_boot[i] <- if (is.finite(var1) && var1 > 0) (var1 - var2) / var1 else NA_real_
+      # Calculate PCV; a draw whose NULL variance lands on the zero boundary
+      # has no defined PCV and is tracked separately from a refit failure. The
+      # boundary test uses lme4's relative singularity tolerance, not var1 > 0:
+      # an effectively singular refit reports a strictly positive variance like
+      # 1e-12, which would pass a strict-zero check and blow up the ratio (and
+      # with it the percentile interval).
+      if (is.finite(var1) && var1 > 0 &&
+          !isTRUE(maihda_stratum_at_boundary_lme4(boot_model1))) {
+        pcv_boot[i] <- (var1 - var2) / var1
+      } else if (is.finite(var1)) {
+        boundary[i] <- TRUE
+      }
     }, error = function(e) NULL)
+  }
+
+  # Boundary draws are excluded from the interval, which is therefore
+  # CONDITIONAL on the null model estimating a positive between-stratum
+  # variance. Near the boundary that conditioning can affect a sizeable share
+  # of draws without ever tripping maihda_bootstrap_ci()'s >50% failure
+  # warning, so any boundary mass is surfaced explicitly.
+  n_boundary <- sum(boundary)
+  if (n_boundary > 0) {
+    warning(sprintf(paste0(
+      "%d of %d PCV bootstrap draw(s) estimated a zero between-stratum ",
+      "variance in the null model; the PCV is undefined there, so these draws ",
+      "are excluded and the interval is conditional on a positive null ",
+      "variance. A sizeable boundary share signals weak between-stratum ",
+      "variation -- interpret the PCV and its interval cautiously."),
+      n_boundary, n_boot), call. = FALSE)
   }
 
   # Reduce to an interval, requiring a minimum number of successful refits and
   # warning on a high failure rate.
   ci <- maihda_bootstrap_ci(pcv_boot, n_boot, conf_level, "PCV")
+  attr(ci, "n_boundary") <- n_boundary
 
   return(ci)
 }
@@ -521,8 +570,16 @@ print.pcv_result <- function(x, ...) {
                 pal$accent(sprintf("%.4f", pcv)), x$ci_lower, x$ci_upper))
     cat(pal$muted(sprintf("(Bootstrap %.0f%% CI)\n", conf_pct)))
     if (!is.null(x$mc_se) && is.finite(x$mc_se)) {
-      cat(pal$muted(sprintf("(%d successful bootstrap draws; Monte Carlo SE %.4f)\n",
-                  as.integer(x$n_boot_ok), x$mc_se)))
+      cat(pal$muted(sprintf(
+        "(%d successful bootstrap draws; Monte Carlo SE of the bootstrap mean %.4f)\n",
+        as.integer(x$n_boot_ok), x$mc_se)))
+    }
+    if (!is.null(x$n_boot_boundary) && is.finite(x$n_boot_boundary) &&
+        x$n_boot_boundary > 0) {
+      cat(pal$warn(sprintf(paste0(
+        "(%d draw(s) hit the zero null-variance boundary and were excluded;\n",
+        " the interval is conditional on a positive null variance.)\n"),
+        as.integer(x$n_boot_boundary))))
     }
     cat("\n")
   } else {

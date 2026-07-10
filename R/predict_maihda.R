@@ -203,6 +203,27 @@ predict_maihda <- function(object, newdata = NULL,
   }
 }
 
+#' Predict method for maihda_model objects
+#'
+#' S3 \code{\link[stats]{predict}} method for MAIHDA models: a thin alias of
+#' \code{\link{predict_maihda}}, so \code{predict(model, type = "strata")} and
+#' \code{predict_maihda(model, type = "strata")} are interchangeable. See
+#' \code{\link{predict_maihda}} for the full documentation of the arguments
+#' and return value.
+#'
+#' @inheritParams predict_maihda
+#' @inherit predict_maihda return
+#' @seealso \code{\link{predict_maihda}}
+#' @export
+predict.maihda_model <- function(object, newdata = NULL,
+                                 type = c("individual", "strata", "response",
+                                          "link"),
+                                 scale = c("response", "link"),
+                                 allow_new_levels = FALSE, ...) {
+  predict_maihda(object, newdata = newdata, type = type, scale = scale,
+                 allow_new_levels = allow_new_levels, ...)
+}
+
 # Inject a named default into a list of forwarded `...` arguments unless the
 # caller already supplied it, so an engine's new-levels switch can be set from
 # `allow_new_levels` without clashing with a user-supplied value of the same name.

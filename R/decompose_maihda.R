@@ -192,9 +192,10 @@ maihda_cross_classified_formula <- function(null_formula, strata_vars, autobin_i
   }
   adj <- maihda_adjusted_terms(strata_vars, autobin_info, data)
   # One additive random intercept per dimension (on the dimension's own grouping
-  # factor) plus the intersection random intercept. nobars() on null_formula keeps the
-  # covariates; we re-add the stratum RE so the builder is idempotent w.r.t. it.
-  fixed_formula <- reformulas::nobars(null_formula)
+  # factor) plus the intersection random intercept. Stripping the bars from
+  # null_formula keeps the covariates; we re-add the stratum RE so the builder is
+  # idempotent w.r.t. it.
+  fixed_formula <- maihda_nobars(null_formula)
   re_terms <- c(
     sprintf("(1 | %s)", vapply(adj$terms, maihda_quote_name, character(1))),
     sprintf("(1 | %s)", maihda_quote_name(interaction_group))

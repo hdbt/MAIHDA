@@ -410,3 +410,62 @@ test_that("calculate_pvc is a deprecated alias of calculate_pcv", {
   expect_s3_class(new, "pvc_result")
   expect_identical(new$pvc, new$pcv)
 })
+
+test_that("PCV bootstrap reports zero-null-variance boundary draws", {
+  # Regression: draws whose null model estimated a zero between-stratum
+  # variance were silently converted to NA and dropped -- the advertised
+  # percentile interval was conditional on a positive null variance with no
+  # warning unless over half of ALL draws failed. Any boundary mass now warns
+  # and is reported on the result.
+  skip_on_cran()
+  set.seed(8)
+  n <- 320
+  d <- data.frame(
+    g = sample(c("F", "M"), n, replace = TRUE),
+    r = sample(c("A", "B"), n, replace = TRUE),
+    x = rnorm(n)
+  )
+  sk <- interaction(d$g, d$r, drop = TRUE)
+  d$y <- 0.3 * d$x + rnorm(nlevels(sk), sd = 0.16)[sk] + rnorm(n)
+  st <- make_strata(d, c("g", "r"))
+  d$stratum <- st$data$stratum
+  m1 <- suppressWarnings(suppressMessages(fit_maihda(y ~ (1 | stratum), data = d)))
+  m2 <- suppressWarnings(suppressMessages(fit_maihda(y ~ x + (1 | stratum), data = d)))
+
+  # capture_warnings: the simulated refits can also emit optimizer-convergence
+  # warnings, which are irrelevant here.
+  set.seed(1008)
+  w <- capture_warnings(
+    r <- suppressMessages(calculate_pcv(m1, m2, bootstrap = TRUE, n_boot = 40)))
+  expect_true(any(grepl("conditional on a positive null variance", w)))
+  expect_true(is.finite(r$n_boot_boundary) && r$n_boot_boundary > 0)
+  expect_equal(r$n_boot_ok + r$n_boot_boundary, 40)
+  expect_output(print(r), "boundary")
+  # The surviving draws form a sane conditional interval (near-boundary
+  # denominators that produced intervals like [-6.6e16, 1] are excluded).
+  expect_true(r$ci_lower > -100 && r$ci_upper <= 1 + 1e-8)
+})
+
+test_that("calculate_pcv rejects an effectively singular null model", {
+  # A null variance like 1e-9 passed the strict var1 <= 0 guard and produced
+  # PCVs in the thousands (audit follow-up: PCV = -120427 with interval
+  # [-6.6e16, 1]); the lme4 relative singularity tolerance now rejects the
+  # degenerate denominator with a clear message.
+  skip_on_cran()
+  set.seed(4)
+  n <- 320
+  d <- data.frame(
+    g = sample(c("F", "M"), n, replace = TRUE),
+    r = sample(c("A", "B"), n, replace = TRUE),
+    x = rnorm(n)
+  )
+  sk <- interaction(d$g, d$r, drop = TRUE)
+  d$y <- 0.3 * d$x + rnorm(nlevels(sk), sd = 0.12)[sk] + rnorm(n)
+  st <- make_strata(d, c("g", "r"))
+  d$stratum <- st$data$stratum
+  m1 <- suppressWarnings(suppressMessages(fit_maihda(y ~ (1 | stratum), data = d)))
+  m2 <- suppressWarnings(suppressMessages(fit_maihda(y ~ x + (1 | stratum), data = d)))
+
+  expect_error(suppressWarnings(suppressMessages(calculate_pcv(m1, m2))),
+               "zero or negative|zero boundary")
+})

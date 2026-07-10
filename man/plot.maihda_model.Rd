@@ -145,9 +145,10 @@ intersectional interaction when the dimension main effects are in the model
 \value{
 For a single \code{type}, a \pkg{ggplot2} object that you can extend
   with the usual \code{+} grammar (themes, \code{\link[ggplot2]{labs}()},
-  added layers, or a replacement fill/colour scale). Two types return a richer
-  object: \code{"prediction_deviation"} returns a \pkg{patchwork} of two
-  panels (theme every panel at once with \code{& theme_*()}).
+  added layers, or a replacement fill/colour scale). Some types return a
+  richer object: \code{"prediction_deviation"} returns a \pkg{patchwork} of
+  two panels and \code{"upset"} a \pkg{patchwork} of three panels (theme
+  every panel at once with \code{& theme_*()}).
   \code{type = "all"} returns a named list of ggplot2 objects.
 }
 \description{

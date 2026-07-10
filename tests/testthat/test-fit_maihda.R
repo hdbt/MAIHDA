@@ -261,3 +261,21 @@ test_that("fit_maihda validates inputs", {
   expect_error(fit_maihda(y ~ x, data = data, engine = "invalid"),
                "should be one of")
 })
+
+test_that("predict() S3 method is an alias of predict_maihda()", {
+  # The docs, summary output, and table notes recommend
+  # predict(model, type = "strata"); before the S3 method existed that call
+  # silently fell through to another predict method or errored.
+  set.seed(11)
+  d <- data.frame(
+    gender = sample(c("F", "M"), 120, replace = TRUE),
+    race = sample(c("A", "B"), 120, replace = TRUE),
+    y = rnorm(120)
+  )
+  m <- fit_maihda(y ~ (1 | gender:race), data = d)
+
+  expect_equal(predict(m, type = "strata"),
+               predict_maihda(m, type = "strata"))
+  expect_equal(predict(m, type = "individual", scale = "response"),
+               predict_maihda(m, type = "individual", scale = "response"))
+})

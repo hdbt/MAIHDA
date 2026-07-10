@@ -331,7 +331,7 @@ maihda_clmm_linpred <- function(object, newdata = NULL, include_re = TRUE) {
   # Build the fixed-effect model frame once. It supplies both the design matrix
   # (when there are location coefficients) and any formula offset term, so it is
   # needed even for a null (thresholds-only) model that carries only an offset.
-  tt <- stats::delete.response(stats::terms(reformulas::nobars(object$formula)))
+  tt <- stats::delete.response(stats::terms(maihda_nobars(object$formula)))
   xlev <- stats::.getXlevels(tt, stats::model.frame(tt, object$data))
   mf <- stats::model.frame(tt, newdata, xlev = xlev, na.action = stats::na.pass)
 

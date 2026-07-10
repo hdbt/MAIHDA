@@ -270,7 +270,7 @@ maihda_wemix_linpred <- function(object, newdata = NULL, include_re = TRUE) {
   if (is.null(newdata)) {
     newdata <- object$data
   }
-  tt <- stats::delete.response(stats::terms(reformulas::nobars(object$formula)))
+  tt <- stats::delete.response(stats::terms(maihda_nobars(object$formula)))
   xlev <- stats::.getXlevels(tt, stats::model.frame(tt, object$data))
   mf <- stats::model.frame(tt, newdata, xlev = xlev, na.action = stats::na.pass)
   X <- stats::model.matrix(tt, mf)
@@ -454,13 +454,54 @@ maihda_brms_weights_formula <- function(formula, wcol) {
   formula
 }
 
+#' Rows complete on every variable a brms model will use
+#'
+#' Mirrors the rows brms retains after its own NA exclusion: complete on the
+#' response and its addition-term variables (\code{y | trials(n)}), on the
+#' fixed-effect terms -- evaluated through the model frame, so a transformed
+#' predictor whose transformation yields \code{NA}/\code{NaN} counts as
+#' incomplete -- and on every variable in the random-effect terms.
+#'
+#' @param formula The (pre-weights-injection) model formula.
+#' @param data The model data.
+#' @return A logical vector over the rows of \code{data}.
+#' @keywords internal
+maihda_brms_complete_rows <- function(formula, data) {
+  ok <- rep(TRUE, nrow(data))
+  fixed <- maihda_nobars(formula)
+  tt <- tryCatch(stats::delete.response(stats::terms(fixed, data = data)),
+                 error = function(e) NULL)
+  if (!is.null(tt)) {
+    mf <- tryCatch(stats::model.frame(tt, data, na.action = stats::na.pass),
+                   error = function(e) NULL)
+    if (!is.null(mf) && nrow(mf) == nrow(data)) {
+      ok <- ok & stats::complete.cases(mf)
+    }
+  }
+  raw_vars <- unique(c(
+    if (length(formula) == 3) all.vars(formula[[2]]),
+    unlist(lapply(reformulas::findbars(formula), all.vars), use.names = FALSE)
+  ))
+  raw_vars <- intersect(raw_vars, names(data))
+  if (length(raw_vars) > 0) {
+    ok <- ok & stats::complete.cases(data[raw_vars])
+  }
+  ok
+}
+
 #' Prepare data and formula for a sampling-weighted brms fit
 #'
-#' Drops rows with missing or non-positive sampling weights (with a warning),
-#' normalizes the remaining weights to mean 1 -- likelihood weights scale the
-#' effective sample size, so unnormalized expansion weights (summing to the
-#' population) would massively overstate the information in the data -- and
-#' rewrites the formula with a \code{weights()} addition term.
+#' Drops rows with missing or non-positive sampling weights and rows incomplete
+#' on the model variables (each with a warning), normalizes the remaining
+#' weights to mean 1 -- likelihood weights scale the effective sample size, so
+#' unnormalized expansion weights (summing to the population) would massively
+#' overstate the information in the data -- and rewrites the formula with a
+#' \code{weights()} addition term.
+#'
+#' Incomplete rows must go BEFORE the normalization: brms silently excludes
+#' them after receiving the data, so normalizing over all weight-valid rows
+#' would hand the sampler surviving weights with an arbitrary mean, scaling the
+#' pseudo-posterior's effective sample size by that mean.
 #'
 #' @param data The model data.
 #' @param formula The model formula.
@@ -482,6 +523,22 @@ maihda_prepare_brms_sampling_weights <- function(data, formula, sampling_weights
     warning(sprintf(paste0("fit_maihda(): dropped %d row(s) with missing or ",
                            "non-positive sampling weights before the brms fit."),
                     sum(!keep)), call. = FALSE)
+  }
+  incomplete <- keep & !maihda_brms_complete_rows(formula, data)
+  if (sum(incomplete) > 0) {
+    keep <- keep & !incomplete
+    if (!any(keep)) {
+      stop("No usable rows remain after dropping rows incomplete on the model ",
+           "variables.", call. = FALSE)
+    }
+    warning(sprintf(paste0("fit_maihda(): dropped %d row(s) incomplete on the ",
+                           "model variables before normalizing the sampling ",
+                           "weights (brms would drop them only after ",
+                           "normalization, leaving the fitted weights with a ",
+                           "mean different from 1)."),
+            sum(incomplete)), call. = FALSE)
+  }
+  if (sum(!keep) > 0) {
     data <- data[keep, , drop = FALSE]
     w <- w[keep]
   }

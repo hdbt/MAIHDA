@@ -143,7 +143,11 @@ variable of either name in its formula (fitting would error). Default
 
 \item{id}{Optional single character string naming a person/unit identifier
 column for a \strong{longitudinal (growth-curve) MAIHDA} on long-format data
-(one row per measurement occasion). Supplied together with \code{time}, it
+(one row per measurement occasion). Id values must be \emph{globally}
+unique to a person -- ids numbered within a site or group (person "1" in
+every site) would merge different people's trajectories, and an id
+appearing in more than one stratum is rejected with an error. Supplied
+together with \code{time}, it
 makes the model a 3-level growth curve -- occasions within individuals
 (\code{id}) within intersectional strata -- with a random intercept and slope
 on \code{time} at \emph{both} the individual and stratum levels. The growth
@@ -203,8 +207,10 @@ A maihda_model object containing:
   \item{response_recoding}{For a recoded two-level outcome, a data frame mapping
     each original level to its 0/1 value and role (reference/event); NULL when no
     recoding occurred}
-  \item{diagnostics}{Fit-quality diagnostics (singular fit / convergence) for
-    lme4 models, surfaced by the print and summary methods}
+  \item{diagnostics}{Fit-quality diagnostics, surfaced by the print and
+    summary methods: singular fit / convergence for lme4 and WeMix, MCMC
+    convergence (maximum Rhat, divergent transitions) for brms, and the
+    optimizer convergence code for an ordinal (clmm) fit}
 }
 \description{
 Fits a multilevel model for MAIHDA (Multilevel Analysis of Individual

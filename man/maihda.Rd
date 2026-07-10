@@ -219,9 +219,12 @@ VPC as well. These are read from \code{summary(x)} and the attached
 
 This is a convenience wrapper around \code{\link{fit_maihda}},
 \code{\link{calculate_pcv}}, \code{\link{summary.maihda_model}} and
-\code{\link{compare_maihda_groups}}. It is \emph{intrinsically} a two-model
-decomposition and has no single-model mode -- for a single fit (e.g. just the
-null-model VPC / discriminatory accuracy), call \code{\link{fit_maihda}} directly.
+\code{\link{compare_maihda_groups}}. It \emph{always} runs a decomposition,
+never a single plain fit: by default the two-model null/adjusted pair, or --
+with \code{decomposition = "crossed-dimensions"} -- one crossed model whose
+additive dimension random effects carry the additive share. For a single
+undecomposed fit (e.g. just the null-model VPC / discriminatory accuracy),
+call \code{\link{fit_maihda}} directly.
 
 \strong{The dimensions' additive main effects.} You may write them in the formula --
 the fully-specified, lme4-native adjusted model

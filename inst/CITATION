@@ -7,13 +7,13 @@ bibentry(
   bibtype = "Manual",
   title = "MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy",
   author = person("Hamid", "Bulut"),
-  year = "2025",
+  year = "2026",
   note = note_str,
   url = "https://github.com/hdbt/MAIHDA",
   doi = "10.32614/CRAN.package.MAIHDA",
   textVersion = sprintf(
     paste0(
-      "Bulut, H. (2025). MAIHDA: Multilevel Analysis of Individual Heterogeneity ",
+      "Bulut, H. (2026). MAIHDA: Multilevel Analysis of Individual Heterogeneity ",
       "and Discriminatory Accuracy. %s. https://github.com/hdbt/MAIHDA. ",
       "doi: 10.32614/CRAN.package.MAIHDA"
     ),

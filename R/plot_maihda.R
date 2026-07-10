@@ -116,9 +116,10 @@
 #'
 #' @return For a single \code{type}, a \pkg{ggplot2} object that you can extend
 #'   with the usual \code{+} grammar (themes, \code{\link[ggplot2]{labs}()},
-#'   added layers, or a replacement fill/colour scale). Two types return a richer
-#'   object: \code{"prediction_deviation"} returns a \pkg{patchwork} of two
-#'   panels (theme every panel at once with \code{& theme_*()}).
+#'   added layers, or a replacement fill/colour scale). Some types return a
+#'   richer object: \code{"prediction_deviation"} returns a \pkg{patchwork} of
+#'   two panels and \code{"upset"} a \pkg{patchwork} of three panels (theme
+#'   every panel at once with \code{& theme_*()}).
 #'   \code{type = "all"} returns a named list of ggplot2 objects.
 #'
 #' @examples
@@ -1939,7 +1940,9 @@ maihda_longitudinal_fixed_trajectory <- function(object, grid) {
   lng <- object$longitudinal_info
   time_term <- maihda_lng_time_term(lng)
   data <- object$data
-  fixed_vars <- all.vars(reformulas::nobars(object$formula))[-1]
+  # RHS vars only: an addition-term response (y | trials(n)) would leave its
+  # trials/weights variable in an all.vars(formula)[-1] extraction.
+  fixed_vars <- all.vars(maihda_nobars(object$formula)[[3]])
   nd <- data[rep(1L, length(grid)), , drop = FALSE]
   for (v in intersect(fixed_vars, names(nd))) {
     if (v %in% c(lng$time, time_term)) next

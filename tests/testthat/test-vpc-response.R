@@ -66,3 +66,57 @@ test_that("maihda_vpc_response rejects non-binomial models and invalid n_sim", {
   r <- maihda_vpc_response(m, n_sim = 100, seed = 1)
   expect_identical(r$n_sim, 100L)
 })
+
+test_that("response-scale VPC integrates over non-stratum random effects", {
+  # Regression: for a site + stratum model the simulation drew ONLY the stratum
+  # effect, so the site variance appeared in neither the numerator's scope nor
+  # the denominator -- overstating the stratum share (audit repro: 0.0490
+  # reported vs 0.0126 from a coherent nested Monte Carlo).
+  skip_on_cran()
+  set.seed(707)
+  d <- expand.grid(stratum = factor(1:8), site = factor(1:10), rep = 1:25)
+  su <- stats::rnorm(8, sd = 0.4)[d$stratum]
+  so <- stats::rnorm(10, sd = 1.2)[d$site]
+  d$y <- stats::rbinom(nrow(d), 1, stats::plogis(-0.5 + su + so))
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ (1 | site) + (1 | stratum), data = d, family = "binomial")))
+
+  v <- maihda_vpc_response(m, n_sim = 20000, seed = 42)
+  expect_gt(v$var_other, 0)
+  expect_true(v$estimate >= 0 && v$estimate <= 1)
+
+  # Independent brute-force nested Monte Carlo of the stratum share.
+  vc <- lme4::VarCorr(m$model)
+  vs <- as.numeric(as.matrix(vc$stratum)[1, 1])
+  vo <- as.numeric(as.matrix(vc$site)[1, 1])
+  eta0 <- mean(stats::predict(m$model, re.form = NA, type = "link"))
+  set.seed(99)
+  us <- stats::rnorm(4000, 0, sqrt(vs))
+  uo <- stats::rnorm(2000, 0, sqrt(vo))
+  P <- stats::plogis(outer(us, uo, `+`) + eta0)
+  truth <- stats::var(rowMeans(P)) /
+    (stats::var(as.vector(P)) + mean(P * (1 - P)))
+  expect_equal(v$estimate, truth, tolerance = 0.1)
+
+  # The old stratum-only computation is strictly larger (the defect).
+  p_only <- stats::plogis(eta0 + us)
+  old <- stats::var(p_only) / (stats::var(p_only) + mean(p_only * (1 - p_only)))
+  expect_gt(old, v$estimate)
+
+  # print() explains the integration.
+  expect_output(print(v), "non-stratum random effects")
+
+  # A single-stratum fit is unchanged: var_other 0, same seeded value as the
+  # stratum-only formula.
+  m0 <- maihda_vpcr_fit()
+  v0 <- maihda_vpc_response(m0, n_sim = 20000, seed = 42)
+  expect_identical(v0$var_other, 0)
+  s2 <- MAIHDA:::extract_between_variance(m0)
+  lp <- mean(stats::predict(m0$model, re.form = NA, type = "link"))
+  set.seed(42)
+  u <- stats::rnorm(20000, 0, sqrt(s2))
+  p <- stats::plogis(lp + u)
+  expect_equal(v0$estimate,
+               stats::var(p) / (stats::var(p) + mean(p * (1 - p))),
+               tolerance = 1e-12)
+})

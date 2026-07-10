@@ -32,6 +32,15 @@ applies to the latent logit-scale between-stratum variance and is the
 of being at or below any given outcome category between two randomly chosen
 strata (under the model's proportional-odds assumption it is the same for
 every category split).
+
+\strong{Scope.} \code{V_A} is the \emph{between-stratum} variance. For a
+crossed-dimensions fit (from \code{maihda(decomposition =
+"crossed-dimensions")}) that is the \emph{total} intersectional variance --
+the additive dimension variances plus the interaction component, since the
+independent crossed random effects sum at the intersection level. Contextual
+(\code{context = }) and other non-stratum random effects are never included:
+the MOR compares two individuals from randomly chosen strata \emph{within
+the same context}.
 }
 \references{
 Larsen, K., & Merlo, J. (2005). Appropriate assessment of neighborhood effects

@@ -1298,3 +1298,70 @@ test_that("brms fitted() category arrays collapse to scores for a single row (St
   expect_equal(MAIHDA:::maihda_brms_fitted_array_scores(f1), want[1],
                tolerance = 1e-12)
 })
+
+test_that("maihda_nobars preserves brms addition-term responses", {
+  # reformulas::nobars() descends into the LHS, so `y | trials(n)` is stripped
+  # like a random-effect bar and the predictor is promoted to the response
+  # (y | trials(n) ~ x + (1 | a:b) became x ~ 1). maihda_nobars() strips the
+  # RHS only.
+  nb <- MAIHDA:::maihda_nobars(y | trials(n) ~ x + (1 | a:b))
+  expect_equal(deparse(nb), "y | trials(n) ~ x")
+
+  # Bars-only RHS keeps the response with an intercept-only fixed part.
+  nb2 <- MAIHDA:::maihda_nobars(y | trials(n) ~ (1 | a:b))
+  expect_equal(deparse(nb2), "y | trials(n) ~ 1")
+
+  # Other addition terms and call-valued responses survive too.
+  expect_equal(deparse(MAIHDA:::maihda_nobars(y | weights(w) ~ x + z + (1 | g))),
+               "y | weights(w) ~ x + z")
+  expect_equal(deparse(MAIHDA:::maihda_nobars(cbind(succ, fail) ~ (1 | a:b))),
+               "cbind(succ, fail) ~ 1")
+
+  # Plain formulas are unchanged relative to nobars().
+  expect_equal(deparse(MAIHDA:::maihda_nobars(y ~ x + (1 | g))),
+               deparse(reformulas::nobars(y ~ x + (1 | g))))
+})
+
+test_that("automatic strata creation preserves a trials() response", {
+  set.seed(1101)
+  d <- data.frame(
+    a = sample(c("F", "M"), 60, replace = TRUE),
+    b = sample(c("lo", "hi"), 60, replace = TRUE),
+    x = rnorm(60),
+    n = rep(10L, 60)
+  )
+  d$y <- rbinom(60, size = d$n, prob = 0.4)
+
+  res <- MAIHDA:::maihda_resolve_strata_formula(y | trials(n) ~ x + (1 | a:b), d)
+  # The rewritten formula must keep the aggregated-binomial response, not
+  # silently model x (the corruption produced x ~ (1 | stratum)).
+  expect_equal(deparse(res$formula), "y | trials(n) ~ x + (1 | stratum)")
+  expect_true("stratum" %in% names(res$data))
+  expect_equal(res$strata_vars, c("a", "b"))
+})
+
+test_that("crossed-dimensions formula builder preserves a trials() response", {
+  set.seed(1102)
+  d <- data.frame(
+    a = factor(sample(c("F", "M"), 60, replace = TRUE)),
+    b = factor(sample(c("lo", "hi"), 60, replace = TRUE)),
+    x = rnorm(60),
+    n = rep(10L, 60)
+  )
+  d$stratum <- interaction(d$a, d$b, sep = "_")
+  d$y <- rbinom(60, size = d$n, prob = 0.4)
+
+  cc <- MAIHDA:::maihda_cross_classified_formula(
+    y | trials(n) ~ x + (1 | stratum), strata_vars = c("a", "b"),
+    autobin_info = NULL, data = d)
+  expect_equal(deparse(cc$formula),
+               "y | trials(n) ~ x + (1 | a) + (1 | b) + (1 | stratum)")
+})
+
+test_that("longitudinal growth formula builder preserves a trials() response", {
+  gf <- MAIHDA:::maihda_longitudinal_formula(
+    y | trials(n) ~ x + (1 | stratum), id = "id", time = "time",
+    time_degree = 1)
+  expect_equal(deparse(gf),
+               "y | trials(n) ~ x + time + (time | id) + (time | stratum)")
+})

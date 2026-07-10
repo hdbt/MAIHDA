@@ -14,11 +14,19 @@ maihda_discriminatory_accuracy(model)
 \code{engine = "brms"}.}
 }
 \value{
-An object of class \code{maihda_da}: a list with \code{auc}, \code{mor},
-  \code{n_case}, \code{n_control}, \code{family}, \code{link} and \code{engine}.
-  \code{mor} is \code{NA} for a non-logit binomial link, where the AUC is still
-  reported. For an aggregated-binomial fit \code{n_case} / \code{n_control} are
-  the total successes / failures.
+An object of class \code{maihda_da}: a list with \code{auc},
+  \code{auc_scope}, \code{auc_full}, \code{mor},
+  \code{n_case}, \code{n_control}, \code{family}, \code{link}, \code{engine},
+  \code{weighted} and \code{weight_type}. \code{mor} is \code{NA} for a
+  non-logit binomial link, where the AUC is still reported. For an
+  aggregated-binomial fit \code{n_case} / \code{n_control} are the total
+  successes / failures. \code{weighted} is \code{TRUE} when the AUC is a
+  weighted concordance -- \code{weight_type} \code{"sampling"} for a
+  design-weighted fit (each observation contributes its sampling weight as
+  case/control mass, estimating the population discriminatory accuracy) or
+  \code{"precision"} for an lme4 fit with non-integer precision weights;
+  \code{n_case} / \code{n_control} stay unweighted observation counts either
+  way. \code{weight_type} is \code{NULL} for an unweighted AUC.
 }
 \description{
 Bundles the individual-level discriminatory-accuracy summaries for a binomial
@@ -35,6 +43,18 @@ Aggregated-binomial fits are supported on both engines that fit them -- an lme4
 \code{cbind(success, failure)} response and a brms \code{y | trials(n)} response:
 the AUC is the count-weighted C-statistic over the implied individual-level 0/1
 data, and \code{n_case} / \code{n_control} are the total successes / failures.
+
+\strong{Scope.} When the model carries random effects \emph{beyond} the
+intersectional partition -- a contextual \code{(1 | school)} from
+\code{fit_maihda(context = )} or an explicit extra grouping such as
+\code{(1 | site)} -- the headline \code{auc} is the concordance of the
+\emph{intersectional strata} (fixed effects plus the stratum random effect
+and, for a crossed-dimensions fit, the additive dimension effects), matching
+the scope of the MOR; the concordance of the full model including the other
+random effects is reported separately as \code{auc_full}
+(\code{auc_scope = "strata"}). For the canonical single-\code{(1 | stratum)}
+model the two coincide and only \code{auc} is reported
+(\code{auc_scope = "model"}, \code{auc_full} absent).
 }
 \examples{
 \donttest{

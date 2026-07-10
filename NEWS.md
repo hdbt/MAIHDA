@@ -16,9 +16,27 @@
 
 ## API Changes
 
+* **Added a `predict()` S3 method for `maihda_model` objects.** A thin alias of `predict_maihda()`, so the `predict(model, type = "strata")` call the documentation and summary output recommend now works directly.
+
 * **`calculate_pvc()` has been renamed to `calculate_pcv()`.** `calculate_pvc()` remains as a deprecated alias that warns and forwards, and will be removed in a future release. The result object carries the estimate in `$pcv` and is classed `c("pcv_result", "pvc_result")`; the old `$pvc` element is kept as a deprecated duplicate, so existing code and objects saved by earlier versions keep working (including `print()`). All internal consumers (`maihda()`, `compare_maihda_groups()`, `maihda_table()`, the tidiers, and the Shiny app), the documentation, and the vignettes now use the corrected name.
 
 ## Bug Fixes
+
+* **A brms addition-term response survived automatic strata creation with the wrong model.** `reformulas::nobars()` descends into a formula's left-hand side, so `y | trials(n) ~ x + (1 | a:b)` was silently rewritten to `x ~ (1 | stratum)` — the response replaced by a predictor — in automatic strata creation, the crossed-dimensions builder, and the longitudinal growth-formula builder. Bar terms are now stripped from the right-hand side only (a shared internal helper used at every fixed-part extraction), preserving `| trials()`, `| weights()`, and `cbind()` responses exactly.
+
+* **brms sampling weights are now normalized on the analysis sample.** Weights were normalized to mean 1 *before* brms dropped rows incomplete on the model variables, so the weights actually fitted could have an arbitrary mean — rescaling the pseudo-posterior's effective sample size (a two-row case left a single surviving weight of 0.02, a ~50× tempered likelihood). Rows incomplete on the outcome, the (possibly transformed) predictors, or the grouping variables are now dropped, with a warning, before normalization.
+
+* **Longitudinal ids reused across strata are rejected.** `(time | id)` treats every row sharing an id as the same person, so ids numbered within a site or group (person "1" in every site) silently merged different people's trajectories. An id appearing in more than one stratum now errors with guidance (build a globally unique id, or fix a stratum that changed between occasions at a reference occasion).
+
+* **Fractional lme4 precision weights no longer produce an impossible AUC.** Non-integer prior weights (e.g. 1.5) tripped the aggregated-binomial heuristic — `round(y * 1.5) = 2` successes out of 1.5 trials implies negative failures — reporting AUC values above 1 and doubled case totals. Only integer trial counts mark aggregation now; fractional-weight fits get the weighted Mann–Whitney concordance (reported with `weight_type = "precision"`), and the weighted AUC internally rejects negative case/control mass.
+
+* **AUC and MOR now summarize the same model scope.** For a model with random effects beyond the intersectional partition (a contextual `(1 | school)` or an explicit `(1 | site)`), `maihda_discriminatory_accuracy()` computed the AUC from full predictions (site effects included) while the MOR used only the stratum variance — a strong site effect could carry a 0.90 AUC over a negligible stratum effect. The headline `auc` is now the intersectional-scope concordance (matching the MOR), with the full-model AUC reported alongside as `auc_full` (`auc_scope` names the scope). `maihda_mor()` on a crossed-dimensions fit now sums the additive dimension variances with the interaction component instead of reading the interaction alone.
+
+* **The response-scale VPC integrates over non-stratum random effects.** `maihda_vpc_response()` simulated only the stratum effect and silently ignored any other random intercepts, overstating the stratum share (0.049 reported where a coherent nested Monte Carlo gives 0.013). The simulation now integrates over the combined non-stratum effects; the result reports their summed latent variance as `var_other`.
+
+* **PCV bootstrap draws on the zero-variance boundary are reported, and a degenerate PCV denominator is rejected.** Bootstrap draws whose null model estimated a zero between-stratum variance were silently dropped, making the percentile interval conditional on a positive null variance with no signal; any boundary mass now warns, is returned as `n_boot_boundary`, and is repeated by `print()`. Boundary detection uses lme4's relative singularity tolerance — a strictly positive but effectively singular variance (1e-9) previously passed a strict-zero check and produced PCVs in the thousands with intervals like [-6.6e16, 1]; `calculate_pcv()` now also rejects an effectively singular null model.
+
+* `make_strata()` on a zero-row data frame now fails immediately with a clear message instead of a base replacement error.
 
 * `fit_maihda()` (and the new `maihda_describe()`) errored on an aggregated binomial outcome combined with the strata shorthand and no covariates — e.g. `cbind(successes, failures) ~ (1 | gender:race)` — because `nobars()` returns a bare call (not a formula) for a call-valued response with a bars-only right-hand side.
 
@@ -46,6 +64,8 @@
 
 ## Documentation
 
+* The bootstrap Monte Carlo error is now labelled as what it is — the Monte Carlo standard error of the bootstrap **mean** (`sd(draws)/sqrt(n)`), a coarse gauge of bootstrap noise — in `print()` output and the internals; it is not the sampling uncertainty of the percentile interval's endpoints.
+* A batch of documentation corrections from the 0.2.1 audit: `make_strata()` documents its full six-element return; the `"upset"` plot type is documented as the three-panel patchwork it returns; the group-comparison docs no longer deny cross-classification when `context =` is supplied; `maihda()`'s description acknowledges its single-model crossed-dimensions mode; `compare_maihda_groups()` documents that brms posterior intervals are returned without bootstrapping; `pcv_importance()`'s exact-cost examples count the null fit (256 fits at k = 8, 1024 at k = 10); the README calls `Context_Variance` an absolute variance rather than a share; fit diagnostics are documented for all four engines; `maihda_discriminatory_accuracy()` documents its `weighted`/`weight_type` fields; and the CITATION year is 2026.
 * Fixed a mislabelled figure in the reporting vignette: the `tidy()` caterpillar plotted the null model's stratum estimates, the total between-stratum deviations, but the text called them "interaction estimates" (the pure interactions require `tidy(a, which = "adjusted")`; the vignette now says so).
 * The plot-interpretation vignette no longer claims a bare `fit_maihda()` fit is "equivalent" to the `maihda()` analysis for its plots: `plot()` on the analysis routes the VPC/predicted/shrinkage views to the null model and the effect-decomposition views to the adjusted model, which a single fit cannot do.
 * The group-comparison vignette now explains its own `group_pcv` figure: with the real PISA data every country's PCV is essentially 1 (the gender-by-SES gaps are purely additive, so the per-country adjusted fits are singular-boundary), and the flat row of 100% bars is itself the substantive result, not a rendering problem.
@@ -173,7 +193,7 @@
 ## Diagnostics
 
 * `brms` fits now record MCMC convergence diagnostics (maximum Rhat and the number of divergent transitions) alongside the engine, surfaced in the "Fit diagnostics" block of `print()`/`summary()` so a non-converged or divergent Bayesian fit is no longer silent.
-* Bootstrap VPC/PCV intervals now report Monte Carlo error: `summary()` and `calculate_pvc()` print the number of successful bootstrap draws and the Monte Carlo standard error so the precision of an interval can be judged.
+* Bootstrap VPC/PCV intervals now report Monte Carlo error: `summary()` and `calculate_pvc()` print the number of successful bootstrap draws and the Monte Carlo standard error of the bootstrap mean (`sd(draws)/sqrt(n)`), a coarse gauge of how much the bootstrap distribution's centre would move with a different seed. (It is not the sampling uncertainty of the percentile interval's endpoints, which is a larger order-statistic quantity.)
 
 
 # MAIHDA 0.1.10

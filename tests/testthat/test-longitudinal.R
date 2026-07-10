@@ -170,6 +170,41 @@ test_that("maihda_validate_longitudinal enforces its contract", {
                "linear growth only")
 })
 
+test_that("longitudinal ids reused across strata are rejected", {
+  # Ids numbered within a site/group (person "1" in every site) used to be
+  # silently merged into ONE level-2 unit by (time | id), pooling different
+  # people's trajectories. An id spanning more than one stratum is the
+  # observable symptom and is now an error.
+  set.seed(77)
+  person <- rbind(
+    data.frame(pid = 1:10, gender = "F", edu = rep(c("lo", "hi"), 5)),
+    data.frame(pid = 1:10, gender = "M", edu = rep(c("lo", "hi"), 5))
+  )
+  d <- person[rep(seq_len(nrow(person)), each = 3), ]
+  d$wave <- rep(0:2, nrow(person))
+  d$y <- rnorm(nrow(d))
+
+  expect_error(
+    fit_maihda(y ~ wave + (1 | gender:edu), data = d, id = "pid", time = "wave"),
+    "more than one stratum"
+  )
+
+  # The direct guard: unique-per-person ids pass; NA rows are ignored.
+  d_ok <- d
+  d_ok$pid <- paste(d_ok$gender, d_ok$pid)   # globally unique
+  d_ok$stratum <- interaction(d_ok$gender, d_ok$edu)
+  expect_silent(maihda_check_longitudinal_ids(d_ok, "pid"))
+  d_na <- d_ok
+  d_na$pid[1] <- NA
+  expect_silent(maihda_check_longitudinal_ids(d_na, "pid"))
+
+  # ...and the reused ids fail with the offending values named.
+  d_bad <- d
+  d_bad$stratum <- interaction(d_bad$gender, d_bad$edu)
+  expect_error(maihda_check_longitudinal_ids(d_bad, "pid"),
+               "10 id value\\(s\\)")
+})
+
 # ---- fitted-model tests (lme4) ---------------------------------------------
 
 skip_on_cran()
