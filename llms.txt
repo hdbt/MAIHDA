@@ -524,6 +524,8 @@ A BibTeX entry for LaTeX users is:
   : Cross-National Educational Achievement Data for MAIHDA
 - [`maihda_cumulative()`](https://hdbt.github.io/MAIHDA/reference/maihda_cumulative.md)
   : Cumulative (ordinal) family marker for MAIHDA models
+- [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+  : Describe the MAIHDA sample before fitting
 - [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
   : Discriminatory accuracy of a binary MAIHDA model
 - [`glance(`*`<maihda_summary>`*`)`](https://hdbt.github.io/MAIHDA/reference/maihda_glance.md)
@@ -560,6 +562,8 @@ A BibTeX entry for LaTeX users is:
   : Plot a MAIHDA Analysis
 - [`plot(`*`<maihda_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_comparison.md)
   : Plot a MAIHDA Model Comparison
+- [`plot(`*`<maihda_describe>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_describe.md)
+  : Plot a MAIHDA sample description
 - [`plot(`*`<maihda_group_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_group_comparison.md)
   : Plot a MAIHDA Group Comparison
 - [`plot(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)
@@ -570,6 +574,8 @@ A BibTeX entry for LaTeX users is:
   : Predict from MAIHDA Model
 - [`print(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_analysis.md)
   : Print a MAIHDA Analysis
+- [`print(`*`<maihda_describe>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_describe.md)
+  : Print a MAIHDA sample description
 - [`print(`*`<maihda_group_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_group_comparison.md)
   : Print method for MAIHDA group comparisons
 - [`print(`*`<maihda_ic>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_ic.md)

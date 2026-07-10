@@ -2,7 +2,39 @@
 
 ## MAIHDA 0.2.1
 
+CRAN release: 2026-07-09
+
 ### New Features
+
+- **New
+  [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md):
+  pre-model “Table 1” sample descriptives, built from the same machinery
+  as the model** ([\#60](https://github.com/hdbt/MAIHDA/issues/60)). The
+  pre-model counterpart of
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md):
+  one call reports the total and complete-case analytic sample, observed
+  vs. expected intersectional strata (empty cells enumerated, small
+  cells flagged — never dropped), per-dimension distributions,
+  **family-aware** per-stratum outcome summaries (proportions for a
+  binomial outcome, category scores for an ordinal one — never a
+  Gaussian mean/SD on a 0/1 outcome), missingness accounting, per-unit
+  context tables for a contextual design, weighted counts/means under
+  `sampling_weights`, and concrete data-quality warnings (auto-binned /
+  ID-like / linear-numeric dimensions, sparse strata, concentrated
+  outcome missingness, weakly identified contexts). Strata IDs, labels,
+  and counts are guaranteed to match a subsequent
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  /
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  / [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  because the strata shorthand, family detection, and analytic row
+  selection are resolved by the same shared internals as the fitters.
+  Accepts a formula + data, or a fitted `maihda_model` /
+  `maihda_analysis` to describe the exact analytic sample post hoc;
+  ships with [`print()`](https://rdrr.io/r/base/print.html) and
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods
+  (`"stratum_size"`, `"outcome"`, `"missingness"`), and every table is
+  an export-ready data frame.
 
 - **[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
@@ -50,6 +82,15 @@
   now use the corrected name.
 
 ### Bug Fixes
+
+- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  (and the new
+  [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md))
+  errored on an aggregated binomial outcome combined with the strata
+  shorthand and no covariates —
+  e.g. `cbind(successes, failures) ~ (1 | gender:race)` — because
+  `nobars()` returns a bare call (not a formula) for a call-valued
+  response with a bars-only right-hand side.
 
 - The brms engine’s linear-predictor reads were broken under current
   brms (\>= ~2.16): `posterior_linpred()` ignores a `summary = TRUE`

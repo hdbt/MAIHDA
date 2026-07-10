@@ -67,6 +67,102 @@ have consequences (next section). A useful rule: choose the fewest
 dimensions that answer your question, and look at the cell-size
 distribution before committing.
 
+## One call: `maihda_describe()`
+
+The checks above — and the rest of a pre-model “Table 1” — come bundled
+in
+[`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md).
+It builds the strata with the same machinery as
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+(identical stratum IDs, labels, and counts), then reports the total and
+complete-case analytic sample, the observed vs. expected strata (empty
+cells enumerated, small cells flagged), each dimension’s distribution, a
+family-aware outcome summary per stratum (proportions for a binary
+outcome, never a Gaussian mean/SD), missingness, and a set of
+data-quality warnings:
+
+``` r
+
+desc <- maihda_describe(BMI ~ Age + (1 | Gender:Race:Education),
+                        data = maihda_health_data, flag_stratum_n = 20)
+desc
+#> MAIHDA Sample Description
+#> =========================
+#> 
+#> Outcome: BMI | Family: gaussian | Summary: mean/SD (gaussian)
+#> Dimensions: Gender, Race, Education
+#> 
+#> Sample:
+#>   Rows (total):                    3,000
+#>   Missing outcome:                 0 (0.0%)
+#>   Outside strata (missing dims):   0
+#>   Analytic sample (complete case): 3,000
+#> 
+#> Observed outcome (3,000 non-missing): mean 28.883 (SD 6.743), median 27.865, range 15.800 to 81.250
+#> 
+#> Strata (50 observed / 50 expected, 0 empty):
+#>   Cell sizes: min 1, median 25.5, max 349; 21 strata at/below n = 20 (flagged)
+#>   Smallest strata:
+#>     female × Black × 8th Grade             n = 1
+#>     female × Mexican × College Grad        n = 5
+#>     female × Other × 9 - 11th Grade        n = 7
+#>     male × Black × 8th Grade               n = 8
+#>     female × Other × High School           n = 9
+#>   (full table in $strata)
+#> 
+#> Dimensions:
+#>   Gender: female 1,527 (50.9%), male 1,473 (49.1%)
+#>   Race: Black 336 (11.2%), Hispanic 166 (5.5%), Mexican 242 (8.1%), White
+#>     2,034 (67.8%), Other 222 (7.4%)
+#>   Education: 8th Grade 196 (6.5%), 9 - 11th Grade 366 (12.2%), High School
+#>     632 (21.1%), Some College 960 (32.0%), College Grad 846 (28.2%)
+#> 
+#> Warnings:
+#>   ! 21 strata have n <= 20; smallest: 'female × Black × 8th Grade' (n=1),
+#>     'female × Mexican × College Grad' (n=5), 'female × Other × 9 - 11th
+#>     Grade' (n=7). Partial pooling shrinks small-stratum estimates toward
+#>     the mean; expect wide intervals for these cells.
+```
+
+Every element is an export-ready data frame — `desc$strata` is the
+per-stratum Table 1, ready for
+[`write.csv()`](https://rdrr.io/r/utils/write.table.html) or
+[`knitr::kable()`](https://rdrr.io/pkg/knitr/man/kable.html):
+
+``` r
+
+head(desc$strata[order(desc$strata$n),
+                 c("label", "n", "n_analytic", "outcome_mean", "small")])
+#>                              label  n n_analytic outcome_mean small
+#> 50      female × Black × 8th Grade  1          1     24.05000  TRUE
+#> 31 female × Mexican × College Grad  5          5     24.95800  TRUE
+#> 47 female × Other × 9 - 11th Grade  7          7     24.96143  TRUE
+#> 33        male × Black × 8th Grade  8          8     25.16000  TRUE
+#> 32    female × Other × High School  9          9     31.92778  TRUE
+#> 4      male × Hispanic × 8th Grade 10         10     31.30700  TRUE
+```
+
+The stratum-size view makes the sparsity of the strata space visible at
+a glance (the dashed line is `flag_stratum_n`):
+
+``` r
+
+plot(desc, type = "stratum_size")
+```
+
+![Histogram of stratum sizes with the small-stratum threshold
+marked](planning_a_study_files/figure-html/describe-plot-1.png)
+
+For a contextual cross-classified design, pass `context =` (as in
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md))
+and
+[`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+also tabulates the context units and flags a weakly identified context
+(few levels) before you fit. A fitted `maihda_model` or
+[`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) analysis
+can be described the same way — `maihda_describe(model)` — to document
+the exact analytic sample post hoc.
+
 ## What sparse cells do: singular fits
 
 When cells get very small the maximum-likelihood (`lme4`) estimate of

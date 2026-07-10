@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-07-09</h4>
+            <h4 data-toc-skip class="date">2026-07-10</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/planning_a_study.Rmd" class="external-link"><code>vignettes/planning_a_study.Rmd</code></a></small>
       <div class="d-none name"><code>planning_a_study.Rmd</code></div>
@@ -151,6 +151,83 @@ dimensions that answer your question, and look at the cell-size
 distribution before committing.</p>
 </div>
 <div class="section level2">
+<h2 id="one-call-maihda_describe">One call: <code>maihda_describe()</code><a class="anchor" aria-label="anchor" href="#one-call-maihda_describe"></a>
+</h2>
+<p>The checks above — and the rest of a pre-model “Table 1” — come
+bundled in <code><a href="../reference/maihda_describe.html">maihda_describe()</a></code>. It builds the strata with the
+same machinery as <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> (identical stratum IDs,
+labels, and counts), then reports the total and complete-case analytic
+sample, the observed vs. expected strata (empty cells enumerated, small
+cells flagged), each dimension’s distribution, a family-aware outcome
+summary per stratum (proportions for a binary outcome, never a Gaussian
+mean/SD), missingness, and a set of data-quality warnings:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">desc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_describe.html">maihda_describe</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
+<span>                        data <span class="op">=</span> <span class="va">maihda_health_data</span>, flag_stratum_n <span class="op">=</span> <span class="fl">20</span><span class="op">)</span></span>
+<span><span class="va">desc</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">MAIHDA Sample Description</span></span></span>
+<span><span class="co">#&gt; =========================</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Outcome: BMI | Family: gaussian | Summary: mean/SD (gaussian)</span></span>
+<span><span class="co">#&gt; Dimensions: Gender, Race, Education</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Sample:</span></span></span>
+<span><span class="co">#&gt;   Rows (total):                    3,000</span></span>
+<span><span class="co">#&gt;   Missing outcome:                 0 (0.0%)</span></span>
+<span><span class="co">#&gt;   Outside strata (missing dims):   0</span></span>
+<span><span class="co">#&gt;   Analytic sample (complete case): 3,000</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Observed outcome</span> (3,000 non-missing): mean 28.883 (SD 6.743), median 27.865, range 15.800 to 81.250</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Strata</span> (50 observed / 50 expected, 0 empty):</span></span>
+<span><span class="co">#&gt;   Cell sizes: min 1, median 25.5, max 349; 21 strata at/below n = 20 (flagged)</span></span>
+<span><span class="co">#&gt;   Smallest strata:</span></span>
+<span><span class="co">#&gt;     female × Black × 8th Grade             n = 1</span></span>
+<span><span class="co">#&gt;     female × Mexican × College Grad        n = 5</span></span>
+<span><span class="co">#&gt;     female × Other × 9 - 11th Grade        n = 7</span></span>
+<span><span class="co">#&gt;     male × Black × 8th Grade               n = 8</span></span>
+<span><span class="co">#&gt;     female × Other × High School           n = 9</span></span>
+<span><span class="co">#&gt;   (full table in $strata)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Dimensions:</span></span></span>
+<span><span class="co">#&gt;   Gender: female 1,527 (50.9%), male 1,473 (49.1%)</span></span>
+<span><span class="co">#&gt;   Race: Black 336 (11.2%), Hispanic 166 (5.5%), Mexican 242 (8.1%), White</span></span>
+<span><span class="co">#&gt;     2,034 (67.8%), Other 222 (7.4%)</span></span>
+<span><span class="co">#&gt;   Education: 8th Grade 196 (6.5%), 9 - 11th Grade 366 (12.2%), High School</span></span>
+<span><span class="co">#&gt;     632 (21.1%), Some College 960 (32.0%), College Grad 846 (28.2%)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Warnings:</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">  ! 21 strata have n &lt;= 20; smallest: 'female × Black × 8th Grade' (n=1),</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">    'female × Mexican × College Grad' (n=5), 'female × Other × 9 - 11th</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">    Grade' (n=7). Partial pooling shrinks small-stratum estimates toward</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">    the mean; expect wide intervals for these cells.</span></span></span></code></pre></div>
+<p>Every element is an export-ready data frame —
+<code>desc$strata</code> is the per-stratum Table 1, ready for
+<code><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.csv()</a></code> or <code><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">knitr::kable()</a></code>:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">desc</span><span class="op">$</span><span class="va">strata</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">desc</span><span class="op">$</span><span class="va">strata</span><span class="op">$</span><span class="va">n</span><span class="op">)</span>,</span>
+<span>                 <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"label"</span>, <span class="st">"n"</span>, <span class="st">"n_analytic"</span>, <span class="st">"outcome_mean"</span>, <span class="st">"small"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt;                              label  n n_analytic outcome_mean small</span></span>
+<span><span class="co">#&gt; 50      female × Black × 8th Grade  1          1     24.05000  TRUE</span></span>
+<span><span class="co">#&gt; 31 female × Mexican × College Grad  5          5     24.95800  TRUE</span></span>
+<span><span class="co">#&gt; 47 female × Other × 9 - 11th Grade  7          7     24.96143  TRUE</span></span>
+<span><span class="co">#&gt; 33        male × Black × 8th Grade  8          8     25.16000  TRUE</span></span>
+<span><span class="co">#&gt; 32    female × Other × High School  9          9     31.92778  TRUE</span></span>
+<span><span class="co">#&gt; 4      male × Hispanic × 8th Grade 10         10     31.30700  TRUE</span></span></code></pre></div>
+<p>The stratum-size view makes the sparsity of the strata space visible
+at a glance (the dashed line is <code>flag_stratum_n</code>):</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">desc</span>, type <span class="op">=</span> <span class="st">"stratum_size"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="planning_a_study_files/figure-html/describe-plot-1.png" class="r-plt" alt="Histogram of stratum sizes with the small-stratum threshold marked" width="672"></p>
+<p>For a contextual cross-classified design, pass <code>context =</code>
+(as in <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code>) and <code><a href="../reference/maihda_describe.html">maihda_describe()</a></code>
+also tabulates the context units and flags a weakly identified context
+(few levels) before you fit. A fitted <code>maihda_model</code> or
+<code><a href="../reference/maihda.html">maihda()</a></code> analysis can be described the same way —
+<code>maihda_describe(model)</code> — to document the exact analytic
+sample post hoc.</p>
+</div>
+<div class="section level2">
 <h2 id="what-sparse-cells-do-singular-fits">What sparse cells do: singular fits<a class="anchor" aria-label="anchor" href="#what-sparse-cells-do-singular-fits"></a>
 </h2>
 <p>When cells get very small the maximum-likelihood (<code>lme4</code>)
@@ -158,7 +235,7 @@ estimate of the between-stratum variance can collapse to the boundary (
 a singular fit) and report a VPC of (near) zero with no uncertainty. The
 package records this and surfaces it in a “Fit diagnostics” note rather
 than letting it pass silently:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">over</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">60</span>, <span class="op">]</span>       <span class="co"># deliberately too few people per stratum</span></span>
