@@ -2,6 +2,8 @@
 
 ## New Features
 
+* **New `maihda_describe()`: pre-model "Table 1" sample descriptives, built from the same machinery as the model** (#60). The pre-model counterpart of `maihda_table()`: one call reports the total and complete-case analytic sample, observed vs. expected intersectional strata (empty cells enumerated, small cells flagged — never dropped), per-dimension distributions, **family-aware** per-stratum outcome summaries (proportions for a binomial outcome, category scores for an ordinal one — never a Gaussian mean/SD on a 0/1 outcome), missingness accounting, per-unit context tables for a contextual design, weighted counts/means under `sampling_weights`, and concrete data-quality warnings (auto-binned / ID-like / linear-numeric dimensions, sparse strata, concentrated outcome missingness, weakly identified contexts). Strata IDs, labels, and counts are guaranteed to match a subsequent `make_strata()` / `fit_maihda()` / `maihda()` because the strata shorthand, family detection, and analytic row selection are resolved by the same shared internals as the fitters. Accepts a formula + data, or a fitted `maihda_model` / `maihda_analysis` to describe the exact analytic sample post hoc; ships with `print()` and `plot()` methods (`"stratum_size"`, `"outcome"`, `"missingness"`), and every table is an export-ready data frame.
+
 * **`maihda()` and `compare_maihda_groups()` now accept `group` and `context` together (stratified × contextual MAIHDA).** Supplying both now runs the stratified comparison where **each per-group fit is itself a contextual cross-classified model** — `context` is forwarded into every per-group `fit_maihda()` call.
 
 * **`plot(type = "predicted")` gains an `order_by` argument and now orders the strata by predicted value by default (a ranked caterpillar plot).** The predicted-values plot previously drew the strata in native stratum order, while `maihda_table()$strata` already ranked them by predicted outcome.
@@ -15,6 +17,8 @@
 * **`calculate_pvc()` has been renamed to `calculate_pcv()`.** `calculate_pvc()` remains as a deprecated alias that warns and forwards, and will be removed in a future release. The result object carries the estimate in `$pcv` and is classed `c("pcv_result", "pvc_result")`; the old `$pvc` element is kept as a deprecated duplicate, so existing code and objects saved by earlier versions keep working (including `print()`). All internal consumers (`maihda()`, `compare_maihda_groups()`, `maihda_table()`, the tidiers, and the Shiny app), the documentation, and the vignettes now use the corrected name.
 
 ## Bug Fixes
+
+* `fit_maihda()` (and the new `maihda_describe()`) errored on an aggregated binomial outcome combined with the strata shorthand and no covariates — e.g. `cbind(successes, failures) ~ (1 | gender:race)` — because `nobars()` returns a bare call (not a formula) for a call-valued response with a bars-only right-hand side.
 
 * The brms engine's linear-predictor reads were broken under current brms (>= ~2.16): `posterior_linpred()` ignores a `summary = TRUE` argument and returns the raw draws matrix, so several brms paths errored.
 

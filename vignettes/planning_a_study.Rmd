@@ -69,6 +69,43 @@ protects MAIHDA against noisy small strata) but they have consequences (next
 section). A useful rule: choose the fewest dimensions that answer your
 question, and look at the cell-size distribution before committing.
 
+## One call: `maihda_describe()`
+
+The checks above — and the rest of a pre-model "Table 1" — come bundled in
+`maihda_describe()`. It builds the strata with the same machinery as
+`fit_maihda()` (identical stratum IDs, labels, and counts), then reports the
+total and complete-case analytic sample, the observed vs. expected strata
+(empty cells enumerated, small cells flagged), each dimension's distribution, a
+family-aware outcome summary per stratum (proportions for a binary outcome,
+never a Gaussian mean/SD), missingness, and a set of data-quality warnings:
+
+```{r describe}
+desc <- maihda_describe(BMI ~ Age + (1 | Gender:Race:Education),
+                        data = maihda_health_data, flag_stratum_n = 20)
+desc
+```
+
+Every element is an export-ready data frame — `desc$strata` is the per-stratum
+Table 1, ready for `write.csv()` or `knitr::kable()`:
+
+```{r describe-strata}
+head(desc$strata[order(desc$strata$n),
+                 c("label", "n", "n_analytic", "outcome_mean", "small")])
+```
+
+The stratum-size view makes the sparsity of the strata space visible at a
+glance (the dashed line is `flag_stratum_n`):
+
+```{r describe-plot, fig.alt="Histogram of stratum sizes with the small-stratum threshold marked"}
+plot(desc, type = "stratum_size")
+```
+
+For a contextual cross-classified design, pass `context =` (as in
+`fit_maihda()`) and `maihda_describe()` also tabulates the context units and
+flags a weakly identified context (few levels) before you fit. A fitted
+`maihda_model` or `maihda()` analysis can be described the same way —
+`maihda_describe(model)` — to document the exact analytic sample post hoc.
+
 ## What sparse cells do: singular fits
 
 When cells get very small the maximum-likelihood (`lme4`) estimate of the

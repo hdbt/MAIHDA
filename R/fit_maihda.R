@@ -383,74 +383,16 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
                                              formula = formula)
   }
 
-  # Parse formula to find grouping variables. Automatic strata creation is only
-  # safe for the documented shorthand: one intercept-only non-stratum grouping
-  # term such as (1 | gender:race). More complex random-effect structures should
-  # be specified explicitly after calling make_strata().
-  re_terms <- reformulas::findbars(formula)
-  strata_info <- attr(data, "strata_info")
-  strata_vars <- attr(data, "strata_vars")
-  if (is.null(strata_vars) || length(strata_vars) == 0) {
-    strata_vars <- maihda_infer_strata_vars(strata_info)
-  }
-  strata_sep <- attr(data, "strata_sep")
-  strata_autobin_info <- attr(data, "strata_autobin_info")
-
-  if (length(re_terms) > 0) {
-    grouping_vars_by_term <- lapply(re_terms, function(x) all.vars(x[[3]]))
-    grouping_vars <- unique(unlist(grouping_vars_by_term, use.names = FALSE))
-    has_stratum_group <- any(vapply(grouping_vars_by_term, function(vars) {
-      identical(vars, "stratum")
-    }, logical(1)))
-
-    if (!has_stratum_group) {
-      if (length(re_terms) != 1) {
-        stop("Automatic strata creation only supports a single intercept-only random effect, ",
-             "for example (1 | gender:race). For more complex random-effects structures, ",
-             "call make_strata() first and include (1 | stratum) explicitly.",
-             call. = FALSE)
-      }
-
-      random_lhs <- paste(deparse(re_terms[[1]][[2]]), collapse = " ")
-      if (random_lhs != "1") {
-        stop("Automatic strata creation only supports intercept-only random effects, ",
-             "for example (1 | gender:race).",
-             call. = FALSE)
-      }
-
-      if (!maihda_is_colon_interaction(re_terms[[1]][[3]])) {
-        stop("Automatic strata creation supports a single variable or a colon ",
-             "interaction such as (1 | gender:race). For other grouping expressions ",
-             "(e.g. interaction(), paste(), cut()), call make_strata() first and use ",
-             "(1 | stratum).", call. = FALSE)
-      }
-
-      strata_vars <- grouping_vars_by_term[[1]]
-      missing_grouping_vars <- setdiff(strata_vars, names(data))
-      if (length(missing_grouping_vars) > 0) {
-        stop("Grouping variables not found in data: ",
-             paste(missing_grouping_vars, collapse = ", "), call. = FALSE)
-      }
-      if ("stratum" %in% names(data)) {
-        stop("Automatic strata creation would overwrite an existing 'stratum' column. ",
-             "Use the existing (1 | stratum) model or rename/remove that column first.",
-             call. = FALSE)
-      }
-
-      strata_result <- make_strata(data, vars = strata_vars, autobin = autobin)
-      data$stratum <- strata_result$data$stratum
-      strata_info <- strata_result$strata_info
-      strata_sep <- strata_result$sep
-      strata_autobin_info <- strata_result$autobin_info
-      attr(data, "strata_info") <- strata_info
-      attr(data, "strata_vars") <- strata_vars
-      attr(data, "strata_sep") <- strata_sep
-      attr(data, "strata_autobin_info") <- strata_autobin_info
-
-      fixed_formula <- reformulas::nobars(formula)
-      formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
-    }
-  }
+  # Parse formula to find grouping variables and resolve the strata shorthand.
+  # Shared with maihda_describe(), so the pre-model description is built from
+  # exactly the same parsing/strata machinery as the fit.
+  strata_res <- maihda_resolve_strata_formula(formula, data, autobin)
+  formula <- strata_res$formula
+  data <- strata_res$data
+  strata_info <- strata_res$strata_info
+  strata_vars <- strata_res$strata_vars
+  strata_sep <- strata_res$strata_sep
+  strata_autobin_info <- strata_res$autobin_info
 
   # Longitudinal growth structure: now that the stratum grouping is resolved,
   # replace the random part with the canonical 3-level growth blocks
@@ -518,64 +460,13 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # appended again.
   context_info <- NULL
   if (!is.null(context)) {
-    re_terms_now <- reformulas::findbars(formula)
-    grouping_vars_now <- unique(unlist(
-      lapply(re_terms_now, function(x) all.vars(x[[3]])), use.names = FALSE))
-    if (!"stratum" %in% grouping_vars_now) {
-      stop("'context' adds a crossed contextual random effect alongside the ",
-           "intersectional stratum effect, but the formula has no stratum random ",
-           "effect. Use the shorthand (1 | var1:var2) or include (1 | stratum).",
-           call. = FALSE)
-    }
-    clash_dims <- intersect(context, strata_vars)
-    if (length(clash_dims) > 0) {
-      stop("Context variable(s) ", paste(clash_dims, collapse = ", "),
-           " also define the intersectional strata. A variable cannot be both a ",
-           "stratum dimension and a higher-level context; remove it from one of ",
-           "the two roles.", call. = FALSE)
-    }
-    clash_fixed <- intersect(context, all.vars(reformulas::nobars(formula)[[3]]))
-    if (length(clash_fixed) > 0) {
-      stop("Context variable(s) ", paste(clash_fixed, collapse = ", "),
-           " already appear in the fixed part of the formula, which would absorb ",
-           "the context variance the contextual partition is meant to estimate. ",
-           "Supply the context only via 'context', or only as a fixed effect, ",
-           "not both.", call. = FALSE)
-    }
-    context_to_add <- setdiff(context, grouping_vars_now)
-    if (length(context_to_add) > 0) {
-      re_add <- paste(
-        sprintf("(1 | %s)",
-                vapply(context_to_add, maihda_quote_name, character(1))),
-        collapse = " + ")
-      formula <- stats::update(formula,
-                               stats::as.formula(paste(". ~ . +", re_add)))
-    }
+    formula <- maihda_apply_context_formula(formula, context, strata_vars)
     context_info <- list(context_vars = context)
   }
 
-  # Convert family to family object if it's a string or constructor function.
-  # "negbinomial" (the brms spelling) resolves to a plain marker list rather
-  # than a stats family object: there is no theta-free negative-binomial family
-  # constructor in stats -- lme4 estimates theta itself via glmer.nb() and brms
-  # via its 'shape' parameter, so no theta is needed (or wanted) here.
-  if (is.character(family)) {
-    family <- switch(family,
-                     gaussian = gaussian(),
-                     binomial = binomial(),
-                     poisson = poisson(),
-                     negbinomial = list(family = "negbinomial", link = "log"),
-                     ordinal = ,
-                     cumulative = maihda_cumulative("logit"),
-                     stop("Unsupported family: ", family))
-  } else if (is.function(family)) {
-    family <- family()
-  }
-
-  if (!is.list(family) || is.null(family$family) || is.null(family$link)) {
-    stop("'family' must be a family name, family object, or family function.",
-         call. = FALSE)
-  }
+  # Convert family to family object if it's a string or constructor function
+  # (shared with maihda_describe(), so both resolve a family spec identically).
+  family <- maihda_resolve_family_spec(family)
 
   # Recompute on the RESOLVED family (the handshake above peeked at the raw
   # input) and validate the cumulative link: the latent-scale VPC is defined for
@@ -848,6 +739,168 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   }
 
   return(result)
+}
+
+# Resolve the intersectional-strata shorthand in a MAIHDA formula. Automatic
+# strata creation is only safe for the documented shorthand: one intercept-only
+# non-stratum grouping term such as (1 | gender:race); more complex
+# random-effect structures must be specified explicitly after calling
+# make_strata(). When the shorthand is present, make_strata() builds the strata,
+# `data` gains the stratum column (plus the strata_* attributes), and the
+# formula's grouping term is rewritten to (1 | stratum); a formula that already
+# groups on `stratum` passes through, picking up any strata_* attributes that
+# make_strata() attached to `data`. Shared by fit_maihda() and
+# maihda_describe() so the pre-model description and the fit build their strata
+# from the same machinery -- identical IDs, labels, counts, and validation.
+maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE) {
+  re_terms <- reformulas::findbars(formula)
+  strata_info <- attr(data, "strata_info")
+  strata_vars <- attr(data, "strata_vars")
+  if (is.null(strata_vars) || length(strata_vars) == 0) {
+    strata_vars <- maihda_infer_strata_vars(strata_info)
+  }
+  strata_sep <- attr(data, "strata_sep")
+  strata_autobin_info <- attr(data, "strata_autobin_info")
+
+  if (length(re_terms) > 0) {
+    grouping_vars_by_term <- lapply(re_terms, function(x) all.vars(x[[3]]))
+    has_stratum_group <- any(vapply(grouping_vars_by_term, function(vars) {
+      identical(vars, "stratum")
+    }, logical(1)))
+
+    if (!has_stratum_group) {
+      if (length(re_terms) != 1) {
+        stop("Automatic strata creation only supports a single intercept-only random effect, ",
+             "for example (1 | gender:race). For more complex random-effects structures, ",
+             "call make_strata() first and include (1 | stratum) explicitly.",
+             call. = FALSE)
+      }
+
+      random_lhs <- paste(deparse(re_terms[[1]][[2]]), collapse = " ")
+      if (random_lhs != "1") {
+        stop("Automatic strata creation only supports intercept-only random effects, ",
+             "for example (1 | gender:race).",
+             call. = FALSE)
+      }
+
+      if (!maihda_is_colon_interaction(re_terms[[1]][[3]])) {
+        stop("Automatic strata creation supports a single variable or a colon ",
+             "interaction such as (1 | gender:race). For other grouping expressions ",
+             "(e.g. interaction(), paste(), cut()), call make_strata() first and use ",
+             "(1 | stratum).", call. = FALSE)
+      }
+
+      strata_vars <- grouping_vars_by_term[[1]]
+      missing_grouping_vars <- setdiff(strata_vars, names(data))
+      if (length(missing_grouping_vars) > 0) {
+        stop("Grouping variables not found in data: ",
+             paste(missing_grouping_vars, collapse = ", "), call. = FALSE)
+      }
+      if ("stratum" %in% names(data)) {
+        stop("Automatic strata creation would overwrite an existing 'stratum' column. ",
+             "Use the existing (1 | stratum) model or rename/remove that column first.",
+             call. = FALSE)
+      }
+
+      strata_result <- make_strata(data, vars = strata_vars, autobin = autobin)
+      data$stratum <- strata_result$data$stratum
+      strata_info <- strata_result$strata_info
+      strata_sep <- strata_result$sep
+      strata_autobin_info <- strata_result$autobin_info
+      attr(data, "strata_info") <- strata_info
+      attr(data, "strata_vars") <- strata_vars
+      attr(data, "strata_sep") <- strata_sep
+      attr(data, "strata_autobin_info") <- strata_autobin_info
+
+      fixed_formula <- reformulas::nobars(formula)
+      if (!inherits(fixed_formula, "formula")) {
+        # nobars() returns the bare response CALL (not a formula) when a
+        # call-valued response (e.g. cbind(successes, failures)) is combined
+        # with a bars-only right-hand side; rebuild `<response> ~ 1` so the
+        # update below has a formula to work on.
+        fixed_formula <- stats::as.formula(call("~", formula[[2]], 1),
+                                           env = environment(formula))
+      }
+      formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
+    }
+  }
+
+  list(formula = formula, data = data, strata_info = strata_info,
+       strata_vars = strata_vars, strata_sep = strata_sep,
+       autobin_info = strata_autobin_info)
+}
+
+# Append the contextual cross-classified random intercept(s) to a formula whose
+# stratum grouping is already resolved, validating the roles first: the formula
+# must carry a stratum random effect, and a context variable may not double as a
+# stratum dimension or as a fixed-effect term (either would absorb the variance
+# the contextual partition is meant to estimate). Idempotent: a context that is
+# already a random-effect grouping (e.g. a maihda() refit of a derived formula
+# that carries the context term) is validated but not appended again. Shared by
+# fit_maihda() and maihda_describe().
+maihda_apply_context_formula <- function(formula, context, strata_vars) {
+  re_terms_now <- reformulas::findbars(formula)
+  grouping_vars_now <- unique(unlist(
+    lapply(re_terms_now, function(x) all.vars(x[[3]])), use.names = FALSE))
+  if (!"stratum" %in% grouping_vars_now) {
+    stop("'context' adds a crossed contextual random effect alongside the ",
+         "intersectional stratum effect, but the formula has no stratum random ",
+         "effect. Use the shorthand (1 | var1:var2) or include (1 | stratum).",
+         call. = FALSE)
+  }
+  clash_dims <- intersect(context, strata_vars)
+  if (length(clash_dims) > 0) {
+    stop("Context variable(s) ", paste(clash_dims, collapse = ", "),
+         " also define the intersectional strata. A variable cannot be both a ",
+         "stratum dimension and a higher-level context; remove it from one of ",
+         "the two roles.", call. = FALSE)
+  }
+  clash_fixed <- intersect(context, all.vars(reformulas::nobars(formula)[[3]]))
+  if (length(clash_fixed) > 0) {
+    stop("Context variable(s) ", paste(clash_fixed, collapse = ", "),
+         " already appear in the fixed part of the formula, which would absorb ",
+         "the context variance the contextual partition is meant to estimate. ",
+         "Supply the context only via 'context', or only as a fixed effect, ",
+         "not both.", call. = FALSE)
+  }
+  context_to_add <- setdiff(context, grouping_vars_now)
+  if (length(context_to_add) > 0) {
+    re_add <- paste(
+      sprintf("(1 | %s)",
+              vapply(context_to_add, maihda_quote_name, character(1))),
+      collapse = " + ")
+    formula <- stats::update(formula,
+                             stats::as.formula(paste(". ~ . +", re_add)))
+  }
+  formula
+}
+
+# Resolve a user family specification (name string, family/constructor function,
+# or family-like list) to the family object the engines and summaries consume.
+# "negbinomial" (the brms spelling) resolves to a plain marker list rather than
+# a stats family object: there is no theta-free negative-binomial family
+# constructor in stats -- lme4 estimates theta itself via glmer.nb() and brms
+# via its 'shape' parameter, so no theta is needed (or wanted) here. Shared by
+# fit_maihda() and maihda_describe().
+maihda_resolve_family_spec <- function(family) {
+  if (is.character(family)) {
+    family <- switch(family,
+                     gaussian = gaussian(),
+                     binomial = binomial(),
+                     poisson = poisson(),
+                     negbinomial = list(family = "negbinomial", link = "log"),
+                     ordinal = ,
+                     cumulative = maihda_cumulative("logit"),
+                     stop("Unsupported family: ", family))
+  } else if (is.function(family)) {
+    family <- family()
+  }
+
+  if (!is.list(family) || is.null(family$family) || is.null(family$link)) {
+    stop("'family' must be a family name, family object, or family function.",
+         call. = FALSE)
+  }
+  family
 }
 
 # Re-slice forwarded engine arguments after a pre-fit row drop. The `...` values
