@@ -42,8 +42,10 @@ socioeconomic status).
   pseudo-maximum likelihood via `engine = "wemix"` or a brms
   pseudo-posterior via `engine = "brms"`.
 - **Summaries & Decompositions**: Variance partition coefficients
-  (VPC/ICC), stratum-specific estimates, and stepwise Proportional
-  Change in Variance (PCV)
+  (VPC/ICC), stratum-specific estimates, stepwise Proportional Change in
+  Variance (PCV), and order-invariant PCV attribution via Shapley values
+  / dominance analysis
+  ([`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md))
 - **Multiple Prediction Types**: Individual-level and stratum-level
   predictions
 - **Visualizations**: Predicted stratum values, VPC visualizations,
@@ -275,6 +277,25 @@ added. Pass `context =` to run it as a contextual cross-classified model
 `maihda(context = )`): the reported PCV is then net of the context, and
 a `Context_Variance` column surfaces the between-context share.
 
+### `pcv_importance()`
+
+The order-*invariant* counterpart of
+[`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md):
+apportions the full-model PCV fairly across the predictors, so each
+variable’s contribution no longer depends on its entry order.
+`method = "shapley"` (default) averages each variable’s marginal PCV
+over all entry orders — exact up to ~10 variables (all subset models fit
+once and cached), Monte-Carlo permutation sampling with per-variable MC
+standard errors beyond; `method = "dominance"` adds Budescu’s
+conditional/complete dominance detail (general dominance = the Shapley
+values); `method = "sequential"` reproduces the order-dependent path.
+Contributions are signed (a suppressor shows up as negative) and always
+sum exactly to the full-model Total PCV (the Shapley efficiency
+property). Attribute among the stratum dimensions to split the additive
+share across dimensions, or among covariates as an order-free
+variance-importance measure; optional parametric-bootstrap CIs per
+contribution (`bootstrap = TRUE`, lme4 only).
+
 ### Longitudinal (growth-curve) MAIHDA
 
 Supply `id` and `time` to
@@ -374,6 +395,36 @@ stepwise_results <- stepwise_pcv(
   vars = c("gender", "race", "age")
 )
 print(stepwise_results)
+```
+
+## Order-Invariant PCV Attribution (Shapley / Dominance)
+
+[`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)’s
+step contributions depend on the order the variables enter.
+[`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+removes that dependence: it averages each variable’s marginal PCV over
+all entry orders (Shapley values — the multilevel-PCV analogue of the
+LMG/`relaimpo` R-squared decomposition), with dominance analysis and the
+sequential path available under the same roof.
+
+``` r
+
+imp <- pcv_importance(
+  data = data,
+  outcome = "health_outcome",
+  vars = c("gender", "race", "age")   # order does not matter
+)
+print(imp)   # signed contributions; sum = full-model Total PCV (efficiency)
+plot(imp)    # bar chart of the attribution
+
+# Budescu dominance analysis: adds conditional / complete dominance detail
+pcv_importance(data, "health_outcome", c("gender", "race", "age"),
+               method = "dominance")
+
+# Monte-Carlo Shapley for many variables (exact needs 2^k - 1 subset fits)
+set.seed(1)
+pcv_importance(data, "health_outcome", many_vars,
+               approx = "montecarlo", n_perm = 2000)
 ```
 
 ## Tidy output (`broom`)
@@ -558,6 +609,9 @@ A BibTeX entry for LaTeX users is:
   : Response-scale VPC for a binomial MAIHDA model
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   : Create Strata from Multiple Variables
+- [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  : Order-Invariant PCV Attribution Across Predictors (Shapley /
+  Dominance)
 - [`plot(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_analysis.md)
   : Plot a MAIHDA Analysis
 - [`plot(`*`<maihda_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_comparison.md)
@@ -568,6 +622,8 @@ A BibTeX entry for LaTeX users is:
   : Plot a MAIHDA Group Comparison
 - [`plot(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)
   : Plot MAIHDA Model Results
+- [`plot(`*`<maihda_pcv_importance>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_pcv_importance.md)
+  : Plot a PCV importance attribution
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   : Plot Prediction Deviation Panels
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
@@ -586,6 +642,8 @@ A BibTeX entry for LaTeX users is:
   : Print a longitudinal MAIHDA PCV
 - [`print(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_model.md)
   : Print method for maihda_model
+- [`print(`*`<maihda_pcv_importance>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_pcv_importance.md)
+  : Print a PCV importance attribution
 - [`print(`*`<maihda_stepwise>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_stepwise.md)
   : Print a stepwise MAIHDA table
 - [`print(`*`<maihda_strata>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_strata.md)

@@ -87,11 +87,13 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_wemix_stratum_ranef.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_wemix_variances.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/make_strata.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/pcv_importance.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_analysis.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_comparison.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_describe.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_group_comparison.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_pcv_importance.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_comparison.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_context_vpc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_effect_decomposition.html</loc></url>
@@ -114,6 +116,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_interactions.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_long_pcv.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_model.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_pcv_importance.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_stepwise.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_strata.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/print.maihda_summary.html</loc></url>

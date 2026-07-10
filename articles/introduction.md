@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x56250c7cd8a0>
+#> <environment: 0x564a0b008250>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x56250ada68c8>
+#> <environment: 0x564a095e2b68>
 ```
 
 The returned object carries everything: the full variance components,
@@ -481,6 +481,61 @@ is a model-dependent change in variance, not proof that a hidden
 structural inequality was causally revealed (a negative PCV can also
 reflect suppression, rescaling, sample composition, or estimation
 uncertainty).
+
+### Order-invariant attribution: Shapley values and dominance analysis
+
+The stepwise table is order-dependent by construction: each step’s PCV
+is a variable’s contribution *given the variables already entered*, so
+reordering `vars` changes the answer.
+[`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+removes that dependence. It treats the PCV as a value function over
+variable subsets and averages each variable’s marginal PCV over all
+entry orders (Shapley values – the multilevel-PCV analogue of the LMG /
+`relaimpo` decomposition of R-squared). Passing the stratum dimensions
+splits the *additive share* fairly across them – which dimension drives
+the additive between-stratum inequality:
+
+``` r
+
+imp <- pcv_importance(
+  data    = analysis$model$original_data,
+  outcome = "BMI",
+  vars    = c("Gender", "Race", "Education")   # order does not matter
+)
+print(imp)
+#> PCV Attribution Across Predictors
+#> =================================
+#> 
+#> Method:  Shapley values (exact)
+#> Outcome: BMI   Engine: lme4 (gaussian(identity))
+#> Analytic sample: 2792 observations; 8 models fit (incl. null).
+#> 
+#> Between-stratum variance: null 2.830755 -> full model 0.491811
+#> Total PCV (null -> all variables): 0.8263
+#> 
+#>   Variable Contribution  Share
+#>     Gender       0.0033  +0.4%
+#>       Race       0.5718 +69.2%
+#>  Education       0.2512 +30.4%
+#>      Total       0.8263 100.0%
+#> 
+#> Contributions are shares of the null model's between-stratum variance
+#> explained (the PCV scale) and sum to the full-model Total PCV (efficiency).
+#> 
+plot(imp)
+```
+
+![](introduction_files/figure-html/bb-importance-1.png)
+
+The contributions are signed (a suppressor comes out negative, exactly
+as in the stepwise table) and always sum to the full-model Total PCV, so
+the attribution is exhaustive. `method = "dominance"` adds Budescu’s
+conditional/complete dominance detail, `method = "sequential"`
+reproduces the order-dependent path, and for many variables
+`approx = "montecarlo"` replaces the exponential number of exact subset
+fits with permutation sampling
+([`?pcv_importance`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+for the costs and the latent-scale caveat for binary outcomes).
 
 ### Discriminatory accuracy and the response-scale VPC
 

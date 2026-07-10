@@ -62,6 +62,44 @@ CRAN release: 2026-07-09
   gains a `context` argument for a contextual cross-classified stepwise
   PCV.**
 
+- **New
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md):
+  order-invariant PCV attribution via Shapley values and dominance
+  analysis** ([\#63](https://github.com/hdbt/MAIHDA/issues/63)).
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)’s
+  per-step PCV depends on the entry order of the variables;
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  treats the PCV as a value function over variable subsets,
+  `v(S) = (V0 − V(S)) / V0`, and apportions the full-model Total PCV
+  fairly across the predictors. `method = "shapley"` (the default)
+  averages each variable’s marginal PCV over all entry orders — exact up
+  to ~10 variables (every subset model fit once and cached), with a
+  Monte-Carlo permutation approximation (`approx = "montecarlo"`,
+  per-variable MC standard errors and a convergence warning) beyond;
+  `method = "dominance"` adds Budescu’s conditional and complete
+  dominance detail (general dominance coincides with the Shapley
+  values); `method = "sequential"` keeps the order-dependent path for
+  continuity. All methods satisfy the efficiency identity — the
+  contributions sum exactly to the full-model Total PCV — and are
+  reported *signed*, so a suppressor variable shows up as negative
+  rather than being normalised away. Attribute among the stratum
+  dimensions to split the additive share (“which dimension drives the
+  additive between-stratum inequality”), or among individual-level
+  covariates as the order-free counterpart of
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  (the latent-scale rescaling caveat of
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  carries over for non-Gaussian families). Full parity with
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  on `engine`/`family`/`context`/`sampling_weights`, the shared
+  complete-case analytic sample, and auto-binned dimension
+  reconstruction — the two functions now literally share their setup
+  code. Optional parametric-bootstrap CIs per contribution
+  (`bootstrap = TRUE`; lme4 + exact attribution only, costing `n_boot ×`
+  the number of subset models). Ships with
+  [`print()`](https://rdrr.io/r/base/print.html) and
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods.
+
 ### API Changes
 
 - **[`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)

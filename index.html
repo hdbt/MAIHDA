@@ -98,7 +98,7 @@
 <li>
 <strong>Design-Weighted MAIHDA</strong>: Survey/sampling weights via <code>sampling_weights</code> fit a population-weighted model using WeMix pseudo-maximum likelihood via <code>engine = "wemix"</code> or a brms pseudo-posterior via <code>engine = "brms"</code>.</li>
 <li>
-<strong>Summaries &amp; Decompositions</strong>: Variance partition coefficients (VPC/ICC), stratum-specific estimates, and stepwise Proportional Change in Variance (PCV)</li>
+<strong>Summaries &amp; Decompositions</strong>: Variance partition coefficients (VPC/ICC), stratum-specific estimates, stepwise Proportional Change in Variance (PCV), and order-invariant PCV attribution via Shapley values / dominance analysis (<code><a href="reference/pcv_importance.html">pcv_importance()</a></code>)</li>
 <li>
 <strong>Multiple Prediction Types</strong>: Individual-level and stratum-level predictions</li>
 <li>
@@ -267,6 +267,12 @@
 <p>Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step’s PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model. For a binary outcome it also reports the discriminatory-accuracy trajectory (<code>AUC</code>, the step/total change in AUC, and <code>MOR</code>) alongside the PCV, so the strata’s discriminatory accuracy can be tracked as covariates are added. Pass <code>context =</code> to run it as a contextual cross-classified model (a <code>(1 | context)</code> intercept held in every step, as in <code>maihda(context = )</code>): the reported PCV is then net of the context, and a <code>Context_Variance</code> column surfaces the between-context share.</p>
 </div>
 <div class="section level3">
+<h3 id="pcv_importance">
+<code>pcv_importance()</code><a class="anchor" aria-label="anchor" href="#pcv_importance"></a>
+</h3>
+<p>The order-<em>invariant</em> counterpart of <code><a href="reference/stepwise_pcv.html">stepwise_pcv()</a></code>: apportions the full-model PCV fairly across the predictors, so each variable’s contribution no longer depends on its entry order. <code>method = "shapley"</code> (default) averages each variable’s marginal PCV over all entry orders — exact up to ~10 variables (all subset models fit once and cached), Monte-Carlo permutation sampling with per-variable MC standard errors beyond; <code>method = "dominance"</code> adds Budescu’s conditional/complete dominance detail (general dominance = the Shapley values); <code>method = "sequential"</code> reproduces the order-dependent path. Contributions are signed (a suppressor shows up as negative) and always sum exactly to the full-model Total PCV (the Shapley efficiency property). Attribute among the stratum dimensions to split the additive share across dimensions, or among covariates as an order-free variance-importance measure; optional parametric-bootstrap CIs per contribution (<code>bootstrap = TRUE</code>, lme4 only).</p>
+</div>
+<div class="section level3">
 <h3 id="longitudinal-growth-curve-maihda">Longitudinal (growth-curve) MAIHDA<a class="anchor" aria-label="anchor" href="#longitudinal-growth-curve-maihda"></a>
 </h3>
 <p>Supply <code>id</code> and <code>time</code> to <code><a href="reference/fit_maihda.html">fit_maihda()</a></code>/<code><a href="reference/maihda.html">maihda()</a></code> for a 3-level growth-curve MAIHDA (occasions within individuals within strata, with random intercept <em>and</em> slope on time at both levels), the life-course extension of Bell, Evans, Holman &amp; Leckie (2024). The between-stratum VPC is then time-varying, and <code>maihda(decomposition = "longitudinal")</code> reports the PCV separately for the baseline (intercept) and the slope variance — the additive-vs-multiplicative split of the intersectional <em>trajectory</em> inequality.</p>
@@ -348,10 +354,32 @@
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">stepwise_results</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="order-invariant-pcv-attribution-shapley--dominance">Order-Invariant PCV Attribution (Shapley / Dominance)<a class="anchor" aria-label="anchor" href="#order-invariant-pcv-attribution-shapley--dominance"></a>
+</h2>
+<p><code><a href="reference/stepwise_pcv.html">stepwise_pcv()</a></code>’s step contributions depend on the order the variables enter. <code><a href="reference/pcv_importance.html">pcv_importance()</a></code> removes that dependence: it averages each variable’s marginal PCV over all entry orders (Shapley values — the multilevel-PCV analogue of the LMG/<code>relaimpo</code> R-squared decomposition), with dominance analysis and the sequential path available under the same roof.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">imp</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pcv_importance.html">pcv_importance</a></span><span class="op">(</span></span>
+<span>  data <span class="op">=</span> <span class="va">data</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="st">"health_outcome"</span>,</span>
+<span>  vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span>, <span class="st">"age"</span><span class="op">)</span>   <span class="co"># order does not matter</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">imp</span><span class="op">)</span>   <span class="co"># signed contributions; sum = full-model Total PCV (efficiency)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">imp</span><span class="op">)</span>    <span class="co"># bar chart of the attribution</span></span>
+<span></span>
+<span><span class="co"># Budescu dominance analysis: adds conditional / complete dominance detail</span></span>
+<span><span class="fu"><a href="reference/pcv_importance.html">pcv_importance</a></span><span class="op">(</span><span class="va">data</span>, <span class="st">"health_outcome"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span>, <span class="st">"age"</span><span class="op">)</span>,</span>
+<span>               method <span class="op">=</span> <span class="st">"dominance"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Monte-Carlo Shapley for many variables (exact needs 2^k - 1 subset fits)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/pcv_importance.html">pcv_importance</a></span><span class="op">(</span><span class="va">data</span>, <span class="st">"health_outcome"</span>, <span class="va">many_vars</span>,</span>
+<span>               approx <span class="op">=</span> <span class="st">"montecarlo"</span>, n_perm <span class="op">=</span> <span class="fl">2000</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="tidy-output-broom">Tidy output (<code>broom</code>)<a class="anchor" aria-label="anchor" href="#tidy-output-broom"></a>
 </h2>
 <p><code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code> and <code><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance()</a></code> methods turn a fitted model or analysis into tidy data for tables (<code>gt</code>, <code>flextable</code>) and <code>ggplot2</code>, reading the quantities <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> already computes (no new statistics, no refit):</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>                   data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span>
 <span></span>
@@ -375,7 +403,7 @@
 </h2>
 <p>You can access a live, cloud-hosted version of the MAIHDA interactive dashboard directly in your browser without installing R: <strong><a href="https://hdbt.shinyapps.io/shiny/" class="external-link">https://hdbt.shinyapps.io/shiny/</a></strong></p>
 <p>Alternatively, you can run all analyses described above in the browser locally by typing:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hdbt/MAIHDA" class="external-link">MAIHDA</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -383,7 +411,7 @@
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
 </h2>
 <p>For detailed documentation and examples, see the package vignette:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/vignette.html" class="external-link">vignette</a></span><span class="op">(</span><span class="st">"introduction"</span>, package <span class="op">=</span> <span class="st">"MAIHDA"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -435,14 +463,14 @@
 <p>If you use this package in your research, please cite:</p>
 <pre class="text"><code>Bulut (2025). *MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy.* R package version 0.2.1, https://github.com/hdbt/MAIHDA. doi: 10.32614/CRAN.package.MAIHDA</code></pre>
 <p>A BibTeX entry for LaTeX users is:</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="va">@Manual</span>{<span class="ot">Bulut2025MAIHDA</span>,</span>
-<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="dt">title</span>  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},</span>
-<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="dt">author</span> = {Hamid Bulut},</span>
-<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>  <span class="dt">year</span>   = {2025},</span>
-<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.2.1},</span>
-<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>  <span class="dt">url</span>    = {https://github.com/hdbt/MAIHDA},</span>
-<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>  <span class="dt">doi</span>    = {10.32614/CRAN.package.MAIHDA}</span>
-<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="va">@Manual</span>{<span class="ot">Bulut2025MAIHDA</span>,</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>  <span class="dt">title</span>  = {MAIHDA: Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy},</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>  <span class="dt">author</span> = {Hamid Bulut},</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>  <span class="dt">year</span>   = {2025},</span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>  <span class="dt">note</span>   = {R package version 0.2.1},</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>  <span class="dt">url</span>    = {https://github.com/hdbt/MAIHDA},</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>  <span class="dt">doi</span>    = {10.32614/CRAN.package.MAIHDA}</span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>}</span></code></pre></div>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">

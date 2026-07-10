@@ -186,10 +186,10 @@ deriving the null by dropping them. (Omit them –
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>        <span class="co"># null:     BMI ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x56250c7cd8a0&gt;</span></span>
+<span><span class="co">#&gt; &lt;environment: 0x564a0b008250&gt;</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>  <span class="co"># adjusted: BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x56250ada68c8&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x564a095e2b68&gt;</span></span></code></pre></div>
 <p>The returned object carries everything: the full variance components,
 the PCV decomposition, and both fitted models.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -507,6 +507,58 @@ reflect suppression, rescaling, sample composition, or estimation
 uncertainty).</p>
 </div>
 <div class="section level3">
+<h3 id="order-invariant-attribution-shapley-values-and-dominance-analysis">Order-invariant attribution: Shapley values and dominance
+analysis<a class="anchor" aria-label="anchor" href="#order-invariant-attribution-shapley-values-and-dominance-analysis"></a>
+</h3>
+<p>The stepwise table is order-dependent by construction: each step’s
+PCV is a variable’s contribution <em>given the variables already
+entered</em>, so reordering <code>vars</code> changes the answer.
+<code><a href="../reference/pcv_importance.html">pcv_importance()</a></code> removes that dependence. It treats the PCV
+as a value function over variable subsets and averages each variable’s
+marginal PCV over all entry orders (Shapley values – the multilevel-PCV
+analogue of the LMG / <code>relaimpo</code> decomposition of R-squared).
+Passing the stratum dimensions splits the <em>additive share</em> fairly
+across them – which dimension drives the additive between-stratum
+inequality:</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">imp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pcv_importance.html">pcv_importance</a></span><span class="op">(</span></span>
+<span>  data    <span class="op">=</span> <span class="va">analysis</span><span class="op">$</span><span class="va">model</span><span class="op">$</span><span class="va">original_data</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="st">"BMI"</span>,</span>
+<span>  vars    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Gender"</span>, <span class="st">"Race"</span>, <span class="st">"Education"</span><span class="op">)</span>   <span class="co"># order does not matter</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">imp</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">PCV Attribution Across Predictors</span></span></span>
+<span><span class="co">#&gt; =================================</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Method:  <span style="color: #D78700;">Shapley values (exact)</span></span></span>
+<span><span class="co">#&gt; Outcome: BMI   Engine: lme4 (gaussian(identity))</span></span>
+<span><span class="co">#&gt; Analytic sample: 2792 observations; 8 models fit (incl. null).</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Between-stratum variance: null 2.830755 -&gt; full model 0.491811</span></span>
+<span><span class="co">#&gt; Total PCV (null -&gt; all variables): <span style="color: #D78700;">0.8263</span></span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   Variable Contribution  Share</span></span>
+<span><span class="co">#&gt;     Gender       0.0033  +0.4%</span></span>
+<span><span class="co">#&gt;       Race       0.5718 +69.2%</span></span>
+<span><span class="co">#&gt;  Education       0.2512 +30.4%</span></span>
+<span><span class="co">#&gt;      Total       0.8263 100.0%</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; Contributions are shares of the null model's between-stratum variance</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; explained (the PCV scale) and sum to the full-model Total PCV (efficiency).</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">imp</span><span class="op">)</span></span></code></pre></div>
+<p><img src="introduction_files/figure-html/bb-importance-1.png" class="r-plt" alt="" width="672"></p>
+<p>The contributions are signed (a suppressor comes out negative,
+exactly as in the stepwise table) and always sum to the full-model Total
+PCV, so the attribution is exhaustive. <code>method = "dominance"</code>
+adds Budescu’s conditional/complete dominance detail,
+<code>method = "sequential"</code> reproduces the order-dependent path,
+and for many variables <code>approx = "montecarlo"</code> replaces the
+exponential number of exact subset fits with permutation sampling
+(<code><a href="../reference/pcv_importance.html">?pcv_importance</a></code> for the costs and the latent-scale caveat
+for binary outcomes).</p>
+</div>
+<div class="section level3">
 <h3 id="discriminatory-accuracy-and-the-response-scale-vpc">Discriminatory accuracy and the response-scale VPC<a class="anchor" aria-label="anchor" href="#discriminatory-accuracy-and-the-response-scale-vpc"></a>
 </h3>
 <p>For a binary outcome the discriminatory accuracy (AUC / C-statistic
@@ -518,7 +570,7 @@ estimated by simulation, so it is opt-in: add
 <code>response_vpc = TRUE</code> (with a <code>seed</code>). You can
 still call the helpers directly on the fitted models when you want them
 on their own:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># A binary-outcome analysis</span></span>
 <span><span class="va">ob</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">Obese</span> <span class="op">~</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
 <span>             response_vpc <span class="op">=</span> <span class="cn">TRUE</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
@@ -540,7 +592,7 @@ this discriminatory-accuracy recipe in full.</p>
 <code>maihda(group = ...)</code> calls under the hood. Use it directly
 for the same stratified comparison without the rest of the one-call
 pipeline:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"maihda_country_data"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/compare_maihda_groups.html">compare_maihda_groups</a></span><span class="op">(</span><span class="va">math</span> <span class="op">~</span> <span class="fl">1</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ses</span><span class="op">)</span>,</span>
 <span>                      data <span class="op">=</span> <span class="va">maihda_country_data</span>, group <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span></code></pre></div>
@@ -584,7 +636,7 @@ Dashboard.</p>
 <p>You can upload your own data (CSV, SPSS <code>.sav</code>, Stata
 <code>.dta</code>), dynamically select variables, and compute Stepwise
 PCV tables and prediction plots.</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Launch the interactive interface</span></span>
 <span><span class="fu"><a href="../reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>

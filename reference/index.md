@@ -54,6 +54,9 @@
   : Response-scale VPC for a binomial MAIHDA model
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   : Create Strata from Multiple Variables
+- [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  : Order-Invariant PCV Attribution Across Predictors (Shapley /
+  Dominance)
 - [`plot(`*`<maihda_analysis>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_analysis.md)
   : Plot a MAIHDA Analysis
 - [`plot(`*`<maihda_comparison>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_comparison.md)
@@ -64,6 +67,8 @@
   : Plot a MAIHDA Group Comparison
 - [`plot(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)
   : Plot MAIHDA Model Results
+- [`plot(`*`<maihda_pcv_importance>`*`)`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_pcv_importance.md)
+  : Plot a PCV importance attribution
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   : Plot Prediction Deviation Panels
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
@@ -82,6 +87,8 @@
   : Print a longitudinal MAIHDA PCV
 - [`print(`*`<maihda_model>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_model.md)
   : Print method for maihda_model
+- [`print(`*`<maihda_pcv_importance>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_pcv_importance.md)
+  : Print a PCV importance attribution
 - [`print(`*`<maihda_stepwise>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_stepwise.md)
   : Print a stepwise MAIHDA table
 - [`print(`*`<maihda_strata>`*`)`](https://hdbt.github.io/MAIHDA/reference/print.maihda_strata.md)
