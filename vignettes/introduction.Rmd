@@ -280,6 +280,36 @@ print(stepwise_results)
 
 Negative step PCVs in this table indicate an "unmasking"/suppression pattern: adding a variable increased the between-stratum variance. This is a model-dependent change in variance, not proof that a hidden structural inequality was causally revealed (a negative PCV can also reflect suppression, rescaling, sample composition, or estimation uncertainty).
 
+### Order-invariant attribution: Shapley values and dominance analysis
+
+The stepwise table is order-dependent by construction: each step's PCV is a
+variable's contribution *given the variables already entered*, so reordering
+`vars` changes the answer. `pcv_importance()` removes that dependence. It
+treats the PCV as a value function over variable subsets and averages each
+variable's marginal PCV over all entry orders (Shapley values -- the
+multilevel-PCV analogue of the LMG / `relaimpo` decomposition of R-squared).
+Passing the stratum dimensions splits the *additive share* fairly across them
+-- which dimension drives the additive between-stratum inequality:
+
+```{r bb-importance}
+imp <- pcv_importance(
+  data    = analysis$model$original_data,
+  outcome = "BMI",
+  vars    = c("Gender", "Race", "Education")   # order does not matter
+)
+print(imp)
+plot(imp)
+```
+
+The contributions are signed (a suppressor comes out negative, exactly as in
+the stepwise table) and always sum to the full-model Total PCV, so the
+attribution is exhaustive. `method = "dominance"` adds Budescu's
+conditional/complete dominance detail, `method = "sequential"` reproduces the
+order-dependent path, and for many variables `approx = "montecarlo"` replaces
+the exponential number of exact subset fits with permutation sampling
+(`?pcv_importance` for the costs and the latent-scale caveat for binary
+outcomes).
+
 ### Discriminatory accuracy and the response-scale VPC
 
 For a binary outcome the discriminatory accuracy (AUC / C-statistic and Median

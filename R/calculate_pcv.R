@@ -581,6 +581,142 @@ maihda_stepwise_context_variance <- function(mod, context) {
   sum(v[present], na.rm = TRUE)
 }
 
+# Shared preamble for the model-series PCV attributions -- stepwise_pcv() and
+# pcv_importance() -- extracted verbatim from stepwise_pcv() so the two entry
+# points cannot drift on any of these semantics: input validation, the
+# engine/family handshakes (sampling weights -> wemix, binary/ordered-factor
+# auto-detection, ordinal -> clmm, the context x engine guard), the ONE shared
+# complete-case analytic sample across every fit, and the reconstruction of
+# auto-binned stratum dimensions so a dimension enters as its tertile factor
+# rather than a raw linear term.
+#
+# `engine_missing`/`family_missing` carry the caller's missing() state (the
+# auto-switch rules act only on unspecified arguments, and missing() cannot be
+# forwarded through an ordinary argument); `fn` prefixes the messages/errors
+# with the calling function's name and `what` names the statistic in the
+# family auto-detection warnings ("the stepwise PCV" / "the PCV attribution").
+#
+# Returns list(data, model_terms, engine, family, context, sampling_weights):
+# the filtered/augmented analytic data, the model terms aligned with `vars`
+# (identical except that an auto-binned dimension is replaced by its
+# reconstructed .maihda_dim_* factor), and the resolved engine/family/
+# context/weights to forward to every fit_maihda() call.
+maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
+                                         context, sampling_weights,
+                                         engine_missing, family_missing,
+                                         fn = "stepwise_pcv",
+                                         what = "the stepwise PCV") {
+  if (!"stratum" %in% names(data)) {
+    stop("Variable 'stratum' not found in data. Please run make_strata() first.")
+  }
+  # Validate the higher-level context column(s) up front, mirroring fit_maihda()
+  # (which each fit calls). The clash-with-stratum-dimension and
+  # clash-with-fixed-part checks fire per-fit inside fit_maihda(); here we only
+  # normalise and confirm existence so the context columns can join the shared
+  # complete-case filter below (and every fit then holds the (1 | context) effect).
+  context <- maihda_validate_context(context, data)
+  # Sampling weights select the design-weighted engine, mirroring fit_maihda();
+  # the weight column joins the complete-case filter below so all fits share one
+  # analytic sample.
+  if (!is.null(sampling_weights)) {
+    sampling_weights <- maihda_validate_sampling_weights(sampling_weights, data)
+    if (engine_missing) {
+      engine <- "wemix"
+      message(fn, "(): 'sampling_weights' supplied; using engine = \"wemix\" ",
+              "(design-weighted pseudo-maximum-likelihood via WeMix).")
+    } else if (identical(engine, "lme4")) {
+      stop("Sampling weights are not supported by engine = \"lme4\" (lme4's ",
+           "weights are precision weights, not sampling weights). Use ",
+           "engine = \"wemix\" or \"brms\".", call. = FALSE)
+    }
+  }
+  required_vars <- unique(c(outcome, "stratum", vars, context, sampling_weights))
+  missing_vars <- setdiff(required_vars, names(data))
+  if (length(missing_vars) > 0) {
+    stop("Variables not found in data: ", paste(missing_vars, collapse = ", "))
+  }
+
+  strata_info <- attr(data, "strata_info")
+  strata_vars <- attr(data, "strata_vars")
+  strata_sep <- attr(data, "strata_sep")
+  strata_autobin_info <- attr(data, "strata_autobin_info")
+
+  complete_idx <- stats::complete.cases(data[, required_vars, drop = FALSE])
+  if (!any(complete_idx)) {
+    stop("No complete cases remain after filtering outcome, stratum, and stepwise variables.")
+  }
+  if (!all(complete_idx)) {
+    data <- data[complete_idx, , drop = FALSE]
+    attr(data, "strata_info") <- strata_info
+    attr(data, "strata_vars") <- strata_vars
+    attr(data, "strata_sep") <- strata_sep
+    attr(data, "strata_autobin_info") <- strata_autobin_info
+  }
+
+  # Reconstruct auto-binned stratum dimensions so each fit enters the SAME tertile
+  # factor that defines the strata (matching the adjusted model and core maihda()),
+  # rather than a raw linear term for an auto-binned numeric dimension. The displayed
+  # variable name stays the original; only the model term changes.
+  model_terms <- vars
+  if (length(vars) > 0 && !is.null(strata_autobin_info) &&
+      length(strata_autobin_info) > 0 && any(vars %in% names(strata_autobin_info))) {
+    adj <- maihda_adjusted_terms(vars, strata_autobin_info, data)
+    data <- adj$data
+    attr(data, "strata_info") <- strata_info
+    attr(data, "strata_vars") <- strata_vars
+    attr(data, "strata_sep") <- strata_sep
+    attr(data, "strata_autobin_info") <- strata_autobin_info
+    model_terms <- adj$terms
+  }
+
+  # Auto-detect a binary outcome when family is left at the default, mirroring
+  # fit_maihda()/maihda(). Otherwise a binary outcome would silently be fit on the
+  # Gaussian (linear) scale for numeric 0/1, or error for a factor. An ordered
+  # factor likewise selects the cumulative (ordinal) model.
+  if (family_missing && maihda_is_binary_vector(data[[outcome]])) {
+    warning("The outcome variable appears to be binary. Using family = 'binomial' ",
+            "for ", what, ". Specify family = 'gaussian' explicitly for a ",
+            "linear probability model.", call. = FALSE)
+    family <- "binomial"
+  } else if (family_missing && is.ordered(data[[outcome]]) &&
+             nlevels(droplevels(data[[outcome]])) >= 3) {
+    warning("The outcome variable is an ordered factor. Using the cumulative ",
+            "(ordinal) model, family = 'ordinal', for ", what, ".",
+            call. = FALSE)
+    family <- "ordinal"
+  }
+
+  # Ordinal family <-> engine handshake, mirroring fit_maihda(): the per-fit
+  # calls receive 'engine' explicitly, so fit_maihda()'s own auto-switch could
+  # never fire through them.
+  if (maihda_family_is_ordinal(
+    if (is.function(family)) tryCatch(family(), error = function(e) NULL) else family
+  )) {
+    if (engine_missing && is.null(sampling_weights)) {
+      engine <- "ordinal"
+      message(fn, "(): ordinal (cumulative) family; using engine = ",
+              "\"ordinal\" (ordinal::clmm).")
+    } else if (identical(engine, "lme4")) {
+      stop("lme4 cannot fit a cumulative (ordinal) model. Use engine = ",
+           "\"ordinal\" (ordinal::clmm, the default for this family) or ",
+           "engine = \"brms\" (brms::cumulative).", call. = FALSE)
+    }
+  }
+
+  # Context is a crossed random effect, which the design-weighted (wemix) and
+  # cumulative (ordinal) engines cannot fit -- mirroring fit_maihda()'s guards
+  # (which each fit would otherwise hit at the null model). Checked on the RESOLVED
+  # engine, so a valid context + sampling_weights + engine = "brms" still passes.
+  if (!is.null(context) && engine %in% c("wemix", "ordinal")) {
+    stop(fn, "(): engine = \"", engine, "\" does not support 'context' ",
+         "(it fits no crossed random effects). Use engine = \"lme4\" or ",
+         "\"brms\" for a contextual cross-classified analysis.", call. = FALSE)
+  }
+
+  list(data = data, model_terms = model_terms, engine = engine, family = family,
+       context = context, sampling_weights = sampling_weights)
+}
+
 #' Stepwise Proportional Change in Variance (PCV)
 #'
 #' @description
@@ -686,112 +822,18 @@ maihda_stepwise_context_variance <- function(mod, context) {
 stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussian",
                          context = NULL, sampling_weights = NULL) {
 
-  if (!"stratum" %in% names(data)) {
-    stop("Variable 'stratum' not found in data. Please run make_strata() first.")
-  }
-  # Validate the higher-level context column(s) up front, mirroring fit_maihda()
-  # (which each step calls). The clash-with-stratum-dimension and
-  # clash-with-fixed-part checks fire per-step inside fit_maihda(); here we only
-  # normalise and confirm existence so the context columns can join the shared
-  # complete-case filter below (and every step then holds the (1 | context) effect).
-  context <- maihda_validate_context(context, data)
-  # Sampling weights select the design-weighted engine, mirroring fit_maihda();
-  # the weight column joins the complete-case filter below so all steps share one
-  # analytic sample.
-  if (!is.null(sampling_weights)) {
-    sampling_weights <- maihda_validate_sampling_weights(sampling_weights, data)
-    if (missing(engine)) {
-      engine <- "wemix"
-      message("stepwise_pcv(): 'sampling_weights' supplied; using engine = \"wemix\" ",
-              "(design-weighted pseudo-maximum-likelihood via WeMix).")
-    } else if (identical(engine, "lme4")) {
-      stop("Sampling weights are not supported by engine = \"lme4\" (lme4's ",
-           "weights are precision weights, not sampling weights). Use ",
-           "engine = \"wemix\" or \"brms\".", call. = FALSE)
-    }
-  }
-  required_vars <- unique(c(outcome, "stratum", vars, context, sampling_weights))
-  missing_vars <- setdiff(required_vars, names(data))
-  if (length(missing_vars) > 0) {
-    stop("Variables not found in data: ", paste(missing_vars, collapse = ", "))
-  }
-
-  strata_info <- attr(data, "strata_info")
-  strata_vars <- attr(data, "strata_vars")
-  strata_sep <- attr(data, "strata_sep")
-  strata_autobin_info <- attr(data, "strata_autobin_info")
-
-  complete_idx <- stats::complete.cases(data[, required_vars, drop = FALSE])
-  if (!any(complete_idx)) {
-    stop("No complete cases remain after filtering outcome, stratum, and stepwise variables.")
-  }
-  if (!all(complete_idx)) {
-    data <- data[complete_idx, , drop = FALSE]
-    attr(data, "strata_info") <- strata_info
-    attr(data, "strata_vars") <- strata_vars
-    attr(data, "strata_sep") <- strata_sep
-    attr(data, "strata_autobin_info") <- strata_autobin_info
-  }
-
-  # Reconstruct auto-binned stratum dimensions so each step enters the SAME tertile
-  # factor that defines the strata (matching the adjusted model and core maihda()),
-  # rather than a raw linear term for an auto-binned numeric dimension. The displayed
-  # "Added_Variable" keeps the original variable name; only the model term changes.
-  model_terms <- vars
-  if (length(vars) > 0 && !is.null(strata_autobin_info) &&
-      length(strata_autobin_info) > 0 && any(vars %in% names(strata_autobin_info))) {
-    adj <- maihda_adjusted_terms(vars, strata_autobin_info, data)
-    data <- adj$data
-    attr(data, "strata_info") <- strata_info
-    attr(data, "strata_vars") <- strata_vars
-    attr(data, "strata_sep") <- strata_sep
-    attr(data, "strata_autobin_info") <- strata_autobin_info
-    model_terms <- adj$terms
-  }
-
-  # Auto-detect a binary outcome when family is left at the default, mirroring
-  # fit_maihda()/maihda(). Otherwise a binary outcome would silently be fit on the
-  # Gaussian (linear) scale for numeric 0/1, or error for a factor. An ordered
-  # factor likewise selects the cumulative (ordinal) model.
-  if (missing(family) && maihda_is_binary_vector(data[[outcome]])) {
-    warning("The outcome variable appears to be binary. Using family = 'binomial' ",
-            "for the stepwise PCV. Specify family = 'gaussian' explicitly for a ",
-            "linear probability model.", call. = FALSE)
-    family <- "binomial"
-  } else if (missing(family) && is.ordered(data[[outcome]]) &&
-             nlevels(droplevels(data[[outcome]])) >= 3) {
-    warning("The outcome variable is an ordered factor. Using the cumulative ",
-            "(ordinal) model, family = 'ordinal', for the stepwise PCV.",
-            call. = FALSE)
-    family <- "ordinal"
-  }
-
-  # Ordinal family <-> engine handshake, mirroring fit_maihda(): the per-step
-  # fits receive 'engine' explicitly, so fit_maihda()'s own auto-switch could
-  # never fire through them.
-  if (maihda_family_is_ordinal(
-    if (is.function(family)) tryCatch(family(), error = function(e) NULL) else family
-  )) {
-    if (missing(engine) && is.null(sampling_weights)) {
-      engine <- "ordinal"
-      message("stepwise_pcv(): ordinal (cumulative) family; using engine = ",
-              "\"ordinal\" (ordinal::clmm).")
-    } else if (identical(engine, "lme4")) {
-      stop("lme4 cannot fit a cumulative (ordinal) model. Use engine = ",
-           "\"ordinal\" (ordinal::clmm, the default for this family) or ",
-           "engine = \"brms\" (brms::cumulative).", call. = FALSE)
-    }
-  }
-
-  # Context is a crossed random effect, which the design-weighted (wemix) and
-  # cumulative (ordinal) engines cannot fit -- mirroring fit_maihda()'s guards
-  # (which each step would otherwise hit at the null fit). Checked on the RESOLVED
-  # engine, so a valid context + sampling_weights + engine = "brms" still passes.
-  if (!is.null(context) && engine %in% c("wemix", "ordinal")) {
-    stop("stepwise_pcv(): engine = \"", engine, "\" does not support 'context' ",
-         "(it fits no crossed random effects). Use engine = \"lme4\" or ",
-         "\"brms\" for a contextual cross-classified stepwise PCV.", call. = FALSE)
-  }
+  setup <- maihda_pcv_attribution_setup(
+    data, outcome, vars, engine = engine, family = family, context = context,
+    sampling_weights = sampling_weights,
+    engine_missing = missing(engine), family_missing = missing(family),
+    fn = "stepwise_pcv", what = "the stepwise PCV"
+  )
+  data <- setup$data
+  model_terms <- setup$model_terms
+  engine <- setup$engine
+  family <- setup$family
+  context <- setup$context
+  sampling_weights <- setup$sampling_weights
 
   results <- data.frame(
     Step = integer(length(vars) + 1),
