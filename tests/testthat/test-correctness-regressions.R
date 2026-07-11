@@ -362,7 +362,13 @@ test_that("stepwise_pcv auto-detects a binary outcome when family is the default
   )
   strata <- make_strata(base, vars = c("g", "r"))
   d <- strata$data
-  d$y <- rbinom(240, 1, plogis(-0.2 + 0.3 * d$age))
+  # Genuine between-stratum signal so the null model is not singular -- otherwise
+  # the PCV boundary guard rejects the degenerate denominator before the binary
+  # family auto-detection under test is reached (an exactly-zero null variance is
+  # platform-dependent for a binary glmer fit with no stratum effect).
+  sf <- factor(d$stratum)
+  u <- stats::rnorm(nlevels(sf), sd = 1.5)
+  d$y <- rbinom(240, 1, plogis(-0.2 + u[sf] + 0.3 * d$age))
 
   # Default family must not silently fit a Gaussian PCV on a binary outcome.
   expect_warning(
