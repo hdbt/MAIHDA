@@ -25,8 +25,11 @@ make_imp_data <- function(n = 240, seed = 7101) {
   d
 }
 
-ml_var <- function(m) {
-  MAIHDA:::extract_between_variance(MAIHDA:::maihda_pcv_refit_ml(m))
+# Reference between-stratum variance on pcv_importance()'s default basis, which is
+# now estimation = "fitted" (each fit's own REML variance for a Gaussian lmer fit),
+# so the reference is read WITHOUT the ML refit.
+fitted_var <- function(m) {
+  MAIHDA:::extract_between_variance(m)
 }
 
 test_that("exact Shapley contributions satisfy the efficiency identity", {
@@ -43,12 +46,12 @@ test_that("exact Shapley contributions satisfy the efficiency identity", {
   # 2^3 = 8 models fit, including the null.
   expect_identical(imp$n_fits, 8L)
 
-  # The total matches the direct null-vs-full calculation on the same (ML)
-  # scale used by calculate_pcv()/stepwise_pcv().
+  # The total matches the direct null-vs-full calculation on the same fitted
+  # (REML) variance basis used by calculate_pcv()/stepwise_pcv() by default.
   null_m <- fit_maihda(y ~ 1 + (1 | stratum), d)
   full_m <- suppressMessages(fit_maihda(y ~ gender + race + age + (1 | stratum), d))
-  v0 <- ml_var(null_m)
-  vf <- ml_var(full_m)
+  v0 <- fitted_var(null_m)
+  vf <- fitted_var(full_m)
   expect_equal(imp$total_pcv, (v0 - vf) / v0, tolerance = 1e-8)
   expect_equal(imp$null_variance, v0, tolerance = 1e-8)
   expect_equal(imp$full_variance, vf, tolerance = 1e-8)
@@ -189,7 +192,7 @@ test_that("pcv_importance shares one complete-case sample across every subset fi
   # own -- is fit on the SHARED filtered sample.
   gender_m <- fit_maihda(y ~ gender + (1 | stratum), complete_d)
   expect_equal(imp$subsets$Variance[imp$subsets$Variables == "gender"],
-               ml_var(gender_m), tolerance = 1e-8)
+               fitted_var(gender_m), tolerance = 1e-8)
 })
 
 test_that("pcv_importance reconstructs auto-binned dimensions like stepwise_pcv", {
@@ -359,7 +362,7 @@ test_that("pcv_importance(context = ) attributes the PCV net of the context", {
   # fit, not the context-free one.
   m_ctx <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ gender + race + (1 | stratum), data = d, context = "site")))
-  expect_equal(imp$full_variance, ml_var(m_ctx), tolerance = 1e-6)
+  expect_equal(imp$full_variance, fitted_var(m_ctx), tolerance = 1e-6)
 
   # The wemix/ordinal engines fit no crossed random effects: rejected with
   # the same guard as stepwise_pcv().

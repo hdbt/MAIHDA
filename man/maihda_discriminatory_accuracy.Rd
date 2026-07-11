@@ -17,17 +17,21 @@ maihda_discriminatory_accuracy(model)
 An object of class \code{maihda_da}: a list with \code{auc},
   \code{auc_scope}, \code{auc_full}, \code{mor},
   \code{n_case}, \code{n_control}, \code{family}, \code{link}, \code{engine},
-  \code{weighted}, \code{weight_type} and \code{apparent} (always \code{TRUE} --
-  the AUC is in-sample; see Description). \code{mor} is \code{NA} for a
-  non-logit binomial link, where the AUC is still reported. For an
-  aggregated-binomial fit \code{n_case} / \code{n_control} are the total
-  successes / failures. \code{weighted} is \code{TRUE} when the AUC is a
-  weighted concordance -- \code{weight_type} \code{"sampling"} for a
-  design-weighted fit (each observation contributes its sampling weight as
-  case/control mass, estimating the population discriminatory accuracy) or
-  \code{"precision"} for an lme4 fit with non-integer precision weights;
-  \code{n_case} / \code{n_control} stay unweighted observation counts either
-  way. \code{weight_type} is \code{NULL} for an unweighted AUC.
+  \code{weighted}, \code{weight_type}, \code{precision_weights_ignored} and
+  \code{apparent} (always \code{TRUE} -- the AUC is in-sample; see Description).
+  \code{mor} is \code{NA} for a non-logit binomial link, where the AUC is still
+  reported. For an aggregated-binomial fit \code{n_case} / \code{n_control} are the
+  total successes / failures. \code{weighted} is \code{TRUE} only when the AUC is a
+  genuinely weighted (population-mass) concordance, with \code{weight_type}
+  \code{"sampling"} for a design-weighted fit (each observation contributes its
+  sampling weight as case/control mass, estimating the population discriminatory
+  accuracy); \code{n_case} / \code{n_control} stay unweighted observation counts.
+  \code{weight_type} is \code{NULL} for an unweighted AUC.
+  \strong{lme4 precision weights} (non-integer \code{weights=} on a Bernoulli fit)
+  scale likelihood/dispersion, not population frequency, so they carry no
+  population-AUC interpretation: the AUC ignores them and reports the ordinary
+  observation-level concordance (\code{weighted = FALSE}), with
+  \code{precision_weights_ignored = TRUE} flagging that such weights were present.
 }
 \description{
 Bundles the individual-level discriminatory-accuracy summaries for a binomial
@@ -58,13 +62,21 @@ data, and \code{n_case} / \code{n_control} are the total successes / failures.
 \strong{Scope.} When the model carries random effects \emph{beyond} the
 intersectional partition -- a contextual \code{(1 | school)} from
 \code{fit_maihda(context = )} or an explicit extra grouping such as
-\code{(1 | site)} -- the headline \code{auc} is the concordance of the
-\emph{intersectional strata} (fixed effects plus the stratum random effect
-and, for a crossed-dimensions fit, the additive dimension effects), matching
-the scope of the MOR; the concordance of the full model including the other
+\code{(1 | site)} -- the headline \code{auc} is the \emph{intersectional-scope}
+concordance: it \strong{excludes} those other random effects but keeps the fixed
+effects plus the stratum random effect (and, for a crossed-dimensions fit, the
+additive dimension effects). The concordance of the full model including the other
 random effects is reported separately as \code{auc_full}
-(\code{auc_scope = "strata"}). For the canonical single-\code{(1 | stratum)}
-model the two coincide and only \code{auc} is reported
+(\code{auc_scope = "intersectional"}). \strong{Caveat -- this is not strata-only
+discrimination.} The intersectional-scope score retains the \emph{entire}
+fixed-effects predictor, so when the model is adjusted for individual-level
+covariates (e.g. \code{age}, \code{income} that vary \emph{within} strata) those
+covariates enter this AUC too; it is the concordance of the adjusted fixed effects
+plus the intersectional random effect(s), not of the strata alone, and it then
+matches the between-stratum MOR's scope only when the fixed part is intercept-only.
+For a strata-only discriminatory accuracy, score the null (strata-only) model. For
+the canonical single-\code{(1 | stratum)} model with no other random effects, the
+full and intersectional scopes coincide and only \code{auc} is reported
 (\code{auc_scope = "model"}, \code{auc_full} absent).
 }
 \examples{

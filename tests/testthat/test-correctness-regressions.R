@@ -326,16 +326,17 @@ test_that("stepwise_pcv uses one complete analytic sample across steps", {
 
   out <- stepwise_pcv(d, "y", c("x", "z"))
   complete_d <- d[stats::complete.cases(d[, c("y", "stratum", "x", "z")]), ]
-  # stepwise_pcv refits REML lmer fits with ML before the cross-step variance
-  # comparison (see calculate_pcv()), so the reference models must be refit likewise.
-  ml <- function(m) MAIHDA:::extract_between_variance(MAIHDA:::maihda_pcv_refit_ml(m))
+  # stepwise_pcv() differences each fit's own fitted (REML) between-stratum variance
+  # by default (estimation = "fitted"; see calculate_pcv()), so the reference models
+  # are read WITHOUT an ML refit.
+  bv <- function(m) MAIHDA:::extract_between_variance(m)
   null_model <- fit_maihda(y ~ 1 + (1 | stratum), complete_d)
   x_model <- fit_maihda(y ~ x + (1 | stratum), complete_d)
   z_model <- fit_maihda(y ~ x + z + (1 | stratum), complete_d)
 
-  expect_equal(out$Variance[1], ml(null_model), tolerance = 1e-8)
-  expect_equal(out$Variance[2], ml(x_model), tolerance = 1e-8)
-  expect_equal(out$Variance[3], ml(z_model), tolerance = 1e-8)
+  expect_equal(out$Variance[1], bv(null_model), tolerance = 1e-8)
+  expect_equal(out$Variance[2], bv(x_model), tolerance = 1e-8)
+  expect_equal(out$Variance[3], bv(z_model), tolerance = 1e-8)
 })
 
 test_that("stepwise_pcv errors when no complete analytic sample remains", {
@@ -582,9 +583,15 @@ test_that("calculate_pcv refits with ML when a non-stratum RE is on the boundary
   # The two genuinely differ here, so the comparison below is meaningful.
   expect_false(isTRUE(all.equal(reml_pcv, ml_pcv)))
 
-  pcv <- calculate_pcv(m1, m2)$pcv
-  expect_equal(pcv, ml_pcv, tolerance = 1e-8)               # uses the ML refit
-  expect_false(isTRUE(all.equal(pcv, reml_pcv)))            # not the REML estimate
+  # estimation = "ML" refits with ML even though the GLOBAL fit is singular via the
+  # site boundary (the guard reads the stratum component, not global isSingular()).
+  pcv_ml <- calculate_pcv(m1, m2, estimation = "ML")$pcv
+  expect_equal(pcv_ml, ml_pcv, tolerance = 1e-8)            # uses the ML refit
+  expect_false(isTRUE(all.equal(pcv_ml, reml_pcv)))         # not the REML estimate
+
+  # The default (estimation = "fitted") returns the REML estimate unchanged.
+  pcv_fit <- calculate_pcv(m1, m2)$pcv
+  expect_equal(pcv_fit, reml_pcv, tolerance = 1e-8)
 })
 
 test_that("maihda_pcv_refit_ml skips the refit when the stratum is at the boundary", {

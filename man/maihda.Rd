@@ -25,6 +25,7 @@ maihda(
   time = NULL,
   time_degree = 1,
   interactions = TRUE,
+  estimation = c("fitted", "ML"),
   ...
 )
 }
@@ -163,6 +164,13 @@ name -- including \code{"none"} for the uncorrected, per-stratum
 individual-testing view. Uses \code{conf_level}. Not computed for a longitudinal
 decomposition. The computation is cheap (it reads the stratum estimates the
 summary already holds; no refit).}
+
+\item{estimation}{Variance-estimation basis for the PCV (\code{"two-model"} and
+\code{"longitudinal"} decompositions), \code{"fitted"} (default) or \code{"ML"};
+see \code{\link{calculate_pcv}}. \code{"fitted"} differences each model's own
+between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit, as
+\code{summary()} reports); \code{"ML"} refits REML \code{lmer} fits with maximum
+likelihood first. Affects Gaussian \code{lmer} fits only.}
 
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
 \code{lmer}/\code{glmer}).}

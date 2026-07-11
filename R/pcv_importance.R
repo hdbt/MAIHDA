@@ -171,6 +171,10 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #'   \code{n_boot * 2^k} refits). Default FALSE.
 #' @param n_boot Number of bootstrap draws if \code{bootstrap = TRUE}. Default 1000.
 #' @param conf_level Confidence level for bootstrap intervals. Default 0.95.
+#' @param estimation Variance-estimation basis for the between-stratum variances the
+#'   attribution differences across subset models, \code{"fitted"} (default) or
+#'   \code{"ML"}; see \code{\link{calculate_pcv}}. Affects Gaussian \code{lmer} fits
+#'   only.
 #'
 #' @return An object of class \code{maihda_pcv_importance}: a list with
 #'   \item{importance}{Data frame with one row per variable (in the order of
@@ -302,10 +306,12 @@ pcv_importance <- function(data, outcome, vars,
                            n_perm = 2000,
                            engine = "lme4", family = "gaussian",
                            context = NULL, sampling_weights = NULL,
-                           bootstrap = FALSE, n_boot = 1000, conf_level = 0.95) {
+                           bootstrap = FALSE, n_boot = 1000, conf_level = 0.95,
+                           estimation = c("fitted", "ML")) {
   method <- match.arg(method)
   approx_missing <- missing(approx)
   approx <- match.arg(approx)
+  estimation <- match.arg(estimation)
 
   if (!is.character(vars) || length(vars) < 1 || anyNA(vars)) {
     stop("'vars' must be a character vector naming at least one predictor.",
@@ -417,8 +423,9 @@ pcv_importance <- function(data, outcome, vars,
   }
 
   # ---- null model / value-function machinery ---------------------------------
-  # Each subset model is fit once, ML-refit for a REML lmer fit (the variances
-  # are compared across models with different fixed effects -- see
+  # Each subset model is fit once, put on the requested variance-estimation basis
+  # (estimation = "ML" refits a REML lmer fit with ML; "fitted", the default, keeps
+  # it -- the variances are compared across models with different fixed effects, see
   # calculate_pcv()), and cached by bitmask. Models themselves are retained
   # only when the bootstrap needs to refit them.
   keep_models <- bootstrap
@@ -431,9 +438,10 @@ pcv_importance <- function(data, outcome, vars,
     terms_s <- model_terms[maihda_mask_bits(mask, k)]
     fmla <- maihda_formula_with_stratum(outcome, terms_s)
     mod <- tryCatch(
-      maihda_pcv_refit_ml(fit_maihda(fmla, data, engine = engine,
-                                     family = family, context = context,
-                                     sampling_weights = sampling_weights)),
+      maihda_pcv_apply_estimation(
+        fit_maihda(fmla, data, engine = engine,
+                   family = family, context = context,
+                   sampling_weights = sampling_weights), estimation),
       error = function(e) {
         stop("pcv_importance(): the subset model {",
              paste(vars[maihda_mask_bits(mask, k)], collapse = ", "),

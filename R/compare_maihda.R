@@ -452,6 +452,9 @@ plot_comparison <- function(comparison_df) {
 #'   \code{\link{maihda_adjusted_terms}}). Set to \code{FALSE} internally when
 #'   \code{\link{maihda}} delegates here, because it has already warned on the same
 #'   data.
+#' @param estimation Variance-estimation basis for each group's per-group PCV,
+#'   \code{"fitted"} (default) or \code{"ML"}; see \code{\link{calculate_pcv}}.
+#'   Affects Gaussian \code{lmer} fits only.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'
@@ -464,18 +467,20 @@ plot_comparison <- function(comparison_df) {
 #'   returned without bootstrapping). When the strata are defined by at least two
 #'   dimensions, two further columns report the per-group null -> adjusted
 #'   decomposition: \code{pcv} (proportional change in between-stratum variance when
-#'   the dimensions' additive main effects are added; computed on the
-#'   maximum-likelihood scale -- see \code{\link{calculate_pcv}} -- because REML
-#'   variances are not comparable across the null vs. adjusted fixed effects),
+#'   the dimensions' additive main effects are added; computed on the variance basis
+#'   set by \code{estimation} -- see \code{\link{calculate_pcv}}),
 #'   \code{var_between_adjusted} (a \emph{derived} coherence quantity, reported as
 #'   \code{var_between * (1 - pcv)} so it shares the scale of the REML
 #'   \code{var_between}/\code{vpc} and the table satisfies
 #'   \code{pcv = (var_between - var_between_adjusted) / var_between} exactly -- it is
 #'   \strong{not} the adjusted fit's own variance), and
 #'   \code{var_between_adjusted_ml} (the adjusted model's \emph{actual}
-#'   between-stratum variance, read straight off the adjusted fit on the same
-#'   maximum-likelihood scale as the PCV; it differs from \code{var_between_adjusted}
-#'   only by the small REML-vs-ML gap in the null variance). All three are
+#'   between-stratum variance, read straight off the adjusted fit on the same basis as
+#'   the PCV; under the default \code{estimation = "fitted"} this is the REML variance,
+#'   coinciding with \code{var_between_adjusted}, and under \code{estimation = "ML"} it
+#'   is the ML variance, differing from \code{var_between_adjusted} only by the small
+#'   REML-vs-ML gap in the null variance; the \code{_ml} suffix is retained for
+#'   output-schema continuity). All three are
 #'   \code{NA} for a group whose adjusted fit failed, and the columns are
 #'   omitted entirely when the strata have a single dimension. When \code{context}
 #'   is supplied, two further columns report each group's contextual partition:
@@ -537,8 +542,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                                   context = NULL,
                                   sampling_weights = NULL,
                                   warn_linear = TRUE,
+                                  estimation = c("fitted", "ML"),
                                   ...) {
   decomposition <- maihda_resolve_decomposition(decomposition)
+  estimation <- match.arg(estimation)
   if (identical(decomposition, "longitudinal")) {
     stop("compare_maihda_groups() does not support decomposition = ",
          "\"longitudinal\" (a per-group longitudinal comparison is out of scope). ",
@@ -1048,24 +1055,28 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                      context = context, sampling_weights = sampling_weights),
                 slice_dots_for_group(idx))
             )
-            calculate_pcv(fit_obj$model, adj_model)
+            calculate_pcv(fit_obj$model, adj_model, estimation = estimation)
           }, error = function(e) NULL)
           if (!is.null(pcv_obj)) {
             row$pcv <- pcv_obj$pcv
             # Report the adjusted between-stratum variance on the SAME scale as
             # var_between / vpc (the REML single-model VPC variance), so the table stays
             # internally coherent: PCV = (var_between - var_between_adjusted) /
-            # var_between. The PCV itself is calculate_pcv()'s ML-refit value, since REML
-            # variances are not comparable across the null vs. adjusted fixed effects;
-            # the small REML-vs-ML gap in the null variance is absorbed here rather than
-            # left as an apparent inconsistency between the columns. NOTE: this is a
-            # derived bookkeeping value, NOT the adjusted fit's own variance.
+            # var_between. The PCV itself is calculate_pcv()'s value on the requested
+            # `estimation` basis: with the default "fitted" it uses the REML variances
+            # (so this derived value coincides with the adjusted fit's own REML
+            # variance below), and with "ML" the small REML-vs-ML gap in the null
+            # variance is absorbed here rather than left as an apparent inconsistency
+            # between the columns. NOTE: this is a derived bookkeeping value, NOT the
+            # adjusted fit's own variance.
             row$var_between_adjusted <- row$var_between * (1 - pcv_obj$pcv)
-            # The adjusted MODEL's actual between-stratum variance, on the ML scale the
-            # PCV is computed on (var_model2 from calculate_pcv()). Unlike
-            # var_between_adjusted above, this is read straight off the adjusted fit, so
-            # it is the literal "adjusted between-stratum variance" -- it differs from
-            # var_between_adjusted only by the REML-vs-ML gap in the null variance.
+            # The adjusted MODEL's actual between-stratum variance, read straight off
+            # the adjusted fit on the SAME basis the PCV was computed on (var_model2
+            # from calculate_pcv() -- REML for the default estimation = "fitted", ML for
+            # estimation = "ML"). Unlike var_between_adjusted above, this is the literal
+            # "adjusted between-stratum variance"; it differs from var_between_adjusted
+            # only by any REML-vs-ML gap in the null variance (zero under "fitted"). The
+            # "_ml" suffix is retained for output-schema continuity.
             row$var_between_adjusted_ml <- pcv_obj$var_model2
           }
         }

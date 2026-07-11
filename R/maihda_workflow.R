@@ -168,6 +168,12 @@
 #'   individual-testing view. Uses \code{conf_level}. Not computed for a longitudinal
 #'   decomposition. The computation is cheap (it reads the stratum estimates the
 #'   summary already holds; no refit).
+#' @param estimation Variance-estimation basis for the PCV (\code{"two-model"} and
+#'   \code{"longitudinal"} decompositions), \code{"fitted"} (default) or \code{"ML"};
+#'   see \code{\link{calculate_pcv}}. \code{"fitted"} differences each model's own
+#'   between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit, as
+#'   \code{summary()} reports); \code{"ML"} refits REML \code{lmer} fits with maximum
+#'   likelihood first. Affects Gaussian \code{lmer} fits only.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'
@@ -279,8 +285,9 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
                    response_vpc = FALSE, seed = NULL,
                    sampling_weights = NULL,
                    id = NULL, time = NULL, time_degree = 1,
-                   interactions = TRUE, ...) {
+                   interactions = TRUE, estimation = c("fitted", "ML"), ...) {
   call <- match.call()
+  estimation <- match.arg(estimation)
 
   # Longitudinal (growth-curve) MAIHDA selects itself when 'time' is supplied and
   # the decomposition is left at its default; an explicit non-longitudinal
@@ -617,7 +624,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     summary_adj <- summary(adjusted_model, bootstrap = bootstrap, n_boot = n_boot,
                            conf_level = conf_level)
     pcv <- tryCatch(
-      maihda_longitudinal_pcv(null_model, adjusted_model),
+      maihda_longitudinal_pcv(null_model, adjusted_model, estimation = estimation),
       error = function(e) {
         warning("maihda(): the longitudinal PCV could not be computed (",
                 conditionMessage(e), "). Returning the fitted null and adjusted ",
@@ -706,7 +713,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # warn rather than aborting in that numerical edge case.
   pcv <- tryCatch(
     calculate_pcv(null_model, adjusted_model, bootstrap = bootstrap, n_boot = n_boot,
-                  conf_level = conf_level),
+                  conf_level = conf_level, estimation = estimation),
     error = function(e) {
       warning("maihda(): the PCV could not be computed (", conditionMessage(e),
               "). Returning the fitted null and adjusted models without a PCV.",
@@ -729,7 +736,8 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
       shared_strata = shared_strata, min_group_n = min_group_n,
       autobin = autobin, bootstrap = bootstrap, n_boot = n_boot,
       conf_level = conf_level, context = context,
-      sampling_weights = sampling_weights, warn_linear = FALSE, ...
+      sampling_weights = sampling_weights, warn_linear = FALSE,
+      estimation = estimation, ...
     )
   }
 

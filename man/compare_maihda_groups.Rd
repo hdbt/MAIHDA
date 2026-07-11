@@ -20,6 +20,7 @@ compare_maihda_groups(
   context = NULL,
   sampling_weights = NULL,
   warn_linear = TRUE,
+  estimation = c("fitted", "ML"),
   ...
 )
 }
@@ -115,6 +116,10 @@ effects, which silently changes the PCV/decomposition interpretation (see
 \code{\link{maihda}} delegates here, because it has already warned on the same
 data.}
 
+\item{estimation}{Variance-estimation basis for each group's per-group PCV,
+\code{"fitted"} (default) or \code{"ML"}; see \code{\link{calculate_pcv}}.
+Affects Gaussian \code{lmer} fits only.}
+
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
 \code{lmer}/\code{glmer}).}
 }
@@ -128,18 +133,20 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   returned without bootstrapping). When the strata are defined by at least two
   dimensions, two further columns report the per-group null -> adjusted
   decomposition: \code{pcv} (proportional change in between-stratum variance when
-  the dimensions' additive main effects are added; computed on the
-  maximum-likelihood scale -- see \code{\link{calculate_pcv}} -- because REML
-  variances are not comparable across the null vs. adjusted fixed effects),
+  the dimensions' additive main effects are added; computed on the variance basis
+  set by \code{estimation} -- see \code{\link{calculate_pcv}}),
   \code{var_between_adjusted} (a \emph{derived} coherence quantity, reported as
   \code{var_between * (1 - pcv)} so it shares the scale of the REML
   \code{var_between}/\code{vpc} and the table satisfies
   \code{pcv = (var_between - var_between_adjusted) / var_between} exactly -- it is
   \strong{not} the adjusted fit's own variance), and
   \code{var_between_adjusted_ml} (the adjusted model's \emph{actual}
-  between-stratum variance, read straight off the adjusted fit on the same
-  maximum-likelihood scale as the PCV; it differs from \code{var_between_adjusted}
-  only by the small REML-vs-ML gap in the null variance). All three are
+  between-stratum variance, read straight off the adjusted fit on the same basis as
+  the PCV; under the default \code{estimation = "fitted"} this is the REML variance,
+  coinciding with \code{var_between_adjusted}, and under \code{estimation = "ML"} it
+  is the ML variance, differing from \code{var_between_adjusted} only by the small
+  REML-vs-ML gap in the null variance; the \code{_ml} suffix is retained for
+  output-schema continuity). All three are
   \code{NA} for a group whose adjusted fit failed, and the columns are
   omitted entirely when the strata have a single dimension. When \code{context}
   is supplied, two further columns report each group's contextual partition:

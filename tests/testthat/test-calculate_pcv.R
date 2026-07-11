@@ -469,3 +469,98 @@ test_that("calculate_pcv rejects an effectively singular null model", {
   expect_error(suppressWarnings(suppressMessages(calculate_pcv(m1, m2))),
                "zero or negative|zero boundary")
 })
+
+test_that("calculate_pcv estimation basis: 'fitted' (default) uses REML, 'ML' refits", {
+  # Audit finding 1: for a Gaussian lmer PCV the forced ML refit materially changes
+  # the reported PCV with few strata. The estimation argument exposes both bases;
+  # the default is now "fitted" (each fit's own REML variance), matching summary().
+  skip_on_cran()
+  set.seed(20260711)
+  n_strata <- 24; n_per <- 12
+  smean <- rnorm(n_strata, sd = 2)                    # stratum means
+  x1_stratum <- smean + rnorm(n_strata, sd = 1)       # stratum-level covariate
+  d <- data.frame(
+    stratum = rep(seq_len(n_strata), each = n_per),
+    age = rnorm(n_strata * n_per),
+    x1 = rep(x1_stratum, each = n_per))
+  d$outcome <- 5 + 0.5 * d$age + smean[d$stratum] + rnorm(nrow(d), sd = 1)
+  # x1 is a stratum-level covariate that explains part of the between-stratum
+  # variance, so the adjusted model has a clearly lower stratum variance.
+  m1 <- fit_maihda(outcome ~ age + (1 | stratum), data = d, engine = "lme4")
+  m2 <- fit_maihda(outcome ~ age + x1 + (1 | stratum), data = d, engine = "lme4")
+  expect_true(lme4::isREML(m1$model))
+
+  # Default = "fitted": PCV variances equal the fitted REML VarCorr variances.
+  p_fit <- calculate_pcv(m1, m2)
+  expect_identical(p_fit$estimation, "fitted")
+  v1_reml <- as.numeric(lme4::VarCorr(m1$model)$stratum[1])
+  v2_reml <- as.numeric(lme4::VarCorr(m2$model)$stratum[1])
+  expect_equal(p_fit$var_model1, v1_reml)
+  expect_equal(p_fit$var_model2, v2_reml)
+  expect_equal(p_fit$pcv, (v1_reml - v2_reml) / v1_reml)
+
+  # "ML": PCV variances equal the ML-refit VarCorr variances.
+  p_ml <- calculate_pcv(m1, m2, estimation = "ML")
+  expect_identical(p_ml$estimation, "ML")
+  v1_ml <- as.numeric(lme4::VarCorr(lme4::refitML(m1$model))$stratum[1])
+  v2_ml <- as.numeric(lme4::VarCorr(lme4::refitML(m2$model))$stratum[1])
+  expect_equal(p_ml$var_model1, v1_ml)
+  expect_equal(p_ml$var_model2, v2_ml)
+
+  # The REML and ML adjusted variances differ (the finding), so the two bases give
+  # a different PCV. (Direction is not asserted -- it depends on the design.)
+  expect_false(isTRUE(all.equal(v2_reml, v2_ml)))
+  expect_false(isTRUE(all.equal(p_fit$pcv, p_ml$pcv)))
+
+  # print() states the variance basis; a bad value is rejected (message is locale-
+  # dependent, so only the error itself is asserted).
+  expect_output(print(p_fit), "as fitted")
+  expect_output(print(p_ml), "ML-refit")
+  expect_error(calculate_pcv(m1, m2, estimation = "reml"))
+})
+
+test_that("calculate_pcv estimation is a no-op for non-REML (glmer) fits", {
+  # For a binomial glmer the fit is already ML, so "fitted" and "ML" coincide.
+  skip_on_cran()
+  set.seed(21)
+  n_strata <- 20; n_per <- 40
+  eff <- rnorm(n_strata, sd = 1)
+  d <- data.frame(stratum = rep(seq_len(n_strata), each = n_per),
+                  age = rnorm(n_strata * n_per),
+                  z = rnorm(n_strata * n_per))
+  d$y <- rbinom(nrow(d), 1, plogis(-0.2 + 0.5 * d$age + eff[d$stratum]))
+  m1 <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ age + (1 | stratum), data = d, family = "binomial")))
+  m2 <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ age + z + (1 | stratum), data = d, family = "binomial")))
+  p_fit <- calculate_pcv(m1, m2)
+  p_ml  <- calculate_pcv(m1, m2, estimation = "ML")
+  expect_equal(p_fit$pcv, p_ml$pcv)
+  expect_equal(p_fit$var_model1, p_ml$var_model1)
+})
+
+test_that("stepwise_pcv and pcv_importance accept the estimation argument", {
+  # The estimation basis threads through the model-series PCV attributions too.
+  skip_on_cran()
+  set.seed(99)
+  N <- 18 * 22
+  d <- data.frame(
+    g = factor(sample(letters[1:3], N, replace = TRUE)),   # 3 x 6 = up to 18 strata
+    r = factor(sample(LETTERS[1:6], N, replace = TRUE)),
+    age = rnorm(N))
+  st <- make_strata(d, c("g", "r"))
+  d <- st$data
+  slev <- unique(as.character(d$stratum))
+  eff <- stats::setNames(rnorm(length(slev), sd = 2), slev)  # per-stratum (incl. interaction)
+  d$y <- 3 + 0.5 * d$age + eff[as.character(d$stratum)] + rnorm(nrow(d))
+
+  sw_fit <- stepwise_pcv(d, "y", c("g", "r", "age"))                 # default fitted
+  sw_ml  <- stepwise_pcv(d, "y", c("g", "r", "age"), estimation = "ML")
+  expect_s3_class(sw_fit, "maihda_stepwise")
+  # The two bases give different Total_PCV trajectories for the Gaussian lmer fits.
+  expect_false(isTRUE(all.equal(sw_fit$Total_PCV, sw_ml$Total_PCV)))
+
+  imp_fit <- pcv_importance(d, "y", c("g", "r", "age"))
+  imp_ml  <- pcv_importance(d, "y", c("g", "r", "age"), estimation = "ML")
+  expect_false(isTRUE(all.equal(imp_fit$total_pcv, imp_ml$total_pcv)))
+})

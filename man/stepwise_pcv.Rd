@@ -11,7 +11,8 @@ stepwise_pcv(
   engine = "lme4",
   family = "gaussian",
   context = NULL,
-  sampling_weights = NULL
+  sampling_weights = NULL,
+  estimation = c("fitted", "ML")
 )
 }
 \arguments{
@@ -50,6 +51,10 @@ only (\code{wemix} and \code{ordinal} fit no crossed random effects). See
 design-weighted stepwise fits; see \code{\link{fit_maihda}}. The weight
 column joins the complete-case filter so every step uses the same analytic
 sample.}
+
+\item{estimation}{Variance-estimation basis for the between-stratum variances
+compared across steps, \code{"fitted"} (default) or \code{"ML"}; see
+\code{\link{calculate_pcv}}. Affects Gaussian \code{lmer} fits only.}
 }
 \value{
 A data.frame (class \code{maihda_stepwise}) showing the sequential

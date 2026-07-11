@@ -669,18 +669,19 @@ test_that("stepwise_pcv(context = ) isolates the between-stratum PCV net of cont
   expect_true("Context_Variance" %in% names(out))
 
   # The final step's between-stratum Variance equals the direct contextual fit's
-  # (ML-refit) stratum variance -- proving the (1 | site) effect is held every step
-  # and the stratum variance is read net of it.
+  # fitted (REML) stratum variance -- proving the (1 | site) effect is held every
+  # step and the stratum variance is read net of it. (stepwise_pcv defaults to
+  # estimation = "fitted", so no ML refit here.)
   m_ctx <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ g1 + g2 + x + (1 | stratum), data = s$data, context = "site")))
-  v_ctx <- extract_between_variance(maihda_pcv_refit_ml(m_ctx))
+  v_ctx <- extract_between_variance(m_ctx)
   expect_equal(out$Variance[nrow(out)], v_ctx, tolerance = 1e-6)
 
   # Context genuinely matters for this data: the same fit WITHOUT the context has a
   # materially different stratum variance, so the match above is discriminating.
   m_noctx <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ g1 + g2 + x + (1 | stratum), data = s$data)))
-  v_noctx <- extract_between_variance(maihda_pcv_refit_ml(m_noctx))
+  v_noctx <- extract_between_variance(m_noctx)
   expect_false(isTRUE(all.equal(v_ctx, v_noctx, tolerance = 1e-4)))
 })
 
@@ -703,12 +704,12 @@ test_that("stepwise_pcv Context_Variance reports the between-context variance an
   expect_equal(which(names(out) == "Context_Variance"),
                which(names(out) == "Variance") + 1L)
 
-  # Positive at every step and equal to the fitted site variance at the final step.
+  # Positive at every step and equal to the fitted (REML) site variance at the final
+  # step (stepwise_pcv defaults to estimation = "fitted", so no ML refit).
   expect_true(all(out$Context_Variance > 0))
   m_ctx <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ g1 + g2 + x + (1 | stratum), data = s$data, context = "site")))
-  site_var <- unname(maihda_random_variances_lme4(
-    maihda_pcv_refit_ml(m_ctx)$model)["site"])
+  site_var <- unname(maihda_random_variances_lme4(m_ctx$model)["site"])
   expect_equal(out$Context_Variance[nrow(out)], site_var, tolerance = 1e-6)
 })
 
@@ -726,7 +727,7 @@ test_that("stepwise_pcv(context = ) filters context to one shared complete-case 
   m_null <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ (1 | stratum), data = s_cc, context = "site")))
   expect_equal(out$Variance[1],
-               extract_between_variance(maihda_pcv_refit_ml(m_null)),
+               extract_between_variance(m_null),
                tolerance = 1e-6)
 })
 

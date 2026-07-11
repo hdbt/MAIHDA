@@ -177,13 +177,14 @@ test_that("maihda_table() reports the context share for a contextual fit", {
   expect_true(any(grepl("Context: country", out, fixed = TRUE)))
 })
 
-test_that("maihda_table() notes the REML-variance / ML-PCV basis mismatch", {
+test_that("maihda_table() notes the REML-variance / ML-PCV basis mismatch (estimation = ML)", {
   d <- make_table_data(7011)
-  a <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d))
+  # estimation = "ML" makes the PCV use ML-refitted variances while the variance rows
+  # stay REML, so the clarifying note is attached.
+  a <- suppressMessages(
+    maihda(y ~ age + gender + race + (1 | gender:race), data = d, estimation = "ML"))
 
   tab <- maihda_table(a)
-  # A Gaussian lme4 two-model fit reports REML variance rows but an ML-refitted PCV,
-  # so a clarifying note is attached...
   expect_type(tab$models_note, "character")
   expect_match(tab$models_note, "maximum-likelihood")
 
@@ -195,6 +196,17 @@ test_that("maihda_table() notes the REML-variance / ML-PCV basis mismatch", {
   # The note surfaces in print().
   out <- capture.output(print(tab))
   expect_true(any(grepl("Note:", out, fixed = TRUE)))
+})
+
+test_that("maihda_table() attaches no basis note under the default (fitted) PCV", {
+  d <- make_table_data(7013)
+  # The default estimation = "fitted" differences the same REML variances shown in
+  # the table, so the PCV IS consistent with the displayed rows and no note is needed.
+  a <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d))
+  tab <- maihda_table(a)
+  expect_null(tab$models_note)
+  v_null_disp <- tab$models[tab$models$statistic == "Between-stratum variance", "null"]
+  expect_equal(a$pcv$var_model1, v_null_disp, tolerance = 1e-8)
 })
 
 test_that("maihda_table() attaches no PCV note for single or crossed-dimensions fits", {

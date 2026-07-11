@@ -17,7 +17,8 @@ pcv_importance(
   sampling_weights = NULL,
   bootstrap = FALSE,
   n_boot = 1000,
-  conf_level = 0.95
+  conf_level = 0.95,
+  estimation = c("fitted", "ML")
 )
 }
 \arguments{
@@ -86,6 +87,11 @@ only}; the cost is \code{n_boot} times the number of subset models (up to
 \item{n_boot}{Number of bootstrap draws if \code{bootstrap = TRUE}. Default 1000.}
 
 \item{conf_level}{Confidence level for bootstrap intervals. Default 0.95.}
+
+\item{estimation}{Variance-estimation basis for the between-stratum variances the
+attribution differences across subset models, \code{"fitted"} (default) or
+\code{"ML"}; see \code{\link{calculate_pcv}}. Affects Gaussian \code{lmer} fits
+only.}
 }
 \value{
 An object of class \code{maihda_pcv_importance}: a list with

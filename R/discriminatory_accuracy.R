@@ -206,13 +206,21 @@ maihda_mor_between_variance <- function(model) {
 #' \strong{Scope.} When the model carries random effects \emph{beyond} the
 #' intersectional partition -- a contextual \code{(1 | school)} from
 #' \code{fit_maihda(context = )} or an explicit extra grouping such as
-#' \code{(1 | site)} -- the headline \code{auc} is the concordance of the
-#' \emph{intersectional strata} (fixed effects plus the stratum random effect
-#' and, for a crossed-dimensions fit, the additive dimension effects), matching
-#' the scope of the MOR; the concordance of the full model including the other
+#' \code{(1 | site)} -- the headline \code{auc} is the \emph{intersectional-scope}
+#' concordance: it \strong{excludes} those other random effects but keeps the fixed
+#' effects plus the stratum random effect (and, for a crossed-dimensions fit, the
+#' additive dimension effects). The concordance of the full model including the other
 #' random effects is reported separately as \code{auc_full}
-#' (\code{auc_scope = "strata"}). For the canonical single-\code{(1 | stratum)}
-#' model the two coincide and only \code{auc} is reported
+#' (\code{auc_scope = "intersectional"}). \strong{Caveat -- this is not strata-only
+#' discrimination.} The intersectional-scope score retains the \emph{entire}
+#' fixed-effects predictor, so when the model is adjusted for individual-level
+#' covariates (e.g. \code{age}, \code{income} that vary \emph{within} strata) those
+#' covariates enter this AUC too; it is the concordance of the adjusted fixed effects
+#' plus the intersectional random effect(s), not of the strata alone, and it then
+#' matches the between-stratum MOR's scope only when the fixed part is intercept-only.
+#' For a strata-only discriminatory accuracy, score the null (strata-only) model. For
+#' the canonical single-\code{(1 | stratum)} model with no other random effects, the
+#' full and intersectional scopes coincide and only \code{auc} is reported
 #' (\code{auc_scope = "model"}, \code{auc_full} absent).
 #'
 #' @param model A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
@@ -224,17 +232,21 @@ maihda_mor_between_variance <- function(model) {
 #' @return An object of class \code{maihda_da}: a list with \code{auc},
 #'   \code{auc_scope}, \code{auc_full}, \code{mor},
 #'   \code{n_case}, \code{n_control}, \code{family}, \code{link}, \code{engine},
-#'   \code{weighted}, \code{weight_type} and \code{apparent} (always \code{TRUE} --
-#'   the AUC is in-sample; see Description). \code{mor} is \code{NA} for a
-#'   non-logit binomial link, where the AUC is still reported. For an
-#'   aggregated-binomial fit \code{n_case} / \code{n_control} are the total
-#'   successes / failures. \code{weighted} is \code{TRUE} when the AUC is a
-#'   weighted concordance -- \code{weight_type} \code{"sampling"} for a
-#'   design-weighted fit (each observation contributes its sampling weight as
-#'   case/control mass, estimating the population discriminatory accuracy) or
-#'   \code{"precision"} for an lme4 fit with non-integer precision weights;
-#'   \code{n_case} / \code{n_control} stay unweighted observation counts either
-#'   way. \code{weight_type} is \code{NULL} for an unweighted AUC.
+#'   \code{weighted}, \code{weight_type}, \code{precision_weights_ignored} and
+#'   \code{apparent} (always \code{TRUE} -- the AUC is in-sample; see Description).
+#'   \code{mor} is \code{NA} for a non-logit binomial link, where the AUC is still
+#'   reported. For an aggregated-binomial fit \code{n_case} / \code{n_control} are the
+#'   total successes / failures. \code{weighted} is \code{TRUE} only when the AUC is a
+#'   genuinely weighted (population-mass) concordance, with \code{weight_type}
+#'   \code{"sampling"} for a design-weighted fit (each observation contributes its
+#'   sampling weight as case/control mass, estimating the population discriminatory
+#'   accuracy); \code{n_case} / \code{n_control} stay unweighted observation counts.
+#'   \code{weight_type} is \code{NULL} for an unweighted AUC.
+#'   \strong{lme4 precision weights} (non-integer \code{weights=} on a Bernoulli fit)
+#'   scale likelihood/dispersion, not population frequency, so they carry no
+#'   population-AUC interpretation: the AUC ignores them and reports the ordinary
+#'   observation-level concordance (\code{weighted = FALSE}), with
+#'   \code{precision_weights_ignored = TRUE} flagging that such weights were present.
 #'
 #' @references
 #' Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
@@ -303,10 +315,15 @@ maihda_discriminatory_accuracy <- function(model) {
     any(is.finite(sw)) && !isTRUE(all(abs(sw - 1) < sqrt(.Machine$double.eps)))
   # lme4 precision-weighted Bernoulli fit (non-unit, non-integer prior weights,
   # e.g. 1.5): NOT an aggregated binomial -- integer-trial fits were caught by
-  # agg_counts above. Each observation contributes its weight as case/control
-  # mass (the weighted Mann-Whitney concordance) instead of rounding y * weight
-  # into pseudo-counts against fractional trials, which produced an AUC above 1
-  # and inflated case totals.
+  # agg_counts above. lme4 prior weights are PRECISION weights: they scale the
+  # observation's likelihood / dispersion, not its population frequency, so a
+  # weight of w does NOT mean w population members. Folding them into case/control
+  # mass (as a sampling weight or an integer trial count legitimately would) would
+  # report a weighted concordance with no population-AUC interpretation, and would
+  # silently change the estimand based on a fitting control. The AUC below therefore
+  # IGNORES precision weights and is the ordinary observation-level concordance;
+  # `pw` is detected only to flag their presence (precision_weights_ignored) in the
+  # result and print output.
   pw <- NULL
   if (!aggregated && !design_weighted && identical(model$engine, "lme4")) {
     pw_try <- tryCatch(as.numeric(stats::weights(model$model, type = "prior")),
@@ -350,13 +367,12 @@ maihda_discriminatory_accuracy <- function(model) {
     }
     n_case <- sum(resp == 1, na.rm = TRUE)
     n_control <- sum(resp == 0, na.rm = TRUE)
-  } else if (!is.null(pw)) {
-    auc_for <- function(score) {
-      maihda_auc_weighted(score, successes = pw * resp, trials = pw)
-    }
-    n_case <- sum(resp == 1, na.rm = TRUE)
-    n_control <- sum(resp == 0, na.rm = TRUE)
   } else {
+    # Ordinary observation-level AUC. This covers both the unweighted case and the
+    # precision-weighted case (pw non-NULL): precision weights are deliberately not
+    # folded into case/control mass -- see the comment where `pw` is detected -- so a
+    # precision-weighted fit reports the same honest observation-level concordance as
+    # an unweighted one, and does not silently change the estimand.
     auc_for <- function(score) maihda_auc(score, resp)
     n_case <- sum(resp == 1, na.rm = TRUE)
     n_control <- sum(resp == 0, na.rm = TRUE)
@@ -364,14 +380,19 @@ maihda_discriminatory_accuracy <- function(model) {
 
   # Scope. With non-intersectional random effects in the model (a contextual
   # (1 | school) or an explicit (1 | site)), the full-model prediction folds
-  # their effects into the score while the MOR is a between-STRATUM quantity --
-  # the two would summarize different models (a strong site effect can carry a
-  # high full-model AUC over a negligible stratum effect). The headline AUC is
-  # therefore the intersectional-scope concordance -- fixed effects plus the
-  # stratum RE (and, for a crossed-dimensions fit, the additive dimension REs)
-  # -- matching the MOR's scope, with the full-model AUC reported alongside as
-  # auc_full. For the canonical single-(1 | stratum) model the two coincide and
-  # only auc is reported.
+  # their effects into the score, which a between-STRATUM summary should not: a
+  # strong site effect can carry a high full-model AUC over a negligible stratum
+  # effect. The headline AUC is therefore the intersectional-SCOPE concordance --
+  # it excludes the other random effects but keeps the fixed effects plus the
+  # stratum RE (and, for a crossed-dimensions fit, the additive dimension REs) --
+  # with the full-model AUC reported alongside as auc_full. NOTE the scope score
+  # (maihda_da_scope_scores()) retains the WHOLE fixed-effects predictor, so when
+  # the model is adjusted for individual-level covariates this AUC includes them
+  # too: it is an adjusted intersectional concordance, NOT strata-only, and it
+  # matches the MOR's between-stratum scope only when the fixed part is
+  # intercept-only. Labelled auc_scope = "intersectional" (not "strata") to avoid
+  # over-claiming. For the canonical single-(1 | stratum) model the full and
+  # intersectional scopes coincide and only auc is reported.
   scopes <- maihda_da_re_scopes(model)
   auc_full <- NULL
   auc_scope <- "model"
@@ -381,7 +402,7 @@ maihda_discriminatory_accuracy <- function(model) {
     if (!is.null(score) && length(score) == length(prob)) {
       auc_full <- auc_for(prob)
       auc <- auc_for(score)
-      auc_scope <- "strata"
+      auc_scope <- "intersectional"
     } else {
       # The scoped score could not be built; report the full-model AUC rather
       # than nothing, labelled as such.
@@ -408,8 +429,15 @@ maihda_discriminatory_accuracy <- function(model) {
       family = fam,
       link = link,
       engine = model$engine,
-      weighted = design_weighted || !is.null(pw),
-      weight_type = if (design_weighted) "sampling" else if (!is.null(pw)) "precision",
+      # `weighted` marks a genuinely weighted (population-mass) concordance -- a
+      # design/sampling-weighted or aggregated trial-count AUC. A precision-weighted
+      # fit is NOT weighted for AUC purposes: its AUC is the ordinary observation-level
+      # concordance (see above), so weighted = FALSE and weight_type = NULL, with
+      # precision_weights_ignored flagging that the fit's precision weights were
+      # (correctly) not used.
+      weighted = design_weighted,
+      weight_type = if (design_weighted) "sampling" else NULL,
+      precision_weights_ignored = !is.null(pw),
       # The AUC is APPARENT (in-sample / resubstitution): it scores the same rows
       # used to estimate the fixed effects, variance components, and stratum BLUPs,
       # so it is optimistically biased -- more so with small/sparse strata, where
@@ -430,14 +458,16 @@ print.maihda_da <- function(x, ...) {
   cat(pal$bold("Discriminatory accuracy (binomial MAIHDA)"), "\n", sep = "")
   cat(sprintf("  AUC (C-statistic): %s%s\n",
               if (is.finite(x$auc)) pal$accent(sprintf("%.3f", x$auc)) else "NA",
-              if (identical(x$auc_scope, "strata")) " [intersectional strata]" else ""))
+              if (identical(x$auc_scope, "intersectional")) " [intersectional scope]" else ""))
   if (!is.null(x$auc_full) && is.finite(x$auc_full)) {
     cat(sprintf("  AUC, full model:   %s\n",
                 pal$accent(sprintf("%.3f", x$auc_full))))
     cat(pal$muted(paste0(
-      "  (The model carries non-stratum random effects; the headline AUC is\n",
-      "  the concordance of the intersectional strata -- matching the MOR's\n",
-      "  scope -- while the full-model AUC includes the other random effects.)\n")))
+      "  (The model carries non-stratum random effects. The headline AUC excludes\n",
+      "  those (e.g. a contextual/site effect); it is the concordance of the fixed\n",
+      "  effects plus the intersectional random effect(s), so it includes any\n",
+      "  individual-level covariates in the model and is strata-only only when the\n",
+      "  fixed part is intercept-only. The full-model AUC adds the other random effects.)\n")))
   }
   mor_str <- if (is.finite(x$mor)) {
     pal$accent(sprintf("%.3f", x$mor))
@@ -455,16 +485,15 @@ print.maihda_da <- function(x, ...) {
       "  is a descriptive measure, not cross-validated out-of-sample discrimination.)\n")))
   }
   if (isTRUE(x$weighted)) {
-    msg <- if (identical(x$weight_type, "precision")) {
-      paste0(
-        "  (AUC is precision-weighted: each observation contributes its prior\n",
-        "  weight as case/control mass; cases/controls are unweighted counts.)\n")
-    } else {
-      paste0(
-        "  (AUC is design-weighted: each observation contributes its sampling\n",
-        "  weight; cases/controls are unweighted counts.)\n")
-    }
-    cat(pal$muted(msg))
+    cat(pal$muted(paste0(
+      "  (AUC is design-weighted: each observation contributes its sampling\n",
+      "  weight; cases/controls are unweighted counts.)\n")))
+  }
+  if (isTRUE(x$precision_weights_ignored)) {
+    cat(pal$muted(paste0(
+      "  (The fit carries lme4 precision weights; the AUC ignores them -- precision\n",
+      "  weights scale likelihood/dispersion, not population frequency -- so it is\n",
+      "  the ordinary observation-level concordance.)\n")))
   }
   invisible(x)
 }
@@ -552,8 +581,9 @@ maihda_da_aggregated_counts <- function(model) {
   # counts -- they are precision weights on a Bernoulli fit, and rounding
   # y * weight into pseudo-counts against fractional trials produced negative
   # implied failures (round(1.5) = 2 successes out of 1.5 trials) and an AUC
-  # above 1; such fits return NULL here and take the precision-weighted
-  # concordance path in maihda_discriminatory_accuracy(). Skipped when sampling
+  # above 1; such fits return NULL here and take the ordinary observation-level
+  # AUC path in maihda_discriminatory_accuracy() (precision weights are ignored for
+  # the AUC, as they carry no population-frequency meaning). Skipped when sampling
   # weights are in play (their prior weights are not trial counts either).
   if (!is.null(model$sampling_weights)) {
     return(NULL)

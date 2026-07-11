@@ -16,6 +16,13 @@
 #'   estimate and \code{bootstrap = TRUE} is an error (see Details).
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
 #' @param conf_level Confidence level for bootstrap intervals. Default is 0.95.
+#' @param estimation Variance-estimation basis for the cross-model comparison, one of
+#'   \code{"fitted"} (default) or \code{"ML"}. \code{"fitted"} differences each model's
+#'   own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
+#'   \code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
+#'   correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
+#'   \code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
+#'   Details for the finite-sample tradeoff.
 #'
 #' @return A list containing:
 #'   \item{pcv}{The estimated proportional change in variance}
@@ -38,18 +45,33 @@
 #' non-nested models the PCV is simply a model-dependent difference in variance,
 #' not an explained proportion.
 #'
-#' \strong{REML vs ML.} \code{lmer} fits Gaussian models by REML, whose
-#' between-stratum variance estimate is \emph{not} comparable across models with
-#' different fixed effects -- exactly the canonical null-vs-adjusted PCV, where the
-#' adjusted model adds the dimensions' main effects. \code{calculate_pcv()} therefore
-#' refits any REML \code{lmer} model with maximum likelihood
-#' (\code{\link[lme4]{refitML}}) before reading the variances (and before the
-#' parametric bootstrap, so the interval matches), matching \code{\link{maihda_ic}}
-#' and \code{anova()} on \code{lme4} models. Using REML estimates here biases the PCV
-#' (it overstates the residual between-stratum variance of the adjusted model). GLMM
-#' fits (\code{glmer}) and the brms/wemix/ordinal engines are already on the
-#' maximum-likelihood scale and are unaffected; single-model VPC/ICC summaries keep
-#' their REML fit, since that comparison-free quantity is not subject to the pitfall.
+#' \strong{REML vs ML (the \code{estimation} argument).} \code{lmer} fits Gaussian
+#' models by REML, and two considerations pull in opposite directions when the PCV
+#' differences two such fits. On one hand, the REML \emph{likelihood} is not
+#' comparable across models with different fixed effects, and REML applies a
+#' model-specific degrees-of-freedom correction that differs between the null and the
+#' adjusted fit; refitting both with maximum likelihood (\code{\link[lme4]{refitML}})
+#' puts the two between-stratum variances on a common, correction-free basis, matching
+#' \code{\link{maihda_ic}} and \code{anova()} on \code{lme4} models. On the other hand,
+#' ML variance-component estimates are downward-biased in finite samples -- most
+#' sharply with few strata (the usual MAIHDA regime), and more so for the adjusted
+#' model (more fixed effects, larger REML correction) -- which \emph{inflates} the
+#' reported PCV relative to the REML estimates. Both are defensible point estimates of
+#' each model's between-stratum variance, so \code{estimation} selects between them:
+#' \describe{
+#'   \item{\code{"fitted"} (default)}{use each model's own fitted between-stratum
+#'     variance -- the REML estimate for an \code{lmer} Gaussian fit. This matches the
+#'     variances \code{\link{summary.maihda_model}} reports and conventional MAIHDA
+#'     practice, and avoids ML's finite-sample downward bias.}
+#'   \item{\code{"ML"}}{refit any REML \code{lmer} fit with maximum likelihood before
+#'     reading the variances (and before the parametric bootstrap, so the interval
+#'     matches), for a correction-free cross-model comparison.}
+#' }
+#' The choice affects Gaussian \code{lmer} fits only: GLMM fits (\code{glmer}) and the
+#' brms/wemix/ordinal engines are already on the maximum-likelihood scale, so
+#' \code{"fitted"} and \code{"ML"} coincide there. Single-model VPC/ICC summaries always
+#' keep their REML fit, since that comparison-free quantity is not subject to the
+#' cross-model pitfall.
 #'
 #' \strong{Latent-scale families and rescaling.} For families whose level-1
 #' variance is a fixed latent-scale constant -- binomial/Bernoulli
@@ -122,7 +144,9 @@
 #' @export
 #' @importFrom lme4 lmer glmer VarCorr
 calculate_pcv <- function(model1, model2, bootstrap = FALSE,
-                         n_boot = 1000, conf_level = 0.95) {
+                         n_boot = 1000, conf_level = 0.95,
+                         estimation = c("fitted", "ML")) {
+  estimation <- match.arg(estimation)
   # Input validation
   if (!inherits(model1, "maihda_model")) {
     stop("'model1' must be a maihda_model object from fit_maihda()")
@@ -147,14 +171,15 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
 
   validate_pcv_models(model1, model2)
 
-  # REML vs ML: lmer fits Gaussian models by REML, whose between-stratum variance is
-  # NOT comparable across models with different fixed effects -- exactly the canonical
-  # null-vs-adjusted PCV. Refit any REML lmer fit with ML before the comparison (and
-  # before the parametric bootstrap below, which reuses these fits, so the interval
-  # matches the point estimate), mirroring maihda_ic() and anova.merMod. GLMM fits
-  # (glmer) and the brms/wemix/ordinal engines are already ML / unaffected.
-  model1 <- maihda_pcv_refit_ml(model1)
-  model2 <- maihda_pcv_refit_ml(model2)
+  # REML vs ML basis for the cross-model variance comparison (see Details and the
+  # `estimation` argument). "fitted" (default) keeps each lmer fit's own REML
+  # between-stratum variance -- matching summary() and avoiding ML's finite-sample
+  # downward bias. "ML" refits any REML lmer fit with ML first (and before the
+  # parametric bootstrap below, which reuses these fits, so the interval matches the
+  # point estimate), mirroring maihda_ic() and anova.merMod, for a correction-free
+  # comparison. A no-op for glmer / the brms/wemix/ordinal engines, already on ML.
+  model1 <- maihda_pcv_apply_estimation(model1, estimation)
+  model2 <- maihda_pcv_apply_estimation(model2, estimation)
 
   # Extract between-stratum variance from both models
   var1 <- extract_between_variance(model1)
@@ -193,6 +218,7 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
     pvc = pcv,
     var_model1 = var1,
     var_model2 = var2,
+    estimation = estimation,
     bootstrap = FALSE
   )
 
@@ -224,16 +250,29 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
 #' @return See \code{\link{calculate_pcv}}.
 #' @export
 calculate_pvc <- function(model1, model2, bootstrap = FALSE,
-                          n_boot = 1000, conf_level = 0.95) {
+                          n_boot = 1000, conf_level = 0.95,
+                          estimation = c("fitted", "ML")) {
   .Deprecated("calculate_pcv")
   calculate_pcv(model1, model2, bootstrap = bootstrap,
-                n_boot = n_boot, conf_level = conf_level)
+                n_boot = n_boot, conf_level = conf_level,
+                estimation = match.arg(estimation))
 }
 
-# REML lmer between-stratum variance estimates are not comparable across models with
-# different fixed effects (the canonical null-vs-adjusted PCV), because the REML
-# criterion conditions on the fixed-effects design. Refit a REML lmer fit with ML
-# (lme4::refitML) before any cross-model variance comparison, matching maihda_ic() and
+# Apply the requested variance-estimation basis before a cross-model PCV comparison.
+# "fitted" keeps each model's own fit (the REML estimate for a Gaussian lmer fit);
+# "ML" refits a REML lmer fit with maximum likelihood via maihda_pcv_refit_ml(). Only
+# Gaussian lmer fits are affected -- glmer and the brms/wemix/ordinal engines are
+# already on the ML scale, so maihda_pcv_refit_ml() returns them unchanged either way.
+# `estimation` is validated (match.arg) by the exported callers before it reaches here.
+maihda_pcv_apply_estimation <- function(model, estimation) {
+  if (identical(estimation, "ML")) maihda_pcv_refit_ml(model) else model
+}
+
+# REML lmer between-stratum variance estimates carry a fixed-effects-specific REML
+# degrees-of-freedom correction that differs between the null and adjusted fits.
+# Invoked only when the ML estimation basis is requested (estimation = "ML"; see
+# maihda_pcv_apply_estimation()), this refits a REML lmer fit with ML (lme4::refitML)
+# for a correction-free cross-model comparison, matching maihda_ic() and
 # anova.merMod. Non-REML fits (glmer / the GLMM families) and the brms/wemix/ordinal
 # engines are returned unchanged. Longitudinal fits are returned unchanged TOO, but
 # only because their null-vs-adjusted comparison applies the same rule itself:
@@ -586,6 +625,13 @@ print.pcv_result <- function(x, ...) {
     cat(sprintf("PCV: %s\n\n", pal$accent(sprintf("%.4f", pcv))))
   }
 
+  if (!is.null(x$estimation)) {
+    cat(pal$muted(sprintf("(Variance basis: %s)\n\n",
+      if (identical(x$estimation, "ML"))
+        "ML-refit -- correction-free cross-model comparison"
+      else "as fitted -- REML for Gaussian lmer, matching summary()")))
+  }
+
   cat(pal$bold("Between-stratum variance:"), "\n", sep = "")
   cat(sprintf("  Model 1: %.6f\n", x$var_model1))
   cat(sprintf("  Model 2: %.6f\n", x$var_model2))
@@ -813,6 +859,9 @@ maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
 #'   design-weighted stepwise fits; see \code{\link{fit_maihda}}. The weight
 #'   column joins the complete-case filter so every step uses the same analytic
 #'   sample.
+#' @param estimation Variance-estimation basis for the between-stratum variances
+#'   compared across steps, \code{"fitted"} (default) or \code{"ML"}; see
+#'   \code{\link{calculate_pcv}}. Affects Gaussian \code{lmer} fits only.
 #'
 #' @return A data.frame (class \code{maihda_stepwise}) showing the sequential
 #'   models, the between-stratum variance at each step, and both the step-specific
@@ -877,7 +926,9 @@ maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
 #'
 #' @export
 stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussian",
-                         context = NULL, sampling_weights = NULL) {
+                         context = NULL, sampling_weights = NULL,
+                         estimation = c("fitted", "ML")) {
+  estimation <- match.arg(estimation)
 
   setup <- maihda_pcv_attribution_setup(
     data, outcome, vars, engine = engine, family = family, context = context,
@@ -903,13 +954,15 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   )
 
   # Model 0: Null Model. Each step compares the stratum variance across models that
-  # differ in fixed effects, so refit any REML lmer fit with ML first (see
-  # calculate_pcv()); a no-op for glmer/wemix/ordinal binary fits used for the DA
-  # trajectory below.
+  # differ in fixed effects, so apply the requested variance-estimation basis first
+  # (estimation = "ML" refits a REML lmer fit with ML; "fitted", the default, keeps
+  # it -- see calculate_pcv()); a no-op for glmer/wemix/ordinal binary fits used for
+  # the DA trajectory below.
   null_fmla <- maihda_formula_with_stratum(outcome)
-  null_mod <- maihda_pcv_refit_ml(fit_maihda(null_fmla, data, engine = engine,
-                         family = family, context = context,
-                         sampling_weights = sampling_weights))
+  null_mod <- maihda_pcv_apply_estimation(
+    fit_maihda(null_fmla, data, engine = engine,
+               family = family, context = context,
+               sampling_weights = sampling_weights), estimation)
   null_var <- extract_between_variance(null_mod)
 
   # Discriminatory-accuracy trajectory (binary outcomes only): read the AUC and MOR
@@ -968,9 +1021,10 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     current_terms <- c(current_terms, model_terms[i])
 
     fmla <- maihda_formula_with_stratum(outcome, current_terms)
-    mod <- maihda_pcv_refit_ml(fit_maihda(fmla, data, engine = engine,
-                      family = family, context = context,
-                      sampling_weights = sampling_weights))
+    mod <- maihda_pcv_apply_estimation(
+      fit_maihda(fmla, data, engine = engine,
+                 family = family, context = context,
+                 sampling_weights = sampling_weights), estimation)
 
     curr_var <- extract_between_variance(mod)
 

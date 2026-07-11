@@ -773,23 +773,30 @@ maihda_stratum_growth_at_boundary_lme4 <- function(model, tol = 1e-4) {
 #' invariant to how the time axis is coded (for linear growth the slope variance
 #' is the same at every time, so this reduces to the slope-variance cell).
 #'
-#' As in \code{\link{calculate_pcv}}, REML \code{lmer} growth fits are refitted
-#' with maximum likelihood (\code{\link[lme4]{refitML}}) before the comparison:
-#' the null and adjusted models differ in fixed effects (the dimensions' main
-#' effects and their \code{dim:time} interactions), across which REML variance
-#' estimates are not comparable -- using them biases both PCVs downward,
-#' overstating the multiplicative/interaction share. The stored models (and the
-#' single-model summaries computed from them, e.g. the time-varying VPC) keep
-#' their REML fit; \code{ml_refit} on the result records whether the refit
-#' applied. glmer (GLMM) and brms fits are already on the ML / posterior scale.
+#' As in \code{\link{calculate_pcv}}, the \code{estimation} argument selects the
+#' variance-estimation basis. With \code{estimation = "ML"}, REML \code{lmer} growth
+#' fits are refitted with maximum likelihood (\code{\link[lme4]{refitML}}) before the
+#' comparison -- the null and adjusted models differ in fixed effects (the dimensions'
+#' main effects and their \code{dim:time} interactions), across which REML applies a
+#' model-specific correction -- for a correction-free comparison. With
+#' \code{estimation = "fitted"} (the default) each fit's own REML covariance block is
+#' used, matching the single-model summaries and avoiding ML's finite-sample bias. The
+#' stored models (and the single-model summaries computed from them, e.g. the
+#' time-varying VPC) always keep their REML fit; \code{ml_refit} on the result records
+#' whether an ML refit applied. glmer (GLMM) and brms fits are already on the
+#' ML / posterior scale, so the choice does not affect them.
 #'
 #' @param null_model,adjusted_model Longitudinal \code{maihda_model}s from a
 #'   \code{maihda(decomposition = "longitudinal")} pair.
 #' @param times Optional numeric times for the time-specific PCV; defaults to the
 #'   null model's reporting grid.
+#' @param estimation Variance-estimation basis, \code{"fitted"} (default) or
+#'   \code{"ML"}; see \code{\link{calculate_pcv}}.
 #' @return An object of class \code{maihda_long_pcv}.
 #' @keywords internal
-maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
+maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
+                                    estimation = c("fitted", "ML")) {
+  estimation <- match.arg(estimation)
   lng <- null_model$longitudinal_info
   center <- maihda_lng_time_center(lng)
   adj_center <- maihda_lng_time_center(adjusted_model$longitudinal_info)
@@ -800,20 +807,25 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL) {
          call. = FALSE)
   }
 
-  # REML vs ML: the two growth models differ in fixed effects, so their REML
-  # between-stratum covariance blocks are not comparable (see calculate_pcv()).
-  # Refit REML lmer fits with ML before reading the blocks; the caller's stored
-  # models are untouched (copy semantics), so summary()'s time-varying VPC keeps
-  # each fit's own REML estimate. ml_refit records whether the comparison is on
-  # the ML scale -- FALSE also when a boundary skip or a failed refitML() left a
-  # REML fit in place (the print method then makes no ML claim).
+  # REML vs ML basis (see calculate_pcv()'s `estimation` argument). With
+  # estimation = "ML" the two growth models are refit with ML before their
+  # between-stratum covariance blocks are read (the fits differ in fixed effects, so
+  # REML applies a model-specific correction); with "fitted" (default) each fit's own
+  # REML block is used. Either way the caller's stored models are untouched (copy
+  # semantics), so summary()'s time-varying VPC keeps each fit's own REML estimate.
+  # ml_refit records whether the comparison is on the ML scale -- FALSE for "fitted",
+  # and also when a boundary skip or a failed refitML() left a REML fit in place (the
+  # print method then makes no ML claim).
   is_reml_lng <- function(m) {
     identical(m$engine, "lme4") &&
       tryCatch(isTRUE(lme4::isREML(m$model)), error = function(e) FALSE)
   }
-  refit_needed <- is_reml_lng(null_model) || is_reml_lng(adjusted_model)
-  null_model <- maihda_longitudinal_refit_ml(null_model)
-  adjusted_model <- maihda_longitudinal_refit_ml(adjusted_model)
+  do_ml <- identical(estimation, "ML")
+  refit_needed <- do_ml && (is_reml_lng(null_model) || is_reml_lng(adjusted_model))
+  if (do_ml) {
+    null_model <- maihda_longitudinal_refit_ml(null_model)
+    adjusted_model <- maihda_longitudinal_refit_ml(adjusted_model)
+  }
   ml_refit <- refit_needed &&
     !(is_reml_lng(null_model) || is_reml_lng(adjusted_model))
 

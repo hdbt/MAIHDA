@@ -269,49 +269,58 @@ test_that("longitudinal PCV recovers a mostly-additive trajectory split", {
   expect_gt(a$pcv$Sigma_stratum_adjusted[2, 2], 0)
 })
 
-test_that("longitudinal PCV compares ML-refitted variances, not REML", {
+test_that("longitudinal PCV: default 'fitted' uses REML, estimation = 'ML' refits", {
   # The null and adjusted growth models differ in fixed effects (the dimensions'
-  # main effects + dim:time), across which REML between-stratum variances are not
-  # comparable -- the same pitfall calculate_pcv() ML-refits for. The stored fits
-  # (and hence summary()'s time-varying VPC) keep REML; only the PCV comparison
-  # is on the ML scale, and the object records that basis.
+  # main effects + dim:time), across which REML applies a model-specific correction.
+  # estimation selects the basis (see calculate_pcv()): the default "fitted" keeps
+  # each fit's own REML covariance block; "ML" refits both first. The stored fits
+  # (and summary()'s time-varying VPC) always keep REML.
   expect_true(lme4::isREML(a_g$model$model))
   expect_true(lme4::isREML(a_g$model_adjusted$model))
-  expect_true(isTRUE(a_g$pcv$ml_refit))
 
-  # Recompute the baseline PCV from hand-ML-refitted blocks: must match exactly.
-  null_ml <- a_g$model
-  null_ml$model <- lme4::refitML(a_g$model$model)
-  adj_ml <- a_g$model_adjusted
-  adj_ml$model <- lme4::refitML(a_g$model_adjusted$model)
   ref_c <- a_g$model$longitudinal_info$ref_time -
     maihda_lng_time_center(a_g$model$longitudinal_info)
+
+  # Default (fitted): NO ML refit; the baseline variances equal the REML blocks.
+  expect_false(isTRUE(a_g$pcv$ml_refit))
+  vn_reml <- maihda_var_at_time(maihda_re_block(a_g$model, "stratum"), ref_c)
+  va_reml <- maihda_var_at_time(maihda_re_block(a_g$model_adjusted, "stratum"), ref_c)
+  expect_equal(a_g$pcv$var_baseline_null, vn_reml, tolerance = 1e-6)
+  expect_equal(a_g$pcv$var_baseline_adjusted, va_reml, tolerance = 1e-6)
+  expect_equal(a_g$pcv$pcv_intercept, (vn_reml - va_reml) / vn_reml, tolerance = 1e-6)
+
+  # estimation = "ML": refit both growth fits with ML before differencing the blocks.
+  a_mlbasis <- suppressMessages(
+    maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+           data = maihda_long_data, id = "id", time = "wave",
+           decomposition = "longitudinal", estimation = "ML"))
+  expect_true(isTRUE(a_mlbasis$pcv$ml_refit))
+  null_ml <- a_g$model;          null_ml$model <- lme4::refitML(a_g$model$model)
+  adj_ml  <- a_g$model_adjusted; adj_ml$model  <- lme4::refitML(a_g$model_adjusted$model)
   vn <- maihda_var_at_time(maihda_re_block(null_ml, "stratum"), ref_c)
   va <- maihda_var_at_time(maihda_re_block(adj_ml, "stratum"), ref_c)
-  expect_equal(a_g$pcv$var_baseline_null, vn, tolerance = 1e-6)
-  expect_equal(a_g$pcv$var_baseline_adjusted, va, tolerance = 1e-6)
-  expect_equal(a_g$pcv$pcv_intercept, (vn - va) / vn, tolerance = 1e-6)
+  expect_equal(a_mlbasis$pcv$var_baseline_null, vn, tolerance = 1e-6)
+  expect_equal(a_mlbasis$pcv$var_baseline_adjusted, va, tolerance = 1e-6)
+  expect_equal(a_mlbasis$pcv$pcv_intercept, (vn - va) / vn, tolerance = 1e-6)
 
-  # ... and it genuinely differs from the naive REML-block value it replaces.
-  vn_reml <- maihda_var_at_time(maihda_re_block(a_g$model, "stratum"), ref_c)
-  expect_false(isTRUE(all.equal(a_g$pcv$var_baseline_null, vn_reml,
+  # The ML basis genuinely differs from the REML (fitted) baseline it replaces.
+  expect_false(isTRUE(all.equal(a_mlbasis$pcv$var_baseline_null, vn_reml,
                                 tolerance = 1e-6)))
 
-  # An explicitly ML-fitted pair (REML = FALSE forwarded to both growth fits)
-  # reproduces the same decomposition: the internal refit is a no-op there.
-  a_ml <- suppressMessages(
+  # An explicitly ML-FITTED pair (REML = FALSE) needs no refit under either basis and
+  # reproduces the ML-basis decomposition.
+  a_mlfit <- suppressMessages(
     maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
            data = maihda_long_data, id = "id", time = "wave",
            decomposition = "longitudinal", REML = FALSE))
-  expect_false(isTRUE(a_ml$pcv$ml_refit))   # nothing needed refitting
-  expect_equal(a_ml$pcv$pcv_intercept, a_g$pcv$pcv_intercept, tolerance = 1e-4)
-  expect_equal(a_ml$pcv$pcv_slope, a_g$pcv$pcv_slope, tolerance = 1e-4)
+  expect_false(isTRUE(a_mlfit$pcv$ml_refit))   # nothing needed refitting
+  expect_equal(a_mlfit$pcv$pcv_intercept, a_mlbasis$pcv$pcv_intercept, tolerance = 1e-4)
+  expect_equal(a_mlfit$pcv$pcv_slope, a_mlbasis$pcv$pcv_slope, tolerance = 1e-4)
 
   # The print method discloses the ML basis when (and only when) a refit ran.
-  expect_output(print(a_g$pcv), "refitted with maximum likelihood")
-  expect_output(print(a_ml$pcv), "mostly additive")
+  expect_output(print(a_mlbasis$pcv), "refitted with maximum likelihood")
   expect_false(any(grepl("refitted with maximum likelihood",
-                         capture.output(print(a_ml$pcv)))))
+                         capture.output(print(a_g$pcv)))))
 })
 
 test_that("maihda_interactions refuses a longitudinal analysis or model", {

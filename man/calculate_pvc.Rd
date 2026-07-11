@@ -9,7 +9,8 @@ calculate_pvc(
   model2,
   bootstrap = FALSE,
   n_boot = 1000,
-  conf_level = 0.95
+  conf_level = 0.95,
+  estimation = c("fitted", "ML")
 )
 }
 \arguments{
@@ -28,6 +29,14 @@ estimate and \code{bootstrap = TRUE} is an error (see Details).}
 \item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.}
 
 \item{conf_level}{Confidence level for bootstrap intervals. Default is 0.95.}
+
+\item{estimation}{Variance-estimation basis for the cross-model comparison, one of
+\code{"fitted"} (default) or \code{"ML"}. \code{"fitted"} differences each model's
+own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
+\code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
+correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
+\code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
+Details for the finite-sample tradeoff.}
 }
 \value{
 See \code{\link{calculate_pcv}}.

@@ -9,7 +9,8 @@ calculate_pcv(
   model2,
   bootstrap = FALSE,
   n_boot = 1000,
-  conf_level = 0.95
+  conf_level = 0.95,
+  estimation = c("fitted", "ML")
 )
 }
 \arguments{
@@ -28,6 +29,14 @@ estimate and \code{bootstrap = TRUE} is an error (see Details).}
 \item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.}
 
 \item{conf_level}{Confidence level for bootstrap intervals. Default is 0.95.}
+
+\item{estimation}{Variance-estimation basis for the cross-model comparison, one of
+\code{"fitted"} (default) or \code{"ML"}. \code{"fitted"} differences each model's
+own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
+\code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
+correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
+\code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
+Details for the finite-sample tradeoff.}
 }
 \value{
 A list containing:
@@ -57,18 +66,33 @@ analytic sample and strata. The function does not require nesting, so for
 non-nested models the PCV is simply a model-dependent difference in variance,
 not an explained proportion.
 
-\strong{REML vs ML.} \code{lmer} fits Gaussian models by REML, whose
-between-stratum variance estimate is \emph{not} comparable across models with
-different fixed effects -- exactly the canonical null-vs-adjusted PCV, where the
-adjusted model adds the dimensions' main effects. \code{calculate_pcv()} therefore
-refits any REML \code{lmer} model with maximum likelihood
-(\code{\link[lme4]{refitML}}) before reading the variances (and before the
-parametric bootstrap, so the interval matches), matching \code{\link{maihda_ic}}
-and \code{anova()} on \code{lme4} models. Using REML estimates here biases the PCV
-(it overstates the residual between-stratum variance of the adjusted model). GLMM
-fits (\code{glmer}) and the brms/wemix/ordinal engines are already on the
-maximum-likelihood scale and are unaffected; single-model VPC/ICC summaries keep
-their REML fit, since that comparison-free quantity is not subject to the pitfall.
+\strong{REML vs ML (the \code{estimation} argument).} \code{lmer} fits Gaussian
+models by REML, and two considerations pull in opposite directions when the PCV
+differences two such fits. On one hand, the REML \emph{likelihood} is not
+comparable across models with different fixed effects, and REML applies a
+model-specific degrees-of-freedom correction that differs between the null and the
+adjusted fit; refitting both with maximum likelihood (\code{\link[lme4]{refitML}})
+puts the two between-stratum variances on a common, correction-free basis, matching
+\code{\link{maihda_ic}} and \code{anova()} on \code{lme4} models. On the other hand,
+ML variance-component estimates are downward-biased in finite samples -- most
+sharply with few strata (the usual MAIHDA regime), and more so for the adjusted
+model (more fixed effects, larger REML correction) -- which \emph{inflates} the
+reported PCV relative to the REML estimates. Both are defensible point estimates of
+each model's between-stratum variance, so \code{estimation} selects between them:
+\describe{
+  \item{\code{"fitted"} (default)}{use each model's own fitted between-stratum
+    variance -- the REML estimate for an \code{lmer} Gaussian fit. This matches the
+    variances \code{\link{summary.maihda_model}} reports and conventional MAIHDA
+    practice, and avoids ML's finite-sample downward bias.}
+  \item{\code{"ML"}}{refit any REML \code{lmer} fit with maximum likelihood before
+    reading the variances (and before the parametric bootstrap, so the interval
+    matches), for a correction-free cross-model comparison.}
+}
+The choice affects Gaussian \code{lmer} fits only: GLMM fits (\code{glmer}) and the
+brms/wemix/ordinal engines are already on the maximum-likelihood scale, so
+\code{"fitted"} and \code{"ML"} coincide there. Single-model VPC/ICC summaries always
+keep their REML fit, since that comparison-free quantity is not subject to the
+cross-model pitfall.
 
 \strong{Latent-scale families and rescaling.} For families whose level-1
 variance is a fixed latent-scale constant -- binomial/Bernoulli

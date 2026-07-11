@@ -1,3 +1,19 @@
+# MAIHDA (development version)
+
+## API Changes
+
+* **The Gaussian PCV now defaults to each model's own fitted (REML) between-stratum variance, via a new `estimation` argument.** `calculate_pcv()`, `stepwise_pcv()`, `pcv_importance()`, `compare_maihda_groups()`, and `maihda()` gain `estimation = c("fitted", "ML")`. Previously the PCV *always* refitted a Gaussian `lmer` model with maximum likelihood before differencing the between-stratum variances. That is defensible — it removes REML's fixed-effects-specific degrees-of-freedom correction, matching `maihda_ic()`/`anova()` — but ML variance components are downward-biased in finite samples, most sharply with few strata (the usual MAIHDA regime) and more so for the adjusted model, which *inflates* the reported PCV. The new default `"fitted"` differences each model's own REML variance (the values `summary()` reports, and conventional MAIHDA practice), avoiding that bias; `estimation = "ML"` restores the previous behaviour for a correction-free cross-model comparison. **This changes the Gaussian-`lmer` PCV reported by `maihda()`/`calculate_pcv()` relative to 0.2.1** — in a 30-stratum example the PCV moved from 0.94 (ML) to 0.85 (REML). Binomial/Poisson/ordinal and brms fits are already on the ML scale and are unaffected. The result object records the basis in `$estimation`, and `print()` states it.
+
+## Bug Fixes
+
+* **Discriminatory-accuracy AUC no longer misreads lme4 precision weights as population frequencies.** For a Bernoulli `lme4` fit with non-integer `weights=` (precision weights, which scale the observation's likelihood/dispersion, not its population frequency), `maihda_discriminatory_accuracy()` previously folded the weights into case/control mass and reported a weighted Mann–Whitney concordance — a quantity with no population-AUC interpretation, and one that silently changed the estimand based on a fitting control. Such fits now report the ordinary observation-level AUC (`weighted = FALSE`), with a new `precision_weights_ignored = TRUE` flag and a `print()` note. The sampling-weighted (design-based) and aggregated trial-count AUC paths — where case/control mass genuinely represents population/replication mass — are unchanged.
+
+* **The intersectional-scope AUC is no longer mislabelled as strata-only discrimination.** When a model carries non-stratum random effects (a contextual `(1 | school)` or an explicit `(1 | site)`), the headline AUC excludes those but retains the *entire* fixed-effects predictor — so an adjusted model's individual-level covariates (e.g. `age`) enter it. `auc_scope` is renamed from `"strata"` to `"intersectional"`, and `print()`/the documentation now state that this is an adjusted intersectional concordance (which matches the between-stratum MOR's scope only when the fixed part is intercept-only), not the discriminatory accuracy of the strata alone — for which you score the null (strata-only) model.
+
+## Testing / CI
+
+* **Added a routine `integration-tests` CI job plus regression tests for the three estimand issues above.** The optional-backend tests (WeMix, ordinal, negative-binomial, response-scale VPC, weighted counts) are guarded by `skip_on_cran()`, so the ordinary `R CMD check` did not exercise them; a new `integration-tests` job runs the full non-brms suite with `NOT_CRAN=true` on every push/PR (brms keeps its own `brms-tests.yaml`). New regression tests pin the `estimation` basis, the precision-weight AUC, and the intersectional AUC scope.
+
 # MAIHDA 0.2.1
 
 ## New Features

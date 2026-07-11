@@ -4,7 +4,12 @@
 \alias{maihda_longitudinal_pcv}
 \title{Longitudinal MAIHDA proportional change in variance (PCV)}
 \usage{
-maihda_longitudinal_pcv(null_model, adjusted_model, times = NULL)
+maihda_longitudinal_pcv(
+  null_model,
+  adjusted_model,
+  times = NULL,
+  estimation = c("fitted", "ML")
+)
 }
 \arguments{
 \item{null_model, adjusted_model}{Longitudinal \code{maihda_model}s from a
@@ -12,6 +17,9 @@ maihda_longitudinal_pcv(null_model, adjusted_model, times = NULL)
 
 \item{times}{Optional numeric times for the time-specific PCV; defaults to the
 null model's reporting grid.}
+
+\item{estimation}{Variance-estimation basis, \code{"fitted"} (default) or
+\code{"ML"}; see \code{\link{calculate_pcv}}.}
 }
 \value{
 An object of class \code{maihda_long_pcv}.
@@ -28,14 +36,17 @@ invariant to how the time axis is coded (for linear growth the slope variance
 is the same at every time, so this reduces to the slope-variance cell).
 }
 \details{
-As in \code{\link{calculate_pcv}}, REML \code{lmer} growth fits are refitted
-with maximum likelihood (\code{\link[lme4]{refitML}}) before the comparison:
-the null and adjusted models differ in fixed effects (the dimensions' main
-effects and their \code{dim:time} interactions), across which REML variance
-estimates are not comparable -- using them biases both PCVs downward,
-overstating the multiplicative/interaction share. The stored models (and the
-single-model summaries computed from them, e.g. the time-varying VPC) keep
-their REML fit; \code{ml_refit} on the result records whether the refit
-applied. glmer (GLMM) and brms fits are already on the ML / posterior scale.
+As in \code{\link{calculate_pcv}}, the \code{estimation} argument selects the
+variance-estimation basis. With \code{estimation = "ML"}, REML \code{lmer} growth
+fits are refitted with maximum likelihood (\code{\link[lme4]{refitML}}) before the
+comparison -- the null and adjusted models differ in fixed effects (the dimensions'
+main effects and their \code{dim:time} interactions), across which REML applies a
+model-specific correction -- for a correction-free comparison. With
+\code{estimation = "fitted"} (the default) each fit's own REML covariance block is
+used, matching the single-model summaries and avoiding ML's finite-sample bias. The
+stored models (and the single-model summaries computed from them, e.g. the
+time-varying VPC) always keep their REML fit; \code{ml_refit} on the result records
+whether an ML refit applied. glmer (GLMM) and brms fits are already on the
+ML / posterior scale, so the choice does not affect them.
 }
 \keyword{internal}
