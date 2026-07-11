@@ -113,6 +113,15 @@ test_that("maihda_discriminatory_accuracy bundles AUC + MOR and reproduces the v
   expect_equal(da$auc, maihda_auc(prob, y_obs))
 })
 
+test_that("discriminatory accuracy flags the AUC as apparent / in-sample", {
+  m <- maihda_da_test_model()
+  da <- maihda_discriminatory_accuracy(m)
+  # The AUC is scored on the fitting rows, so it is apparent (optimistically biased).
+  expect_true(isTRUE(da$apparent))
+  # print() says so, so the value is not mistaken for out-of-sample discrimination.
+  expect_output(print(da), "apparent")
+})
+
 test_that("maihda_discriminatory_accuracy rejects non-binomial models", {
   g <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
     MAIHDA::maihda_sim_data[seq_len(120), ],

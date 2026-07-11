@@ -78,6 +78,33 @@ test_that("maihda_ic validates its arguments", {
   expect_error(maihda_ic(m, m, model_names = "only-one"), "must match")
 })
 
+test_that("maihda_ic withholds the delta (with a warning) across incomparable models", {
+  d <- make_ic_data()
+  null_model <- fit_maihda(y ~ 1 + (1 | g1:g2), data = d)
+  adj_model  <- fit_maihda(y ~ x + (1 | g1:g2), data = d)
+
+  # Canonical case: same outcome, family and sample, differing only in fixed
+  # effects -> comparable -> delta computed, no comparability warning.
+  expect_no_warning(ic_ok <- maihda_ic(null_model, adj_model))
+  expect_true("delta" %in% names(ic_ok))
+  expect_equal(min(ic_ok$delta), 0)
+
+  # Different family (Gaussian AIC vs Poisson AIC): a delta across families is
+  # meaningless, so it is withheld with a warning naming the difference.
+  d$count <- rpois(nrow(d), lambda = exp(0.2 + 0.3 * d$x))
+  pois_model <- suppressWarnings(suppressMessages(
+    fit_maihda(count ~ x + (1 | g1:g2), data = d, family = "poisson")))
+  expect_warning(ic_fam <- maihda_ic(adj_model, pois_model), "differ")
+  expect_false("delta" %in% names(ic_fam))
+  expect_true(all(is.finite(ic_fam$AIC)))   # per-model criteria still reported
+
+  # Different analytic sample (n = 300 vs 150), same family: also withheld.
+  adj_sub <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ x + (1 | g1:g2), data = d[seq_len(150), ])))
+  expect_warning(ic_n <- maihda_ic(adj_model, adj_sub), "analytic sample")
+  expect_false("delta" %in% names(ic_n))
+})
+
 test_that("compare_maihda appends information-criteria columns when ic = TRUE", {
   d <- make_ic_data()
   m1 <- fit_maihda(y ~ 1 + (1 | g1:g2), data = d)

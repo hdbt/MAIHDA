@@ -17,7 +17,8 @@ maihda_discriminatory_accuracy(model)
 An object of class \code{maihda_da}: a list with \code{auc},
   \code{auc_scope}, \code{auc_full}, \code{mor},
   \code{n_case}, \code{n_control}, \code{family}, \code{link}, \code{engine},
-  \code{weighted} and \code{weight_type}. \code{mor} is \code{NA} for a
+  \code{weighted}, \code{weight_type} and \code{apparent} (always \code{TRUE} --
+  the AUC is in-sample; see Description). \code{mor} is \code{NA} for a
   non-logit binomial link, where the AUC is still reported. For an
   aggregated-binomial fit \code{n_case} / \code{n_control} are the total
   successes / failures. \code{weighted} is \code{TRUE} when the AUC is a
@@ -38,6 +39,16 @@ an adjusted model shows whether individual covariates beyond stratum membership
 sharpen classification. The AUC is computed for any binomial link; the Median
 Odds Ratio is reported only for the logit link and is \code{NA} otherwise (e.g.
 for a probit fit), since the MOR is an odds-ratio-scale quantity.
+
+\strong{The AUC is apparent (in-sample).} It scores the same observations used
+to estimate the model -- the fixed effects, the variance components, and the
+shrunken stratum BLUPs -- so it is an \emph{apparent} (resubstitution) AUC and
+is optimistically biased, the more so with small or sparse strata. It is
+reported as the conventional descriptive MAIHDA discriminatory accuracy
+(Merlo 2018), \strong{not} as a cross-validated estimate of out-of-sample
+predictive discrimination; the returned object carries \code{apparent = TRUE}
+and \code{print()} says so. For genuine predictive accuracy, validate with an
+out-of-fold (group-aware) scheme or an optimism correction.
 
 Aggregated-binomial fits are supported on both engines that fit them -- an lme4
 \code{cbind(success, failure)} response and a brms \code{y | trials(n)} response:

@@ -12,6 +12,22 @@ test_that("make_strata warns when tied quantiles force equal-width bins", {
   )
 })
 
+test_that("make_strata rejects duplicated dimension names", {
+  data <- data.frame(
+    gender = rep(c("M", "F"), each = 50),
+    race = rep(c("White", "Black"), 50),
+    outcome = rnorm(100)
+  )
+  # A dimension may define the strata only once: c('gender', 'gender') would
+  # otherwise build degenerate "M x M" cells with duplicate metadata dimensions.
+  expect_error(make_strata(data, vars = c("gender", "gender")),
+               "duplicated variable name")
+  expect_error(make_strata(data, vars = c("gender", "race", "gender")),
+               "gender")
+  # The distinct-name call is unaffected.
+  expect_s3_class(make_strata(data, vars = c("gender", "race")), "maihda_strata")
+})
+
 test_that("make_strata creates strata correctly", {
   # Create test data
   data <- data.frame(

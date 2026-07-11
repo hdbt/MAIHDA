@@ -77,6 +77,15 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
     stop("'vars' must be a character vector with at least one variable name")
   }
 
+  # A dimension may define the strata only once: c("a", "a") would otherwise
+  # build degenerate cells with labels like "a_val x a_val" and duplicate
+  # metadata dimensions, silently mis-specifying the intersection.
+  if (anyDuplicated(vars)) {
+    stop("'vars' contains duplicated variable name(s): ",
+         paste(unique(vars[duplicated(vars)]), collapse = ", "),
+         ". Each dimension can define the strata only once.", call. = FALSE)
+  }
+
   missing_vars <- setdiff(vars, names(data))
   if (length(missing_vars) > 0) {
     stop("Variables not found in data: ", paste(missing_vars, collapse = ", "))

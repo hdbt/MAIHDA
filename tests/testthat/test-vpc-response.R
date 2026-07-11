@@ -67,6 +67,39 @@ test_that("maihda_vpc_response rejects non-binomial models and invalid n_sim", {
   expect_identical(r$n_sim, 100L)
 })
 
+test_that("maihda_vpc_response rejects random-slope models with a clear error", {
+  # A manually-specified (x | stratum) binomial model carries a slope variance and
+  # an intercept-slope covariance that the scalar simulation does not integrate over,
+  # so its between-stratum variance is not a single number. It must error explicitly
+  # (matching the scalar summary/VPC path) rather than reading only the intercept
+  # variance and silently returning a wrong -- or NA -- response-scale VPC.
+  skip_on_cran()
+  set.seed(313)
+  n <- 900
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE),
+    x      = stats::rnorm(n)
+  )
+  strata <- make_strata(d, vars = c("gender", "race"))
+  d$stratum <- strata$data$stratum
+  d$y <- stats::rbinom(n, 1, stats::plogis(0.3 * d$x +
+           stats::rnorm(nlevels(factor(d$stratum)), sd = 0.6)[factor(d$stratum)]))
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ x + (x | stratum), data = d, family = "binomial")))
+
+  expect_error(maihda_vpc_response(m), "intercept-only random effects")
+
+  # A slope on a NON-stratum grouping is rejected the same way (the simulation
+  # would silently drop the site slope variance from var_other).
+  d2 <- expand.grid(stratum = factor(1:6), site = factor(1:8), rep = 1:20)
+  d2$x <- stats::rnorm(nrow(d2))
+  d2$y <- stats::rbinom(nrow(d2), 1, stats::plogis(-0.2 + 0.4 * d2$x))
+  m2 <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ x + (1 | stratum) + (x | site), data = d2, family = "binomial")))
+  expect_error(maihda_vpc_response(m2), "intercept-only random effects")
+})
+
 test_that("response-scale VPC integrates over non-stratum random effects", {
   # Regression: for a site + stratum model the simulation drew ONLY the stratum
   # effect, so the site variance appeared in neither the numerator's scope nor

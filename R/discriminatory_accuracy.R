@@ -188,6 +188,16 @@ maihda_mor_between_variance <- function(model) {
 #' Odds Ratio is reported only for the logit link and is \code{NA} otherwise (e.g.
 #' for a probit fit), since the MOR is an odds-ratio-scale quantity.
 #'
+#' \strong{The AUC is apparent (in-sample).} It scores the same observations used
+#' to estimate the model -- the fixed effects, the variance components, and the
+#' shrunken stratum BLUPs -- so it is an \emph{apparent} (resubstitution) AUC and
+#' is optimistically biased, the more so with small or sparse strata. It is
+#' reported as the conventional descriptive MAIHDA discriminatory accuracy
+#' (Merlo 2018), \strong{not} as a cross-validated estimate of out-of-sample
+#' predictive discrimination; the returned object carries \code{apparent = TRUE}
+#' and \code{print()} says so. For genuine predictive accuracy, validate with an
+#' out-of-fold (group-aware) scheme or an optimism correction.
+#'
 #' Aggregated-binomial fits are supported on both engines that fit them -- an lme4
 #' \code{cbind(success, failure)} response and a brms \code{y | trials(n)} response:
 #' the AUC is the count-weighted C-statistic over the implied individual-level 0/1
@@ -214,7 +224,8 @@ maihda_mor_between_variance <- function(model) {
 #' @return An object of class \code{maihda_da}: a list with \code{auc},
 #'   \code{auc_scope}, \code{auc_full}, \code{mor},
 #'   \code{n_case}, \code{n_control}, \code{family}, \code{link}, \code{engine},
-#'   \code{weighted} and \code{weight_type}. \code{mor} is \code{NA} for a
+#'   \code{weighted}, \code{weight_type} and \code{apparent} (always \code{TRUE} --
+#'   the AUC is in-sample; see Description). \code{mor} is \code{NA} for a
 #'   non-logit binomial link, where the AUC is still reported. For an
 #'   aggregated-binomial fit \code{n_case} / \code{n_control} are the total
 #'   successes / failures. \code{weighted} is \code{TRUE} when the AUC is a
@@ -398,7 +409,16 @@ maihda_discriminatory_accuracy <- function(model) {
       link = link,
       engine = model$engine,
       weighted = design_weighted || !is.null(pw),
-      weight_type = if (design_weighted) "sampling" else if (!is.null(pw)) "precision"
+      weight_type = if (design_weighted) "sampling" else if (!is.null(pw)) "precision",
+      # The AUC is APPARENT (in-sample / resubstitution): it scores the same rows
+      # used to estimate the fixed effects, variance components, and stratum BLUPs,
+      # so it is optimistically biased -- more so with small/sparse strata, where
+      # the shrunken BLUPs still track their own rows. This is the conventional
+      # MAIHDA discriminatory accuracy (Merlo 2018), reported as a descriptive
+      # in-sample measure; it is NOT a cross-validated estimate of out-of-sample
+      # predictive discrimination. Flagged so print()/tidiers can label it and a
+      # future out-of-fold variant can set apparent = FALSE.
+      apparent = TRUE
     ),
     class = "maihda_da"
   )
@@ -428,6 +448,12 @@ print.maihda_da <- function(x, ...) {
   }
   cat(sprintf("  Median Odds Ratio: %s\n", mor_str))
   cat(sprintf("  Cases / controls:  %d / %d\n", x$n_case, x$n_control))
+  if (!isFALSE(x$apparent)) {
+    cat(pal$muted(paste0(
+      "  (AUC is apparent / in-sample: scored on the same rows used to fit the\n",
+      "  model, so it is optimistically biased -- more so with sparse strata. It\n",
+      "  is a descriptive measure, not cross-validated out-of-sample discrimination.)\n")))
+  }
   if (isTRUE(x$weighted)) {
     msg <- if (identical(x$weight_type, "precision")) {
       paste0(

@@ -100,6 +100,22 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
   # recorded n_sim would keep the fraction; cast so the draw count and the report agree.
   n_sim <- as.integer(n_sim)
 
+  # The simulation collapses every random effect to a single intercept variance:
+  # the stratum draw uses var_between and the non-stratum effects are summed into
+  # one normal (var_other, below). That is correct only for intercept-only random
+  # effects. A random slope -- (x | stratum) or (x | site) -- carries a
+  # slope variance, an intercept-slope covariance, and a row-specific design value
+  # that this method does not integrate over, so its between-stratum variance is
+  # not a scalar. Reject such a model explicitly, with the same message the scalar
+  # summary/VPC path uses, rather than reading only the intercept variance and
+  # silently returning a wrong (or NA) response-scale VPC. Longitudinal growth fits
+  # (which carry random slopes by construction) route through the time-varying path
+  # and never reach maihda_vpc_response(). lme4 is the only engine here (checked above).
+  maihda_validate_intercept_only_random_effects_lme4(
+    model$model,
+    context = "The response-scale VPC"
+  )
+
   var_between <- tryCatch(extract_between_variance(model), error = function(e) NA_real_)
   if (!is.numeric(var_between) || length(var_between) != 1 ||
       !is.finite(var_between) || var_between < 0) {

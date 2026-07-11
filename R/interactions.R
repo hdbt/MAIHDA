@@ -112,7 +112,12 @@
 #'   \code{interaction} (the BLUP), \code{lower}/\code{upper} (the interval),
 #'   \code{flagged} (logical), and \code{direction} (\code{"above"}/\code{"below"}
 #'   the additive expectation). Frequentist fits add \code{se} and \code{p_value}
-#'   (and \code{p_adjusted} when \code{adjust != "none"}); \code{brms} adds
+#'   (and \code{p_adjusted} when \code{adjust != "none"}). \code{p_value} is an
+#'   \emph{approximate, conditional} screening statistic -- a Wald tail on the
+#'   shrunken BLUP's conditional SE, with the variance components treated as known
+#'   -- \strong{not} a calibrated frequentist p-value; \code{adjust} (e.g. BH)
+#'   rescales these approximate values and does not confer an exact error-rate
+#'   guarantee (see Details). \code{brms} instead adds
 #'   \code{pd} (probability of direction, \code{max(P(>0), P(<0))} in
 #'   \code{[0.5, 1]}). When \code{rope} is set, a
 #'   \code{decision} column (\code{"relevant"}/\code{"negligible"}/\code{"inconclusive"})
@@ -323,7 +328,10 @@ print.maihda_interactions <- function(x, ...) {
   } else if (identical(adjust, "none")) {
     sprintf("%.0f%% interval; no multiplicity correction", conf_pct)
   } else {
-    sprintf("%.0f%% interval; %s-adjusted p-values", conf_pct, adjust)
+    # "approximate": the p-value is a Wald tail on a shrunken BLUP's conditional
+    # SE (variance components treated as known), a screening statistic -- not a
+    # calibrated frequentist p-value that BH could repair. See ?maihda_interactions.
+    sprintf("%.0f%% interval; %s-adjusted approximate p-values", conf_pct, adjust)
   }
   count_label <- if (is.na(n_flagged)) "?" else as.character(n_flagged)
   cat(sprintf("%s of %d strata flagged (%s).\n",

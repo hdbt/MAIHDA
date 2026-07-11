@@ -130,9 +130,27 @@ maihda_ic <- function(..., model_names = NULL) {
   # used, otherwise the Bayesian LOOIC (then WAIC). Only meaningful with >1 row.
   primary <- maihda_ic_primary(out)
   if (nrow(out) > 1L && !is.na(primary)) {
-    vals <- out[[primary]]
-    if (any(is.finite(vals))) {
-      out$delta <- vals - min(vals, na.rm = TRUE)
+    # A delta is only meaningful across models fitted to the SAME analytic sample
+    # and, for AIC/BIC, the SAME response distribution (see Details). maihda_ic()
+    # does not otherwise enforce this, so a direct call could rank a Gaussian
+    # against a Poisson fit -- or fits on different rows -- with a seemingly
+    # meaningful delta. Withhold the delta (and say why) when the supplied models
+    # are not mutually comparable; the per-model criteria are still reported. The
+    # canonical null-vs-adjusted comparison (same outcome/sample/family, differing
+    # only in fixed effects) is comparable, so its delta is unaffected.
+    delta_issues <- maihda_ic_delta_issues(lapply(named_models, function(x) x$model))
+    if (length(delta_issues) > 0) {
+      warning("maihda_ic(): the models differ in ",
+              paste(delta_issues, collapse = " and "),
+              ", so a delta is not meaningful and is omitted -- information ",
+              "criteria are only comparable across models fitted to the same ",
+              "analytic sample and, for AIC/BIC, the same response distribution. ",
+              "The per-model criteria are still reported.", call. = FALSE)
+    } else {
+      vals <- out[[primary]]
+      if (any(is.finite(vals))) {
+        out$delta <- vals - min(vals, na.rm = TRUE)
+      }
     }
   }
 
@@ -246,6 +264,50 @@ maihda_ic_primary <- function(df) {
   if (has("WAIC")) return("WAIC")
   if (has("BIC")) return("BIC")
   NA_character_
+}
+
+# The ways a set of models differ that make a delta between their information
+# criteria meaningless: a differing outcome, family/link, or analytic sample. A
+# delta is a difference of criteria, so it inherits exactly the comparability
+# requirements the criteria themselves have (same sample; for AIC/BIC same
+# response distribution) -- the caveat spelled out in the maihda_ic Details and
+# enforced by compare_maihda()'s warning. Returns the human-readable list of
+# differences (empty when the models are mutually comparable). Uses the same
+# response/family/sample fingerprints as compare_maihda() so the two agree, and
+# deliberately does NOT compare fixed effects: the canonical null-vs-adjusted
+# comparison differs only there and must keep its delta.
+maihda_ic_delta_issues <- function(models) {
+  if (length(models) < 2L) {
+    return(character(0))
+  }
+  responses <- vapply(models, function(m) {
+    paste(deparse(m$formula[[2]]), collapse = "")
+  }, character(1))
+  fam_keys <- vapply(models, maihda_model_family_key, character(1))
+  nobs_vec <- vapply(models, function(m) {
+    n <- maihda_wrapper_nobs(m)
+    if (is.finite(n)) as.integer(n) else NA_integer_
+  }, integer(1))
+  row_keys <- vapply(models, function(m) {
+    rid <- maihda_wrapper_row_ids(m)
+    if (is.null(rid)) NA_character_ else paste(rid, collapse = "\r")
+  }, character(1))
+  response_keys <- vapply(models, maihda_wrapper_response_fingerprint, character(1))
+
+  issues <- character(0)
+  if (length(unique(responses)) > 1L) {
+    issues <- c(issues, paste0("outcomes (", paste(unique(responses), collapse = ", "), ")"))
+  }
+  if (length(unique(fam_keys)) > 1L) {
+    issues <- c(issues, paste0("families/links (", paste(unique(fam_keys), collapse = ", "), ")"))
+  }
+  sample_differs <- length(unique(stats::na.omit(nobs_vec))) > 1L ||
+    length(unique(stats::na.omit(row_keys))) > 1L ||
+    length(unique(stats::na.omit(response_keys))) > 1L
+  if (sample_differs) {
+    issues <- c(issues, paste0("analytic sample (n = ", paste(nobs_vec, collapse = ", "), ")"))
+  }
+  issues
 }
 
 # TRUE when a set of information-criterion column names spans BOTH the likelihood
