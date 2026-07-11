@@ -20,8 +20,11 @@ An object of class \code{maihda_vpc_response}: a list with
   \code{estimate}, \code{scale = "response"}, \code{method = "simulation"},
   \code{n_sim}, \code{var_between} (the latent-scale between-stratum variance),
   \code{var_other} (the summed latent-scale variance of any non-stratum random
-  intercepts, 0 when there are none) and \code{lp_fixed} (the mean fixed-part
-  linear predictor).
+  intercepts, 0 when there are none), \code{lp_fixed} (the mean fixed-part
+  linear predictor), \code{inner_method} (\code{"gauss-hermite"} when non-stratum
+  effects are integrated out, else \code{"none"}) and \code{inner_nodes} (the
+  number of Gauss-Hermite quadrature nodes used for that inner integral, \code{NA}
+  when there are no non-stratum effects).
 }
 \description{
 Computes the variance partition coefficient on the response (probability) scale
@@ -60,7 +63,13 @@ simulation integrates over them: the reported estimate is the
 \emph{stratum share} \eqn{Var(E[p \mid u_{stratum}])} of the total
 response-scale variance, where the total includes the variation the other
 random effects induce in \eqn{p} plus the binomial within-variance.
-Simulating the stratum effect alone would overstate the stratum share.
+Simulating the stratum effect alone would overstate the stratum share. The
+inner integral over the combined non-stratum effect is evaluated by
+\emph{deterministic Gauss-Hermite quadrature}, not an inner Monte-Carlo
+sample, so it contributes no simulation error of its own and increasing
+\code{n_sim} converges the whole estimate (the outer stratum draw is then the
+only Monte-Carlo dimension). The number of quadrature nodes used is reported in
+\code{inner_nodes}.
 }
 \examples{
 \donttest{

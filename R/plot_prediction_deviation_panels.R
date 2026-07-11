@@ -99,11 +99,14 @@ maihda_prediction_panel_fitted <- function(model, data, type) {
     return(list(fit = as.numeric(fit[, "Estimate"]), se.fit = as.numeric(se)))
   }
 
-  # SE fallbacks below are NA_real_ — not 0 — because predict() for lme4::merMod
-  # (and some other mixed-model classes) does not implement se.fit. Returning 0
-  # produced ci_lower == ci_upper == fitted, i.e. fake zero-width "95% CI" bars.
-  # NA propagates through fitted +/- 1.96 * se and ggplot drops the geom_errorbar
-  # layer for those rows, which honestly communicates "no SE available".
+  # SE fallbacks below are NA_real_ -- not 0 -- for model classes whose predict()
+  # does not implement se.fit (returning 0 produced ci_lower == ci_upper == fitted,
+  # i.e. fake zero-width "95% CI" bars; NA instead propagates through fitted +/-
+  # 1.96 * se and ggplot drops the geom_errorbar layer, honestly communicating "no
+  # SE available"). Where predict.merMod DOES return an (approximate) se.fit it is
+  # used only for case-level bars; the per-stratum panels never average these row
+  # SEs into a stratum SE (that is not a valid SE of a weighted mean) -- see
+  # maihda_prediction_panel_attach_ci() / maihda_prediction_stratum_interval_brms().
   if (type == "binomial" || type == "poisson") {
     # Count and binary models are summarised on the response scale (expected count
     # / probability), not the link scale that predict() returns by default for a
@@ -256,6 +259,95 @@ maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_
   aligned_resids
 }
 
+# Correct per-stratum response-scale interval from posterior draws: aggregate the
+# predictions WITHIN each stratum per draw (a weighted mean over the stratum's rows)
+# and take posterior quantiles across draws. Unlike a weighted mean of the row-level
+# SEs, this respects the fixed/random-effect uncertainty the rows in a stratum share
+# (the SE of a weighted mean is a'Sigma a, not the mean of the component SEs), and it
+# keeps the interval asymmetric (quantiles, not a symmetric pseudo-SE). `ep` is the
+# ndraws x nobs posterior expected-value matrix on the response scale, `strat` the
+# length-nobs stratum labels, `w` the length-nobs prior/precision weights. Returns a
+# data frame keyed by sort(unique(strat)) with `fitted` (posterior mean of the
+# stratum mean) and central `level` quantiles `ci_lower`/`ci_upper`. Pure/Stan-free.
+maihda_stratum_interval_from_epred <- function(ep, strat, w = NULL, level = 0.95) {
+  ep <- as.matrix(ep)
+  strat <- as.character(strat)
+  nobs <- ncol(ep)
+  if (length(strat) != nobs) {
+    stop("`strat` must have one label per column of `ep`.", call. = FALSE)
+  }
+  if (is.null(w) || length(w) != nobs) {
+    w <- rep(1, nobs)
+  }
+  w <- as.numeric(w)
+  a <- (1 - level) / 2
+  groups <- sort(unique(strat))
+  rows <- lapply(groups, function(g) {
+    sel <- which(strat == g)
+    ww <- w[sel]
+    ww[!is.finite(ww) | ww < 0] <- 0
+    if (sum(ww) <= 0) {
+      ww <- rep(1, length(sel))  # degenerate weights -> equal weighting
+    }
+    # Per-draw weighted stratum mean, then posterior quantiles across draws.
+    m <- as.vector(ep[, sel, drop = FALSE] %*% (ww / sum(ww)))
+    q <- stats::quantile(m, c(a, 1 - a), names = FALSE, na.rm = TRUE)
+    c(mean(m, na.rm = TRUE), q[1], q[2])
+  })
+  M <- do.call(rbind, rows)
+  data.frame(stratum = groups, fitted = M[, 1], ci_lower = M[, 2],
+             ci_upper = M[, 3], stringsAsFactors = FALSE)
+}
+
+# brms wrapper for maihda_stratum_interval_from_epred(): draws the response-scale
+# posterior expected values on the plotting `data` and aggregates them within each
+# stratum per draw. Returns NULL (interval omitted) for a non-brms model, an
+# unavailable posterior_epred, or a non-2-D epred (e.g. an ordinal/categorical
+# family), so the caller falls back to no stratum error bars rather than a
+# statistically invalid averaged SE.
+maihda_prediction_stratum_interval_brms <- function(model, data, weight = NULL,
+                                                    level = 0.95) {
+  if (!inherits(model, "brmsfit") || !requireNamespace("brms", quietly = TRUE)) {
+    return(NULL)
+  }
+  if (is.null(data) || !"stratum" %in% names(data)) {
+    return(NULL)
+  }
+  ep <- tryCatch(brms::posterior_epred(model, newdata = data),
+                 error = function(e) NULL)
+  if (is.null(ep) || length(dim(ep)) != 2L || ncol(ep) != nrow(data)) {
+    return(NULL)
+  }
+  maihda_stratum_interval_from_epred(ep, data$stratum, weight, level = level)
+}
+
+# Attach `ci_lower`/`ci_upper` to a prediction-panel data frame, clamped to
+# [lower, upper]. For a stratum-aggregated panel the interval comes from the
+# draw-based `strat_ci` (brms) or is omitted as NA (frequentist) -- never from a
+# weighted mean of row-level SEs. For a case-level panel it is the symmetric normal
+# interval `fitted +/- 1.96 * se`, NA where the model exposes no se.fit (so ggplot
+# drops those bars).
+maihda_prediction_panel_attach_ci <- function(df, aggregated, strat_ci,
+                                              lower = -Inf, upper = Inf) {
+  n <- nrow(df)
+  if (aggregated) {
+    if (!is.null(strat_ci)) {
+      idx <- match(as.character(df$stratum), as.character(strat_ci$stratum))
+      ci_lower <- strat_ci$ci_lower[idx]
+      ci_upper <- strat_ci$ci_upper[idx]
+    } else {
+      ci_lower <- rep(NA_real_, n)
+      ci_upper <- rep(NA_real_, n)
+    }
+  } else {
+    ci_lower <- df$fitted - 1.96 * df$se
+    ci_upper <- df$fitted + 1.96 * df$se
+  }
+  df$ci_lower <- pmax(lower, pmin(upper, ci_lower))
+  df$ci_upper <- pmax(lower, pmin(upper, ci_upper))
+  df
+}
+
 #' Plot Prediction Deviation Panels
 #'
 #' @description Creates an advanced, publication-ready two-panel dashboard for
@@ -362,11 +454,15 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
         weight = prior_w
       )
 
-    if ("stratum" %in% names(df)) {
-      # Prior-weight-weighted per-stratum means so a weighted fit's stratum
-      # summary is consistent with the weighted VPC; reduces to plain means when
-      # the fit is unweighted.
-      df <- maihda_weighted_stratum_aggregate(df, c("fitted", "se"))
+    aggregated <- "stratum" %in% names(df)
+    strat_ci <- NULL
+    if (aggregated) {
+      # Aggregate only the point estimate. Row-level SEs are NOT averaged into a
+      # stratum SE (the SE of a weighted mean is a'Sigma a, not the weighted mean
+      # of the component SEs); the stratum interval is computed correctly from the
+      # posterior draws for brms and omitted otherwise.
+      strat_ci <- maihda_prediction_stratum_interval_brms(model, data, prior_w)
+      df <- maihda_weighted_stratum_aggregate(df, "fitted")
 
       if (!is.null(strata_info) && "label" %in% names(strata_info)) {
         id_map <- setNames(strata_info$label, strata_info$stratum)
@@ -379,10 +475,12 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       x_label <- "Case Rank"
     }
 
+    df <- maihda_prediction_panel_attach_ci(
+      df, aggregated, strat_ci, lower = if (is_count) 0 else -Inf
+    )
+
     df <- df |>
       dplyr::mutate(
-        ci_lower = if (is_count) pmax(0, .data$fitted - 1.96 * .data$se) else .data$fitted - 1.96 * .data$se,
-        ci_upper = .data$fitted + 1.96 * .data$se,
         mean_fitted = mean(.data$fitted, na.rm = TRUE),
         deviation = .data$fitted - .data$mean_fitted,
         abs_deviation = abs(.data$deviation),
@@ -450,12 +548,16 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       )
 
     is_aggregated <- "stratum" %in% names(df)
+    strat_ci <- NULL
 
     if (is_aggregated) {
-      # Prior-weight-weighted per-stratum means (fitted probability, SE, and
-      # absolute deviance residual); reduces to plain means when unweighted.
+      # Aggregate the point estimate and the absolute deviance residual (a genuine
+      # per-stratum mean diagnostic). Row-level SEs are NOT averaged into a stratum
+      # SE; the stratum probability interval is computed correctly from the
+      # posterior draws for brms and omitted otherwise.
+      strat_ci <- maihda_prediction_stratum_interval_brms(model, data, prior_w)
       df <- maihda_weighted_stratum_aggregate(
-        df, c("fitted", "se", "abs_res_dev")
+        df, c("fitted", "abs_res_dev")
       )
 
       if (!is.null(strata_info) && "label" %in% names(strata_info)) {
@@ -469,10 +571,12 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       x_label <- "Case Rank"
     }
 
+    df <- maihda_prediction_panel_attach_ci(
+      df, is_aggregated, strat_ci, lower = 0, upper = 1
+    )
+
     df <- df |>
       dplyr::mutate(
-        ci_lower = pmax(0, .data$fitted - 1.96 * .data$se),
-        ci_upper = pmin(1, .data$fitted + 1.96 * .data$se),
         mean_fitted = mean(.data$fitted, na.rm = TRUE),
         deviation = .data$fitted - .data$mean_fitted,
         direction = ifelse(.data$deviation > 0, "Above Mean", "Below Mean")

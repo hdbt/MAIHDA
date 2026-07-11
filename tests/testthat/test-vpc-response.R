@@ -15,6 +15,28 @@ maihda_vpcr_fit <- function(seed = 7, n = 1500, sd_u = 1.2) {
   ))
 }
 
+test_that("maihda_gauss_hermite_normal integrates standard-normal moments exactly", {
+  gh <- MAIHDA:::maihda_gauss_hermite_normal(40)
+  x <- gh$nodes
+  w <- gh$weights
+
+  expect_length(x, 40L)
+  expect_equal(sum(w), 1, tolerance = 1e-12)        # weights are a probability measure
+  expect_equal(sum(w * x), 0, tolerance = 1e-10)    # E[Z]   = 0
+  expect_equal(sum(w * x^2), 1, tolerance = 1e-10)  # E[Z^2] = 1
+  expect_equal(sum(w * x^4), 3, tolerance = 1e-9)   # E[Z^4] = 3
+  expect_equal(sum(w * x^6), 15, tolerance = 1e-8)  # E[Z^6] = 15
+
+  # A smooth bounded integrand (an inverse-logit, exactly the response-scale VPC
+  # kernel) matches a fine Monte-Carlo reference.
+  set.seed(1)
+  zz <- stats::rnorm(2e6)
+  expect_equal(sum(w * stats::plogis(0.3 + 1.2 * x)),
+               mean(stats::plogis(0.3 + 1.2 * zz)), tolerance = 1e-3)
+
+  expect_error(MAIHDA:::maihda_gauss_hermite_normal(1), "nodes")
+})
+
 test_that("maihda_vpc_response returns a VPC in [0, 1] and is seed-reproducible", {
   m <- maihda_vpcr_fit()
   r1 <- maihda_vpc_response(m, n_sim = 20000, seed = 42)
@@ -144,6 +166,8 @@ test_that("response-scale VPC integrates over non-stratum random effects", {
   m0 <- maihda_vpcr_fit()
   v0 <- maihda_vpc_response(m0, n_sim = 20000, seed = 42)
   expect_identical(v0$var_other, 0)
+  expect_identical(v0$inner_method, "none")
+  expect_true(is.na(v0$inner_nodes))
   s2 <- MAIHDA:::extract_between_variance(m0)
   lp <- mean(stats::predict(m0$model, re.form = NA, type = "link"))
   set.seed(42)
@@ -152,4 +176,43 @@ test_that("response-scale VPC integrates over non-stratum random effects", {
   expect_equal(v0$estimate,
                stats::var(p) / (stats::var(p) + mean(p * (1 - p))),
                tolerance = 1e-12)
+})
+
+test_that("response-scale VPC integrates the non-stratum effect by exact quadrature", {
+  # The inner integral over the non-stratum effect is now DETERMINISTIC
+  # Gauss-Hermite quadrature (no hidden fixed 500-draw inner Monte-Carlo sample),
+  # so the estimate reproduces a reference that reuses the SAME outer draws over
+  # the SAME quadrature nodes to floating-point tolerance -- the property the old
+  # inner sample could not offer (its error did not shrink as n_sim grew).
+  skip_on_cran()
+  set.seed(707)
+  d <- expand.grid(stratum = factor(1:8), site = factor(1:10), rep = 1:25)
+  su <- stats::rnorm(8, sd = 0.4)[d$stratum]
+  so <- stats::rnorm(10, sd = 1.2)[d$site]
+  d$y <- stats::rbinom(nrow(d), 1, stats::plogis(-0.5 + su + so))
+  m <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ (1 | site) + (1 | stratum), data = d, family = "binomial")))
+
+  v <- maihda_vpc_response(m, n_sim = 20000, seed = 42)
+  expect_gt(v$var_other, 0)
+  expect_identical(v$inner_method, "gauss-hermite")
+  expect_gt(v$inner_nodes, 1L)
+  expect_output(print(v), "quadrature")
+
+  # Reconstruct the exact computation: same seed/outer draws, same GH nodes.
+  s2b <- MAIHDA:::extract_between_variance(m)
+  vc <- lme4::VarCorr(m$model)
+  vo <- as.numeric(as.matrix(vc$site)[1, 1])
+  eta0 <- mean(stats::predict(m$model, re.form = NA, type = "link"))
+  set.seed(42)
+  us <- stats::rnorm(20000, 0, sqrt(s2b))
+  gh <- MAIHDA:::maihda_gauss_hermite_normal(80)
+  z <- gh$nodes * sqrt(vo)
+  wq <- gh$weights
+  P <- stats::plogis(outer(us, z, `+`) + eta0)
+  ms <- as.vector(P %*% wq)
+  ref <- stats::var(ms) /
+    (max(mean(as.vector((P * P) %*% wq)) - mean(ms)^2, 0) +
+       mean(as.vector((P * (1 - P)) %*% wq)))
+  expect_equal(v$estimate, ref, tolerance = 1e-9)
 })

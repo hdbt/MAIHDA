@@ -26,6 +26,61 @@ test_that("maihda_weighted_obs_mean reproduces the duplicated-row mean", {
                (2 * 1 + 1 * 4) / (2 + 1))
 })
 
+test_that("maihda_count_resid_var_from_linpred folds per-draw marginal means", {
+  # Pure, Stan-free core of the per-draw count VPC residual variance: given the
+  # fixed-part linear-predictor DRAWS (ndraws x nobs) and each draw's total
+  # random-intercept variance, it forms lambda_{d,i} = exp(eta + v_d/2) per draw and
+  # returns the (weighted) mean of log1p(1/lambda [+ 1/shape]) over observations.
+  eta <- matrix(c(0, 0.5, 1.0,
+                  0.2, 0.2, 0.2), nrow = 2, byrow = TRUE)   # 2 draws x 3 obs
+  vtot <- c(0.4, 1.0)
+  mu <- exp(sweep(eta, 1L, vtot / 2, "+"))
+
+  # Poisson (no extra term), unweighted.
+  expect_equal(MAIHDA:::maihda_count_resid_var_from_linpred(eta, vtot),
+               rowMeans(log1p(1 / mu)))
+
+  # Negative-binomial: the per-draw 1/shape term is added to 1/lambda per draw.
+  shape <- c(5, 2)
+  expect_equal(
+    MAIHDA:::maihda_count_resid_var_from_linpred(eta, vtot, extra = 1 / shape),
+    rowMeans(log1p(sweep(1 / mu, 1L, 1 / shape, "+")))
+  )
+
+  # Prior weights average the per-row terms within each draw.
+  w <- c(3, 1, 1)
+  expect_equal(
+    MAIHDA:::maihda_count_resid_var_from_linpred(eta, vtot, w = w),
+    vapply(seq_len(2), function(d) sum(w * log1p(1 / mu[d, ])) / sum(w), numeric(1))
+  )
+
+  # The marginal mean genuinely varies across draws (fixed part + RE variance),
+  # so the residual variance is NOT constant -- the defect this fix removes.
+  expect_gt(stats::sd(MAIHDA:::maihda_count_resid_var_from_linpred(eta, vtot)), 0)
+
+  # Length guards.
+  expect_error(MAIHDA:::maihda_count_resid_var_from_linpred(eta, vtot[1]),
+               "one value per posterior draw")
+})
+
+test_that("per-draw count residual variance gates on an intercept-only structure", {
+  # A random-slope (longitudinal-style) structure must fall back to the plug-in
+  # path (NULL here) -- the fast per-draw shortcut uses the total random-INTERCEPT
+  # variance and does not carry the row-varying slope design, so it must not be
+  # applied to a growth-model count fit. Gated before any brms call, so Stan-free.
+  slope_model <- list(formula = y ~ x + (x | id))
+  draws <- data.frame(sd_id__Intercept = c(1, 2), sd_id__x = c(0.3, 0.4))
+  expect_null(
+    MAIHDA:::maihda_count_residual_variance_draws_brms_perdraw(slope_model, draws))
+
+  # Intercept-only but with no sd_* draws to build the RE variance from -> NULL,
+  # so the caller's posterior-mean plug-in still applies.
+  ic_model <- list(formula = y ~ (1 | stratum))
+  expect_null(
+    MAIHDA:::maihda_count_residual_variance_draws_brms_perdraw(
+      ic_model, data.frame(b_Intercept = c(0, 1))))
+})
+
 # ---- weighted-vs-expanded equivalence on a real glmer fit --------------------
 
 test_that("weighted Poisson residual variance matches the duplicated-row fit", {
@@ -107,16 +162,26 @@ test_that("brms Poisson count VPC averages the latent variance by the sampling w
   expect_false(is.null(w_read))
   expect_equal(length(w_read), maihda_nobs(m$model))
 
-  # Per-row latent variance at the same marginal expected counts the package
-  # uses, so the weighted-vs-unweighted contrast isolates the weighting alone.
+  # Per-draw latent variance now uses the per-draw marginal mean lambda_{1,i} =
+  # exp(eta_{1,i} + v_1/2) (fixed part + total RE variance for draw 1), so the
+  # weighted-vs-unweighted contrast is reconstructed against THAT draw, not the
+  # posterior-mean plug-in the old path used.
   draws <- as.data.frame(m$model)
-  mu <- MAIHDA:::maihda_count_marginal_mu_brms(m$model, draws)
-  rv_unwt <- mean(log1p(1 / mu))
-  rv_wt   <- maihda_weighted_obs_mean(log1p(1 / mu), w_read)
+  eta_link <- brms::posterior_linpred(m$model, re_formula = NA)   # ndraws x nobs
+  sd_cols <- grep("^sd_", names(draws), value = TRUE)
+  vtot <- Reduce(`+`, lapply(sd_cols, function(cn) draws[[cn]]^2))
+  mu1 <- exp(eta_link[1, ] + vtot[1] / 2)
+  mu1[mu1 < .Machine$double.eps] <- .Machine$double.eps
+  rv_unwt_1 <- mean(log1p(1 / mu1))
+  rv_wt_1   <- maihda_weighted_obs_mean(log1p(1 / mu1), w_read)
 
   rv_path <- maihda_residual_variance_draws_brms(m$model, draws)
-  expect_equal(rv_path[1], rv_wt)                          # uses the weighted average
-  expect_false(isTRUE(all.equal(rv_path[1], rv_unwt)))     # not the old unweighted one
+  expect_length(rv_path, nrow(draws))
+  expect_equal(rv_path[1], rv_wt_1)                        # per-draw + weighted
+  expect_false(isTRUE(all.equal(rv_path[1], rv_unwt_1)))   # weighting still matters
+  # The per-draw marginal means propagate fixed-effect + RE-variance uncertainty,
+  # so the residual variance varies across draws (the old plug-in was constant).
+  expect_gt(stats::sd(rv_path), 0)
 
   # Public paths over the same fit -- regression guards for the draws-only
   # posterior_linpred (real brms ignores summary = TRUE): summary() of a brms

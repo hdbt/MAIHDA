@@ -190,6 +190,70 @@ test_that("ordinal stratum surprise averages per-observation surprise (log loss)
                                 as.numeric(-log(p_mean[common])))))
 })
 
+test_that("maihda_stratum_interval_from_epred aggregates draws then takes quantiles", {
+  # 4 posterior draws x 4 observations; two strata of two rows each. The correct
+  # stratum interval aggregates predictions WITHIN each draw, then takes posterior
+  # quantiles -- it is not a function of any row-level SE.
+  ep <- rbind(
+    c(0.10, 0.20, 0.60, 0.80),
+    c(0.15, 0.25, 0.55, 0.85),
+    c(0.20, 0.10, 0.65, 0.75),
+    c(0.05, 0.30, 0.50, 0.90)
+  )
+  strat <- c("A", "A", "B", "B")
+
+  out <- MAIHDA:::maihda_stratum_interval_from_epred(ep, strat, level = 0.5)
+  expect_equal(out$stratum, c("A", "B"))
+
+  mA <- rowMeans(ep[, 1:2])
+  mB <- rowMeans(ep[, 3:4])
+  expect_equal(out$fitted, c(mean(mA), mean(mB)))
+  qA <- stats::quantile(mA, c(0.25, 0.75), names = FALSE)
+  qB <- stats::quantile(mB, c(0.25, 0.75), names = FALSE)
+  expect_equal(out$ci_lower, c(qA[1], qB[1]))
+  expect_equal(out$ci_upper, c(qA[2], qB[2]))
+
+  # Weights bias the per-draw stratum mean (a weighted mean over the stratum rows).
+  w <- c(3, 1, 1, 1)
+  outw <- MAIHDA:::maihda_stratum_interval_from_epred(ep, strat, w = w, level = 0.5)
+  mAw <- as.vector(ep[, 1:2] %*% (c(3, 1) / 4))
+  expect_equal(outw$fitted[1], mean(mAw))
+
+  expect_error(MAIHDA:::maihda_stratum_interval_from_epred(ep, strat[1:3]),
+               "one label per column")
+})
+
+test_that("frequentist (lme4) stratum panels omit error bars rather than averaging SEs", {
+  set.seed(404)
+  n <- 900
+  d <- data.frame(
+    gender = sample(c("F", "M"), n, replace = TRUE),
+    race   = sample(c("A", "B", "C"), n, replace = TRUE)
+  )
+  sk <- interaction(d$gender, d$race, drop = TRUE)
+  d$y  <- stats::rbinom(n, 1, stats::plogis(stats::rnorm(nlevels(sk), sd = 0.8)[sk]))
+  d$yc <- stats::rnorm(n, stats::rnorm(nlevels(sk), sd = 0.8)[sk])
+  strata <- make_strata(d, vars = c("gender", "race"))
+  d$stratum <- strata$data$stratum
+
+  mb <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ (1 | stratum), data = d, family = "binomial")))
+  # suppressWarnings: predict.merMod(se.fit = TRUE) emits an "approximation"
+  # notice; the point of the fix is precisely that this row-level SE is NOT
+  # aggregated into a (statistically invalid) stratum SE -- the stratum interval
+  # is omitted for a frequentist fit, so ci is NA rather than fabricated.
+  pb <- suppressWarnings(plot_prediction_deviation_panels(mb, type = "binomial"))
+  expect_s3_class(pb, "patchwork")
+  expect_true(all(is.na(pb[[2]]$data$ci_lower)))
+  expect_true(all(is.na(pb[[2]]$data$ci_upper)))
+
+  mg <- suppressWarnings(suppressMessages(
+    fit_maihda(yc ~ (1 | stratum), data = d, family = "gaussian")))
+  pg <- suppressWarnings(plot_prediction_deviation_panels(mg, type = "gaussian"))
+  expect_true(all(is.na(pg[[2]]$data$ci_lower)))
+  expect_true(all(is.na(pg[[2]]$data$ci_upper)))
+})
+
 test_that("Poisson prediction panels use response-scale (count) fitted values", {
   set.seed(2005)
   df <- data.frame(x = rnorm(150))

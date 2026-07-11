@@ -9,6 +9,39 @@
 # interpretable complement to the latent-scale VPC, not a replacement (it depends on
 # the overall prevalence).
 
+# Number of Gauss-Hermite nodes used for the inner (non-stratum) integral. The
+# inverse-link integrand is smooth and bounded in [0, 1], so quadrature converges
+# fast; 80 nodes is machine-accurate for the logit/probit/cloglog links and cheap
+# (an n_sim x 80 matrix). Kept as a named internal constant so the returned object
+# and print method can report the effective inner design.
+maihda_vpc_response_inner_nodes <- 80L
+
+# Gauss-Hermite quadrature nodes/weights for the standard-normal measure
+# (probabilists' Hermite): returns `nodes` x_k and `weights` w_k with sum(w_k) = 1
+# such that sum(w_k * f(x_k)) approximates E[f(Z)] for Z ~ N(0, 1). Built from the
+# Golub-Welsch algorithm -- the eigenvalues of the symmetric tridiagonal Jacobi
+# matrix (zero diagonal, sqrt(1..n-1) off-diagonals) are the nodes, and the squared
+# first components of its (orthonormal) eigenvectors are the weights. Base R only,
+# so it adds no statmod dependency. Being deterministic, it removes the inner
+# Monte-Carlo error the response-scale VPC previously carried in its fixed 500-draw
+# inner sample (so the returned VPC no longer stays conditional on an undocumented
+# inner draw count as n_sim grows). Pure and unit-testable.
+maihda_gauss_hermite_normal <- function(n = maihda_vpc_response_inner_nodes) {
+  n <- as.integer(n)
+  if (length(n) != 1L || is.na(n) || n < 2L) {
+    stop("Gauss-Hermite quadrature needs n >= 2 nodes.", call. = FALSE)
+  }
+  off <- sqrt(seq_len(n - 1L))
+  jacobi <- matrix(0, n, n)
+  jacobi[cbind(2:n, 1:(n - 1L))] <- off
+  jacobi[cbind(1:(n - 1L), 2:n)] <- off
+  ev <- eigen(jacobi, symmetric = TRUE)
+  nodes <- ev$values
+  weights <- ev$vectors[1, ]^2          # mass-1 normal measure => sum(weights) = 1
+  ord <- order(nodes)
+  list(nodes = nodes[ord], weights = weights[ord])
+}
+
 #' Response-scale VPC for a binomial MAIHDA model
 #'
 #' @description
@@ -48,7 +81,13 @@
 #' \emph{stratum share} \eqn{Var(E[p \mid u_{stratum}])} of the total
 #' response-scale variance, where the total includes the variation the other
 #' random effects induce in \eqn{p} plus the binomial within-variance.
-#' Simulating the stratum effect alone would overstate the stratum share.
+#' Simulating the stratum effect alone would overstate the stratum share. The
+#' inner integral over the combined non-stratum effect is evaluated by
+#' \emph{deterministic Gauss-Hermite quadrature}, not an inner Monte-Carlo
+#' sample, so it contributes no simulation error of its own and increasing
+#' \code{n_sim} converges the whole estimate (the outer stratum draw is then the
+#' only Monte-Carlo dimension). The number of quadrature nodes used is reported in
+#' \code{inner_nodes}.
 #'
 #' @param model A binomial \code{maihda_model} (lme4 engine) from
 #'   \code{\link{fit_maihda}}.
@@ -60,8 +99,11 @@
 #'   \code{estimate}, \code{scale = "response"}, \code{method = "simulation"},
 #'   \code{n_sim}, \code{var_between} (the latent-scale between-stratum variance),
 #'   \code{var_other} (the summed latent-scale variance of any non-stratum random
-#'   intercepts, 0 when there are none) and \code{lp_fixed} (the mean fixed-part
-#'   linear predictor).
+#'   intercepts, 0 when there are none), \code{lp_fixed} (the mean fixed-part
+#'   linear predictor), \code{inner_method} (\code{"gauss-hermite"} when non-stratum
+#'   effects are integrated out, else \code{"none"}) and \code{inner_nodes} (the
+#'   number of Gauss-Hermite quadrature nodes used for that inner integral, \code{NA}
+#'   when there are no non-stratum effects).
 #'
 #' @references
 #' Goldstein, H., Browne, W., & Rasbash, J. (2002). Partitioning variation in
@@ -122,7 +164,8 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
     return(structure(
       list(estimate = NA_real_, scale = "response", method = "simulation",
            n_sim = n_sim, var_between = var_between, var_other = NA_real_,
-           lp_fixed = NA_real_),
+           lp_fixed = NA_real_, inner_method = NA_character_,
+           inner_nodes = NA_integer_),
       class = "maihda_vpc_response"))
   }
 
@@ -171,20 +214,28 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
     set.seed(seed)
   }
   u <- stats::rnorm(n_sim, mean = 0, sd = sqrt(var_between))
+  inner_nodes <- NA_integer_
   if (var_other > 0) {
-    # Nested integration: E[p | u_stratum] over the combined non-stratum
-    # effect, using ONE inner sample shared by every stratum draw (common
-    # random numbers), so the inner Monte-Carlo noise does not inflate the
-    # between-stratum variance. The stratum share is Var(E[p | u_stratum])
-    # over the TOTAL response-scale variance: Var(p) across strata and other
-    # effects plus the binomial within-variance E[p(1-p)].
-    n_inner <- 500L
-    u_other <- stats::rnorm(n_inner, mean = 0, sd = sqrt(var_other))
-    p_mat <- linkinv(outer(u, u_other, `+`) + lp_fixed)
-    m_stratum <- rowMeans(p_mat)
+    # Nested integration: E[p | u_stratum] over the combined non-stratum effect.
+    # The inner 1-D Gaussian integral is done by DETERMINISTIC Gauss-Hermite
+    # quadrature rather than a fixed inner Monte-Carlo sample, so it carries no
+    # simulation error of its own: increasing n_sim now converges the whole
+    # estimate (the outer stratum draw is the only remaining Monte-Carlo
+    # dimension, and n_sim controls it). The stratum share is Var(E[p | u_stratum])
+    # over the TOTAL response-scale variance: Var(p) across strata and the other
+    # effects plus the binomial within-variance E[p(1-p)]. All three moments are
+    # taken against the same quadrature weights so they stay mutually consistent.
+    gh <- maihda_gauss_hermite_normal(maihda_vpc_response_inner_nodes)
+    inner_nodes <- length(gh$nodes)
+    z <- gh$nodes * sqrt(var_other)          # quadrature nodes for N(0, var_other)
+    wq <- gh$weights                         # quadrature weights (sum to 1)
+    p_mat <- linkinv(outer(u, z, `+`) + lp_fixed)          # n_sim x inner_nodes
+    m_stratum <- as.vector(p_mat %*% wq)                   # E[p | u_i], exact inner
     v_between <- stats::var(m_stratum)
-    v_total_p <- stats::var(as.vector(p_mat))
-    v_within <- mean(p_mat * (1 - p_mat))
+    e_p <- mean(m_stratum)                                 # E[p]
+    e_p2 <- mean(as.vector((p_mat * p_mat) %*% wq))        # E[p^2]
+    v_total_p <- max(e_p2 - e_p^2, 0)                      # Var(p) over the joint
+    v_within <- mean(as.vector((p_mat * (1 - p_mat)) %*% wq))  # E[p(1-p)]
     vpc <- v_between / (v_total_p + v_within)
   } else {
     p <- linkinv(lp_fixed + u)
@@ -196,7 +247,9 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
   structure(
     list(estimate = vpc, scale = "response", method = "simulation",
          n_sim = n_sim, var_between = var_between, var_other = var_other,
-         lp_fixed = lp_fixed),
+         lp_fixed = lp_fixed,
+         inner_method = if (var_other > 0) "gauss-hermite" else "none",
+         inner_nodes = inner_nodes),
     class = "maihda_vpc_response"
   )
 }
@@ -210,10 +263,15 @@ print.maihda_vpc_response <- function(x, ...) {
   cat(pal$muted(sprintf("  %d simulated stratum effects; between-stratum variance %.4f (latent scale).\n",
               x$n_sim, x$var_between)))
   if (is.finite(x$var_other) && x$var_other > 0) {
+    nodes_txt <- if (!is.null(x$inner_nodes) && is.finite(x$inner_nodes)) {
+      sprintf(" by %d-node Gauss-Hermite quadrature", x$inner_nodes)
+    } else {
+      ""
+    }
     cat(pal$muted(sprintf(paste0(
-      "  Integrated over non-stratum random effects (latent variance %.4f):\n",
+      "  Integrated over non-stratum random effects (latent variance %.4f)%s:\n",
       "  the estimate is the stratum share of the total response-scale variance.\n"),
-      x$var_other)))
+      x$var_other, nodes_txt)))
   }
   invisible(x)
 }

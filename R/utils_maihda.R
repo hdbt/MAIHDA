@@ -1938,20 +1938,112 @@ maihda_random_variance_draws_brms <- function(draws, group = "stratum") {
 #   gaussian       -> sigma draws squared (exact)
 #   logit latent   -> pi^2 / 3 (constant across draws)
 #   probit latent  -> 1        (constant across draws)
-#   poisson(log)   -> mean(log1p(1 / lambda)) at MARGINAL expected counts built
-#                     from the posterior-mean fixed part and posterior-mean
-#                     RE-variance blocks (maihda_count_marginal_mu_brms;
-#                     constant across draws). A per-draw version would need an
-#                     ndraws x nobs computation, which is prohibitively
-#                     expensive; the random-effect SD draws (the dominant source
-#                     of VPC uncertainty) are still propagated -- only the small
-#                     level-1 term is held at its posterior-mean plug-ins.
+#   poisson(log)   -> mean(log1p(1 / lambda)) at the MARGINAL expected counts
+#                     lambda_{d,i} = exp(eta_{d,i} + v_d / 2). For the
+#                     intercept-only VPC structures (strata / crossed / contextual)
+#                     this is computed PER DRAW from the fixed-part linear-predictor
+#                     draws and the draw's total random-intercept variance
+#                     (maihda_count_residual_variance_draws_brms_perdraw), so the
+#                     interval reflects fixed-effect and RE-variance uncertainty and
+#                     their correlation with the level-1 term. A random-slope
+#                     (longitudinal) structure, whose row design the fast path does
+#                     not carry, falls back to the posterior-mean plug-in marginal
+#                     mean held constant across draws (maihda_count_marginal_mu_brms).
 #   negbinomial(log) -> mean(log1p(1 / lambda + 1 / shape_d)) per draw d: the
-#                     'shape' (= theta) draws are propagated, while lambda is
-#                     held at the posterior-mean marginal means for the same
-#                     cost reason as the poisson case.
+#                     'shape' (= theta) draws are always propagated; lambda is
+#                     computed per draw for the intercept-only path and held at the
+#                     posterior-mean plug-in for the random-slope fallback, exactly
+#                     as in the poisson case.
 # Takes the model (for the family and, for poisson/negbinomial, the marginal
 # means) and the draws data frame (for the sigma/shape draws and the draw count).
+# Per-draw count-family latent level-1 (residual) variance from the fixed-part
+# linear-predictor DRAWS. For each posterior draw d it forms the marginal expected
+# count lambda_{d,i} = exp(eta_{d,i} + v_d / 2) -- eta the fixed-part (re_formula =
+# NA) link-scale linear predictor and v_d the draw's total random-INTERCEPT variance
+# -- then returns the (optionally prior-weighted) mean over observations of
+# log1p(1 / lambda_{d,i} [+ extra_d]). `extra_d` carries the negative-binomial
+# 1 / shape term (NULL for Poisson). lambda is clamped away from 0 exactly as the
+# posterior-mean helpers do (pmax(., .Machine$double.eps)). Propagating lambda per
+# draw -- rather than holding it at a posterior-mean plug-in -- lets the count VPC
+# credible interval reflect fixed-effect and RE-variance uncertainty and their
+# correlation with the level-1 term. Pure (eta_link is a plain ndraws x nobs
+# matrix), so it is unit-testable without a Stan fit.
+maihda_count_resid_var_from_linpred <- function(eta_link, var_total, w = NULL,
+                                                extra = NULL) {
+  eta_link <- as.matrix(eta_link)
+  nd <- nrow(eta_link)
+  if (length(var_total) != nd) {
+    stop("var_total must have one value per posterior draw (row of eta_link).",
+         call. = FALSE)
+  }
+  # Marginal mean per draw/row, clamped away from 0; then 1 / lambda.
+  mu <- exp(sweep(eta_link, 1L, var_total / 2, "+"))
+  mu[mu < .Machine$double.eps] <- .Machine$double.eps
+  inv_mu <- 1 / mu
+  if (!is.null(extra)) {
+    if (length(extra) != nd) {
+      stop("extra must have one value per posterior draw.", call. = FALSE)
+    }
+    inv_mu <- sweep(inv_mu, 1L, extra, "+")
+  }
+  terms <- log1p(inv_mu)                                  # ndraws x nobs
+  if (is.null(w)) {
+    return(rowMeans(terms, na.rm = TRUE))
+  }
+  vapply(seq_len(nd),
+         function(d) maihda_weighted_obs_mean(terms[d, ], w),
+         numeric(1))
+}
+
+# brms gatherer for maihda_count_resid_var_from_linpred(): returns the per-draw
+# count residual variance when the random effects are INTERCEPT-ONLY (the strata /
+# crossed-dimensions / contextual VPC structures), else NULL to signal the caller to
+# fall back to the documented posterior-mean plug-in. A random-slope growth model
+# needs the row-varying random-effect design (z_i' Sigma z_i) that this fast path
+# does not carry, so it is deliberately excluded here. `extra` is a length-ndraws
+# vector (negative-binomial 1 / shape) or NULL (Poisson). Returns NULL rather than
+# erroring on any structural mismatch so the caller's plug-in path always remains
+# available.
+maihda_count_residual_variance_draws_brms_perdraw <- function(model, draws,
+                                                              extra = NULL) {
+  f <- model$formula
+  if (inherits(f, "brmsformula") && inherits(f$formula, "formula")) {
+    f <- f$formula
+  }
+  bars <- tryCatch(reformulas::findbars(f), error = function(e) NULL)
+  if (is.null(bars) || length(bars) == 0) {
+    return(NULL)
+  }
+  is_intercept_only <- all(vapply(bars, function(b) {
+    identical(paste(deparse(b[[2]]), collapse = " "), "1")
+  }, logical(1)))
+  if (!is_intercept_only) {
+    return(NULL)
+  }
+
+  sd_cols <- grep("^sd_", names(draws), value = TRUE)
+  if (length(sd_cols) == 0) {
+    return(NULL)
+  }
+  var_total <- Reduce(`+`, lapply(sd_cols, function(cn) as.numeric(draws[[cn]])^2))
+
+  eta_link <- tryCatch(brms::posterior_linpred(model, re_formula = NA),
+                       error = function(e) NULL)
+  if (is.null(eta_link)) {
+    return(NULL)
+  }
+  eta_link <- as.matrix(eta_link)
+  # posterior_linpred returns ndraws x nobs in canonical draw order, matching the
+  # as.data.frame() draw order that produced `draws`; require the row counts agree
+  # before trusting that alignment, else fall back.
+  if (length(dim(eta_link)) != 2L || nrow(eta_link) != length(var_total)) {
+    return(NULL)
+  }
+
+  w <- maihda_fit_prior_weights(model)
+  maihda_count_resid_var_from_linpred(eta_link, var_total, w = w, extra = extra)
+}
+
 maihda_residual_variance_draws_brms <- function(model, draws) {
   fam <- maihda_family(model)
   if (is.null(fam)) {
@@ -1981,22 +2073,34 @@ maihda_residual_variance_draws_brms <- function(model, draws) {
     return(rep(1, n))
   }
   if (fam$family == "poisson" && fam$link == "log") {
+    # Per-draw marginal mean for the intercept-only VPC path (propagates
+    # fixed-effect + RE-variance uncertainty); NULL means fall back to the
+    # documented posterior-mean plug-in (random-slope / longitudinal structure).
+    rv <- maihda_count_residual_variance_draws_brms_perdraw(model, draws)
+    if (!is.null(rv)) {
+      return(rv)
+    }
     mu <- maihda_count_marginal_mu_brms(model, draws)
     w <- maihda_fit_prior_weights(model)
     return(rep(maihda_weighted_obs_mean(log1p(1 / mu), w), n))
   }
   if (fam$family == "negbinomial" && fam$link == "log") {
     # Nakagawa et al. (2017) ln(1 + 1/lambda + 1/theta), theta = brms 'shape'.
-    # The shape draws are propagated; lambda is held at the posterior-mean
-    # marginal means (see the header comment). Likelihood weights average the
-    # per-row terms.
-    mu <- maihda_count_marginal_mu_brms(model, draws)
+    # The shape draws are always propagated; lambda is computed per draw for the
+    # intercept-only path and held at the posterior-mean plug-in otherwise (see
+    # the header comment). Likelihood weights average the per-row terms.
     if (!"shape" %in% names(draws)) {
       stop("Could not extract the negative-binomial 'shape' (theta) draws from ",
            "the brms posterior.")
     }
-    w <- maihda_fit_prior_weights(model)
     shape_d <- as.numeric(draws[["shape"]])
+    rv <- maihda_count_residual_variance_draws_brms_perdraw(model, draws,
+                                                            extra = 1 / shape_d)
+    if (!is.null(rv)) {
+      return(rv)
+    }
+    mu <- maihda_count_marginal_mu_brms(model, draws)
+    w <- maihda_fit_prior_weights(model)
     return(vapply(shape_d,
                   function(s) maihda_weighted_obs_mean(log1p(1 / mu + 1 / s), w),
                   numeric(1)))
