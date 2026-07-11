@@ -111,8 +111,11 @@ Default 10000.</p></dd>
   <code>estimate</code>, <code>scale = "response"</code>, <code>method = "simulation"</code>,
   <code>n_sim</code>, <code>var_between</code> (the latent-scale between-stratum variance),
   <code>var_other</code> (the summed latent-scale variance of any non-stratum random
-  intercepts, 0 when there are none) and <code>lp_fixed</code> (the mean fixed-part
-  linear predictor).</p>
+  intercepts, 0 when there are none), <code>lp_fixed</code> (the mean fixed-part
+  linear predictor), <code>inner_method</code> (<code>"gauss-hermite"</code> when non-stratum
+  effects are integrated out, else <code>"none"</code>) and <code>inner_nodes</code> (the
+  number of Gauss-Hermite quadrature nodes used for that inner integral, <code>NA</code>
+  when there are no non-stratum effects).</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -137,7 +140,13 @@ simulation integrates over them: the reported estimate is the
 <em>stratum share</em> \(Var(E[p \mid u_{stratum}])\) of the total
 response-scale variance, where the total includes the variation the other
 random effects induce in \(p\) plus the binomial within-variance.
-Simulating the stratum effect alone would overstate the stratum share.</p>
+Simulating the stratum effect alone would overstate the stratum share. The
+inner integral over the combined non-stratum effect is evaluated by
+<em>deterministic Gauss-Hermite quadrature</em>, not an inner Monte-Carlo
+sample, so it contributes no simulation error of its own and increasing
+<code>n_sim</code> converges the whole estimate (the outer stratum draw is then the
+only Monte-Carlo dimension). The number of quadrature nodes used is reported in
+<code>inner_nodes</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

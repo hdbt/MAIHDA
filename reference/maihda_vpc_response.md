@@ -42,7 +42,11 @@ An object of class `maihda_vpc_response`: a list with `estimate`,
 `scale = "response"`, `method = "simulation"`, `n_sim`, `var_between`
 (the latent-scale between-stratum variance), `var_other` (the summed
 latent-scale variance of any non-stratum random intercepts, 0 when there
-are none) and `lp_fixed` (the mean fixed-part linear predictor).
+are none), `lp_fixed` (the mean fixed-part linear predictor),
+`inner_method` (`"gauss-hermite"` when non-stratum effects are
+integrated out, else `"none"`) and `inner_nodes` (the number of
+Gauss-Hermite quadrature nodes used for that inner integral, `NA` when
+there are no non-stratum effects).
 
 ## Details
 
@@ -70,7 +74,13 @@ integrates over them: the reported estimate is the *stratum share*
 \\Var(E\[p \mid u\_{stratum}\])\\ of the total response-scale variance,
 where the total includes the variation the other random effects induce
 in \\p\\ plus the binomial within-variance. Simulating the stratum
-effect alone would overstate the stratum share.
+effect alone would overstate the stratum share. The inner integral over
+the combined non-stratum effect is evaluated by *deterministic
+Gauss-Hermite quadrature*, not an inner Monte-Carlo sample, so it
+contributes no simulation error of its own and increasing `n_sim`
+converges the whole estimate (the outer stratum draw is then the only
+Monte-Carlo dimension). The number of quadrature nodes used is reported
+in `inner_nodes`.
 
 ## References
 
