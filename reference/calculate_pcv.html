@@ -71,7 +71,8 @@ PCV = (Var_model1 - Var_model2) / Var_model1.</p>
 <span>  <span class="va">model2</span>,</span>
 <span>  bootstrap <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_boot <span class="op">=</span> <span class="fl">1000</span>,</span>
-<span>  conf_level <span class="op">=</span> <span class="fl">0.95</span></span>
+<span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
+<span>  estimation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fitted"</span>, <span class="st">"ML"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -103,6 +104,16 @@ estimate and <code>bootstrap = TRUE</code> is an error (see Details).</p></dd>
 
 <dt id="arg-conf-level">conf_level<a class="anchor" aria-label="anchor" href="#arg-conf-level"></a></dt>
 <dd><p>Confidence level for bootstrap intervals. Default is 0.95.</p></dd>
+
+
+<dt id="arg-estimation">estimation<a class="anchor" aria-label="anchor" href="#arg-estimation"></a></dt>
+<dd><p>Variance-estimation basis for the cross-model comparison, one of
+<code>"fitted"</code> (default) or <code>"ML"</code>. <code>"fitted"</code> differences each model's
+own between-stratum variance (the REML estimate for a Gaussian <code>lmer</code> fit);
+<code>"ML"</code> refits any REML <code>lmer</code> fit with maximum likelihood first, for a
+correction-free comparison. The choice affects Gaussian <code>lmer</code> fits only –
+<code>glmer</code> and the brms/wemix/ordinal engines are already on the ML scale. See
+Details for the finite-sample tradeoff.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -142,18 +153,35 @@ case, where model2 adds fixed-effect predictors to model1 on the same outcome,
 analytic sample and strata. The function does not require nesting, so for
 non-nested models the PCV is simply a model-dependent difference in variance,
 not an explained proportion.</p>
-<p><strong>REML vs ML.</strong> <code>lmer</code> fits Gaussian models by REML, whose
-between-stratum variance estimate is <em>not</em> comparable across models with
-different fixed effects – exactly the canonical null-vs-adjusted PCV, where the
-adjusted model adds the dimensions' main effects. <code>calculate_pcv()</code> therefore
-refits any REML <code>lmer</code> model with maximum likelihood
-(<code><a href="https://rdrr.io/pkg/lme4/man/refitML.html" class="external-link">refitML</a></code>) before reading the variances (and before the
-parametric bootstrap, so the interval matches), matching <code><a href="maihda_ic.html">maihda_ic</a></code>
-and <code><a href="https://rdrr.io/r/stats/anova.html" class="external-link">anova()</a></code> on <code>lme4</code> models. Using REML estimates here biases the PCV
-(it overstates the residual between-stratum variance of the adjusted model). GLMM
-fits (<code>glmer</code>) and the brms/wemix/ordinal engines are already on the
-maximum-likelihood scale and are unaffected; single-model VPC/ICC summaries keep
-their REML fit, since that comparison-free quantity is not subject to the pitfall.</p>
+<p><strong>REML vs ML (the <code>estimation</code> argument).</strong> <code>lmer</code> fits Gaussian
+models by REML, and two considerations pull in opposite directions when the PCV
+differences two such fits. On one hand, the REML <em>likelihood</em> is not
+comparable across models with different fixed effects, and REML applies a
+model-specific degrees-of-freedom correction that differs between the null and the
+adjusted fit; refitting both with maximum likelihood (<code><a href="https://rdrr.io/pkg/lme4/man/refitML.html" class="external-link">refitML</a></code>)
+puts the two between-stratum variances on a common, correction-free basis, matching
+<code><a href="maihda_ic.html">maihda_ic</a></code> and <code><a href="https://rdrr.io/r/stats/anova.html" class="external-link">anova()</a></code> on <code>lme4</code> models. On the other hand,
+ML variance-component estimates are downward-biased in finite samples – most
+sharply with few strata (the usual MAIHDA regime), and more so for the adjusted
+model (more fixed effects, larger REML correction) – which <em>inflates</em> the
+reported PCV relative to the REML estimates. Both are defensible point estimates of
+each model's between-stratum variance, so <code>estimation</code> selects between them:</p><dl><dt><code>"fitted"</code> (default)</dt>
+<dd><p>use each model's own fitted between-stratum
+    variance – the REML estimate for an <code>lmer</code> Gaussian fit. This matches the
+    variances <code><a href="summary.maihda_model.html">summary.maihda_model</a></code> reports and conventional MAIHDA
+    practice, and avoids ML's finite-sample downward bias.</p></dd>
+
+  <dt><code>"ML"</code></dt>
+<dd><p>refit any REML <code>lmer</code> fit with maximum likelihood before
+    reading the variances (and before the parametric bootstrap, so the interval
+    matches), for a correction-free cross-model comparison.</p></dd>
+
+
+</dl><p>The choice affects Gaussian <code>lmer</code> fits only: GLMM fits (<code>glmer</code>) and the
+brms/wemix/ordinal engines are already on the maximum-likelihood scale, so
+<code>"fitted"</code> and <code>"ML"</code> coincide there. Single-model VPC/ICC summaries always
+keep their REML fit, since that comparison-free quantity is not subject to the
+cross-model pitfall.</p>
 <p><strong>Latent-scale families and rescaling.</strong> For families whose level-1
 variance is a fixed latent-scale constant – binomial/Bernoulli
 (\(\pi^2/3\) logit, 1 probit) and the cumulative (ordinal) model – the
@@ -218,7 +246,7 @@ do, and what we can do about it. <em>European Sociological Review</em>, 26(1),
 <span class="r-in"><span><span class="co"># Calculate PCV without bootstrap</span></span></span>
 <span class="r-in"><span><span class="va">pcv_result</span> <span class="op">&lt;-</span> <span class="fu">calculate_pcv</span><span class="op">(</span><span class="va">model1</span>, <span class="va">model2</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">pcv_result</span><span class="op">$</span><span class="va">pcv</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.007185334</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -0.1626748</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Calculate PCV with bootstrap CI</span></span></span>
 <span class="r-in"><span><span class="co"># pcv_boot &lt;- calculate_pcv(model1, model2, bootstrap = TRUE, n_boot = 500)</span></span></span>

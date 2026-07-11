@@ -13,7 +13,8 @@ calculate_pcv(
   model2,
   bootstrap = FALSE,
   n_boot = 1000,
-  conf_level = 0.95
+  conf_level = 0.95,
+  estimation = c("fitted", "ML")
 )
 ```
 
@@ -48,6 +49,16 @@ calculate_pcv(
 - conf_level:
 
   Confidence level for bootstrap intervals. Default is 0.95.
+
+- estimation:
+
+  Variance-estimation basis for the cross-model comparison, one of
+  `"fitted"` (default) or `"ML"`. `"fitted"` differences each model's
+  own between-stratum variance (the REML estimate for a Gaussian `lmer`
+  fit); `"ML"` refits any REML `lmer` fit with maximum likelihood first,
+  for a correction-free comparison. The choice affects Gaussian `lmer`
+  fits only – `glmer` and the brms/wemix/ordinal engines are already on
+  the ML scale. See Details for the finite-sample tradeoff.
 
 ## Value
 
@@ -95,21 +106,42 @@ model1 on the same outcome, analytic sample and strata. The function
 does not require nesting, so for non-nested models the PCV is simply a
 model-dependent difference in variance, not an explained proportion.
 
-**REML vs ML.** `lmer` fits Gaussian models by REML, whose
-between-stratum variance estimate is *not* comparable across models with
-different fixed effects – exactly the canonical null-vs-adjusted PCV,
-where the adjusted model adds the dimensions' main effects.
-`calculate_pcv()` therefore refits any REML `lmer` model with maximum
-likelihood ([`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html))
-before reading the variances (and before the parametric bootstrap, so
-the interval matches), matching
+**REML vs ML (the `estimation` argument).** `lmer` fits Gaussian models
+by REML, and two considerations pull in opposite directions when the PCV
+differences two such fits. On one hand, the REML *likelihood* is not
+comparable across models with different fixed effects, and REML applies
+a model-specific degrees-of-freedom correction that differs between the
+null and the adjusted fit; refitting both with maximum likelihood
+([`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html)) puts the two
+between-stratum variances on a common, correction-free basis, matching
 [`maihda_ic`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md) and
-[`anova()`](https://rdrr.io/r/stats/anova.html) on `lme4` models. Using
-REML estimates here biases the PCV (it overstates the residual
-between-stratum variance of the adjusted model). GLMM fits (`glmer`) and
+[`anova()`](https://rdrr.io/r/stats/anova.html) on `lme4` models. On the
+other hand, ML variance-component estimates are downward-biased in
+finite samples – most sharply with few strata (the usual MAIHDA regime),
+and more so for the adjusted model (more fixed effects, larger REML
+correction) – which *inflates* the reported PCV relative to the REML
+estimates. Both are defensible point estimates of each model's
+between-stratum variance, so `estimation` selects between them:
+
+- `"fitted"` (default):
+
+  use each model's own fitted between-stratum variance – the REML
+  estimate for an `lmer` Gaussian fit. This matches the variances
+  [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
+  reports and conventional MAIHDA practice, and avoids ML's
+  finite-sample downward bias.
+
+- `"ML"`:
+
+  refit any REML `lmer` fit with maximum likelihood before reading the
+  variances (and before the parametric bootstrap, so the interval
+  matches), for a correction-free cross-model comparison.
+
+The choice affects Gaussian `lmer` fits only: GLMM fits (`glmer`) and
 the brms/wemix/ordinal engines are already on the maximum-likelihood
-scale and are unaffected; single-model VPC/ICC summaries keep their REML
-fit, since that comparison-free quantity is not subject to the pitfall.
+scale, so `"fitted"` and `"ML"` coincide there. Single-model VPC/ICC
+summaries always keep their REML fit, since that comparison-free
+quantity is not subject to the cross-model pitfall.
 
 **Latent-scale families and rescaling.** For families whose level-1
 variance is a fixed latent-scale constant – binomial/Bernoulli
@@ -186,7 +218,7 @@ model2 <- fit_maihda(health_outcome ~ age + gender + (1 | stratum), data = strat
 # Calculate PCV without bootstrap
 pcv_result <- calculate_pcv(model1, model2)
 print(pcv_result$pcv)
-#> [1] 0.007185334
+#> [1] -0.1626748
 
 # Calculate PCV with bootstrap CI
 # pcv_boot <- calculate_pcv(model1, model2, bootstrap = TRUE, n_boot = 500)

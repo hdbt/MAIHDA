@@ -24,13 +24,21 @@ data, and n_case / n_control are the total successes / failures.
 Scope. When the model carries random effects beyond the
 intersectional partition – a contextual (1 | school) from
 fit_maihda(context = ) or an explicit extra grouping such as
-(1 | site) – the headline auc is the concordance of the
-intersectional strata (fixed effects plus the stratum random effect
-and, for a crossed-dimensions fit, the additive dimension effects), matching
-the scope of the MOR; the concordance of the full model including the other
+(1 | site) – the headline auc is the intersectional-scope
+concordance: it excludes those other random effects but keeps the fixed
+effects plus the stratum random effect (and, for a crossed-dimensions fit, the
+additive dimension effects). The concordance of the full model including the other
 random effects is reported separately as auc_full
-(auc_scope = &quot;strata&quot;). For the canonical single-(1 | stratum)
-model the two coincide and only auc is reported
+(auc_scope = &quot;intersectional&quot;). Caveat – this is not strata-only
+discrimination. The intersectional-scope score retains the entire
+fixed-effects predictor, so when the model is adjusted for individual-level
+covariates (e.g. age, income that vary within strata) those
+covariates enter this AUC too; it is the concordance of the adjusted fixed effects
+plus the intersectional random effect(s), not of the strata alone, and it then
+matches the between-stratum MOR's scope only when the fixed part is intercept-only.
+For a strata-only discriminatory accuracy, score the null (strata-only) model. For
+the canonical single-(1 | stratum) model with no other random effects, the
+full and intersectional scopes coincide and only auc is reported
 (auc_scope = &quot;model&quot;, auc_full absent)."><meta property="og:description" content="Bundles the individual-level discriminatory-accuracy summaries for a binomial
 MAIHDA model: the AUC / C-statistic (how well the model's predicted
 probabilities separate cases from non-cases) and the Median Odds Ratio. Applied
@@ -56,13 +64,21 @@ data, and n_case / n_control are the total successes / failures.
 Scope. When the model carries random effects beyond the
 intersectional partition – a contextual (1 | school) from
 fit_maihda(context = ) or an explicit extra grouping such as
-(1 | site) – the headline auc is the concordance of the
-intersectional strata (fixed effects plus the stratum random effect
-and, for a crossed-dimensions fit, the additive dimension effects), matching
-the scope of the MOR; the concordance of the full model including the other
+(1 | site) – the headline auc is the intersectional-scope
+concordance: it excludes those other random effects but keeps the fixed
+effects plus the stratum random effect (and, for a crossed-dimensions fit, the
+additive dimension effects). The concordance of the full model including the other
 random effects is reported separately as auc_full
-(auc_scope = &quot;strata&quot;). For the canonical single-(1 | stratum)
-model the two coincide and only auc is reported
+(auc_scope = &quot;intersectional&quot;). Caveat – this is not strata-only
+discrimination. The intersectional-scope score retains the entire
+fixed-effects predictor, so when the model is adjusted for individual-level
+covariates (e.g. age, income that vary within strata) those
+covariates enter this AUC too; it is the concordance of the adjusted fixed effects
+plus the intersectional random effect(s), not of the strata alone, and it then
+matches the between-stratum MOR's scope only when the fixed part is intercept-only.
+For a strata-only discriminatory accuracy, score the null (strata-only) model. For
+the canonical single-(1 | stratum) model with no other random effects, the
+full and intersectional scopes coincide and only auc is reported
 (auc_scope = &quot;model&quot;, auc_full absent)."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
@@ -141,13 +157,21 @@ data, and <code>n_case</code> / <code>n_control</code> are the total successes /
 <p><strong>Scope.</strong> When the model carries random effects <em>beyond</em> the
 intersectional partition – a contextual <code>(1 | school)</code> from
 <code>fit_maihda(context = )</code> or an explicit extra grouping such as
-<code>(1 | site)</code> – the headline <code>auc</code> is the concordance of the
-<em>intersectional strata</em> (fixed effects plus the stratum random effect
-and, for a crossed-dimensions fit, the additive dimension effects), matching
-the scope of the MOR; the concordance of the full model including the other
+<code>(1 | site)</code> – the headline <code>auc</code> is the <em>intersectional-scope</em>
+concordance: it <strong>excludes</strong> those other random effects but keeps the fixed
+effects plus the stratum random effect (and, for a crossed-dimensions fit, the
+additive dimension effects). The concordance of the full model including the other
 random effects is reported separately as <code>auc_full</code>
-(<code>auc_scope = "strata"</code>). For the canonical single-<code>(1 | stratum)</code>
-model the two coincide and only <code>auc</code> is reported
+(<code>auc_scope = "intersectional"</code>). <strong>Caveat – this is not strata-only
+discrimination.</strong> The intersectional-scope score retains the <em>entire</em>
+fixed-effects predictor, so when the model is adjusted for individual-level
+covariates (e.g. <code>age</code>, <code>income</code> that vary <em>within</em> strata) those
+covariates enter this AUC too; it is the concordance of the adjusted fixed effects
+plus the intersectional random effect(s), not of the strata alone, and it then
+matches the between-stratum MOR's scope only when the fixed part is intercept-only.
+For a strata-only discriminatory accuracy, score the null (strata-only) model. For
+the canonical single-<code>(1 | stratum)</code> model with no other random effects, the
+full and intersectional scopes coincide and only <code>auc</code> is reported
 (<code>auc_scope = "model"</code>, <code>auc_full</code> absent).</p>
     </div>
 
@@ -173,17 +197,21 @@ model the two coincide and only <code>auc</code> is reported
     <p>An object of class <code>maihda_da</code>: a list with <code>auc</code>,
   <code>auc_scope</code>, <code>auc_full</code>, <code>mor</code>,
   <code>n_case</code>, <code>n_control</code>, <code>family</code>, <code>link</code>, <code>engine</code>,
-  <code>weighted</code>, <code>weight_type</code> and <code>apparent</code> (always <code>TRUE</code> –
-  the AUC is in-sample; see Description). <code>mor</code> is <code>NA</code> for a
-  non-logit binomial link, where the AUC is still reported. For an
-  aggregated-binomial fit <code>n_case</code> / <code>n_control</code> are the total
-  successes / failures. <code>weighted</code> is <code>TRUE</code> when the AUC is a
-  weighted concordance – <code>weight_type</code> <code>"sampling"</code> for a
-  design-weighted fit (each observation contributes its sampling weight as
-  case/control mass, estimating the population discriminatory accuracy) or
-  <code>"precision"</code> for an lme4 fit with non-integer precision weights;
-  <code>n_case</code> / <code>n_control</code> stay unweighted observation counts either
-  way. <code>weight_type</code> is <code>NULL</code> for an unweighted AUC.</p>
+  <code>weighted</code>, <code>weight_type</code>, <code>precision_weights_ignored</code> and
+  <code>apparent</code> (always <code>TRUE</code> – the AUC is in-sample; see Description).
+  <code>mor</code> is <code>NA</code> for a non-logit binomial link, where the AUC is still
+  reported. For an aggregated-binomial fit <code>n_case</code> / <code>n_control</code> are the
+  total successes / failures. <code>weighted</code> is <code>TRUE</code> only when the AUC is a
+  genuinely weighted (population-mass) concordance, with <code>weight_type</code>
+  <code>"sampling"</code> for a design-weighted fit (each observation contributes its
+  sampling weight as case/control mass, estimating the population discriminatory
+  accuracy); <code>n_case</code> / <code>n_control</code> stay unweighted observation counts.
+  <code>weight_type</code> is <code>NULL</code> for an unweighted AUC.
+  <strong>lme4 precision weights</strong> (non-integer <code>weights=</code> on a Bernoulli fit)
+  scale likelihood/dispersion, not population frequency, so they carry no
+  population-AUC interpretation: the AUC ignores them and reports the ordinary
+  observation-level concordance (<code>weighted = FALSE</code>), with
+  <code>precision_weights_ignored = TRUE</code> flagging that such weights were present.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

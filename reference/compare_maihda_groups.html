@@ -97,6 +97,7 @@ share of that group's intersectional inequality.</p>
 <span>  context <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sampling_weights <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  warn_linear <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  estimation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fitted"</span>, <span class="st">"ML"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -226,6 +227,12 @@ effects, which silently changes the PCV/decomposition interpretation (see
 data.</p></dd>
 
 
+<dt id="arg-estimation">estimation<a class="anchor" aria-label="anchor" href="#arg-estimation"></a></dt>
+<dd><p>Variance-estimation basis for each group's per-group PCV,
+<code>"fitted"</code> (default) or <code>"ML"</code>; see <code><a href="calculate_pcv.html">calculate_pcv</a></code>.
+Affects Gaussian <code>lmer</code> fits only.</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code><a href="fit_maihda.html">fit_maihda</a></code> (and on to
 <code>lmer</code>/<code>glmer</code>).</p></dd>
@@ -242,18 +249,20 @@ data.</p></dd>
   returned without bootstrapping). When the strata are defined by at least two
   dimensions, two further columns report the per-group null -&gt; adjusted
   decomposition: <code>pcv</code> (proportional change in between-stratum variance when
-  the dimensions' additive main effects are added; computed on the
-  maximum-likelihood scale – see <code><a href="calculate_pcv.html">calculate_pcv</a></code> – because REML
-  variances are not comparable across the null vs. adjusted fixed effects),
+  the dimensions' additive main effects are added; computed on the variance basis
+  set by <code>estimation</code> – see <code><a href="calculate_pcv.html">calculate_pcv</a></code>),
   <code>var_between_adjusted</code> (a <em>derived</em> coherence quantity, reported as
   <code>var_between * (1 - pcv)</code> so it shares the scale of the REML
   <code>var_between</code>/<code>vpc</code> and the table satisfies
   <code>pcv = (var_between - var_between_adjusted) / var_between</code> exactly – it is
   <strong>not</strong> the adjusted fit's own variance), and
   <code>var_between_adjusted_ml</code> (the adjusted model's <em>actual</em>
-  between-stratum variance, read straight off the adjusted fit on the same
-  maximum-likelihood scale as the PCV; it differs from <code>var_between_adjusted</code>
-  only by the small REML-vs-ML gap in the null variance). All three are
+  between-stratum variance, read straight off the adjusted fit on the same basis as
+  the PCV; under the default <code>estimation = "fitted"</code> this is the REML variance,
+  coinciding with <code>var_between_adjusted</code>, and under <code>estimation = "ML"</code> it
+  is the ML variance, differing from <code>var_between_adjusted</code> only by the small
+  REML-vs-ML gap in the null variance; the <code>_ml</code> suffix is retained for
+  output-schema continuity). All three are
   <code>NA</code> for a group whose adjusted fit failed, and the columns are
   omitted entirely when the strata have a single dimension. When <code>context</code>
   is supplied, two further columns report each group's contextual partition:
@@ -337,20 +346,20 @@ the boundary, giving a VPC of 0.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Group variable: country </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Engine: lme4  | Family: gaussian  | Strata: shared/global </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>           group   n n_strata     vpc var_between var_other var_residual pcv</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         Finland 600        6 0.10994       785.8         0         6361   1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         Germany 600        6 0.14448      1271.6         0         7529   1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>           Italy 600        6 0.11890      1065.3         0         7895   1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>           Japan 600        6 0.13344      1032.3         0         6704   1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>          Mexico 600        6 0.13649       771.5         0         4881   1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  United Kingdom 600        6 0.06011       470.5         0         7357   1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>           group   n n_strata     vpc var_between var_other var_residual    pcv</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         Finland 600        6 0.10994       785.8         0         6361 1.0000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         Germany 600        6 0.14448      1271.6         0         7529 1.0000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>           Italy 600        6 0.11890      1065.3         0         7895 1.0000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>           Japan 600        6 0.13344      1032.3         0         6704 0.9266</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>          Mexico 600        6 0.13649       771.5         0         4881 1.0000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  var_between_adjusted var_between_adjusted_ml status</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             3.782e-12               3.022e-12     ok</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             0.000e+00               0.000e+00     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                  0.00                    0.00     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                  0.00                    0.00     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                  0.00                    0.00     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                 75.78                   75.78     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                  0.00                    0.00     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                  0.00                    0.00     ok</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">cmp</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span></span>
 <span class="r-plt img"><img src="compare_maihda_groups-1.png" alt="" width="700" height="433"></span>
 <span class="r-in"><span><span class="co"># }</span></span></span>

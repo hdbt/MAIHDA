@@ -16,7 +16,8 @@ calculate_pvc(
   model2,
   bootstrap = FALSE,
   n_boot = 1000,
-  conf_level = 0.95
+  conf_level = 0.95,
+  estimation = c("fitted", "ML")
 )
 ```
 
@@ -51,6 +52,16 @@ calculate_pvc(
 - conf_level:
 
   Confidence level for bootstrap intervals. Default is 0.95.
+
+- estimation:
+
+  Variance-estimation basis for the cross-model comparison, one of
+  `"fitted"` (default) or `"ML"`. `"fitted"` differences each model's
+  own between-stratum variance (the REML estimate for a Gaussian `lmer`
+  fit); `"ML"` refits any REML `lmer` fit with maximum likelihood first,
+  for a correction-free comparison. The choice affects Gaussian `lmer`
+  fits only – `glmer` and the brms/wemix/ordinal engines are already on
+  the ML scale. See Details for the finite-sample tradeoff.
 
 ## Value
 

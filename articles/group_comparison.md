@@ -85,7 +85,7 @@ analysis
 #> Engine: lme4 | Family: gaussian
 #> VPC/ICC (null): 0.1493
 #> PCV (null -> adjusted): 1.0000
-#> Between-stratum variance: 1124.7631 (null) -> 0.0000 (adjusted)
+#> Between-stratum variance: 1352.2436 (null) -> 0.0000 (adjusted)
 #>   ~100.0% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
@@ -99,20 +99,20 @@ analysis
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
 #> 
-#>           group   n n_strata     vpc var_between var_other var_residual pcv
-#>         Finland 600        6 0.10994       785.8         0         6361   1
-#>         Germany 600        6 0.14448      1271.6         0         7529   1
-#>           Italy 600        6 0.11890      1065.3         0         7895   1
-#>           Japan 600        6 0.13344      1032.3         0         6704   1
-#>          Mexico 600        6 0.13649       771.5         0         4881   1
-#>  United Kingdom 600        6 0.06011       470.5         0         7357   1
+#>           group   n n_strata     vpc var_between var_other var_residual    pcv
+#>         Finland 600        6 0.10994       785.8         0         6361 1.0000
+#>         Germany 600        6 0.14448      1271.6         0         7529 1.0000
+#>           Italy 600        6 0.11890      1065.3         0         7895 1.0000
+#>           Japan 600        6 0.13344      1032.3         0         6704 0.9266
+#>          Mexico 600        6 0.13649       771.5         0         4881 1.0000
+#>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000
 #>  var_between_adjusted var_between_adjusted_ml status
-#>             0.000e+00               0.000e+00     ok
-#>             0.000e+00               0.000e+00     ok
-#>             0.000e+00               0.000e+00     ok
-#>             3.782e-12               3.022e-12     ok
-#>             0.000e+00               0.000e+00     ok
-#>             0.000e+00               0.000e+00     ok
+#>                  0.00                    0.00     ok
+#>                  0.00                    0.00     ok
+#>                  0.00                    0.00     ok
+#>                 75.78                   75.78     ok
+#>                  0.00                    0.00     ok
+#>                  0.00                    0.00     ok
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
 #> 
@@ -129,13 +129,20 @@ group_results <- as.data.frame(analysis$groups)
 group_results[order(group_results$vpc, decreasing = TRUE),
               c("group", "n", "n_strata", "vpc", "var_between",
                 "var_residual", "pcv", "status")]
-#>            group   n n_strata        vpc var_between var_residual pcv status
-#> 2        Germany 600        6 0.14448319   1271.5810     7529.311   1     ok
-#> 5         Mexico 600        6 0.13649162    771.5419     4881.127   1     ok
-#> 4          Japan 600        6 0.13344144   1032.3346     6703.902   1     ok
-#> 3          Italy 600        6 0.11889899   1065.3186     7894.544   1     ok
-#> 1        Finland 600        6 0.10994297    785.7610     6361.226   1     ok
-#> 6 United Kingdom 600        6 0.06011138    470.5471     7357.372   1     ok
+#>            group   n n_strata        vpc var_between var_residual      pcv
+#> 2        Germany 600        6 0.14448319   1271.5810     7529.311 1.000000
+#> 5         Mexico 600        6 0.13649162    771.5419     4881.127 1.000000
+#> 4          Japan 600        6 0.13344144   1032.3346     6703.902 0.926596
+#> 3          Italy 600        6 0.11889899   1065.3186     7894.544 1.000000
+#> 1        Finland 600        6 0.10994297    785.7610     6361.226 1.000000
+#> 6 United Kingdom 600        6 0.06011138    470.5471     7357.372 1.000000
+#>   status
+#> 2     ok
+#> 5     ok
+#> 4     ok
+#> 3     ok
+#> 1     ok
+#> 6     ok
 ```
 
 In this example all countries have 600 students and all six

@@ -98,9 +98,9 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> Adjusted formula:BMI ~ Gender + Race + Education + (1 | stratum)
 #> Engine: lme4 | Family: gaussian
 #> VPC/ICC (null): 0.0636
-#> PCV (null -> adjusted): 0.8263
-#> Between-stratum variance: 2.8308 (null) -> 0.4918 (adjusted)
-#>   ~82.6% of the between-stratum variance is additive (the dimensions' main
+#> PCV (null -> adjusted): 0.6615
+#> Between-stratum variance: 2.9319 (null) -> 0.9924 (adjusted)
+#>   ~66.2% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
 #> Strata: 50
@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x55e266edb070>
+#> <environment: 0x556caf8e18f0>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x55e2655afb50>
+#> <environment: 0x556cadf970d0>
 ```
 
 The returned object carries everything: the full variance components,
@@ -167,16 +167,18 @@ analysis$pcv            # proportional change in between-stratum variance
 #> Proportional Change in Variance (PCV)
 #> =====================================
 #> 
-#> PCV: 0.8263
+#> PCV: 0.6615
+#> 
+#> (Variance basis: as fitted -- REML for Gaussian lmer, matching summary())
 #> 
 #> Between-stratum variance:
-#>   Model 1: 2.830755
-#>   Model 2: 0.491811
-#>   Change:  2.338944 (82.63%)
+#>   Model 1: 2.931928
+#>   Model 2: 0.992445
+#>   Change:  1.939483 (66.15%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
 #> variance between the models):
-#>   Between-stratum variance is 82.6% lower in Model 2 than in Model 1.
+#>   Between-stratum variance is 66.2% lower in Model 2 than in Model 1.
 ```
 
 **Interpretation.** The VPC/ICC tells us what share of the total
@@ -423,16 +425,18 @@ calculate_pcv(model_null, model_cov)
 #> Proportional Change in Variance (PCV)
 #> =====================================
 #> 
-#> PCV: 0.0887
+#> PCV: 0.0835
+#> 
+#> (Variance basis: as fitted -- REML for Gaussian lmer, matching summary())
 #> 
 #> Between-stratum variance:
-#>   Model 1: 2.830755
-#>   Model 2: 2.579769
-#>   Change:  0.250986 (8.87%)
+#>   Model 1: 2.931928
+#>   Model 2: 2.687139
+#>   Change:  0.244790 (8.35%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
 #> variance between the models):
-#>   Between-stratum variance is 8.9% lower in Model 2 than in Model 1.
+#>   Between-stratum variance is 8.3% lower in Model 2 than in Model 1.
 ```
 
 This PCV answers “how much between-stratum variance do Age and Poverty
@@ -466,13 +470,13 @@ stepwise_results <- stepwise_pcv(
 )
 
 print(stepwise_results)
-#>  Step      Model        Added_Variable Variance Step_PCV Total_PCV
-#>     0 Null Model None (Intercept only)   2.8308  0.00000   0.00000
-#>     1    Model 1                   Age   2.7605  0.02481   0.02481
-#>     2    Model 2                Gender   2.7194  0.01489   0.03933
-#>     3    Model 3                  Race   0.9892  0.63625   0.65056
-#>     4    Model 4             Education   0.4769  0.51789   0.83153
-#>     5    Model 5               Poverty   0.4698  0.01480   0.83402
+#>  Step      Model        Added_Variable Variance  Step_PCV Total_PCV
+#>     0 Null Model None (Intercept only)   2.9319  0.000000  0.000000
+#>     1    Model 1                   Age   2.8628  0.023589  0.023589
+#>     2    Model 2                Gender   2.9233 -0.021142  0.002946
+#>     3    Model 3                  Race   1.3017  0.554721  0.556033
+#>     4    Model 4             Education   0.9757  0.250461  0.667229
+#>     5    Model 5               Poverty   0.9695  0.006302  0.669326
 ```
 
 Negative step PCVs in this table indicate an “unmasking”/suppression
@@ -510,17 +514,19 @@ print(imp)
 #> Outcome: BMI   Engine: lme4 (gaussian(identity))
 #> Analytic sample: 2792 observations; 8 models fit (incl. null).
 #> 
-#> Between-stratum variance: null 2.830755 -> full model 0.491811
-#> Total PCV (null -> all variables): 0.8263
+#> Between-stratum variance: null 2.931928 -> full model 0.992445
+#> Total PCV (null -> all variables): 0.6615
 #> 
 #>   Variable Contribution  Share
-#>     Gender       0.0033  +0.4%
-#>       Race       0.5718 +69.2%
-#>  Education       0.2512 +30.4%
-#>      Total       0.8263 100.0%
+#>     Gender      -0.0217  -3.3%
+#>       Race       0.5391 +81.5%
+#>  Education       0.1441 +21.8%
+#>      Total       0.6615 100.0%
 #> 
 #> Contributions are shares of the null model's between-stratum variance
 #> explained (the PCV scale) and sum to the full-model Total PCV (efficiency).
+#> Negative contributions flag suppression: the variable tends to RAISE the
+#> between-stratum variance; signed values are reported (no normalisation).
 #> 
 plot(imp)
 ```

@@ -123,7 +123,7 @@ bookkeeping (<code>n_strata</code>, <code>nobs</code>,
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 16</span></span></span>
 <span><span class="co">#&gt;      vpc vpc.conf.low vpc.conf.high   pcv pcv.conf.low pcv.conf.high</span></span>
 <span><span class="co">#&gt;    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 0.062<span style="text-decoration: underline;">7</span>           <span style="color: #BB0000;">NA</span>            <span style="color: #BB0000;">NA</span> 0.766           <span style="color: #BB0000;">NA</span>            <span style="color: #BB0000;">NA</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 0.062<span style="text-decoration: underline;">7</span>           <span style="color: #BB0000;">NA</span>            <span style="color: #BB0000;">NA</span> 0.596           <span style="color: #BB0000;">NA</span>            <span style="color: #BB0000;">NA</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 10 more variables: additive.share &lt;dbl&gt;, interaction.share &lt;dbl&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   auc &lt;dbl&gt;, auc.adjusted &lt;dbl&gt;, mor &lt;dbl&gt;, n_strata &lt;int&gt;, nobs &lt;int&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   engine &lt;chr&gt;, family &lt;chr&gt;, mode &lt;chr&gt;</span></span></span></code></pre></div>
@@ -132,7 +132,7 @@ bookkeeping (<code>n_strata</code>, <code>nobs</code>,
 <code><a href="../reference/maihda.html">maihda()</a></code> analysis holds. It is ideal for
 <code><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind()</a></code>-ing many analyses into a comparison table, or for
 pulling a single number into inline text – e.g. the VPC is 6.3% and the
-additive share (PCV) is 76.6%.</p>
+additive share (PCV) is 59.6%.</p>
 <p><code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code> and <code><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance()</a></code> come from the
 lightweight <strong><code>generics</code></strong> package – the same
 generics <code>broom</code>/<code>broom.mixed</code> re-export – so they
@@ -239,9 +239,7 @@ shows both in the familiar “estimate [low, high]” layout:</p>
 <span><span class="co">#&gt;  Between-stratum variance          2.900              1.172</span></span>
 <span><span class="co">#&gt;        Between-stratum SD          1.703              1.083</span></span>
 <span><span class="co">#&gt;                   VPC/ICC          0.063              0.026</span></span>
-<span><span class="co">#&gt;    PCV (null -&gt; adjusted)                             0.766</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">Note: The PCV is computed from maximum-likelihood-refitted between-stratum variances (required for a valid cross-model comparison; see ?calculate_pcv), while the Between-stratum variance/SD and VPC/ICC rows are each model's own REML estimate. The PCV therefore need not equal the variance reduction implied by the displayed variance rows.</span></span></span>
+<span><span class="co">#&gt;    PCV (null -&gt; adjusted)                             0.596</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Strata ranked by predicted value (null model):</span></span></span>
 <span><span class="co">#&gt;  Rank                          Stratum   N               Predicted</span></span>
@@ -362,7 +360,7 @@ drops straight into <code><a href="https://rdrr.io/pkg/knitr/man/kable.html" cla
 <td align="right">NA</td>
 <td align="right">NA</td>
 <td align="right">NA</td>
-<td align="right">0.766</td>
+<td align="right">0.596</td>
 <td align="right">NA</td>
 <td align="right">NA</td>
 </tr>

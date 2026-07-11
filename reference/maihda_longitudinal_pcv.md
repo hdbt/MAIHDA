@@ -14,7 +14,12 @@ reduces to the slope-variance cell).
 ## Usage
 
 ``` r
-maihda_longitudinal_pcv(null_model, adjusted_model, times = NULL)
+maihda_longitudinal_pcv(
+  null_model,
+  adjusted_model,
+  times = NULL,
+  estimation = c("fitted", "ML")
+)
 ```
 
 ## Arguments
@@ -29,6 +34,11 @@ maihda_longitudinal_pcv(null_model, adjusted_model, times = NULL)
   Optional numeric times for the time-specific PCV; defaults to the null
   model's reporting grid.
 
+- estimation:
+
+  Variance-estimation basis, `"fitted"` (default) or `"ML"`; see
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
+
 ## Value
 
 An object of class `maihda_long_pcv`.
@@ -37,13 +47,16 @@ An object of class `maihda_long_pcv`.
 
 As in
 [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
-REML `lmer` growth fits are refitted with maximum likelihood
-([`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html)) before the
-comparison: the null and adjusted models differ in fixed effects (the
-dimensions' main effects and their `dim:time` interactions), across
-which REML variance estimates are not comparable – using them biases
-both PCVs downward, overstating the multiplicative/interaction share.
-The stored models (and the single-model summaries computed from them,
-e.g. the time-varying VPC) keep their REML fit; `ml_refit` on the result
-records whether the refit applied. glmer (GLMM) and brms fits are
-already on the ML / posterior scale.
+the `estimation` argument selects the variance-estimation basis. With
+`estimation = "ML"`, REML `lmer` growth fits are refitted with maximum
+likelihood ([`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html))
+before the comparison – the null and adjusted models differ in fixed
+effects (the dimensions' main effects and their `dim:time`
+interactions), across which REML applies a model-specific correction –
+for a correction-free comparison. With `estimation = "fitted"` (the
+default) each fit's own REML covariance block is used, matching the
+single-model summaries and avoiding ML's finite-sample bias. The stored
+models (and the single-model summaries computed from them, e.g. the
+time-varying VPC) always keep their REML fit; `ml_refit` on the result
+records whether an ML refit applied. glmer (GLMM) and brms fits are
+already on the ML / posterior scale, so the choice does not affect them.

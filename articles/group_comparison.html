@@ -169,7 +169,7 @@ intersectional inequality).</p>
 <span><span class="co">#&gt; Engine: lme4 | Family: gaussian</span></span>
 <span><span class="co">#&gt; VPC/ICC (null): <span style="color: #D78700;">0.1493</span></span></span>
 <span><span class="co">#&gt; PCV (null -&gt; adjusted): <span style="color: #D78700;">1.0000</span></span></span>
-<span><span class="co">#&gt; Between-stratum variance: 1124.7631 (null) -&gt; 0.0000 (adjusted)</span></span>
+<span><span class="co">#&gt; Between-stratum variance: 1352.2436 (null) -&gt; 0.0000 (adjusted)</span></span>
 <span><span class="co">#&gt;   ~100.0% of the between-stratum variance is additive (the dimensions' main</span></span>
 <span><span class="co">#&gt;   effects); the remainder is the between-stratum variance remaining after the</span></span>
 <span><span class="co">#&gt;   additive main effects -- a model-dependent quantity</span></span>
@@ -183,20 +183,20 @@ intersectional inequality).</p>
 <span><span class="co">#&gt; Group variable: country </span></span>
 <span><span class="co">#&gt; Engine: lme4  | Family: gaussian  | Strata: shared/global </span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;           group   n n_strata     vpc var_between var_other var_residual pcv</span></span>
-<span><span class="co">#&gt;         Finland 600        6 0.10994       785.8         0         6361   1</span></span>
-<span><span class="co">#&gt;         Germany 600        6 0.14448      1271.6         0         7529   1</span></span>
-<span><span class="co">#&gt;           Italy 600        6 0.11890      1065.3         0         7895   1</span></span>
-<span><span class="co">#&gt;           Japan 600        6 0.13344      1032.3         0         6704   1</span></span>
-<span><span class="co">#&gt;          Mexico 600        6 0.13649       771.5         0         4881   1</span></span>
-<span><span class="co">#&gt;  United Kingdom 600        6 0.06011       470.5         0         7357   1</span></span>
+<span><span class="co">#&gt;           group   n n_strata     vpc var_between var_other var_residual    pcv</span></span>
+<span><span class="co">#&gt;         Finland 600        6 0.10994       785.8         0         6361 1.0000</span></span>
+<span><span class="co">#&gt;         Germany 600        6 0.14448      1271.6         0         7529 1.0000</span></span>
+<span><span class="co">#&gt;           Italy 600        6 0.11890      1065.3         0         7895 1.0000</span></span>
+<span><span class="co">#&gt;           Japan 600        6 0.13344      1032.3         0         6704 0.9266</span></span>
+<span><span class="co">#&gt;          Mexico 600        6 0.13649       771.5         0         4881 1.0000</span></span>
+<span><span class="co">#&gt;  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000</span></span>
 <span><span class="co">#&gt;  var_between_adjusted var_between_adjusted_ml status</span></span>
-<span><span class="co">#&gt;             0.000e+00               0.000e+00     ok</span></span>
-<span><span class="co">#&gt;             0.000e+00               0.000e+00     ok</span></span>
-<span><span class="co">#&gt;             0.000e+00               0.000e+00     ok</span></span>
-<span><span class="co">#&gt;             3.782e-12               3.022e-12     ok</span></span>
-<span><span class="co">#&gt;             0.000e+00               0.000e+00     ok</span></span>
-<span><span class="co">#&gt;             0.000e+00               0.000e+00     ok</span></span>
+<span><span class="co">#&gt;                  0.00                    0.00     ok</span></span>
+<span><span class="co">#&gt;                  0.00                    0.00     ok</span></span>
+<span><span class="co">#&gt;                  0.00                    0.00     ok</span></span>
+<span><span class="co">#&gt;                 75.78                   75.78     ok</span></span>
+<span><span class="co">#&gt;                  0.00                    0.00     ok</span></span>
+<span><span class="co">#&gt;                  0.00                    0.00     ok</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Use summary() for variance components and plot(type = ...) for figures.</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span></code></pre></div>
@@ -209,13 +209,20 @@ regular data frame.</p>
 <span><span class="va">group_results</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">group_results</span><span class="op">$</span><span class="va">vpc</span>, decreasing <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
 <span>              <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"group"</span>, <span class="st">"n"</span>, <span class="st">"n_strata"</span>, <span class="st">"vpc"</span>, <span class="st">"var_between"</span>,</span>
 <span>                <span class="st">"var_residual"</span>, <span class="st">"pcv"</span>, <span class="st">"status"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="co">#&gt;            group   n n_strata        vpc var_between var_residual pcv status</span></span>
-<span><span class="co">#&gt; 2        Germany 600        6 0.14448319   1271.5810     7529.311   1     ok</span></span>
-<span><span class="co">#&gt; 5         Mexico 600        6 0.13649162    771.5419     4881.127   1     ok</span></span>
-<span><span class="co">#&gt; 4          Japan 600        6 0.13344144   1032.3346     6703.902   1     ok</span></span>
-<span><span class="co">#&gt; 3          Italy 600        6 0.11889899   1065.3186     7894.544   1     ok</span></span>
-<span><span class="co">#&gt; 1        Finland 600        6 0.10994297    785.7610     6361.226   1     ok</span></span>
-<span><span class="co">#&gt; 6 United Kingdom 600        6 0.06011138    470.5471     7357.372   1     ok</span></span></code></pre></div>
+<span><span class="co">#&gt;            group   n n_strata        vpc var_between var_residual      pcv</span></span>
+<span><span class="co">#&gt; 2        Germany 600        6 0.14448319   1271.5810     7529.311 1.000000</span></span>
+<span><span class="co">#&gt; 5         Mexico 600        6 0.13649162    771.5419     4881.127 1.000000</span></span>
+<span><span class="co">#&gt; 4          Japan 600        6 0.13344144   1032.3346     6703.902 0.926596</span></span>
+<span><span class="co">#&gt; 3          Italy 600        6 0.11889899   1065.3186     7894.544 1.000000</span></span>
+<span><span class="co">#&gt; 1        Finland 600        6 0.10994297    785.7610     6361.226 1.000000</span></span>
+<span><span class="co">#&gt; 6 United Kingdom 600        6 0.06011138    470.5471     7357.372 1.000000</span></span>
+<span><span class="co">#&gt;   status</span></span>
+<span><span class="co">#&gt; 2     ok</span></span>
+<span><span class="co">#&gt; 5     ok</span></span>
+<span><span class="co">#&gt; 4     ok</span></span>
+<span><span class="co">#&gt; 3     ok</span></span>
+<span><span class="co">#&gt; 1     ok</span></span>
+<span><span class="co">#&gt; 6     ok</span></span></code></pre></div>
 <p>In this example all countries have 600 students and all six
 gender-by-SES strata are populated. Higher VPC/ICC values indicate that
 a larger share of mathematics score variation lies between the

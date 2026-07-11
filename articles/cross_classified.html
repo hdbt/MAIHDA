@@ -205,7 +205,7 @@ the intersection random intercept, and fits the single model:</p>
 <code class="sourceCode R"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span></span>
 <span><span class="co">#&gt; BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | </span></span>
 <span><span class="co">#&gt;     stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x563e3a690640&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x55a887dc2ef0&gt;</span></span></code></pre></div>
 <p>The partition is on <code>cc$decomposition</code> (and printed
 above):</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
@@ -465,9 +465,9 @@ is computed with the context partialled out:</p>
 <span><span class="co">#&gt; Context: country (crossed contextual random intercept in the null and adjusted models)</span></span>
 <span><span class="co">#&gt; VPC/ICC (null): <span style="color: #D78700;">0.1032</span></span></span>
 <span><span class="co">#&gt; Context share (null): 0.1283 (between-country share of unexplained variance)</span></span>
-<span><span class="co">#&gt; PCV (null -&gt; adjusted): <span style="color: #D78700;">1.0000</span></span></span>
-<span><span class="co">#&gt; Between-stratum variance: 838.3719 (null) -&gt; 0.0000 (adjusted)</span></span>
-<span><span class="co">#&gt;   ~100.0% of the between-stratum variance is additive (the dimensions' main</span></span>
+<span><span class="co">#&gt; PCV (null -&gt; adjusted): <span style="color: #D78700;">0.9978</span></span></span>
+<span><span class="co">#&gt; Between-stratum variance: 915.2323 (null) -&gt; 1.9877 (adjusted)</span></span>
+<span><span class="co">#&gt;   ~99.8% of the between-stratum variance is additive (the dimensions' main</span></span>
 <span><span class="co">#&gt;   effects); the remainder is the between-stratum variance remaining after the</span></span>
 <span><span class="co">#&gt;   additive main effects -- a model-dependent quantity</span></span>
 <span><span class="co">#&gt; Strata: 6</span></span>

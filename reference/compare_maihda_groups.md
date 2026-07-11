@@ -30,6 +30,7 @@ compare_maihda_groups(
   context = NULL,
   sampling_weights = NULL,
   warn_linear = TRUE,
+  estimation = c("fitted", "ML"),
   ...
 )
 ```
@@ -166,6 +167,13 @@ compare_maihda_groups(
   [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
   delegates here, because it has already warned on the same data.
 
+- estimation:
+
+  Variance-estimation basis for each group's per-group PCV, `"fitted"`
+  (default) or `"ML"`; see
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
+  Affects Gaussian `lmer` fits only.
+
 - ...:
 
   Additional arguments passed to
@@ -183,24 +191,26 @@ returned without bootstrapping). When the strata are defined by at least
 two dimensions, two further columns report the per-group null -\>
 adjusted decomposition: `pcv` (proportional change in between-stratum
 variance when the dimensions' additive main effects are added; computed
-on the maximum-likelihood scale – see
-[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
-– because REML variances are not comparable across the null vs. adjusted
-fixed effects), `var_between_adjusted` (a *derived* coherence quantity,
-reported as `var_between * (1 - pcv)` so it shares the scale of the REML
+on the variance basis set by `estimation` – see
+[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)),
+`var_between_adjusted` (a *derived* coherence quantity, reported as
+`var_between * (1 - pcv)` so it shares the scale of the REML
 `var_between`/`vpc` and the table satisfies
 `pcv = (var_between - var_between_adjusted) / var_between` exactly – it
 is **not** the adjusted fit's own variance), and
 `var_between_adjusted_ml` (the adjusted model's *actual* between-stratum
-variance, read straight off the adjusted fit on the same
-maximum-likelihood scale as the PCV; it differs from
+variance, read straight off the adjusted fit on the same basis as the
+PCV; under the default `estimation = "fitted"` this is the REML
+variance, coinciding with `var_between_adjusted`, and under
+`estimation = "ML"` it is the ML variance, differing from
 `var_between_adjusted` only by the small REML-vs-ML gap in the null
-variance). All three are `NA` for a group whose adjusted fit failed, and
-the columns are omitted entirely when the strata have a single
-dimension. When `context` is supplied, two further columns report each
-group's contextual partition: `var_context` (the between-context
-variance, summed over contexts) and `vpc_context` (the contexts' share
-of the group's unexplained variance); the per-context split is on the
+variance; the `_ml` suffix is retained for output-schema continuity).
+All three are `NA` for a group whose adjusted fit failed, and the
+columns are omitted entirely when the strata have a single dimension.
+When `context` is supplied, two further columns report each group's
+contextual partition: `var_context` (the between-context variance,
+summed over contexts) and `vpc_context` (the contexts' share of the
+group's unexplained variance); the per-context split is on the
 `"context_per"` attribute and the context name(s) on `"context_var"`.
 These are dropped when no context is supplied. `n` is the analytic
 sample size used by the model (after dropping rows with a missing
@@ -287,20 +297,20 @@ print(cmp)
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
 #> 
-#>           group   n n_strata     vpc var_between var_other var_residual pcv
-#>         Finland 600        6 0.10994       785.8         0         6361   1
-#>         Germany 600        6 0.14448      1271.6         0         7529   1
-#>           Italy 600        6 0.11890      1065.3         0         7895   1
-#>           Japan 600        6 0.13344      1032.3         0         6704   1
-#>          Mexico 600        6 0.13649       771.5         0         4881   1
-#>  United Kingdom 600        6 0.06011       470.5         0         7357   1
+#>           group   n n_strata     vpc var_between var_other var_residual    pcv
+#>         Finland 600        6 0.10994       785.8         0         6361 1.0000
+#>         Germany 600        6 0.14448      1271.6         0         7529 1.0000
+#>           Italy 600        6 0.11890      1065.3         0         7895 1.0000
+#>           Japan 600        6 0.13344      1032.3         0         6704 0.9266
+#>          Mexico 600        6 0.13649       771.5         0         4881 1.0000
+#>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000
 #>  var_between_adjusted var_between_adjusted_ml status
-#>             0.000e+00               0.000e+00     ok
-#>             0.000e+00               0.000e+00     ok
-#>             0.000e+00               0.000e+00     ok
-#>             3.782e-12               3.022e-12     ok
-#>             0.000e+00               0.000e+00     ok
-#>             0.000e+00               0.000e+00     ok
+#>                  0.00                    0.00     ok
+#>                  0.00                    0.00     ok
+#>                  0.00                    0.00     ok
+#>                 75.78                   75.78     ok
+#>                  0.00                    0.00     ok
+#>                  0.00                    0.00     ok
 plot(cmp, type = "vpc")
 
 # }

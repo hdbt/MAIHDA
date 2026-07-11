@@ -32,14 +32,23 @@ successes / failures.
 **Scope.** When the model carries random effects *beyond* the
 intersectional partition – a contextual `(1 | school)` from
 `fit_maihda(context = )` or an explicit extra grouping such as
-`(1 | site)` – the headline `auc` is the concordance of the
-*intersectional strata* (fixed effects plus the stratum random effect
-and, for a crossed-dimensions fit, the additive dimension effects),
-matching the scope of the MOR; the concordance of the full model
-including the other random effects is reported separately as `auc_full`
-(`auc_scope = "strata"`). For the canonical single-`(1 | stratum)` model
-the two coincide and only `auc` is reported (`auc_scope = "model"`,
-`auc_full` absent).
+`(1 | site)` – the headline `auc` is the *intersectional-scope*
+concordance: it **excludes** those other random effects but keeps the
+fixed effects plus the stratum random effect (and, for a
+crossed-dimensions fit, the additive dimension effects). The concordance
+of the full model including the other random effects is reported
+separately as `auc_full` (`auc_scope = "intersectional"`). **Caveat –
+this is not strata-only discrimination.** The intersectional-scope score
+retains the *entire* fixed-effects predictor, so when the model is
+adjusted for individual-level covariates (e.g. `age`, `income` that vary
+*within* strata) those covariates enter this AUC too; it is the
+concordance of the adjusted fixed effects plus the intersectional random
+effect(s), not of the strata alone, and it then matches the
+between-stratum MOR's scope only when the fixed part is intercept-only.
+For a strata-only discriminatory accuracy, score the null (strata-only)
+model. For the canonical single-`(1 | stratum)` model with no other
+random effects, the full and intersectional scopes coincide and only
+`auc` is reported (`auc_scope = "model"`, `auc_full` absent).
 
 ## Usage
 
@@ -62,17 +71,22 @@ maihda_discriminatory_accuracy(model)
 
 An object of class `maihda_da`: a list with `auc`, `auc_scope`,
 `auc_full`, `mor`, `n_case`, `n_control`, `family`, `link`, `engine`,
-`weighted`, `weight_type` and `apparent` (always `TRUE` – the AUC is
-in-sample; see Description). `mor` is `NA` for a non-logit binomial
-link, where the AUC is still reported. For an aggregated-binomial fit
-`n_case` / `n_control` are the total successes / failures. `weighted` is
-`TRUE` when the AUC is a weighted concordance – `weight_type`
-`"sampling"` for a design-weighted fit (each observation contributes its
-sampling weight as case/control mass, estimating the population
-discriminatory accuracy) or `"precision"` for an lme4 fit with
-non-integer precision weights; `n_case` / `n_control` stay unweighted
-observation counts either way. `weight_type` is `NULL` for an unweighted
-AUC.
+`weighted`, `weight_type`, `precision_weights_ignored` and `apparent`
+(always `TRUE` – the AUC is in-sample; see Description). `mor` is `NA`
+for a non-logit binomial link, where the AUC is still reported. For an
+aggregated-binomial fit `n_case` / `n_control` are the total successes /
+failures. `weighted` is `TRUE` only when the AUC is a genuinely weighted
+(population-mass) concordance, with `weight_type` `"sampling"` for a
+design-weighted fit (each observation contributes its sampling weight as
+case/control mass, estimating the population discriminatory accuracy);
+`n_case` / `n_control` stay unweighted observation counts. `weight_type`
+is `NULL` for an unweighted AUC. **lme4 precision weights** (non-integer
+`weights=` on a Bernoulli fit) scale likelihood/dispersion, not
+population frequency, so they carry no population-AUC interpretation:
+the AUC ignores them and reports the ordinary observation-level
+concordance (`weighted = FALSE`), with
+`precision_weights_ignored = TRUE` flagging that such weights were
+present.
 
 ## References
 

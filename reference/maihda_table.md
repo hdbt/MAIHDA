@@ -172,9 +172,7 @@ tab                 # printed: model-results table + top/bottom strata
 #>  Between-stratum variance          2.738              1.379
 #>        Between-stratum SD          1.655              1.174
 #>                   VPC/ICC          0.058              0.030
-#>    PCV (null -> adjusted)                             0.821
-#> 
-#> Note: The PCV is computed from maximum-likelihood-refitted between-stratum variances (required for a valid cross-model comparison; see ?calculate_pcv), while the Between-stratum variance/SD and VPC/ICC rows are each model's own REML estimate. The PCV therefore need not equal the variance reduction implied by the displayed variance rows.
+#>    PCV (null -> adjusted)                             0.496
 #> 
 #> Strata ranked by predicted value (null model):
 #>  Rank           Stratum    N               Predicted              Stratum RE
@@ -197,7 +195,7 @@ tab$models          # the numeric, export-ready results table
 #> 2 Between-stratum variance  2.73828213         NA         NA  1.37921627
 #> 3       Between-stratum SD  1.65477555         NA         NA  1.17440039
 #> 4                  VPC/ICC  0.05845177         NA         NA  0.03032209
-#> 5   PCV (null -> adjusted)          NA         NA         NA  0.82112349
+#> 5   PCV (null -> adjusted)          NA         NA         NA  0.49632061
 #>   adjusted_lower adjusted_upper
 #> 1             NA             NA
 #> 2             NA             NA

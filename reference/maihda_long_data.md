@@ -120,19 +120,15 @@ a$pcv
 #> Longitudinal PCV (additive vs. multiplicative intersectionality)
 #> ================================================================
 #> 
-#> Baseline (wave = 0) variance: 0.3726 (null) -> 0.0166 (adjusted)
-#>   PCV_intercept: 95.5% of the baseline between-stratum inequality is additive.
-#> Slope (wave) variance at baseline: 0.0392 (null) -> 0.0031 (adjusted)
-#>   PCV_slope:     92.2% of the *trajectory* between-stratum inequality is additive
+#> Baseline (wave = 0) variance: 0.4077 (null) -> 0.0332 (adjusted)
+#>   PCV_intercept: 91.9% of the baseline between-stratum inequality is additive.
+#> Slope (wave) variance at baseline: 0.0428 (null) -> 0.0058 (adjusted)
+#>   PCV_slope:     86.6% of the *trajectory* between-stratum inequality is additive
 #>                  (the remainder is the multiplicative/interaction part).
 #> 
 #> The PCV is the share of the null model's between-stratum (trajectory) variance
 #> explained by the dimensions' additive main effects and their time interactions;
 #> a high PCV_slope means trajectory inequalities are 'mostly additive'.
-#> (REML growth fits were refitted with maximum likelihood for this comparison --
-#> REML variances are not comparable across the null vs. adjusted fixed effects --
-#> so these variances are on the ML scale; summary()'s time-varying VPC keeps
-#> each fit's own REML estimate. See ?calculate_pcv.)
 #> 
 # }
 ```

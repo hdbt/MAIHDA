@@ -18,7 +18,8 @@ stepwise_pcv(
   engine = "lme4",
   family = "gaussian",
   context = NULL,
-  sampling_weights = NULL
+  sampling_weights = NULL,
+  estimation = c("fitted", "ML")
 )
 ```
 
@@ -78,6 +79,13 @@ stepwise_pcv(
   [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md).
   The weight column joins the complete-case filter so every step uses
   the same analytic sample.
+
+- estimation:
+
+  Variance-estimation basis for the between-stratum variances compared
+  across steps, `"fitted"` (default) or `"ML"`; see
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
+  Affects Gaussian `lmer` fits only.
 
 ## Value
 
@@ -143,11 +151,11 @@ e0153778.
 # \donttest{
 strata_result <- make_strata(maihda_sim_data, c("gender", "race"))
 stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
-#>  Step      Model        Added_Variable  Variance Step_PCV Total_PCV
-#>     0 Null Model None (Intercept only) 2.324e+01  0.00000   0.00000
-#>     1    Model 1                gender 2.290e+01  0.01457   0.01457
-#>     2    Model 2                  race 7.564e-14  1.00000   1.00000
-#>     3    Model 3                   age 0.000e+00  1.00000   1.00000
+#>  Step      Model        Added_Variable Variance Step_PCV Total_PCV
+#>     0 Null Model None (Intercept only)   26.715   0.0000    0.0000
+#>     1    Model 1                gender   30.863  -0.1553   -0.1553
+#>     2    Model 2                  race    2.346   0.9240    0.9122
+#>     3    Model 3                   age    3.032  -0.2922    0.8865
 
 # Contextual cross-classified stepwise PCV: strata crossed with a higher-level
 # context (country). Step_PCV / Total_PCV are then net of the country intercept,
@@ -155,13 +163,13 @@ stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
 cc <- make_strata(maihda_country_data, c("gender", "ses"))
 stepwise_pcv(cc$data, "math", c("gender", "ses"), context = "country")
 #>  Step      Model        Added_Variable Variance Context_Variance Step_PCV
-#>     0 Null Model None (Intercept only)    838.4           1023.1  0.00000
-#>     1    Model 1                gender    815.2           1021.9  0.02767
-#>     2    Model 2                   ses      0.0            937.3  1.00000
+#>     0 Null Model None (Intercept only)  915.232             1137   0.0000
+#>     1    Model 1                gender 1114.595             1136  -0.2178
+#>     2    Model 2                   ses    1.988             1128   0.9982
 #>  Total_PCV
-#>    0.00000
-#>    0.02767
-#>    1.00000
+#>     0.0000
+#>    -0.2178
+#>     0.9978
 #> 
 #> Step_PCV / Total_PCV are the between-stratum PCV NET OF the context random
 #> intercept held in every model; Context_Variance is that (summed)

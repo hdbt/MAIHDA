@@ -40,7 +40,7 @@ glance(a)
 #> # A tibble: 1 × 16
 #>      vpc vpc.conf.low vpc.conf.high   pcv pcv.conf.low pcv.conf.high
 #>    <dbl>        <dbl>         <dbl> <dbl>        <dbl>         <dbl>
-#> 1 0.0627           NA            NA 0.766           NA            NA
+#> 1 0.0627           NA            NA 0.596           NA            NA
 #> # ℹ 10 more variables: additive.share <dbl>, interaction.share <dbl>,
 #> #   auc <dbl>, auc.adjusted <dbl>, mor <dbl>, n_strata <int>, nobs <int>,
 #> #   engine <chr>, family <chr>, mode <chr>
@@ -52,7 +52,7 @@ needs the null + adjusted pair** that only a
 holds. It is ideal for
 [`rbind()`](https://rdrr.io/r/base/cbind.html)-ing many analyses into a
 comparison table, or for pulling a single number into inline text –
-e.g. the VPC is 6.3% and the additive share (PCV) is 76.6%.
+e.g. the VPC is 6.3% and the additive share (PCV) is 59.6%.
 
 [`tidy()`](https://generics.r-lib.org/reference/tidy.html) and
 [`glance()`](https://generics.r-lib.org/reference/glance.html) come from
@@ -174,9 +174,7 @@ tab
 #>  Between-stratum variance          2.900              1.172
 #>        Between-stratum SD          1.703              1.083
 #>                   VPC/ICC          0.063              0.026
-#>    PCV (null -> adjusted)                             0.766
-#> 
-#> Note: The PCV is computed from maximum-likelihood-refitted between-stratum variances (required for a valid cross-model comparison; see ?calculate_pcv), while the Between-stratum variance/SD and VPC/ICC rows are each model's own REML estimate. The PCV therefore need not equal the variance reduction implied by the displayed variance rows.
+#>    PCV (null -> adjusted)                             0.596
 #> 
 #> Strata ranked by predicted value (null model):
 #>  Rank                          Stratum   N               Predicted
@@ -247,7 +245,7 @@ knitr::kable(tab$models, digits = 3,
 | Between-stratum variance | 2.900 | NA | NA | 1.172 | NA | NA |
 | Between-stratum SD | 1.703 | NA | NA | 1.083 | NA | NA |
 | VPC/ICC | 0.063 | NA | NA | 0.026 | NA | NA |
-| PCV (null -\> adjusted) | NA | NA | NA | 0.766 | NA | NA |
+| PCV (null -\> adjusted) | NA | NA | NA | 0.596 | NA | NA |
 
 MAIHDA model-results table (null vs. adjusted). {.table
 style="width:100%;"}

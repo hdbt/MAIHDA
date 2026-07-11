@@ -74,7 +74,8 @@ future release.</p>
 <span>  <span class="va">model2</span>,</span>
 <span>  bootstrap <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_boot <span class="op">=</span> <span class="fl">1000</span>,</span>
-<span>  conf_level <span class="op">=</span> <span class="fl">0.95</span></span>
+<span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
+<span>  estimation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fitted"</span>, <span class="st">"ML"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -106,6 +107,16 @@ estimate and <code>bootstrap = TRUE</code> is an error (see Details).</p></dd>
 
 <dt id="arg-conf-level">conf_level<a class="anchor" aria-label="anchor" href="#arg-conf-level"></a></dt>
 <dd><p>Confidence level for bootstrap intervals. Default is 0.95.</p></dd>
+
+
+<dt id="arg-estimation">estimation<a class="anchor" aria-label="anchor" href="#arg-estimation"></a></dt>
+<dd><p>Variance-estimation basis for the cross-model comparison, one of
+<code>"fitted"</code> (default) or <code>"ML"</code>. <code>"fitted"</code> differences each model's
+own between-stratum variance (the REML estimate for a Gaussian <code>lmer</code> fit);
+<code>"ML"</code> refits any REML <code>lmer</code> fit with maximum likelihood first, for a
+correction-free comparison. The choice affects Gaussian <code>lmer</code> fits only –
+<code>glmer</code> and the brms/wemix/ordinal engines are already on the ML scale. See
+Details for the finite-sample tradeoff.</p></dd>
 
 </dl></div>
     <div class="section level2">

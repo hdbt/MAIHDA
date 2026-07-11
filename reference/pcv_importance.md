@@ -39,7 +39,8 @@ pcv_importance(
   sampling_weights = NULL,
   bootstrap = FALSE,
   n_boot = 1000,
-  conf_level = 0.95
+  conf_level = 0.95,
+  estimation = c("fitted", "ML")
 )
 ```
 
@@ -140,6 +141,14 @@ pcv_importance(
 - conf_level:
 
   Confidence level for bootstrap intervals. Default 0.95.
+
+- estimation:
+
+  Variance-estimation basis for the between-stratum variances the
+  attribution differences across subset models, `"fitted"` (default) or
+  `"ML"`; see
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
+  Affects Gaussian `lmer` fits only.
 
 ## Value
 
@@ -294,17 +303,19 @@ print(imp)
 #> Outcome: health_outcome   Engine: lme4 (gaussian(identity))
 #> Analytic sample: 500 observations; 8 models fit (incl. null).
 #> 
-#> Between-stratum variance: null 23.241439 -> full model 0.000000
-#> Total PCV (null -> all variables): 1.0000
+#> Between-stratum variance: null 26.714703 -> full model 3.031709
+#> Total PCV (null -> all variables): 0.8865
 #> 
-#>  Variable Contribution  Share
-#>    gender       0.0143  +1.4%
-#>      race       0.9814 +98.1%
-#>       age       0.0043  +0.4%
-#>     Total       1.0000 100.0%
+#>  Variable Contribution   Share
+#>    gender      -0.0934  -10.5%
+#>      race       0.9830 +110.9%
+#>       age      -0.0031   -0.3%
+#>     Total       0.8865  100.0%
 #> 
 #> Contributions are shares of the null model's between-stratum variance
 #> explained (the PCV scale) and sum to the full-model Total PCV (efficiency).
+#> Negative contributions flag suppression: the variable tends to RAISE the
+#> between-stratum variance; signed values are reported (no normalisation).
 #> 
 plot(imp)
 
@@ -319,24 +330,26 @@ pcv_importance(strata$data, "health_outcome", c("gender", "race", "age"),
 #> Outcome: health_outcome   Engine: lme4 (gaussian(identity))
 #> Analytic sample: 500 observations; 8 models fit (incl. null).
 #> 
-#> Between-stratum variance: null 23.241439 -> full model 0.000000
-#> Total PCV (null -> all variables): 1.0000
+#> Between-stratum variance: null 26.714703 -> full model 3.031709
+#> Total PCV (null -> all variables): 0.8865
 #> 
-#>  Variable Contribution  Share
-#>    gender       0.0143  +1.4%
-#>      race       0.9814 +98.1%
-#>       age       0.0043  +0.4%
-#>     Total       1.0000 100.0%
+#>  Variable Contribution   Share
+#>    gender      -0.0934  -10.5%
+#>      race       0.9830 +110.9%
+#>       age      -0.0031   -0.3%
+#>     Total       0.8865  100.0%
 #> 
 #> Contributions are shares of the null model's between-stratum variance
 #> explained (the PCV scale) and sum to the full-model Total PCV (efficiency).
+#> Negative contributions flag suppression: the variable tends to RAISE the
+#> between-stratum variance; signed values are reported (no normalisation).
 #> 
 #> Conditional dominance (average marginal PCV by adjustment-set size):
-#>        size_0  size_1 size_2
-#> gender 0.0146  0.0072 0.0210
-#> race   0.9927  0.9744 0.9773
-#> age    0.0157 -0.0028 0.0000
-#> Complete dominance: race > gender, race > age
+#>         size_0  size_1  size_2
+#> gender -0.1553 -0.0907 -0.0344
+#> race    0.9336  0.9858  1.0297
+#> age     0.0167 -0.0003 -0.0257
+#> Complete dominance: race > gender, race > age, age > gender
 
 # Monte-Carlo approximation (set a seed for reproducibility)
 set.seed(42)
@@ -349,17 +362,19 @@ pcv_importance(strata$data, "health_outcome", c("gender", "race", "age"),
 #> Outcome: health_outcome   Engine: lme4 (gaussian(identity))
 #> Analytic sample: 500 observations; 8 models fit (incl. null).
 #> 
-#> Between-stratum variance: null 23.241439 -> full model 0.000000
-#> Total PCV (null -> all variables): 1.0000
+#> Between-stratum variance: null 26.714703 -> full model 3.031709
+#> Total PCV (null -> all variables): 0.8865
 #> 
-#>  Variable Contribution  Share  MC_SE
-#>    gender       0.0141  +1.4% 0.0003
-#>      race       0.9820 +98.2% 0.0005
-#>       age       0.0039  +0.4% 0.0005
-#>     Total       1.0000 100.0%       
+#>  Variable Contribution   Share  MC_SE
+#>    gender      -0.0888  -10.0% 0.0029
+#>      race       0.9798 +110.5% 0.0027
+#>       age      -0.0046   -0.5% 0.0009
+#>     Total       0.8865  100.0%       
 #> 
 #> Contributions are shares of the null model's between-stratum variance
 #> explained (the PCV scale) and sum to the full-model Total PCV (efficiency).
+#> Negative contributions flag suppression: the variable tends to RAISE the
+#> between-stratum variance; signed values are reported (no normalisation).
 #> 
 # }
 ```

@@ -36,6 +36,7 @@ maihda(
   time = NULL,
   time_degree = 1,
   interactions = TRUE,
+  estimation = c("fitted", "ML"),
   ...
 )
 ```
@@ -235,6 +236,17 @@ maihda(
   longitudinal decomposition. The computation is cheap (it reads the
   stratum estimates the summary already holds; no refit).
 
+- estimation:
+
+  Variance-estimation basis for the PCV (`"two-model"` and
+  `"longitudinal"` decompositions), `"fitted"` (default) or `"ML"`; see
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
+  `"fitted"` differences each model's own between-stratum variance (the
+  REML estimate for a Gaussian `lmer` fit, as
+  [`summary()`](https://rdrr.io/r/base/summary.html) reports); `"ML"`
+  refits REML `lmer` fits with maximum likelihood first. Affects
+  Gaussian `lmer` fits only.
+
 - ...:
 
   Additional arguments passed to
@@ -408,9 +420,9 @@ a                              # VPC (null) and PCV (null -> adjusted)
 #> Adjusted formula:BMI ~ Age + Gender + Race + (1 | stratum)
 #> Engine: lme4 | Family: gaussian
 #> VPC/ICC (null): 0.0585
-#> PCV (null -> adjusted): 0.8211
-#> Between-stratum variance: 2.4303 (null) -> 0.4347 (adjusted)
-#>   ~82.1% of the between-stratum variance is additive (the dimensions' main
+#> PCV (null -> adjusted): 0.4963
+#> Between-stratum variance: 2.7383 (null) -> 1.3792 (adjusted)
+#>   ~49.6% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
 #> Strata: 10
@@ -423,22 +435,24 @@ a$pcv                          # proportional change in between-stratum variance
 #> Proportional Change in Variance (PCV)
 #> =====================================
 #> 
-#> PCV: 0.8211
+#> PCV: 0.4963
+#> 
+#> (Variance basis: as fitted -- REML for Gaussian lmer, matching summary())
 #> 
 #> Between-stratum variance:
-#>   Model 1: 2.430319
-#>   Model 2: 0.434727
-#>   Change:  1.995592 (82.11%)
+#>   Model 1: 2.738282
+#>   Model 2: 1.379216
+#>   Change:  1.359066 (49.63%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
 #> variance between the models):
-#>   Between-stratum variance is 82.1% lower in Model 2 than in Model 1.
+#>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x5582a8cc66c8>
+#> <environment: 0x55d1bb024050>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x5582a80776a8>
+#> <environment: 0x55d1bd0a6930>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -493,7 +507,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x5582a6894c50>
+#> <environment: 0x55d1c30f2a28>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):
@@ -516,7 +530,7 @@ a2
 #> Engine: lme4 | Family: gaussian
 #> VPC/ICC (null): 0.1493
 #> PCV (null -> adjusted): 1.0000
-#> Between-stratum variance: 1124.7631 (null) -> 0.0000 (adjusted)
+#> Between-stratum variance: 1352.2436 (null) -> 0.0000 (adjusted)
 #>   ~100.0% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
@@ -530,20 +544,20 @@ a2
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
 #> 
-#>           group   n n_strata     vpc var_between var_other var_residual pcv
-#>         Finland 600        6 0.10994       785.8         0         6361   1
-#>         Germany 600        6 0.14448      1271.6         0         7529   1
-#>           Italy 600        6 0.11890      1065.3         0         7895   1
-#>           Japan 600        6 0.13344      1032.3         0         6704   1
-#>          Mexico 600        6 0.13649       771.5         0         4881   1
-#>  United Kingdom 600        6 0.06011       470.5         0         7357   1
+#>           group   n n_strata     vpc var_between var_other var_residual    pcv
+#>         Finland 600        6 0.10994       785.8         0         6361 1.0000
+#>         Germany 600        6 0.14448      1271.6         0         7529 1.0000
+#>           Italy 600        6 0.11890      1065.3         0         7895 1.0000
+#>           Japan 600        6 0.13344      1032.3         0         6704 0.9266
+#>          Mexico 600        6 0.13649       771.5         0         4881 1.0000
+#>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000
 #>  var_between_adjusted var_between_adjusted_ml status
-#>             0.000e+00               0.000e+00     ok
-#>             0.000e+00               0.000e+00     ok
-#>             0.000e+00               0.000e+00     ok
-#>             3.782e-12               3.022e-12     ok
-#>             0.000e+00               0.000e+00     ok
-#>             0.000e+00               0.000e+00     ok
+#>                  0.00                    0.00     ok
+#>                  0.00                    0.00     ok
+#>                  0.00                    0.00     ok
+#>                 75.78                   75.78     ok
+#>                  0.00                    0.00     ok
+#>                  0.00                    0.00     ok
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
 #> 
@@ -569,9 +583,9 @@ a3
 #> Context: country (crossed contextual random intercept in the null and adjusted models)
 #> VPC/ICC (null): 0.1032
 #> Context share (null): 0.1283 (between-country share of unexplained variance)
-#> PCV (null -> adjusted): 1.0000
-#> Between-stratum variance: 838.3719 (null) -> 0.0000 (adjusted)
-#>   ~100.0% of the between-stratum variance is additive (the dimensions' main
+#> PCV (null -> adjusted): 0.9978
+#> Between-stratum variance: 915.2323 (null) -> 1.9877 (adjusted)
+#>   ~99.8% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
 #> Strata: 6
