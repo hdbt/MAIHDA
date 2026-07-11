@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-07-10</h4>
+            <h4 data-toc-skip class="date">2026-07-11</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/binary_outcomes.Rmd" class="external-link"><code>vignettes/binary_outcomes.Rmd</code></a></small>
       <div class="d-none name"><code>binary_outcomes.Rmd</code></div>
@@ -188,7 +188,10 @@ underlying latent scale, not on the probability scale.</p>
 <span><span class="co">#&gt;   AUC (C-statistic): <span style="color: #D78700;">0.626</span></span></span>
 <span><span class="co">#&gt;   Median Odds Ratio: <span style="color: #D78700;">1.568</span></span></span>
 <span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span>
-<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">  (AUC is apparent / in-sample: scored on the same rows used to fit the</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   model, so it is optimistically biased -- more so with sparse strata. It</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   is a descriptive measure, not cross-validated out-of-sample discrimination.)</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Fixed Effects:</span></span></span>
 <span><span class="co">#&gt;         term estimate</span></span>
 <span><span class="co">#&gt;  (Intercept)   -0.616</span></span>
@@ -334,11 +337,19 @@ membership sharpens classification:</p>
 <span><span class="co">#&gt;   AUC (C-statistic): <span style="color: #D78700;">0.626</span></span></span>
 <span><span class="co">#&gt;   Median Odds Ratio: <span style="color: #D78700;">1.568</span></span></span>
 <span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">  (AUC is apparent / in-sample: scored on the same rows used to fit the</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   model, so it is optimistically biased -- more so with sparse strata. It</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   is a descriptive measure, not cross-validated out-of-sample discrimination.)</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="va">da_adj</span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Discriminatory accuracy (binomial MAIHDA)</span></span></span>
 <span><span class="co">#&gt;   AUC (C-statistic): <span style="color: #D78700;">0.628</span></span></span>
 <span><span class="co">#&gt;   Median Odds Ratio: <span style="color: #D78700;">1.563</span></span></span>
-<span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span></code></pre></div>
+<span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">  (AUC is apparent / in-sample: scored on the same rows used to fit the</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   model, so it is optimistically biased -- more so with sparse strata. It</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   is a descriptive measure, not cross-validated out-of-sample discrimination.)</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span></code></pre></div>
 <p>You can also call the pieces directly:
 <code>maihda_auc(prob, y)</code> on any vector of predicted
 probabilities and 0/1 outcomes (it equals the Mann-Whitney U statistic,

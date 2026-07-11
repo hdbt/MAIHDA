@@ -65,9 +65,14 @@ stratum, sorted flagged-first then by `abs(interaction)`. Columns common
 to every engine: `stratum`, `label`, `n` (stratum size), `interaction`
 (the BLUP), `lower`/`upper` (the interval), `flagged` (logical), and
 `direction` (`"above"`/`"below"` the additive expectation). Frequentist
-fits add `se` and `p_value` (and `p_adjusted` when `adjust != "none"`);
-`brms` adds `pd` (probability of direction, `max(P(>0), P(<0))` in
-`[0.5, 1]`). When `rope` is set, a `decision` column
+fits add `se` and `p_value` (and `p_adjusted` when `adjust != "none"`).
+`p_value` is an *approximate, conditional* screening statistic – a Wald
+tail on the shrunken BLUP's conditional SE, with the variance components
+treated as known – **not** a calibrated frequentist p-value; `adjust`
+(e.g. BH) rescales these approximate values and does not confer an exact
+error-rate guarantee (see Details). `brms` instead adds `pd`
+(probability of direction, `max(P(>0), P(<0))` in `[0.5, 1]`). When
+`rope` is set, a `decision` column
 (`"relevant"`/`"negligible"`/`"inconclusive"`) is added. Attributes
 record `conf_level`, `adjust`, `rope`, `engine`, `model_type`,
 `n_strata`, `n_flagged`, `scale` and `singular`.
@@ -195,7 +200,7 @@ a <- maihda(BMI ~ Age + Gender + Race + (1 | Gender:Race),
             data = maihda_health_data)
 maihda_interactions(a)                  # FDR-screened (default adjust = "BH")
 #> ── Intersectional interactions ─────────────────────────────────────────────────
-#> 4 of 10 strata flagged (95% interval; BH-adjusted p-values).
+#> 4 of 10 strata flagged (95% interval; BH-adjusted approximate p-values).
 #> Model: adjusted (two-model); interaction on the link (latent) scale.
 #> 
 #>  stratum          label    n interaction     se   lower   upper  p_value
@@ -234,7 +239,7 @@ maihda_interactions(a, adjust = "none") # uncorrected per-stratum individual vie
 #> 
 maihda_interactions(a, rope = 0.1)      # equivalence: |interaction| within 0.1?
 #> ── Intersectional interactions ─────────────────────────────────────────────────
-#> 4 of 10 strata flagged (95% interval; BH-adjusted p-values).
+#> 4 of 10 strata flagged (95% interval; BH-adjusted approximate p-values).
 #> Model: adjusted (two-model); interaction on the link (latent) scale.
 #> Equivalence vs ROPE [-0.1, 0.1]: 4 relevant | 0 negligible | 6 inconclusive.
 #> 

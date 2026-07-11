@@ -11,6 +11,18 @@ classification. The AUC is computed for any binomial link; the Median
 Odds Ratio is reported only for the logit link and is `NA` otherwise
 (e.g. for a probit fit), since the MOR is an odds-ratio-scale quantity.
 
+**The AUC is apparent (in-sample).** It scores the same observations
+used to estimate the model – the fixed effects, the variance components,
+and the shrunken stratum BLUPs – so it is an *apparent* (resubstitution)
+AUC and is optimistically biased, the more so with small or sparse
+strata. It is reported as the conventional descriptive MAIHDA
+discriminatory accuracy (Merlo 2018), **not** as a cross-validated
+estimate of out-of-sample predictive discrimination; the returned object
+carries `apparent = TRUE` and
+[`print()`](https://rdrr.io/r/base/print.html) says so. For genuine
+predictive accuracy, validate with an out-of-fold (group-aware) scheme
+or an optimism correction.
+
 Aggregated-binomial fits are supported on both engines that fit them –
 an lme4 `cbind(success, failure)` response and a brms `y | trials(n)`
 response: the AUC is the count-weighted C-statistic over the implied
@@ -50,7 +62,8 @@ maihda_discriminatory_accuracy(model)
 
 An object of class `maihda_da`: a list with `auc`, `auc_scope`,
 `auc_full`, `mor`, `n_case`, `n_control`, `family`, `link`, `engine`,
-`weighted` and `weight_type`. `mor` is `NA` for a non-logit binomial
+`weighted`, `weight_type` and `apparent` (always `TRUE` – the AUC is
+in-sample; see Description). `mor` is `NA` for a non-logit binomial
 link, where the AUC is still reported. For an aggregated-binomial fit
 `n_case` / `n_control` are the total successes / failures. `weighted` is
 `TRUE` when the AUC is a weighted concordance – `weight_type`
@@ -87,5 +100,9 @@ maihda_discriminatory_accuracy(m)
 #>   AUC (C-statistic): 0.571
 #>   Median Odds Ratio: 1.482
 #>   Cases / controls:  1077 / 1923
+#>   (AUC is apparent / in-sample: scored on the same rows used to fit the
+#>   model, so it is optimistically biased -- more so with sparse strata. It
+#>   is a descriptive measure, not cross-validated out-of-sample discrimination.)
+#> 
 # }
 ```

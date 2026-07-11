@@ -39,7 +39,7 @@ adjustment rule was used. The full table is stored in
 
 model_bh$interactions
 #> ── Intersectional interactions ─────────────────────────────────────────────────
-#> 1 of 50 strata flagged (95% interval; BH-adjusted p-values).
+#> 1 of 50 strata flagged (95% interval; BH-adjusted approximate p-values).
 #> Model: adjusted (two-model); interaction on the link (latent) scale.
 #> 
 #>  stratum                       label   n interaction     se  lower upper
@@ -108,7 +108,7 @@ the region), `negligible` (entirely inside it), or `inconclusive`
 
 maihda_interactions(model_bh, rope = 0.5)
 #> ── Intersectional interactions ─────────────────────────────────────────────────
-#> 1 of 50 strata flagged (95% interval; BH-adjusted p-values).
+#> 1 of 50 strata flagged (95% interval; BH-adjusted approximate p-values).
 #> Model: adjusted (two-model); interaction on the link (latent) scale.
 #> Equivalence vs ROPE [-0.5, 0.5]: 1 relevant | 0 negligible | 49 inconclusive.
 #> 

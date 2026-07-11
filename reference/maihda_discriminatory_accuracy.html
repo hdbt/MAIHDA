@@ -8,6 +8,15 @@ an adjusted model shows whether individual covariates beyond stratum membership
 sharpen classification. The AUC is computed for any binomial link; the Median
 Odds Ratio is reported only for the logit link and is NA otherwise (e.g.
 for a probit fit), since the MOR is an odds-ratio-scale quantity.
+The AUC is apparent (in-sample). It scores the same observations used
+to estimate the model – the fixed effects, the variance components, and the
+shrunken stratum BLUPs – so it is an apparent (resubstitution) AUC and
+is optimistically biased, the more so with small or sparse strata. It is
+reported as the conventional descriptive MAIHDA discriminatory accuracy
+(Merlo 2018), not as a cross-validated estimate of out-of-sample
+predictive discrimination; the returned object carries apparent = TRUE
+and print() says so. For genuine predictive accuracy, validate with an
+out-of-fold (group-aware) scheme or an optimism correction.
 Aggregated-binomial fits are supported on both engines that fit them – an lme4
 cbind(success, failure) response and a brms y | trials(n) response:
 the AUC is the count-weighted C-statistic over the implied individual-level 0/1
@@ -31,6 +40,15 @@ an adjusted model shows whether individual covariates beyond stratum membership
 sharpen classification. The AUC is computed for any binomial link; the Median
 Odds Ratio is reported only for the logit link and is NA otherwise (e.g.
 for a probit fit), since the MOR is an odds-ratio-scale quantity.
+The AUC is apparent (in-sample). It scores the same observations used
+to estimate the model – the fixed effects, the variance components, and the
+shrunken stratum BLUPs – so it is an apparent (resubstitution) AUC and
+is optimistically biased, the more so with small or sparse strata. It is
+reported as the conventional descriptive MAIHDA discriminatory accuracy
+(Merlo 2018), not as a cross-validated estimate of out-of-sample
+predictive discrimination; the returned object carries apparent = TRUE
+and print() says so. For genuine predictive accuracy, validate with an
+out-of-fold (group-aware) scheme or an optimism correction.
 Aggregated-binomial fits are supported on both engines that fit them – an lme4
 cbind(success, failure) response and a brms y | trials(n) response:
 the AUC is the count-weighted C-statistic over the implied individual-level 0/1
@@ -107,6 +125,15 @@ an adjusted model shows whether individual covariates beyond stratum membership
 sharpen classification. The AUC is computed for any binomial link; the Median
 Odds Ratio is reported only for the logit link and is <code>NA</code> otherwise (e.g.
 for a probit fit), since the MOR is an odds-ratio-scale quantity.</p>
+<p><strong>The AUC is apparent (in-sample).</strong> It scores the same observations used
+to estimate the model – the fixed effects, the variance components, and the
+shrunken stratum BLUPs – so it is an <em>apparent</em> (resubstitution) AUC and
+is optimistically biased, the more so with small or sparse strata. It is
+reported as the conventional descriptive MAIHDA discriminatory accuracy
+(Merlo 2018), <strong>not</strong> as a cross-validated estimate of out-of-sample
+predictive discrimination; the returned object carries <code>apparent = TRUE</code>
+and <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> says so. For genuine predictive accuracy, validate with an
+out-of-fold (group-aware) scheme or an optimism correction.</p>
 <p>Aggregated-binomial fits are supported on both engines that fit them – an lme4
 <code>cbind(success, failure)</code> response and a brms <code>y | trials(n)</code> response:
 the AUC is the count-weighted C-statistic over the implied individual-level 0/1
@@ -146,7 +173,8 @@ model the two coincide and only <code>auc</code> is reported
     <p>An object of class <code>maihda_da</code>: a list with <code>auc</code>,
   <code>auc_scope</code>, <code>auc_full</code>, <code>mor</code>,
   <code>n_case</code>, <code>n_control</code>, <code>family</code>, <code>link</code>, <code>engine</code>,
-  <code>weighted</code> and <code>weight_type</code>. <code>mor</code> is <code>NA</code> for a
+  <code>weighted</code>, <code>weight_type</code> and <code>apparent</code> (always <code>TRUE</code> –
+  the AUC is in-sample; see Description). <code>mor</code> is <code>NA</code> for a
   non-logit binomial link, where the AUC is still reported. For an
   aggregated-binomial fit <code>n_case</code> / <code>n_control</code> are the total
   successes / failures. <code>weighted</code> is <code>TRUE</code> when the AUC is a
@@ -182,6 +210,10 @@ discriminatory accuracy (MAIHDA) within an intersectional framework.
 <span class="r-out co"><span class="r-pr">#&gt;</span>   AUC (C-statistic): <span style="color: #D78700;">0.571</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Median Odds Ratio: <span style="color: #D78700;">1.482</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Cases / controls:  1077 / 1923</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  (AUC is apparent / in-sample: scored on the same rows used to fit the</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  model, so it is optimistically biased -- more so with sparse strata. It</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  is a descriptive measure, not cross-validated out-of-sample discrimination.)</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

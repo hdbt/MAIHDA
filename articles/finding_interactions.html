@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-07-10</h4>
+            <h4 data-toc-skip class="date">2026-07-11</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/finding_interactions.Rmd" class="external-link"><code>vignettes/finding_interactions.Rmd</code></a></small>
       <div class="d-none name"><code>finding_interactions.Rmd</code></div>
@@ -122,7 +122,7 @@ adjustment rule was used. The full table is stored in
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_bh</span><span class="op">$</span><span class="va">interactions</span></span>
 <span><span class="co">#&gt; ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span></span>
-<span><span class="co">#&gt; <span style="color: #D78700; font-weight: bold;">1</span> of 50 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted p-values</span>).</span></span>
+<span><span class="co">#&gt; <span style="color: #D78700; font-weight: bold;">1</span> of 50 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted approximate p-values</span>).</span></span>
 <span><span class="co">#&gt; <span style="color: #555555;">Model: adjusted (two-model); interaction on the link (latent) scale.</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="co">#&gt;  stratum                       label   n interaction     se  lower upper</span></span>
@@ -185,7 +185,7 @@ and each stratum is classified from its interval as
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">model_bh</span>, rope <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
 <span><span class="co">#&gt; ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span></span>
-<span><span class="co">#&gt; <span style="color: #D78700; font-weight: bold;">1</span> of 50 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted p-values</span>).</span></span>
+<span><span class="co">#&gt; <span style="color: #D78700; font-weight: bold;">1</span> of 50 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted approximate p-values</span>).</span></span>
 <span><span class="co">#&gt; <span style="color: #555555;">Model: adjusted (two-model); interaction on the link (latent) scale.</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span>Equivalence vs ROPE [-0.5, 0.5]: <span style="color: #D78700;">1 relevant</span> | <span style="color: #0087D7;">0 negligible</span> | <span style="color: #555555;">49 inconclusive</span>.</span></span>
 <span><span class="co">#&gt; </span></span>

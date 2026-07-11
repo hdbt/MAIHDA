@@ -107,6 +107,9 @@ print(summary_null)
 #>   AUC (C-statistic): 0.626
 #>   Median Odds Ratio: 1.568
 #>   Cases / controls:  1077 / 1923
+#>   (AUC is apparent / in-sample: scored on the same rows used to fit the
+#>   model, so it is optimistically biased -- more so with sparse strata. It
+#>   is a descriptive measure, not cross-validated out-of-sample discrimination.)
 #> 
 #> Fixed Effects:
 #>         term estimate
@@ -267,11 +270,19 @@ da_null
 #>   AUC (C-statistic): 0.626
 #>   Median Odds Ratio: 1.568
 #>   Cases / controls:  1077 / 1923
+#>   (AUC is apparent / in-sample: scored on the same rows used to fit the
+#>   model, so it is optimistically biased -- more so with sparse strata. It
+#>   is a descriptive measure, not cross-validated out-of-sample discrimination.)
+#> 
 da_adj
 #> Discriminatory accuracy (binomial MAIHDA)
 #>   AUC (C-statistic): 0.628
 #>   Median Odds Ratio: 1.563
 #>   Cases / controls:  1077 / 1923
+#>   (AUC is apparent / in-sample: scored on the same rows used to fit the
+#>   model, so it is optimistically biased -- more so with sparse strata. It
+#>   is a descriptive measure, not cross-validated out-of-sample discrimination.)
+#> 
 ```
 
 You can also call the pieces directly: `maihda_auc(prob, y)` on any
