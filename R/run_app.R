@@ -333,12 +333,22 @@ maihda_app_fit_models <- function(dat, outcome_var, grouping_vars,
   # strata auto-bin recipe (strata_autobin_info), so stepwise_pcv() reconstructs an
   # auto-binned numeric dimension as the SAME tertile factor used by the adjusted
   # model (.maihda_dim_*), keeping the sequential decomposition consistent with it.
-  stepwise <- stepwise_pcv(
-    model_dat,
-    outcome = outcome_var,
-    vars = c(grouping_vars, additional_covars),
-    engine = engine,
-    family = family
+  #
+  # Like the point PCV above, the stepwise decomposition is undefined when the null
+  # model's between-stratum variance sits at the zero boundary (a singular fit):
+  # stepwise_pcv() now rejects that degenerate denominator rather than tabulating a
+  # spurious 100% / huge PCV. Degrade to NULL there -- the dashboard's stepwise
+  # panel already guards on it with req(), as it does in crossed-dimensions mode --
+  # rather than aborting the whole fit.
+  stepwise <- tryCatch(
+    stepwise_pcv(
+      model_dat,
+      outcome = outcome_var,
+      vars = c(grouping_vars, additional_covars),
+      engine = engine,
+      family = family
+    ),
+    error = function(e) NULL
   )
 
   list(

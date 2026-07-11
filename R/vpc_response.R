@@ -158,7 +158,41 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
     context = "The response-scale VPC"
   )
 
-  var_between <- tryCatch(extract_between_variance(model), error = function(e) NA_real_)
+  # The random-intercept variances by grouping factor, read once: the
+  # stratum-structure groups define the between-stratum (intersectional) variance
+  # and every other group is a non-stratum effect integrated into the total
+  # (var_other, below).
+  all_vars <- tryCatch(maihda_random_variances_lme4(model$model),
+                       error = function(e) NULL)
+
+  # Grouping factors that jointly make up the intersectional between-stratum
+  # variance. For the canonical fit this is the single "stratum" intercept. For a
+  # crossed-dimensions fit ($cc_info) the additive dimension REs and the
+  # interaction RE are independent crossed effects that SUM at the intersection
+  # level, so all of them are between-stratum -- exactly as the MOR
+  # (maihda_mor_between_variance()) and the crossed-dimensions VPC
+  # (maihda_cc_partition(): between = additive + interaction) read it. Treating
+  # only the interaction ("stratum") component as between-stratum -- and the
+  # additive dimension REs as non-stratum (var_other) -- understates the
+  # response-scale stratum share by orders of magnitude.
+  stratum_groups <- if (is.null(model$cc_info)) {
+    "stratum"
+  } else {
+    unique(c(model$cc_info$interaction_group, unname(model$cc_info$dim_groups)))
+  }
+
+  var_between <- tryCatch(
+    if (is.null(model$cc_info)) {
+      extract_between_variance(model)
+    } else {
+      missing_re <- setdiff(stratum_groups, names(all_vars))
+      if (length(missing_re) > 0) {
+        stop("The response-scale VPC is missing the crossed random effect(s): ",
+             paste(missing_re, collapse = ", "), ".", call. = FALSE)
+      }
+      sum(all_vars[stratum_groups])
+    },
+    error = function(e) NA_real_)
   if (!is.numeric(var_between) || length(var_between) != 1 ||
       !is.finite(var_between) || var_between < 0) {
     return(structure(
@@ -174,12 +208,12 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
   # the distribution of p -- entering the total variance -- without separating
   # strata, so simulating the stratum effect alone overstates the stratum
   # share. Independent random intercepts sum on the link scale, so their
-  # combined effect is one normal with the summed variance.
-  all_vars <- tryCatch(maihda_random_variances_lme4(model$model),
-                       error = function(e) NULL)
+  # combined effect is one normal with the summed variance. Every stratum-
+  # structure group (for a crossed fit, the dimension REs and the interaction)
+  # is excluded here -- it already lives in var_between above.
   var_other <- 0
   if (!is.null(all_vars)) {
-    other <- all_vars[setdiff(names(all_vars), "stratum")]
+    other <- all_vars[setdiff(names(all_vars), stratum_groups)]
     var_other <- sum(other[is.finite(other)])
   }
 

@@ -216,3 +216,49 @@ test_that("response-scale VPC integrates the non-stratum effect by exact quadrat
        mean(as.vector((P * (1 - P)) %*% wq)))
   expect_equal(v$estimate, ref, tolerance = 1e-9)
 })
+
+test_that("maihda_vpc_response sums dimension + interaction variance for a crossed-dimensions fit", {
+  # Audit finding: the response-scale VPC previously read only the interaction
+  # ("stratum") component as between-stratum and dumped the additive dimension REs
+  # into var_other, understating the intersectional VPC by orders of magnitude
+  # (here ~0.005 vs ~0.22). For a crossed-dimensions fit the between-stratum
+  # variance is the SUM of the dimension REs + the interaction -- independent
+  # crossed effects that sum at the intersection level, exactly as the MOR
+  # (maihda_mor_between_variance) and the crossed-dimensions VPC (maihda_cc_partition).
+  skip_on_cran()
+  set.seed(4242)
+  n <- 6000
+  d <- data.frame(
+    a = sample(paste0("a", 1:4), n, replace = TRUE),
+    b = sample(paste0("b", 1:4), n, replace = TRUE),
+    stringsAsFactors = FALSE
+  )
+  ua <- stats::setNames(stats::rnorm(4, sd = 0.9), paste0("a", 1:4))
+  ub <- stats::setNames(stats::rnorm(4, sd = 1.1), paste0("b", 1:4))
+  stratum <- interaction(d$a, d$b, drop = TRUE)
+  uint <- stats::rnorm(nlevels(stratum), sd = 0.25)[stratum]
+  d$y <- stats::rbinom(n, 1, stats::plogis(-0.3 + ua[d$a] + ub[d$b] + uint))
+
+  cc <- suppressWarnings(suppressMessages(
+    maihda(y ~ (1 | a:b), data = d, decomposition = "crossed-dimensions",
+           family = "binomial")
+  ))
+  m <- cc$model
+  expect_false(is.null(m$cc_info))
+
+  av <- MAIHDA:::maihda_random_variances_lme4(m$model)
+  groups <- unique(c(m$cc_info$interaction_group, unname(m$cc_info$dim_groups)))
+  expected_between <- sum(av[groups])
+
+  r <- maihda_vpc_response(m, n_sim = 20000, seed = 1)
+  # var_between is the full intersectional variance (dims + interaction), NOT just
+  # the interaction component; and nothing (no context here) leaks into var_other.
+  expect_equal(unname(r$var_between), unname(expected_between), tolerance = 1e-8)
+  expect_gt(r$var_between, 2 * av[["stratum"]])   # additive dims dominate
+  expect_equal(r$var_other, 0, tolerance = 1e-10)
+
+  # The VPC is a real intersectional share, far above the interaction-only value
+  # the old partition produced (< 0.02 on this fit).
+  expect_gt(r$estimate, 0.1)
+  expect_lt(r$estimate, 1)
+})

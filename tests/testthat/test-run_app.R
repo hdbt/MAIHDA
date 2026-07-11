@@ -111,8 +111,10 @@ test_that("maihda_app_fit_models degrades gracefully when baseline between-strat
   expect_true(is.na(res$pcv$pcv))
   expect_false(isTRUE(res$pcv$available))
   expect_true(is.character(res$pcv$message) && nzchar(res$pcv$message))
-  # Stepwise PCV already tolerates zero variance (returns NA), so it still builds.
-  expect_s3_class(res$stepwise, "maihda_stepwise")
+  # Stepwise PCV now rejects the degenerate (zero-variance) null denominator too,
+  # so the worker degrades it to NULL -- the dashboard's stepwise panel guards on it
+  # with req(), exactly as in crossed-dimensions mode -- rather than aborting.
+  expect_null(res$stepwise)
 })
 
 test_that("maihda_app_fit_models computes VPC/ICC bootstrap intervals when requested", {

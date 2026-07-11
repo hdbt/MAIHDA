@@ -141,12 +141,13 @@ test_that("summary() partitions stratum vs. context vs. residual coherently", {
   expect_gt(s$context$vpc_context_total, 0.05)
 })
 
-test_that("summary() of a binomial contextual fit attaches no discriminatory accuracy or response VPC", {
-  # The DA's AUC is built from full predictions that INCLUDE the context random
-  # effects, while the response-scale VPC simulates only the stratum variance -- so
-  # neither matches the stratum-vs-context partition the contextual summary reports.
-  # Both are therefore skipped for a contextual fit (as they are for crossed-dimensions
-  # and longitudinal fits), rather than pinning a mismatched estimand to the partition.
+test_that("summary() of a binomial contextual fit attaches scoped discriminatory accuracy and response VPC", {
+  # Audit finding: the earlier skip was stale. maihda_discriminatory_accuracy()
+  # now reports an intersectional-scope headline AUC that EXCLUDES the context
+  # random effect (the all-effects value is auc_full), and maihda_vpc_response()
+  # now integrates the context variance into its denominator -- so both sit on the
+  # same stratum-vs-context estimand this summary reports and are attached (only
+  # crossed-dimensions and longitudinal fits still skip them).
   set.seed(8131)
   d <- make_context_data(n = 2000, n_sites = 25)
   d$yb <- stats::rbinom(nrow(d), 1, stats::plogis(d$y - mean(d$y)))
@@ -159,12 +160,28 @@ test_that("summary() of a binomial contextual fit attaches no discriminatory acc
   s <- suppressWarnings(suppressMessages(summary(m, response_vpc = TRUE, seed = 1)))
   # The contextual partition is still produced...
   expect_false(is.null(s$context))
-  # ...but the binomial companions that would carry a mismatched estimand are not.
-  expect_null(s$discriminatory_accuracy)
-  expect_null(s$vpc_response)
+  # ...and now so are the binomial companions, on the matching (context-scoped)
+  # estimand rather than a mismatched one.
+  expect_s3_class(s$discriminatory_accuracy, "maihda_da")
+  expect_s3_class(s$vpc_response, "maihda_vpc_response")
 
-  # A single-stratum binomial fit on the same data DOES surface the DA -- confirming
-  # the skip is specific to the contextual structure, not the family.
+  # The headline AUC is the intersectional scope (excludes the context RE); the
+  # all-effects AUC is reported separately as auc_full and is at least as large.
+  expect_identical(s$discriminatory_accuracy$auc_scope, "intersectional")
+  expect_gte(s$discriminatory_accuracy$auc_full, s$discriminatory_accuracy$auc)
+
+  # The response-scale VPC integrates the context variance into its denominator
+  # (var_other > 0) rather than simulating the stratum effect alone.
+  expect_gt(s$vpc_response$var_other, 0)
+
+  # summary() attaches exactly what the standalone helpers compute (no refit).
+  da <- suppressWarnings(suppressMessages(maihda_discriminatory_accuracy(m)))
+  vr <- suppressWarnings(suppressMessages(maihda_vpc_response(m, seed = 1)))
+  expect_equal(s$discriminatory_accuracy$auc, da$auc, tolerance = 1e-10)
+  expect_equal(s$vpc_response$estimate, vr$estimate, tolerance = 1e-10)
+
+  # A single-stratum binomial fit on the same data also surfaces the DA -- the
+  # companions are attached for both structures now.
   m_plain <- suppressWarnings(suppressMessages(
     fit_maihda(yb ~ x + (1 | g1:g2), data = d, family = "binomial")
   ))

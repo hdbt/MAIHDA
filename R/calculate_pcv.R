@@ -197,14 +197,10 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   # A strictly positive but boundary-level variance (an effectively singular
   # fit, e.g. 1e-9 after the ML refit) passes the check above yet makes the
   # ratio explode -- PCVs in the thousands with no warning. Apply the same
-  # relative singularity tolerance lme4 uses to flag the stratum term.
-  if (identical(model1$engine, "lme4") &&
-      isTRUE(tryCatch(maihda_stratum_at_boundary_lme4(model1$model),
-                      error = function(e) FALSE))) {
-    stop("Between-stratum variance in model1 is at the zero boundary (an ",
-         "effectively singular fit), so the PCV denominator is degenerate ",
-         "and the ratio is not meaningful. This indicates no usable ",
-         "between-stratum variation.", call. = FALSE)
+  # relative singularity tolerance lme4 uses to flag the stratum term (shared
+  # with stepwise_pcv() and pcv_importance()).
+  if (maihda_pcv_null_at_boundary(model1)) {
+    maihda_pcv_degenerate_null_stop("model1")
   }
 
   # Calculate PCV
@@ -320,6 +316,29 @@ maihda_stratum_at_boundary_lme4 <- function(model, tol = 1e-4) {
     return(stratum_var <= .Machine$double.eps)
   }
   sqrt(stratum_var) / sigma_resid < tol
+}
+
+# TRUE when a maihda_model's between-stratum (PCV denominator) variance sits on
+# the lme4 singularity boundary. Wraps maihda_stratum_at_boundary_lme4() with the
+# engine gate and error-swallowing that every PCV entry point -- calculate_pcv(),
+# stepwise_pcv() and pcv_importance() -- needs before dividing by that variance.
+# Only the lme4 engine is flagged here: the wemix/ordinal/brms engines carry
+# their own zero guards and read the boundary differently.
+maihda_pcv_null_at_boundary <- function(model) {
+  identical(model$engine, "lme4") &&
+    isTRUE(tryCatch(maihda_stratum_at_boundary_lme4(model$model),
+                    error = function(e) FALSE))
+}
+
+# Standard error for a degenerate (effectively singular) PCV denominator, shared
+# by every PCV entry point so the guidance is identical wherever the boundary is
+# hit. `subject` names the offending model in the message (e.g. "model1" for the
+# reference model of a two-model comparison, or "the null model").
+maihda_pcv_degenerate_null_stop <- function(subject) {
+  stop("Between-stratum variance in ", subject, " is at the zero boundary (an ",
+       "effectively singular fit), so the PCV denominator is degenerate and the ",
+       "ratio is not meaningful. This indicates no usable between-stratum ",
+       "variation.", call. = FALSE)
 }
 
 #' Extract Between-Stratum Variance
@@ -964,6 +983,16 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
                family = family, context = context,
                sampling_weights = sampling_weights), estimation)
   null_var <- extract_between_variance(null_mod)
+
+  # Every Total_PCV divides by null_var and the first Step_PCV divides by it too,
+  # so a boundary-level (effectively singular) null variance -- a strictly
+  # positive value like 1.56e-17 that passes a plain > 0 test -- makes those
+  # ratios meaningless (e.g. a spurious 100% or a huge negative PCV). Reject it
+  # up front with the same lme4 singularity guard calculate_pcv() applies to its
+  # reference model, rather than tabulating a degenerate denominator.
+  if (maihda_pcv_null_at_boundary(null_mod)) {
+    maihda_pcv_degenerate_null_stop("the null model")
+  }
 
   # Discriminatory-accuracy trajectory (binary outcomes only): read the AUC and MOR
   # off each step's already-fitted model, so no extra fits are needed. Whether it

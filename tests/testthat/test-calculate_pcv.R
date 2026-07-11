@@ -564,3 +564,28 @@ test_that("stepwise_pcv and pcv_importance accept the estimation argument", {
   imp_ml  <- pcv_importance(d, "y", c("g", "r", "age"), estimation = "ML")
   expect_false(isTRUE(all.equal(imp_fit$total_pcv, imp_ml$total_pcv)))
 })
+
+test_that("stepwise_pcv rejects an effectively singular null model", {
+  # Audit follow-up: calculate_pcv() rejects a boundary-level null denominator,
+  # but stepwise_pcv() divided Total_PCV / Step_PCV by it, turning a degenerate
+  # ~0 null variance into a spurious 100% (or a huge negative) PCV with no
+  # warning. The same lme4 relative singularity guard now rejects it up front.
+  # Reuses the boundary construction from the calculate_pcv boundary test above.
+  skip_on_cran()
+  set.seed(4)
+  n <- 320
+  d <- data.frame(
+    g = sample(c("F", "M"), n, replace = TRUE),
+    r = sample(c("A", "B"), n, replace = TRUE),
+    x = rnorm(n)
+  )
+  sk <- interaction(d$g, d$r, drop = TRUE)
+  d$y <- 0.3 * d$x + rnorm(nlevels(sk), sd = 0.12)[sk] + rnorm(n)
+  st <- make_strata(d, c("g", "r"))
+  d$stratum <- st$data$stratum
+
+  expect_error(
+    suppressWarnings(suppressMessages(stepwise_pcv(d, "y", "x"))),
+    "zero boundary"
+  )
+})

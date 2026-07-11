@@ -62,16 +62,15 @@ A maihda_summary object containing:
     otherwise}
   \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
     \code{maihda_da} object (AUC + MOR) from
-    \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise. Also
-    \code{NULL} for a crossed-dimensions fit (whose single-stratum between-variance
-    the MOR needs is not defined across crossed random effects) and for a
-    contextual cross-classified fit (\code{fit_maihda(context = )}), where the AUC
-    would be built from predictions that include the context random effects -- a
-    mismatch with the stratum-vs-context partition the summary reports}
+    \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise. A
+    contextual fit (\code{fit_maihda(context = )}) is included -- its headline AUC
+    is the intersectional-scope concordance that excludes the context random
+    effect. \code{NULL} for a crossed-dimensions fit (whose headline here is the
+    additive/interaction decomposition) and a longitudinal fit}
   \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
-    \code{response_vpc = TRUE} for a single-stratum binomial lme4 model;
-    \code{NULL} otherwise (including for crossed-dimensions and contextual fits,
-    whose partition the stratum-only simulation does not match)}
+    \code{response_vpc = TRUE} for a binomial lme4 model, including a contextual
+    fit (the context variance enters the VPC denominator); \code{NULL} otherwise
+    (including for crossed-dimensions and longitudinal fits)}
   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
   \item{fixed_effects}{Fixed effects estimates}
   \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut

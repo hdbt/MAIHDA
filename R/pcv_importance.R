@@ -455,6 +455,11 @@ pcv_importance <- function(data, outcome, vars,
            call. = FALSE)
     }
     entry <- list(variance = variance,
+                  # Flag a boundary-level (effectively singular) denominator. Only
+                  # the null (mask 0) is a PCV denominator here, so the check
+                  # short-circuits for every other subset; the point-estimate
+                  # guard below reads this flag to reject a degenerate null.
+                  at_boundary = mask == 0L && maihda_pcv_null_at_boundary(mod),
                   model = if (keep_models) mod$model else NULL,
                   family_key = maihda_model_family_key(mod),
                   family_name = maihda_model_family_name(mod))
@@ -464,6 +469,16 @@ pcv_importance <- function(data, outcome, vars,
 
   null_entry <- fit_mask(0L)
   null_variance <- null_entry$variance
+  # lme4: reject a degenerate null denominator first. v_of() divides every
+  # contribution by null_variance, so a non-positive OR a strictly-positive but
+  # boundary-level null variance (an effectively singular fit, e.g. 1.56e-17 --
+  # which passes a plain > 0 test) would explode the whole attribution. The lme4
+  # singularity guard calculate_pcv()/stepwise_pcv() apply covers both.
+  if (isTRUE(null_entry$at_boundary)) {
+    maihda_pcv_degenerate_null_stop("the null model")
+  }
+  # The other engines (brms/wemix/ordinal) are not flagged above; a non-positive
+  # null variance there still has no PCV to attribute.
   if (null_variance <= 0) {
     stop("Between-stratum variance in the null model is zero or negative. ",
          "The PCV attribution cannot be calculated. This may indicate a ",
@@ -607,13 +622,21 @@ pcv_importance <- function(data, outcome, vars,
                                 nsim = n_boot)
     boot_phi <- matrix(NA_real_, nrow = n_boot, ncol = k)
     for (b in seq_len(n_boot)) {
-      variances_b <- tryCatch(
-        vapply(boot_keys, function(key) {
-          maihda_stratum_variance_lme4(
-            lme4::refit(boot_models[[key]], newresp = sim_data[[b]]))
-        }, numeric(1)),
+      # Refit every subset on the simulated response, keeping the refit models so
+      # the null draw's boundary can be tested before it enters a denominator.
+      refits_b <- tryCatch(
+        lapply(boot_keys, function(key)
+          lme4::refit(boot_models[[key]], newresp = sim_data[[b]])),
         error = function(e) NULL)
-      if (is.null(variances_b)) next
+      if (is.null(refits_b)) next
+      names(refits_b) <- boot_keys
+      # Drop the whole draw when the null refit lands on the zero boundary: a
+      # non-positive OR a strictly-positive-but-degenerate (~1e-12) null variance
+      # would blow up every ratio below, so exclude it exactly as the
+      # point-estimate guard and calculate_pcv()'s bootstrap do.
+      if (isTRUE(tryCatch(maihda_stratum_at_boundary_lme4(refits_b[["0"]]),
+                          error = function(e) TRUE))) next
+      variances_b <- vapply(refits_b, maihda_stratum_variance_lme4, numeric(1))
       v0_b <- variances_b[["0"]]
       if (!is.finite(v0_b) || v0_b <= 0) next
       vfun_b <- function(mask) {

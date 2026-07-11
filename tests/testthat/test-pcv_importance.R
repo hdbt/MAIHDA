@@ -372,3 +372,28 @@ test_that("pcv_importance(context = ) attributes the PCV net of the context", {
                                     context = "site", sampling_weights = "w")),
     "does not support 'context'")
 })
+
+test_that("pcv_importance rejects an effectively singular null model", {
+  # Audit follow-up: the strict null_variance <= 0 guard missed a boundary-level
+  # positive null (e.g. 1.56e-17), and v_of() then divided every contribution by
+  # that degenerate denominator (a reported Total PCV around -2.77e14). The lme4
+  # relative singularity guard -- applied before the <= 0 check -- now rejects it,
+  # matching calculate_pcv() and stepwise_pcv().
+  skip_on_cran()
+  set.seed(4)
+  n <- 320
+  d <- data.frame(
+    g = sample(c("F", "M"), n, replace = TRUE),
+    r = sample(c("A", "B"), n, replace = TRUE),
+    x = rnorm(n)
+  )
+  sk <- interaction(d$g, d$r, drop = TRUE)
+  d$y <- 0.3 * d$x + rnorm(nlevels(sk), sd = 0.12)[sk] + rnorm(n)
+  st <- make_strata(d, c("g", "r"))
+  d$stratum <- st$data$stratum
+
+  expect_error(
+    suppressWarnings(suppressMessages(pcv_importance(d, "y", "x"))),
+    "zero boundary"
+  )
+})

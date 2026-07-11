@@ -95,16 +95,15 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'     otherwise}
 #'   \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
 #'     \code{maihda_da} object (AUC + MOR) from
-#'     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise. Also
-#'     \code{NULL} for a crossed-dimensions fit (whose single-stratum between-variance
-#'     the MOR needs is not defined across crossed random effects) and for a
-#'     contextual cross-classified fit (\code{fit_maihda(context = )}), where the AUC
-#'     would be built from predictions that include the context random effects -- a
-#'     mismatch with the stratum-vs-context partition the summary reports}
+#'     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise. A
+#'     contextual fit (\code{fit_maihda(context = )}) is included -- its headline AUC
+#'     is the intersectional-scope concordance that excludes the context random
+#'     effect. \code{NULL} for a crossed-dimensions fit (whose headline here is the
+#'     additive/interaction decomposition) and a longitudinal fit}
 #'   \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
-#'     \code{response_vpc = TRUE} for a single-stratum binomial lme4 model;
-#'     \code{NULL} otherwise (including for crossed-dimensions and contextual fits,
-#'     whose partition the stratum-only simulation does not match)}
+#'     \code{response_vpc = TRUE} for a binomial lme4 model, including a contextual
+#'     fit (the context variance enters the VPC denominator); \code{NULL} otherwise
+#'     (including for crossed-dimensions and longitudinal fits)}
 #'   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
 #'   \item{fixed_effects}{Fixed effects estimates}
 #'   \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut
@@ -411,22 +410,24 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
   # discriminatory accuracy (AUC + MOR) -- the "DA" in MAIHDA -- always, and the
   # response-scale VPC on request (it is a simulation, hence opt-in and seeded).
   # Both summarise the single fitted model with no refit, mirroring how the
-  # cross-classified additive/interaction `decomposition` slot above is computed in
-  # this same summary layer so that fit_maihda() and maihda() share the logic.
-  # Skipped for a cross-classified fit (its MOR / response-VPC need a single-stratum
-  # between-variance that is not defined across crossed random effects) and for a
-  # contextual cross-classified fit (fit_maihda(context = )): there the AUC is built
-  # from full predictions that INCLUDE the context random effects while the
-  # response-scale VPC simulates only the stratum variance, so neither matches the
-  # stratum-vs-context partition this summary reports -- attaching them would pin a
-  # mismatched estimand to the contextual partition. Also skipped for a longitudinal
-  # fit, whose VPC is time-varying. Wrapped so a bonus summary never breaks the core
-  # VPC.
+  # crossed-dimensions additive/interaction `decomposition` slot above is computed
+  # in this same summary layer so that fit_maihda() and maihda() share the logic.
+  #
+  # A CONTEXTUAL fit (fit_maihda(context = )) is INCLUDED: the DA's headline AUC is
+  # the intersectional-scope concordance that EXCLUDES the context random effect
+  # (auc_full carries the all-effects value separately), and maihda_vpc_response()
+  # integrates the context variance into the VPC denominator -- so both sit on the
+  # same stratum-vs-context estimand this summary reports, not the mismatched one
+  # the earlier skip guarded against. Skipped only for a crossed-dimensions fit --
+  # whose headline here is the additive/interaction decomposition above, the DA /
+  # response-VPC companions remaining available from the standalone helpers -- and a
+  # longitudinal fit, whose VPC is time-varying. Wrapped so a bonus summary never
+  # breaks the core VPC.
   discriminatory_accuracy <- NULL
   vpc_response <- NULL
   fam_name <- tryCatch(maihda_model_family_name(object),
                        error = function(e) NA_character_)
-  if (is.null(cc) && is.null(ctx) && is.null(lng) &&
+  if (is.null(cc) && is.null(lng) &&
       isTRUE(fam_name %in% c("binomial", "bernoulli"))) {
     discriminatory_accuracy <- tryCatch(
       maihda_discriminatory_accuracy(object), error = function(e) NULL)
