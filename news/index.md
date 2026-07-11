@@ -62,16 +62,74 @@
   intercept-only), not the discriminatory accuracy of the strata alone —
   for which you score the null (strata-only) model.
 
+- **[`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  and
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  now reject a boundary-level (effectively singular) null denominator,
+  as
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  already did.** Both tested only whether the null between-stratum
+  variance was strictly positive, so a degenerate fit that lands just
+  off zero (e.g. `1.6e-17` rather than exactly `0`) slipped through and
+  every PCV was divided by it — turning a null with no usable
+  between-stratum variation into a spurious 100% or a huge negative PCV
+  (a reported Total PCV around `-2.8e14`) with no warning. Both now
+  apply the same lme4 relative-singularity guard
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  uses, and
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  also drops any bootstrap draw whose null refit lands on the boundary;
+  they error with a clear message rather than tabulating a degenerate
+  ratio. The Shiny dashboard degrades a degenerate stepwise
+  decomposition to an empty panel rather than aborting the fit.
+
+- **The response-scale VPC now counts the additive dimension variances
+  as between-stratum for a crossed-dimensions fit.**
+  [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
+  treated only the pure intersection (`stratum`) component as
+  between-stratum variance and folded the additive dimension random
+  effects into the non-stratum (“other”) variance it integrates over —
+  so for a `decomposition = "crossed-dimensions"` model it understated
+  the intersectional response-scale VPC by orders of magnitude (in one
+  fit ~0.005 against the correct ~0.22). For a crossed-dimensions fit
+  the between-stratum variance is now the sum of the additive dimension
+  effects and the interaction — the total intersectional variance,
+  exactly as the MOR (`maihda_mor_between_variance()`) and the
+  latent-scale crossed-dimensions VPC read it — and only genuinely
+  contextual/non-intersectional effects enter the integrated
+  `var_other`. Canonical single-stratum and contextual fits are
+  unchanged.
+
+- **[`summary()`](https://rdrr.io/r/base/summary.html) no longer
+  suppresses the discriminatory accuracy and response-scale VPC of a
+  contextual binary fit.** The gate that attaches these binomial
+  companions skipped every model carrying a `context =` random
+  intercept, on the (now stale) grounds that their estimand would not
+  match the stratum-vs-context partition. It does now: the headline AUC
+  is the intersectional-scope concordance that *excludes* the context
+  random effect (with the all-effects value reported separately as
+  `auc_full`), and
+  [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
+  integrates the context variance into its denominator. A contextual
+  binomial `lme4` fit therefore now reports its discriminatory accuracy,
+  and `summary(model, response_vpc = TRUE)` its response-scale VPC,
+  instead of silently returning `NULL`. Crossed-dimensions and
+  longitudinal fits still skip them.
+
 ### Testing / CI
 
 - **Added a routine `integration-tests` CI job plus regression tests for
-  the three estimand issues above.** The optional-backend tests (WeMix,
+  the estimand issues above.** The optional-backend tests (WeMix,
   ordinal, negative-binomial, response-scale VPC, weighted counts) are
   guarded by `skip_on_cran()`, so the ordinary `R CMD check` did not
   exercise them; a new `integration-tests` job runs the full non-brms
   suite with `NOT_CRAN=true` on every push/PR (brms keeps its own
   `brms-tests.yaml`). New regression tests pin the `estimation` basis,
-  the precision-weight AUC, and the intersectional AUC scope.
+  the precision-weight AUC, the intersectional AUC scope, the
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)/[`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  boundary-null rejection, the crossed-dimensions response-scale VPC
+  partition, and the contextual-fit discriminatory accuracy / response
+  VPC.
 
 ## MAIHDA 0.2.1
 

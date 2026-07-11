@@ -145,18 +145,17 @@ families/engines.</p></dd>
   <dt>discriminatory_accuracy</dt>
 <dd><p>For a binomial/Bernoulli outcome, the
     <code>maihda_da</code> object (AUC + MOR) from
-    <code><a href="maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></code>; <code>NULL</code> otherwise. Also
-    <code>NULL</code> for a crossed-dimensions fit (whose single-stratum between-variance
-    the MOR needs is not defined across crossed random effects) and for a
-    contextual cross-classified fit (<code>fit_maihda(context = )</code>), where the AUC
-    would be built from predictions that include the context random effects – a
-    mismatch with the stratum-vs-context partition the summary reports</p></dd>
+    <code><a href="maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></code>; <code>NULL</code> otherwise. A
+    contextual fit (<code>fit_maihda(context = )</code>) is included – its headline AUC
+    is the intersectional-scope concordance that excludes the context random
+    effect. <code>NULL</code> for a crossed-dimensions fit (whose headline here is the
+    additive/interaction decomposition) and a longitudinal fit</p></dd>
 
   <dt>vpc_response</dt>
 <dd><p>The response-scale VPC (<code>maihda_vpc_response</code>) when
-    <code>response_vpc = TRUE</code> for a single-stratum binomial lme4 model;
-    <code>NULL</code> otherwise (including for crossed-dimensions and contextual fits,
-    whose partition the stratum-only simulation does not match)</p></dd>
+    <code>response_vpc = TRUE</code> for a binomial lme4 model, including a contextual
+    fit (the context variance enters the VPC denominator); <code>NULL</code> otherwise
+    (including for crossed-dimensions and longitudinal fits)</p></dd>
 
   <dt>stratum_estimates</dt>
 <dd><p>Data frame of stratum-specific random effects with labels if available</p></dd>
