@@ -258,20 +258,27 @@
   Gaussian. Those rows are now excluded before detection and counting,
   matching the analytic sample every fit uses.
 
-- **Automatic numeric strata cut-points now respect `subset`.**
-  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)’s
+- **Automatic numeric strata cut-points now use the full analytic
+  sample.**
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)‘s
   tertile breaks were computed from the full input before
-  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)’s
-  `subset` was applied, so `fit_maihda(..., subset = keep)` binned on
-  different quantiles — and assigned rows to different strata — than
-  fitting `data[keep, ]` (in one bimodal example the breaks reached the
-  max of a cluster the subset had removed).
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  dropped rows, so `fit_maihda(..., subset = keep)` binned on different
+  quantiles — and assigned rows to different strata — than fitting
+  `data[keep, ]` (in one bimodal example the breaks reached the max of a
+  cluster the subset had removed).
   [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   gains an internal `bin_rows` argument, and
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  passes the `subset` rows, so the cut-points are computed on the sample
-  that is fit (missingness and invalid weights already affect both paths
-  identically).
+  now passes the rows that survive **every** engine-specific exclusion —
+  `subset`, a missing outcome/covariate (via the model frame), a missing
+  precision weight, and an invalid (non-finite or non-positive) sampling
+  weight — computed with the same analytic-frame mask the fit uses. An
+  excluded row carrying an extreme but non-missing value of the binning
+  variable (a zero-weight or missing-outcome row, say) can no longer
+  pull the quantiles out and silently redefine other rows’ strata; in a
+  reproducer the top tertile break moved from 1060 to 120 once such rows
+  were excluded.
   [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   called directly is unchanged.
 
@@ -314,6 +321,58 @@
   of the net-of-context `Step_PCV`/`Total_PCV` columns — matching
   [`summary.maihda_model()`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md),
   which was already updated. The columns are no longer dropped.
+  ([`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)’s
+  documentation, which still described the old suppressed behaviour, has
+  been corrected to match.)
+
+- **The two-model PCV now rejects a crossed-dimensions fit instead of
+  silently using only its interaction variance.**
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  (and
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)/[`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md),
+  all via
+  [`extract_between_variance()`](https://hdbt.github.io/MAIHDA/reference/extract_between_variance.md))
+  read the between-stratum variance of a
+  `decomposition = "crossed-dimensions"` fit as the single intersection
+  (`stratum`) random-effect variance. But for a crossed-dimensions model
+  the between-stratum variance is the *sum* of the additive dimension
+  effects and the interaction (`maihda_cc_partition()`:
+  `between = additive + interaction`), exactly as the response-scale VPC
+  and the MOR already read it. Using only the interaction component
+  silently dropped the additive part and could even reverse the PCV’s
+  sign (a reproducer moved from a reported −0.0135 to a correct
+  +0.0255). Such a fit is now rejected with a pointer to
+  `maihda(decomposition = "crossed-dimensions")`, whose summary reports
+  the additive/interaction shares (the crossed-dimensions analogue of
+  the PCV); the canonical single-`(1 | stratum)` PCV is unchanged, and
+  the cc-aware
+  VPC/MOR/[`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  paths (which never routed through this scalar) are unaffected.
+
+- **Longitudinal id/stratum validation now runs on the analytic
+  sample.** The repeated-measures check and the cross-stratum id check
+  operated on the full resolved data, before `subset`, missingness, and
+  weight filtering. A row the fit drops could therefore inject a
+  spurious `(id, stratum)` pairing — an excluded occasion assigning one
+  person to a second stratum made `fit_maihda(..., subset = keep)` fail
+  with an “id appears in more than one stratum” error while fitting the
+  equivalent `data[keep, ]` succeeded. Both checks now key off the same
+  analytic mask used for time-centering and fitting, so a fit and its
+  pre-filtered equivalent validate identically; the full-data structural
+  gate in
+  [`maihda_validate_longitudinal()`](https://hdbt.github.io/MAIHDA/reference/maihda_validate_longitudinal.md)
+  is retained (it can only be over-lenient, never over-strict).
+
+- **The brms group-variance parser no longer corrupts grouping names
+  containing `__`.** `maihda_group_variance_draws_brms()` recovered each
+  grouping factor’s name by deleting everything from the *first* `__` in
+  the `sd_<group>__<coef>` posterior column, so a group literally named
+  `site__id` (a valid contextual or crossed grouping) was truncated to
+  `site` — then reported missing by the by-name lookups in the
+  crossed-dimensions/contextual brms summary. The group is now recovered
+  by splitting on the *last* `__` (brms coefficient names never contain
+  `__`), which keeps names with `__` intact and still lumps a group’s
+  coefficients together so the random-slope rejection is preserved.
 
 ### Testing / CI
 

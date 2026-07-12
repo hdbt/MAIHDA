@@ -98,12 +98,15 @@ accuracy), `Step_AUC` and `Total_AUC` (the *absolute* change in AUC,
 delta-AUC, versus the previous step and versus the null), and `MOR` (the
 Median Odds Ratio, logit link only). These columns are absent for
 non-binary outcomes. When `context` is supplied, a `Context_Variance`
-column reports the between-context variance held at each step, and the
-discriminatory-accuracy trajectory is omitted even for a binary outcome
-– the AUC would include the context random effect and so mismatch the
-net-of-context `Step_PCV` / `Total_PCV`, exactly as
+column reports the between-context variance held at each step. For a
+binary outcome the discriminatory-accuracy trajectory is still reported
+alongside it: the `AUC` and `MOR` are the intersectional-scope
+(between-stratum) quantities – the concordance of the fixed effects plus
+the stratum interaction, *excluding* the context random effect – so they
+carry the same net-of-context scope as the `Step_PCV` / `Total_PCV`
+columns, exactly as
 [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
-drops it for a contextual fit.
+reports the intersectional-scope AUC for a contextual fit.
 
 ## Details
 
