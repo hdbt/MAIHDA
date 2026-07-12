@@ -1203,7 +1203,20 @@ maihda_group_variance_draws_brms <- function(draws) {
     stop("No random-effect standard-deviation draws (sd_*) found in the brms posterior.")
   }
   bodies <- sub("^sd_", "", sd_cols)
-  groups <- sub("__.*$", "", bodies)
+  # brms names each group-level SD column sd_<group>__<coef>. The grouping-factor
+  # name may itself contain "__" (e.g. a user context or dimension column literally
+  # named site__id), so recover the group by splitting on the LAST "__": the group is
+  # everything before it and the coefficient is the final segment. Splitting on the
+  # FIRST "__" -- sub("__.*$", "", bodies) -- truncated site__id to site, so that
+  # grouping was reported missing (the by-name lookups in maihda_cc_summary_brms())
+  # or silently merged under the wrong key. brms coefficient names never contain
+  # "__" (interactions use ":", powers use I()), so the last "__" is unambiguously
+  # the group/coefficient separator, and two coefficients of one group still share a
+  # group key -- preserving the random-slope rejection below.
+  last_sep <- vapply(gregexpr("__", bodies, fixed = TRUE),
+                     function(pos) if (pos[1L] == -1L) NA_integer_ else max(pos),
+                     integer(1))
+  groups <- ifelse(is.na(last_sep), bodies, substr(bodies, 1L, last_sep - 1L))
   out <- list()
   for (g in unique(groups)) {
     cols_g <- sd_cols[groups == g]

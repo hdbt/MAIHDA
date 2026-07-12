@@ -386,6 +386,27 @@ extract_between_variance <- function(model) {
          "the time-varying VPC.", call. = FALSE)
   }
 
+  # A crossed-dimensions fit ($cc_info) spreads the between-stratum variance across
+  # SEVERAL crossed random effects -- each dimension's additive main-effect intercept
+  # PLUS the intersection ("stratum") interaction -- whose variances SUM to the total
+  # between-stratum variance (maihda_cc_partition(): between = additive + interaction).
+  # This function returns only the single "stratum" (interaction) component, so using it
+  # as the PCV denominator for a crossed-dimensions model silently drops the additive
+  # part and can even reverse the PCV's sign. Reject it here rather than return a wrong
+  # scalar; the crossed-dimensions decomposition reports its own PCV analogue (the
+  # additive/interaction shares). The response-scale VPC (maihda_vpc_response()) and the
+  # MOR (maihda_mor_between_variance()) already SUM all crossed REs themselves and guard
+  # $cc_info before ever calling this function, so they are unaffected.
+  if (!is.null(model$cc_info)) {
+    stop("This is a crossed-dimensions MAIHDA: the between-stratum variance is the sum ",
+         "of the additive dimension effects and the intersection interaction, not the ",
+         "single intersection variance, so a two-model PCV would use the wrong ",
+         "denominator (and can reverse in sign). Use maihda(decomposition = ",
+         "\"crossed-dimensions\"), whose summary reports the additive and interaction ",
+         "shares -- the crossed-dimensions analogue of the PCV -- alongside the total ",
+         "between-stratum VPC.", call. = FALSE)
+  }
+
   if (engine == "lme4") {
     maihda_validate_intercept_only_random_effects_lme4(
       fitted_model,
@@ -958,11 +979,14 @@ maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
 #'   delta-AUC, versus the previous step and versus the null), and \code{MOR} (the
 #'   Median Odds Ratio, logit link only). These columns are absent for non-binary
 #'   outcomes. When \code{context} is supplied, a \code{Context_Variance} column
-#'   reports the between-context variance held at each step, and the
-#'   discriminatory-accuracy trajectory is omitted even for a binary outcome -- the
-#'   AUC would include the context random effect and so mismatch the net-of-context
-#'   \code{Step_PCV} / \code{Total_PCV}, exactly as \code{\link{summary.maihda_model}}
-#'   drops it for a contextual fit.
+#'   reports the between-context variance held at each step. For a binary outcome the
+#'   discriminatory-accuracy trajectory is still reported alongside it: the
+#'   \code{AUC} and \code{MOR} are the intersectional-scope (between-stratum)
+#'   quantities -- the concordance of the fixed effects plus the stratum interaction,
+#'   \emph{excluding} the context random effect -- so they carry the same
+#'   net-of-context scope as the \code{Step_PCV} / \code{Total_PCV} columns, exactly
+#'   as \code{\link{summary.maihda_model}} reports the intersectional-scope AUC for a
+#'   contextual fit.
 #'
 #' @details
 #' All models are fit on the complete cases for `outcome`, `stratum`, and all

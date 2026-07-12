@@ -66,11 +66,14 @@ A data.frame (class \code{maihda_stepwise}) showing the sequential
   delta-AUC, versus the previous step and versus the null), and \code{MOR} (the
   Median Odds Ratio, logit link only). These columns are absent for non-binary
   outcomes. When \code{context} is supplied, a \code{Context_Variance} column
-  reports the between-context variance held at each step, and the
-  discriminatory-accuracy trajectory is omitted even for a binary outcome -- the
-  AUC would include the context random effect and so mismatch the net-of-context
-  \code{Step_PCV} / \code{Total_PCV}, exactly as \code{\link{summary.maihda_model}}
-  drops it for a contextual fit.
+  reports the between-context variance held at each step. For a binary outcome the
+  discriminatory-accuracy trajectory is still reported alongside it: the
+  \code{AUC} and \code{MOR} are the intersectional-scope (between-stratum)
+  quantities -- the concordance of the fixed effects plus the stratum interaction,
+  \emph{excluding} the context random effect -- so they carry the same
+  net-of-context scope as the \code{Step_PCV} / \code{Total_PCV} columns, exactly
+  as \code{\link{summary.maihda_model}} reports the intersectional-scope AUC for a
+  contextual fit.
 }
 \description{
 Estimates the proportional change in variance (PCV) sequentially by fitting

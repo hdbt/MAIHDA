@@ -392,15 +392,26 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # Parse formula to find grouping variables and resolve the strata shorthand.
   # Shared with maihda_describe(), so the pre-model description is built from
   # exactly the same parsing/strata machinery as the fit.
-  # Auto-bin the strata cut-points on the same rows the fit uses: a `subset`
-  # narrows the analytic sample, and binning on the full input would move the
-  # tertile boundaries, making fit_maihda(..., subset = keep) differ from fitting
-  # data[keep, ]. Only `subset` matters here -- missing values and invalid weights
-  # are na.rm'd/dropped identically whether or not the data was pre-filtered.
-  strata_bin_rows <- if (is.null(subset_value)) {
-    NULL
-  } else {
-    maihda_row_mask(data, subset = subset_value)
+  # Auto-bin the strata cut-points on EXACTLY the rows the fit uses, so
+  # fit_maihda(data, subset = keep, ...) gives the same tertile boundaries -- and
+  # therefore the same stratum membership and VPC/PCV -- as fitting the already
+  # filtered analytic data. The analytic sample drops rows removed by `subset`, by a
+  # missing outcome or covariate (na.omit over the model frame), by a missing
+  # precision weight, OR by an invalid sampling weight (non-finite / <= 0, mapped to
+  # NA in `detect_weights` above). An earlier version masked on `subset` alone, on
+  # the assumption that the other exclusions are na.rm'd identically whether or not
+  # the data is pre-filtered -- they are NOT. A row dropped from the fit for one of
+  # those reasons can still carry an extreme but non-missing value of the binning
+  # variable, which then shifts the quantiles and silently redefines OTHER rows'
+  # strata. maihda_analytic_keep_mask() reproduces model.frame()'s row selection (so
+  # transformed terms such as log(x) are handled too); it returns NULL if the frame
+  # cannot be built, in which case fall back to the subset-only mask.
+  strata_bin_rows <- tryCatch(
+    maihda_analytic_keep_mask(formula, data, subset = subset_value,
+                              weights = detect_weights),
+    error = function(e) NULL)
+  if (is.null(strata_bin_rows) && !is.null(subset_value)) {
+    strata_bin_rows <- maihda_row_mask(data, subset = subset_value)
   }
   strata_res <- maihda_resolve_strata_formula(formula, data, autobin,
                                               bin_rows = strata_bin_rows)
@@ -426,38 +437,56 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
            "(1 | var1:var2) or include (1 | stratum); the id/time growth slopes are ",
            "added automatically (do not write them in the formula).", call. = FALSE)
     }
-    # Ids must identify people globally, not within a site/group: an id spanning
-    # more than one stratum would merge different people's trajectories in
-    # (time | id). Checked here because the stratum column only now exists.
-    maihda_check_longitudinal_ids(data, lng_spec$id)
-    # Fit the growth terms on internally CENTERED time whenever the time axis
-    # does not start at 0 (age, calendar year, waves coded 10, 11, ...): the raw
-    # polynomial basis over an offset range is near-collinear, and lme4 can
-    # converge to a false optimum WITHOUT flagging a convergence failure,
-    # silently corrupting the time-varying VPC and the PCV. Centering makes the
-    # fit the same optimization problem as the equivalent 0-anchored coding.
-    # Every user-facing time (ref_time, reporting grids, plots) stays on the
-    # original scale, and prediction newdata rebuilds the derived column from the
-    # original time column (see maihda_prepare_prediction_data).
-    tv <- data[[lng_spec$time]]
-    # Center on the ANALYTIC rows -- those surviving `subset`, missing-value
-    # dropping, and precision-weight exclusion -- not the full input. The centering
-    # keeps the polynomial basis well-conditioned over the times the engine actually
-    # fits; deriving it from excluded early/late waves (e.g. full data anchored at 0
-    # but a subset that begins at 100) leaves the analytic times off-center and
-    # defeats the stability protection -- lme4 can then fail to converge or, worse,
-    # reach a false optimum. Mirrors the analytic-sample logic used for family
-    # auto-detection above; falls back to the full column if the mask cannot form.
-    tv_analytic <- tryCatch({
-      keep <- maihda_row_mask(data, subset = subset_value, weights = weights_value)
+    # The analytic sample -- exactly the rows the engine fits, after `subset`, a
+    # missing precision weight, and missing-value dropping over the resolved
+    # formula's variables plus id/time. Every ROW-SENSITIVE longitudinal check and
+    # the time-centering below key off THIS mask, not the full input: validating or
+    # centering on rows the fit drops is what let an excluded row (an out-of-subset
+    # occasion, a missing outcome/covariate, a zero/NA-weight row) spuriously fail
+    # the cross-stratum id check, slip past the repeated-measures gate, or mis-anchor
+    # the centering. Falls back to keeping every row if the mask cannot be built.
+    analytic_keep <- tryCatch({
+      k <- maihda_row_mask(data, subset = subset_value, weights = weights_value)
       cvars <- intersect(c(all.vars(formula), lng_spec$id, lng_spec$time),
                          names(data))
       if (length(cvars) > 0) {
-        keep <- keep & stats::complete.cases(data[, cvars, drop = FALSE])
+        k <- k & stats::complete.cases(data[, cvars, drop = FALSE])
       }
-      if (any(keep)) tv[keep] else tv
-    }, error = function(e) tv)
-    center <- maihda_longitudinal_center(tv_analytic)
+      k
+    }, error = function(e) rep(TRUE, nrow(data)))
+    if (!any(analytic_keep)) analytic_keep <- rep(TRUE, nrow(data))
+    analytic_data <- data[analytic_keep, , drop = FALSE]
+
+    # Genuinely repeated measures, re-checked on the analytic sample: at least one id
+    # must recur among the FITTED rows, else the (time | id) person effects are
+    # unidentified and this is not a longitudinal design. maihda_validate_longitudinal()
+    # already applied this to the full input; repeating it here catches data whose only
+    # repeats sit on rows the fit drops (an out-of-subset/missing/zero-weight occasion).
+    lng_ids <- analytic_data[[lng_spec$id]]
+    if (!any(duplicated(lng_ids[!is.na(lng_ids)]))) {
+      stop("The data do not look longitudinal: every '", lng_spec$id, "' value is ",
+           "unique, so there are no repeated measurements to model. Supply ",
+           "long-format data (one row per measurement occasion).", call. = FALSE)
+    }
+    # Ids must identify people globally, not within a site/group: an id spanning more
+    # than one stratum would merge different people's trajectories in (time | id).
+    # Checked on the analytic sample so an excluded row cannot inject a spurious
+    # (id, stratum) pairing the fit never sees.
+    maihda_check_longitudinal_ids(analytic_data, lng_spec$id)
+
+    # Fit the growth terms on internally CENTERED time whenever the time axis does
+    # not start at 0 (age, calendar year, waves coded 10, 11, ...): the raw
+    # polynomial basis over an offset range is near-collinear, and lme4 can converge
+    # to a false optimum WITHOUT flagging a convergence failure, silently corrupting
+    # the time-varying VPC and the PCV. Centering makes the fit the same optimization
+    # problem as the equivalent 0-anchored coding. Every user-facing time (ref_time,
+    # reporting grids, plots) stays on the original scale, and prediction newdata
+    # rebuilds the derived column from the original time column (see
+    # maihda_prepare_prediction_data). Center on the analytic rows (analytic_keep):
+    # deriving the centre from excluded early/late waves would leave the fitted times
+    # off-centre and defeat the stability protection.
+    tv <- data[[lng_spec$time]]
+    center <- maihda_longitudinal_center(tv[analytic_keep])
     time_term <- lng_spec$time
     if (center != 0) {
       # A formula already referencing the derived column is a package-derived
