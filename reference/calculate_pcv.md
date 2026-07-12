@@ -44,7 +44,9 @@ calculate_pcv(
 
 - n_boot:
 
-  Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
+  Number of bootstrap samples if bootstrap = TRUE. Default is 1000. A
+  value below about 200 warns that the interval's tail endpoints are
+  unstable (the hard minimum is 10).
 
 - conf_level:
 
@@ -58,7 +60,10 @@ calculate_pcv(
   fit); `"ML"` refits any REML `lmer` fit with maximum likelihood first,
   for a correction-free comparison. The choice affects Gaussian `lmer`
   fits only – `glmer` and the brms/wemix/ordinal engines are already on
-  the ML scale. See Details for the finite-sample tradeoff.
+  the ML scale. See Details for the finite-sample tradeoff. When `"ML"`
+  pushes the adjusted model onto the singularity boundary, the function
+  warns that the resulting PCV near 1 is a boundary artefact rather than
+  a substantive result.
 
 ## Value
 

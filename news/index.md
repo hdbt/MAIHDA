@@ -152,6 +152,57 @@
   instead of silently returning `NULL`. Crossed-dimensions and
   longitudinal fits still skip them.
 
+- **A brms fit is no longer recorded as converged when no MCMC
+  diagnostic is available.** `maihda_fit_diagnostics()` derived a brms
+  fit’s convergence solely from whether it had captured a warning
+  message, so a fit for which *neither* the maximum R-hat *nor* the
+  divergent-transition count could be computed – a single-chain fit, a
+  variational/approximate algorithm, an unusual object – produced an
+  empty message set and was reported as `converged = TRUE` on no
+  evidence. Convergence is now `NA` unless at least one of those
+  diagnostics was actually available.
+
+- **Requested summary and plot outputs that fail now say so instead of
+  vanishing.** The discriminatory accuracy, the response-scale VPC
+  (`summary(response_vpc = TRUE)`), the automatic interaction
+  diagnostics, and the individual panels of `plot(type = "all")` were
+  each wrapped in a bare `tryCatch(., error = function(e) NULL)`, so a
+  genuine error in one silently produced a partial object with no sign a
+  calculation had failed. Each now still degrades to `NULL` (the core
+  result never breaks) but re-emits the original error as a warning, via
+  a shared `maihda_try_optional()` helper, so an explicitly requested
+  output is never dropped without a trace.
+
+- **WAIC and PSIS-LOO reliability warnings are no longer suppressed.**
+  [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  wrapped [`brms::waic()`](https://mc-stan.org/loo/reference/waic.html)
+  / [`brms::loo()`](https://mc-stan.org/loo/reference/loo.html) in
+  `suppressWarnings(suppressMessages())` and kept only the scalar
+  criterion, hiding high-Pareto-k and low-ESS warnings while still
+  letting models be ranked on those criteria. It now keeps brms’s
+  progress *messages* quiet but captures its reliability *warnings* and
+  re-emits them, so an information-criterion comparison never reports a
+  criterion as if reliable when its own diagnostics say otherwise.
+
+- **A low bootstrap-replication count now warns.** Requesting `n_boot`
+  below ~200 (the hard floor stays 10, so the fast internal tests are
+  unaffected; the default remains 1000) now warns that a percentile
+  interval’s tail endpoints are order statistics from few draws and are
+  unstable. Applies wherever an interval is bootstrapped – VPC, PCV,
+  longitudinal, contextual, cross-classified, and the Shapley
+  attribution.
+
+- **`calculate_pcv(estimation = "ML")` warns when the ML refit makes the
+  adjusted model singular.** An ML refit can push a small-but-positive
+  REML between-stratum variance onto the zero boundary; the PCV then
+  collapses toward 1 (“covariates explain all between-stratum variance”)
+  as a boundary artefact rather than a substantive result. This case now
+  warns and points back to the default `estimation = "fitted"` (REML).
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  inherit the guard through
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
+
 ### Testing / CI
 
 - **Added a routine `integration-tests` CI job plus regression tests for
