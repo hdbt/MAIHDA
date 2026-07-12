@@ -447,6 +447,73 @@ maihda_longitudinal_time_grid <- function(time_values) {
   seq(min(u), max(u), length.out = 25L)
 }
 
+# Level-1 (residual) variance of a longitudinal VPC evaluated on a time grid
+# (lme4). For Gaussian and binomial families the level-1 variance is a constant
+# (attr(sc)^2, pi^2/3, or 1), so the single maihda_residual_variance_lme4() value
+# is recycled to length(t_c) and the trajectory is unaffected. For Poisson /
+# negative-binomial the latent-scale level-1 variance log1p(1/lambda[ + 1/theta])
+# depends on the MARGINAL expected count lambda, which changes with time in a
+# growth model, so a single sample-wide average reused at every time point biases
+# VPC(t). Evaluate it at each grid time instead: set the model's time term to that
+# value (marginalizing the per-row level-1 term over the observed covariate rows,
+# as the cross-sectional path marginalizes over the sample) and apply the
+# log-normal mean correction v(t)/2 from the total growth-block variance v_t at
+# that time. `t_c` is on the model's (possibly centered) coefficient scale; `v_t`
+# is VarStratum(t) + VarId(t) at the same times, aligned to `t_c`.
+maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t) {
+  fam <- maihda_family(model)
+  is_count <- !is.null(fam) && identical(fam$link, "log") &&
+    fam$family %in% c("poisson", "negbinomial")
+  if (!is_count) {
+    return(rep(maihda_residual_variance_lme4(model), length(t_c)))
+  }
+  theta <- if (identical(fam$family, "negbinomial")) {
+    maihda_negbin_theta_lme4(model)
+  } else {
+    Inf
+  }
+  w <- maihda_fit_prior_weights(model)
+  frame <- maihda_model_frame(model)
+  vapply(seq_along(t_c), function(j) {
+    nd <- frame
+    nd[[time_term]] <- t_c[j]
+    eta <- as.numeric(stats::predict(model, newdata = nd, re.form = NA,
+                                     type = "link"))
+    lambda <- pmax(exp(eta + v_t[j] / 2), .Machine$double.eps)
+    maihda_weighted_obs_mean(log1p(1 / lambda + 1 / theta), w)
+  }, numeric(1))
+}
+
+# Level-1 (residual) variance of a longitudinal count VPC at a SINGLE time `t_c`
+# (brms). The brms analogue of the count branch of maihda_longitudinal_resid_grid_lme4:
+# the marginal expected count lambda is the posterior-mean plug-in exp(eta(t) +
+# v(t)/2) with eta the posterior-mean fixed-part linear predictor at time `t_c`
+# (marginalized over the observed covariate rows) -- matching the "lambda held at
+# its posterior mean" treatment the per-draw residual path documents
+# (maihda_residual_variance_draws_brms). Returns a scalar for Poisson; for the
+# negative binomial the 'shape' (theta) draws are propagated per draw exactly as in
+# that path, so the return is a per-draw vector. `v_t` is VarStratum(t) + VarId(t)
+# (posterior-mean) at `t_c`. Only called for count families.
+maihda_longitudinal_resid_at_brms <- function(model, draws, time_term, t_c, v_t) {
+  nd <- model$data
+  nd[[time_term]] <- t_c
+  eta <- maihda_brms_linpred_mean(model, newdata = nd, re_formula = NA)
+  lambda <- pmax(exp(eta + v_t / 2), .Machine$double.eps)
+  w <- maihda_fit_prior_weights(model)
+  fam <- maihda_family(model)
+  if (identical(fam$family, "negbinomial")) {
+    if (!"shape" %in% names(draws)) {
+      stop("Could not extract the negative-binomial 'shape' (theta) draws from ",
+           "the brms posterior.", call. = FALSE)
+    }
+    shape_d <- as.numeric(draws[["shape"]])
+    return(vapply(shape_d,
+                  function(s) maihda_weighted_obs_mean(log1p(1 / lambda + 1 / s), w),
+                  numeric(1)))
+  }
+  maihda_weighted_obs_mean(log1p(1 / lambda), w)
+}
+
 # ---- time-varying VPC summary -----------------------------------------------
 
 #' Time-varying VPC summary for a longitudinal MAIHDA (lme4)
@@ -466,7 +533,6 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   center <- maihda_lng_time_center(lng)
   Sigma_s <- maihda_re_block_lme4(model, "stratum", time_term, lng$time_degree)
   Sigma_i <- maihda_re_block_lme4(model, lng$id, time_term, lng$time_degree)
-  var_resid <- maihda_residual_variance_lme4(model)
 
   grid <- maihda_longitudinal_time_grid(object$data[[lng$time]])
   ref_time <- lng$ref_time
@@ -476,13 +542,24 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   grid_c <- grid - center
   ref_c <- ref_time - center
 
-  vpc_fun <- function(Ss, Si, t_c) {
-    vs <- maihda_var_at_time(Ss, t_c)
-    vi <- maihda_var_at_time(Si, t_c)
-    vs / (vs + vi + var_resid)
-  }
-  vpc_t_est <- vpc_fun(Sigma_s, Sigma_i, grid_c)
-  ref_vpc <- vpc_fun(Sigma_s, Sigma_i, ref_c)
+  # Between-level variances on the grid, and the level-1 residual evaluated AT
+  # each grid time. For Gaussian/binomial the residual is constant; for count
+  # families it tracks the time-varying marginal mean, so it is a vector, not one
+  # sample-wide average reused at every time (see maihda_longitudinal_resid_grid_lme4).
+  var_s_grid <- maihda_var_at_time(Sigma_s, grid_c)
+  var_i_grid <- maihda_var_at_time(Sigma_i, grid_c)
+  var_s_ref <- maihda_var_at_time(Sigma_s, ref_c)
+  var_i_ref <- maihda_var_at_time(Sigma_i, ref_c)
+  resid_grid <- maihda_longitudinal_resid_grid_lme4(model, time_term, grid_c,
+                                                    var_s_grid + var_i_grid)
+  resid_ref <- maihda_longitudinal_resid_grid_lme4(model, time_term, ref_c,
+                                                   var_s_ref + var_i_ref)
+  # Scalar residual for the components table / headline: the reference-time value
+  # (a single latent-scale number that the trajectory generalises over time).
+  var_resid <- as.numeric(resid_ref)
+
+  vpc_t_est <- var_s_grid / (var_s_grid + var_i_grid + resid_grid)
+  ref_vpc <- as.numeric(var_s_ref / (var_s_ref + var_i_ref + resid_ref))
 
   vpc_lower <- rep(NA_real_, length(grid))
   vpc_upper <- rep(NA_real_, length(grid))
@@ -496,11 +573,12 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
         bm <- lme4::refit(model, newresp = sim[[i]])
         Ss <- maihda_re_block_lme4(bm, "stratum", time_term, lng$time_degree)
         Si <- maihda_re_block_lme4(bm, lng$id, time_term, lng$time_degree)
-        vr <- maihda_residual_variance_lme4(bm)
         vs <- maihda_var_at_time(Ss, grid_c); vi <- maihda_var_at_time(Si, grid_c)
-        boot[i, ] <- vs / (vs + vi + vr)
+        vr_grid <- maihda_longitudinal_resid_grid_lme4(bm, time_term, grid_c, vs + vi)
+        boot[i, ] <- vs / (vs + vi + vr_grid)
         rs <- maihda_var_at_time(Ss, ref_c); ri <- maihda_var_at_time(Si, ref_c)
-        ref_boot[i] <- rs / (rs + ri + vr)
+        vr_ref <- maihda_longitudinal_resid_grid_lme4(bm, time_term, ref_c, rs + ri)
+        ref_boot[i] <- rs / (rs + ri + vr_ref)
       }, error = function(e) NULL)
     }
     a <- 1 - conf_level
@@ -526,9 +604,10 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   longitudinal <- list(
     vpc_t = data.frame(time = grid, estimate = vpc_t_est,
                        lower = vpc_lower, upper = vpc_upper),
-    var_stratum_t = maihda_var_at_time(Sigma_s, grid_c),
-    var_id_t = maihda_var_at_time(Sigma_i, grid_c),
+    var_stratum_t = var_s_grid,
+    var_id_t = var_i_grid,
     var_resid = var_resid,
+    var_resid_t = as.numeric(resid_grid),
     Sigma_stratum = Sigma_s,
     Sigma_id = Sigma_i,
     time_grid = grid,
@@ -567,9 +646,30 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
   draws <- maihda_posterior_draws_brms(model)
   sig_s <- maihda_re_cov_draws_brms(draws, "stratum", time_term)
   sig_i <- maihda_re_cov_draws_brms(draws, lng$id, time_term)
-  var_resid_draws <- maihda_residual_variance_draws_brms(model, draws)
-  if (length(var_resid_draws) == 1L) {
-    var_resid_draws <- rep(var_resid_draws, length(sig_s$v0))
+
+  # Posterior-mean covariance blocks (components table, and the log-normal mean
+  # correction v(t)/2 in the count residual below).
+  Sigma_s <- maihda_re_block_brms(model, "stratum", time_term, lng$time_degree)
+  Sigma_i <- maihda_re_block_brms(model, lng$id, time_term, lng$time_degree)
+
+  # Level-1 residual as a function of time. For count families it tracks the
+  # time-varying marginal mean (see maihda_longitudinal_resid_at_brms) instead of
+  # one own-time average reused at every time, which would bias VPC(t); for other
+  # families it is the per-draw var_resid_draws, constant over time.
+  fam <- maihda_family(model)
+  is_count <- !is.null(fam) && identical(fam$link, "log") &&
+    fam$family %in% c("poisson", "negbinomial")
+  resid_at <- if (is_count) {
+    function(t_c) {
+      v_t <- maihda_var_at_time(Sigma_s, t_c) + maihda_var_at_time(Sigma_i, t_c)
+      maihda_longitudinal_resid_at_brms(model, draws, time_term, t_c, v_t)
+    }
+  } else {
+    var_resid_draws <- maihda_residual_variance_draws_brms(model, draws)
+    if (length(var_resid_draws) == 1L) {
+      var_resid_draws <- rep(var_resid_draws, length(sig_s$v0))
+    }
+    function(t_c) var_resid_draws
   }
 
   grid <- maihda_longitudinal_time_grid(object$data[[lng$time]])
@@ -580,12 +680,17 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
   ref_c <- ref_time - center
   a <- 1 - conf_level
 
+  # Level-1 residual evaluated once per reporting time (a scalar or a per-draw
+  # vector), reused for both the VPC bands and the components-table scalar.
+  resid_grid_draws <- lapply(grid_c, resid_at)
+  resid_ref_draws <- resid_at(ref_c)
+
   # Per-draw VarS(t) / VarI(t) for the linear block:
   # a(t)'Sigma a(t) = v0 + 2 t cov + t^2 v1, t on the coefficient scale.
   var_at <- function(blk, t_c) blk$v0 + 2 * t_c * blk$cov + t_c^2 * blk$v1
-  vpc_draws_at <- function(t_c) {
+  vpc_draws_at <- function(t_c, resid) {
     vs <- var_at(sig_s, t_c); vi <- var_at(sig_i, t_c)
-    vs / (vs + vi + var_resid_draws)
+    vs / (vs + vi + resid)
   }
 
   summ <- function(v) {
@@ -594,16 +699,19 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
     c(stats::median(v), stats::quantile(v, a / 2, names = FALSE),
       stats::quantile(v, 1 - a / 2, names = FALSE))
   }
-  mat <- vapply(grid_c, function(t_c) summ(vpc_draws_at(t_c)), numeric(3))
-  ref <- summ(vpc_draws_at(ref_c))
+  mat <- vapply(seq_along(grid_c),
+                function(j) summ(vpc_draws_at(grid_c[j], resid_grid_draws[[j]])),
+                numeric(3))
+  ref <- summ(vpc_draws_at(ref_c, resid_ref_draws))
 
   vpc_result <- list(estimate = ref[1], ci_lower = ref[2], ci_upper = ref[3],
                      conf_level = conf_level, bootstrap = FALSE,
                      method = "posterior", ref_time = ref_time)
 
-  Sigma_s <- maihda_re_block_brms(model, "stratum", time_term, lng$time_degree)
-  Sigma_i <- maihda_re_block_brms(model, lng$id, time_term, lng$time_degree)
-  var_resid <- mean(var_resid_draws)
+  # Scalar residual for the components table: the reference-time value (mean over
+  # draws), matching mean(var_resid_draws) for the non-count families.
+  var_resid <- mean(resid_ref_draws)
+  resid_grid <- vapply(resid_grid_draws, mean, numeric(1))
 
   longitudinal <- list(
     vpc_t = data.frame(time = grid, estimate = mat[1, ],
@@ -611,6 +719,7 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
     var_stratum_t = maihda_var_at_time(Sigma_s, grid_c),
     var_id_t = maihda_var_at_time(Sigma_i, grid_c),
     var_resid = var_resid,
+    var_resid_t = resid_grid,
     Sigma_stratum = Sigma_s,
     Sigma_id = Sigma_i,
     time_grid = grid,

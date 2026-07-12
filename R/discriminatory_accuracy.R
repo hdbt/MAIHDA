@@ -241,7 +241,13 @@ maihda_mor_between_variance <- function(model) {
 #'   \code{"sampling"} for a design-weighted fit (each observation contributes its
 #'   sampling weight as case/control mass, estimating the population discriminatory
 #'   accuracy); \code{n_case} / \code{n_control} stay unweighted observation counts.
-#'   \code{weight_type} is \code{NULL} for an unweighted AUC.
+#'   \code{weight_type} is \code{NULL} for an unweighted AUC. An
+#'   \strong{aggregated-binomial} fit (an lme4 \code{cbind(success, failure)} or a
+#'   brms \code{y | trials(n)} model) is reported \code{weighted = FALSE} with
+#'   \code{weight_type = NULL}: its count-weighted AUC equals the ordinary
+#'   individual-level concordance over the implied 0/1 data (the trial counts are
+#'   real observations, not sampling weights), so it is not a design-weighted
+#'   population quantity.
 #'   \strong{lme4 precision weights} (non-integer \code{weights=} on a Bernoulli fit)
 #'   scale likelihood/dispersion, not population frequency, so they carry no
 #'   population-AUC interpretation: the AUC ignores them and reports the ordinary
@@ -429,12 +435,20 @@ maihda_discriminatory_accuracy <- function(model) {
       family = fam,
       link = link,
       engine = model$engine,
-      # `weighted` marks a genuinely weighted (population-mass) concordance -- a
-      # design/sampling-weighted or aggregated trial-count AUC. A precision-weighted
-      # fit is NOT weighted for AUC purposes: its AUC is the ordinary observation-level
-      # concordance (see above), so weighted = FALSE and weight_type = NULL, with
-      # precision_weights_ignored flagging that the fit's precision weights were
-      # (correctly) not used.
+      # `weighted` marks a design/sampling-weighted (population-representative)
+      # concordance: one that folds sampling weights into case/control mass to
+      # estimate a POPULATION AUC that differs from the naive sample concordance.
+      # An aggregated trial-count AUC is deliberately NOT flagged here: its trial
+      # counts are real individual observations, so the count-weighted concordance
+      # EQUALS the ordinary observation-level concordance over the implied 0/1 data
+      # (see the aggregated branch above and its tests), reported with the true
+      # success/failure totals as n_case/n_control -- exactly analogous to the
+      # precision-weighted case, which is likewise the ordinary observation-level
+      # concordance (precision_weights_ignored flags it). So both the aggregated and
+      # the precision-weighted fit report weighted = FALSE and weight_type = NULL;
+      # only a genuine sampling-weighted fit reports weighted = TRUE. (Note that
+      # print.maihda_da() renders weighted = TRUE as "design-weighted ... sampling
+      # weight", which would misdescribe an aggregated cbind()/trials() fit.)
       weighted = design_weighted,
       weight_type = if (design_weighted) "sampling" else NULL,
       precision_weights_ignored = !is.null(pw),

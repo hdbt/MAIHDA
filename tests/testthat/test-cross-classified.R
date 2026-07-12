@@ -194,6 +194,70 @@ test_that("crossed-dimensions plots render", {
   expect_s3_class(suppressWarnings(plot(cc, type = "predicted")), "ggplot")
 })
 
+test_that("crossed-dimensions stratum predictions exclude a contextual random effect", {
+  # Finding: a crossed-dimensions fit that ALSO carries a contextual random effect
+  # (context = "site") built its per-stratum predicted-outcome baseline as
+  # predict(ALL random effects) - u_stratum, leaving the site effect in the
+  # baseline. The ranked stratum prediction then depended on each stratum's observed
+  # site composition. The baseline must be fixed effects + the ADDITIVE dimension REs
+  # only; the interaction stratum RE is added back per row.
+  skip_on_cran()
+  set.seed(4242)
+  n <- 2000
+  d <- data.frame(
+    a = sample(c("a1", "a2", "a3"), n, replace = TRUE),
+    b = sample(c("b1", "b2"), n, replace = TRUE),
+    stringsAsFactors = FALSE
+  )
+  # Site MIX depends on dimension a, so strata differ in composition and a leaked
+  # site effect would shift them unevenly.
+  site_pool <- list(a1 = paste0("s", 1:5), a2 = paste0("s", 6:10),
+                    a3 = paste0("s", 11:15))
+  d$site <- vapply(d$a, function(av) sample(site_pool[[av]], 1), character(1))
+  ua <- stats::setNames(stats::rnorm(3, sd = 0.8), c("a1", "a2", "a3"))
+  ub <- stats::setNames(stats::rnorm(2, sd = 0.6), c("b1", "b2"))
+  usite <- stats::setNames(stats::rnorm(15, sd = 1.5), paste0("s", 1:15))
+  strat <- interaction(d$a, d$b, drop = TRUE)
+  uint <- stats::setNames(stats::rnorm(nlevels(strat), sd = 0.5), levels(strat))
+  d$y <- 1 + ua[d$a] + ub[d$b] + uint[as.character(strat)] +
+    usite[d$site] + stats::rnorm(n, sd = 1)
+
+  a <- suppressWarnings(suppressMessages(
+    maihda(y ~ (1 | a:b), data = d, decomposition = "crossed-dimensions",
+           context = "site")))
+  m <- a$model
+  expect_false(is.null(m$cc_info))
+  expect_true("site" %in% names(lme4::ranef(m$model)))   # the fit carries a site RE
+
+  s <- suppressWarnings(summary(m))
+  pred <- MAIHDA:::maihda_stratum_predictions_lme4(m, s, scale = "link")
+  strata_keys <- as.character(m$data$stratum)
+
+  # Correct scoped reconstruction: fixed effects + dimension REs (a, b) ONLY, plus
+  # the interaction stratum RE per row, aggregated to per-stratum means (computed in
+  # pred$stratum order to avoid array-attribute mismatches).
+  eta_dim <- as.numeric(stats::predict(m$model, newdata = m$data,
+                                       re.form = ~ (1 | a) + (1 | b),
+                                       type = "link"))
+  u_map <- stats::setNames(s$stratum_estimates$random_effect,
+                           as.character(s$stratum_estimates$stratum))
+  u_row <- u_map[strata_keys]
+  u_row[is.na(u_row)] <- 0
+  base_row <- eta_dim + u_row
+  expected <- vapply(as.character(pred$stratum),
+                     function(g) mean(base_row[strata_keys == g]), numeric(1))
+  expect_equal(as.numeric(pred$predicted_row), unname(expected), tolerance = 1e-8)
+
+  # Regression guard: the old leaked baseline = predict(all REs) - u_stratum, so the
+  # per-row prediction was eta(all REs) INCLUDING the site effect. That differs
+  # materially from the corrected, site-excluded prediction.
+  eta_all <- as.numeric(stats::predict(m$model, newdata = m$data, type = "link"))
+  leaked <- vapply(as.character(pred$stratum),
+                   function(g) mean(eta_all[strata_keys == g]), numeric(1))
+  expect_false(isTRUE(all.equal(as.numeric(pred$predicted_row), unname(leaked))))
+  expect_gt(max(abs(as.numeric(pred$predicted_row) - unname(leaked))), 0.02)
+})
+
 # ---- group comparison -------------------------------------------------------
 
 test_that("compare_maihda_groups(decomposition = 'crossed-dimensions') reports shares", {

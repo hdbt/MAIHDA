@@ -611,10 +611,13 @@ test_that("binomial longitudinal fit gives a latent-scale time-varying VPC", {
 
 test_that("count longitudinal fit evaluates the level-1 variance at time-varying marginal means", {
   # A Poisson growth model's marginal expected count carries a TIME-VARYING
-  # lognormal correction: lambda_i = exp(x_i'beta + v_i/2) with v_i the stratum
-  # plus individual growth-block variance a(t_i)' Sigma a(t_i) at the row's
-  # time -- not the conditional fitted mean, whose BLUPs the level-1 variance
-  # must not depend on. Recompute v_i independently from the summary's blocks.
+  # lognormal correction: lambda(t) = exp(x'beta(t) + v(t)/2) with v(t) the stratum
+  # plus individual growth-block variance a(t)' Sigma a(t) at time t. The level-1
+  # variance log1p(1/lambda(t)) therefore changes over the reporting grid, so the
+  # VPC(t) residual must be evaluated AT each grid time -- not one sample-wide
+  # average reused everywhere. Recompute the grid residual independently, setting
+  # the model's time term to each grid value (marginalizing over the rows) with the
+  # correction v(t)/2 from the summary's blocks.
   d <- subset(maihda_long_data, id %in% unique(maihda_long_data$id)[1:150])
   set.seed(909)
   d$events <- rpois(nrow(d), lambda = exp(0.6 + 0.15 * d$wave))
@@ -625,13 +628,39 @@ test_that("count longitudinal fit evaluates the level-1 variance at time-varying
   expect_false(is.null(s$longitudinal))
   expect_true(all(is.finite(s$longitudinal$vpc_t$estimate)))
 
-  tv <- mp$data$wave - s$longitudinal$time_center
-  v_rows <- maihda_var_at_time(s$longitudinal$Sigma_stratum, tv) +
-    maihda_var_at_time(s$longitudinal$Sigma_id, tv)
-  eta <- as.numeric(stats::predict(mp$model, re.form = NA, type = "link"))
-  lambda <- pmax(exp(eta + v_rows / 2), .Machine$double.eps)
-  expect_equal(s$longitudinal$var_resid, mean(log1p(1 / lambda)),
-               tolerance = 1e-8)
+  lng <- s$longitudinal
+  tt <- lng$time_term
+  center <- lng$time_center
+  frame <- MAIHDA:::maihda_model_frame(mp$model)
+  resid_at <- function(t_orig) {
+    tc <- t_orig - center
+    nd <- frame
+    nd[[tt]] <- tc
+    eta <- as.numeric(stats::predict(mp$model, newdata = nd, re.form = NA,
+                                     type = "link"))
+    v_t <- maihda_var_at_time(lng$Sigma_stratum, tc) +
+      maihda_var_at_time(lng$Sigma_id, tc)
+    lambda <- pmax(exp(eta + v_t / 2), .Machine$double.eps)
+    mean(log1p(1 / lambda))
+  }
+
+  # The per-grid residual matches the independent recomputation, and the headline
+  # scalar is the reference-time value (NOT the old global average).
+  expected_grid <- vapply(lng$time_grid, resid_at, numeric(1))
+  expect_equal(lng$var_resid_t, expected_grid, tolerance = 1e-8)
+  expect_equal(lng$var_resid, resid_at(lng$ref_time), tolerance = 1e-8)
+
+  # The whole point of the fix: the residual is genuinely time-varying here (the
+  # marginal count rises with wave, so log1p(1/lambda) falls), not a constant.
+  expect_gt(diff(range(lng$var_resid_t)), 1e-6)
+  # The old behavior -- one sample-wide average over rows at their OWN times --
+  # differs from the corrected reference-time residual, so this is a real change.
+  tv <- mp$data[[lng$time]] - center
+  v_rows <- maihda_var_at_time(lng$Sigma_stratum, tv) +
+    maihda_var_at_time(lng$Sigma_id, tv)
+  eta_own <- as.numeric(stats::predict(mp$model, re.form = NA, type = "link"))
+  old_global <- mean(log1p(1 / pmax(exp(eta_own + v_rows / 2), .Machine$double.eps)))
+  expect_false(isTRUE(all.equal(lng$var_resid, old_global)))
 })
 
 # ---- edge cases: higher time_degree, singular fits, explicit-times PCV ------

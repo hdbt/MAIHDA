@@ -2398,6 +2398,36 @@ maihda_weighted_stratum_aggregate <- function(pred_df, cols) {
   out
 }
 
+# Build a random-effects prediction formula (~ (lhs | g) + ...) that keeps ONLY
+# the grouping factors named in `groups`, for a re.form-/re_formula-scoped
+# predict(). Returns NA (predict with the fixed effects only) when no term
+# matches or no group is requested. Group names are compared in deparsed form and
+# also against their backtick-quoted form, so a non-syntactic grouping name
+# matches either way (mirrors maihda_da_re_scopes()). Used to build the
+# crossed-dimensions stratum-prediction baseline from the additive dimension REs
+# alone -- excluding the interaction stratum RE (added back per row) and any
+# non-intersectional random effect (e.g. a contextual/site RE), which must not
+# leak into the ranked per-stratum prediction.
+maihda_re_form_for_groups <- function(formula, groups) {
+  bars <- reformulas::findbars(formula)
+  groups <- groups[!is.na(groups) & nzchar(groups)]
+  if (is.null(bars) || length(bars) == 0 || length(groups) == 0) {
+    return(NA)
+  }
+  quoted <- vapply(groups, maihda_quote_name, character(1))
+  want <- unique(c(groups, quoted))
+  keep <- vapply(bars, function(b) {
+    paste(deparse(b[[3]]), collapse = "") %in% want
+  }, logical(1))
+  if (!any(keep)) {
+    return(NA)
+  }
+  re_txt <- vapply(bars[keep], function(b) {
+    paste0("(", paste(deparse(b), collapse = " "), ")")
+  }, character(1))
+  stats::as.formula(paste("~", paste(re_txt, collapse = " + ")))
+}
+
 maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("response", "link")) {
   scale <- match.arg(scale)
   if (!is.null(object$longitudinal_info)) {
@@ -2431,15 +2461,20 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
 
   # Baseline the intersection (stratum) random effect is added to. For the canonical
   # single-stratum model this is the fixed-only linear predictor. For a
-  # cross-classified model it must also carry the dimension random effects (the
-  # additive part) so the stratum prediction includes ALL random effects, not just
-  # the interaction: eta_base = eta(all REs) - u_stratum.
+  # cross-classified model it must also carry the ADDITIVE dimension random effects
+  # so the stratum prediction is fixed effects + dimension REs + interaction RE. It
+  # must NOT carry any non-intersectional random effect (a contextual/site RE, which
+  # a crossed-dimensions fit can also include): predicting all REs and subtracting
+  # only u_stratum would leave that contextual effect in the baseline, so the ranked
+  # stratum prediction would depend on each stratum's observed context composition
+  # rather than the intended intersectional scope. Scope the baseline to the
+  # dimension REs only (re.form); the interaction RE is added per row below.
   eta_base <- eta_fixed
   if (!is.null(object$cc_info)) {
-    eta_allre <- stats::predict(model, newdata = data, type = "link")
-    u_row <- stratum_est$random_effect[idx]
-    u_row[is.na(u_row)] <- 0
-    eta_base <- as.numeric(eta_allre) - u_row
+    re_form <- maihda_re_form_for_groups(stats::formula(model),
+                                         unname(object$cc_info$dim_groups))
+    eta_base <- as.numeric(stats::predict(model, newdata = data,
+                                          re.form = re_form, type = "link"))
   }
 
   pred_df <- data.frame(
@@ -2796,15 +2831,21 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
     }
   }
 
-  # See the lme4 sibling: in a cross-classified model the stratum prediction must
-  # also include the dimension random effects (the additive part). eta_base =
-  # eta(all REs) - u_stratum, so adding the stratum RE recovers the full prediction.
+  # See the lme4 sibling: in a cross-classified model the stratum prediction is
+  # fixed effects + ADDITIVE dimension REs + interaction RE, and must exclude any
+  # non-intersectional random effect (a contextual/site RE the fit may also carry),
+  # which predicting all REs and subtracting only u_stratum would leave in the
+  # baseline and leak into the ranked stratum prediction. Scope the baseline to the
+  # dimension REs only (re_formula); the interaction RE is added per row below.
   eta_base <- eta_fixed
   if (!is.null(object$cc_info)) {
-    eta_allre <- maihda_brms_linpred_mean(model, newdata = data)
-    u_row <- stratum_est$random_effect[idx]
-    u_row[is.na(u_row)] <- 0
-    eta_base <- eta_allre - u_row
+    f <- model$formula
+    if (inherits(f, "brmsformula") && inherits(f$formula, "formula")) {
+      f <- f$formula
+    }
+    re_form <- maihda_re_form_for_groups(f, unname(object$cc_info$dim_groups))
+    eta_base <- maihda_brms_linpred_mean(model, newdata = data,
+                                         re_formula = re_form)
   }
 
   pred_df <- data.frame(

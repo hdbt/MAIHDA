@@ -26,7 +26,13 @@ An object of class \code{maihda_da}: a list with \code{auc},
   \code{"sampling"} for a design-weighted fit (each observation contributes its
   sampling weight as case/control mass, estimating the population discriminatory
   accuracy); \code{n_case} / \code{n_control} stay unweighted observation counts.
-  \code{weight_type} is \code{NULL} for an unweighted AUC.
+  \code{weight_type} is \code{NULL} for an unweighted AUC. An
+  \strong{aggregated-binomial} fit (an lme4 \code{cbind(success, failure)} or a
+  brms \code{y | trials(n)} model) is reported \code{weighted = FALSE} with
+  \code{weight_type = NULL}: its count-weighted AUC equals the ordinary
+  individual-level concordance over the implied 0/1 data (the trial counts are
+  real observations, not sampling weights), so it is not a design-weighted
+  population quantity.
   \strong{lme4 precision weights} (non-integer \code{weights=} on a Bernoulli fit)
   scale likelihood/dispersion, not population frequency, so they carry no
   population-AUC interpretation: the AUC ignores them and reports the ordinary
