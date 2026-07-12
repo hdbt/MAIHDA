@@ -179,6 +179,10 @@ maihda_adjusted_formula <- function(null_formula, strata_vars, autobin_info, dat
 #'   column and the dimension columns.
 #' @param interaction_group Name of the intersection grouping factor (the column whose
 #'   random intercept captures the interaction). Default \code{"stratum"}.
+#' @param context Optional character vector of higher-level grouping variables that the
+#'   caller re-appends as contextual random intercepts (via \code{context =} on the fit).
+#'   Named here only so the extra-random-effect guard treats them as legitimate rather
+#'   than flagging them; the builder itself does not add them.
 #' @return A list with \code{formula}, \code{data}, \code{dim_groups} (a named character
 #'   vector mapping each \code{strata_var} to its random-effect grouping-factor name) and
 #'   \code{interaction_group} (\code{"stratum"}); or \code{NULL} if fewer than two
@@ -186,11 +190,36 @@ maihda_adjusted_formula <- function(null_formula, strata_vars, autobin_info, dat
 #' @keywords internal
 #' @importFrom stats update as.formula
 maihda_cross_classified_formula <- function(null_formula, strata_vars, autobin_info,
-                                            data, interaction_group = "stratum") {
+                                            data, interaction_group = "stratum",
+                                            context = NULL) {
   if (is.null(strata_vars) || length(strata_vars) < 2) {
     return(NULL)
   }
   adj <- maihda_adjusted_terms(strata_vars, autobin_info, data)
+
+  # Stripping the bars keeps the covariates and lets the builder re-add exactly the
+  # dimension + intersection intercepts (the caller re-appends any `context` random
+  # intercept). A random effect written directly in the formula that is NOT the
+  # intersection group, a stratum dimension, or a supplied `context` variable would
+  # be dropped here without a trace, silently misallocating its variance to the
+  # strata or the residual. Reject it with a directed error rather than drop it.
+  allowed_re_vars <- unique(c(interaction_group, strata_vars, adj$terms, context))
+  extra_re <- character(0)
+  for (b in reformulas::findbars(null_formula)) {
+    if (!all(all.vars(b[[3]]) %in% allowed_re_vars)) {
+      extra_re <- c(extra_re, deparse(b))
+    }
+  }
+  if (length(extra_re) > 0) {
+    stop("decomposition = \"crossed-dimensions\" cannot carry the extra random ",
+         "effect(s) ", paste(sprintf("(%s)", extra_re), collapse = ", "),
+         ": the crossed model replaces the random part with one intercept per ",
+         "stratum dimension plus the intersection (stratum) intercept, so these ",
+         "terms would be silently dropped. Supply a higher-level grouping through ",
+         "context = instead (it composes with the crossed model), or use ",
+         "decomposition = \"two-model\".", call. = FALSE)
+  }
+
   # One additive random intercept per dimension (on the dimension's own grouping
   # factor) plus the intersection random intercept. Stripping the bars from
   # null_formula keeps the covariates; we re-add the stratum RE so the builder is

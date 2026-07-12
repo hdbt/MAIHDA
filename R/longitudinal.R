@@ -652,17 +652,55 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
   Sigma_s <- maihda_re_block_brms(model, "stratum", time_term, lng$time_degree)
   Sigma_i <- maihda_re_block_brms(model, lng$id, time_term, lng$time_degree)
 
+  # Per-draw VarS(t) / VarI(t) for the linear growth block:
+  # a(t)' Sigma a(t) = v0 + 2 t cov + t^2 v1, t on the coefficient scale. Defined
+  # ahead of the residual so the count residual reuses the SAME per-draw
+  # random-effect variance for its log-normal mean correction.
+  var_at <- function(blk, t_c) blk$v0 + 2 * t_c * blk$cov + t_c^2 * blk$v1
+
   # Level-1 residual as a function of time. For count families it tracks the
-  # time-varying marginal mean (see maihda_longitudinal_resid_at_brms) instead of
-  # one own-time average reused at every time, which would bias VPC(t); for other
-  # families it is the per-draw var_resid_draws, constant over time.
+  # time-varying marginal mean instead of one own-time average reused at every time
+  # (which would bias VPC(t)); for other families it is the per-draw
+  # var_resid_draws, constant over time.
   fam <- maihda_family(model)
   is_count <- !is.null(fam) && identical(fam$link, "log") &&
     fam$family %in% c("poisson", "negbinomial")
   resid_at <- if (is_count) {
+    # Count residual computed DRAW-BY-DRAW rather than from posterior-mean
+    # predictors: the per-draw fixed-effect eta at each time and the per-draw total
+    # random-effect variance both feed the observation-level variance
+    # E_i[log1p(1 / lambda_i(t))], so its posterior uncertainty propagates into the
+    # VPC band. This matches the cross-sectional count VPC
+    # (maihda_count_resid_var_from_linpred(), reused here) and no longer understates
+    # the band for low or strongly time-varying counts. Falls back to the documented
+    # posterior-mean plug-in only if the posterior_linpred draw axis cannot be
+    # aligned with the SD draws.
+    nb_extra <- NULL
+    if (identical(fam$family, "negbinomial")) {
+      if (!"shape" %in% names(draws)) {
+        stop("Could not extract the negative-binomial 'shape' (theta) draws from ",
+             "the brms posterior.", call. = FALSE)
+      }
+      nb_extra <- 1 / as.numeric(draws[["shape"]])
+    }
+    resid_w <- maihda_fit_prior_weights(model)
+    n_draws <- length(sig_s$v0)
     function(t_c) {
-      v_t <- maihda_var_at_time(Sigma_s, t_c) + maihda_var_at_time(Sigma_i, t_c)
-      maihda_longitudinal_resid_at_brms(model, draws, time_term, t_c, v_t)
+      v_t_draws <- var_at(sig_s, t_c) + var_at(sig_i, t_c)
+      nd <- model$data
+      nd[[time_term]] <- t_c
+      eta_link <- tryCatch(
+        as.matrix(brms::posterior_linpred(model, newdata = nd, re_formula = NA)),
+        error = function(e) NULL)
+      if (!is.null(eta_link) && length(dim(eta_link)) == 2L &&
+          nrow(eta_link) == n_draws && length(v_t_draws) == n_draws) {
+        maihda_count_resid_var_from_linpred(eta_link, v_t_draws, w = resid_w,
+                                            extra = nb_extra)
+      } else {
+        v_t_mean <- maihda_var_at_time(Sigma_s, t_c) +
+          maihda_var_at_time(Sigma_i, t_c)
+        maihda_longitudinal_resid_at_brms(model, draws, time_term, t_c, v_t_mean)
+      }
     }
   } else {
     var_resid_draws <- maihda_residual_variance_draws_brms(model, draws)
@@ -685,9 +723,6 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
   resid_grid_draws <- lapply(grid_c, resid_at)
   resid_ref_draws <- resid_at(ref_c)
 
-  # Per-draw VarS(t) / VarI(t) for the linear block:
-  # a(t)'Sigma a(t) = v0 + 2 t cov + t^2 v1, t on the coefficient scale.
-  var_at <- function(blk, t_c) blk$v0 + 2 * t_c * blk$cov + t_c^2 * blk$v1
   vpc_draws_at <- function(t_c, resid) {
     vs <- var_at(sig_s, t_c); vi <- var_at(sig_i, t_c)
     vs / (vs + vi + resid)

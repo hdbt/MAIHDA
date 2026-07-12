@@ -16,6 +16,12 @@
 #'   and a continuous variable placed in the grouping term is usually unintended.
 #'   Set \code{autobin = FALSE} to disable, or bin the variable yourself for
 #'   explicit, reproducible cut-points.
+#' @param bin_rows Optional logical vector, one element per row of \code{data},
+#'   selecting the rows used to compute the auto-bin cut-points (every row is still
+#'   assigned a stratum). Mainly for internal use by \code{\link{fit_maihda}}, which
+#'   passes the \code{subset} rows so that \code{fit_maihda(..., subset = keep)}
+#'   bins on the same sample as fitting \code{data[keep, ]}. Default \code{NULL}
+#'   uses all rows.
 #'
 #' @return An object of class \code{maihda_strata}: a list with elements
 #'   \item{data}{The original data frame with an added 'stratum' column. The
@@ -62,10 +68,25 @@
 #' @importFrom tidyr unite
 #' @importFrom rlang .data
 #' @importFrom stats quantile na.omit
-make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE) {
+make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE,
+                        bin_rows = NULL) {
   # Input validation
   if (!is.data.frame(data)) {
     stop("'data' must be a data frame")
+  }
+  # `bin_rows` (internal): a logical mask over the rows of `data` selecting the
+  # sample used to COMPUTE the auto-bin cut-points; assignment via cut() still
+  # covers every row. fit_maihda() passes the `subset` rows so that
+  # fit_maihda(..., subset = keep) auto-bins on the same rows as fitting
+  # data[keep, ] -- otherwise excluded rows would move the tertile cut-points.
+  if (!is.null(bin_rows)) {
+    if (!is.logical(bin_rows) || length(bin_rows) != nrow(data)) {
+      stop("'bin_rows' must be a logical vector with one element per row of 'data'.",
+           call. = FALSE)
+    }
+    if (!any(bin_rows, na.rm = TRUE)) {
+      bin_rows <- NULL
+    }
   }
 
   if (nrow(data) == 0) {
@@ -109,13 +130,18 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
   if (autobin) {
     for (v in vars) {
       val <- strata_data[[v]]
-      if (is.numeric(val) && length(unique(stats::na.omit(val))) > 10) {
+      # Cut-points come from `bin_val` (the bin_rows sample, or all rows when
+      # bin_rows is NULL); cut() below still bins every row. Whether the dimension
+      # is auto-binned at all is likewise decided on that sample, so it matches
+      # fitting the already-subset data.
+      bin_val <- if (is.null(bin_rows)) val else val[bin_rows]
+      if (is.numeric(val) && length(unique(stats::na.omit(bin_val))) > 10) {
         # This numeric dimension will be discretised, so the adjusted-model and
         # prediction machinery later add the reserved '.maihda_dim_<v>' factor column.
         # Reject a pre-existing user column of that name now -- before any
         # augmentation -- rather than silently overwriting it downstream.
         maihda_guard_reserved_dim_col(v, data)
-        q <- stats::quantile(val, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)
+        q <- stats::quantile(bin_val, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)
         labels <- c(paste0(v, "_Low"), paste0(v, "_Mid"), paste0(v, "_High"))
         tertiles_ok <- length(unique(q)) == 4
         if (tertiles_ok) {
@@ -124,7 +150,7 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
           # Tied quantiles (e.g. skewed/zero-inflated data): tertiles are not
           # defined, so fall back to equal-width bins. These are NOT tertiles and
           # can be highly imbalanced; warn rather than silently mislabel.
-          rx <- range(val, na.rm = TRUE)
+          rx <- range(bin_val, na.rm = TRUE)
           dx <- diff(rx)
           breaks <- seq(rx[1] - dx/1000, rx[2] + dx/1000, length.out = 4)
           warning("make_strata(): numeric variable '", v, "' has tied tertile ",

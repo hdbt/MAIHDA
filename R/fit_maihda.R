@@ -392,7 +392,18 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # Parse formula to find grouping variables and resolve the strata shorthand.
   # Shared with maihda_describe(), so the pre-model description is built from
   # exactly the same parsing/strata machinery as the fit.
-  strata_res <- maihda_resolve_strata_formula(formula, data, autobin)
+  # Auto-bin the strata cut-points on the same rows the fit uses: a `subset`
+  # narrows the analytic sample, and binning on the full input would move the
+  # tertile boundaries, making fit_maihda(..., subset = keep) differ from fitting
+  # data[keep, ]. Only `subset` matters here -- missing values and invalid weights
+  # are na.rm'd/dropped identically whether or not the data was pre-filtered.
+  strata_bin_rows <- if (is.null(subset_value)) {
+    NULL
+  } else {
+    maihda_row_mask(data, subset = subset_value)
+  }
+  strata_res <- maihda_resolve_strata_formula(formula, data, autobin,
+                                              bin_rows = strata_bin_rows)
   formula <- strata_res$formula
   data <- strata_res$data
   strata_info <- strata_res$strata_info
@@ -429,7 +440,24 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     # original scale, and prediction newdata rebuilds the derived column from the
     # original time column (see maihda_prepare_prediction_data).
     tv <- data[[lng_spec$time]]
-    center <- maihda_longitudinal_center(tv)
+    # Center on the ANALYTIC rows -- those surviving `subset`, missing-value
+    # dropping, and precision-weight exclusion -- not the full input. The centering
+    # keeps the polynomial basis well-conditioned over the times the engine actually
+    # fits; deriving it from excluded early/late waves (e.g. full data anchored at 0
+    # but a subset that begins at 100) leaves the analytic times off-center and
+    # defeats the stability protection -- lme4 can then fail to converge or, worse,
+    # reach a false optimum. Mirrors the analytic-sample logic used for family
+    # auto-detection above; falls back to the full column if the mask cannot form.
+    tv_analytic <- tryCatch({
+      keep <- maihda_row_mask(data, subset = subset_value, weights = weights_value)
+      cvars <- intersect(c(all.vars(formula), lng_spec$id, lng_spec$time),
+                         names(data))
+      if (length(cvars) > 0) {
+        keep <- keep & stats::complete.cases(data[, cvars, drop = FALSE])
+      }
+      if (any(keep)) tv[keep] else tv
+    }, error = function(e) tv)
+    center <- maihda_longitudinal_center(tv_analytic)
     time_term <- lng_spec$time
     if (center != 0) {
       # A formula already referencing the derived column is a package-derived
@@ -762,7 +790,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
 # make_strata() attached to `data`. Shared by fit_maihda() and
 # maihda_describe() so the pre-model description and the fit build their strata
 # from the same machinery -- identical IDs, labels, counts, and validation.
-maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE) {
+maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE,
+                                          bin_rows = NULL) {
   re_terms <- reformulas::findbars(formula)
   strata_info <- attr(data, "strata_info")
   strata_vars <- attr(data, "strata_vars")
@@ -812,7 +841,8 @@ maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE) {
              call. = FALSE)
       }
 
-      strata_result <- make_strata(data, vars = strata_vars, autobin = autobin)
+      strata_result <- make_strata(data, vars = strata_vars, autobin = autobin,
+                                   bin_rows = bin_rows)
       data$stratum <- strata_result$data$stratum
       strata_info <- strata_result$strata_info
       strata_sep <- strata_result$sep

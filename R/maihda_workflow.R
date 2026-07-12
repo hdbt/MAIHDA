@@ -536,7 +536,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     }
     cc <- maihda_cross_classified_formula(base_formula, strata_vars,
                                           model$strata_autobin_info,
-                                          model$original_data)
+                                          model$original_data, context = context)
     # The formula builder strips ALL random effects before adding the dimension +
     # intersection intercepts; passing `context` again re-appends (and re-tags) any
     # contextual random intercept, so the two structures compose in one fit.
@@ -1160,29 +1160,29 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
 
   if (type == "all") {
     null_plots <- list(vpc = plot(x$model, type = "vpc", summary_obj = x$summary, ...))
-    null_plots$obs_vs_shrunken <- tryCatch(
+    null_plots$obs_vs_shrunken <- maihda_try_optional(
       plot(x$model, type = "obs_vs_shrunken", summary_obj = x$summary,
            highlight_interactions = hl, only_flagged = only_flagged,
            highlight_by = highlight_by, rope = rope, ...),
-      error = function(e) NULL)
-    null_plots$predicted <- tryCatch(
+      "Plot panel 'obs_vs_shrunken'")
+    null_plots$predicted <- maihda_try_optional(
       plot(x$model, type = "predicted", summary_obj = x$summary,
            highlight_interactions = hl, only_flagged = only_flagged,
            highlight_by = highlight_by, rope = rope, select = select,
            order_by = order_by, ...),
-      error = function(e) NULL)
+      "Plot panel 'predicted'")
     if (!is.null(x$context_vars)) {
-      null_plots$context_vpc <- tryCatch(
+      null_plots$context_vpc <- maihda_try_optional(
         plot(x$model, type = "context_vpc", summary_obj = x$summary, ...),
-        error = function(e) NULL)
+        "Plot panel 'context_vpc'")
     }
 
     adj_plots <- list()
     for (t in adjusted_types) {
-      adj_plots[[t]] <- tryCatch(
+      adj_plots[[t]] <- maihda_try_optional(
         plot(adj_model, type = t, summary_obj = adj_summary,
              highlight_interactions = hl, highlight_by = highlight_by, rope = rope, ...),
-        error = function(e) NULL)
+        sprintf("Plot panel '%s'", t))
     }
 
     model_plots <- c(null_plots, adj_plots)

@@ -522,6 +522,41 @@ validate_pcv_models <- function(model1, model2) {
     }
   }
 
+  # Beyond the stratum, both models must share the SAME random-effects grouping
+  # structure. The checks above pin the outcome, family, sample, weights, and the
+  # stratum assignment, but a PCV is defined as the change in the between-stratum
+  # variance across a change in the FIXED part only. A model that also adds, drops,
+  # or reassigns another grouping -- (1 | stratum) vs (1 | stratum) + (1 | site) --
+  # changes the variance decomposition itself, so the reported PCV would fold that
+  # structural change into the covariate-attributable number.
+  re_groupings <- function(m) {
+    bars <- tryCatch(reformulas::findbars(m$formula), error = function(e) NULL)
+    if (is.null(bars)) return(character(0))
+    sort(vapply(bars, function(b) paste(deparse(b[[3]]), collapse = ""),
+                character(1)))
+  }
+  g1 <- re_groupings(model1)
+  g2 <- re_groupings(model2)
+  if (!identical(g1, g2)) {
+    stop("PCV requires both models to use the same random-effects grouping ",
+         "structure; a changed structure (an added, removed, or relabelled ",
+         "grouping such as (1 | site)) alters the variance decomposition and would ",
+         "confound the covariate-attributable change. Model 1 groups on {",
+         paste(g1, collapse = ", "), "} and Model 2 on {", paste(g2, collapse = ", "),
+         "}.", call. = FALSE)
+  }
+  # For each shared non-stratum grouping that is a single data column, the row-level
+  # assignments must match too (the stratum assignment is already checked above).
+  for (g in setdiff(g1, "stratum")) {
+    if (g %in% names(model1$data) && g %in% names(model2$data) &&
+        !identical(as.character(model1$data[[g]]),
+                   as.character(model2$data[[g]]))) {
+      stop("PCV requires both models to assign each analytic row to the same '", g,
+           "' random-effect level; the '", g, "' assignments differ between the ",
+           "two models.", call. = FALSE)
+    }
+  }
+
   invisible(TRUE)
 }
 
@@ -785,6 +820,17 @@ maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
   strata_autobin_info <- attr(data, "strata_autobin_info")
 
   complete_idx <- stats::complete.cases(data[, required_vars, drop = FALSE])
+  # The design-weighted (wemix) engine drops rows whose sampling weight is
+  # non-finite or <= 0, not just NA (complete.cases only catches NA, so a 0, a
+  # negative, or an Inf weight slips through). Exclude those rows from the ONE
+  # shared analytic sample too, so family auto-detection and n_obs see exactly the
+  # rows every fit will use -- otherwise a single zero-weight row carrying an
+  # out-of-sample outcome value (e.g. a 2 in an otherwise binary column) flips the
+  # detected family to Gaussian, and n_obs is inflated by rows no fit uses.
+  if (!is.null(sampling_weights)) {
+    complete_idx <- complete_idx &
+      !is.na(maihda_sampling_weight_mask(data[[sampling_weights]]))
+  }
   if (!any(complete_idx)) {
     stop("No complete cases remain after filtering outcome, stratum, and stepwise variables.")
   }
@@ -1023,12 +1069,15 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   # aggregated-binomial, design-weighted (wemix) AUC and the logit-only MOR gate, so a
   # design-weighted stepwise yields the design-weighted AUC here too.
   #
-  # Suppressed for a CONTEXTUAL fit (context = ), mirroring summary.maihda_model():
-  # the AUC is built from full predictions that INCLUDE the context random effect, so
-  # it would not match the net-of-context (stratum-only) Step_PCV/Total_PCV columns
-  # here. A contextual binary stepwise therefore reports the PCV trajectory only.
+  # Reported for a CONTEXTUAL fit (context = ) too, matching summary.maihda_model():
+  # maihda_discriminatory_accuracy()'s headline AUC is the intersectional-SCOPE
+  # concordance (fixed effects + the stratum interaction, EXCLUDING the context
+  # random effect), and the MOR is likewise the between-stratum quantity, so both
+  # share the scope of the net-of-context Step_PCV/Total_PCV columns here. (An
+  # earlier AUC implementation used the full, context-including predictions, which
+  # this branch was gated to suppress; that gate is now obsolete.)
   da_applies <- isTRUE(maihda_model_family_name(null_mod) %in%
-                       c("binomial", "bernoulli")) && is.null(context)
+                       c("binomial", "bernoulli"))
   auc_vec <- rep(NA_real_, length(vars) + 1)
   mor_vec <- rep(NA_real_, length(vars) + 1)
   read_da <- function(m) {

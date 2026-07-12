@@ -89,7 +89,8 @@ predict_maihda <- function(object, newdata = NULL,
   engine <- object$engine
   model <- object$model
 
-  if (is.null(newdata)) {
+  newdata_supplied <- !is.null(newdata)
+  if (!newdata_supplied) {
     newdata <- object$data
   } else {
     newdata <- maihda_prepare_prediction_data(object, newdata, type = type,
@@ -113,6 +114,26 @@ predict_maihda <- function(object, newdata = NULL,
       # the same population-average fallback the other engines use).
       dots <- maihda_dots_default(list(...), "allow.new.levels",
                                   isTRUE(allow_new_levels))
+      # Training-data predictions (no newdata supplied) call predict() WITHOUT
+      # newdata so lme4 reuses its stored linear predictor, which includes any
+      # offset. An external offset (offset = ... passed to fit_maihda()) survives
+      # only in the fitted (offset) column, which predict.merMod ignores on the
+      # newdata path; substituting object$data would therefore silently drop it
+      # from individual predictions -- and from the AUC/MOR, tables, and plots
+      # built on them.
+      if (!newdata_supplied) {
+        return(do.call(stats::predict, c(list(model, type = scale), dots)))
+      }
+      # For genuine newdata, predict.merMod re-evaluates a formula offset() term
+      # but cannot recover an external offset (only its fitted values were stored,
+      # not the generating expression), so those predictions would be silently
+      # wrong. Reject them with a directed error rather than return them.
+      if (maihda_lme4_has_external_offset(object)) {
+        stop("This model was fit with an external offset (offset = ... passed to ",
+             "fit_maihda()), which cannot be reconstructed for new data. Refit with ",
+             "the offset written into the formula (e.g. ... + offset(log(exposure))) ",
+             "to predict on newdata.", call. = FALSE)
+      }
       predictions <- do.call(stats::predict,
                              c(list(model, newdata = newdata, type = scale), dots))
       return(predictions)
@@ -232,6 +253,28 @@ maihda_dots_default <- function(dots, name, value) {
     dots[[name]] <- value
   }
   dots
+}
+
+# TRUE when an lme4 fit carries an EXTERNAL offset (offset = ... passed to
+# fit_maihda()) rather than a formula offset() term. The distinction matters for
+# newdata predictions: predict.merMod re-evaluates a formula offset() from newdata
+# but silently ignores an external one (it lives only as the fitted (offset)
+# column). The model frame names that column "(offset)" for either kind of offset,
+# so a formula offset() term -- identifiable from the fixed-part terms -- is what
+# separates the two.
+maihda_lme4_has_external_offset <- function(object) {
+  if (!identical(object$engine, "lme4")) {
+    return(FALSE)
+  }
+  mf <- object$data
+  if (is.null(mf) || !"(offset)" %in% names(mf)) {
+    return(FALSE)
+  }
+  fixed <- tryCatch(maihda_nobars(object$formula),
+                    error = function(e) object$formula)
+  offset_terms <- tryCatch(attr(stats::terms(fixed), "offset"),
+                           error = function(e) NULL)
+  is.null(offset_terms) || length(offset_terms) == 0
 }
 
 # Individual-level brms predictions, honouring the documented unseen-stratum

@@ -154,6 +154,17 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     sampling_keys <- vapply(models, function(m) {
       maihda_sampling_weight_fingerprint(m)
     }, character(1))
+    # Random-effects grouping structure beyond the stratum: an added, dropped, or
+    # relabelled grouping (e.g. (1 | stratum) vs (1 | stratum) + (1 | site)) changes
+    # the variance decomposition, so the between-stratum VPCs are not directly
+    # comparable even on the same sample and strata. Mirrors the calculate_pcv()
+    # guard, as a warning to keep compare_maihda() flexible.
+    re_struct_keys <- vapply(models, function(m) {
+      bars <- tryCatch(reformulas::findbars(m$formula), error = function(e) NULL)
+      if (is.null(bars)) return(NA_character_)
+      paste(sort(vapply(bars, function(b) paste(deparse(b[[3]]), collapse = ""),
+                        character(1))), collapse = "|")
+    }, character(1))
 
     issues <- character(0)
     if (length(unique(responses)) > 1) {
@@ -178,11 +189,15 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     if (length(unique(stats::na.omit(strata_keys))) > 1) {
       issues <- c(issues, "stratum definitions")
     }
+    if (length(unique(stats::na.omit(re_struct_keys))) > 1) {
+      issues <- c(issues, "random-effects structure")
+    }
     if (length(issues) > 0) {
       # Single aggregated warning even when several aspects differ.
       warning("compare_maihda(): models differ in ", paste(issues, collapse = " and "),
               ". VPCs are only directly comparable across models that share an ",
-              "outcome, family/link, analytic sample, and strata.", call. = FALSE)
+              "outcome, family/link, analytic sample, strata, and random-effects ",
+              "structure.", call. = FALSE)
     }
   }
 
@@ -948,7 +963,8 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
         # weights/subset/offset align with this group's rows.
         if (do_cc) {
           cc <- maihda_cross_classified_formula(
-            fit_formula, decomp_vars, carried_attrs[["strata_autobin_info"]], sub)
+            fit_formula, decomp_vars, carried_attrs[["strata_autobin_info"]], sub,
+            context = context)
           model <- do.call(
             fit_maihda,
             c(list(cc$formula, cc$data, engine = engine, family = family,

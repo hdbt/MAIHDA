@@ -4,7 +4,14 @@
 \alias{make_strata}
 \title{Create Strata from Multiple Variables}
 \usage{
-make_strata(data, vars, sep = " × ", min_n = 1, autobin = TRUE)
+make_strata(
+  data,
+  vars,
+  sep = " × ",
+  min_n = 1,
+  autobin = TRUE,
+  bin_rows = NULL
+)
 }
 \arguments{
 \item{data}{A data frame containing the variables to create strata from.}
@@ -24,6 +31,13 @@ resulting strata are data-dependent (tertile cut-points depend on the sample)
 and a continuous variable placed in the grouping term is usually unintended.
 Set \code{autobin = FALSE} to disable, or bin the variable yourself for
 explicit, reproducible cut-points.}
+
+\item{bin_rows}{Optional logical vector, one element per row of \code{data},
+selecting the rows used to compute the auto-bin cut-points (every row is still
+assigned a stratum). Mainly for internal use by \code{\link{fit_maihda}}, which
+passes the \code{subset} rows so that \code{fit_maihda(..., subset = keep)}
+bins on the same sample as fitting \code{data[keep, ]}. Default \code{NULL}
+uses all rows.}
 }
 \value{
 An object of class \code{maihda_strata}: a list with elements

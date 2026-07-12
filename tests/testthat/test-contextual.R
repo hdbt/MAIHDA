@@ -748,23 +748,26 @@ test_that("stepwise_pcv(context = ) filters context to one shared complete-case 
                tolerance = 1e-6)
 })
 
-test_that("stepwise_pcv omits the AUC/MOR trajectory for a binary contextual fit", {
+test_that("stepwise_pcv reports the AUC/MOR trajectory for a binary contextual fit", {
   set.seed(4242)
   d <- make_context_data(n = 1500, n_sites = 20)
   d$yb <- stats::rbinom(nrow(d), 1, stats::plogis(d$y - mean(d$y)))
   s <- make_strata(d, vars = c("g1", "g2"))
 
-  # No discriminatory-accuracy columns (the AUC would include the context effect),
-  # but the net-of-context PCV trajectory and the context variance are reported.
+  # The discriminatory-accuracy columns ARE reported: maihda_discriminatory_accuracy()'s
+  # headline AUC is the intersectional-scope concordance (excluding the context random
+  # effect) and the MOR is the between-stratum quantity, so both share the scope of the
+  # net-of-context PCV columns -- matching summary.maihda_model(). (Earlier code
+  # suppressed them on the obsolete assumption the AUC included the context effect.)
   outb <- suppressWarnings(suppressMessages(
     stepwise_pcv(s$data, "yb", c("g1", "g2"), family = "binomial",
                  context = "site")))
-  expect_false(any(c("AUC", "Step_AUC", "Total_AUC", "MOR") %in% names(outb)))
+  expect_true(all(c("AUC", "Step_AUC", "Total_AUC", "MOR") %in% names(outb)))
   expect_true("Context_Variance" %in% names(outb))
   expect_true(all(is.finite(outb$Total_PCV)))
 
-  # The same binary stepwise WITHOUT context still carries the AUC trajectory --
-  # confirming the omission is specific to the contextual structure, not the family.
+  # The same binary stepwise WITHOUT context also carries the AUC trajectory --
+  # confirming the AUC is reported regardless of the contextual structure.
   outb0 <- suppressWarnings(suppressMessages(
     stepwise_pcv(s$data, "yb", c("g1", "g2"), family = "binomial")))
   expect_true(all(c("AUC", "MOR") %in% names(outb0)))
