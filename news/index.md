@@ -171,7 +171,13 @@
   calculation had failed. Each now still degrades to `NULL` (the core
   result never breaks) but re-emits the original error as a warning, via
   a shared `maihda_try_optional()` helper, so an explicitly requested
-  output is never dropped without a trace.
+  output is never dropped without a trace. The analysis-level
+  `plot(maihda_analysis, type = "all")` montage — a separate code path
+  from the model-level plot — is now covered too, so its optional
+  null/adjusted/group panels likewise warn on failure rather than
+  silently vanishing (the deliberately mutually-exclusive
+  `group_pcv`/`group_additive_share` pair, where exactly one applies by
+  decomposition mode, stays quiet).
 
 - **WAIC and PSIS-LOO reliability warnings are no longer suppressed.**
   [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
@@ -203,6 +209,112 @@
   inherit the guard through
   [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
 
+- **[`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  no longer drops an external offset from training predictions.** A
+  model fit with `fit_maihda(..., offset = log(exposure))` stores the
+  offset outside the formula. The wrapper always replaced a `NULL`
+  `newdata` with the stored model frame and called
+  `predict(newdata = )`, a path `predict.merMod` evaluates *without* the
+  external offset — so individual predictions, and the discriminatory
+  accuracy, tables, and plots built on them, were computed as if the
+  offset were zero (errors tracking exposure exactly). Training
+  predictions (no `newdata`) now use the engine’s own no-`newdata` path,
+  which retains the offset; a formula
+  [`offset()`](https://rdrr.io/r/stats/offset.html) term still works on
+  `newdata`; and an external offset with `newdata` — which cannot be
+  reconstructed from the stored fit — now errors with a pointer to
+  writing the offset into the formula.
+
+- **`decomposition = "crossed-dimensions"` no longer silently drops a
+  random effect written in the formula.** The crossed-model builder
+  strips the random part and re-adds one intercept per stratum dimension
+  plus the intersection intercept, so an explicit `(1 | site)` in the
+  formula vanished and its variance was misallocated to the strata or
+  residual (the two-model path kept it). Such a term now raises a
+  targeted error pointing to `context =` — which composes with the
+  crossed model — or `decomposition = "two-model"`; a grouping supplied
+  through `context =` is unaffected.
+
+- **Longitudinal time-centering now uses the analytic sample.** The
+  growth-term centering offset was computed from the full input before
+  `subset`, missing-value, and weight filtering (only `ref_time` was
+  later recomputed from the fitted frame). An analytic sample beginning
+  well away from 0 — e.g. a `subset` that drops the early waves — could
+  therefore keep `time_center = 0`, defeating the numerical-stability
+  protection and risking a non-convergent or false-optimum growth fit.
+  The centre is now taken over the rows that survive
+  `subset`/missingness/weights, so `fit_maihda(..., subset = keep)`
+  centres and fits identically to `fit_maihda(data[keep, ])`.
+
+- **Weighted
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)/[`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  no longer let invalid sampling-weight rows drive family detection.**
+  Their shared setup filtered to complete cases but not the
+  finite-positive sampling-weight mask the design-weighted (WeMix)
+  engine applies, so a zero/negative/`Inf`-weight row still fed the
+  automatic binomial/ordinal family detection and inflated `n_obs`. A
+  single zero-weight row carrying an out-of-sample outcome value (e.g. a
+  `2` in an otherwise binary column) could silently flip the analysis to
+  Gaussian. Those rows are now excluded before detection and counting,
+  matching the analytic sample every fit uses.
+
+- **Automatic numeric strata cut-points now respect `subset`.**
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)’s
+  tertile breaks were computed from the full input before
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)’s
+  `subset` was applied, so `fit_maihda(..., subset = keep)` binned on
+  different quantiles — and assigned rows to different strata — than
+  fitting `data[keep, ]` (in one bimodal example the breaks reached the
+  max of a cluster the subset had removed).
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  gains an internal `bin_rows` argument, and
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  passes the `subset` rows, so the cut-points are computed on the sample
+  that is fit (missingness and invalid weights already affect both paths
+  identically).
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  called directly is unchanged.
+
+- **[`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  and
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  now check the non-stratum random-effects structure.** Their
+  comparability checks pinned the outcome, family, sample, weights, and
+  stratum assignment, but not the *other* grouping terms — so a
+  `(1 | stratum)` model and a `(1 | stratum) + (1 | site)` model were
+  accepted, folding a changed variance decomposition into the claimed
+  covariate-attributable PCV.
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  now errors when the models’ random-effects grouping structure differs
+  (or a shared non-stratum grouping is reassigned);
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  adds a matching “random-effects structure” comparability warning.
+
+- **The brms count longitudinal VPC band now propagates residual
+  uncertainty draw-by-draw.** For a Poisson/negative-binomial growth
+  fit, the time-varying level-1 residual was built from posterior-*mean*
+  fixed-effect predictors and a posterior-mean random-effect variance
+  correction — a single value (Poisson) or one varying only through the
+  dispersion draws (NB) — while the between-level variances in the same
+  VPC ratio varied per draw, understating the credible band for low or
+  strongly time-varying counts. The residual is now computed per
+  posterior draw (per-draw linear predictor and per-draw random-effect
+  variance, reusing the helper the cross-sectional count VPC already
+  uses), falling back to the previous plug-in only if the draw axes
+  cannot be aligned. The lme4 engine and non-count families are
+  unchanged.
+
+- **Contextual binary
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  now reports the AUC/MOR trajectory.** It suppressed the
+  discriminatory-accuracy columns for any `context =` fit on the stale
+  assumption that the AUC would include the context effect; the headline
+  AUC is in fact the intersectional-scope concordance that *excludes* it
+  (and the MOR is the between-stratum quantity), so both share the scope
+  of the net-of-context `Step_PCV`/`Total_PCV` columns — matching
+  [`summary.maihda_model()`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md),
+  which was already updated. The columns are no longer dropped.
+
 ### Testing / CI
 
 - **Added a routine `integration-tests` CI job plus regression tests for
@@ -217,6 +329,16 @@
   boundary-null rejection, the crossed-dimensions response-scale VPC
   partition, and the contextual-fit discriminatory accuracy / response
   VPC.
+
+- **Added `test-audit-2026-07-13.R`** pinning the corrected behaviour
+  for the nine defects above: the external-offset prediction path, the
+  crossed-dimensions extra-random-effect rejection, longitudinal
+  centering on the analytic sample, invalid-weight exclusion from
+  weighted family detection, subset-consistent auto-bin cut-points, the
+  PCV random-effects-structure guard, the draw-by-draw brms count VPC
+  residual (brms-gated), and the contextual
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  AUC/MOR trajectory.
 
 ## MAIHDA 0.2.1
 

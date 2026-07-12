@@ -86,7 +86,8 @@ variance is the interaction beyond additive; see <code><a href="maihda.html">mai
 <span>  <span class="va">strata_vars</span>,</span>
 <span>  <span class="va">autobin_info</span>,</span>
 <span>  <span class="va">data</span>,</span>
-<span>  interaction_group <span class="op">=</span> <span class="st">"stratum"</span></span>
+<span>  interaction_group <span class="op">=</span> <span class="st">"stratum"</span>,</span>
+<span>  context <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -116,6 +117,13 @@ column and the dimension columns.</p></dd>
 <dt id="arg-interaction-group">interaction_group<a class="anchor" aria-label="anchor" href="#arg-interaction-group"></a></dt>
 <dd><p>Name of the intersection grouping factor (the column whose
 random intercept captures the interaction). Default <code>"stratum"</code>.</p></dd>
+
+
+<dt id="arg-context">context<a class="anchor" aria-label="anchor" href="#arg-context"></a></dt>
+<dd><p>Optional character vector of higher-level grouping variables that the
+caller re-appends as contextual random intercepts (via <code>context =</code> on the fit).
+Named here only so the extra-random-effect guard treats them as legitimate rather
+than flagging them; the builder itself does not add them.</p></dd>
 
 </dl></div>
     <div class="section level2">

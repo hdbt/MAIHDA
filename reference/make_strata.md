@@ -6,7 +6,14 @@ categorical variables in a dataset.
 ## Usage
 
 ``` r
-make_strata(data, vars, sep = " × ", min_n = 1, autobin = TRUE)
+make_strata(
+  data,
+  vars,
+  sep = " × ",
+  min_n = 1,
+  autobin = TRUE,
+  bin_rows = NULL
+)
 ```
 
 ## Arguments
@@ -39,6 +46,16 @@ make_strata(data, vars, sep = " × ", min_n = 1, autobin = TRUE)
   the sample) and a continuous variable placed in the grouping term is
   usually unintended. Set `autobin = FALSE` to disable, or bin the
   variable yourself for explicit, reproducible cut-points.
+
+- bin_rows:
+
+  Optional logical vector, one element per row of `data`, selecting the
+  rows used to compute the auto-bin cut-points (every row is still
+  assigned a stratum). Mainly for internal use by
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+  which passes the `subset` rows so that
+  `fit_maihda(..., subset = keep)` bins on the same sample as fitting
+  `data[keep, ]`. Default `NULL` uses all rows.
 
 ## Value
 

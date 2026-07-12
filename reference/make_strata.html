@@ -60,7 +60,14 @@ categorical variables in a dataset.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">make_strata</span><span class="op">(</span><span class="va">data</span>, <span class="va">vars</span>, sep <span class="op">=</span> <span class="st">" × "</span>, min_n <span class="op">=</span> <span class="fl">1</span>, autobin <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">make_strata</span><span class="op">(</span></span>
+<span>  <span class="va">data</span>,</span>
+<span>  <span class="va">vars</span>,</span>
+<span>  sep <span class="op">=</span> <span class="st">" × "</span>,</span>
+<span>  min_n <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  autobin <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  bin_rows <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -93,6 +100,15 @@ resulting strata are data-dependent (tertile cut-points depend on the sample)
 and a continuous variable placed in the grouping term is usually unintended.
 Set <code>autobin = FALSE</code> to disable, or bin the variable yourself for
 explicit, reproducible cut-points.</p></dd>
+
+
+<dt id="arg-bin-rows">bin_rows<a class="anchor" aria-label="anchor" href="#arg-bin-rows"></a></dt>
+<dd><p>Optional logical vector, one element per row of <code>data</code>,
+selecting the rows used to compute the auto-bin cut-points (every row is still
+assigned a stratum). Mainly for internal use by <code><a href="fit_maihda.html">fit_maihda</a></code>, which
+passes the <code>subset</code> rows so that <code>fit_maihda(..., subset = keep)</code>
+bins on the same sample as fitting <code>data[keep, ]</code>. Default <code>NULL</code>
+uses all rows.</p></dd>
 
 </dl></div>
     <div class="section level2">

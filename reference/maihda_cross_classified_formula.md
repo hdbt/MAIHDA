@@ -20,7 +20,8 @@ maihda_cross_classified_formula(
   strata_vars,
   autobin_info,
   data,
-  interaction_group = "stratum"
+  interaction_group = "stratum",
+  context = NULL
 )
 ```
 
@@ -49,6 +50,14 @@ maihda_cross_classified_formula(
 
   Name of the intersection grouping factor (the column whose random
   intercept captures the interaction). Default `"stratum"`.
+
+- context:
+
+  Optional character vector of higher-level grouping variables that the
+  caller re-appends as contextual random intercepts (via `context =` on
+  the fit). Named here only so the extra-random-effect guard treats them
+  as legitimate rather than flagging them; the builder itself does not
+  add them.
 
 ## Value
 
