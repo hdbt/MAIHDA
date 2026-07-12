@@ -587,9 +587,11 @@ maihda_normalize_rope <- function(rope) {
 # FALSE/NULL skips; TRUE uses maihda_interactions()'s own default correction (BH);
 # a character p.adjust method name uses that correction. The longitudinal interaction
 # is a trajectory (intercept + slope), for which the scalar per-stratum diagnostic is
-# undefined, so it is skipped. Genuine errors degrade to NULL rather than breaking
-# the fit (the "looks like a null model" warning on the opt-in fit_maihda path is
-# informative and left to surface; maihda() never triggers it).
+# undefined, so it is skipped. A genuine error degrades to NULL (rather than
+# breaking the fit) but is re-emitted as a warning carrying the original message,
+# so a requested-but-failed diagnostic is never dropped silently. (The "looks like
+# a null model" warning on the opt-in fit_maihda path is informative and left to
+# surface; maihda() never triggers it.)
 maihda_attach_interactions <- function(object, interactions, conf_level = 0.95) {
   is_longitudinal <- identical(object$mode, "longitudinal") ||
     !is.null(object$longitudinal_info)
@@ -604,13 +606,13 @@ maihda_attach_interactions <- function(object, interactions, conf_level = 0.95) 
     }
     interactions <- match.arg(interactions, c("none", stats::p.adjust.methods))
   }
-  object$interactions <- tryCatch(
+  object$interactions <- maihda_try_optional(
     if (isTRUE(interactions)) {
       maihda_interactions(object, conf_level = conf_level)
     } else {
       maihda_interactions(object, conf_level = conf_level, adjust = interactions)
     },
-    error = function(e) NULL)
+    "Interaction diagnostics")
   object
 }
 

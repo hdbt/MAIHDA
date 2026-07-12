@@ -648,7 +648,8 @@ test_that("summary(bootstrap = TRUE) is rejected for the wemix engine", {
   m <- suppressMessages(
     fit_maihda(y ~ age + (1 | gender:race:edu), data = d,
                engine = "wemix", sampling_weights = "w"))
-  expect_error(summary(m, bootstrap = TRUE, n_boot = 10), "replicate weights")
+  expect_error(suppressWarnings(summary(m, bootstrap = TRUE, n_boot = 10)),
+               "replicate weights")
 
   # Crossed-dimensions / contextual partitions are undefined for wemix; a model
   # that somehow carries those tags is rejected by summary().

@@ -247,7 +247,8 @@ test_that("summary of a clmm MAIHDA reports the latent-scale VPC and thresholds"
 
   # DA stays binomial-only; bootstrap is rejected with the brms recommendation.
   expect_null(s$discriminatory_accuracy)
-  expect_error(summary(m, bootstrap = TRUE, n_boot = 10), "engine = \"brms\"")
+  expect_error(suppressWarnings(summary(m, bootstrap = TRUE, n_boot = 10)),
+               "engine = \"brms\"")
 
   # A probit fit uses latent residual variance 1.
   mp <- suppressMessages(suppressWarnings(
@@ -397,7 +398,8 @@ test_that("calculate_pcv and maihda() run the two-model ordinal decomposition", 
   pcv <- calculate_pcv(a$model, a$model_adjusted)
   expect_equal(pcv$pcv, a$pcv$pcv)
   expect_error(
-    calculate_pcv(a$model, a$model_adjusted, bootstrap = TRUE, n_boot = 10),
+    suppressWarnings(
+      calculate_pcv(a$model, a$model_adjusted, bootstrap = TRUE, n_boot = 10)),
     "point estimate"
   )
 

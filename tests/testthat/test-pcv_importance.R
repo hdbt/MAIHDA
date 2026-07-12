@@ -229,8 +229,8 @@ test_that("pcv_importance reconstructs auto-binned dimensions like stepwise_pcv"
 test_that("bootstrap intervals cover each contribution and report the draw count", {
   d <- make_imp_data()
   set.seed(515)
-  bs <- suppressMessages(
-    pcv_importance(d, "y", c("gender", "race"), bootstrap = TRUE, n_boot = 40))
+  bs <- suppressWarnings(suppressMessages(
+    pcv_importance(d, "y", c("gender", "race"), bootstrap = TRUE, n_boot = 40)))
 
   expect_true(bs$bootstrap)
   expect_true(all(c("CI_lower", "CI_upper") %in% names(bs$importance)))

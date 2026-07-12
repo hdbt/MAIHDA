@@ -15,6 +15,8 @@
 #'   for the brms, wemix, and ordinal engines the PCV is reported as a point
 #'   estimate and \code{bootstrap = TRUE} is an error (see Details).
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
+#'   A value below about 200 warns that the interval's tail endpoints are unstable
+#'   (the hard minimum is 10).
 #' @param conf_level Confidence level for bootstrap intervals. Default is 0.95.
 #' @param estimation Variance-estimation basis for the cross-model comparison, one of
 #'   \code{"fitted"} (default) or \code{"ML"}. \code{"fitted"} differences each model's
@@ -22,7 +24,9 @@
 #'   \code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
 #'   correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
 #'   \code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
-#'   Details for the finite-sample tradeoff.
+#'   Details for the finite-sample tradeoff. When \code{"ML"} pushes the adjusted
+#'   model onto the singularity boundary, the function warns that the resulting PCV
+#'   near 1 is a boundary artefact rather than a substantive result.
 #'
 #' @return A list containing:
 #'   \item{pcv}{The estimated proportional change in variance}
@@ -201,6 +205,23 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   # with stepwise_pcv() and pcv_importance()).
   if (maihda_pcv_null_at_boundary(model1)) {
     maihda_pcv_degenerate_null_stop("model1")
+  }
+
+  # A singular ADJUSTED fit -- model2's between-stratum variance on the boundary --
+  # makes the ratio collapse toward 1 ("covariates explain ~100% of the between-
+  # stratum variance") when the truth is that the adjusted model could not estimate
+  # any between-stratum variance at all. The ML refit (estimation = "ML") is prone to
+  # nudging a small-but-positive REML variance onto the boundary (as it does on the
+  # bundled data), so warn there rather than let the degenerate PCV read as a
+  # substantive result. model1 at the boundary is a hard stop above; model2 at the
+  # boundary still yields a numerically valid ratio, hence a warning. (Despite its
+  # name maihda_pcv_null_at_boundary() is a general stratum-boundary test.)
+  if (identical(estimation, "ML") && maihda_pcv_null_at_boundary(model2)) {
+    warning("Between-stratum variance in model2 (the adjusted model) is at the zero ",
+            "boundary after the ML refit (a singular fit), so a PCV near 1 is a ",
+            "boundary artefact, not evidence that covariates explain all between-",
+            "stratum variance. Compare against the default estimation = \"fitted\" ",
+            "(REML).", call. = FALSE)
   }
 
   # Calculate PCV
@@ -548,8 +569,8 @@ bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
          call. = FALSE)
   }
 
-  # Initialise to NA so iterations whose refit() throws — and never reach the
-  # assignment inside the tryCatch body — stay NA rather than the numeric() default of 0.
+  # Initialise to NA so iterations whose refit() throws -- and never reach the
+  # assignment inside the tryCatch body -- stay NA rather than the numeric() default of 0.
   # The error handler runs in its own scope and cannot write back to this vector,
   # so the initial value is what survives a failure.
   pcv_boot <- rep(NA_real_, n_boot)

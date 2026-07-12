@@ -225,20 +225,22 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
 
     plots$vpc <- plot_vpc(summary_obj)
 
-    # Try obs_vs_shrunken
+    # Try obs_vs_shrunken. A panel that cannot be built for this model degrades
+    # to NULL (the montage still prints the rest) but warns with the underlying
+    # reason, so a silently missing panel is never mistaken for a complete set.
     if ("stratum" %in% names(object$data)) {
-      plots$obs_vs_shrunken <- tryCatch(plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids, only_flagged = only_flagged), error = function(e) NULL)
+      plots$obs_vs_shrunken <- maihda_try_optional(plot_obs_vs_shrunken(object, summary_obj, highlight = highlight_ids, only_flagged = only_flagged), "Plot panel 'obs_vs_shrunken'")
     }
 
-    plots$predicted <- tryCatch(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select, order_by = order_by), error = function(e) NULL)
+    plots$predicted <- maihda_try_optional(plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select, order_by = order_by), "Plot panel 'predicted'")
 
     top_n_labels <- if (is.null(n_strata)) 10 else min(10, n_strata)
-    plots$effect_decomp <- tryCatch(plot_effect_decomposition(object, summary_obj, top_n_labels, highlight = highlight_ids), error = function(e) NULL)
+    plots$effect_decomp <- maihda_try_optional(plot_effect_decomposition(object, summary_obj, top_n_labels, highlight = highlight_ids), "Plot panel 'effect_decomp'")
 
-    plots$prediction_deviation <- tryCatch(plot_prediction_deviation_panels(object, type = "auto"), error = function(e) NULL)
+    plots$prediction_deviation <- maihda_try_optional(plot_prediction_deviation_panels(object, type = "auto"), "Plot panel 'prediction_deviation'")
 
     if (!is.null(object$context_info)) {
-      plots$context_vpc <- tryCatch(plot_context_vpc(summary_obj), error = function(e) NULL)
+      plots$context_vpc <- maihda_try_optional(plot_context_vpc(summary_obj), "Plot panel 'context_vpc'")
     }
 
     # print them

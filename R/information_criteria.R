@@ -168,6 +168,29 @@ maihda_ic <- function(..., model_names = NULL) {
   out
 }
 
+# Evaluate a brms IC call (waic/loo) keeping brms's progress MESSAGES quiet, but
+# CAPTURING its warnings and re-emitting them as a single branded summary. brms's
+# own reliability warnings -- high Pareto-k for PSIS-LOO, low effective sample
+# size, large p_waic -- are exactly the signal that a criterion (and therefore any
+# model ranking built on it) may be untrustworthy, so they must be surfaced, not
+# swallowed. `what` names the criterion for the message.
+maihda_ic_quiet_but_warn <- function(expr, what) {
+  warns <- character(0)
+  val <- withCallingHandlers(
+    suppressMessages(expr),
+    warning = function(w) {
+      warns <<- c(warns, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  if (length(warns) > 0) {
+    warning(sprintf("%s reliability diagnostics flagged this fit: %s", what,
+                    paste(unique(trimws(warns)), collapse = " | ")),
+            call. = FALSE)
+  }
+  val
+}
+
 #' Information criteria for a single MAIHDA model
 #'
 #' Internal worker for \code{\link{maihda_ic}}: returns a one-row data frame of the
@@ -229,20 +252,21 @@ maihda_ic_one <- function(model, ml = FALSE) {
     row$estimator <- "ML"
 
   } else if (inherits(fm, "brmsfit")) {
-    # Bayesian analogues: WAIC and the leave-one-out IC (LOOIC). brms chatters
-    # (progress messages, Pareto-k warnings); keep it quiet here.
+    # Bayesian analogues: WAIC and the leave-one-out IC (LOOIC). brms emits
+    # progress messages (kept quiet) alongside genuine reliability warnings (high
+    # Pareto-k, low ESS); the latter are surfaced via maihda_ic_quiet_but_warn
+    # rather than suppressed, so a criterion is never reported as if reliable when
+    # its own diagnostics say otherwise.
     row$estimator <- "Bayesian"
     if (requireNamespace("brms", quietly = TRUE)) {
-      row$WAIC <- tryCatch(
-        suppressWarnings(suppressMessages({
-          w <- brms::waic(fm)
-          as.numeric(w$estimates["waic", "Estimate"])
-        })), error = function(e) na_real)
-      row$LOOIC <- tryCatch(
-        suppressWarnings(suppressMessages({
-          l <- brms::loo(fm)
-          as.numeric(l$estimates["looic", "Estimate"])
-        })), error = function(e) na_real)
+      row$WAIC <- tryCatch({
+        w <- maihda_ic_quiet_but_warn(brms::waic(fm), "WAIC")
+        as.numeric(w$estimates["waic", "Estimate"])
+      }, error = function(e) na_real)
+      row$LOOIC <- tryCatch({
+        l <- maihda_ic_quiet_but_warn(brms::loo(fm), "PSIS-LOO")
+        as.numeric(l$estimates["looic", "Estimate"])
+      }, error = function(e) na_real)
     }
 
   } else if (inherits(fm, "WeMixResults")) {

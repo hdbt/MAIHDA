@@ -26,7 +26,9 @@ parametric bootstrap relies on lme4's \code{simulate()}/\code{refit()}, so
 for the brms, wemix, and ordinal engines the PCV is reported as a point
 estimate and \code{bootstrap = TRUE} is an error (see Details).}
 
-\item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.}
+\item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
+A value below about 200 warns that the interval's tail endpoints are unstable
+(the hard minimum is 10).}
 
 \item{conf_level}{Confidence level for bootstrap intervals. Default is 0.95.}
 
@@ -36,7 +38,9 @@ own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
 \code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
 correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
 \code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
-Details for the finite-sample tradeoff.}
+Details for the finite-sample tradeoff. When \code{"ML"} pushes the adjusted
+model onto the singularity boundary, the function warns that the resulting PCV
+near 1 is a boundary artefact rather than a substantive result.}
 }
 \value{
 See \code{\link{calculate_pcv}}.

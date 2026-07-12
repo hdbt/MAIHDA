@@ -172,7 +172,7 @@ make_strata <- function(data, vars, sep = " \u00d7 ", min_n = 1, autobin = TRUE)
   valid_strata <- unique_strata[valid_idx, , drop = FALSE]
   # Labels are built per column via as.character() (maihda_paste_label_rows), not
   # apply(): apply()'s as.matrix() coercion format()-pads numeric columns in a
-  # mixed-type frame, producing labels like "m ×  1" next to "m × 10".
+  # mixed-type frame, producing labels like "m x  1" next to "m x 10".
   labels <- if (nrow(valid_strata) > 0) {
     maihda_paste_label_rows(valid_strata, sep)
   } else {

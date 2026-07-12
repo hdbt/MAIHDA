@@ -65,8 +65,10 @@ test_that("calculate_pcv works with bootstrap", {
                        data = data,
                        engine = "lme4")
   
-  # Calculate PCV with bootstrap (small number for testing)
-  pcv_result <- calculate_pcv(model1, model2, bootstrap = TRUE, n_boot = 50)
+  # Calculate PCV with bootstrap (small number for testing; the low-n_boot
+  # stability warning is expected and suppressed)
+  pcv_result <- suppressWarnings(
+    calculate_pcv(model1, model2, bootstrap = TRUE, n_boot = 50))
   
   # Check structure
   expect_true(inherits(pcv_result, "pcv_result"))

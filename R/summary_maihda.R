@@ -429,12 +429,13 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
                        error = function(e) NA_character_)
   if (is.null(cc) && is.null(lng) &&
       isTRUE(fam_name %in% c("binomial", "bernoulli"))) {
-    discriminatory_accuracy <- tryCatch(
-      maihda_discriminatory_accuracy(object), error = function(e) NULL)
+    discriminatory_accuracy <- maihda_try_optional(
+      maihda_discriminatory_accuracy(object),
+      "Discriminatory accuracy (AUC/MOR)")
     if (isTRUE(response_vpc) && identical(engine, "lme4") &&
         identical(fam_name, "binomial")) {
-      vpc_response <- tryCatch(
-        maihda_vpc_response(object, seed = seed), error = function(e) NULL)
+      vpc_response <- maihda_try_optional(
+        maihda_vpc_response(object, seed = seed), "Response-scale VPC")
     }
   }
 
@@ -958,8 +959,8 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level) {
 #' @keywords internal
 #' @importFrom lme4 lmer glmer VarCorr
 bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
-  # Initialise to NA so iterations whose refit() throws — and never reach the
-  # assignment inside the tryCatch body — stay NA rather than the numeric() default of 0.
+  # Initialise to NA so iterations whose refit() throws -- and never reach the
+  # assignment inside the tryCatch body -- stay NA rather than the numeric() default of 0.
   # The error handler runs in its own scope and cannot write back to this vector,
   # so the initial value is what survives a failure.
   vpc_boot <- rep(NA_real_, n_boot)

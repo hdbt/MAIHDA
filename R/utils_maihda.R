@@ -178,7 +178,13 @@ maihda_fit_diagnostics <- function(model) {
           as.integer(n_div)))
       }
       diagnostics$messages <- msgs
-      diagnostics$converged <- length(msgs) == 0
+      # "No warning" only means "converged" when a diagnostic was actually
+      # available to raise one. A one-chain fit, a variational/approximate
+      # algorithm, or an unusual object can leave BOTH the maximum Rhat and the
+      # divergence count non-finite; there is then no evidence either way, so
+      # leave converged = NA rather than silently reporting a clean fit.
+      any_diag <- is.finite(max_rhat) || is.finite(n_div)
+      diagnostics$converged <- if (any_diag) length(msgs) == 0 else NA
     }
   }
 
@@ -224,6 +230,23 @@ maihda_print_fit_diagnostics <- function(diagnostics) {
   cat(pal$warn(paste0("  ", diag_lines)), sep = "\n")
   cat("\n\n")
   invisible(NULL)
+}
+
+# Run `expr`, returning its value; on error return NULL but re-emit the failure
+# as a warning carrying the ORIGINAL condition's message, so an output a caller
+# asked for is never dropped without a trace. `what` names the output for the
+# message. Used for the optional summary / plot companions that must not break
+# the core result but also must not fail silently (a bare tryCatch(., NULL)
+# hides the reason a requested calculation is missing).
+maihda_try_optional <- function(expr, what) {
+  tryCatch(
+    expr,
+    error = function(e) {
+      warning(sprintf("%s could not be computed and was omitted: %s",
+                      what, conditionMessage(e)), call. = FALSE)
+      NULL
+    }
+  )
 }
 
 maihda_validate_conf_level <- function(conf_level) {
@@ -285,7 +308,25 @@ maihda_validate_bootstrap_args <- function(n_boot, conf_level) {
          call. = FALSE)
   }
 
-  list(n_boot = as.integer(n_boot), conf_level = maihda_validate_conf_level(conf_level))
+  conf_level <- maihda_validate_conf_level(conf_level)
+
+  # The hard floor above (10) exists so the test suite can bootstrap quickly; the
+  # default is 1000. Between the two, a percentile interval's tail endpoints are
+  # order statistics estimated from very few draws, so they are unstable -- warn
+  # (without blocking) when n_boot is well below the count needed for a dependable
+  # 2.5/97.5% interval. Published guidance uses hundreds to ~1000+ replications.
+  rec_boot <- 200L
+  if (n_boot < rec_boot) {
+    warning(sprintf(paste0("n_boot = %d is low for a %g%% percentile interval: the ",
+                           "tail endpoints are order statistics from few draws and are ",
+                           "unstable below ~%d replications. Increase n_boot (the ",
+                           "default, 1000, is dependable) or read the interval as ",
+                           "indicative only."),
+                    as.integer(n_boot), 100 * conf_level, rec_boot),
+            call. = FALSE)
+  }
+
+  list(n_boot = as.integer(n_boot), conf_level = conf_level)
 }
 
 maihda_quote_name <- function(name) {

@@ -745,7 +745,7 @@ test_that("a VPC-trajectory bootstrap survives singular bootstrap refits", {
   # On a boundary fit many parametric-bootstrap refits are themselves singular;
   # the per-draw tryCatch must keep the reference-time CI finite regardless.
   set.seed(101)
-  s <- summary(m_sing, bootstrap = TRUE, n_boot = 20)
+  s <- suppressWarnings(summary(m_sing, bootstrap = TRUE, n_boot = 20))
   expect_true(is.finite(s$vpc$ci_lower) && is.finite(s$vpc$ci_upper))
   expect_lte(s$vpc$ci_lower, s$vpc$ci_upper)
 })
