@@ -80,11 +80,16 @@ failures. `weighted` is `TRUE` only when the AUC is a genuinely weighted
 design-weighted fit (each observation contributes its sampling weight as
 case/control mass, estimating the population discriminatory accuracy);
 `n_case` / `n_control` stay unweighted observation counts. `weight_type`
-is `NULL` for an unweighted AUC. **lme4 precision weights** (non-integer
-`weights=` on a Bernoulli fit) scale likelihood/dispersion, not
-population frequency, so they carry no population-AUC interpretation:
-the AUC ignores them and reports the ordinary observation-level
-concordance (`weighted = FALSE`), with
+is `NULL` for an unweighted AUC. An **aggregated-binomial** fit (an lme4
+`cbind(success, failure)` or a brms `y | trials(n)` model) is reported
+`weighted = FALSE` with `weight_type = NULL`: its count-weighted AUC
+equals the ordinary individual-level concordance over the implied 0/1
+data (the trial counts are real observations, not sampling weights), so
+it is not a design-weighted population quantity. **lme4 precision
+weights** (non-integer `weights=` on a Bernoulli fit) scale
+likelihood/dispersion, not population frequency, so they carry no
+population-AUC interpretation: the AUC ignores them and reports the
+ordinary observation-level concordance (`weighted = FALSE`), with
 `precision_weights_ignored = TRUE` flagging that such weights were
 present.
 

@@ -206,7 +206,13 @@ full and intersectional scopes coincide and only <code>auc</code> is reported
   <code>"sampling"</code> for a design-weighted fit (each observation contributes its
   sampling weight as case/control mass, estimating the population discriminatory
   accuracy); <code>n_case</code> / <code>n_control</code> stay unweighted observation counts.
-  <code>weight_type</code> is <code>NULL</code> for an unweighted AUC.
+  <code>weight_type</code> is <code>NULL</code> for an unweighted AUC. An
+  <strong>aggregated-binomial</strong> fit (an lme4 <code>cbind(success, failure)</code> or a
+  brms <code>y | trials(n)</code> model) is reported <code>weighted = FALSE</code> with
+  <code>weight_type = NULL</code>: its count-weighted AUC equals the ordinary
+  individual-level concordance over the implied 0/1 data (the trial counts are
+  real observations, not sampling weights), so it is not a design-weighted
+  population quantity.
   <strong>lme4 precision weights</strong> (non-integer <code>weights=</code> on a Bernoulli fit)
   scale likelihood/dispersion, not population frequency, so they carry no
   population-AUC interpretation: the AUC ignores them and reports the ordinary
