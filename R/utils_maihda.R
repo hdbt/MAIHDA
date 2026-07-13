@@ -528,11 +528,18 @@ maihda_sampling_weight_mask <- function(w) {
 
 # Logical keep-mask over `n` rows reproducing the row selection lme4/brms apply
 # before fitting: an (already-evaluated) `subset` value -- logical (recycled,
-# NA -> drop), positive/negative numeric indices, or character row names -- and
-# the removal of rows whose (already-evaluated) prior `weights` is NA. Subset and
-# weights arrive as VALUES (resolved with the data mask in fit_maihda) so this
+# NA -> drop), positive/negative numeric indices, or character row names -- the
+# removal of rows whose (already-evaluated) prior `weights` is NA, and the removal
+# of rows whose (already-evaluated) external `offset` is NA. lme4 puts the offset in
+# its model frame, so na.omit drops offset-NA rows exactly as it drops weight-NA and
+# response/covariate-NA rows; folding the offset in here keeps binary/ordinal family
+# detection, 0/1 recoding, strata auto-binning and longitudinal centering keyed off
+# the SAME analytic sample the engine fits. Without it an offset-NA row carrying an
+# out-of-sample outcome value flips the family (e.g. gaussian instead of binomial),
+# or an out-of-range occasion mis-anchors the growth time-centering. Subset, weights
+# and offset arrive as VALUES (resolved with the data mask in fit_maihda) so this
 # helper never needs to evaluate user expressions.
-maihda_row_mask <- function(data, subset = NULL, weights = NULL) {
+maihda_row_mask <- function(data, subset = NULL, weights = NULL, offset = NULL) {
   n <- nrow(data)
   keep <- rep(TRUE, n)
   if (!is.null(subset)) {
@@ -551,6 +558,9 @@ maihda_row_mask <- function(data, subset = NULL, weights = NULL) {
   }
   if (!is.null(weights) && length(weights) == n) {
     keep <- keep & !is.na(weights)
+  }
+  if (!is.null(offset) && length(offset) == n) {
+    keep <- keep & !is.na(offset)
   }
   keep
 }
@@ -602,8 +612,8 @@ maihda_normalize_subset <- function(subset, n) {
 # log(x) of a non-positive value), subsetting, and weight-based row removal.
 # Returns NULL when the frame cannot be built (callers fall back to a raw check).
 maihda_analytic_model_frame <- function(formula, data, subset = NULL,
-                                        weights = NULL) {
-  keep <- maihda_row_mask(data, subset = subset, weights = weights)
+                                        weights = NULL, offset = NULL) {
+  keep <- maihda_row_mask(data, subset = subset, weights = weights, offset = offset)
   data <- data[keep, , drop = FALSE]
 
   fr_form <- tryCatch(reformulas::subbars(formula), error = function(e) NULL)
@@ -628,8 +638,9 @@ maihda_analytic_model_frame <- function(formula, data, subset = NULL,
 # transformed term (e.g. log(x) of x <= 0), so the stored frame and the engine's
 # fitted rows could disagree. Returns NULL when the frame cannot be built (callers
 # fall back to a raw complete.cases()).
-maihda_analytic_keep_mask <- function(formula, data, subset = NULL, weights = NULL) {
-  premask <- maihda_row_mask(data, subset = subset, weights = weights)
+maihda_analytic_keep_mask <- function(formula, data, subset = NULL, weights = NULL,
+                                      offset = NULL) {
+  premask <- maihda_row_mask(data, subset = subset, weights = weights, offset = offset)
   fr_form <- tryCatch(reformulas::subbars(formula), error = function(e) NULL)
   if (is.null(fr_form)) {
     return(NULL)
@@ -655,16 +666,17 @@ maihda_analytic_keep_mask <- function(formula, data, subset = NULL, weights = NU
 }
 
 # The model response over the analytic sample (post-transformation, post-NA,
-# post-subset and post-weight-NA). Only plain-symbol responses qualify as a
-# Bernoulli candidate, so a transformed or aggregated response (log(y),
-# cbind(s, f), `y | trials(n)`) yields NULL -- "not a single two-level response".
+# post-subset, post-weight-NA and post-offset-NA). Only plain-symbol responses
+# qualify as a Bernoulli candidate, so a transformed or aggregated response
+# (log(y), cbind(s, f), `y | trials(n)`) yields NULL -- "not a single two-level
+# response".
 maihda_analytic_response <- function(formula, data, subset = NULL,
-                                     weights = NULL) {
+                                     weights = NULL, offset = NULL) {
   if (length(formula) != 3L || !is.symbol(formula[[2]])) {
     return(NULL)
   }
   fr <- maihda_analytic_model_frame(formula, data, subset = subset,
-                                    weights = weights)
+                                    weights = weights, offset = offset)
   if (is.null(fr)) {
     return(NULL)
   }
@@ -679,7 +691,7 @@ maihda_recode_to_01 <- function(x, levels_2) {
 }
 
 maihda_prepare_binomial_response <- function(data, formula, subset = NULL,
-                                             weights = NULL) {
+                                             weights = NULL, offset = NULL) {
   response <- formula[[2]]
   if (!is.symbol(response)) {
     return(data)
@@ -687,13 +699,14 @@ maihda_prepare_binomial_response <- function(data, formula, subset = NULL,
 
   outcome <- as.character(response)
   # Recode against the analytic sample lme4/glmer actually fits (transformations
-  # applied; rows excluded by `subset`, a missing weight, or missingness dropped),
-  # matching the binary detection in fit_maihda(). A character/factor outcome whose
+  # applied; rows excluded by `subset`, a missing weight, a missing offset, or
+  # missingness dropped), matching the binary detection in fit_maihda(). A
+  # character/factor outcome whose
   # third value appears only on excluded rows is still recoded to 0/1; the
   # out-of-sample value becomes NA (and is dropped) rather than left as a stray
   # level that glmer() would reject.
   resp <- maihda_analytic_response(formula, data, subset = subset,
-                                   weights = weights)
+                                   weights = weights, offset = offset)
   if (!outcome %in% names(data) || is.null(resp) ||
       !maihda_is_binary_vector(resp)) {
     return(data)
@@ -737,9 +750,9 @@ maihda_prepare_binomial_response <- function(data, formula, subset = NULL,
 # removal of rows with a missing prior weight -- so a response that is 0/1 only
 # once excluded rows are removed is still recognised as Bernoulli.
 maihda_response_is_binary <- function(formula, data, subset = NULL,
-                                      weights = NULL) {
+                                      weights = NULL, offset = NULL) {
   resp <- maihda_analytic_response(formula, data, subset = subset,
-                                   weights = weights)
+                                   weights = weights, offset = offset)
   if (is.null(resp)) {
     return(FALSE)
   }
@@ -752,9 +765,9 @@ maihda_response_is_binary <- function(formula, data, subset = NULL,
 # factor is a binomial model). An unordered factor stays FALSE: its level order
 # is not declared meaningful, so silently treating it as ordinal would be wrong.
 maihda_response_is_ordinal <- function(formula, data, subset = NULL,
-                                       weights = NULL) {
+                                       weights = NULL, offset = NULL) {
   resp <- maihda_analytic_response(formula, data, subset = subset,
-                                   weights = weights)
+                                   weights = weights, offset = offset)
   if (is.null(resp)) {
     return(FALSE)
   }

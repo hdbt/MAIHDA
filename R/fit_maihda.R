@@ -284,6 +284,16 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   dot_vals <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
   subset_value <- dot_vals[["subset"]]
   weights_value <- dot_vals[["weights"]]
+  # The external offset= (lme4's only NA-dropping fitting argument besides weights)
+  # is forwarded to the engine below, where lme4 puts it in its model frame and
+  # na.omit drops offset-NA rows. Extract it here so every analytic mask -- family
+  # detection, 0/1 recoding, strata auto-binning, longitudinal validation/centering
+  # -- is keyed off the SAME rows the engine fits: an offset-NA row carrying an
+  # out-of-sample outcome value would otherwise flip the auto-detected family, and an
+  # out-of-range occasion would mis-anchor the growth time-centering. Only the lme4
+  # engine accepts an offset (wemix/brms/ordinal reject it above/below), so this is
+  # NULL on every other path.
+  offset_value <- dot_vals[["offset"]]
 
   if (!is.null(sampling_weights) && "weights" %in% names(dot_vals)) {
     stop("Supply either 'sampling_weights' (design weights) or 'weights' ",
@@ -364,14 +374,14 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   if (missing(family)) {
     is_binary <- tryCatch(
       maihda_response_is_binary(formula, data, subset = subset_value,
-                                weights = detect_weights),
+                                weights = detect_weights, offset = offset_value),
       error = function(e) FALSE)
     if (isTRUE(is_binary)) {
       warning("The outcome variable appears to be binary. Automatically switching to family = 'binomial'. To fit a Linear Probability Model, explicitly specify family = 'gaussian'.", call. = FALSE)
       family <- "binomial"
     } else if (isTRUE(tryCatch(
       maihda_response_is_ordinal(formula, data, subset = subset_value,
-                                 weights = detect_weights),
+                                 weights = detect_weights, offset = offset_value),
       error = function(e) FALSE))) {
       warning("The outcome variable is an ordered factor. Automatically ",
               "switching to the cumulative (ordinal) model, family = 'ordinal'. ",
@@ -457,10 +467,11 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # cannot be built, in which case fall back to the subset-only mask.
   strata_bin_rows <- tryCatch(
     maihda_analytic_keep_mask(formula, data, subset = subset_value,
-                              weights = detect_weights),
+                              weights = detect_weights, offset = offset_value),
     error = function(e) NULL)
-  if (is.null(strata_bin_rows) && !is.null(subset_value)) {
-    strata_bin_rows <- maihda_row_mask(data, subset = subset_value)
+  if (is.null(strata_bin_rows) && (!is.null(subset_value) || !is.null(offset_value))) {
+    strata_bin_rows <- maihda_row_mask(data, subset = subset_value,
+                                       offset = offset_value)
   }
   strata_res <- maihda_resolve_strata_formula(formula, data, autobin,
                                               bin_rows = strata_bin_rows)
@@ -503,11 +514,12 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       # sees -- mis-anchoring the centre and spuriously failing the cross-stratum id
       # check on an excluded (id, stratum) pairing.
       k <- maihda_analytic_keep_mask(formula, data, subset = subset_value,
-                                     weights = weights_value)
+                                     weights = weights_value, offset = offset_value)
       if (is.null(k)) {
         # Model frame could not be built: fall back to the raw check over the
         # formula's source variables (id/time are appended below either way).
-        k <- maihda_row_mask(data, subset = subset_value, weights = weights_value)
+        k <- maihda_row_mask(data, subset = subset_value, weights = weights_value,
+                             offset = offset_value)
         fvars <- intersect(all.vars(formula), names(data))
         if (length(fvars) > 0) {
           k <- k & stats::complete.cases(data[, fvars, drop = FALSE])
@@ -631,11 +643,12 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   is_binomial_family <- family$family %in% c("binomial", "quasibinomial")
   response_is_binary <- is_binomial_family &&
     maihda_response_is_binary(formula, data, subset = subset_value,
-                              weights = detect_weights)
+                              weights = detect_weights, offset = offset_value)
   response_recoding <- NULL
   if (response_is_binary) {
     data <- maihda_prepare_binomial_response(data, formula, subset = subset_value,
-                                             weights = detect_weights)
+                                             weights = detect_weights,
+                                             offset = offset_value)
     # Mapping of original outcome levels to 0/1 (which level is the modeled event),
     # captured so it is inspectable on the returned model object.
     response_recoding <- attr(data, "response_recoding")

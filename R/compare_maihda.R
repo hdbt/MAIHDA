@@ -497,8 +497,15 @@ plot_comparison <- function(comparison_df) {
 #'   is the ML variance, differing from \code{var_between_adjusted} only by the small
 #'   REML-vs-ML gap in the null variance; the \code{_ml} suffix is retained for
 #'   output-schema continuity). All three are
-#'   \code{NA} for a group whose adjusted fit failed, and the columns are
-#'   omitted entirely when the strata have a single dimension. When \code{context}
+#'   \code{NA} for a group whose adjusted fit failed. A fourth column,
+#'   \code{pcv_status}, records the decomposition outcome per group:
+#'   \code{"ok"} when the PCV was computed, \code{"failed"} when the adjusted model
+#'   or PCV errored (\code{pcv} is then \code{NA} and the group is named in a
+#'   warning -- the group's own \code{status} can still be \code{"ok"} because its
+#'   null VPC model succeeded), and \code{"singular"} when the adjusted fit was
+#'   singular and the PCV saturated near 100\% (a boundary artifact, also warned).
+#'   These four columns are omitted entirely when the strata have a single
+#'   dimension. When \code{context}
 #'   is supplied, two further columns report each group's contextual partition:
 #'   \code{var_context} (the between-context variance, summed over contexts) and
 #'   \code{vpc_context} (the contexts' share of the group's unexplained variance);
@@ -885,6 +892,16 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # context variance, aggregated into a single weak-identification warning below.
   context_per <- list()
   weak_context_cells <- character(0)
+  # Per-group PCV decomposition (two-model mode) can fail even when the group's null
+  # VPC model succeeds -- e.g. a stratum dimension that is constant within the group
+  # makes the adjusted model's main effect a one-level factor lmer rejects. Those
+  # failures must not be silent: collect the reason per group (pcv_failed_groups) for
+  # an aggregated warning, and separately collect groups whose adjusted fit is singular
+  # and so saturates the PCV near 100% (pcv_singular_groups) -- a decomposition
+  # artifact, not real attenuation. Each affected group's pcv_status column records
+  # which happened.
+  pcv_failed_groups <- list()
+  pcv_singular_groups <- character(0)
 
   for (gi in seq_along(group_levels)) {
     g <- group_levels[gi]
@@ -918,7 +935,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       vpc = NA_real_, var_between = NA_real_, var_other = NA_real_,
       var_residual = NA_real_,
       pcv = NA_real_, var_between_adjusted = NA_real_,
-      var_between_adjusted_ml = NA_real_,
+      var_between_adjusted_ml = NA_real_, pcv_status = NA_character_,
       var_additive = NA_real_, var_interaction = NA_real_,
       additive_share = NA_real_, interaction_share = NA_real_,
       var_context = NA_real_, vpc_context = NA_real_,
@@ -1065,6 +1082,14 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                                       fit_obj$model$strata_autobin_info,
                                       fit_obj$model$original_data)
         if (!is.null(af)) {
+          # Optimistic default, overwritten to "failed"/"singular" below. The adjusted
+          # fit and calculate_pcv() are the only steps here that can fail while the
+          # group's null VPC model already succeeded, so isolate their error, record
+          # it, and surface it: a NULL pcv_obj must not read as a successful (but
+          # empty) decomposition with status still "ok".
+          row$pcv_status <- "ok"
+          adj_model <- NULL
+          pcv_err <- NULL
           pcv_obj <- tryCatch({
             adj_model <- do.call(
               fit_maihda,
@@ -1073,7 +1098,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                 slice_dots_for_group(idx))
             )
             calculate_pcv(fit_obj$model, adj_model, estimation = estimation)
-          }, error = function(e) NULL)
+          }, error = function(e) { pcv_err <<- conditionMessage(e); NULL })
           if (!is.null(pcv_obj)) {
             row$pcv <- pcv_obj$pcv
             # Report the adjusted between-stratum variance on the SAME scale as
@@ -1095,6 +1120,26 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
             # only by any REML-vs-ML gap in the null variance (zero under "fitted"). The
             # "_ml" suffix is retained for output-schema continuity.
             row$var_between_adjusted_ml <- pcv_obj$var_model2
+            # A singular adjusted fit pins the adjusted between-stratum variance at the
+            # boundary (~0), so the PCV saturates near 100% -- a decomposition artifact,
+            # not genuine attenuation. Flag it (separately from an outright failure) so
+            # the near-100% value is read with the right caveat.
+            adj_singular <- isTRUE(tryCatch(adj_model$diagnostics$singular,
+                                            error = function(e) FALSE))
+            if (adj_singular && is.finite(pcv_obj$pcv) && pcv_obj$pcv >= 0.999) {
+              row$pcv_status <- "singular"
+              pcv_singular_groups <- c(pcv_singular_groups, g)
+            }
+          } else {
+            # Adjusted fit or PCV computation failed: pcv stays NA, but record WHY and
+            # mark this group's decomposition failed, so it is not reported as a silent
+            # success. An aggregated warning naming the groups is raised after the loop.
+            row$pcv_status <- "failed"
+            pcv_failed_groups[[g]] <- if (is.null(pcv_err) || !nzchar(pcv_err)) {
+              "unknown error"
+            } else {
+              pcv_err
+            }
           }
         }
       }
@@ -1168,6 +1213,33 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
             "partition with caution or use engine = \"brms\".", call. = FALSE)
   }
 
+  # Aggregated warning for per-group PCV decompositions that FAILED even though the
+  # group's null VPC model succeeded (pcv is NA, pcv_status = "failed"). Without this
+  # the missing PCV is silent and the row still reads status = "ok"; name the groups
+  # and their error so an incomplete decomposition is never mistaken for a successful
+  # one. (A common cause: a stratum dimension constant within the group, whose adjusted
+  # main effect is a one-level factor lmer rejects.)
+  if (length(pcv_failed_groups) > 0) {
+    warning("compare_maihda_groups(): the per-group PCV decomposition failed for ",
+            "group(s) ",
+            paste(sprintf("%s (%s)", names(pcv_failed_groups),
+                          unlist(pcv_failed_groups)), collapse = "; "),
+            ". Their null VPC model succeeded (status = \"ok\") but the adjusted ",
+            "model or PCV did not, so pcv is NA and pcv_status = \"failed\". A stratum ",
+            "dimension that is constant within a group is the usual cause.",
+            call. = FALSE)
+  }
+  # Aggregated warning for adjusted fits that were singular and so saturated the PCV
+  # near 100% (pcv_status = "singular") -- a boundary artifact, not real attenuation.
+  if (length(pcv_singular_groups) > 0) {
+    warning("compare_maihda_groups(): the adjusted model was singular for group(s) ",
+            paste(pcv_singular_groups, collapse = ", "),
+            ", so the adjusted between-stratum variance sits at the boundary (~0) and ",
+            "the PCV saturates near 100% (pcv_status = \"singular\"). Read those ",
+            "groups' PCV with caution -- a near-complete attenuation can reflect a ",
+            "boundary fit as well as genuinely additive strata.", call. = FALSE)
+  }
+
   out <- do.call(rbind, rows)
   # Drop the interval columns only when no group supplied one (e.g. unbootstrapped
   # lme4); brms groups carry a posterior credible interval without bootstrap.
@@ -1184,6 +1256,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     out$pcv <- NULL
     out$var_between_adjusted <- NULL
     out$var_between_adjusted_ml <- NULL
+    out$pcv_status <- NULL
   }
   if (!do_cc) {
     out$var_additive <- NULL

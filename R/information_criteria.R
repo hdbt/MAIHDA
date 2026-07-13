@@ -131,21 +131,36 @@ maihda_ic <- function(..., model_names = NULL) {
   primary <- maihda_ic_primary(out)
   if (nrow(out) > 1L && !is.na(primary)) {
     # A delta is only meaningful across models fitted to the SAME analytic sample
-    # and, for AIC/BIC, the SAME response distribution (see Details). maihda_ic()
-    # does not otherwise enforce this, so a direct call could rank a Gaussian
-    # against a Poisson fit -- or fits on different rows -- with a seemingly
-    # meaningful delta. Withhold the delta (and say why) when the supplied models
-    # are not mutually comparable; the per-model criteria are still reported. The
+    # and, for AIC/BIC, the SAME response distribution (see Details) -- and it is
+    # never meaningful across the likelihood/Bayesian divide (AIC/BIC and WAIC/LOOIC
+    # are different scales). maihda_ic() does not otherwise enforce this, so a direct
+    # call could rank a Gaussian against a Poisson fit, fits on different rows, or an
+    # lme4 fit against a brms fit -- each with a seemingly meaningful delta (the
+    # cross-scale case picking AIC as the primary criterion and leaving the Bayesian
+    # row a bare NA). Withhold the delta (and say why) when the supplied models are
+    # not mutually comparable; the per-model criteria are still reported. The
     # canonical null-vs-adjusted comparison (same outcome/sample/family, differing
     # only in fixed effects) is comparable, so its delta is unaffected.
     delta_issues <- maihda_ic_delta_issues(lapply(named_models, function(x) x$model))
+    # Whether the POPULATED criterion columns span both scales -- the same guard
+    # compare_maihda() applies, which the outcome/family/sample check above does NOT
+    # catch (a same-family lme4-vs-brms comparison agrees on all three). Test only the
+    # columns that carry a finite value: `out` still has all four IC columns here,
+    # most of them all-NA, so an all-lme4 table is not misread as mixed.
+    populated_ic <- Filter(function(col) any(is.finite(out[[col]])),
+                           intersect(c("AIC", "BIC", "WAIC", "LOOIC"), names(out)))
+    if (maihda_ic_spans_scales(populated_ic)) {
+      delta_issues <- c(delta_issues,
+                        "scale (likelihood AIC/BIC vs Bayesian WAIC/LOOIC)")
+    }
     if (length(delta_issues) > 0) {
       warning("maihda_ic(): the models differ in ",
               paste(delta_issues, collapse = " and "),
               ", so a delta is not meaningful and is omitted -- information ",
               "criteria are only comparable across models fitted to the same ",
-              "analytic sample and, for AIC/BIC, the same response distribution. ",
-              "The per-model criteria are still reported.", call. = FALSE)
+              "analytic sample and, for AIC/BIC, the same response distribution, and ",
+              "are never comparable across the likelihood/Bayesian divide. The ",
+              "per-model criteria are still reported.", call. = FALSE)
     } else {
       vals <- out[[primary]]
       if (any(is.finite(vals))) {

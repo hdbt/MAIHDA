@@ -414,7 +414,11 @@ test_that("compare_maihda_groups ignores missing group values", {
   sk <- interaction(d$gender, d$race, drop = TRUE)
   d$y <- 1 + 0.3 * d$age + rnorm(nlevels(sk), sd = 0.7)[sk] + rnorm(n, sd = 0.4)
 
-  cmp <- compare_maihda_groups(y ~ age + (1 | gender:race), data = d, group = "country")
+  # This group's small additive sample can drive an adjusted fit to the boundary
+  # (singular, PCV ~ 100%), which now emits a caution warning; the test is about NA
+  # group handling, not the decomposition, so tolerate it.
+  cmp <- suppressWarnings(
+    compare_maihda_groups(y ~ age + (1 | gender:race), data = d, group = "country"))
   expect_setequal(cmp$group, c("A", "B"))
   expect_false(any(is.na(cmp$group)))
 })

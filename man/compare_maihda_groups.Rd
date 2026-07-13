@@ -148,8 +148,15 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   is the ML variance, differing from \code{var_between_adjusted} only by the small
   REML-vs-ML gap in the null variance; the \code{_ml} suffix is retained for
   output-schema continuity). All three are
-  \code{NA} for a group whose adjusted fit failed, and the columns are
-  omitted entirely when the strata have a single dimension. When \code{context}
+  \code{NA} for a group whose adjusted fit failed. A fourth column,
+  \code{pcv_status}, records the decomposition outcome per group:
+  \code{"ok"} when the PCV was computed, \code{"failed"} when the adjusted model
+  or PCV errored (\code{pcv} is then \code{NA} and the group is named in a
+  warning -- the group's own \code{status} can still be \code{"ok"} because its
+  null VPC model succeeded), and \code{"singular"} when the adjusted fit was
+  singular and the PCV saturated near 100\% (a boundary artifact, also warned).
+  These four columns are omitted entirely when the strata have a single
+  dimension. When \code{context}
   is supplied, two further columns report each group's contextual partition:
   \code{var_context} (the between-context variance, summed over contexts) and
   \code{vpc_context} (the contexts' share of the group's unexplained variance);
