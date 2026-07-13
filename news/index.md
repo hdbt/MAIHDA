@@ -34,6 +34,78 @@
 
 ### Bug Fixes
 
+- **`fit_maihda(engine = "brms")` now rejects the lme4-style
+  `weights`/`subset`/`offset` arguments instead of silently ignoring
+  them.** These are not
+  [`brms::brm()`](https://paulbuerkner.com/brms/reference/brm.html)
+  arguments — brms absorbs them into `...` and drops them — whereas
+  family auto-detection and strata auto-binning upstream *did* honour
+  them, so preprocessing described one analytic sample while brms fit
+  another (silently altering coefficients, variance components, VPC, and
+  PCV). They are now rejected with a message pointing to formula
+  addition terms ([`weights()`](https://rdrr.io/r/stats/weights.html),
+  [`offset()`](https://rdrr.io/r/stats/offset.html)), design weights via
+  `sampling_weights`, or prefiltering `data` — mirroring the existing
+  `wemix`/`ordinal` guards. Only the `lme4` engine, which applies them
+  directly, still accepts them.
+
+- **Design-weighted `brms` MAIHDA now completes its second
+  (null/adjusted) fit.** A sampling-weighted brms fit stores a formula
+  carrying the internal `weights(.maihda_sw)` addition term and a
+  `.maihda_sw` data column.
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  (two-model and crossed-dimensions) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  derive the null/adjusted models from that stored formula and refit
+  with `sampling_weights=`, so the reserved-column guard saw
+  `.maihda_sw` in both the formula and the data and aborted — failing
+  weighted `maihda(..., engine = "brms")` outright, and letting
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  silently record `NA` PCVs. The weight-preparation step now strips the
+  internal term (and drops the stale column) before re-normalizing from
+  the original weight column, so the derived fits succeed. Single-model
+  weighted
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  was unaffected.
+
+- **Zero (or negative / non-finite) Gaussian precision `weights=` are
+  now dropped before the `lmer` fit instead of producing a degenerate
+  fit with a finite VPC.** lme4 keeps a zero-weight row and returns a
+  degenerate fit (`logLik = -Inf`, `NA` gradient), after which the
+  residual-variance helper silently discarded the zero weight and still
+  reported a finite VPC — with variance estimates materially different
+  from fitting after removing the row. Such rows are now excluded from
+  the analytic sample up front (with a warning), so binary/ordinal
+  detection, strata auto-binning, and the fit all use the same rows and
+  the fit matches fitting the row-removed data exactly. (Only `lme4`
+  takes precision weights; the other engines already reject them.)
+
+- **[`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  no longer returns a silent population-average for a row whose stratum
+  is missing.** For `type = "individual"` predictions with the default
+  `allow_new_levels = FALSE`, a row with an `NA` stratum — supplied
+  directly, or produced by a missing stratum-defining dimension —
+  slipped through the unseen-stratum gate (which dropped `NA`s before
+  checking), and the `wemix`/`ordinal` engines then mapped its absent
+  random effect to zero, yielding a fixed-effects-only prediction where
+  `lme4` correctly errors. The gate now rejects a missing stratum for
+  individual predictions across all engines (unless
+  `allow_new_levels = TRUE` opts into the population-average fallback);
+  `type = "strata"`, where an `NA` stratum simply yields no row, is
+  unchanged.
+
+- **The
+  [`summary.maihda_model()`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
+  documentation now describes the count-family VPC correctly.** The note
+  stated the Poisson / negative-binomial residual variance is built from
+  posterior-*mean* fixed effects and random-effect variances “rather
+  than per draw”; the implementation in fact propagates the marginal
+  expected counts *per draw* for the intercept-only VPC structures
+  (strata, crossed-dimensions, contextual), holding the posterior-mean
+  plug-in only for the random-slope / longitudinal fallback (the
+  negative-binomial `shape` draws are always propagated). Documentation
+  only; results are unchanged.
+
 - **The count longitudinal VPC trajectory now evaluates the level-1
   (residual) variance at each reporting time instead of reusing one
   sample-wide average.** For a Poisson or negative-binomial longitudinal

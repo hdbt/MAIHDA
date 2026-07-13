@@ -273,8 +273,14 @@ default-on <code>interactions</code> of <code><a href="maihda.html">maihda</a></
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code>lmer</code>/<code>glmer</code> (lme4),
 <code>brm</code> (brms), or <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> (wemix; e.g. <code>nQuad</code>,
-<code>fast</code>). The lme4-style <code>weights</code>/<code>subset</code>/<code>offset</code>
-arguments are not supported by the wemix engine.</p></dd>
+<code>fast</code>). The lme4-style <code>weights</code> (precision weights),
+<code>subset</code>, and <code>offset</code> arguments are honoured only by the
+<code>lme4</code> engine, which applies them directly. The <code>wemix</code>,
+<code>ordinal</code>, and <code>brms</code> engines reject them: none takes them as a
+top-level fitting argument (brms in particular expects weighting/offset as
+formula addition terms, <code>weights(.)</code> / <code>offset(.)</code>, and design
+weights via <code>sampling_weights</code>). Prefilter <code>data</code> instead of using
+<code>subset</code> on those engines.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -238,9 +238,14 @@ fit_maihda(
 
   Additional arguments passed to `lmer`/`glmer` (lme4), `brm` (brms), or
   [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
-  (wemix; e.g. `nQuad`, `fast`). The lme4-style
-  `weights`/`subset`/`offset` arguments are not supported by the wemix
-  engine.
+  (wemix; e.g. `nQuad`, `fast`). The lme4-style `weights` (precision
+  weights), `subset`, and `offset` arguments are honoured only by the
+  `lme4` engine, which applies them directly. The `wemix`, `ordinal`,
+  and `brms` engines reject them: none takes them as a top-level fitting
+  argument (brms in particular expects weighting/offset as formula
+  addition terms, `weights(.)` / `offset(.)`, and design weights via
+  `sampling_weights`). Prefilter `data` instead of using `subset` on
+  those engines.
 
 ## Value
 
