@@ -142,12 +142,13 @@ maihda(
   the PCV is reported separately for the baseline (intercept) and the
   slope variance – the additive-vs-multiplicative split of the
   intersectional trajectory inequality (Bell, Evans, Holman & Leckie
-  2024). As with the two-model PCV, REML `lmer` growth fits are refitted
-  with maximum likelihood before the null-vs-adjusted variance
-  comparison (REML variances are not comparable across different fixed
-  effects; see
-  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)),
-  while the reported time-varying VPC keeps each fit's own (REML)
+  2024). As with the two-model PCV, the `estimation` argument sets the
+  variance-estimation basis: the default `"fitted"` keeps each REML
+  `lmer` growth fit's own variance, while `"ML"` refits them with
+  maximum likelihood before the null-vs-adjusted comparison (REML
+  variances are not comparable across different fixed effects; see
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)).
+  The reported time-varying VPC always keeps each fit's own (REML)
   estimate. See
   [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md).
 
@@ -286,8 +287,11 @@ An object of class `maihda_analysis`: a list with
   [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
   in `"two-model"` mode, or a `maihda_long_pcv` (the intercept/slope and
   time-specific PCV) in `"longitudinal"` mode; `NULL` otherwise. Both
-  are computed on the maximum-likelihood scale (REML `lmer` fits are
-  ML-refitted for the comparison; see
+  use the variance-estimation basis set by `estimation`: the default
+  `"fitted"` keeps each Gaussian `lmer` fit's own REML variance
+  (matching the single-model summaries), while `"ML"` refits the REML
+  fits with maximum likelihood for a correction-free cross-model
+  comparison (see
   [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md))
 
 - decomposition:
@@ -449,10 +453,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x55ccd89e8658>
+#> <environment: 0x55d4ac5cb9b8>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x55ccdb50f6f8>
+#> <environment: 0x55d4aff9e628>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -507,7 +511,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x55ccde6a3b90>
+#> <environment: 0x55d4adb76038>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):
@@ -543,6 +547,7 @@ a2
 #> 
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
+#> Variance basis: as fitted (REML for Gaussian lmer) 
 #> 
 #>           group   n n_strata     vpc var_between var_other var_residual    pcv
 #>         Finland 600        6 0.10994       785.8         0         6361 1.0000

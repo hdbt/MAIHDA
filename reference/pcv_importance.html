@@ -261,19 +261,22 @@ only.</p></dd>
     the pairwise complete-dominance matrix.</p></dd>
 
   <dt>method, approx, n_perm, n_fits, n_obs, engine, family, context,
-    bootstrap, conf_level, n_boot_ok</dt>
-<dd><p>Metadata; <code>n_fits</code> counts the
-    distinct models fit (including the null).</p></dd>
+    bootstrap, conf_level, n_boot_ok, estimation</dt>
+<dd><p>Metadata; <code>n_fits</code> counts
+    the distinct models fit (including the null), and <code>estimation</code> is the
+    variance-estimation basis (<code>"fitted"</code>/<code>"ML"</code>) put on every subset
+    model's between-stratum variance.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p><strong>Value function and efficiency.</strong> Write \(V_0\) for the null model's
 between-stratum variance and \(V(S)\) for the between-stratum variance
-after adding the variable subset \(S\) as fixed effects (each REML
-<code>lmer</code> fit is refit with ML first, exactly as in
-<code><a href="calculate_pcv.html">calculate_pcv</a></code> and <code><a href="stepwise_pcv.html">stepwise_pcv</a></code>, so all
-attributions live on the same scale as the rest of the package). The value
+after adding the variable subset \(S\) as fixed effects (each put on the
+<code>estimation</code> basis – the default <code>"fitted"</code> keeps each <code>lmer</code>
+fit's own REML variance, <code>"ML"</code> refits it with maximum likelihood –
+exactly as in <code><a href="calculate_pcv.html">calculate_pcv</a></code> and <code><a href="stepwise_pcv.html">stepwise_pcv</a></code>, so
+all attributions live on the same scale as the rest of the package). The value
 function is \(v(S) = (V_0 - V(S)) / V_0\) – the total PCV of the model
 that adds \(S\) – and the Shapley contribution of variable \(i\)
 averages its marginal PCV \(v(S \cup \{i\}) - v(S)\) over all subsets with
@@ -365,6 +368,7 @@ Economic Inequality</em>, 11, 99-126.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Method:  <span style="color: #D78700;">Shapley values (exact)</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Outcome: health_outcome   Engine: lme4 (gaussian(identity))</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Analytic sample: 500 observations; 8 models fit (incl. null).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Variance basis: as fitted (REML for Gaussian lmer, matching summary())</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance: null 26.714703 -&gt; full model 3.031709</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Total PCV (null -&gt; all variables): <span style="color: #D78700;">0.8865</span></span>
@@ -392,6 +396,7 @@ Economic Inequality</em>, 11, 99-126.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Method:  <span style="color: #D78700;">Dominance analysis (general dominance = Shapley)</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Outcome: health_outcome   Engine: lme4 (gaussian(identity))</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Analytic sample: 500 observations; 8 models fit (incl. null).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Variance basis: as fitted (REML for Gaussian lmer, matching summary())</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance: null 26.714703 -&gt; full model 3.031709</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Total PCV (null -&gt; all variables): <span style="color: #D78700;">0.8865</span></span>
@@ -424,6 +429,7 @@ Economic Inequality</em>, 11, 99-126.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Method:  <span style="color: #D78700;">Shapley values (Monte-Carlo, 500 permutations)</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Outcome: health_outcome   Engine: lme4 (gaussian(identity))</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Analytic sample: 500 observations; 8 models fit (incl. null).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Variance basis: as fitted (REML for Gaussian lmer, matching summary())</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Between-stratum variance: null 26.714703 -&gt; full model 3.031709</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Total PCV (null -&gt; all variables): <span style="color: #D78700;">0.8865</span></span>

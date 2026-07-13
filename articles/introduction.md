@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x556c5fa46eb0>
+#> <environment: 0x55dc0ab2cab0>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x556c5e098238>
+#> <environment: 0x55dc09179b38>
 ```
 
 The returned object carries everything: the full variance components,
@@ -477,6 +477,9 @@ print(stepwise_results)
 #>     3    Model 3                  Race   1.3017  0.554721  0.556033
 #>     4    Model 4             Education   0.9757  0.250461  0.667229
 #>     5    Model 5               Poverty   0.9695  0.006302  0.669326
+#> 
+#> Variance basis: as fitted (REML for Gaussian lmer, matching summary())
+#> 
 ```
 
 Negative step PCVs in this table indicate an “unmasking”/suppression
@@ -513,6 +516,7 @@ print(imp)
 #> Method:  Shapley values (exact)
 #> Outcome: BMI   Engine: lme4 (gaussian(identity))
 #> Analytic sample: 2792 observations; 8 models fit (incl. null).
+#> Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #> 
 #> Between-stratum variance: null 2.931928 -> full model 0.992445
 #> Total PCV (null -> all variables): 0.6615

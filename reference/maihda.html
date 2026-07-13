@@ -200,10 +200,12 @@ dimensions' main effects <em>and their interactions with time</em>
 PCV is reported separately for the baseline (intercept) and the slope variance
 – the additive-vs-multiplicative split of the intersectional trajectory
 inequality (Bell, Evans, Holman &amp; Leckie 2024). As with the two-model PCV,
-REML <code>lmer</code> growth fits are refitted with maximum likelihood before the
-null-vs-adjusted variance comparison (REML variances are not comparable
-across different fixed effects; see <code><a href="calculate_pcv.html">calculate_pcv</a></code>), while the
-reported time-varying VPC keeps each fit's own (REML) estimate.
+the <code>estimation</code> argument sets the variance-estimation basis: the default
+<code>"fitted"</code> keeps each REML <code>lmer</code> growth fit's own variance, while
+<code>"ML"</code> refits them with maximum likelihood before the null-vs-adjusted
+comparison (REML variances are not comparable across different fixed effects;
+see <code><a href="calculate_pcv.html">calculate_pcv</a></code>). The reported time-varying VPC always keeps
+each fit's own (REML) estimate.
 See <code><a href="fit_maihda.html">fit_maihda</a></code>.</p></dd>
 
 
@@ -321,9 +323,12 @@ likelihood first. Affects Gaussian <code>lmer</code> fits only.</p></dd>
 <dd><p>the proportional change in variance: the <code>pcv_result</code> from
     <code><a href="calculate_pcv.html">calculate_pcv</a></code> in <code>"two-model"</code> mode, or a
     <code>maihda_long_pcv</code> (the intercept/slope and time-specific PCV) in
-    <code>"longitudinal"</code> mode; <code>NULL</code> otherwise. Both are computed on
-    the maximum-likelihood scale (REML <code>lmer</code> fits are ML-refitted for
-    the comparison; see <code><a href="calculate_pcv.html">calculate_pcv</a></code>)</p></dd>
+    <code>"longitudinal"</code> mode; <code>NULL</code> otherwise. Both use the
+    variance-estimation basis set by <code>estimation</code>: the default
+    <code>"fitted"</code> keeps each Gaussian <code>lmer</code> fit's own REML variance
+    (matching the single-model summaries), while <code>"ML"</code> refits the REML
+    fits with maximum likelihood for a correction-free cross-model comparison
+    (see <code><a href="calculate_pcv.html">calculate_pcv</a></code>)</p></dd>
 
   <dt>decomposition</dt>
 <dd><p>the additive/interaction partition (additive and interaction
@@ -461,10 +466,10 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55ccd89e8658&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d4ac5cb9b8&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55ccdb50f6f8&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d4aff9e628&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -519,7 +524,7 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55ccde6a3b90&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d4adb76038&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>
@@ -555,6 +560,7 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Group variable: country </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Engine: lme4  | Family: gaussian  | Strata: shared/global </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Variance basis: as fitted (REML for Gaussian lmer) </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>           group   n n_strata     vpc var_between var_other var_residual    pcv</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>         Finland 600        6 0.10994       785.8         0         6361 1.0000</span>

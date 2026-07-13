@@ -34,6 +34,65 @@
 
 ### Bug Fixes
 
+- **An explicit ordinal (`family = "ordinal"`) model whose top category
+  occurs only on rows with a missing predictor no longer silently
+  collapses to a binary fit.** The response category count was validated
+  on the full data (`nlevels >= 3`) *before* the analytic-sample drop,
+  so a category confined to rows the fit later removes (a missing
+  predictor or outcome) passed the check — yet
+  [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html), and
+  the brms `cumulative()` path, then fit only the observed categories
+  without complaint, producing a one-threshold (binary) model while the
+  wrapper still recorded three levels and response predictions used the
+  wrong 1..K scale. The count is now re-checked on the analytic sample
+  (after complete-case filtering, with any now-empty category dropped)
+  for both the `ordinal` and `brms` engines, erroring with a clear
+  message rather than degrading the model order — the brms check runs
+  *before* the Stan fit. A clean fit with every category observed is
+  unaffected.
+
+- **A longitudinal MAIHDA with a non-finite transformed predictor no
+  longer mis-anchors the internal time centre or raises a false
+  cross-stratum id error.** The analytic-sample mask that the
+  repeated-measures check, the globally-unique-id check, and the
+  internal time-centering all key off was built with
+  [`complete.cases()`](https://rdrr.io/r/stats/complete.cases.html) on
+  the *raw* model columns, so a row whose fixed-effect transformation is
+  non-finite (e.g. `log(x)` of `x <= 0`) — which `lmer` drops — was
+  retained. That excluded row could drag the time centre to an
+  out-of-sample occasion (biasing the growth basis and the time-varying
+  VPC/PCV) and, if its stratum-defining values differed, trigger a
+  spurious “id … appear in more than one stratum” error. The mask now
+  uses the transformation-aware analytic model frame (as the
+  `wemix`/`ordinal` engines already did), intersected with an explicit
+  complete-case check on the id/time columns, with the previous raw
+  check retained only as a fallback.
+
+- **[`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md),
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now retain and print the chosen variance-estimation basis, and the PCV
+  documentation no longer claims the basis is always ML.** These three
+  gained `estimation = c("fitted", "ML")` alongside
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  but, unlike it, did not record the choice on their result objects, so
+  a serialized result lost that (statistically material) provenance.
+  Each now stores the basis —
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  in `$estimation`,
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  in an `"estimation"` attribute that survives subsetting — and states
+  it in [`print()`](https://rdrr.io/r/base/print.html). Documentation
+  passages in
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  that still said the PCV is *always* refitted with maximum likelihood —
+  stale since `"fitted"` became the default — now describe the
+  `estimation`-dependent behaviour.
+
 - **`fit_maihda(engine = "brms")` now rejects the lme4-style
   `weights`/`subset`/`offset` arguments instead of silently ignoring
   them.** These are not

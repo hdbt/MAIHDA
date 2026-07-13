@@ -184,17 +184,20 @@ An object of class `maihda_pcv_importance`: a list with
   matrix.
 
 - method, approx, n_perm, n_fits, n_obs, engine, family, context,
-  bootstrap, conf_level, n_boot_ok:
+  bootstrap, conf_level, n_boot_ok, estimation:
 
   Metadata; `n_fits` counts the distinct models fit (including the
-  null).
+  null), and `estimation` is the variance-estimation basis
+  (`"fitted"`/`"ML"`) put on every subset model's between-stratum
+  variance.
 
 ## Details
 
 **Value function and efficiency.** Write \\V_0\\ for the null model's
 between-stratum variance and \\V(S)\\ for the between-stratum variance
-after adding the variable subset \\S\\ as fixed effects (each REML
-`lmer` fit is refit with ML first, exactly as in
+after adding the variable subset \\S\\ as fixed effects (each put on the
+`estimation` basis – the default `"fitted"` keeps each `lmer` fit's own
+REML variance, `"ML"` refits it with maximum likelihood – exactly as in
 [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
 and
 [`stepwise_pcv`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
@@ -302,6 +305,7 @@ print(imp)
 #> Method:  Shapley values (exact)
 #> Outcome: health_outcome   Engine: lme4 (gaussian(identity))
 #> Analytic sample: 500 observations; 8 models fit (incl. null).
+#> Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #> 
 #> Between-stratum variance: null 26.714703 -> full model 3.031709
 #> Total PCV (null -> all variables): 0.8865
@@ -329,6 +333,7 @@ pcv_importance(strata$data, "health_outcome", c("gender", "race", "age"),
 #> Method:  Dominance analysis (general dominance = Shapley)
 #> Outcome: health_outcome   Engine: lme4 (gaussian(identity))
 #> Analytic sample: 500 observations; 8 models fit (incl. null).
+#> Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #> 
 #> Between-stratum variance: null 26.714703 -> full model 3.031709
 #> Total PCV (null -> all variables): 0.8865
@@ -361,6 +366,7 @@ pcv_importance(strata$data, "health_outcome", c("gender", "race", "age"),
 #> Method:  Shapley values (Monte-Carlo, 500 permutations)
 #> Outcome: health_outcome   Engine: lme4 (gaussian(identity))
 #> Analytic sample: 500 observations; 8 models fit (incl. null).
+#> Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #> 
 #> Between-stratum variance: null 26.714703 -> full model 3.031709
 #> Total PCV (null -> all variables): 0.8865

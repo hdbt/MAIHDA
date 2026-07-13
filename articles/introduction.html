@@ -186,10 +186,10 @@ deriving the null by dropping them. (Omit them –
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>        <span class="co"># null:     BMI ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x556c5fa46eb0&gt;</span></span>
+<span><span class="co">#&gt; &lt;environment: 0x55dc0ab2cab0&gt;</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>  <span class="co"># adjusted: BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x556c5e098238&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x55dc09179b38&gt;</span></span></code></pre></div>
 <p>The returned object carries everything: the full variance components,
 the PCV decomposition, and both fitted models.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -502,7 +502,10 @@ the <code><a href="../reference/maihda.html">maihda()</a></code> object exposes 
 <span><span class="co">#&gt;     2    Model 2                Gender   2.9233 -0.021142  0.002946</span></span>
 <span><span class="co">#&gt;     3    Model 3                  Race   1.3017  0.554721  0.556033</span></span>
 <span><span class="co">#&gt;     4    Model 4             Education   0.9757  0.250461  0.667229</span></span>
-<span><span class="co">#&gt;     5    Model 5               Poverty   0.9695  0.006302  0.669326</span></span></code></pre></div>
+<span><span class="co">#&gt;     5    Model 5               Poverty   0.9695  0.006302  0.669326</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; Variance basis: as fitted (REML for Gaussian lmer, matching summary())</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span></code></pre></div>
 <p>Negative step PCVs in this table indicate an “unmasking”/suppression
 pattern: adding a variable increased the between-stratum variance. This
 is a model-dependent change in variance, not proof that a hidden
@@ -537,6 +540,7 @@ inequality:</p>
 <span><span class="co">#&gt; Method:  <span style="color: #D78700;">Shapley values (exact)</span></span></span>
 <span><span class="co">#&gt; Outcome: BMI   Engine: lme4 (gaussian(identity))</span></span>
 <span><span class="co">#&gt; Analytic sample: 2792 observations; 8 models fit (incl. null).</span></span>
+<span><span class="co">#&gt; Variance basis: as fitted (REML for Gaussian lmer, matching summary())</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Between-stratum variance: null 2.931928 -&gt; full model 0.992445</span></span>
 <span><span class="co">#&gt; Total PCV (null -&gt; all variables): <span style="color: #D78700;">0.6615</span></span></span>

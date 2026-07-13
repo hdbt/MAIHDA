@@ -163,6 +163,9 @@ compared across steps, <code>"fitted"</code> (default) or <code>"ML"</code>; see
   net-of-context scope as the <code>Step_PCV</code> / <code>Total_PCV</code> columns, exactly
   as <code><a href="summary.maihda_model.html">summary.maihda_model</a></code> reports the intersectional-scope AUC for a
   contextual fit.</p>
+<p>The variance-estimation basis chosen by <code>estimation</code> is recorded as an
+  <code>"estimation"</code> attribute on the returned table (and shown by
+  <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>).</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -209,6 +212,9 @@ neighbourhoods and health. <em>PLOS ONE</em>, 11(4), e0153778.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     1    Model 1                gender   30.863  -0.1553   -0.1553</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     2    Model 2                  race    2.346   0.9240    0.9122</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     3    Model 3                   age    3.032  -0.2922    0.8865</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Variance basis: as fitted (REML for Gaussian lmer, matching summary())</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Contextual cross-classified stepwise PCV: strata crossed with a higher-level</span></span></span>
 <span class="r-in"><span><span class="co"># context (country). Step_PCV / Total_PCV are then net of the country intercept,</span></span></span>
@@ -227,6 +233,8 @@ neighbourhoods and health. <em>PLOS ONE</em>, 11(4), e0153778.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Step_PCV / Total_PCV are the between-stratum PCV NET OF the context random</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">intercept held in every model; Context_Variance is that (summed)</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">between-context variance at each step.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Variance basis: as fitted (REML for Gaussian lmer, matching summary())</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>

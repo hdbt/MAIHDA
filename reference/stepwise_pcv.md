@@ -108,6 +108,10 @@ columns, exactly as
 [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
 reports the intersectional-scope AUC for a contextual fit.
 
+The variance-estimation basis chosen by `estimation` is recorded as an
+`"estimation"` attribute on the returned table (and shown by
+[`print()`](https://rdrr.io/r/base/print.html)).
+
 ## Details
 
 All models are fit on the complete cases for \`outcome\`, \`stratum\`,
@@ -159,6 +163,9 @@ stepwise_pcv(strata_result$data, "health_outcome", c("gender", "race", "age"))
 #>     1    Model 1                gender   30.863  -0.1553   -0.1553
 #>     2    Model 2                  race    2.346   0.9240    0.9122
 #>     3    Model 3                   age    3.032  -0.2922    0.8865
+#> 
+#> Variance basis: as fitted (REML for Gaussian lmer, matching summary())
+#> 
 
 # Contextual cross-classified stepwise PCV: strata crossed with a higher-level
 # context (country). Step_PCV / Total_PCV are then net of the country intercept,
@@ -177,6 +184,8 @@ stepwise_pcv(cc$data, "math", c("gender", "ses"), context = "country")
 #> Step_PCV / Total_PCV are the between-stratum PCV NET OF the context random
 #> intercept held in every model; Context_Variance is that (summed)
 #> between-context variance at each step.
+#> 
+#> Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #> 
 # }
 ```
