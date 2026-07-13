@@ -7,11 +7,13 @@ adds the variables one at a time – so each variable's contribution
 depends on its entry order – `pcv_importance()` treats the PCV as a
 value function over variable subsets and attributes it *fairly*: the
 flagship `"shapley"` method averages each variable's marginal PCV over
-every possible entry order, `"dominance"` adds Budescu's pairwise
+every possible entry order, and `"dominance"` adds Budescu's pairwise
 dominance detail (its general dominance weights coincide with the
-Shapley values), and `"sequential"` reproduces the order-dependent path
-for continuity. All methods satisfy the **efficiency** identity: the
-contributions sum exactly to the full model's total PCV.
+Shapley values). All methods satisfy the **efficiency** identity: the
+contributions sum exactly to the full model's total PCV. (The
+order-dependent `"sequential"` method is **deprecated**; use
+[`stepwise_pcv`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+for the sequential path – see the `method` argument.)
 
 Two attribution targets are useful in a MAIHDA. Passing the *stratum
 dimensions* (e.g. `c("gender", "race", "education")`) splits the
@@ -66,12 +68,15 @@ pcv_importance(
 - method:
 
   Attribution method: `"shapley"` (default; order-invariant Shapley
-  values), `"sequential"` (the order-dependent one-at-a-time path, kept
-  for continuity with
-  [`stepwise_pcv`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)),
-  or `"dominance"` (Budescu dominance analysis: general dominance –
-  equal to the Shapley values – plus the conditional and complete
-  dominance detail).
+  values) or `"dominance"` (Budescu dominance analysis: general
+  dominance – equal to the Shapley values – plus the conditional and
+  complete dominance detail). `"sequential"` (the order-dependent
+  one-at-a-time path) is **deprecated** and will be removed in a future
+  release: it still runs but warns, and
+  [`stepwise_pcv`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  is the supported sequential decomposition – it additionally reports
+  the step-specific `Step_PCV` and, for a binary outcome, the
+  discriminatory-accuracy trajectory (AUC, MOR).
 
 - approx:
 
@@ -212,10 +217,14 @@ exactly to the full-model total PCV. This is the multilevel-PCV analogue
 of the LMG / Shorrocks-Shapley decomposition of \\R^2\\ (Groemping 2006;
 Shorrocks 2013).
 
-**Sequential method vs.
+**Sequential method (deprecated) vs.
 [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md).**
-The `"sequential"` contributions are the *increments in total PCV* along
-the entry order, \\v(\\x_1..x_i\\) - v(\\x_1..x\_{i-1}\\)\\ – i.e.
+The `"sequential"` method is **deprecated** in favour of
+[`stepwise_pcv`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+which owns the sequential trajectory and also reports the `Step_PCV`
+column and the discriminatory-accuracy path. While it remains, its
+contributions are the *increments in total PCV* along the entry order,
+\\v(\\x_1..x_i\\) - v(\\x_1..x\_{i-1}\\)\\ – i.e.
 `diff(c(0, Total_PCV))` of the
 [`stepwise_pcv`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
 table, so they sum to the same total. They are *not* the `Step_PCV`

@@ -107,6 +107,7 @@ analysis <- maihda(
 #> boundary (singular) fit: see help('isSingular')
 #> boundary (singular) fit: see help('isSingular')
 #> boundary (singular) fit: see help('isSingular')
+#> Warning: compare_maihda_groups(): the adjusted model was singular for group(s) Finland, Germany, Italy, Mexico, United Kingdom, so the adjusted between-stratum variance sits at the boundary (~0) and the PCV saturates near 100% (pcv_status = "singular"). Read those groups' PCV with caution -- a near-complete attenuation can reflect a boundary fit as well as genuinely additive strata.
 analysis
 #> MAIHDA Analysis
 #> ===============
@@ -138,13 +139,13 @@ analysis
 #>           Japan 600        6 0.13344      1032.3         0         6704 0.9266
 #>          Mexico 600        6 0.13649       771.5         0         4881 1.0000
 #>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000
-#>  var_between_adjusted var_between_adjusted_ml status
-#>                  0.00                    0.00     ok
-#>                  0.00                    0.00     ok
-#>                  0.00                    0.00     ok
-#>                 75.78                   75.78     ok
-#>                  0.00                    0.00     ok
-#>                  0.00                    0.00     ok
+#>  var_between_adjusted var_between_adjusted_ml pcv_status status
+#>                  0.00                    0.00   singular     ok
+#>                  0.00                    0.00   singular     ok
+#>                  0.00                    0.00   singular     ok
+#>                 75.78                   75.78         ok     ok
+#>                  0.00                    0.00   singular     ok
+#>                  0.00                    0.00   singular     ok
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
 #> 

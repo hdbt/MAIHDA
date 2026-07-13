@@ -453,10 +453,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x55d4ac5cb9b8>
+#> <environment: 0x56260ff612b0>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x55d4aff9e628>
+#> <environment: 0x56260882b420>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -511,7 +511,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x55d4adb76038>
+#> <environment: 0x562604099b20>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):
@@ -525,6 +525,7 @@ a2 <- maihda(math ~ 1 + (1 | gender:ses), data = maihda_country_data,
 #> boundary (singular) fit: see help('isSingular')
 #> boundary (singular) fit: see help('isSingular')
 #> boundary (singular) fit: see help('isSingular')
+#> Warning: compare_maihda_groups(): the adjusted model was singular for group(s) Finland, Germany, Italy, Mexico, United Kingdom, so the adjusted between-stratum variance sits at the boundary (~0) and the PCV saturates near 100% (pcv_status = "singular"). Read those groups' PCV with caution -- a near-complete attenuation can reflect a boundary fit as well as genuinely additive strata.
 a2
 #> MAIHDA Analysis
 #> ===============
@@ -556,13 +557,13 @@ a2
 #>           Japan 600        6 0.13344      1032.3         0         6704 0.9266
 #>          Mexico 600        6 0.13649       771.5         0         4881 1.0000
 #>  United Kingdom 600        6 0.06011       470.5         0         7357 1.0000
-#>  var_between_adjusted var_between_adjusted_ml status
-#>                  0.00                    0.00     ok
-#>                  0.00                    0.00     ok
-#>                  0.00                    0.00     ok
-#>                 75.78                   75.78     ok
-#>                  0.00                    0.00     ok
-#>                  0.00                    0.00     ok
+#>  var_between_adjusted var_between_adjusted_ml pcv_status status
+#>                  0.00                    0.00   singular     ok
+#>                  0.00                    0.00   singular     ok
+#>                  0.00                    0.00   singular     ok
+#>                 75.78                   75.78         ok     ok
+#>                  0.00                    0.00   singular     ok
+#>                  0.00                    0.00   singular     ok
 #> 
 #> Use summary() for variance components and plot(type = ...) for figures.
 #> 

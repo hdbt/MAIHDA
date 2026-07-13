@@ -356,7 +356,7 @@
 <div class="section level2">
 <h2 id="order-invariant-pcv-attribution-shapley--dominance">Order-Invariant PCV Attribution (Shapley / Dominance)<a class="anchor" aria-label="anchor" href="#order-invariant-pcv-attribution-shapley--dominance"></a>
 </h2>
-<p><code><a href="reference/stepwise_pcv.html">stepwise_pcv()</a></code>’s step contributions depend on the order the variables enter. <code><a href="reference/pcv_importance.html">pcv_importance()</a></code> removes that dependence: it averages each variable’s marginal PCV over all entry orders (Shapley values — the multilevel-PCV analogue of the LMG/<code>relaimpo</code> R-squared decomposition), with dominance analysis and the sequential path available under the same roof.</p>
+<p><code><a href="reference/stepwise_pcv.html">stepwise_pcv()</a></code>’s step contributions depend on the order the variables enter. <code><a href="reference/pcv_importance.html">pcv_importance()</a></code> removes that dependence: it averages each variable’s marginal PCV over all entry orders, with dominance analysis and the sequential path available under the same roof.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">imp</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/pcv_importance.html">pcv_importance</a></span><span class="op">(</span></span>
 <span>  data <span class="op">=</span> <span class="va">data</span>,</span>

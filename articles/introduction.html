@@ -186,10 +186,10 @@ deriving the null by dropping them. (Omit them –
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>        <span class="co"># null:     BMI ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x55dc0ab2cab0&gt;</span></span>
+<span><span class="co">#&gt; &lt;environment: 0x55a182c71c80&gt;</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>  <span class="co"># adjusted: BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x55dc09179b38&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x55a1812b7788&gt;</span></span></code></pre></div>
 <p>The returned object carries everything: the full variance components,
 the PCV decomposition, and both fitted models.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -522,11 +522,9 @@ PCV is a variable’s contribution <em>given the variables already
 entered</em>, so reordering <code>vars</code> changes the answer.
 <code><a href="../reference/pcv_importance.html">pcv_importance()</a></code> removes that dependence. It treats the PCV
 as a value function over variable subsets and averages each variable’s
-marginal PCV over all entry orders (Shapley values – the multilevel-PCV
-analogue of the LMG / <code>relaimpo</code> decomposition of R-squared).
-Passing the stratum dimensions splits the <em>additive share</em> fairly
-across them – which dimension drives the additive between-stratum
-inequality:</p>
+marginal PCV over all entry orders. Passing the stratum dimensions
+splits the <em>additive share</em> fairly across them – which dimension
+drives the additive between-stratum inequality:</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">imp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pcv_importance.html">pcv_importance</a></span><span class="op">(</span></span>
 <span>  data    <span class="op">=</span> <span class="va">analysis</span><span class="op">$</span><span class="va">model</span><span class="op">$</span><span class="va">original_data</span>,</span>
@@ -561,12 +559,13 @@ inequality:</p>
 <p>The contributions are signed (a suppressor comes out negative,
 exactly as in the stepwise table) and always sum to the full-model Total
 PCV, so the attribution is exhaustive. <code>method = "dominance"</code>
-adds Budescu’s conditional/complete dominance detail,
-<code>method = "sequential"</code> reproduces the order-dependent path,
-and for many variables <code>approx = "montecarlo"</code> replaces the
-exponential number of exact subset fits with permutation sampling
+adds Budescu’s conditional/complete dominance detail, and for many
+variables <code>approx = "montecarlo"</code> replaces the exponential
+number of exact subset fits with permutation sampling
 (<code><a href="../reference/pcv_importance.html">?pcv_importance</a></code> for the costs and the latent-scale caveat
-for binary outcomes).</p>
+for binary outcomes). For the order-dependent sequential path use
+<code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code> (above); the
+<code>method = "sequential"</code> option is deprecated.</p>
 </div>
 <div class="section level3">
 <h3 id="discriminatory-accuracy-and-the-response-scale-vpc">Discriminatory accuracy and the response-scale VPC<a class="anchor" aria-label="anchor" href="#discriminatory-accuracy-and-the-response-scale-vpc"></a>
@@ -584,7 +583,7 @@ on their own:</p>
 <code class="sourceCode R"><span><span class="co"># A binary-outcome analysis</span></span>
 <span><span class="va">ob</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">Obese</span> <span class="op">~</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">maihda_health_data</span>,</span>
 <span>             response_vpc <span class="op">=</span> <span class="cn">TRUE</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">ob</span>                         </span>
+<span><span class="va">ob</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">ob</span><span class="op">)</span>                 <span class="co"># carries the discriminatory_accuracy (+ vpc_response) slots</span></span>
 <span></span>
 <span><span class="co"># ...or call the pieces directly on the fitted maihda_model objects:</span></span>

@@ -5,11 +5,12 @@ time – so each variable's contribution depends on its entry order –
 pcv_importance() treats the PCV as a value function over variable
 subsets and attributes it fairly: the flagship &quot;shapley&quot;
 method averages each variable's marginal PCV over every possible entry
-order, &quot;dominance&quot; adds Budescu's pairwise dominance detail (its
-general dominance weights coincide with the Shapley values), and
-&quot;sequential&quot; reproduces the order-dependent path for continuity.
-All methods satisfy the efficiency identity: the contributions sum
-exactly to the full model's total PCV.
+order, and &quot;dominance&quot; adds Budescu's pairwise dominance detail (its
+general dominance weights coincide with the Shapley values). All methods
+satisfy the efficiency identity: the contributions sum exactly to
+the full model's total PCV. (The order-dependent &quot;sequential&quot; method
+is deprecated; use stepwise_pcv for the sequential
+path – see the method argument.)
 Two attribution targets are useful in a MAIHDA. Passing the stratum
 dimensions (e.g. c(&quot;gender&quot;, &quot;race&quot;, &quot;education&quot;)) splits the
 additive share – the canonical null-to-adjusted PCV – fairly across the
@@ -23,11 +24,12 @@ time – so each variable's contribution depends on its entry order –
 pcv_importance() treats the PCV as a value function over variable
 subsets and attributes it fairly: the flagship &quot;shapley&quot;
 method averages each variable's marginal PCV over every possible entry
-order, &quot;dominance&quot; adds Budescu's pairwise dominance detail (its
-general dominance weights coincide with the Shapley values), and
-&quot;sequential&quot; reproduces the order-dependent path for continuity.
-All methods satisfy the efficiency identity: the contributions sum
-exactly to the full model's total PCV.
+order, and &quot;dominance&quot; adds Budescu's pairwise dominance detail (its
+general dominance weights coincide with the Shapley values). All methods
+satisfy the efficiency identity: the contributions sum exactly to
+the full model's total PCV. (The order-dependent &quot;sequential&quot; method
+is deprecated; use stepwise_pcv for the sequential
+path – see the method argument.)
 Two attribution targets are useful in a MAIHDA. Passing the stratum
 dimensions (e.g. c(&quot;gender&quot;, &quot;race&quot;, &quot;education&quot;)) splits the
 additive share – the canonical null-to-adjusted PCV – fairly across the
@@ -94,11 +96,12 @@ time – so each variable's contribution depends on its entry order –
 <code>pcv_importance()</code> treats the PCV as a value function over variable
 subsets and attributes it <em>fairly</em>: the flagship <code>"shapley"</code>
 method averages each variable's marginal PCV over every possible entry
-order, <code>"dominance"</code> adds Budescu's pairwise dominance detail (its
-general dominance weights coincide with the Shapley values), and
-<code>"sequential"</code> reproduces the order-dependent path for continuity.
-All methods satisfy the <strong>efficiency</strong> identity: the contributions sum
-exactly to the full model's total PCV.</p>
+order, and <code>"dominance"</code> adds Budescu's pairwise dominance detail (its
+general dominance weights coincide with the Shapley values). All methods
+satisfy the <strong>efficiency</strong> identity: the contributions sum exactly to
+the full model's total PCV. (The order-dependent <code>"sequential"</code> method
+is <strong>deprecated</strong>; use <code><a href="stepwise_pcv.html">stepwise_pcv</a></code> for the sequential
+path – see the <code>method</code> argument.)</p>
 <p>Two attribution targets are useful in a MAIHDA. Passing the <em>stratum
 dimensions</em> (e.g. <code>c("gender", "race", "education")</code>) splits the
 additive share – the canonical null-to-adjusted PCV – fairly across the
@@ -151,11 +154,14 @@ covariates) among which the PCV is apportioned. Order does not affect the
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
 <dd><p>Attribution method: <code>"shapley"</code> (default; order-invariant
-Shapley values), <code>"sequential"</code> (the order-dependent one-at-a-time
-path, kept for continuity with <code><a href="stepwise_pcv.html">stepwise_pcv</a></code>), or
-<code>"dominance"</code> (Budescu dominance analysis: general dominance – equal
-to the Shapley values – plus the conditional and complete dominance
-detail).</p></dd>
+Shapley values) or <code>"dominance"</code> (Budescu dominance analysis: general
+dominance – equal to the Shapley values – plus the conditional and
+complete dominance detail). <code>"sequential"</code> (the order-dependent
+one-at-a-time path) is <strong>deprecated</strong> and will be removed in a future
+release: it still runs but warns, and <code><a href="stepwise_pcv.html">stepwise_pcv</a></code> is the
+supported sequential decomposition – it additionally reports the
+step-specific <code>Step_PCV</code> and, for a binary outcome, the
+discriminatory-accuracy trajectory (AUC, MOR).</p></dd>
 
 
 <dt id="arg-approx">approx<a class="anchor" aria-label="anchor" href="#arg-approx"></a></dt>
@@ -285,8 +291,11 @@ to \(v(N)\), the contributions of <em>every</em> method here (including the
 Monte-Carlo approximation, for any <code>n_perm</code>) sum exactly to the
 full-model total PCV. This is the multilevel-PCV analogue of the LMG /
 Shorrocks-Shapley decomposition of \(R^2\) (Groemping 2006; Shorrocks 2013).</p>
-<p><strong>Sequential method vs. <code><a href="stepwise_pcv.html">stepwise_pcv()</a></code>.</strong> The
-<code>"sequential"</code> contributions are the <em>increments in total PCV</em>
+<p><strong>Sequential method (deprecated) vs. <code><a href="stepwise_pcv.html">stepwise_pcv()</a></code>.</strong> The
+<code>"sequential"</code> method is <strong>deprecated</strong> in favour of
+<code><a href="stepwise_pcv.html">stepwise_pcv</a></code>, which owns the sequential trajectory and also
+reports the <code>Step_PCV</code> column and the discriminatory-accuracy path.
+While it remains, its contributions are the <em>increments in total PCV</em>
 along the entry order, \(v(\{x_1..x_i\}) - v(\{x_1..x_{i-1}\})\) – i.e.
 <code>diff(c(0, Total_PCV))</code> of the <code><a href="stepwise_pcv.html">stepwise_pcv</a></code> table, so
 they sum to the same total. They are <em>not</em> the <code>Step_PCV</code> column,

@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x55dc0ab2cab0>
+#> <environment: 0x55a182c71c80>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x55dc09179b38>
+#> <environment: 0x55a1812b7788>
 ```
 
 The returned object carries everything: the full variance components,
@@ -497,10 +497,9 @@ reordering `vars` changes the answer.
 [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
 removes that dependence. It treats the PCV as a value function over
 variable subsets and averages each variable’s marginal PCV over all
-entry orders (Shapley values – the multilevel-PCV analogue of the LMG /
-`relaimpo` decomposition of R-squared). Passing the stratum dimensions
-splits the *additive share* fairly across them – which dimension drives
-the additive between-stratum inequality:
+entry orders. Passing the stratum dimensions splits the *additive share*
+fairly across them – which dimension drives the additive between-stratum
+inequality:
 
 ``` r
 
@@ -540,12 +539,14 @@ plot(imp)
 The contributions are signed (a suppressor comes out negative, exactly
 as in the stepwise table) and always sum to the full-model Total PCV, so
 the attribution is exhaustive. `method = "dominance"` adds Budescu’s
-conditional/complete dominance detail, `method = "sequential"`
-reproduces the order-dependent path, and for many variables
+conditional/complete dominance detail, and for many variables
 `approx = "montecarlo"` replaces the exponential number of exact subset
 fits with permutation sampling
 ([`?pcv_importance`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
-for the costs and the latent-scale caveat for binary outcomes).
+for the costs and the latent-scale caveat for binary outcomes). For the
+order-dependent sequential path use
+[`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+(above); the `method = "sequential"` option is deprecated.
 
 ### Discriminatory accuracy and the response-scale VPC
 
@@ -564,7 +565,7 @@ models when you want them on their own:
 # A binary-outcome analysis
 ob <- maihda(Obese ~ Gender + Race + (1 | Gender:Race), data = maihda_health_data,
              response_vpc = TRUE, seed = 1)
-ob                         
+ob
 summary(ob)                 # carries the discriminatory_accuracy (+ vpc_response) slots
 
 # ...or call the pieces directly on the fitted maihda_model objects:

@@ -404,9 +404,8 @@ print(stepwise_results)
 step contributions depend on the order the variables enter.
 [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
 removes that dependence: it averages each variable’s marginal PCV over
-all entry orders (Shapley values — the multilevel-PCV analogue of the
-LMG/`relaimpo` R-squared decomposition), with dominance analysis and the
-sequential path available under the same roof.
+all entry orders, with dominance analysis and the sequential path
+available under the same roof.
 
 ``` r
 

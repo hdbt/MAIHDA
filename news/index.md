@@ -32,7 +32,83 @@
   the basis in `$estimation`, and
   [`print()`](https://rdrr.io/r/base/print.html) states it.
 
+- **`pcv_importance(method = "sequential")` is soft-deprecated in favour
+  of
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md).**
+  The `"sequential"` method now emits a deprecation warning (it still
+  runs and returns the same result) and will be removed in a future
+  release; `"shapley"` and `"dominance"` are unaffected. It was a
+  strictly weaker duplicate of
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md):
+  the sequential *trajectory* quantities — the step-specific `Step_PCV`
+  (normalised by the previous step, so it does not obey the efficiency
+  identity
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  is built on) and, for a binary outcome, the discriminatory-accuracy
+  path (`AUC`, `Step_AUC`/`Total_AUC`, `MOR`) — live naturally in
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)’s
+  row-per-step table and have no place in the row-per-variable
+  attribution object. Use
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  for the order-dependent path, or `method = "shapley"` for an
+  order-invariant split of the same total PCV.
+
 ### Bug Fixes
+
+- **An external `offset=` no longer skews automatic family detection,
+  response recoding, strata auto-binning, or longitudinal time-centering
+  through a row `lme4` later drops.** The evaluated top-level `offset`
+  was forwarded to `lme4` (which puts it in its model frame, so
+  `na.omit` removes offset-`NA` rows) but was omitted from the
+  analytic-sample masks the preprocessing keys off. A row later dropped
+  for a missing offset was therefore still seen upstream: it could flip
+  the auto-detected family (a stray out-of-sample outcome value making
+  an otherwise-binary outcome look continuous, so a linear model was
+  fitted where a `binomial` one was intended), shift the response
+  recoding / strata cut-points, or — in a longitudinal fit — drag the
+  internal time centre to an occasion the fit never uses (biasing the
+  growth basis and the time-varying VPC/PCV). The offset is now folded
+  into the shared row mask (`maihda_row_mask()`) alongside
+  `subset`/`weights`, so family detection, 0/1 recoding, auto-binning,
+  and longitudinal validation/centering all see exactly the rows the
+  engine fits. Only the `lme4` engine takes an offset (the others reject
+  it), and a fit with no missing offset is unaffected.
+
+- **A per-group PCV decomposition that fails is no longer silently
+  reported as a success.** In
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  (two-model mode), the adjusted-model fit and
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  were wrapped in a
+  [`tryCatch()`](https://rdrr.io/r/base/conditions.html) that turned any
+  error into `NULL`, leaving `pcv = NA` while the group’s `status`
+  stayed `"ok"` and no warning explained the gap — an incomplete
+  decomposition that looked complete (a common trigger: a stratum
+  dimension constant within a group, whose adjusted main effect is a
+  one-level factor `lmer` rejects). The result now carries a
+  `pcv_status` column recording the decomposition outcome per group
+  (`"ok"`, `"failed"`, or `"singular"`), the captured error is surfaced
+  in an aggregated warning naming the affected groups, and an adjusted
+  fit that is singular — pinning the adjusted variance near 0 so the PCV
+  saturates near 100% — is flagged separately as a boundary artifact.
+  The group’s own `status` still reflects its (successful) null VPC
+  model.
+
+- **[`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  now warns and withholds the delta when a comparison mixes likelihood
+  and Bayesian information criteria.** A direct
+  [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  call spanning the likelihood engines (`lme4`/`ordinal`, reporting
+  AIC/BIC) and `brms` (reporting WAIC/LOOIC) checked only for differing
+  outcome, family, or sample — not for a mixed criterion scale — so a
+  same-family `lme4`-vs-`brms` table selected AIC as the primary
+  criterion, ranked on it, and left the Bayesian row a bare `NA` delta
+  with no caveat. It now applies the same scale guard
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  already uses: when the populated criteria span both scales it warns
+  that AIC/BIC and WAIC/LOOIC are not comparable and omits the delta
+  (the per-model criteria are still reported). Same-scale comparisons
+  are unaffected.
 
 - **An explicit ordinal (`family = "ordinal"`) model whose top category
   occurs only on rows with a missing predictor no longer silently

@@ -60,6 +60,7 @@ cmp <- compare_maihda_groups(BMI ~ Age + (1 | Gender:Race),
                              data = maihda_health_data, group = "Education")
 #> boundary (singular) fit: see help('isSingular')
 #> boundary (singular) fit: see help('isSingular')
+#> Warning: compare_maihda_groups(): the adjusted model was singular for group(s) 9 - 11th Grade, College Grad, so the adjusted between-stratum variance sits at the boundary (~0) and the PCV saturates near 100% (pcv_status = "singular"). Read those groups' PCV with caution -- a near-complete attenuation can reflect a boundary fit as well as genuinely additive strata.
 plot(cmp, type = "vpc")
 
 plot(cmp, type = "components")
