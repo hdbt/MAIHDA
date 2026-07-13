@@ -147,6 +147,30 @@ maihda_ordinal_prepare_response <- function(data, formula) {
   data
 }
 
+# Assert a cumulative response still has the >= 3 categories a cumulative model
+# needs AFTER analytic-sample filtering (the rows the fit actually uses). This is
+# deliberately separate from maihda_ordinal_prepare_response()'s full-data check:
+# that check runs before rows with missing predictors/outcomes are dropped, so a
+# category present only on excluded rows passes it, yet clmm()/brms fit only the
+# observed categories WITHOUT complaint -- silently turning an explicit 3+-level
+# ordinal request into a binomial model whose response predictions use the wrong
+# 1..K scale. Both the clmm and brms ordinal paths re-run this on exactly the rows
+# their fit uses. Expects `y` already droplevels()'d so an empty category counts as
+# absent. `resp_name` names the outcome for the message only.
+maihda_ordinal_assert_min_levels <- function(y, resp_name) {
+  nl <- nlevels(y)
+  if (nl < 3) {
+    stop("The cumulative (ordinal) MAIHDA model needs at least 3 response ",
+         "categories, but only ", nl, " remain in the analytic sample -- the rows ",
+         "actually fitted, after dropping rows with a missing outcome or predictor. ",
+         "A category of '", resp_name, "' occurs only on excluded rows, so the fit ",
+         "would silently collapse to a ", nl, "-category (binomial) model. ",
+         "Investigate why that category coincides with missing data, or collapse '",
+         resp_name, "' to the categories you can actually model.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
 #' Fit a cumulative MAIHDA model via ordinal::clmm
 #'
 #' Internal engine call for \code{fit_maihda(engine = "ordinal")}. Builds the
@@ -184,6 +208,15 @@ maihda_fit_clmm <- function(formula, data, family, dot_vals) {
             call. = FALSE)
     data <- data[keep, , drop = FALSE]
   }
+
+  # Re-validate the response category count on this analytic sample and drop any now-
+  # empty category before the fit: a level present only on the rows removed above
+  # would otherwise let the explicit ordinal request silently collapse to a binomial
+  # clmm fit (see maihda_ordinal_assert_min_levels). droplevels() is a no-op when
+  # every declared category is still observed.
+  resp_name <- all.vars(formula[[2]])[1]
+  data[[resp_name]] <- droplevels(data[[resp_name]])
+  maihda_ordinal_assert_min_levels(data[[resp_name]], resp_name)
 
   args <- list(
     formula = formula,

@@ -988,6 +988,10 @@ maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
 #'   as \code{\link{summary.maihda_model}} reports the intersectional-scope AUC for a
 #'   contextual fit.
 #'
+#'   The variance-estimation basis chosen by \code{estimation} is recorded as an
+#'   \code{"estimation"} attribute on the returned table (and shown by
+#'   \code{print()}).
+#'
 #' @details
 #' All models are fit on the complete cases for `outcome`, `stratum`, and all
 #' variables in `vars` so that each sequential variance comparison uses the same
@@ -1199,6 +1203,10 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
                               after = match("Variance", base_cols))]
   }
 
+  # Record the variance-estimation basis used for every step's PCV so a serialized
+  # table keeps this (statistically material) provenance, mirroring the
+  # $estimation element on a calculate_pcv() result.
+  attr(results, "estimation") <- estimation
   class(results) <- c("maihda_stepwise", "data.frame")
   return(results)
 }
@@ -1222,6 +1230,13 @@ print.maihda_stepwise <- function(x, ...) {
         "\nStep_PCV / Total_PCV are the between-stratum PCV NET OF the context random\n",
         "intercept held in every model; Context_Variance is that (summed)\n",
         "between-context variance at each step.\n")))
+  }
+  est <- attr(x, "estimation")
+  if (!is.null(est)) {
+    cat(maihda_palette()$muted(sprintf("\nVariance basis: %s\n",
+      if (identical(est, "ML"))
+        "ML-refit (correction-free cross-model comparison)"
+      else "as fitted (REML for Gaussian lmer, matching summary())")))
   }
   invisible(x)
 }

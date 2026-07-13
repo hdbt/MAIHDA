@@ -111,8 +111,10 @@ An object of class \code{maihda_pcv_importance}: a list with
     the conditional dominance matrix (variables x adjustment-set size) and
     the pairwise complete-dominance matrix.}
   \item{method, approx, n_perm, n_fits, n_obs, engine, family, context,
-    bootstrap, conf_level, n_boot_ok}{Metadata; \code{n_fits} counts the
-    distinct models fit (including the null).}
+    bootstrap, conf_level, n_boot_ok, estimation}{Metadata; \code{n_fits} counts
+    the distinct models fit (including the null), and \code{estimation} is the
+    variance-estimation basis (\code{"fitted"}/\code{"ML"}) put on every subset
+    model's between-stratum variance.}
 }
 \description{
 Apportions the between-stratum variance reduction (the PCV) among a set of
@@ -139,10 +141,11 @@ latent-scale caveat below for non-Gaussian families).
 \details{
 \strong{Value function and efficiency.} Write \eqn{V_0} for the null model's
 between-stratum variance and \eqn{V(S)} for the between-stratum variance
-after adding the variable subset \eqn{S} as fixed effects (each REML
-\code{lmer} fit is refit with ML first, exactly as in
-\code{\link{calculate_pcv}} and \code{\link{stepwise_pcv}}, so all
-attributions live on the same scale as the rest of the package). The value
+after adding the variable subset \eqn{S} as fixed effects (each put on the
+\code{estimation} basis -- the default \code{"fitted"} keeps each \code{lmer}
+fit's own REML variance, \code{"ML"} refits it with maximum likelihood --
+exactly as in \code{\link{calculate_pcv}} and \code{\link{stepwise_pcv}}, so
+all attributions live on the same scale as the rest of the package). The value
 function is \eqn{v(S) = (V_0 - V(S)) / V_0} -- the total PCV of the model
 that adds \eqn{S} -- and the Shapley contribution of variable \eqn{i}
 averages its marginal PCV \eqn{v(S \cup \{i\}) - v(S)} over all subsets with

@@ -118,7 +118,8 @@ data.}
 
 \item{estimation}{Variance-estimation basis for each group's per-group PCV,
 \code{"fitted"} (default) or \code{"ML"}; see \code{\link{calculate_pcv}}.
-Affects Gaussian \code{lmer} fits only.}
+Affects Gaussian \code{lmer} fits only. Recorded as an \code{"estimation"}
+attribute on the returned comparison (and shown by \code{print()}).}
 
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
 \code{lmer}/\code{glmer}).}

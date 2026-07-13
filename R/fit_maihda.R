@@ -495,11 +495,30 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     # the cross-stratum id check, slip past the repeated-measures gate, or mis-anchor
     # the centering. Falls back to keeping every row if the mask cannot be built.
     analytic_keep <- tryCatch({
-      k <- maihda_row_mask(data, subset = subset_value, weights = weights_value)
-      cvars <- intersect(c(all.vars(formula), lng_spec$id, lng_spec$time),
-                         names(data))
-      if (length(cvars) > 0) {
-        k <- k & stats::complete.cases(data[, cvars, drop = FALSE])
+      # Transformation-aware: model.frame + na.omit over the resolved formula, so a
+      # row whose fixed-effect transformation is non-finite (e.g. log(x) of x <= 0)
+      # is dropped here exactly as lme4 will drop it. A raw complete.cases() over the
+      # source columns instead keeps such a row (the raw x is non-NA), leaving the
+      # longitudinal checks and the time-centering below keyed off rows the fit never
+      # sees -- mis-anchoring the centre and spuriously failing the cross-stratum id
+      # check on an excluded (id, stratum) pairing.
+      k <- maihda_analytic_keep_mask(formula, data, subset = subset_value,
+                                     weights = weights_value)
+      if (is.null(k)) {
+        # Model frame could not be built: fall back to the raw check over the
+        # formula's source variables (id/time are appended below either way).
+        k <- maihda_row_mask(data, subset = subset_value, weights = weights_value)
+        fvars <- intersect(all.vars(formula), names(data))
+        if (length(fvars) > 0) {
+          k <- k & stats::complete.cases(data[, fvars, drop = FALSE])
+        }
+      }
+      # id/time are not part of the (pre-growth) formula yet, so guard them
+      # explicitly. They are plain grouping/time columns with no transformation, for
+      # which a raw complete.cases is exact.
+      idtime <- intersect(c(lng_spec$id, lng_spec$time), names(data))
+      if (length(idtime) > 0) {
+        k <- k & stats::complete.cases(data[, idtime, drop = FALSE])
       }
       k
     }, error = function(e) rep(TRUE, nrow(data)))
@@ -762,6 +781,15 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       # cumulative() needs an ordered factor, and the category order is
       # load-bearing either way.
       data <- maihda_ordinal_prepare_response(data, formula)
+      # Re-check the category count on the analytic sample the same way the clmm
+      # path does, but BEFORE the (expensive) Stan fit: a category present only on
+      # rows brms drops for missingness would otherwise silently reduce the model
+      # order. sampling_weights, if any, already pruned `data` above, so the model
+      # frame here reflects the rows brms will actually use.
+      resp_name <- all.vars(formula[[2]])[1]
+      ord_keep <- maihda_analytic_keep_mask(formula, data)
+      ord_y <- if (is.null(ord_keep)) data[[resp_name]] else data[[resp_name]][ord_keep]
+      maihda_ordinal_assert_min_levels(droplevels(ord_y), resp_name)
       fit_env$data <- data
       family <- brms::cumulative(link = family$link)
     }

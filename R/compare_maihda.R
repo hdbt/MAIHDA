@@ -469,7 +469,8 @@ plot_comparison <- function(comparison_df) {
 #'   data.
 #' @param estimation Variance-estimation basis for each group's per-group PCV,
 #'   \code{"fitted"} (default) or \code{"ML"}; see \code{\link{calculate_pcv}}.
-#'   Affects Gaussian \code{lmer} fits only.
+#'   Affects Gaussian \code{lmer} fits only. Recorded as an \code{"estimation"}
+#'   attribute on the returned comparison (and shown by \code{print()}).
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'
@@ -1203,6 +1204,9 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   attr(out, "family") <- if (is.character(family)) family else family$family
   attr(out, "shared_strata") <- shared_strata
   attr(out, "decomposition") <- decomposition
+  # Variance-estimation basis behind every per-group PCV, recorded so a serialized
+  # comparison keeps this provenance (mirrors calculate_pcv()'s $estimation).
+  attr(out, "estimation") <- estimation
   # The context variable name(s) and the per-group, per-context between-context
   # variances (a named list keyed by group). NULL when no context was supplied.
   attr(out, "context_var") <- context
@@ -1312,6 +1316,12 @@ print.maihda_group_comparison <- function(x, ...) {
         " | Family:", attr(x, "family"),
         " | Strata:", if (isTRUE(attr(x, "shared_strata"))) "shared/global" else "per-group",
         "\n")
+    est <- attr(x, "estimation")
+    if (!is.null(est)) {
+      cat("Variance basis:",
+          if (identical(est, "ML")) "ML-refit (correction-free cross-model comparison)"
+          else "as fitted (REML for Gaussian lmer)", "\n")
+    }
     # Contextual comparison: each per-group fit is a contextual cross-classified
     # model, so vpc/var_between are the between-stratum share NET of the context and
     # var_context/vpc_context are the (summed) between-context partition.
@@ -1348,7 +1358,7 @@ print.maihda_group_comparison <- function(x, ...) {
   # method relies on.
   if (is.data.frame(out)) {
     for (a in c("group_var", "engine", "family", "shared_strata", "decomposition",
-                "context_var", "context_per")) {
+                "context_var", "context_per", "estimation")) {
       attr(out, a) <- attr(x, a)
     }
     class(out) <- class(x)

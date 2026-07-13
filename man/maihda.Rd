@@ -106,10 +106,12 @@ dimensions' main effects \emph{and their interactions with time}
 PCV is reported separately for the baseline (intercept) and the slope variance
 -- the additive-vs-multiplicative split of the intersectional trajectory
 inequality (Bell, Evans, Holman & Leckie 2024). As with the two-model PCV,
-REML \code{lmer} growth fits are refitted with maximum likelihood before the
-null-vs-adjusted variance comparison (REML variances are not comparable
-across different fixed effects; see \code{\link{calculate_pcv}}), while the
-reported time-varying VPC keeps each fit's own (REML) estimate.
+the \code{estimation} argument sets the variance-estimation basis: the default
+\code{"fitted"} keeps each REML \code{lmer} growth fit's own variance, while
+\code{"ML"} refits them with maximum likelihood before the null-vs-adjusted
+comparison (REML variances are not comparable across different fixed effects;
+see \code{\link{calculate_pcv}}). The reported time-varying VPC always keeps
+each fit's own (REML) estimate.
 See \code{\link{fit_maihda}}.}
 
 \item{autobin}{Logical passed to \code{\link{make_strata}}; tertile-bins numeric
@@ -190,9 +192,12 @@ An object of class \code{maihda_analysis}: a list with
   \item{pcv}{the proportional change in variance: the \code{pcv_result} from
     \code{\link{calculate_pcv}} in \code{"two-model"} mode, or a
     \code{maihda_long_pcv} (the intercept/slope and time-specific PCV) in
-    \code{"longitudinal"} mode; \code{NULL} otherwise. Both are computed on
-    the maximum-likelihood scale (REML \code{lmer} fits are ML-refitted for
-    the comparison; see \code{\link{calculate_pcv}})}
+    \code{"longitudinal"} mode; \code{NULL} otherwise. Both use the
+    variance-estimation basis set by \code{estimation}: the default
+    \code{"fitted"} keeps each Gaussian \code{lmer} fit's own REML variance
+    (matching the single-model summaries), while \code{"ML"} refits the REML
+    fits with maximum likelihood for a correction-free cross-model comparison
+    (see \code{\link{calculate_pcv}})}
   \item{decomposition}{the additive/interaction partition (additive and interaction
     variances and shares, per-dimension variances; \code{"crossed-dimensions"} mode
     only, \code{NULL} otherwise)}

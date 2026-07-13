@@ -74,6 +74,10 @@ A data.frame (class \code{maihda_stepwise}) showing the sequential
   net-of-context scope as the \code{Step_PCV} / \code{Total_PCV} columns, exactly
   as \code{\link{summary.maihda_model}} reports the intersectional-scope AUC for a
   contextual fit.
+
+  The variance-estimation basis chosen by \code{estimation} is recorded as an
+  \code{"estimation"} attribute on the returned table (and shown by
+  \code{print()}).
 }
 \description{
 Estimates the proportional change in variance (PCV) sequentially by fitting
