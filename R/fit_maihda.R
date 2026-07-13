@@ -161,8 +161,14 @@
 #'   default-on \code{interactions} of \code{\link{maihda}}.
 #' @param ... Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
 #'   \code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},
-#'   \code{fast}). The lme4-style \code{weights}/\code{subset}/\code{offset}
-#'   arguments are not supported by the wemix engine.
+#'   \code{fast}). The lme4-style \code{weights} (precision weights),
+#'   \code{subset}, and \code{offset} arguments are honoured only by the
+#'   \code{lme4} engine, which applies them directly. The \code{wemix},
+#'   \code{ordinal}, and \code{brms} engines reject them: none takes them as a
+#'   top-level fitting argument (brms in particular expects weighting/offset as
+#'   formula addition terms, \code{weights(.)} / \code{offset(.)}, and design
+#'   weights via \code{sampling_weights}). Prefilter \code{data} instead of using
+#'   \code{subset} on those engines.
 #'
 #' @return A maihda_model object containing:
 #'   \item{model}{The fitted model object (lme4, brms, WeMix, or ordinal::clmm)}
@@ -283,12 +289,55 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     stop("Supply either 'sampling_weights' (design weights) or 'weights' ",
          "(precision weights), not both.", call. = FALSE)
   }
+
+  # lme4 PRECISION weights (weights=) that are zero -- or negative / non-finite --
+  # carry no information, but lmer does NOT drop such a row: it returns a degenerate
+  # fit (logLik -Inf, NA gradient) while the residual-variance helper silently
+  # discards the zero weight and still reports a finite VPC, so the variance
+  # estimates differ materially from fitting after removing the row. Map those
+  # weights to NA -- the case lme4 DOES drop, reproducing the row-removed fit
+  # exactly -- up front, so binary/ordinal detection, strata auto-binning, and the
+  # fit all use the same analytic sample. Only the lme4 path takes precision
+  # weights; wemix/brms reject them below, so skip their (unused) `weights` value.
+  if (!identical(engine, "wemix") && !identical(engine, "brms") &&
+      is.numeric(weights_value) && length(weights_value) == nrow(data)) {
+    bad_w <- !is.na(weights_value) & !(is.finite(weights_value) & weights_value > 0)
+    if (any(bad_w)) {
+      warning(sprintf(paste0("fit_maihda(): dropped %d row(s) with a non-positive ",
+                             "or non-finite precision weight ('weights') before ",
+                             "fitting (a zero weight otherwise degenerates the ",
+                             "lme4 fit)."), sum(bad_w)), call. = FALSE)
+      weights_value[bad_w] <- NA_real_
+      dot_vals[["weights"]] <- weights_value
+    }
+  }
+
   if (identical(engine, "wemix")) {
     unsupported_dots <- intersect(c("weights", "subset", "offset"), names(dot_vals))
     if (length(unsupported_dots) > 0) {
       stop("Argument(s) not supported by engine = \"wemix\": ",
            paste(unsupported_dots, collapse = ", "),
            ". Subset or transform the data before fitting.", call. = FALSE)
+    }
+  }
+  if (identical(engine, "brms")) {
+    # brms does not take lme4's data-masked fitting arguments as top-level
+    # arguments: it has no `subset`, and expects weighting / offset information as
+    # formula ADDITION terms (weights(), offset()), not as `weights=` / `offset=`.
+    # brms::brm() would silently absorb them into `...` and ignore them -- while
+    # family detection and strata auto-binning above DID honour them -- so
+    # preprocessing would describe one analytic sample and brms fit another
+    # (silently changing coefficients, variance components, VPC, and PCV). Reject
+    # them with guidance rather than fit the wrong model. (Design weights come
+    # through 'sampling_weights', which brms supports as likelihood weights.)
+    unsupported_dots <- intersect(c("weights", "subset", "offset"), names(dot_vals))
+    if (length(unsupported_dots) > 0) {
+      stop("Argument(s) not supported by engine = \"brms\": ",
+           paste(unsupported_dots, collapse = ", "),
+           ". brms takes weighting and offset information as formula addition ",
+           "terms -- put offset(.) or weights(.) in the model formula, pass ",
+           "design weights via 'sampling_weights', and prefilter 'data' instead ",
+           "of using 'subset'.", call. = FALSE)
     }
   }
 
@@ -672,17 +721,14 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     # missing/non-positive weights are dropped here so the stored data matches the
     # fitted rows.
     if (!is.null(sampling_weights)) {
-      n_pre_drop <- nrow(data)
       prep <- maihda_prepare_brms_sampling_weights(data, formula, sampling_weights)
       data <- prep$data
       formula <- prep$formula
       fit_env$data <- data
-      # The forwarded `...` were evaluated against the pre-drop data and bound into
-      # fit_env above; if rows were just dropped, re-slice any row-aligned argument
-      # (e.g. subset, offset) so it stays aligned with the `data` brms receives.
-      if (any(!prep$keep)) {
-        maihda_reslice_dot_args(dot_vals, prep$keep, n_pre_drop, fit_env)
-      }
+      # No row-aligned `...` need re-slicing after this drop: the brms engine
+      # rejects the lme4-style weights/subset/offset arguments (the only row-length
+      # forwarded values) up front, so every remaining dot is a scalar / non-row
+      # object brms takes as-is.
       message("fit_maihda(): sampling weights enter the brms model as likelihood ",
               "weights (normalized to mean 1), giving a pseudo-posterior: point ",
               "estimates target the population-weighted estimand, but credible ",
@@ -962,34 +1008,6 @@ maihda_resolve_family_spec <- function(family) {
          call. = FALSE)
   }
   family
-}
-
-# Re-slice forwarded engine arguments after a pre-fit row drop. The `...` values
-# are evaluated once against the pre-drop `data` and bound into `fit_env` as
-# `.maihda_arg_*` names; when a downstream step drops rows (the brms
-# sampling-weight path removes rows with non-positive/missing weights), any
-# row-aligned argument (e.g. `subset`, `offset`) is left longer than the `data`
-# the engine receives -- brms then errors on the length mismatch, or could select
-# the wrong rows. Re-slice every value whose length (vector) or row count (matrix /
-# data frame) equals the pre-drop count `n_pre` to the surviving rows and rebind
-# it; scalars and non-row-aligned objects (chains=, control, priors) are left as
-# bound. `keep` is the logical mask over the pre-drop rows.
-maihda_reslice_dot_args <- function(dot_vals, keep, n_pre, fit_env) {
-  for (nm in names(dot_vals)) {
-    v <- dot_vals[[nm]]
-    d <- dim(v)
-    sliced <- if (!is.null(d) && length(d) == 2L) {
-      if (nrow(v) == n_pre) v[keep, , drop = FALSE] else NULL
-    } else if (is.null(d) && length(v) == n_pre) {
-      v[keep]
-    } else {
-      NULL
-    }
-    if (!is.null(sliced)) {
-      assign(paste0(".maihda_arg_", nm), sliced, envir = fit_env)
-    }
-  }
-  invisible(NULL)
 }
 
 #' Print method for maihda_model

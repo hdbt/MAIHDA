@@ -886,52 +886,19 @@ test_that("fit_maihda routes sampling weights into a brms fit (Stan-free)", {
                captured$data$w / captured$data$w[1])
 })
 
-test_that("maihda_reslice_dot_args slices only row-aligned forwarded values", {
-  env <- new.env()
-  dot_vals <- list(subset = 1:5, chains = 4L, mat = matrix(1:10, nrow = 5))
-  for (nm in names(dot_vals)) {
-    assign(paste0(".maihda_arg_", nm), dot_vals[[nm]], envir = env)
-  }
-  keep <- c(TRUE, FALSE, TRUE, FALSE, TRUE)
-
-  maihda_reslice_dot_args(dot_vals, keep, 5L, env)
-
-  # Row-aligned vector and matrix are sliced to the kept rows...
-  expect_equal(get(".maihda_arg_subset", env), c(1L, 3L, 5L))
-  expect_equal(get(".maihda_arg_mat", env),
-               matrix(1:10, nrow = 5)[keep, , drop = FALSE])
-  # ...a scalar (length != n) is left untouched.
-  expect_equal(get(".maihda_arg_chains", env), 4L)
-})
-
-test_that("fit_maihda re-slices row-aligned dots after the brms weight drop", {
-  skip_if_not_installed("brms")
-
+test_that("engine = 'brms' rejects a forwarded subset instead of re-slicing it", {
+  # The brms path no longer forwards lme4-style row-aligned dots (they are not
+  # brms::brm() arguments and were silently ignored); it rejects them, so there is
+  # nothing left to re-slice after a sampling-weight row drop. Rejected during
+  # argument handling, so no brms/Stan compile is needed.
   d <- make_dw_data(n = 12)
-  # Force two rows out of the fit via a zero and a missing weight.
-  d$w[3] <- 0
-  d$w[7] <- NA
   s <- make_strata(d, vars = c("gender", "race", "edu"))
-
-  captured <- NULL
-  local_mocked_bindings(
-    brm = function(formula, data, family, ...) {
-      captured <<- list(data = data, dots = list(...))
-      structure(list(), class = "brmsfit")
-    },
-    .package = "brms"
-  )
-
-  # `subset` is forwarded and row-aligned to the pre-drop data (12 rows); after the
-  # weight drop the data is 10 rows, so the bound subset must be re-sliced to match
-  # -- otherwise brms gets a 12-long subset against a 10-row data frame.
-  sub <- rep(TRUE, nrow(s$data))
-  suppressMessages(suppressWarnings(
-    fit_maihda(y ~ age + (1 | stratum), data = s$data,
-               engine = "brms", sampling_weights = "w", subset = sub)
-  ))
-  expect_equal(nrow(captured$data), 10L)
-  expect_length(captured$dots$subset, 10L)
+  expect_error(
+    suppressMessages(suppressWarnings(
+      fit_maihda(y ~ age + (1 | stratum), data = s$data,
+                 engine = "brms", sampling_weights = "w",
+                 subset = rep(TRUE, nrow(s$data))))),
+    "not supported by engine = \"brms\"", fixed = TRUE)
 })
 
 test_that("wemix unseen stratum: helper maps to zero, public path gates it", {

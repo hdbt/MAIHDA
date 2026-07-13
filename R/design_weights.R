@@ -454,6 +454,71 @@ maihda_brms_weights_formula <- function(formula, wcol) {
   formula
 }
 
+#' Remove the package-internal weights(.maihda_sw) addition term from a formula
+#'
+#' The inverse of the injection \code{maihda_brms_weights_formula()} performs for
+#' the reserved \code{.maihda_sw} column. \code{maihda()} and
+#' \code{compare_maihda_groups()} derive the null / adjusted models from a
+#' sampling-weighted fit's \emph{stored} formula, which already carries the
+#' injected \code{weights(.maihda_sw)} term; that term must be stripped before the
+#' derived model is re-prepared, or the reserved-column guard (\code{.maihda_sw}
+#' both in the formula and in the carried-over data) and the weights-formula
+#' rewrite (which rejects an existing \code{weights()} term) abort the package's
+#' own refit. Only the internal \code{weights(.maihda_sw)} call is removed -- a
+#' user's own \code{weights()} term (a genuine conflict) is left in place so it is
+#' still rejected -- and any other addition term (e.g. \code{trials(n)}) is
+#' preserved.
+#'
+#' @param formula A model formula.
+#' @return The formula with the internal \code{weights(.maihda_sw)} term removed,
+#'   or the input unchanged when it carries no such term.
+#' @keywords internal
+maihda_strip_brms_weights_term <- function(formula) {
+  if (length(formula) < 3L) {
+    return(formula)                    # one-sided formula: no LHS to strip
+  }
+  lhs <- formula[[2]]
+  if (!is.call(lhs) || !identical(lhs[[1]], as.name("|"))) {
+    return(formula)                    # response carries no addition term
+  }
+  stripped <- maihda_drop_weights_call(lhs[[3]], .maihda_brms_weights_col)
+  if (is.null(stripped)) {
+    # The addition was solely weights(.maihda_sw): drop the `|`, leaving the bare
+    # response.
+    formula[[2]] <- lhs[[2]]
+  } else if (!identical(stripped, lhs[[3]])) {
+    lhs[[3]] <- stripped
+    formula[[2]] <- lhs
+  }
+  formula
+}
+
+# Recursively drop a weights(<wcol>) call from a brms addition-term expression (a
+# `+`-tree of addition terms, e.g. `trials(n) + weights(.maihda_sw)`). Returns the
+# pruned expression, or NULL when nothing remains.
+maihda_drop_weights_call <- function(expr, wcol) {
+  is_target <- is.call(expr) && identical(expr[[1]], as.name("weights")) &&
+    length(expr) == 2L && identical(expr[[2]], as.name(wcol))
+  if (is_target) {
+    return(NULL)
+  }
+  if (is.call(expr) && identical(expr[[1]], as.name("+"))) {
+    left <- maihda_drop_weights_call(expr[[2]], wcol)
+    right <- maihda_drop_weights_call(expr[[3]], wcol)
+    if (is.null(left) && is.null(right)) {
+      return(NULL)
+    }
+    if (is.null(left)) {
+      return(right)
+    }
+    if (is.null(right)) {
+      return(left)
+    }
+    return(call("+", left, right))
+  }
+  expr
+}
+
 #' Rows complete on every variable a brms model will use
 #'
 #' Mirrors the rows brms retains after its own NA exclusion: complete on the
@@ -512,6 +577,16 @@ maihda_brms_complete_rows <- function(formula, data) {
 #'   forwarded arguments to the same rows).
 #' @keywords internal
 maihda_prepare_brms_sampling_weights <- function(data, formula, sampling_weights) {
+  # A maihda()- / compare_maihda_groups()-derived refit re-enters here with the
+  # internal weights term already on the formula and the .maihda_sw column already
+  # in `data` -- both copied from the prior sampling-weighted fit the null /
+  # adjusted model was derived from. Strip that term so this re-prepares cleanly
+  # from `sampling_weights`: otherwise the reserved-column guard (below) sees
+  # .maihda_sw referenced in the formula AND present in data and aborts, and the
+  # formula rewrite (further down) rejects the already-present weights() term. The
+  # weight column is re-normalized and re-injected from the ORIGINAL weight column
+  # (still carried in the derived data), which is the intended behaviour.
+  formula <- maihda_strip_brms_weights_term(formula)
   maihda_guard_reserved_weight_col(.maihda_brms_weights_col, data, formula, "brms")
   w <- as.numeric(data[[sampling_weights]])
   keep <- is.finite(w) & w > 0

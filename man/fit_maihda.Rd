@@ -187,8 +187,14 @@ default-on \code{interactions} of \code{\link{maihda}}.}
 
 \item{...}{Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
 \code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},
-\code{fast}). The lme4-style \code{weights}/\code{subset}/\code{offset}
-arguments are not supported by the wemix engine.}
+\code{fast}). The lme4-style \code{weights} (precision weights),
+\code{subset}, and \code{offset} arguments are honoured only by the
+\code{lme4} engine, which applies them directly. The \code{wemix},
+\code{ordinal}, and \code{brms} engines reject them: none takes them as a
+top-level fitting argument (brms in particular expects weighting/offset as
+formula addition terms, \code{weights(.)} / \code{offset(.)}, and design
+weights via \code{sampling_weights}). Prefilter \code{data} instead of using
+\code{subset} on those engines.}
 }
 \value{
 A maihda_model object containing:

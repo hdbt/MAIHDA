@@ -124,11 +124,16 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' so the stratum proportion shown there may differ slightly from the headline
 #' VPC because the median of a ratio is not the ratio of means. For non-Gaussian
 #' \code{brms} families the level-1 (residual) variance uses the usual
-#' latent-scale approximation; for the count families the marginal expected
-#' counts are built from the posterior-mean fixed effects and random-effect
-#' variances rather than per draw, to avoid an expensive
-#' \eqn{ndraws \times nobs} computation (the negative-binomial \code{shape}
-#' draws are still propagated).
+#' latent-scale approximation. For the count families (Poisson, negative
+#' binomial) the marginal expected counts are propagated \emph{per draw} -- from
+#' the fixed-part linear-predictor draws and each draw's total random-intercept
+#' variance -- for the intercept-only VPC structures (strata, crossed-dimensions,
+#' contextual), so the credible interval reflects fixed-effect and random-effect
+#' variance uncertainty; the negative-binomial \code{shape} draws are always
+#' propagated. A random-slope (longitudinal) structure, whose per-row
+#' random-effect design that fast path does not carry, instead holds the marginal
+#' expected counts at a posterior-mean plug-in (constant across draws) to avoid an
+#' expensive \eqn{ndraws \times nobs} computation.
 #'
 #' @examples
 #' \donttest{

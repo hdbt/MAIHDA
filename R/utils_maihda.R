@@ -2697,16 +2697,28 @@ maihda_check_known_strata <- function(stratum, known, type = "individual") {
   if (is.null(known)) {
     return(invisible(NULL))
   }
+  hint <- if (identical(type, "individual")) {
+    " Pass allow_new_levels = TRUE for a population-average (fixed-effects-only) prediction."
+  } else {
+    ""
+  }
+  # A missing (NA) stratum has no estimated random effect. For an INDIVIDUAL
+  # prediction the WeMix/ordinal linpred helpers would silently map it to zero (a
+  # population-average prediction), whereas lme4 rejects an NA grouping level
+  # outright -- so reject it here to keep every engine consistent, unless the
+  # caller opted into the population-average fallback (that path skips this check
+  # entirely; see maihda_prepare_prediction_data()). A STRATUM-level prediction
+  # instead simply yields no row for an NA stratum (an empty result, matching
+  # lme4), so it is left to fall through.
+  if (identical(type, "individual") && anyNA(stratum)) {
+    stop("newdata has row(s) with a missing ('NA') stratum, so no stratum random ",
+         "effect can be applied.", hint, call. = FALSE)
+  }
   wanted <- unique(as.character(stratum))
   wanted <- wanted[!is.na(wanted)]
   unknown <- setdiff(wanted, known)
   if (length(unknown) == 0) {
     return(invisible(NULL))
-  }
-  hint <- if (identical(type, "individual")) {
-    " Pass allow_new_levels = TRUE for a population-average (fixed-effects-only) prediction."
-  } else {
-    ""
   }
   stop("newdata contains strata not present in the fitted model: ",
        paste(utils::head(unknown, 5), collapse = ", "),
@@ -2803,6 +2815,21 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
     object$strata_autobin_info
   )
 
+  # A row missing a stratum-defining dimension yields no stratum label at all
+  # (labels[i] is NA), so it is neither a known nor a "new" stratum -- its stratum
+  # stays NA. For an INDIVIDUAL prediction the WeMix/ordinal helpers would map that
+  # (absent) random effect to zero, silently returning a population-average
+  # prediction where lme4 rejects an NA grouping level; reject it here unless the
+  # caller opted into the fallback (permit_new keeps the NA stratum, which the
+  # engines then treat as fixed-effects-only). A stratum-level prediction yields no
+  # row for such a stratum downstream, so it is left to fall through.
+  if (identical(type, "individual") && !permit_new && anyNA(labels)) {
+    stop(sprintf(paste0("newdata has %d row(s) whose stratum-defining variable(s) ",
+                        "are missing (NA), so their stratum cannot be determined."),
+                 sum(is.na(labels))),
+         " Pass allow_new_levels = TRUE for a population-average ",
+         "(fixed-effects-only) prediction.", call. = FALSE)
+  }
   unknown <- !is.na(labels) & is.na(newdata$stratum)
   if (any(unknown)) {
     if (permit_new) {
