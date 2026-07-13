@@ -242,8 +242,7 @@ print(stepwise_results)
 
 `stepwise_pcv()`'s step contributions depend on the order the variables enter.
 `pcv_importance()` removes that dependence: it averages each variable's marginal
-PCV over all entry orders (Shapley values — the multilevel-PCV analogue of the
-LMG/`relaimpo` R-squared decomposition), with dominance analysis and the
+PCV over all entry orders, with dominance analysis and the
 sequential path available under the same roof.
 
 ```r

@@ -33,11 +33,14 @@ covariates) among which the PCV is apportioned. Order does not affect the
 \code{"sequential"}.}
 
 \item{method}{Attribution method: \code{"shapley"} (default; order-invariant
-Shapley values), \code{"sequential"} (the order-dependent one-at-a-time
-path, kept for continuity with \code{\link{stepwise_pcv}}), or
-\code{"dominance"} (Budescu dominance analysis: general dominance -- equal
-to the Shapley values -- plus the conditional and complete dominance
-detail).}
+Shapley values) or \code{"dominance"} (Budescu dominance analysis: general
+dominance -- equal to the Shapley values -- plus the conditional and
+complete dominance detail). \code{"sequential"} (the order-dependent
+one-at-a-time path) is \strong{deprecated} and will be removed in a future
+release: it still runs but warns, and \code{\link{stepwise_pcv}} is the
+supported sequential decomposition -- it additionally reports the
+step-specific \code{Step_PCV} and, for a binary outcome, the
+discriminatory-accuracy trajectory (AUC, MOR).}
 
 \item{approx}{For \code{method = "shapley"} only: \code{"exact"} fits all
 \eqn{2^k - 1} non-empty variable subsets (plus the null); \code{"montecarlo"}
@@ -123,11 +126,12 @@ time -- so each variable's contribution depends on its entry order --
 \code{pcv_importance()} treats the PCV as a value function over variable
 subsets and attributes it \emph{fairly}: the flagship \code{"shapley"}
 method averages each variable's marginal PCV over every possible entry
-order, \code{"dominance"} adds Budescu's pairwise dominance detail (its
-general dominance weights coincide with the Shapley values), and
-\code{"sequential"} reproduces the order-dependent path for continuity.
-All methods satisfy the \strong{efficiency} identity: the contributions sum
-exactly to the full model's total PCV.
+order, and \code{"dominance"} adds Budescu's pairwise dominance detail (its
+general dominance weights coincide with the Shapley values). All methods
+satisfy the \strong{efficiency} identity: the contributions sum exactly to
+the full model's total PCV. (The order-dependent \code{"sequential"} method
+is \strong{deprecated}; use \code{\link{stepwise_pcv}} for the sequential
+path -- see the \code{method} argument.)
 
 Two attribution targets are useful in a MAIHDA. Passing the \emph{stratum
 dimensions} (e.g. \code{c("gender", "race", "education")}) splits the
@@ -155,8 +159,11 @@ Monte-Carlo approximation, for any \code{n_perm}) sum exactly to the
 full-model total PCV. This is the multilevel-PCV analogue of the LMG /
 Shorrocks-Shapley decomposition of \eqn{R^2} (Groemping 2006; Shorrocks 2013).
 
-\strong{Sequential method vs. \code{stepwise_pcv()}.} The
-\code{"sequential"} contributions are the \emph{increments in total PCV}
+\strong{Sequential method (deprecated) vs. \code{stepwise_pcv()}.} The
+\code{"sequential"} method is \strong{deprecated} in favour of
+\code{\link{stepwise_pcv}}, which owns the sequential trajectory and also
+reports the \code{Step_PCV} column and the discriminatory-accuracy path.
+While it remains, its contributions are the \emph{increments in total PCV}
 along the entry order, \eqn{v(\{x_1..x_i\}) - v(\{x_1..x_{i-1}\})} -- i.e.
 \code{diff(c(0, Total_PCV))} of the \code{\link{stepwise_pcv}} table, so
 they sum to the same total. They are \emph{not} the \code{Step_PCV} column,
