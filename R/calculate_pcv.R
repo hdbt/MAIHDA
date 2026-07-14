@@ -39,6 +39,11 @@
 #'   \item{var_model2}{Between-stratum variance from model2}
 #'   \item{estimation}{The variance-estimation basis requested (\code{"fitted"} or
 #'     \code{"ML"})}
+#'   \item{estimation_used}{The basis actually used: \code{"fitted"}, \code{"ML"}, or
+#'     \code{"mixed"}. \code{"mixed"} arises under \code{estimation = "ML"} when a
+#'     model's between-stratum variance is on the boundary and its ML refit is skipped
+#'     (that model keeps its REML fit), so the comparison is partly REML rather than a
+#'     pure, correction-free ML one -- \code{print()} states this}
 #'   \item{adjusted_at_boundary}{Logical; \code{TRUE} when model2's between-stratum
 #'     variance is on the singularity boundary, so the PCV is pinned near 1 (100\%) and
 #'     its interval/SE are unreliable -- consistent with genuinely additive strata as
@@ -199,6 +204,13 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   # FAILED -- it then keeps the REML fit -- so the result does not read as a clean ML
   # comparison when it is not one.
   ml_refit_failed <- isTRUE(model1$ml_refit_failed) || isTRUE(model2$ml_refit_failed)
+  # Under estimation = "ML", a model whose between-stratum variance is on the boundary
+  # keeps its REML fit (maihda_pcv_refit_ml() skips the destabilising refit there), so
+  # the comparison is then partly REML. Record the basis ACTUALLY used ("mixed") so the
+  # result does not claim a pure, correction-free ML refit when one model stayed REML.
+  ml_refit_skipped <- isTRUE(model1$ml_refit_skipped_boundary) ||
+    isTRUE(model2$ml_refit_skipped_boundary)
+  estimation_used <- maihda_pcv_estimation_used(estimation, ml_refit_skipped)
 
   # Extract between-stratum variance from both models
   var1 <- extract_between_variance(model1)
@@ -249,6 +261,7 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
     var_model1 = var1,
     var_model2 = var2,
     estimation = estimation,
+    estimation_used = estimation_used,
     adjusted_at_boundary = adjusted_at_boundary,
     ml_refit_failed = ml_refit_failed,
     bootstrap = FALSE
@@ -300,6 +313,31 @@ maihda_pcv_apply_estimation <- function(model, estimation) {
   if (identical(estimation, "ML")) maihda_pcv_refit_ml(model) else model
 }
 
+# Resolve the variance-estimation basis a PCV comparison ACTUALLY used, from the
+# requested `estimation` and whether any model's ML refit was skipped at the boundary
+# (maihda_pcv_refit_ml() sets $ml_refit_skipped_boundary then). Under estimation =
+# "ML" a skipped model is left on its REML fit, so the comparison is "mixed" (partly
+# REML), not a pure ML one; "fitted" is never mixed. Callers record the result and
+# render it with maihda_pcv_basis_label().
+maihda_pcv_estimation_used <- function(estimation, skipped) {
+  if (identical(estimation, "ML") && isTRUE(skipped)) "mixed" else estimation
+}
+
+# Human-readable variance-basis label shared by every PCV print method
+# (calculate_pcv(), stepwise_pcv(), pcv_importance(), compare_maihda_groups()) so the
+# wording cannot drift. `basis` is the basis ACTUALLY used
+# (maihda_pcv_estimation_used()); an older serialized object may carry only the
+# requested "fitted"/"ML", which map to the same text.
+maihda_pcv_basis_label <- function(basis) {
+  if (is.null(basis)) basis <- "fitted"
+  switch(basis,
+    ML = "ML-refit (correction-free cross-model comparison)",
+    mixed = paste0("mixed -- ML requested, but a between-stratum variance at the ",
+                   "boundary kept its REML fit, so not a pure ML comparison"),
+    "as fitted (REML for Gaussian lmer, matching summary())"
+  )
+}
+
 # REML lmer between-stratum variance estimates carry a fixed-effects-specific REML
 # degrees-of-freedom correction that differs between the null and adjusted fits.
 # Invoked only when the ML estimation basis is requested (estimation = "ML"; see
@@ -328,7 +366,16 @@ maihda_pcv_refit_ml <- function(model) {
   # the stratum variance is comfortably nonzero -- testing global isSingular() here
   # wrongly skipped those, leaving the REML-vs-ML discrepancy this corrects in place.
   # If refitML() itself fails, the tryCatch below keeps the original (REML) fit.
-  if (maihda_stratum_at_boundary_lme4(model$model)) return(model)
+  if (maihda_stratum_at_boundary_lme4(model$model)) {
+    # ML refit deliberately skipped at the boundary (see above). Record it so the
+    # caller can report an HONEST basis: under estimation = "ML" a model kept on its
+    # REML fit here makes the cross-model comparison partly REML -- a "mixed" basis,
+    # not the pure, correction-free ML comparison the "ML" label would otherwise
+    # claim. (Forcing the refit instead is worse: refitML() of a boundary fit emits a
+    # bobyqa non-convergence warning and still returns the same ~0 variance.)
+    model$ml_refit_skipped_boundary <- TRUE
+    return(model)
+  }
   refit <- tryCatch(lme4::refitML(model$model), error = function(e) NULL)
   if (!is.null(refit)) {
     model$model <- refit
@@ -345,36 +392,65 @@ maihda_pcv_refit_ml <- function(model) {
   model
 }
 
-# TRUE when the stratum random-intercept variance sits on the lower boundary
-# (effectively zero). Reproduces lme4::isSingular()'s relative tolerance for the
-# stratum component alone: its scaled SD parameter theta = sd_stratum / sigma_resid
-# is below `tol`, which is exactly how lme4 flags a single intercept term as singular.
-# Used by maihda_pcv_refit_ml() to decide whether an ML refit is worthwhile -- it is
-# not when the stratum is itself at zero, but it IS when only another grouping factor
-# is on the boundary. Returns TRUE (skip the refit) if the stratum variance cannot be
-# read at all; calculate_pcv()'s own zero-variance guard then surfaces the problem.
+# TRUE when a between-stratum variance is effectively zero RELATIVE to the
+# residual/latent scale -- lme4::isSingular()'s relative tolerance for a single
+# intercept term (its scaled SD parameter sd_stratum / sd_residual below `tol`),
+# applied uniformly across engines so the wemix and ordinal boundary tests use the
+# same rule as lme4. `residual_var` is the level-1 / latent residual VARIANCE on the
+# same scale as `stratum_var`: sigma^2 for a Gaussian fit, pi^2/3 on the logit latent
+# scale, 1 on the probit latent scale. With no usable residual scale, falls back to an
+# absolute near-zero test. A non-finite or non-positive stratum variance counts as the
+# boundary (calculate_pcv()'s own zero-variance guard then surfaces it).
+maihda_variance_at_boundary <- function(stratum_var, residual_var, tol = 1e-4) {
+  if (!is.finite(stratum_var) || stratum_var <= 0) return(TRUE)
+  if (!is.finite(residual_var) || residual_var <= 0) {
+    return(stratum_var <= .Machine$double.eps)
+  }
+  sqrt(stratum_var) / sqrt(residual_var) < tol
+}
+
+# TRUE when the stratum random-intercept variance of an lme4 fit sits on the lower
+# boundary (effectively zero), via the shared relative tolerance above with the
+# residual variance sigma^2. Used by maihda_pcv_refit_ml() to decide whether an ML
+# refit is worthwhile -- it is not when the stratum is itself at zero, but it IS when
+# only another grouping factor is on the boundary. Returns TRUE (skip the refit) if the
+# stratum variance cannot be read at all.
 maihda_stratum_at_boundary_lme4 <- function(model, tol = 1e-4) {
   stratum_var <- tryCatch(maihda_stratum_variance_lme4(model),
                           error = function(e) NA_real_)
-  if (is.na(stratum_var) || stratum_var <= 0) return(TRUE)
   sigma_resid <- tryCatch(stats::sigma(model), error = function(e) NA_real_)
-  if (is.na(sigma_resid) || sigma_resid <= 0) {
-    # No usable residual scale: fall back to an absolute near-zero test.
-    return(stratum_var <= .Machine$double.eps)
-  }
-  sqrt(stratum_var) / sigma_resid < tol
+  residual_var <- if (is.na(sigma_resid)) NA_real_ else sigma_resid^2
+  maihda_variance_at_boundary(stratum_var, residual_var, tol = tol)
 }
 
-# TRUE when a maihda_model's between-stratum (PCV denominator) variance sits on
-# the lme4 singularity boundary. Wraps maihda_stratum_at_boundary_lme4() with the
-# engine gate and error-swallowing that every PCV entry point -- calculate_pcv(),
-# stepwise_pcv() and pcv_importance() -- needs before dividing by that variance.
-# Only the lme4 engine is flagged here: the wemix/ordinal/brms engines carry
-# their own zero guards and read the boundary differently.
+# TRUE when a maihda_model's between-stratum (PCV denominator) variance sits on the
+# singularity boundary -- effectively zero relative to the residual/latent scale.
+# Every PCV entry point -- calculate_pcv(), stepwise_pcv() and pcv_importance() --
+# needs this before dividing by that variance, because a strictly positive but
+# boundary-level variance (e.g. 3e-9 from a clmm fit or 5e-24 from a WeMix fit) passes
+# a plain > 0 test yet makes the ratio explode or saturate. Dispatches per engine so
+# the wemix and ordinal optimizers -- which return a tiny POSITIVE value rather than
+# lme4's exact zero -- are covered too, each scaled against its own residual/latent
+# variance via maihda_variance_at_boundary(). brms is excluded by design: a
+# pseudo-posterior mean variance is essentially never at an exact boundary, and
+# flagging a small posterior mean as "degenerate" would misread genuine near-zero
+# between-stratum variation carrying honest posterior uncertainty.
 maihda_pcv_null_at_boundary <- function(model) {
-  identical(model$engine, "lme4") &&
-    isTRUE(tryCatch(maihda_stratum_at_boundary_lme4(model$model),
-                    error = function(e) FALSE))
+  isTRUE(tryCatch(
+    switch(model$engine,
+      lme4 = maihda_stratum_at_boundary_lme4(model$model),
+      wemix = {
+        v <- maihda_wemix_variances(model)
+        maihda_variance_at_boundary(v$stratum, v$residual)
+      },
+      ordinal = {
+        v <- maihda_clmm_variances(model)
+        maihda_variance_at_boundary(v$stratum, v$residual)
+      },
+      FALSE
+    ),
+    error = function(e) FALSE
+  ))
 }
 
 # Standard error for a degenerate (effectively singular) PCV denominator, shared
@@ -748,10 +824,9 @@ print.pcv_result <- function(x, ...) {
   }
 
   if (!is.null(x$estimation)) {
-    cat(pal$muted(sprintf("(Variance basis: %s)\n\n",
-      if (identical(x$estimation, "ML"))
-        "ML-refit -- correction-free cross-model comparison"
-      else "as fitted -- REML for Gaussian lmer, matching summary()")))
+    basis <- x$estimation_used
+    if (is.null(basis)) basis <- x$estimation
+    cat(pal$muted(sprintf("Variance basis: %s\n\n", maihda_pcv_basis_label(basis))))
   }
 
   cat(pal$bold("Between-stratum variance:"), "\n", sep = "")
@@ -1023,8 +1098,10 @@ maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
 #'   contextual fit.
 #'
 #'   The variance-estimation basis chosen by \code{estimation} is recorded as an
-#'   \code{"estimation"} attribute on the returned table (and shown by
-#'   \code{print()}).
+#'   \code{"estimation"} attribute on the returned table; the basis actually used is
+#'   recorded as \code{"estimation_used"} (\code{"mixed"} when \code{estimation = "ML"}
+#'   but a step's ML refit was skipped at the boundary, leaving it on REML). Both are
+#'   shown by \code{print()}.
 #'
 #' @details
 #' All models are fit on the complete cases for `outcome`, `stratum`, and all
@@ -1112,6 +1189,11 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
                family = family, context = context,
                sampling_weights = sampling_weights), estimation)
   null_var <- extract_between_variance(null_mod)
+  # Track whether any model kept its REML fit because an ML refit was skipped at the
+  # boundary (see maihda_pcv_refit_ml()); under estimation = "ML" that makes the
+  # series' basis "mixed", not pure ML. (A boundary NULL hard-stops just below, so in
+  # practice this is driven by the step models.)
+  ml_refit_skipped <- isTRUE(null_mod$ml_refit_skipped_boundary)
 
   # Every Total_PCV divides by null_var and the first Step_PCV divides by it too,
   # so a boundary-level (effectively singular) null variance -- a strictly
@@ -1192,6 +1274,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
                  sampling_weights = sampling_weights), estimation)
 
     curr_var <- extract_between_variance(mod)
+    if (isTRUE(mod$ml_refit_skipped_boundary)) ml_refit_skipped <- TRUE
     if (maihda_pcv_null_at_boundary(mod)) {
       boundary_steps <- c(boundary_steps, vars[i])
     }
@@ -1255,6 +1338,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   # table keeps this (statistically material) provenance, mirroring the
   # $estimation element on a calculate_pcv() result.
   attr(results, "estimation") <- estimation
+  attr(results, "estimation_used") <- maihda_pcv_estimation_used(estimation, ml_refit_skipped)
   attr(results, "boundary_steps") <- boundary_steps
   class(results) <- c("maihda_stepwise", "data.frame")
   return(results)
@@ -1280,12 +1364,11 @@ print.maihda_stepwise <- function(x, ...) {
         "intercept held in every model; Context_Variance is that (summed)\n",
         "between-context variance at each step.\n")))
   }
-  est <- attr(x, "estimation")
+  est <- attr(x, "estimation_used")
+  if (is.null(est)) est <- attr(x, "estimation")
   if (!is.null(est)) {
     cat(maihda_palette()$muted(sprintf("\nVariance basis: %s\n",
-      if (identical(est, "ML"))
-        "ML-refit (correction-free cross-model comparison)"
-      else "as fitted (REML for Gaussian lmer, matching summary())")))
+      maihda_pcv_basis_label(est))))
   }
   bstep <- attr(x, "boundary_steps")
   if (length(bstep) > 0) {

@@ -76,8 +76,10 @@ A data.frame (class \code{maihda_stepwise}) showing the sequential
   contextual fit.
 
   The variance-estimation basis chosen by \code{estimation} is recorded as an
-  \code{"estimation"} attribute on the returned table (and shown by
-  \code{print()}).
+  \code{"estimation"} attribute on the returned table; the basis actually used is
+  recorded as \code{"estimation_used"} (\code{"mixed"} when \code{estimation = "ML"}
+  but a step's ML refit was skipped at the boundary, leaving it on REML). Both are
+  shown by \code{print()}.
 }
 \description{
 Estimates the proportional change in variance (PCV) sequentially by fitting

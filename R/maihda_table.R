@@ -420,11 +420,23 @@ maihda_table_pcv_note <- function(model_stats, pcv, model_keys, engine) {
   if (any(is.na(c(v1, v2, disp1, disp2)))) return(NULL)
   differs <- function(a, b) isTRUE(abs(a - b) > 1e-8 + 1e-6 * max(abs(a), abs(b)))
   if (!differs(disp1, v1) && !differs(disp2, v2)) return(NULL)
-  paste0("The PCV is computed from maximum-likelihood-refitted between-stratum ",
-         "variances (estimation = \"ML\", a correction-free cross-model comparison; ",
-         "see ?calculate_pcv), while the Between-stratum variance/SD and VPC/ICC rows ",
-         "are each model's own REML estimate. The PCV therefore need not equal the ",
-         "variance reduction implied by the displayed variance rows.")
+  # A boundary model keeps its REML fit even under estimation = "ML" (the refit is
+  # skipped), so the comparison is then on a MIXED basis, not a pure ML one -- say so
+  # rather than claim a correction-free ML comparison the result no longer asserts.
+  basis <- pcv$estimation_used
+  if (is.null(basis)) basis <- pcv$estimation
+  ml_desc <- if (identical(basis, "mixed")) {
+    paste0("maximum-likelihood-refitted between-stratum variances (estimation = ",
+           "\"ML\"; a between-stratum variance at the boundary kept its REML fit, so ",
+           "this is a mixed, not a pure ML, comparison")
+  } else {
+    paste0("maximum-likelihood-refitted between-stratum variances (estimation = ",
+           "\"ML\", a correction-free cross-model comparison")
+  }
+  paste0("The PCV is computed from ", ml_desc, "; see ?calculate_pcv), while the ",
+         "Between-stratum variance/SD and VPC/ICC rows are each model's own REML ",
+         "estimate. The PCV therefore need not equal the variance reduction implied ",
+         "by the displayed variance rows.")
 }
 
 # Rank every stratum by its model-predicted outcome, reusing the same per-stratum

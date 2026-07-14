@@ -919,9 +919,34 @@ maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE,
 
   if (length(re_terms) > 0) {
     grouping_vars_by_term <- lapply(re_terms, function(x) all.vars(x[[3]]))
-    has_stratum_group <- any(vapply(grouping_vars_by_term, function(vars) {
+    is_stratum_term <- vapply(grouping_vars_by_term, function(vars) {
       identical(vars, "stratum")
-    }, logical(1)))
+    }, logical(1))
+    has_stratum_group <- any(is_stratum_term)
+
+    # Reject duplicate intercept-only stratum terms. lme4 fits, e.g.,
+    # `... + (1 | stratum) + (1 | stratum)` as two SEPARATE variance components
+    # ("stratum" and "stratum.1") and splits the between-stratum variance
+    # arbitrarily between them -- a non-identifiable partition that makes the VPC
+    # and PCV ill-defined: the summary counts only the first component as
+    # between-stratum variance and misclassifies the rest as "other random
+    # effects". A single stratum intercept PLUS a stratum random *slope* is a
+    # different (identifiable) structure and is caught downstream by the
+    # intercept-only validation, so restrict this guard to duplicated
+    # intercept-only stratum terms.
+    if (sum(is_stratum_term) > 1) {
+      stratum_lhs <- vapply(re_terms[is_stratum_term], function(term) {
+        paste(deparse(term[[2]]), collapse = " ")
+      }, character(1))
+      if (all(stratum_lhs == "1")) {
+        stop("The model formula includes ", sum(is_stratum_term), " separate ",
+             "(1 | stratum) random-effect terms. Duplicate stratum grouping terms ",
+             "are non-identifiable: lme4 splits the between-stratum variance ",
+             "arbitrarily across them (fitted as 'stratum' and 'stratum.1'), so the ",
+             "VPC and PCV are not well defined. Use a single (1 | stratum) term.",
+             call. = FALSE)
+      }
+    }
 
     if (!has_stratum_group) {
       if (length(re_terms) != 1) {

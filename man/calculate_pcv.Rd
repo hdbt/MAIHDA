@@ -54,6 +54,11 @@ A list containing:
   \item{var_model2}{Between-stratum variance from model2}
   \item{estimation}{The variance-estimation basis requested (\code{"fitted"} or
     \code{"ML"})}
+  \item{estimation_used}{The basis actually used: \code{"fitted"}, \code{"ML"}, or
+    \code{"mixed"}. \code{"mixed"} arises under \code{estimation = "ML"} when a
+    model's between-stratum variance is on the boundary and its ML refit is skipped
+    (that model keeps its REML fit), so the comparison is partly REML rather than a
+    pure, correction-free ML one -- \code{print()} states this}
   \item{adjusted_at_boundary}{Logical; \code{TRUE} when model2's between-stratum
     variance is on the singularity boundary, so the PCV is pinned near 1 (100\%) and
     its interval/SE are unreliable -- consistent with genuinely additive strata as

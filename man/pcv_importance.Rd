@@ -114,10 +114,13 @@ An object of class \code{maihda_pcv_importance}: a list with
     the conditional dominance matrix (variables x adjustment-set size) and
     the pairwise complete-dominance matrix.}
   \item{method, approx, n_perm, n_fits, n_obs, engine, family, context,
-    bootstrap, conf_level, n_boot_ok, estimation}{Metadata; \code{n_fits} counts
-    the distinct models fit (including the null), and \code{estimation} is the
-    variance-estimation basis (\code{"fitted"}/\code{"ML"}) put on every subset
-    model's between-stratum variance.}
+    bootstrap, conf_level, n_boot_ok, estimation, estimation_used}{Metadata;
+    \code{n_fits} counts the distinct models fit (including the null),
+    \code{estimation} is the variance-estimation basis
+    (\code{"fitted"}/\code{"ML"}) requested for every subset model's
+    between-stratum variance, and \code{estimation_used} is the basis actually used
+    (\code{"mixed"} when an ML refit was skipped at the boundary, leaving a subset
+    model on REML).}
 }
 \description{
 Apportions the between-stratum variance reduction (the PCV) among a set of

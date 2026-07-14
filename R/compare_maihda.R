@@ -470,7 +470,9 @@ plot_comparison <- function(comparison_df) {
 #' @param estimation Variance-estimation basis for each group's per-group PCV,
 #'   \code{"fitted"} (default) or \code{"ML"}; see \code{\link{calculate_pcv}}.
 #'   Affects Gaussian \code{lmer} fits only. Recorded as an \code{"estimation"}
-#'   attribute on the returned comparison (and shown by \code{print()}).
+#'   attribute on the returned comparison; the basis actually used is recorded as
+#'   \code{"estimation_used"} (\code{"mixed"} when a group's ML refit was skipped at
+#'   the boundary, leaving it on REML). Both are shown by \code{print()}.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}).
 #'
@@ -934,6 +936,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # common, legitimate MAIHDA result), so it is recorded only in the pcv_status column
   # ("singular") for the analyst to read, not surfaced as a caution.
   pcv_failed_groups <- list()
+  # Set when any group's per-group calculate_pcv() reports a "mixed" basis (estimation =
+  # "ML" but a boundary model kept its REML fit), so the header does not claim a pure ML
+  # comparison for the whole table when one group's comparison was partly REML.
+  any_mixed_basis <- FALSE
 
   for (gi in seq_along(group_levels)) {
     g <- group_levels[gi]
@@ -1136,6 +1142,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
             calculate_pcv(fit_obj$model, adj_model, estimation = estimation)
           }, error = function(e) { pcv_err <<- conditionMessage(e); NULL })
           if (!is.null(pcv_obj)) {
+            if (identical(pcv_obj$estimation_used, "mixed")) any_mixed_basis <- TRUE
             row$pcv <- pcv_obj$pcv
             # Report the adjusted between-stratum variance on the SAME scale as
             # var_between / vpc (the REML single-model VPC variance), so the table stays
@@ -1311,6 +1318,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # Variance-estimation basis behind every per-group PCV, recorded so a serialized
   # comparison keeps this provenance (mirrors calculate_pcv()'s $estimation).
   attr(out, "estimation") <- estimation
+  attr(out, "estimation_used") <- maihda_pcv_estimation_used(estimation, any_mixed_basis)
   # The context variable name(s) and the per-group, per-context between-context
   # variances (a named list keyed by group). NULL when no context was supplied.
   attr(out, "context_var") <- context
@@ -1425,11 +1433,10 @@ print.maihda_group_comparison <- function(x, ...) {
         " | Family:", attr(x, "family"),
         " | Strata:", if (isTRUE(attr(x, "shared_strata"))) "shared/global" else "per-group",
         "\n")
-    est <- attr(x, "estimation")
+    est <- attr(x, "estimation_used")
+    if (is.null(est)) est <- attr(x, "estimation")
     if (!is.null(est)) {
-      cat("Variance basis:",
-          if (identical(est, "ML")) "ML-refit (correction-free cross-model comparison)"
-          else "as fitted (REML for Gaussian lmer)", "\n")
+      cat("Variance basis:", maihda_pcv_basis_label(est), "\n")
     }
     # Contextual comparison: each per-group fit is a contextual cross-classified
     # model, so vpc/var_between are the between-stratum share NET of the context and

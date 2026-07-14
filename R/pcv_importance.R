@@ -197,10 +197,13 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #'     the conditional dominance matrix (variables x adjustment-set size) and
 #'     the pairwise complete-dominance matrix.}
 #'   \item{method, approx, n_perm, n_fits, n_obs, engine, family, context,
-#'     bootstrap, conf_level, n_boot_ok, estimation}{Metadata; \code{n_fits} counts
-#'     the distinct models fit (including the null), and \code{estimation} is the
-#'     variance-estimation basis (\code{"fitted"}/\code{"ML"}) put on every subset
-#'     model's between-stratum variance.}
+#'     bootstrap, conf_level, n_boot_ok, estimation, estimation_used}{Metadata;
+#'     \code{n_fits} counts the distinct models fit (including the null),
+#'     \code{estimation} is the variance-estimation basis
+#'     (\code{"fitted"}/\code{"ML"}) requested for every subset model's
+#'     between-stratum variance, and \code{estimation_used} is the basis actually used
+#'     (\code{"mixed"} when an ML refit was skipped at the boundary, leaving a subset
+#'     model on REML).}
 #'
 #' @details
 #' \strong{Value function and efficiency.} Write \eqn{V_0} for the null model's
@@ -448,6 +451,10 @@ pcv_importance <- function(data, outcome, vars,
   # only when the bootstrap needs to refit them.
   keep_models <- bootstrap
   cache <- new.env(parent = emptyenv())
+  # Set when any subset model keeps its REML fit because its ML refit was skipped at
+  # the boundary (maihda_pcv_refit_ml()); under estimation = "ML" that makes the
+  # attribution's basis "mixed", not a pure ML comparison.
+  ml_refit_skipped_any <- FALSE
 
   fit_mask <- function(mask) {
     key <- as.character(mask)
@@ -465,6 +472,7 @@ pcv_importance <- function(data, outcome, vars,
              paste(vars[maihda_mask_bits(mask, k)], collapse = ", "),
              "} failed to fit: ", conditionMessage(e), call. = FALSE)
       })
+    if (isTRUE(mod$ml_refit_skipped_boundary)) ml_refit_skipped_any <<- TRUE
     variance <- extract_between_variance(mod)
     if (!is.finite(variance)) {
       stop("pcv_importance(): no finite between-stratum variance for the ",
@@ -631,6 +639,7 @@ pcv_importance <- function(data, outcome, vars,
     family = null_entry$family_key,
     family_name = null_entry$family_name,
     estimation = estimation,
+    estimation_used = maihda_pcv_estimation_used(estimation, ml_refit_skipped_any),
     context = context,
     sampling_weights = sampling_weights,
     conditional = dominance$conditional,
@@ -732,11 +741,10 @@ print.maihda_pcv_importance <- function(x, digits = 4, ...) {
   cat(sprintf("Outcome: %s   Engine: %s (%s)\n", x$outcome, x$engine, x$family))
   cat(sprintf("Analytic sample: %d observations; %d models fit (incl. null).\n",
               x$n_obs, x$n_fits))
-  if (!is.null(x$estimation)) {
-    cat(sprintf("Variance basis: %s\n",
-        if (identical(x$estimation, "ML"))
-          "ML-refit (correction-free cross-model comparison)"
-        else "as fitted (REML for Gaussian lmer, matching summary())"))
+  basis <- x$estimation_used
+  if (is.null(basis)) basis <- x$estimation
+  if (!is.null(basis)) {
+    cat(sprintf("Variance basis: %s\n", maihda_pcv_basis_label(basis)))
   }
   if (!is.null(x$context)) {
     cat(sprintf("Context: %s (contributions are net of the context random intercept).\n",
