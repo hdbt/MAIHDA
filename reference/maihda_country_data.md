@@ -102,11 +102,17 @@ analysis <- maihda(
 )
 #> boundary (singular) fit: see help('isSingular')
 #> maihda(): added the additive main effect(s) of the stratum dimension(s) gender, ses to the adjusted model; the null model excludes them. List them in the formula to specify the adjusted model explicitly.
+#> Warning: Between-stratum variance in model2 (the adjusted model) is at the zero boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, not evidence that covariates explain all of the between-stratum variance. Inspect the adjusted model for a singular fit.
 #> boundary (singular) fit: see help('isSingular')
+#> Warning: Between-stratum variance in model2 (the adjusted model) is at the zero boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, not evidence that covariates explain all of the between-stratum variance. Inspect the adjusted model for a singular fit.
 #> boundary (singular) fit: see help('isSingular')
+#> Warning: Between-stratum variance in model2 (the adjusted model) is at the zero boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, not evidence that covariates explain all of the between-stratum variance. Inspect the adjusted model for a singular fit.
 #> boundary (singular) fit: see help('isSingular')
+#> Warning: Between-stratum variance in model2 (the adjusted model) is at the zero boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, not evidence that covariates explain all of the between-stratum variance. Inspect the adjusted model for a singular fit.
 #> boundary (singular) fit: see help('isSingular')
+#> Warning: Between-stratum variance in model2 (the adjusted model) is at the zero boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, not evidence that covariates explain all of the between-stratum variance. Inspect the adjusted model for a singular fit.
 #> boundary (singular) fit: see help('isSingular')
+#> Warning: Between-stratum variance in model2 (the adjusted model) is at the zero boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, not evidence that covariates explain all of the between-stratum variance. Inspect the adjusted model for a singular fit.
 #> Warning: compare_maihda_groups(): the adjusted model was singular for group(s) Finland, Germany, Italy, Mexico, United Kingdom, so the adjusted between-stratum variance sits at the boundary (~0) and the PCV saturates near 100% (pcv_status = "singular"). Read those groups' PCV with caution -- a near-complete attenuation can reflect a boundary fit as well as genuinely additive strata.
 analysis
 #> MAIHDA Analysis

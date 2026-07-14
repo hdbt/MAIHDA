@@ -63,10 +63,11 @@ calculate_pvc(
   fit); `"ML"` refits any REML `lmer` fit with maximum likelihood first,
   for a correction-free comparison. The choice affects Gaussian `lmer`
   fits only – `glmer` and the brms/wemix/ordinal engines are already on
-  the ML scale. See Details for the finite-sample tradeoff. When `"ML"`
-  pushes the adjusted model onto the singularity boundary, the function
-  warns that the resulting PCV near 1 is a boundary artefact rather than
-  a substantive result.
+  the ML scale. See Details for the finite-sample tradeoff. Whenever
+  model2 (the adjusted model) sits on the singularity boundary – under
+  *any* `estimation` basis – the function warns that the resulting PCV
+  near 1 is a boundary artefact rather than a substantive result, and
+  records `adjusted_at_boundary = TRUE` on the result.
 
 ## Value
 

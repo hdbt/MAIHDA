@@ -55,6 +55,99 @@
 
 ### Bug Fixes
 
+- **An external `offset=` is now retained in every downstream `lme4`
+  prediction, not just at fit time.** Although fitting honoured the
+  offset, several prediction paths rebuilt `newdata` from the stored
+  model frame and lost it: `predict.merMod()` silently drops an
+  *external* offset (the `offset=` argument) on the `newdata` path, and
+  *errors* on a *formula*
+  [`offset()`](https://rdrr.io/r/stats/offset.html) term because the
+  model frame stores the offset under the derived
+  `offset(...)`/`(offset)` column name rather than the raw variable.
+  This affected the ranked-strata table and `plot(type = "predicted")`
+  (per-stratum expected counts came out too low for an external offset,
+  and errored for a formula offset), the count longitudinal time-varying
+  VPC (`VPC(t)` biased by the dropped offset), the
+  mean-covariate-profile growth trajectory, and the prediction-deviation
+  panels. Predictions on the fitted rows now reuse the stored linear
+  predictor (which includes the offset), and predictions on derived
+  grids rebuild the fixed-effects linear predictor directly and add the
+  model’s offset (held at its per-row value, or its mean for the
+  representative-profile trajectory); a genuine external prediction
+  grid, where an external offset cannot be reconstructed, is rejected
+  with a directed error. No-offset fits are numerically unchanged.
+
+- **[`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now auto-bins shared numeric strata on the pooled analytic sample, so
+  `subset=` matches prefiltered input.** With `shared_strata = TRUE` the
+  shared tertile cut-points were computed from *all* input rows rather
+  than the rows the per-group fits actually use, so a row excluded by
+  `subset=`, a missing/zero weight, a missing offset, missingness, or a
+  missing group still shifted the breaks — silently redefining other
+  rows’ strata and changing the reported VPCs.
+  `compare_maihda_groups(data, subset = keep)` now returns the same
+  strata (and VPCs) as fitting the pre-filtered data, mirroring
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)’s
+  existing analytic-sample binning.
+
+- **[`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  and [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  now fold the external offset into family detection and the per-group
+  analytic n.** As in
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+  an offset-`NA` row (which `lme4` drops) was still seen by the
+  group/workflow family-and-engine selection and counted in the reported
+  per-group `n`/`min_group_n` guard. A stray out-of-sample outcome value
+  on such a row could flip the detected family — e.g. an ordered outcome
+  whose third category sits only on the offset-`NA` row selected the
+  ordinal engine, then failed against
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)’s
+  binary analytic sample. Detection and the analytic row count now key
+  off the same offset-aware sample the engine fits.
+
+- **A failed
+  [`lme4::refitML()`](https://rdrr.io/pkg/lme4/man/refitML.html) is no
+  longer silently reported as an ML result.** When `estimation = "ML"`
+  was requested but `refitML()` failed,
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  kept the original REML fit yet still labelled the result
+  `estimation = "ML"`;
+  [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  could likewise compute an AIC/BIC delta across a mixed REML/ML basis.
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  now warns on an ML-refit failure and records `ml_refit_failed = TRUE`,
+  and
+  [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  withholds the delta (with a warning) when an intended ML refit fell
+  back to REML, leaving the criteria on incomparable bases.
+
+- **A singular adjusted fit that saturates the PCV near 100% is flagged
+  under any `estimation` basis.**
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)’s
+  adjusted-model boundary warning was gated on `estimation = "ML"`, so
+  under the default `estimation = "fitted"` a singular adjusted model
+  produced an unqualified `PCV = 1` with no caveat. The warning now
+  fires whenever model2 is on the singularity boundary regardless of the
+  basis, and the result records `adjusted_at_boundary`. The status is
+  propagated as silent attributes to
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  (`boundary_steps`) and
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  (`full_at_boundary`) — surfaced in their
+  [`print()`](https://rdrr.io/r/base/print.html) methods rather than as
+  a warning, since a saturated additive full model is the common,
+  legitimate case there.
+
+- **Subsetting a `maihda_ic` result no longer breaks its
+  [`print()`](https://rdrr.io/r/base/print.html) method.** Column/row
+  subsetting kept the `maihda_ic` class but dropped the `ic_primary`
+  attribute, so [`print()`](https://rdrr.io/r/base/print.html) printed
+  the table and then errored on a zero-length condition
+  (`!is.na(NULL)`). A `[.maihda_ic` method now preserves the metadata
+  across subsetting, and
+  [`print.maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/print.maihda_ic.md)
+  guards the attribute defensively.
+
 - **An external `offset=` no longer skews automatic family detection,
   response recoding, strata auto-binning, or longitudinal time-centering
   through a row `lme4` later drops.** The evaluated top-level `offset`
