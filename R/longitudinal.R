@@ -474,11 +474,16 @@ maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t) {
   }
   w <- maihda_fit_prior_weights(model)
   frame <- maihda_model_frame(model)
+  # Per-fitted-row offset (time-invariant). predict.merMod on the modified-time frame
+  # would DROP an external offset= (biasing the marginal count lambda, hence VPC(t))
+  # and ERROR on a formula offset() term, so build the fixed-effects linear predictor
+  # directly and add the stored offset back (maihda_lme4_fixed_link). off = NULL for a
+  # no-offset fit, where the helper reproduces predict(re.form = NA) exactly.
+  off <- maihda_fitted_offset(model)
   vapply(seq_along(t_c), function(j) {
     nd <- frame
     nd[[time_term]] <- t_c[j]
-    eta <- as.numeric(stats::predict(model, newdata = nd, re.form = NA,
-                                     type = "link"))
+    eta <- maihda_lme4_fixed_link(model, nd, offset = off)
     lambda <- pmax(exp(eta + v_t[j] / 2), .Machine$double.eps)
     maihda_weighted_obs_mean(log1p(1 / lambda + 1 / theta), w)
   }, numeric(1))

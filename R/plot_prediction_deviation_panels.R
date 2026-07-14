@@ -73,7 +73,7 @@ maihda_prediction_panel_auto_type <- function(model) {
   "gaussian"
 }
 
-maihda_prediction_panel_fitted <- function(model, data, type) {
+maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALSE) {
   if (inherits(model, "brmsfit")) {
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("Package 'brms' is required to plot prediction deviations from brms models.",
@@ -97,6 +97,31 @@ maihda_prediction_panel_fitted <- function(model, data, type) {
       rep(NA_real_, nrow(data))
     }
     return(list(fit = as.numeric(fit[, "Estimate"]), se.fit = as.numeric(se)))
+  }
+
+  # lme4: when predicting the model's OWN fitted rows (no external newdata), reuse the
+  # stored linear predictor by calling predict() WITHOUT newdata, so any offset is
+  # retained -- predicting with newdata = the stored model frame drops an external
+  # offset= and errors on a formula offset() term (its raw variable lives only as the
+  # frame's derived "offset(...)"/"(offset)" column). A genuine external newdata cannot
+  # reconstruct an external offset, so reject it rather than return a silently wrong
+  # prediction (mirroring predict_maihda()'s individual-prediction path).
+  if (inherits(model, "merMod")) {
+    if (isTRUE(fitted_data)) {
+      fit <- if (type == "binomial" || type == "poisson") {
+        stats::predict(model, type = "response")
+      } else {
+        stats::predict(model)
+      }
+      return(list(fit = as.numeric(fit), se.fit = rep(NA_real_, length(fit))))
+    }
+    if (maihda_mermod_has_external_offset(model)) {
+      stop("This model was fit with an external offset (offset = ... passed to ",
+           "fit_maihda()), which cannot be reconstructed for the supplied prediction ",
+           "data. Refit with the offset written into the formula (e.g. ",
+           "... + offset(log(exposure))), or omit 'data' to use the fitted rows.",
+           call. = FALSE)
+    }
   }
 
   # SE fallbacks below are NA_real_ -- not 0 -- for model classes whose predict()
@@ -399,6 +424,13 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
   type <- match.arg(type)
   ordinal_mode <- match.arg(ordinal_mode)
 
+  # Whether the caller supplied external prediction data. When they did NOT, the
+  # panels predict the model's own fitted rows, and those predictions must be taken
+  # WITHOUT newdata so lme4 reuses its stored linear predictor (which includes any
+  # offset); passing the stored model frame back as newdata drops an external offset=
+  # and errors on a formula offset() term. See maihda_prediction_panel_fitted().
+  data_supplied <- !is.null(data)
+
   # Check if model is a maihda_model. Keep the wrapper so prior/precision weights
   # can be recovered for the weighted stratum aggregation before unwrapping.
   maihda_obj <- NULL
@@ -441,7 +473,8 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
     # the response (expected-count) scale with count labels, and the symmetric
     # interval is clamped at 0.
     is_count <- type == "poisson"
-    preds <- maihda_prediction_panel_fitted(model, data, type)
+    preds <- maihda_prediction_panel_fitted(model, data, type,
+                                            fitted_data = !data_supplied)
 
     value_dist_title <- if (is_count) "Distribution of Predicted Counts" else "Distribution of Fitted Values"
     value_axis_label <- if (is_count) "Predicted Count" else "Fitted Value"
@@ -514,7 +547,8 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
 
   } else if (type == "binomial") {
     # BINOMIAL / LOGISTIC LOGIC
-    preds <- maihda_prediction_panel_fitted(model, data, "binomial")
+    preds <- maihda_prediction_panel_fitted(model, data, "binomial",
+                                            fitted_data = !data_supplied)
 
     # Try to extract response variable
     form <- tryCatch(formula(model), error = function(e) NULL)

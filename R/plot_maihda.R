@@ -1962,7 +1962,15 @@ maihda_longitudinal_fixed_trajectory <- function(object, grid) {
   }
 
   if (identical(object$engine, "lme4")) {
-    as.numeric(stats::predict(object$model, newdata = nd, re.form = NA))
+    # predict.merMod(newdata = nd) drops an external offset= and errors on a formula
+    # offset() term (nd is built from the stored model frame, which lacks the raw
+    # offset variable), so build the fixed trajectory directly and hold the offset at
+    # its mean -- the representative-exposure analogue of holding covariates at their
+    # means. off = NULL for a no-offset fit, where the helper reproduces
+    # predict(re.form = NA) exactly.
+    off <- maihda_fitted_offset(object$model)
+    off_mean <- if (is.null(off)) NULL else mean(off, na.rm = TRUE)
+    as.numeric(maihda_lme4_fixed_link(object$model, nd, offset = off_mean))
   } else if (identical(object$engine, "brms")) {
     maihda_brms_linpred_mean(object$model, newdata = nd, re_formula = NA)
   } else {

@@ -2495,6 +2495,79 @@ maihda_re_form_for_groups <- function(formula, groups) {
   stats::as.formula(paste("~", paste(re_txt, collapse = " + ")))
 }
 
+# Per-fitted-row offset of an lme4 fit, read off its model frame: lme4 stores an
+# external offset= as the "(offset)" column and a formula offset() term as its
+# "offset(...)" column, so both are recovered (and summed, matching
+# stats::model.offset()). Returns NULL when the fit carries no offset. Used to add the
+# offset back to fixed-effect predictions built on derived newdata, where
+# predict.merMod() drops an external offset (and errors on a formula offset whose raw
+# variable is absent from the newdata, e.g. the model frame it stores under the
+# derived "offset(...)" name).
+maihda_fitted_offset <- function(model) {
+  mf <- maihda_model_frame(model)
+  if (is.null(mf)) {
+    return(NULL)
+  }
+  cols <- grep("^\\(offset\\)$|^offset\\(", names(mf), value = TRUE)
+  if (length(cols) == 0) {
+    return(NULL)
+  }
+  Reduce(`+`, lapply(cols, function(cc) as.numeric(mf[[cc]])))
+}
+
+# TRUE when a raw lme4 fit carries an EXTERNAL offset (the offset= fitting argument)
+# rather than a formula offset() term: lme4 names the external-offset model-frame
+# column "(offset)", whereas a formula offset() is stored under "offset(...)". The
+# distinction matters for newdata predictions -- predict.merMod re-evaluates a formula
+# offset() from newdata but cannot recover an external one. (predict_maihda.R has the
+# maihda_model-wrapper analogue maihda_lme4_has_external_offset(), which reads the same
+# "(offset)" column off object$data.)
+maihda_mermod_has_external_offset <- function(model) {
+  mf <- tryCatch(maihda_model_frame(model), error = function(e) NULL)
+  !is.null(mf) && "(offset)" %in% names(mf)
+}
+
+# Fixed-effects (re.form = NA) link-scale linear predictor of an lme4 fit on arbitrary
+# newdata, WITH the supplied offset added. predict.merMod(newdata = ) drops an external
+# offset (the offset= fitting argument) and ERRORS on a formula offset() term whose raw
+# variable is absent from newdata -- which is exactly the case for the package's own
+# prediction grids, built from the stored model frame (where the offset lives only as
+# the derived "offset(...)"/"(offset)" column). So build X %*% beta from the fixed-
+# effect design directly, excluding the offset from the model matrix (model.matrix()
+# never adds an offset column), and add the caller-supplied offset. The model's terms
+# object is used (not a rebuilt formula) so predvars-dependent terms such as poly()
+# evaluate on the fitted basis; a formula offset()'s raw variable is filled with a
+# harmless dummy where absent (it never enters the model matrix). Matches
+# predict(., re.form = NA, type = "link") exactly for a no-offset fit. `offset` is a
+# per-row vector (recycled if scalar) or NULL.
+maihda_lme4_fixed_link <- function(model, newdata, offset = NULL) {
+  beta <- lme4::fixef(model)
+  tt <- stats::delete.response(stats::terms(maihda_nobars(stats::formula(model))))
+  off_idx <- attr(tt, "offset")
+  if (!is.null(off_idx) && length(off_idx) > 0) {
+    varlist <- attr(tt, "variables")
+    off_vars <- unlist(lapply(off_idx, function(i) all.vars(varlist[[i + 1L]])))
+    for (v in setdiff(off_vars, names(newdata))) newdata[[v]] <- 1
+  }
+  mfr <- maihda_model_frame(model)
+  term_vars <- all.vars(tt)
+  fac <- names(mfr)[vapply(mfr, is.factor, logical(1))]
+  xlev <- lapply(mfr[intersect(fac, term_vars)], levels)
+  mf <- stats::model.frame(tt, newdata, na.action = stats::na.pass, xlev = xlev)
+  contr <- attr(lme4::getME(model, "X"), "contrasts")
+  X <- stats::model.matrix(tt, mf, contrasts.arg = contr)
+  missing_cols <- setdiff(names(beta), colnames(X))
+  if (length(missing_cols) > 0) {
+    stop("Could not rebuild the fixed-effects design for prediction; missing ",
+         "column(s): ", paste(missing_cols, collapse = ", "), ".", call. = FALSE)
+  }
+  eta <- as.numeric(X[, names(beta), drop = FALSE] %*% beta)
+  if (!is.null(offset)) {
+    eta <- eta + if (length(offset) == 1L) rep(offset, length(eta)) else offset
+  }
+  eta
+}
+
 maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("response", "link")) {
   scale <- match.arg(scale)
   if (!is.null(object$longitudinal_info)) {
@@ -2512,7 +2585,13 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
   linkinv <- maihda_linkinv(fam)
   prior_w <- maihda_prediction_weights(object)
 
-  eta_fixed <- stats::predict(model, newdata = data, re.form = NA, type = "link")
+  # Predict on the FITTED rows WITHOUT newdata so lme4 reuses its stored linear
+  # predictor, which INCLUDES any offset. Passing newdata = data (the stored model
+  # frame) would drop an external offset= and error on a formula offset() term (its
+  # raw variable lives only as the frame's derived "offset(...)"/"(offset)" column).
+  # object$data IS the model frame, so predict()'s output is in the same row order as
+  # `data` / `key` below.
+  eta_fixed <- stats::predict(model, re.form = NA, type = "link")
   stratum_est <- summary_obj$stratum_estimates
   if (is.null(stratum_est) || nrow(stratum_est) == 0) {
     stop("No stratum estimates available.")
@@ -2540,8 +2619,8 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
   if (!is.null(object$cc_info)) {
     re_form <- maihda_re_form_for_groups(stats::formula(model),
                                          unname(object$cc_info$dim_groups))
-    eta_base <- as.numeric(stats::predict(model, newdata = data,
-                                          re.form = re_form, type = "link"))
+    # As above: no newdata, so the stored offset is retained and the rows stay aligned.
+    eta_base <- as.numeric(stats::predict(model, re.form = re_form, type = "link"))
   }
 
   pred_df <- data.frame(

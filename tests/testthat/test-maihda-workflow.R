@@ -202,7 +202,10 @@ test_that("maihda() fits the adjusted model and reports a PCV", {
 
 test_that("maihda() print and summary surface the PCV and adjusted model", {
   d <- make_workflow_data(4102)
-  a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
+  # The additive adjusted model can land on the singularity boundary (PCV ~ 100%),
+  # which now emits a boundary caution warning under any estimation basis; this test is
+  # about the PCV/adjusted-model surfacing, not the decomposition, so tolerate it.
+  a <- suppressWarnings(suppressMessages(maihda(y ~ age + (1 | gender:race), data = d)))
 
   expect_output(print(a), "PCV \\(null -> adjusted\\)")
   expect_output(print(a), "Adjusted formula")

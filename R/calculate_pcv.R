@@ -24,9 +24,10 @@
 #'   \code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
 #'   correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
 #'   \code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
-#'   Details for the finite-sample tradeoff. When \code{"ML"} pushes the adjusted
-#'   model onto the singularity boundary, the function warns that the resulting PCV
-#'   near 1 is a boundary artefact rather than a substantive result.
+#'   Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
+#'   on the singularity boundary -- under \emph{any} \code{estimation} basis -- the
+#'   function warns that the resulting PCV near 1 is a boundary artefact rather than a
+#'   substantive result, and records \code{adjusted_at_boundary = TRUE} on the result.
 #'
 #' @return A list containing:
 #'   \item{pcv}{The estimated proportional change in variance}
@@ -35,6 +36,14 @@
 #'     removed in a future release}
 #'   \item{var_model1}{Between-stratum variance from model1}
 #'   \item{var_model2}{Between-stratum variance from model2}
+#'   \item{estimation}{The variance-estimation basis requested (\code{"fitted"} or
+#'     \code{"ML"})}
+#'   \item{adjusted_at_boundary}{Logical; \code{TRUE} when model2's between-stratum
+#'     variance is on the singularity boundary, so a PCV near 1 (100\%) is a boundary
+#'     artefact rather than genuine attenuation}
+#'   \item{ml_refit_failed}{Logical; \code{TRUE} when \code{estimation = "ML"} was
+#'     requested but \code{\link[lme4]{refitML}} failed for a model, so its REML fit was
+#'     used instead (the comparison is then not on a pure ML basis)}
 #'   \item{ci_lower}{Lower bound of confidence interval (if bootstrap = TRUE)}
 #'   \item{ci_upper}{Upper bound of confidence interval (if bootstrap = TRUE)}
 #'   \item{bootstrap}{Logical indicating if bootstrap was used}
@@ -184,6 +193,10 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   # comparison. A no-op for glmer / the brms/wemix/ordinal engines, already on ML.
   model1 <- maihda_pcv_apply_estimation(model1, estimation)
   model2 <- maihda_pcv_apply_estimation(model2, estimation)
+  # maihda_pcv_refit_ml() flags (and warns about) a model whose intended ML refit
+  # FAILED -- it then keeps the REML fit -- so the result does not read as a clean ML
+  # comparison when it is not one.
+  ml_refit_failed <- isTRUE(model1$ml_refit_failed) || isTRUE(model2$ml_refit_failed)
 
   # Extract between-stratum variance from both models
   var1 <- extract_between_variance(model1)
@@ -210,18 +223,22 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   # A singular ADJUSTED fit -- model2's between-stratum variance on the boundary --
   # makes the ratio collapse toward 1 ("covariates explain ~100% of the between-
   # stratum variance") when the truth is that the adjusted model could not estimate
-  # any between-stratum variance at all. The ML refit (estimation = "ML") is prone to
-  # nudging a small-but-positive REML variance onto the boundary (as it does on the
-  # bundled data), so warn there rather than let the degenerate PCV read as a
-  # substantive result. model1 at the boundary is a hard stop above; model2 at the
-  # boundary still yields a numerically valid ratio, hence a warning. (Despite its
-  # name maihda_pcv_null_at_boundary() is a general stratum-boundary test.)
-  if (identical(estimation, "ML") && maihda_pcv_null_at_boundary(model2)) {
+  # any between-stratum variance at all. This is a boundary artefact under ANY
+  # estimation basis: the ML refit (estimation = "ML") can nudge a small-but-positive
+  # REML variance onto the boundary, but the fitted (REML) variance can equally sit
+  # there on its own. The warning was previously gated on estimation = "ML", which
+  # left the default estimation = "fitted" reporting an unqualified PCV = 100% with no
+  # flag; it now fires whenever model2 is at the boundary, regardless of the basis, and
+  # the status is carried on the result (adjusted_at_boundary). model1 at the boundary
+  # is a hard stop above; model2 at the boundary still yields a numerically valid
+  # ratio. (Despite its name maihda_pcv_null_at_boundary() is a general stratum-
+  # boundary test.)
+  adjusted_at_boundary <- maihda_pcv_null_at_boundary(model2)
+  if (adjusted_at_boundary) {
     warning("Between-stratum variance in model2 (the adjusted model) is at the zero ",
-            "boundary after the ML refit (a singular fit), so a PCV near 1 is a ",
-            "boundary artefact, not evidence that covariates explain all between-",
-            "stratum variance. Compare against the default estimation = \"fitted\" ",
-            "(REML).", call. = FALSE)
+            "boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, ",
+            "not evidence that covariates explain all of the between-stratum variance. ",
+            "Inspect the adjusted model for a singular fit.", call. = FALSE)
   }
 
   # Calculate PCV
@@ -236,6 +253,8 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
     var_model1 = var1,
     var_model2 = var2,
     estimation = estimation,
+    adjusted_at_boundary = adjusted_at_boundary,
+    ml_refit_failed = ml_refit_failed,
     bootstrap = FALSE
   )
 
@@ -315,7 +334,18 @@ maihda_pcv_refit_ml <- function(model) {
   # If refitML() itself fails, the tryCatch below keeps the original (REML) fit.
   if (maihda_stratum_at_boundary_lme4(model$model)) return(model)
   refit <- tryCatch(lme4::refitML(model$model), error = function(e) NULL)
-  if (!is.null(refit)) model$model <- refit
+  if (!is.null(refit)) {
+    model$model <- refit
+  } else {
+    # The ML refit was warranted (a non-boundary REML fit) but failed. Returning the
+    # REML fit silently would let a downstream PCV / IC be labelled "ML" though no ML
+    # refit occurred, so flag it (the caller records this on the result) and warn --
+    # do not pretend the comparison is on a pure ML basis.
+    model$ml_refit_failed <- TRUE
+    warning("estimation = \"ML\" was requested, but lme4::refitML() failed for one ",
+            "model; its REML fit is used instead, so this is not a pure ML-basis ",
+            "comparison. Compare against estimation = \"fitted\".", call. = FALSE)
+  }
   model
 }
 
@@ -1143,6 +1173,10 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   # Sequentially add variables (using the reconstructed model term for any auto-binned
   # dimension, while reporting the original variable name in the table).
   current_terms <- character(0)
+  # Steps whose adjusted between-stratum variance sits on the singularity boundary:
+  # their Total_PCV saturates near 100% as an artefact of a singular fit, not genuine
+  # attenuation (the same status calculate_pcv() flags for its adjusted model2).
+  boundary_steps <- character(0)
 
   for (i in seq_along(vars)) {
     current_terms <- c(current_terms, model_terms[i])
@@ -1154,6 +1188,9 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
                  sampling_weights = sampling_weights), estimation)
 
     curr_var <- extract_between_variance(mod)
+    if (maihda_pcv_null_at_boundary(mod)) {
+      boundary_steps <- c(boundary_steps, vars[i])
+    }
 
     if (da_applies) {
       dai <- read_da(mod)
@@ -1179,6 +1216,13 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
 
     prev_var <- curr_var
   }
+
+  # A singular (boundary) adjusted fit at some step makes that step's Total_PCV read as
+  # ~100% explained though it is a boundary artefact, not genuine attenuation. This is
+  # the COMMON case for additive strata (the full additive model leaves ~0 interaction
+  # variance), so it is recorded as a silent status attribute (boundary_steps, set at
+  # the end -- after the column edits below, which use `[` and would drop it) for
+  # programmatic inspection and the print method, NOT raised as a per-call warning.
 
   # Attach the discriminatory-accuracy trajectory as extra columns only for a binary
   # outcome (so the gaussian/poisson/ordinal table is unchanged). Step_AUC / Total_AUC
@@ -1207,6 +1251,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   # table keeps this (statistically material) provenance, mirroring the
   # $estimation element on a calculate_pcv() result.
   attr(results, "estimation") <- estimation
+  attr(results, "boundary_steps") <- boundary_steps
   class(results) <- c("maihda_stepwise", "data.frame")
   return(results)
 }
@@ -1237,6 +1282,14 @@ print.maihda_stepwise <- function(x, ...) {
       if (identical(est, "ML"))
         "ML-refit (correction-free cross-model comparison)"
       else "as fitted (REML for Gaussian lmer, matching summary())")))
+  }
+  bstep <- attr(x, "boundary_steps")
+  if (length(bstep) > 0) {
+    cat(maihda_palette()$muted(sprintf(paste0(
+      "\nNote: the between-stratum variance is at the zero boundary (a singular fit)\n",
+      "after adding: %s. The corresponding Total_PCV ~ 100%% is a boundary artefact --\n",
+      "common for additive strata -- not necessarily genuine attenuation.\n"),
+      paste(bstep, collapse = ", "))))
   }
   invisible(x)
 }

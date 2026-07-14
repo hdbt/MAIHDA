@@ -647,6 +647,13 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   subset_value <- maihda_normalize_subset(dot_vals[["subset"]], n_full)
   dot_vals[["subset"]] <- subset_value
   weights_value <- dot_vals[["weights"]]
+  # The external offset= (lme4 only) is dropped by na.omit for offset-NA rows, so it
+  # must inform family detection and the analytic row count exactly as it does in
+  # fit_maihda(); otherwise an offset-NA row carrying an out-of-sample outcome value
+  # flips the detected family, or overstates a group's analytic n. It is full-length
+  # here and sliced per group below (slice_dots_for_group already slices it for the
+  # per-group fit).
+  offset_value <- dot_vals[["offset"]]
   # Family detection and the analytic row-count must see the same sample the engine
   # fits. Sampling weights drop non-finite/<= 0 rows (mapped to NA here so the shared
   # row mask drops them); precision weights only drop NA. Mirrors fit_maihda().
@@ -668,7 +675,8 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   if (missing(family) && missing(engine) && is.null(sampling_weights) &&
       isTRUE(tryCatch(maihda_response_is_ordinal(formula, data,
                                                  subset = subset_value,
-                                                 weights = detect_weights),
+                                                 weights = detect_weights,
+                                                 offset = offset_value),
                       error = function(e) FALSE))) {
     engine <- "ordinal"
     message("compare_maihda_groups(): the outcome is an ordered factor; using ",
@@ -771,7 +779,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   if (missing(family)) {
     is_binary <- tryCatch(
       maihda_response_is_binary(formula, data, subset = subset_value,
-                                weights = detect_weights),
+                                weights = detect_weights, offset = offset_value),
       error = function(e) FALSE)
     if (isTRUE(is_binary)) {
       warning("The outcome variable appears to be binary. Using family = 'binomial' ",
@@ -780,7 +788,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       family <- "binomial"
     } else if (isTRUE(tryCatch(
       maihda_response_is_ordinal(formula, data, subset = subset_value,
-                                 weights = detect_weights),
+                                 weights = detect_weights, offset = offset_value),
       error = function(e) FALSE))) {
       warning("The outcome variable is an ordered factor. Using the cumulative ",
               "(ordinal) model, family = 'ordinal', for every group. Specify a ",
@@ -799,7 +807,29 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   }
 
   # ---- build shared strata (or defer to per-group) and the fitting formula ----
-  prepared <- maihda_prepare_group_strata(formula, data, shared_strata, autobin)
+  # Shared numeric strata must be auto-binned on the pooled ANALYTIC sample -- exactly
+  # the rows some group's fit will use -- not on every raw input row. Otherwise a
+  # row excluded by subset=, a missing/zero weight, a missing offset, missingness, or a
+  # missing group still shifts the tertile cut-points, silently redefining OTHER rows'
+  # strata, so compare_maihda_groups(data, subset = keep) disagrees with fitting the
+  # pre-filtered data (different bins -> different VPCs). Mirror fit_maihda()'s
+  # strata_bin_rows: the transformation-aware analytic keep mask, plus dropping rows
+  # with a missing group (which no group fits). Per-group (non-shared) strata are binned
+  # inside each fit_maihda() call on that group's rows, so they need no pooled mask here.
+  bin_rows <- NULL
+  if (isTRUE(shared_strata)) {
+    keep <- tryCatch(
+      maihda_analytic_keep_mask(formula, data, subset = subset_value,
+                                weights = detect_weights, offset = offset_value),
+      error = function(e) NULL)
+    if (is.null(keep)) {
+      keep <- maihda_row_mask(data, subset = subset_value,
+                              weights = detect_weights, offset = offset_value)
+    }
+    bin_rows <- keep & !is.na(data[[group]])
+  }
+  prepared <- maihda_prepare_group_strata(formula, data, shared_strata, autobin,
+                                          bin_rows = bin_rows)
   data <- prepared$data
   fit_formula <- prepared$formula
 
@@ -927,7 +957,11 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
         maihda_sampling_weight_mask(sub[[sampling_weights]])
       } else {
         slice_full(weights_value, idx)
-      }
+      },
+      # An offset-NA row is dropped by na.omit too, so exclude it from the analytic
+      # row count / min_group_n guard just as the engine's fit will (offset sliced to
+      # this group's rows).
+      offset = slice_full(offset_value, idx)
     )
     n_g <- if (is.null(analytic_fr)) nrow(sub) else nrow(analytic_fr)
     row <- data.frame(
@@ -1294,10 +1328,14 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
 #' @param data Full data frame.
 #' @param shared_strata Logical; build strata once on the full data.
 #' @param autobin Logical passed to make_strata.
+#' @param bin_rows Optional logical mask (over rows of \code{data}) restricting the
+#'   rows used to compute shared numeric auto-bin cut-points to the pooled analytic
+#'   sample; forwarded to \code{make_strata()}. \code{NULL} bins on all rows.
 #' @return list(data, formula, strata_vars).
 #' @keywords internal
 #' @importFrom reformulas findbars nobars
-maihda_prepare_group_strata <- function(formula, data, shared_strata, autobin = TRUE) {
+maihda_prepare_group_strata <- function(formula, data, shared_strata, autobin = TRUE,
+                                        bin_rows = NULL) {
   re_terms <- reformulas::findbars(formula)
   if (length(re_terms) == 0) {
     stop("'formula' must include a random effect such as (1 | gender:race) or (1 | stratum).",
@@ -1360,7 +1398,8 @@ maihda_prepare_group_strata <- function(formula, data, shared_strata, autobin = 
   fit_formula <- stats::update(fixed_formula, . ~ . + (1 | stratum))
 
   if (shared_strata) {
-    strata_result <- make_strata(data, vars = strata_vars, autobin = autobin)
+    strata_result <- make_strata(data, vars = strata_vars, autobin = autobin,
+                                 bin_rows = bin_rows)
     return(list(data = strata_result$data, formula = fit_formula,
                 strata_vars = strata_vars))
   }

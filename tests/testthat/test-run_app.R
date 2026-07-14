@@ -8,11 +8,14 @@ test_that("maihda_app_fit_models switches a binary factor outcome to binomial", 
   )
   # App default family = "gaussian"; a Yes/No factor must be auto-switched to
   # binomial (gaussian would error: lmer requires a numeric response).
+  # A random binary outcome drives the additive adjusted model to the singularity
+  # boundary (PCV ~ 100%), which now emits a boundary caution warning; this test is
+  # about the family auto-switch, so tolerate it.
   expect_message(
-    res <- MAIHDA:::maihda_app_fit_models(
+    res <- suppressWarnings(MAIHDA:::maihda_app_fit_models(
       d, outcome_var = "Obese", grouping_vars = c("Gender", "Race"),
       additional_covars = "Age", family = "gaussian"
-    ),
+    )),
     "binomial"
   )
   expect_equal(res$model$family$family, "binomial")
@@ -289,9 +292,12 @@ test_that("maihda_app_fit_models reports the resolved family and auto-switch fla
   # A binary outcome left on the default gaussian is fit as binomial; the result
   # records both the requested and the resolved family plus the switch flag, so
   # the dashboard can tell the user what was actually fit.
-  res <- suppressMessages(MAIHDA:::maihda_app_fit_models(
+  # The additive adjusted model lands on the singularity boundary (PCV ~ 100%),
+  # which now emits a boundary caution warning; this test is about the family metadata,
+  # so tolerate it.
+  res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
     d, outcome_var = "Obese", grouping_vars = c("Gender", "Race"), family = "gaussian"
-  ))
+  )))
   expect_equal(res$family_requested, "gaussian")
   expect_equal(res$family_used, "binomial")
   expect_true(res$family_autoswitched)

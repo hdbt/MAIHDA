@@ -473,11 +473,13 @@ pcv_importance <- function(data, outcome, vars,
            call. = FALSE)
     }
     entry <- list(variance = variance,
-                  # Flag a boundary-level (effectively singular) denominator. Only
-                  # the null (mask 0) is a PCV denominator here, so the check
-                  # short-circuits for every other subset; the point-estimate
-                  # guard below reads this flag to reject a degenerate null.
-                  at_boundary = mask == 0L && maihda_pcv_null_at_boundary(mod),
+                  # Flag a boundary-level (effectively singular) fit. The null (mask
+                  # 0) is the PCV denominator, so its flag guards the degenerate-null
+                  # stop below; the FULL model's flag is read after the attribution to
+                  # warn when the shares saturate near 100% as a singular-fit artefact
+                  # rather than genuine attenuation (parallel to calculate_pcv()'s
+                  # adjusted-model boundary flag).
+                  at_boundary = maihda_pcv_null_at_boundary(mod),
                   model = if (keep_models) mod$model else NULL,
                   family_key = maihda_model_family_key(mod),
                   family_name = maihda_model_family_name(mod))
@@ -553,6 +555,18 @@ pcv_importance <- function(data, outcome, vars,
   mc_se <- attr(phi, "mc_se")
   phi <- as.numeric(phi)
 
+  # Flag when the FULL model's between-stratum variance is at the singularity boundary
+  # (any estimation basis): the attributed shares then sum to ~100% as a singular-fit
+  # artefact, not genuine attenuation -- the pcv_importance() analogue of
+  # calculate_pcv()'s adjusted-model boundary flag. This is the COMMON case for additive
+  # strata (a full additive model leaves ~0 interaction variance), so it is carried as a
+  # silent status attribute (full_at_boundary, attached to the result below) for
+  # programmatic inspection and the print method, NOT raised as a per-call warning.
+  # compute_phi() has fit the full model on every path (its mask is the last prefix /
+  # permutation step / subset).
+  full_entry <- cache[[as.character(full_mask)]]
+  full_at_boundary <- !is.null(full_entry) && isTRUE(full_entry$at_boundary)
+
   dominance <- NULL
   if (method == "dominance") {
     v_table <- c(0, vapply(seq_len(full_mask), v_of, numeric(1)))
@@ -607,6 +621,7 @@ pcv_importance <- function(data, outcome, vars,
     total_pcv = total_pcv,
     null_variance = null_variance,
     full_variance = full_variance,
+    full_at_boundary = full_at_boundary,
     subsets = subsets,
     n_fits = length(fitted_masks),
     n_obs = nrow(data),
@@ -731,6 +746,13 @@ print.maihda_pcv_importance <- function(x, digits = 4, ...) {
               x$null_variance, x$full_variance))
   cat(sprintf("Total PCV (null -> all variables): %s\n\n",
               pal$accent(sprintf(paste0("%.", digits, "f"), x$total_pcv))))
+  if (isTRUE(x$full_at_boundary)) {
+    cat(pal$muted(paste0(
+      "Note: the full model's between-stratum variance is at the zero boundary (a\n",
+      "singular fit), so Total PCV ~ 100% is a boundary artefact -- common for additive\n",
+      "strata (no interaction beyond the main effects) -- not necessarily genuine\n",
+      "attenuation.\n\n")))
+  }
 
   tab <- x$importance
   fmt <- paste0("%.", digits, "f")

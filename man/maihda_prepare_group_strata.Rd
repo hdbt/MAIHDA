@@ -4,7 +4,13 @@
 \alias{maihda_prepare_group_strata}
 \title{Resolve shared strata and the fitting formula for group comparison}
 \usage{
-maihda_prepare_group_strata(formula, data, shared_strata, autobin = TRUE)
+maihda_prepare_group_strata(
+  formula,
+  data,
+  shared_strata,
+  autobin = TRUE,
+  bin_rows = NULL
+)
 }
 \arguments{
 \item{formula}{User formula.}
@@ -14,6 +20,10 @@ maihda_prepare_group_strata(formula, data, shared_strata, autobin = TRUE)
 \item{shared_strata}{Logical; build strata once on the full data.}
 
 \item{autobin}{Logical passed to make_strata.}
+
+\item{bin_rows}{Optional logical mask (over rows of \code{data}) restricting the
+rows used to compute shared numeric auto-bin cut-points to the pooled analytic
+sample; forwarded to \code{make_strata()}. \code{NULL} bins on all rows.}
 }
 \value{
 list(data, formula, strata_vars).

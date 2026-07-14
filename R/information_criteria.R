@@ -153,6 +153,15 @@ maihda_ic <- function(..., model_names = NULL) {
       delta_issues <- c(delta_issues,
                         "scale (likelihood AIC/BIC vs Bayesian WAIC/LOOIC)")
     }
+    # An intended ML refit (ml = TRUE whenever there is >1 model) that FELL BACK to
+    # REML leaves that row's estimator at "REML" -- a successful refit reads "ML
+    # (refit from REML)", a glmer fit "ML", so a "REML" row here means refitML() failed.
+    # AIC/BIC then mix REML and ML bases, and a delta across the differing fixed effects
+    # is not comparable; withhold it rather than rank on a mixed basis.
+    if (isTRUE(ml) && any(out$estimator == "REML", na.rm = TRUE)) {
+      delta_issues <- c(delta_issues,
+                        "estimation basis (an ML refit failed, leaving a REML fit)")
+    }
     if (length(delta_issues) > 0) {
       warning("maihda_ic(): the models differ in ",
               paste(delta_issues, collapse = " and "),
@@ -371,8 +380,11 @@ print.maihda_ic <- function(x, ...) {
   cat("===========================\n\n")
   print(as.data.frame(x), row.names = FALSE, digits = 4)
 
+  # `primary` is NULL when a subset dropped the ic_primary attribute (older objects,
+  # or a `[` that did not preserve it); guard the length so the `if` never tests a
+  # zero-length `!is.na()` (which errors after the table has already printed).
   primary <- attr(x, "ic_primary")
-  if ("delta" %in% names(x) && !is.na(primary)) {
+  if ("delta" %in% names(x) && length(primary) == 1L && !is.na(primary)) {
     cat(pal$muted(sprintf("\ndelta = difference from the best model on %s (lower is better).\n",
                 primary)))
   }
@@ -385,4 +397,31 @@ print.maihda_ic <- function(x, ...) {
         "analytic sample (and, for AIC/BIC, the same family).\n")))
   }
   invisible(x)
+}
+
+#' Subset MAIHDA information criteria
+#'
+#' Indexing method for \code{\link{maihda_ic}} results that preserves the
+#' \code{ic_primary} metadata attribute (which names the criterion the
+#' \code{delta} column is computed on) after a row/column subset. Plain
+#' \code{[.data.frame} keeps the \code{maihda_ic} class but drops that attribute,
+#' which would leave \code{print.maihda_ic()} testing a dropped (\code{NULL})
+#' attribute as a scalar condition and erroring after the table prints.
+#'
+#' @param x A \code{maihda_ic} object.
+#' @param ... Row/column indices forwarded to \code{[.data.frame}.
+#' @return A \code{maihda_ic} with \code{ic_primary} carried over, or a bare vector
+#'   when the selection drops to a single column.
+#' @keywords internal
+#' @export
+`[.maihda_ic` <- function(x, ...) {
+  out <- NextMethod()
+  # A single-column selection with drop = TRUE returns a bare vector; leave it
+  # unclassed. Otherwise restore the class and the ic_primary attribute the print
+  # method relies on.
+  if (is.data.frame(out)) {
+    attr(out, "ic_primary") <- attr(x, "ic_primary")
+    class(out) <- class(x)
+  }
+  out
 }

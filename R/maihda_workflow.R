@@ -398,7 +398,8 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     is_ord_outcome <- isTRUE(tryCatch(
       maihda_response_is_ordinal(formula, data,
                                  subset = dots_eval[["subset"]],
-                                 weights = dots_eval[["weights"]]),
+                                 weights = dots_eval[["weights"]],
+                                 offset = dots_eval[["offset"]]),
       error = function(e) FALSE))
     if (is_ord_outcome) {
       engine <- "ordinal"

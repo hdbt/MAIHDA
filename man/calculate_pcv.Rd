@@ -38,9 +38,10 @@ own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
 \code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
 correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
 \code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
-Details for the finite-sample tradeoff. When \code{"ML"} pushes the adjusted
-model onto the singularity boundary, the function warns that the resulting PCV
-near 1 is a boundary artefact rather than a substantive result.}
+Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
+on the singularity boundary -- under \emph{any} \code{estimation} basis -- the
+function warns that the resulting PCV near 1 is a boundary artefact rather than a
+substantive result, and records \code{adjusted_at_boundary = TRUE} on the result.}
 }
 \value{
 A list containing:
@@ -50,6 +51,14 @@ A list containing:
     removed in a future release}
   \item{var_model1}{Between-stratum variance from model1}
   \item{var_model2}{Between-stratum variance from model2}
+  \item{estimation}{The variance-estimation basis requested (\code{"fitted"} or
+    \code{"ML"})}
+  \item{adjusted_at_boundary}{Logical; \code{TRUE} when model2's between-stratum
+    variance is on the singularity boundary, so a PCV near 1 (100\%) is a boundary
+    artefact rather than genuine attenuation}
+  \item{ml_refit_failed}{Logical; \code{TRUE} when \code{estimation = "ML"} was
+    requested but \code{\link[lme4]{refitML}} failed for a model, so its REML fit was
+    used instead (the comparison is then not on a pure ML basis)}
   \item{ci_lower}{Lower bound of confidence interval (if bootstrap = TRUE)}
   \item{ci_upper}{Upper bound of confidence interval (if bootstrap = TRUE)}
   \item{bootstrap}{Logical indicating if bootstrap was used}
