@@ -154,7 +154,9 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   or PCV errored (\code{pcv} is then \code{NA} and the group is named in a
   warning -- the group's own \code{status} can still be \code{"ok"} because its
   null VPC model succeeded), and \code{"singular"} when the adjusted fit was
-  singular and the PCV saturated near 100\% (a boundary artifact, also warned).
+  singular and the PCV saturated near 100\% -- \emph{not} warned about, since a
+  singular adjusted fit is indistinguishable from genuinely additive strata (a
+  legitimate, common result), so it is flagged only in this column.
   These four columns are omitted entirely when the strata have a single
   dimension. When \code{context}
   is supplied, two further columns report each group's contextual partition:

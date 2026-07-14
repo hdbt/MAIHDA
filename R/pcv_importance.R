@@ -748,10 +748,10 @@ print.maihda_pcv_importance <- function(x, digits = 4, ...) {
               pal$accent(sprintf(paste0("%.", digits, "f"), x$total_pcv))))
   if (isTRUE(x$full_at_boundary)) {
     cat(pal$muted(paste0(
-      "Note: the full model's between-stratum variance is at the zero boundary (a\n",
-      "singular fit), so Total PCV ~ 100% is a boundary artefact -- common for additive\n",
-      "strata (no interaction beyond the main effects) -- not necessarily genuine\n",
-      "attenuation.\n\n")))
+      "Note: the full model's between-stratum variance is at the singularity boundary (a\n",
+      "singular fit), so Total PCV is pinned near 100%. This is consistent with genuinely\n",
+      "additive strata (no interaction beyond the main effects) as well as a degenerate\n",
+      "fit; the two cannot be told apart.\n\n")))
   }
 
   tab <- x$importance

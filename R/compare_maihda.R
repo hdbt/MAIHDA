@@ -503,7 +503,9 @@ plot_comparison <- function(comparison_df) {
 #'   or PCV errored (\code{pcv} is then \code{NA} and the group is named in a
 #'   warning -- the group's own \code{status} can still be \code{"ok"} because its
 #'   null VPC model succeeded), and \code{"singular"} when the adjusted fit was
-#'   singular and the PCV saturated near 100\% (a boundary artifact, also warned).
+#'   singular and the PCV saturated near 100\% -- \emph{not} warned about, since a
+#'   singular adjusted fit is indistinguishable from genuinely additive strata (a
+#'   legitimate, common result), so it is flagged only in this column.
 #'   These four columns are omitted entirely when the strata have a single
 #'   dimension. When \code{context}
 #'   is supplied, two further columns report each group's contextual partition:
@@ -925,13 +927,13 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # Per-group PCV decomposition (two-model mode) can fail even when the group's null
   # VPC model succeeds -- e.g. a stratum dimension that is constant within the group
   # makes the adjusted model's main effect a one-level factor lmer rejects. Those
-  # failures must not be silent: collect the reason per group (pcv_failed_groups) for
-  # an aggregated warning, and separately collect groups whose adjusted fit is singular
-  # and so saturates the PCV near 100% (pcv_singular_groups) -- a decomposition
-  # artifact, not real attenuation. Each affected group's pcv_status column records
-  # which happened.
+  # failures are genuine and must not be silent: collect the reason per group
+  # (pcv_failed_groups) for an aggregated warning. A group whose adjusted fit is merely
+  # SINGULAR (PCV saturated near 100%) is NOT an error and NOT warned about -- a
+  # singular adjusted fit is indistinguishable from genuinely additive strata (the
+  # common, legitimate MAIHDA result), so it is recorded only in the pcv_status column
+  # ("singular") for the analyst to read, not surfaced as a caution.
   pcv_failed_groups <- list()
-  pcv_singular_groups <- character(0)
 
   for (gi in seq_along(group_levels)) {
     g <- group_levels[gi]
@@ -1155,14 +1157,15 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
             # "_ml" suffix is retained for output-schema continuity.
             row$var_between_adjusted_ml <- pcv_obj$var_model2
             # A singular adjusted fit pins the adjusted between-stratum variance at the
-            # boundary (~0), so the PCV saturates near 100% -- a decomposition artifact,
-            # not genuine attenuation. Flag it (separately from an outright failure) so
-            # the near-100% value is read with the right caveat.
+            # boundary (~0), so the PCV saturates near 100%. Record it in pcv_status
+            # (separately from an outright failure) so the near-100% value can be read
+            # with the right caveat -- but do NOT warn: a singular adjusted fit cannot be
+            # distinguished from genuinely additive strata, which is a legitimate (and
+            # common) MAIHDA result, so a caution would misfire on the normal case.
             adj_singular <- isTRUE(tryCatch(adj_model$diagnostics$singular,
                                             error = function(e) FALSE))
             if (adj_singular && is.finite(pcv_obj$pcv) && pcv_obj$pcv >= 0.999) {
               row$pcv_status <- "singular"
-              pcv_singular_groups <- c(pcv_singular_groups, g)
             }
           } else {
             # Adjusted fit or PCV computation failed: pcv stays NA, but record WHY and
@@ -1263,16 +1266,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
             "dimension that is constant within a group is the usual cause.",
             call. = FALSE)
   }
-  # Aggregated warning for adjusted fits that were singular and so saturated the PCV
-  # near 100% (pcv_status = "singular") -- a boundary artifact, not real attenuation.
-  if (length(pcv_singular_groups) > 0) {
-    warning("compare_maihda_groups(): the adjusted model was singular for group(s) ",
-            paste(pcv_singular_groups, collapse = ", "),
-            ", so the adjusted between-stratum variance sits at the boundary (~0) and ",
-            "the PCV saturates near 100% (pcv_status = \"singular\"). Read those ",
-            "groups' PCV with caution -- a near-complete attenuation can reflect a ",
-            "boundary fit as well as genuinely additive strata.", call. = FALSE)
-  }
+  # A singular adjusted fit (pcv_status = "singular", PCV saturated near 100%) is NOT
+  # warned about: it is indistinguishable from genuinely additive strata, a legitimate
+  # and common MAIHDA result, so it is signalled only through the pcv_status column
+  # rather than a caution that would fire on every additive comparison.
 
   out <- do.call(rbind, rows)
   # Drop the interval columns only when no group supplied one (e.g. unbootstrapped

@@ -25,9 +25,10 @@
 #'   correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
 #'   \code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
 #'   Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
-#'   on the singularity boundary -- under \emph{any} \code{estimation} basis -- the
-#'   function warns that the resulting PCV near 1 is a boundary artefact rather than a
-#'   substantive result, and records \code{adjusted_at_boundary = TRUE} on the result.
+#'   on the singularity boundary -- under \emph{any} \code{estimation} basis -- the PCV
+#'   is pinned near 1; this is recorded as \code{adjusted_at_boundary = TRUE} and noted
+#'   by \code{print()}. It is not treated as an error or warned about: a singular fit is
+#'   indistinguishable from genuinely additive strata (a common, legitimate result).
 #'
 #' @return A list containing:
 #'   \item{pcv}{The estimated proportional change in variance}
@@ -39,8 +40,9 @@
 #'   \item{estimation}{The variance-estimation basis requested (\code{"fitted"} or
 #'     \code{"ML"})}
 #'   \item{adjusted_at_boundary}{Logical; \code{TRUE} when model2's between-stratum
-#'     variance is on the singularity boundary, so a PCV near 1 (100\%) is a boundary
-#'     artefact rather than genuine attenuation}
+#'     variance is on the singularity boundary, so the PCV is pinned near 1 (100\%) and
+#'     its interval/SE are unreliable -- consistent with genuinely additive strata as
+#'     well as a degenerate fit (\code{print()} states this)}
 #'   \item{ml_refit_failed}{Logical; \code{TRUE} when \code{estimation = "ML"} was
 #'     requested but \code{\link[lme4]{refitML}} failed for a model, so its REML fit was
 #'     used instead (the comparison is then not on a pure ML basis)}
@@ -221,25 +223,19 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   }
 
   # A singular ADJUSTED fit -- model2's between-stratum variance on the boundary --
-  # makes the ratio collapse toward 1 ("covariates explain ~100% of the between-
-  # stratum variance") when the truth is that the adjusted model could not estimate
-  # any between-stratum variance at all. This is a boundary artefact under ANY
-  # estimation basis: the ML refit (estimation = "ML") can nudge a small-but-positive
-  # REML variance onto the boundary, but the fitted (REML) variance can equally sit
-  # there on its own. The warning was previously gated on estimation = "ML", which
-  # left the default estimation = "fitted" reporting an unqualified PCV = 100% with no
-  # flag; it now fires whenever model2 is at the boundary, regardless of the basis, and
-  # the status is carried on the result (adjusted_at_boundary). model1 at the boundary
-  # is a hard stop above; model2 at the boundary still yields a numerically valid
-  # ratio. (Despite its name maihda_pcv_null_at_boundary() is a general stratum-
-  # boundary test.)
+  # pins the PCV at ~1 (100%). Crucially this is NOT distinguishable from genuine
+  # additivity: an interaction variance that is truly ~0 (no intersectional effect
+  # beyond the additive main effects) gives an identical boundary fit, and for MAIHDA
+  # that additive result is a common, legitimate finding. So we do NOT warn (a warning
+  # would fire on the normal additive case and wrongly imply the 100% is spurious);
+  # instead the status is recorded on the result (adjusted_at_boundary) and
+  # print.pcv_result() surfaces it with the honest caveat that boundary inference (the
+  # CI/SE) is unreliable and that additivity and a degenerate fit cannot be told apart.
+  # (This replaced an estimation = "ML"-only warning that left the default basis with no
+  # flag at all.) model1 at the boundary is a hard stop above (a zero PCV denominator is
+  # undefined); model2 at the boundary still yields a numerically valid ratio. (Despite
+  # its name maihda_pcv_null_at_boundary() is a general stratum-boundary test.)
   adjusted_at_boundary <- maihda_pcv_null_at_boundary(model2)
-  if (adjusted_at_boundary) {
-    warning("Between-stratum variance in model2 (the adjusted model) is at the zero ",
-            "boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, ",
-            "not evidence that covariates explain all of the between-stratum variance. ",
-            "Inspect the adjusted model for a singular fit.", call. = FALSE)
-  }
 
   # Calculate PCV
   pcv <- (var1 - var2) / var1
@@ -776,6 +772,14 @@ print.pcv_result <- function(x, ...) {
     cat("  No change in between-stratum variance between models.\n")
   }
 
+  if (isTRUE(x$adjusted_at_boundary)) {
+    cat(pal$muted(paste0(
+      "\nNote: Model 2's between-stratum variance is at the singularity boundary, so the\n",
+      "PCV is pinned near 100% and its interval/SE are unreliable. A near-complete PCV is\n",
+      "consistent with genuinely additive strata (no interaction beyond the main effects)\n",
+      "as well as a degenerate fit; the two cannot be told apart from this fit.\n")))
+  }
+
   invisible(x)
 }
 
@@ -1286,9 +1290,10 @@ print.maihda_stepwise <- function(x, ...) {
   bstep <- attr(x, "boundary_steps")
   if (length(bstep) > 0) {
     cat(maihda_palette()$muted(sprintf(paste0(
-      "\nNote: the between-stratum variance is at the zero boundary (a singular fit)\n",
-      "after adding: %s. The corresponding Total_PCV ~ 100%% is a boundary artefact --\n",
-      "common for additive strata -- not necessarily genuine attenuation.\n"),
+      "\nNote: the between-stratum variance is at the singularity boundary (a singular\n",
+      "fit) after adding: %s, so the corresponding Total_PCV is pinned near 100%%. This is\n",
+      "consistent with genuinely additive strata (no interaction beyond the main effects)\n",
+      "as well as a degenerate fit; the two cannot be told apart.\n"),
       paste(bstep, collapse = ", "))))
   }
   invisible(x)

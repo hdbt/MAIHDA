@@ -234,15 +234,19 @@ test_that("calculate_pcv flags an adjusted boundary fit under the default (fitte
   m_full <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ gender + race + age + (1 | stratum), data = d)))
 
-  # Default estimation = "fitted": the warning was previously gated on "ML".
-  expect_warning(r <- calculate_pcv(m_null, m_full), "boundary")
+  # A singular adjusted fit is indistinguishable from genuinely additive strata (the
+  # common MAIHDA case), so calculate_pcv() does NOT warn under any estimation basis
+  # (the previous warning was gated on "ML", leaving the default basis with no flag at
+  # all). It records the status on the result and surfaces it honestly only in print().
+  expect_no_warning(r <- calculate_pcv(m_null, m_full))
   expect_true(isTRUE(r$adjusted_at_boundary))
+  expect_output(print(r), "singularity boundary")
 
-  # The status propagates to stepwise_pcv() and pcv_importance() as SILENT attributes
-  # (no warning, since a saturated additive full model is the common, legitimate case).
+  # The status also propagates to stepwise_pcv() and pcv_importance() as SILENT
+  # attributes surfaced in their print methods (never as a per-call warning).
   sp <- suppressWarnings(suppressMessages(stepwise_pcv(d, "y", c("gender", "race", "age"))))
   expect_true(length(attr(sp, "boundary_steps")) >= 1)
-  pim <- suppressWarnings(suppressMessages(pcv_importance(d, "y", c("gender", "race", "age"))))
+  expect_no_warning(pim <- suppressMessages(pcv_importance(d, "y", c("gender", "race", "age"))))
   expect_true(isTRUE(pim$full_at_boundary))
 })
 

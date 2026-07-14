@@ -31,9 +31,10 @@ test_that("maihda_country_data showcases differing intersectional VPC across cou
 
   # The PISA strata are (documented as) essentially additive, so several countries'
   # adjusted two-model fits land on the boundary (singular) and their PCV saturates
-  # near 100%. That is now surfaced (pcv_status = "singular" + a caution warning)
-  # rather than silently, so tolerate the warning here and check the flag below.
-  cmp <- suppressWarnings(compare_maihda_groups(
+  # near 100%. That is surfaced ONLY via the pcv_status = "singular" column, with NO
+  # warning (a singular adjusted fit cannot be told apart from genuinely additive
+  # strata, the legitimate result here), so the comparison is warning-free.
+  expect_no_warning(cmp <- compare_maihda_groups(
     math ~ 1 + (1 | gender:ses),
     data = maihda_country_data,
     group = "country"

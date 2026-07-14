@@ -39,9 +39,10 @@ own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
 correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
 \code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
 Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
-on the singularity boundary -- under \emph{any} \code{estimation} basis -- the
-function warns that the resulting PCV near 1 is a boundary artefact rather than a
-substantive result, and records \code{adjusted_at_boundary = TRUE} on the result.}
+on the singularity boundary -- under \emph{any} \code{estimation} basis -- the PCV
+is pinned near 1; this is recorded as \code{adjusted_at_boundary = TRUE} and noted
+by \code{print()}. It is not treated as an error or warned about: a singular fit is
+indistinguishable from genuinely additive strata (a common, legitimate result).}
 }
 \value{
 See \code{\link{calculate_pcv}}.
