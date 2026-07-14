@@ -129,7 +129,7 @@ analysis
 #> 
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
-#> Variance basis: as fitted (REML for Gaussian lmer) 
+#> Variance basis: as fitted (REML for Gaussian lmer, matching summary()) 
 #> 
 #>           group   n n_strata     vpc var_between var_other var_residual    pcv
 #>         Finland 600        6 0.10994       785.8         0         6361 1.0000

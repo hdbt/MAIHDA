@@ -95,6 +95,15 @@ A list containing:
 
   The variance-estimation basis requested (`"fitted"` or `"ML"`)
 
+- estimation_used:
+
+  The basis actually used: `"fitted"`, `"ML"`, or `"mixed"`. `"mixed"`
+  arises under `estimation = "ML"` when a model's between-stratum
+  variance is on the boundary and its ML refit is skipped (that model
+  keeps its REML fit), so the comparison is partly REML rather than a
+  pure, correction-free ML one –
+  [`print()`](https://rdrr.io/r/base/print.html) states this
+
 - adjusted_at_boundary:
 
   Logical; `TRUE` when model2's between-stratum variance is on the

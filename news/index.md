@@ -55,6 +55,73 @@
 
 ### Bug Fixes
 
+- **[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  now rejects a formula with duplicate intercept-only `(1 | stratum)`
+  terms.** A formula such as `y ~ (1 | stratum) + (1 | stratum)` passed
+  the stratum-term check and was fitted by `lme4` as two separate
+  variance components (`stratum` and `stratum.1`), splitting the
+  between-stratum variance arbitrarily between them — a non-identifiable
+  partition. [`summary()`](https://rdrr.io/r/base/summary.html) then
+  counted only the first component as between-stratum variance and
+  misclassified the remainder as “other random effects”, so the headline
+  VPC (and any PCV built on that variance) was understated and
+  effectively arbitrary. Such formulas are now rejected at fit time with
+  a directed error. A single `(1 | stratum)` term, the intersectional
+  shorthand `(1 | a:b)`, and a stratum intercept plus a genuine random
+  *slope* (caught separately by the intercept-only validation) are
+  unaffected.
+
+- **PCV boundary detection now covers the `wemix` and `ordinal` engines,
+  not just `lme4`.** The singularity-boundary guard that protects the
+  PCV denominator was gated to `engine == "lme4"`, so a design-weighted
+  (`wemix`) or cumulative (`ordinal`) fit whose between-stratum variance
+  came back as a tiny *positive* value — e.g. `3e-9` from `clmm` or
+  `5e-24` from WeMix, where those optimizers land instead of `lme4`’s
+  exact zero — passed the `> 0` denominator check unflagged.
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  could then divide by that effectively-zero variance and report an
+  exploding or nonsensical PCV (a two-model ordinal comparison of `~0`
+  against `~0` returned `PCV = -110%` with no error), and
+  `adjusted_at_boundary` was never set for those engines. The boundary
+  test is now applied per engine, scaling the between-stratum SD against
+  each engine’s own residual/latent scale (σ² for Gaussian, π²/3 on the
+  logit latent scale, 1 on probit) with the same relative tolerance
+  `lme4` uses, and is shared by
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  and
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md).
+  A degenerate denominator is now rejected, and a boundary adjusted
+  model flagged, for all three likelihood engines. `brms` is excluded by
+  design: a pseudo-posterior mean variance is essentially never at an
+  exact boundary.
+
+- **`estimation = "ML"` no longer labels a partly-REML comparison as a
+  pure ML one.** When an ML refit is requested but a model’s
+  between-stratum variance is on the boundary, `maihda_pcv_refit_ml()`
+  deliberately keeps that model’s REML fit (refitting a singular model
+  only adds an `lme4` convergence warning and returns the same ≈ 0
+  variance). It recorded nothing, so a comparison in which the null was
+  ML-refitted but the boundary adjusted model stayed REML was still
+  reported as `estimation = "ML"`, with
+  [`print()`](https://rdrr.io/r/base/print.html) claiming an “ML-refit —
+  correction-free cross-model comparison”.
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  now records the basis *actually* used in a new `estimation_used`
+  element — `"mixed"` when a boundary model kept its REML fit — and
+  [`print()`](https://rdrr.io/r/base/print.html) states honestly that
+  the comparison is not a pure ML one. The same `estimation_used`
+  provenance is carried (as a list element or an attribute) and printed
+  by
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md),
+  and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md),
+  which share the refit helper. The requested basis is still available
+  in `$estimation` / the `"estimation"` attribute, and non-boundary
+  `"fitted"` / `"ML"` comparisons are numerically and textually
+  unchanged.
+
 - **An external `offset=` is now retained in every downstream `lme4`
   prediction, not just at fit time.** Although fitting honoured the
   offset, several prediction paths rebuilt `newdata` from the stored

@@ -213,7 +213,7 @@ print(pcv)
 #> 
 #> PCV: 0.0167
 #> 
-#> (Variance basis: as fitted -- REML for Gaussian lmer, matching summary())
+#> Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #> 
 #> Between-stratum variance:
 #>   Model 1: 0.222667

@@ -231,7 +231,9 @@ data.</p></dd>
 <dd><p>Variance-estimation basis for each group's per-group PCV,
 <code>"fitted"</code> (default) or <code>"ML"</code>; see <code><a href="calculate_pcv.html">calculate_pcv</a></code>.
 Affects Gaussian <code>lmer</code> fits only. Recorded as an <code>"estimation"</code>
-attribute on the returned comparison (and shown by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>).</p></dd>
+attribute on the returned comparison; the basis actually used is recorded as
+<code>"estimation_used"</code> (<code>"mixed"</code> when a group's ML refit was skipped at
+the boundary, leaving it on REML). Both are shown by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -355,7 +357,7 @@ the boundary, giving a VPC of 0.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Group variable: country </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Engine: lme4  | Family: gaussian  | Strata: shared/global </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Variance basis: as fitted (REML for Gaussian lmer) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Variance basis: as fitted (REML for Gaussian lmer, matching summary()) </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>           group   n n_strata     vpc var_between var_other var_residual    pcv</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>         Finland 600        6 0.10994       785.8         0         6361 1.0000</span>

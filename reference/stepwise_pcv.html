@@ -164,8 +164,10 @@ compared across steps, <code>"fitted"</code> (default) or <code>"ML"</code>; see
   as <code><a href="summary.maihda_model.html">summary.maihda_model</a></code> reports the intersectional-scope AUC for a
   contextual fit.</p>
 <p>The variance-estimation basis chosen by <code>estimation</code> is recorded as an
-  <code>"estimation"</code> attribute on the returned table (and shown by
-  <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>).</p>
+  <code>"estimation"</code> attribute on the returned table; the basis actually used is
+  recorded as <code>"estimation_used"</code> (<code>"mixed"</code> when <code>estimation = "ML"</code>
+  but a step's ML refit was skipped at the boundary, leaving it on REML). Both are
+  shown by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

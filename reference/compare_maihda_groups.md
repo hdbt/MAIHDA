@@ -173,8 +173,10 @@ compare_maihda_groups(
   (default) or `"ML"`; see
   [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
   Affects Gaussian `lmer` fits only. Recorded as an `"estimation"`
-  attribute on the returned comparison (and shown by
-  [`print()`](https://rdrr.io/r/base/print.html)).
+  attribute on the returned comparison; the basis actually used is
+  recorded as `"estimation_used"` (`"mixed"` when a group's ML refit was
+  skipped at the boundary, leaving it on REML). Both are shown by
+  [`print()`](https://rdrr.io/r/base/print.html).
 
 - ...:
 
@@ -306,7 +308,7 @@ print(cmp)
 #> 
 #> Group variable: country 
 #> Engine: lme4  | Family: gaussian  | Strata: shared/global 
-#> Variance basis: as fitted (REML for Gaussian lmer) 
+#> Variance basis: as fitted (REML for Gaussian lmer, matching summary()) 
 #> 
 #>           group   n n_strata     vpc var_between var_other var_residual    pcv
 #>         Finland 600        6 0.10994       785.8         0         6361 1.0000

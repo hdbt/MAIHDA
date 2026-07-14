@@ -109,8 +109,10 @@ columns, exactly as
 reports the intersectional-scope AUC for a contextual fit.
 
 The variance-estimation basis chosen by `estimation` is recorded as an
-`"estimation"` attribute on the returned table (and shown by
-[`print()`](https://rdrr.io/r/base/print.html)).
+`"estimation"` attribute on the returned table; the basis actually used
+is recorded as `"estimation_used"` (`"mixed"` when `estimation = "ML"`
+but a step's ML refit was skipped at the boundary, leaving it on REML).
+Both are shown by [`print()`](https://rdrr.io/r/base/print.html).
 
 ## Details
 

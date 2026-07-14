@@ -143,6 +143,13 @@ indistinguishable from genuinely additive strata (a common, legitimate result).<
 <dd><p>The variance-estimation basis requested (<code>"fitted"</code> or
     <code>"ML"</code>)</p></dd>
 
+  <dt>estimation_used</dt>
+<dd><p>The basis actually used: <code>"fitted"</code>, <code>"ML"</code>, or
+    <code>"mixed"</code>. <code>"mixed"</code> arises under <code>estimation = "ML"</code> when a
+    model's between-stratum variance is on the boundary and its ML refit is skipped
+    (that model keeps its REML fit), so the comparison is partly REML rather than a
+    pure, correction-free ML one – <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> states this</p></dd>
+
   <dt>adjusted_at_boundary</dt>
 <dd><p>Logical; <code>TRUE</code> when model2's between-stratum
     variance is on the singularity boundary, so the PCV is pinned near 1 (100%) and
