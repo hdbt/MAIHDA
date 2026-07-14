@@ -116,9 +116,10 @@ own between-stratum variance (the REML estimate for a Gaussian <code>lmer</code>
 correction-free comparison. The choice affects Gaussian <code>lmer</code> fits only –
 <code>glmer</code> and the brms/wemix/ordinal engines are already on the ML scale. See
 Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
-on the singularity boundary – under <em>any</em> <code>estimation</code> basis – the
-function warns that the resulting PCV near 1 is a boundary artefact rather than a
-substantive result, and records <code>adjusted_at_boundary = TRUE</code> on the result.</p></dd>
+on the singularity boundary – under <em>any</em> <code>estimation</code> basis – the PCV
+is pinned near 1; this is recorded as <code>adjusted_at_boundary = TRUE</code> and noted
+by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>. It is not treated as an error or warned about: a singular fit is
+indistinguishable from genuinely additive strata (a common, legitimate result).</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -144,8 +145,9 @@ substantive result, and records <code>adjusted_at_boundary = TRUE</code> on the 
 
   <dt>adjusted_at_boundary</dt>
 <dd><p>Logical; <code>TRUE</code> when model2's between-stratum
-    variance is on the singularity boundary, so a PCV near 1 (100%) is a boundary
-    artefact rather than genuine attenuation</p></dd>
+    variance is on the singularity boundary, so the PCV is pinned near 1 (100%) and
+    its interval/SE are unreliable – consistent with genuinely additive strata as
+    well as a degenerate fit (<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> states this)</p></dd>
 
   <dt>ml_refit_failed</dt>
 <dd><p>Logical; <code>TRUE</code> when <code>estimation = "ML"</code> was

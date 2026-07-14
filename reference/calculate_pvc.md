@@ -65,9 +65,11 @@ calculate_pvc(
   fits only – `glmer` and the brms/wemix/ordinal engines are already on
   the ML scale. See Details for the finite-sample tradeoff. Whenever
   model2 (the adjusted model) sits on the singularity boundary – under
-  *any* `estimation` basis – the function warns that the resulting PCV
-  near 1 is a boundary artefact rather than a substantive result, and
-  records `adjusted_at_boundary = TRUE` on the result.
+  *any* `estimation` basis – the PCV is pinned near 1; this is recorded
+  as `adjusted_at_boundary = TRUE` and noted by
+  [`print()`](https://rdrr.io/r/base/print.html). It is not treated as
+  an error or warned about: a singular fit is indistinguishable from
+  genuinely additive strata (a common, legitimate result).
 
 ## Value
 

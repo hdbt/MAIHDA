@@ -213,9 +213,11 @@ column, `pcv_status`, records the decomposition outcome per group:
 PCV errored (`pcv` is then `NA` and the group is named in a warning –
 the group's own `status` can still be `"ok"` because its null VPC model
 succeeded), and `"singular"` when the adjusted fit was singular and the
-PCV saturated near 100% (a boundary artifact, also warned). These four
-columns are omitted entirely when the strata have a single dimension.
-When `context` is supplied, two further columns report each group's
+PCV saturated near 100% – *not* warned about, since a singular adjusted
+fit is indistinguishable from genuinely additive strata (a legitimate,
+common result), so it is flagged only in this column. These four columns
+are omitted entirely when the strata have a single dimension. When
+`context` is supplied, two further columns report each group's
 contextual partition: `var_context` (the between-context variance,
 summed over contexts) and `vpc_context` (the contexts' share of the
 group's unexplained variance); the per-context split is on the
@@ -294,16 +296,10 @@ cmp <- compare_maihda_groups(
   group = "country"
 )
 #> boundary (singular) fit: see help('isSingular')
-#> Warning: Between-stratum variance in model2 (the adjusted model) is at the zero boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, not evidence that covariates explain all of the between-stratum variance. Inspect the adjusted model for a singular fit.
 #> boundary (singular) fit: see help('isSingular')
-#> Warning: Between-stratum variance in model2 (the adjusted model) is at the zero boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, not evidence that covariates explain all of the between-stratum variance. Inspect the adjusted model for a singular fit.
 #> boundary (singular) fit: see help('isSingular')
-#> Warning: Between-stratum variance in model2 (the adjusted model) is at the zero boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, not evidence that covariates explain all of the between-stratum variance. Inspect the adjusted model for a singular fit.
 #> boundary (singular) fit: see help('isSingular')
-#> Warning: Between-stratum variance in model2 (the adjusted model) is at the zero boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, not evidence that covariates explain all of the between-stratum variance. Inspect the adjusted model for a singular fit.
 #> boundary (singular) fit: see help('isSingular')
-#> Warning: Between-stratum variance in model2 (the adjusted model) is at the zero boundary (a singular fit), so a PCV of ~1 (100%) is a boundary artefact, not evidence that covariates explain all of the between-stratum variance. Inspect the adjusted model for a singular fit.
-#> Warning: compare_maihda_groups(): the adjusted model was singular for group(s) Finland, Germany, Italy, Mexico, United Kingdom, so the adjusted between-stratum variance sits at the boundary (~0) and the PCV saturates near 100% (pcv_status = "singular"). Read those groups' PCV with caution -- a near-complete attenuation can reflect a boundary fit as well as genuinely additive strata.
 print(cmp)
 #> MAIHDA Group Comparison
 #> =======================

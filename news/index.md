@@ -121,22 +121,35 @@
   withholds the delta (with a warning) when an intended ML refit fell
   back to REML, leaving the criteria on incomparable bases.
 
-- **A singular adjusted fit that saturates the PCV near 100% is flagged
-  under any `estimation` basis.**
+- **A singular adjusted fit that pins the PCV near 100% is now flagged
+  honestly under any `estimation` basis.**
   [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)’s
-  adjusted-model boundary warning was gated on `estimation = "ML"`, so
-  under the default `estimation = "fitted"` a singular adjusted model
-  produced an unqualified `PCV = 1` with no caveat. The warning now
-  fires whenever model2 is on the singularity boundary regardless of the
-  basis, and the result records `adjusted_at_boundary`. The status is
-  propagated as silent attributes to
+  adjusted-boundary warning was gated on `estimation = "ML"`, so under
+  the default `estimation = "fitted"` a singular adjusted model produced
+  an unqualified `PCV = 1` with no caveat at all. But a singular
+  adjusted fit is *indistinguishable* from genuinely additive strata —
+  an interaction variance that is truly ≈ 0 (no intersectional effect
+  beyond the additive main effects, a common and legitimate MAIHDA
+  result) gives an identical boundary fit — so treating `PCV = 100%` as
+  a spurious “artefact” would misfire on the normal additive case.
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  therefore does **not** warn; it records `adjusted_at_boundary` on the
+  result and [`print()`](https://rdrr.io/r/base/print.html) states,
+  honestly, that the PCV is pinned near 100% with an unreliable interval
+  and that additivity and a degenerate fit cannot be told apart from the
+  fit. The same status is carried as silent attributes on
   [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   (`boundary_steps`) and
   [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
-  (`full_at_boundary`) — surfaced in their
-  [`print()`](https://rdrr.io/r/base/print.html) methods rather than as
-  a warning, since a saturated additive full model is the common,
-  legitimate case there.
+  (`full_at_boundary`), each surfaced in its
+  [`print()`](https://rdrr.io/r/base/print.html) method.
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  likewise signals a singular adjusted fit only through its per-group
+  `pcv_status = "singular"` column and no longer emits an aggregated
+  boundary caution (removed for the same reason — it fired on every
+  additive comparison). Genuinely *failed* per-group decompositions are
+  still named in a warning, and lme4 singular/non-convergence fit
+  diagnostics are unchanged.
 
 - **Subsetting a `maihda_ic` result no longer breaks its
   [`print()`](https://rdrr.io/r/base/print.html) method.** Column/row
