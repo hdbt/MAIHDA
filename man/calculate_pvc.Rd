@@ -37,8 +37,10 @@ A value below about 200 warns that the interval's tail endpoints are unstable
 own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
 \code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
 correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
-\code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
-Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
+\code{glmer} and the wemix/ordinal engines are already maximum-likelihood, and a
+\code{brms} fit is a Bayesian posterior (not ML), so \code{"ML"} is a no-op for all
+of them; a \code{brms} comparison is reported on the as-fitted \emph{posterior}
+basis rather than as an ML-refit. See Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
 on the singularity boundary -- under \emph{any} \code{estimation} basis -- the PCV
 is pinned near 1; this is recorded as \code{adjusted_at_boundary = TRUE} and noted
 by \code{print()}. It is not treated as an error or warned about: a singular fit is

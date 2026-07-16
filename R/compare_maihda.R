@@ -1318,7 +1318,11 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # Variance-estimation basis behind every per-group PCV, recorded so a serialized
   # comparison keeps this provenance (mirrors calculate_pcv()'s $estimation).
   attr(out, "estimation") <- estimation
-  attr(out, "estimation_used") <- maihda_pcv_estimation_used(estimation, any_mixed_basis)
+  # any_mixed_basis already folds in a failed refitML() per group (each group's PCV comes
+  # from calculate_pcv(), which reports "mixed" for a boundary skip or a failed refit);
+  # the engine steers a brms comparison to "posterior" (never an ML-refit).
+  attr(out, "estimation_used") <- maihda_pcv_estimation_used(
+    estimation, any_mixed_basis, engine = engine)
   # The context variable name(s) and the per-group, per-context between-context
   # variances (a named list keyed by group). NULL when no context was supplied.
   attr(out, "context_var") <- context

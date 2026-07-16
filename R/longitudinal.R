@@ -460,7 +460,8 @@ maihda_longitudinal_time_grid <- function(time_values) {
 # log-normal mean correction v(t)/2 from the total growth-block variance v_t at
 # that time. `t_c` is on the model's (possibly centered) coefficient scale; `v_t`
 # is VarStratum(t) + VarId(t) at the same times, aligned to `t_c`.
-maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t) {
+maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t,
+                                                orig_time = time_term, center = 0) {
   fam <- maihda_family(model)
   is_count <- !is.null(fam) && identical(fam$link, "log") &&
     fam$family %in% c("poisson", "negbinomial")
@@ -474,16 +475,30 @@ maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t) {
   }
   w <- maihda_fit_prior_weights(model)
   frame <- maihda_model_frame(model)
-  # Per-fitted-row offset (time-invariant). predict.merMod on the modified-time frame
-  # would DROP an external offset= (biasing the marginal count lambda, hence VPC(t))
-  # and ERROR on a formula offset() term, so build the fixed-effects linear predictor
-  # directly and add the stored offset back (maihda_lme4_fixed_link). off = NULL for a
-  # no-offset fit, where the helper reproduces predict(re.form = NA) exactly.
-  off <- maihda_fitted_offset(model)
+  # Offset on the modified-time frame. predict.merMod here would DROP an external offset=
+  # (biasing the marginal count lambda, hence VPC(t)) and ERROR on a formula offset()
+  # term, so build the fixed-effects linear predictor directly. A FORMULA offset such as
+  # offset(0.5 * time) is RE-EVALUATED at each grid time -- it shifts the marginal count
+  # and must track the modified time -- whereas an EXTERNAL offset= vector has no
+  # expression to re-evaluate and is kept per fitted row (a fixed per-row exposure). Under
+  # internal time centering the offset references the ORIGINAL time, so the original-time
+  # column is moved in lockstep with the centered term (t_c[j] + center). off_ext = NULL
+  # for a fit with no external offset; a no-offset fit reproduces predict(re.form = NA).
+  off_ext <- maihda_fitted_offset_external(model)
+  has_formula_off <- !is.null(
+    attr(stats::terms(maihda_nobars(stats::formula(model))), "offset"))
   vapply(seq_along(t_c), function(j) {
     nd <- frame
     nd[[time_term]] <- t_c[j]
-    eta <- maihda_lme4_fixed_link(model, nd, offset = off)
+    if (has_formula_off && !identical(orig_time, time_term)) {
+      nd[[orig_time]] <- t_c[j] + center
+    }
+    off_j <- off_ext
+    if (has_formula_off) {
+      fo <- maihda_lme4_formula_offset_at(model, nd)
+      off_j <- if (is.null(off_j)) fo else off_j + fo
+    }
+    eta <- maihda_lme4_fixed_link(model, nd, offset = off_j)
     lambda <- pmax(exp(eta + v_t[j] / 2), .Machine$double.eps)
     maihda_weighted_obs_mean(log1p(1 / lambda + 1 / theta), w)
   }, numeric(1))
@@ -556,9 +571,11 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   var_s_ref <- maihda_var_at_time(Sigma_s, ref_c)
   var_i_ref <- maihda_var_at_time(Sigma_i, ref_c)
   resid_grid <- maihda_longitudinal_resid_grid_lme4(model, time_term, grid_c,
-                                                    var_s_grid + var_i_grid)
+                                                    var_s_grid + var_i_grid,
+                                                    orig_time = lng$time, center = center)
   resid_ref <- maihda_longitudinal_resid_grid_lme4(model, time_term, ref_c,
-                                                   var_s_ref + var_i_ref)
+                                                   var_s_ref + var_i_ref,
+                                                   orig_time = lng$time, center = center)
   # Scalar residual for the components table / headline: the reference-time value
   # (a single latent-scale number that the trajectory generalises over time).
   var_resid <- as.numeric(resid_ref)
@@ -579,10 +596,12 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
         Ss <- maihda_re_block_lme4(bm, "stratum", time_term, lng$time_degree)
         Si <- maihda_re_block_lme4(bm, lng$id, time_term, lng$time_degree)
         vs <- maihda_var_at_time(Ss, grid_c); vi <- maihda_var_at_time(Si, grid_c)
-        vr_grid <- maihda_longitudinal_resid_grid_lme4(bm, time_term, grid_c, vs + vi)
+        vr_grid <- maihda_longitudinal_resid_grid_lme4(bm, time_term, grid_c, vs + vi,
+                                                       orig_time = lng$time, center = center)
         boot[i, ] <- vs / (vs + vi + vr_grid)
         rs <- maihda_var_at_time(Ss, ref_c); ri <- maihda_var_at_time(Si, ref_c)
-        vr_ref <- maihda_longitudinal_resid_grid_lme4(bm, time_term, ref_c, rs + ri)
+        vr_ref <- maihda_longitudinal_resid_grid_lme4(bm, time_term, ref_c, rs + ri,
+                                                      orig_time = lng$time, center = center)
         ref_boot[i] <- rs / (rs + ri + vr_ref)
       }, error = function(e) NULL)
     }
@@ -879,7 +898,19 @@ maihda_longitudinal_refit_ml <- function(model) {
   # refitML() itself fails, the tryCatch below keeps the original (REML) fit.
   if (maihda_stratum_growth_at_boundary_lme4(model$model)) return(model)
   refit <- tryCatch(lme4::refitML(model$model), error = function(e) NULL)
-  if (!is.null(refit)) model$model <- refit
+  if (!is.null(refit)) {
+    model$model <- refit
+  } else {
+    # The ML refit was warranted (a non-boundary REML growth fit) but failed: keep the
+    # REML fit and SAY SO, rather than silently leaving a REML block the comparison would
+    # otherwise present as ML. maihda_longitudinal_pcv() then sees the fit is still REML
+    # and sets ml_refit = FALSE, so its print method makes no ML claim -- but without this
+    # warning the user is never told the requested ML basis could not be applied.
+    warning("estimation = \"ML\" was requested, but lme4::refitML() failed for a ",
+            "longitudinal growth model; its REML fit is used instead, so this is not a ",
+            "pure ML-basis comparison. Compare against estimation = \"fitted\".",
+            call. = FALSE)
+  }
   model
 }
 
@@ -982,7 +1013,31 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
   Sa <- maihda_re_block(adjusted_model, "stratum")
   deg <- nrow(Sn) - 1L
 
-  pcv_cell <- function(vn, va) if (is.finite(vn) && vn > 0) (vn - va) / vn else NA_real_
+  # A between-stratum variance a(t)' Sn a(t) that is only boundary-level positive --
+  # e.g. 2.5e-13 from a singular null growth fit with no stratum trajectory signal --
+  # passes a plain > 0 test yet makes the PCV ratio explode (PCV(t) in the hundreds
+  # or thousands, with the wrong sign). Gate every denominator with the SAME relative
+  # singularity tolerance calculate_pcv() / stepwise_pcv() apply
+  # (maihda_variance_at_boundary(): sqrt(var) / sqrt(resid) < 1e-4), scaling the null
+  # between-stratum variance against the null model's own residual/latent variance; a
+  # boundary-level denominator yields NA rather than a spurious ratio. For lme4 this is
+  # sigma^2 (Gaussian) or the latent-scale constant; where it is unavailable (e.g. brms)
+  # the helper falls back to an absolute near-zero test.
+  resid_var_null <- tryCatch(
+    if (identical(null_model$engine, "lme4"))
+      maihda_residual_variance_lme4(null_model$model) else NA_real_,
+    error = function(e) NA_real_)
+  denom_at_boundary <- function(v) maihda_variance_at_boundary(v, resid_var_null)
+  # TRUE when the WHOLE null stratum growth block is degenerate (every variance on the
+  # boundary): a(t)' Sn a(t) is then ~0 at every t, so no PCV cell is defined and all
+  # are NA below. Recorded on the result (and surfaced by print()) so the all-NA output
+  # reads as an honest "no between-stratum trajectory variance to explain", not a silent
+  # gap -- the longitudinal analogue of calculate_pcv()'s degenerate-null guard.
+  null_at_boundary <- identical(null_model$engine, "lme4") &&
+    isTRUE(tryCatch(maihda_stratum_growth_at_boundary_lme4(null_model$model),
+                    error = function(e) FALSE))
+
+  pcv_cell <- function(vn, va) if (!denom_at_boundary(vn)) (vn - va) / vn else NA_real_
 
   # The "baseline" PCV is the proportional change in the between-stratum variance
   # at the OBSERVED baseline time (lng$ref_time = min(time)), not the raw
@@ -1010,7 +1065,8 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
   }
   vn_t <- maihda_var_at_time(Sn, times - center)
   va_t <- maihda_var_at_time(Sa, times - center)
-  pcv_t <- ifelse(vn_t > 0, (vn_t - va_t) / vn_t, NA_real_)
+  pcv_t <- ifelse(vapply(vn_t, denom_at_boundary, logical(1)), NA_real_,
+                  (vn_t - va_t) / vn_t)
 
   structure(
     list(
@@ -1028,7 +1084,8 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
       Sigma_stratum_adjusted = Sa,
       time = lng$time,
       time_degree = lng$time_degree,
-      ml_refit = ml_refit
+      ml_refit = ml_refit,
+      null_at_boundary = null_at_boundary
     ),
     class = "maihda_long_pcv"
   )
@@ -1113,6 +1170,17 @@ print.maihda_long_pcv <- function(x, ...) {
       "\nThe PCV is the share of the null model's between-stratum (trajectory) variance\n",
       "explained by the dimensions' additive main effects and their time interactions;\n",
       "a high PCV_slope means trajectory inequalities are 'mostly additive'.\n")))
+  if (isTRUE(x$null_at_boundary)) {
+    # The null growth model's between-stratum block sits on the singularity boundary
+    # (effectively no stratum trajectory variance), so every PCV is a 0/0 ratio and is
+    # reported as NA rather than an exploded value from a near-zero denominator. Say so,
+    # mirroring calculate_pcv()'s boundary caveat.
+    cat(pal$warn(paste0(
+        "\nNote: the null model's between-stratum (trajectory) variance is at the singularity\n",
+        "boundary (a singular fit -- effectively no between-stratum trajectory variation to\n",
+        "explain), so the PCV is undefined (0/0) and reported as NA. This is consistent with\n",
+        "genuinely additive strata as well as a degenerate fit; the two cannot be told apart.\n")))
+  }
   if (isTRUE(x$ml_refit)) {
     # REML growth fits were ML-refitted for this comparison (see
     # maihda_longitudinal_pcv), so the variances above are on the ML scale while

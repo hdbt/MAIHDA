@@ -2527,6 +2527,48 @@ maihda_mermod_has_external_offset <- function(model) {
   !is.null(mf) && "(offset)" %in% names(mf)
 }
 
+# The EXTERNAL offset= contribution only -- the "(offset)" model-frame column, per fitted
+# row; NULL when the fit used no external offset. Unlike a formula offset() term it has no
+# stored expression to re-evaluate on a modified-time grid, so the longitudinal
+# trajectories freeze it (a constant-exposure assumption). The formula-offset counterpart
+# is maihda_lme4_formula_offset_at(), which DOES re-evaluate; splitting the two lets a
+# time-dependent formula offset track the trajectory time while an external offset stays
+# fixed.
+maihda_fitted_offset_external <- function(model) {
+  mf <- maihda_model_frame(model)
+  if (is.null(mf) || !"(offset)" %in% names(mf)) {
+    return(NULL)
+  }
+  as.numeric(mf[["(offset)"]])
+}
+
+# Re-evaluate a fit's FORMULA offset() term(s) on `newdata`, returning the summed per-row
+# offset (NULL when the fit carries no formula offset). Unlike the stored offset
+# (maihda_fitted_offset()), this tracks a time-dependent offset such as offset(0.5 * time)
+# to the times in `newdata`: the longitudinal prediction grids vary time (and hold other
+# covariates at observed or representative values), so a frozen offset would mis-place
+# every count / link-scale trajectory. The raw offset variables must be present in
+# `newdata` (they are for those grids). offset() itself is a no-op wrapper (identity), so
+# it is bound to identity in a private evaluation frame; the raw variables resolve from
+# `newdata`, everything else from the formula's environment.
+maihda_lme4_formula_offset_at <- function(model, newdata) {
+  tt <- stats::delete.response(stats::terms(maihda_nobars(stats::formula(model))))
+  off_idx <- attr(tt, "offset")
+  if (is.null(off_idx) || length(off_idx) == 0L) {
+    return(NULL)
+  }
+  varlist <- attr(tt, "variables")
+  env <- environment(stats::formula(model))
+  off_env <- new.env(parent = if (is.null(env)) baseenv() else env)
+  off_env$offset <- function(x) x
+  n <- nrow(newdata)
+  vals <- lapply(off_idx, function(i) {
+    v <- as.numeric(eval(varlist[[i + 1L]], newdata, off_env))
+    if (length(v) == 1L) rep(v, n) else v
+  })
+  Reduce(`+`, vals)
+}
+
 # Fixed-effects (re.form = NA) link-scale linear predictor of an lme4 fit on arbitrary
 # newdata, WITH the supplied offset added. predict.merMod(newdata = ) drops an external
 # offset (the offset= fitting argument) and ERRORS on a formula offset() term whose raw

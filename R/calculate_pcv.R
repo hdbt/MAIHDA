@@ -23,8 +23,10 @@
 #'   own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
 #'   \code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
 #'   correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
-#'   \code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
-#'   Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
+#'   \code{glmer} and the wemix/ordinal engines are already maximum-likelihood, and a
+#'   \code{brms} fit is a Bayesian posterior (not ML), so \code{"ML"} is a no-op for all
+#'   of them; a \code{brms} comparison is reported on the as-fitted \emph{posterior}
+#'   basis rather than as an ML-refit. See Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
 #'   on the singularity boundary -- under \emph{any} \code{estimation} basis -- the PCV
 #'   is pinned near 1; this is recorded as \code{adjusted_at_boundary = TRUE} and noted
 #'   by \code{print()}. It is not treated as an error or warned about: a singular fit is
@@ -39,11 +41,13 @@
 #'   \item{var_model2}{Between-stratum variance from model2}
 #'   \item{estimation}{The variance-estimation basis requested (\code{"fitted"} or
 #'     \code{"ML"})}
-#'   \item{estimation_used}{The basis actually used: \code{"fitted"}, \code{"ML"}, or
-#'     \code{"mixed"}. \code{"mixed"} arises under \code{estimation = "ML"} when a
-#'     model's between-stratum variance is on the boundary and its ML refit is skipped
-#'     (that model keeps its REML fit), so the comparison is partly REML rather than a
-#'     pure, correction-free ML one -- \code{print()} states this}
+#'   \item{estimation_used}{The basis actually used: \code{"fitted"}, \code{"ML"},
+#'     \code{"mixed"}, or \code{"posterior"}. \code{"mixed"} arises under
+#'     \code{estimation = "ML"} when a model keeps its REML fit -- its between-stratum
+#'     variance is on the boundary so the ML refit is skipped, or \code{\link[lme4]{refitML}}
+#'     failed -- so the comparison is partly REML rather than a pure, correction-free ML
+#'     one. \code{"posterior"} is reported for a \code{brms} comparison (a Bayesian
+#'     posterior, on which \code{"ML"} is a no-op). \code{print()} states the basis}
 #'   \item{adjusted_at_boundary}{Logical; \code{TRUE} when model2's between-stratum
 #'     variance is on the singularity boundary, so the PCV is pinned near 1 (100\%) and
 #'     its interval/SE are unreliable -- consistent with genuinely additive strata as
@@ -88,10 +92,12 @@
 #'     matches), for a correction-free cross-model comparison.}
 #' }
 #' The choice affects Gaussian \code{lmer} fits only: GLMM fits (\code{glmer}) and the
-#' brms/wemix/ordinal engines are already on the maximum-likelihood scale, so
-#' \code{"fitted"} and \code{"ML"} coincide there. Single-model VPC/ICC summaries always
-#' keep their REML fit, since that comparison-free quantity is not subject to the
-#' cross-model pitfall.
+#' wemix/ordinal engines are already on the maximum-likelihood scale, so \code{"fitted"}
+#' and \code{"ML"} coincide there. A \code{brms} fit is a Bayesian Stan \emph{posterior},
+#' not a maximum-likelihood fit, so \code{"ML"} performs no refit and the comparison is
+#' reported on the as-fitted posterior basis (\code{estimation_used = "posterior"}), never
+#' as an ML-refit. Single-model VPC/ICC summaries always keep their REML fit, since that
+#' comparison-free quantity is not subject to the cross-model pitfall.
 #'
 #' \strong{Latent-scale families and rescaling.} For families whose level-1
 #' variance is a fixed latent-scale constant -- binomial/Bernoulli
@@ -208,9 +214,13 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   # keeps its REML fit (maihda_pcv_refit_ml() skips the destabilising refit there), so
   # the comparison is then partly REML. Record the basis ACTUALLY used ("mixed") so the
   # result does not claim a pure, correction-free ML refit when one model stayed REML.
+  # A FAILED refitML() (ml_refit_failed) likewise leaves a model on REML, so it is
+  # "mixed" too -- not the pure ML the label would otherwise assert. The engine also
+  # matters: a brms comparison is a posterior, never an ML-refit (handled downstream).
   ml_refit_skipped <- isTRUE(model1$ml_refit_skipped_boundary) ||
     isTRUE(model2$ml_refit_skipped_boundary)
-  estimation_used <- maihda_pcv_estimation_used(estimation, ml_refit_skipped)
+  estimation_used <- maihda_pcv_estimation_used(
+    estimation, ml_refit_skipped || ml_refit_failed, engine = model1$engine)
 
   # Extract between-stratum variance from both models
   var1 <- extract_between_variance(model1)
@@ -314,13 +324,17 @@ maihda_pcv_apply_estimation <- function(model, estimation) {
 }
 
 # Resolve the variance-estimation basis a PCV comparison ACTUALLY used, from the
-# requested `estimation` and whether any model's ML refit was skipped at the boundary
-# (maihda_pcv_refit_ml() sets $ml_refit_skipped_boundary then). Under estimation =
-# "ML" a skipped model is left on its REML fit, so the comparison is "mixed" (partly
-# REML), not a pure ML one; "fitted" is never mixed. Callers record the result and
-# render it with maihda_pcv_basis_label().
-maihda_pcv_estimation_used <- function(estimation, skipped) {
-  if (identical(estimation, "ML") && isTRUE(skipped)) "mixed" else estimation
+# requested `estimation`, whether any model's ML refit was left on REML (`mixed` --
+# skipped at the boundary OR a failed refitML(); see maihda_pcv_refit_ml()), and the
+# `engine`. Under estimation = "ML" a model left on REML makes the comparison "mixed"
+# (partly REML), not a pure ML one; "fitted" is never mixed. brms fits are Bayesian
+# Stan POSTERIORS, not maximum likelihood -- estimation = "ML" is a no-op there (no
+# refit occurs), so the basis is always the as-fitted posterior scale, reported as
+# "posterior" and never an "ML-refit". Callers record the result and render it with
+# maihda_pcv_basis_label().
+maihda_pcv_estimation_used <- function(estimation, mixed, engine = NULL) {
+  if (identical(engine, "brms")) return("posterior")
+  if (identical(estimation, "ML") && isTRUE(mixed)) "mixed" else estimation
 }
 
 # Human-readable variance-basis label shared by every PCV print method
@@ -332,8 +346,10 @@ maihda_pcv_basis_label <- function(basis) {
   if (is.null(basis)) basis <- "fitted"
   switch(basis,
     ML = "ML-refit (correction-free cross-model comparison)",
-    mixed = paste0("mixed -- ML requested, but a between-stratum variance at the ",
-                   "boundary kept its REML fit, so not a pure ML comparison"),
+    mixed = paste0("mixed -- ML requested, but a model kept its REML fit (a ",
+                   "between-stratum variance at the boundary, or a failed refit), so ",
+                   "not a pure ML comparison"),
+    posterior = "as fitted (brms posterior summaries, not maximum likelihood)",
     "as fitted (REML for Gaussian lmer, matching summary())"
   )
 }
@@ -1190,10 +1206,11 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
                sampling_weights = sampling_weights), estimation)
   null_var <- extract_between_variance(null_mod)
   # Track whether any model kept its REML fit because an ML refit was skipped at the
-  # boundary (see maihda_pcv_refit_ml()); under estimation = "ML" that makes the
-  # series' basis "mixed", not pure ML. (A boundary NULL hard-stops just below, so in
+  # boundary or FAILED (see maihda_pcv_refit_ml()); under estimation = "ML" either makes
+  # the series' basis "mixed", not pure ML. (A boundary NULL hard-stops just below, so in
   # practice this is driven by the step models.)
   ml_refit_skipped <- isTRUE(null_mod$ml_refit_skipped_boundary)
+  ml_refit_failed_any <- isTRUE(null_mod$ml_refit_failed)
 
   # Every Total_PCV divides by null_var and the first Step_PCV divides by it too,
   # so a boundary-level (effectively singular) null variance -- a strictly
@@ -1275,6 +1292,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
 
     curr_var <- extract_between_variance(mod)
     if (isTRUE(mod$ml_refit_skipped_boundary)) ml_refit_skipped <- TRUE
+    if (isTRUE(mod$ml_refit_failed)) ml_refit_failed_any <- TRUE
     if (maihda_pcv_null_at_boundary(mod)) {
       boundary_steps <- c(boundary_steps, vars[i])
     }
@@ -1338,7 +1356,8 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   # table keeps this (statistically material) provenance, mirroring the
   # $estimation element on a calculate_pcv() result.
   attr(results, "estimation") <- estimation
-  attr(results, "estimation_used") <- maihda_pcv_estimation_used(estimation, ml_refit_skipped)
+  attr(results, "estimation_used") <- maihda_pcv_estimation_used(
+    estimation, ml_refit_skipped || ml_refit_failed_any, engine = engine)
   attr(results, "boundary_steps") <- boundary_steps
   class(results) <- c("maihda_stepwise", "data.frame")
   return(results)

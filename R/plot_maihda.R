@@ -1963,14 +1963,21 @@ maihda_longitudinal_fixed_trajectory <- function(object, grid) {
 
   if (identical(object$engine, "lme4")) {
     # predict.merMod(newdata = nd) drops an external offset= and errors on a formula
-    # offset() term (nd is built from the stored model frame, which lacks the raw
-    # offset variable), so build the fixed trajectory directly and hold the offset at
-    # its mean -- the representative-exposure analogue of holding covariates at their
-    # means. off = NULL for a no-offset fit, where the helper reproduces
+    # offset() term, so build the fixed trajectory directly. A FORMULA offset such as
+    # offset(0.5 * time) is RE-EVALUATED on the trajectory grid (nd carries the grid
+    # times, raw and centered), so a time-dependent offset tracks the trajectory instead
+    # of being frozen; an EXTERNAL offset= vector has no expression to re-evaluate and is
+    # held at its mean -- the representative-exposure analogue of holding covariates at
+    # their means. Either part is NULL when absent; a no-offset fit reproduces
     # predict(re.form = NA) exactly.
-    off <- maihda_fitted_offset(object$model)
-    off_mean <- if (is.null(off)) NULL else mean(off, na.rm = TRUE)
-    as.numeric(maihda_lme4_fixed_link(object$model, nd, offset = off_mean))
+    off_ext <- maihda_fitted_offset_external(object$model)
+    off <- if (is.null(off_ext)) NULL else mean(off_ext, na.rm = TRUE)
+    if (!is.null(attr(stats::terms(maihda_nobars(stats::formula(object$model))),
+                      "offset"))) {
+      fo <- maihda_lme4_formula_offset_at(object$model, nd)
+      off <- if (is.null(off)) fo else off + fo
+    }
+    as.numeric(maihda_lme4_fixed_link(object$model, nd, offset = off))
   } else if (identical(object$engine, "brms")) {
     maihda_brms_linpred_mean(object$model, newdata = nd, re_formula = NA)
   } else {

@@ -451,10 +451,11 @@ pcv_importance <- function(data, outcome, vars,
   # only when the bootstrap needs to refit them.
   keep_models <- bootstrap
   cache <- new.env(parent = emptyenv())
-  # Set when any subset model keeps its REML fit because its ML refit was skipped at
-  # the boundary (maihda_pcv_refit_ml()); under estimation = "ML" that makes the
+  # Set when any subset model keeps its REML fit because its ML refit was skipped at the
+  # boundary OR failed (maihda_pcv_refit_ml()); under estimation = "ML" either makes the
   # attribution's basis "mixed", not a pure ML comparison.
   ml_refit_skipped_any <- FALSE
+  ml_refit_failed_any <- FALSE
 
   fit_mask <- function(mask) {
     key <- as.character(mask)
@@ -473,6 +474,7 @@ pcv_importance <- function(data, outcome, vars,
              "} failed to fit: ", conditionMessage(e), call. = FALSE)
       })
     if (isTRUE(mod$ml_refit_skipped_boundary)) ml_refit_skipped_any <<- TRUE
+    if (isTRUE(mod$ml_refit_failed)) ml_refit_failed_any <<- TRUE
     variance <- extract_between_variance(mod)
     if (!is.finite(variance)) {
       stop("pcv_importance(): no finite between-stratum variance for the ",
@@ -639,7 +641,8 @@ pcv_importance <- function(data, outcome, vars,
     family = null_entry$family_key,
     family_name = null_entry$family_name,
     estimation = estimation,
-    estimation_used = maihda_pcv_estimation_used(estimation, ml_refit_skipped_any),
+    estimation_used = maihda_pcv_estimation_used(
+      estimation, ml_refit_skipped_any || ml_refit_failed_any, engine = engine),
     context = context,
     sampling_weights = sampling_weights,
     conditional = dominance$conditional,

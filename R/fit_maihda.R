@@ -906,6 +906,25 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
 # make_strata() attached to `data`. Shared by fit_maihda() and
 # maihda_describe() so the pre-model description and the fit build their strata
 # from the same machinery -- identical IDs, labels, counts, and validation.
+# TRUE when a random-effect term's left-hand side (the `1` in `(1 | g)`) resolves to a
+# single CONSTANT design column -- an intercept -- however it is spelled (`1`,
+# `0 + 1`). Two intercept columns on the same grouping factor are perfectly collinear
+# and hence non-identifiable, so maihda_resolve_strata_formula() rejects duplicated
+# stratum intercepts; it inspects the design columns here rather than the deparsed text,
+# so equivalent spellings cannot slip past a literal string comparison. A random-slope
+# LHS yields two or more columns (an intercept plus the slope) or a single non-constant
+# column, so it is not flagged. Returns FALSE on any evaluation error (conservative --
+# the downstream intercept-only validation still applies).
+maihda_re_lhs_is_constant_intercept <- function(lhs, data) {
+  fm <- tryCatch(stats::as.formula(paste("~", paste(deparse(lhs), collapse = " "))),
+                 error = function(e) NULL)
+  if (is.null(fm)) return(FALSE)
+  mm <- tryCatch(stats::model.matrix(fm, data), error = function(e) NULL)
+  if (is.null(mm) || ncol(mm) != 1L) return(FALSE)
+  col <- mm[, 1L]
+  all(is.finite(col)) && diff(range(col)) < sqrt(.Machine$double.eps) && abs(col[1L]) > 0
+}
+
 maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE,
                                           bin_rows = NULL) {
   re_terms <- reformulas::findbars(formula)
@@ -935,15 +954,24 @@ maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE,
     # intercept-only validation, so restrict this guard to duplicated
     # intercept-only stratum terms.
     if (sum(is_stratum_term) > 1) {
-      stratum_lhs <- vapply(re_terms[is_stratum_term], function(term) {
-        paste(deparse(term[[2]]), collapse = " ")
-      }, character(1))
-      if (all(stratum_lhs == "1")) {
+      # Detect duplicate CONSTANT-INTERCEPT stratum terms from each term's random-effect
+      # design columns, not its deparsed text: (1 | stratum), (0 + 1 | stratum) and the
+      # mixed pair (1 | stratum) + (0 + 1 | stratum) all build the same single intercept
+      # column, so a literal `== "1"` comparison misses the non-`1` spellings and lets a
+      # non-identifiable duplicate through (lme4 then fits 'stratum' and 'stratum.1' and
+      # splits the between-stratum variance arbitrarily). A stratum random *slope* term is
+      # a different, identifiable structure caught downstream by the intercept-only
+      # validation, so restrict this guard to duplicated constant-intercept terms.
+      is_const_int <- vapply(re_terms[is_stratum_term], function(term) {
+        maihda_re_lhs_is_constant_intercept(term[[2]], data)
+      }, logical(1))
+      if (all(is_const_int)) {
         stop("The model formula includes ", sum(is_stratum_term), " separate ",
-             "(1 | stratum) random-effect terms. Duplicate stratum grouping terms ",
-             "are non-identifiable: lme4 splits the between-stratum variance ",
-             "arbitrarily across them (fitted as 'stratum' and 'stratum.1'), so the ",
-             "VPC and PCV are not well defined. Use a single (1 | stratum) term.",
+             "constant-intercept random-effect terms on 'stratum' (e.g. (1 | stratum) ",
+             "and (0 + 1 | stratum) build the same intercept column). Duplicate stratum ",
+             "intercepts are non-identifiable: lme4 splits the between-stratum variance ",
+             "arbitrarily across them (fitted as 'stratum' and 'stratum.1'), so the VPC ",
+             "and PCV are not well defined. Use a single (1 | stratum) term.",
              call. = FALSE)
       }
     }

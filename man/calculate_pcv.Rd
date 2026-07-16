@@ -37,8 +37,10 @@ A value below about 200 warns that the interval's tail endpoints are unstable
 own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
 \code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
 correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
-\code{glmer} and the brms/wemix/ordinal engines are already on the ML scale. See
-Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
+\code{glmer} and the wemix/ordinal engines are already maximum-likelihood, and a
+\code{brms} fit is a Bayesian posterior (not ML), so \code{"ML"} is a no-op for all
+of them; a \code{brms} comparison is reported on the as-fitted \emph{posterior}
+basis rather than as an ML-refit. See Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
 on the singularity boundary -- under \emph{any} \code{estimation} basis -- the PCV
 is pinned near 1; this is recorded as \code{adjusted_at_boundary = TRUE} and noted
 by \code{print()}. It is not treated as an error or warned about: a singular fit is
@@ -54,11 +56,13 @@ A list containing:
   \item{var_model2}{Between-stratum variance from model2}
   \item{estimation}{The variance-estimation basis requested (\code{"fitted"} or
     \code{"ML"})}
-  \item{estimation_used}{The basis actually used: \code{"fitted"}, \code{"ML"}, or
-    \code{"mixed"}. \code{"mixed"} arises under \code{estimation = "ML"} when a
-    model's between-stratum variance is on the boundary and its ML refit is skipped
-    (that model keeps its REML fit), so the comparison is partly REML rather than a
-    pure, correction-free ML one -- \code{print()} states this}
+  \item{estimation_used}{The basis actually used: \code{"fitted"}, \code{"ML"},
+    \code{"mixed"}, or \code{"posterior"}. \code{"mixed"} arises under
+    \code{estimation = "ML"} when a model keeps its REML fit -- its between-stratum
+    variance is on the boundary so the ML refit is skipped, or \code{\link[lme4]{refitML}}
+    failed -- so the comparison is partly REML rather than a pure, correction-free ML
+    one. \code{"posterior"} is reported for a \code{brms} comparison (a Bayesian
+    posterior, on which \code{"ML"} is a no-op). \code{print()} states the basis}
   \item{adjusted_at_boundary}{Logical; \code{TRUE} when model2's between-stratum
     variance is on the singularity boundary, so the PCV is pinned near 1 (100\%) and
     its interval/SE are unreliable -- consistent with genuinely additive strata as
@@ -109,10 +113,12 @@ each model's between-stratum variance, so \code{estimation} selects between them
     matches), for a correction-free cross-model comparison.}
 }
 The choice affects Gaussian \code{lmer} fits only: GLMM fits (\code{glmer}) and the
-brms/wemix/ordinal engines are already on the maximum-likelihood scale, so
-\code{"fitted"} and \code{"ML"} coincide there. Single-model VPC/ICC summaries always
-keep their REML fit, since that comparison-free quantity is not subject to the
-cross-model pitfall.
+wemix/ordinal engines are already on the maximum-likelihood scale, so \code{"fitted"}
+and \code{"ML"} coincide there. A \code{brms} fit is a Bayesian Stan \emph{posterior},
+not a maximum-likelihood fit, so \code{"ML"} performs no refit and the comparison is
+reported on the as-fitted posterior basis (\code{estimation_used = "posterior"}), never
+as an ML-refit. Single-model VPC/ICC summaries always keep their REML fit, since that
+comparison-free quantity is not subject to the cross-model pitfall.
 
 \strong{Latent-scale families and rescaling.} For families whose level-1
 variance is a fixed latent-scale constant -- binomial/Bernoulli
