@@ -77,7 +77,7 @@ test_that("a no-signal longitudinal null flags null_at_boundary and NAs every PC
   expect_true(is.na(a$pcv$pcv_slope))
   fin <- a$pcv$pcv_t$pcv[is.finite(a$pcv$pcv_t$pcv)]
   expect_length(fin, 0L)
-  expect_output(print(a$pcv), "singularity boundary")
+  expect_output(print(a$pcv), "singularity\\s+boundary")
 })
 
 test_that("a healthy longitudinal PCV is unaffected (finite, inside (0, 1))", {
@@ -132,6 +132,24 @@ test_that("maihda_lme4_formula_offset_at re-evaluates a formula offset on newdat
   # A fit with no formula offset returns NULL.
   m0 <- suppressMessages(lme4::lmer(y ~ x + (1 | g), data = d))
   expect_null(MAIHDA:::maihda_lme4_formula_offset_at(m0, data.frame(x = c(0, 2, 4))))
+})
+
+test_that("maihda_lme4_formula_offset_at falls back to stored values for an offset-only variable", {
+  set.seed(12)
+  d <- data.frame(y = rnorm(40), x = rep(1:4, 10), g = factor(rep(1:8, 5)),
+                  logE = log(runif(40, 1, 5)))
+  m <- suppressMessages(lme4::lmer(y ~ x + offset(logE) + (1 | g), data = d))
+  # The model frame stores only the derived "offset(logE)" column (logE is not otherwise
+  # a predictor), so a grid built from it cannot re-evaluate the term; such a term is
+  # necessarily time-invariant and must fall back to the stored per-row values (or their
+  # mean for a representative-profile grid) rather than error.
+  mf <- stats::model.frame(m)
+  expect_false("logE" %in% names(mf))
+  expect_equal(MAIHDA:::maihda_lme4_formula_offset_at(m, mf), d$logE)
+  expect_equal(
+    MAIHDA:::maihda_lme4_formula_offset_at(m, mf[rep(1L, 3), , drop = FALSE],
+                                           fallback = "mean"),
+    rep(mean(d$logE), 3))
 })
 
 test_that("longitudinal fixed trajectory tracks a time-dependent offset", {

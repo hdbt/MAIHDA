@@ -2498,11 +2498,12 @@ maihda_re_form_for_groups <- function(formula, groups) {
 # Per-fitted-row offset of an lme4 fit, read off its model frame: lme4 stores an
 # external offset= as the "(offset)" column and a formula offset() term as its
 # "offset(...)" column, so both are recovered (and summed, matching
-# stats::model.offset()). Returns NULL when the fit carries no offset. Used to add the
-# offset back to fixed-effect predictions built on derived newdata, where
-# predict.merMod() drops an external offset (and errors on a formula offset whose raw
-# variable is absent from the newdata, e.g. the model frame it stores under the
-# derived "offset(...)" name).
+# stats::model.offset()). Returns NULL when the fit carries no offset. The TOTAL stored
+# offset is only valid for predictions on the UNMODIFIED fitted rows; the longitudinal
+# grid paths, which move the time column, instead split it into
+# maihda_fitted_offset_external() (frozen -- no expression to re-evaluate) plus
+# maihda_lme4_formula_offset_at() (re-evaluated, so a time-dependent formula offset
+# tracks the modified time).
 maihda_fitted_offset <- function(model) {
   mf <- maihda_model_frame(model)
   if (is.null(mf)) {
@@ -2547,11 +2548,19 @@ maihda_fitted_offset_external <- function(model) {
 # (maihda_fitted_offset()), this tracks a time-dependent offset such as offset(0.5 * time)
 # to the times in `newdata`: the longitudinal prediction grids vary time (and hold other
 # covariates at observed or representative values), so a frozen offset would mis-place
-# every count / link-scale trajectory. The raw offset variables must be present in
-# `newdata` (they are for those grids). offset() itself is a no-op wrapper (identity), so
+# every count / link-scale trajectory. offset() itself is a no-op wrapper (identity), so
 # it is bound to identity in a private evaluation frame; the raw variables resolve from
-# `newdata`, everything else from the formula's environment.
-maihda_lme4_formula_offset_at <- function(model, newdata) {
+# `newdata`, everything else from the formula's environment. An offset term whose raw
+# variables are NOT all present in `newdata` cannot be re-evaluated: the model frame
+# stores such a term only under its derived "offset(...)" column -- e.g. offset(logE)
+# where logE is not otherwise a predictor -- and it is necessarily time-invariant (a
+# time-referencing term would find its time column on these grids). It falls back to the
+# fit's stored per-row values instead: as-is when `newdata` aligns with the fitted rows
+# (fallback = "rows", the marginalizing VPC(t) grid), or their mean for a
+# representative-profile grid (fallback = "mean", the fixed trajectory).
+maihda_lme4_formula_offset_at <- function(model, newdata,
+                                          fallback = c("rows", "mean")) {
+  fallback <- match.arg(fallback)
   tt <- stats::delete.response(stats::terms(maihda_nobars(stats::formula(model))))
   off_idx <- attr(tt, "offset")
   if (is.null(off_idx) || length(off_idx) == 0L) {
@@ -2561,10 +2570,23 @@ maihda_lme4_formula_offset_at <- function(model, newdata) {
   env <- environment(stats::formula(model))
   off_env <- new.env(parent = if (is.null(env)) baseenv() else env)
   off_env$offset <- function(x) x
+  mf <- maihda_model_frame(model)
   n <- nrow(newdata)
   vals <- lapply(off_idx, function(i) {
-    v <- as.numeric(eval(varlist[[i + 1L]], newdata, off_env))
-    if (length(v) == 1L) rep(v, n) else v
+    expr <- varlist[[i + 1L]]
+    if (all(all.vars(expr) %in% names(newdata))) {
+      v <- as.numeric(eval(expr, newdata, off_env))
+      return(if (length(v) == 1L) rep(v, n) else v)
+    }
+    stored <- if (is.null(mf)) NULL else mf[[paste(deparse(expr), collapse = " ")]]
+    if (is.null(stored)) {
+      stop("Cannot evaluate the formula offset term '",
+           paste(deparse(expr), collapse = " "), "' on the prediction grid: its ",
+           "variable(s) are absent from the data and no stored offset column was ",
+           "found.", call. = FALSE)
+    }
+    stored <- as.numeric(stored)
+    if (identical(fallback, "mean")) rep(mean(stored, na.rm = TRUE), n) else stored
   })
   Reduce(`+`, vals)
 }

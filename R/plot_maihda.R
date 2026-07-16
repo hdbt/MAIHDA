@@ -1974,7 +1974,10 @@ maihda_longitudinal_fixed_trajectory <- function(object, grid) {
     off <- if (is.null(off_ext)) NULL else mean(off_ext, na.rm = TRUE)
     if (!is.null(attr(stats::terms(maihda_nobars(stats::formula(object$model))),
                       "offset"))) {
-      fo <- maihda_lme4_formula_offset_at(object$model, nd)
+      # fallback = "mean": an offset term whose raw variable is absent from nd (stored
+      # only as the derived "offset(...)" column, necessarily time-invariant) is held at
+      # its mean, like the external offset above.
+      fo <- maihda_lme4_formula_offset_at(object$model, nd, fallback = "mean")
       off <- if (is.null(off)) fo else off + fo
     }
     as.numeric(maihda_lme4_fixed_link(object$model, nd, offset = off))

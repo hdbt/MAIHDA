@@ -316,8 +316,10 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
 # Apply the requested variance-estimation basis before a cross-model PCV comparison.
 # "fitted" keeps each model's own fit (the REML estimate for a Gaussian lmer fit);
 # "ML" refits a REML lmer fit with maximum likelihood via maihda_pcv_refit_ml(). Only
-# Gaussian lmer fits are affected -- glmer and the brms/wemix/ordinal engines are
-# already on the ML scale, so maihda_pcv_refit_ml() returns them unchanged either way.
+# Gaussian lmer fits are affected -- glmer and the wemix/ordinal engines are already
+# maximum-likelihood, and a brms fit is a Bayesian posterior (not ML at all), so
+# maihda_pcv_refit_ml() returns them unchanged either way; the reported basis for brms
+# is "posterior" (maihda_pcv_estimation_used()), never an ML-refit.
 # `estimation` is validated (match.arg) by the exported callers before it reaches here.
 maihda_pcv_apply_estimation <- function(model, estimation) {
   if (identical(estimation, "ML")) maihda_pcv_refit_ml(model) else model
