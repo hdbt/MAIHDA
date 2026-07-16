@@ -207,12 +207,16 @@ test_that("calculate_pcv() reports a failed ML refit as a mixed basis", {
   m1 <- suppressMessages(fit_maihda(health_outcome ~ (1 | stratum), data = d))
   m2 <- suppressMessages(fit_maihda(health_outcome ~ age + (1 | stratum), data = d))
   # Force refitML() to fail: the ML refit is warranted but cannot complete, so both
-  # models stay on REML -- a mixed basis, not the pure ML the label used to claim.
+  # models stay on REML -- a mixed basis, not the pure ML the label used to claim. The
+  # real refitML is restored via tryCatch(finally = ) immediately after the call (no
+  # helper package: an undeclared withr:: here is an R CMD check unstated-test-
+  # dependency WARNING).
   orig <- lme4::refitML
   assignInNamespace("refitML", function(object, ...) stop("forced refitML failure"),
                     ns = "lme4")
-  withr::defer(assignInNamespace("refitML", orig, ns = "lme4"))
-  res <- suppressWarnings(calculate_pcv(m1, m2, estimation = "ML"))
+  res <- tryCatch(
+    suppressWarnings(calculate_pcv(m1, m2, estimation = "ML")),
+    finally = assignInNamespace("refitML", orig, ns = "lme4"))
   expect_true(isTRUE(res$ml_refit_failed))
   expect_identical(res$estimation_used, "mixed")
   expect_false(grepl("correction-free", MAIHDA:::maihda_pcv_basis_label(res$estimation_used)))
