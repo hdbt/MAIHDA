@@ -19,6 +19,15 @@
 
 ### Bug fixes
 
+- [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md),
+  and
+  [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  now treat two fits to the same observations supplied in a different
+  row order as the same analytic sample, instead of rejecting the
+  reordered fit or warning about a differing sample. The comparison
+  aligns on the row identifiers and matches the response, stratum
+  partition, and weights after alignment.
 - Longitudinal PCV calculations now return `NA` when the null growth
   variance is effectively zero. The result records this in
   `null_at_boundary`.

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -60,7 +60,9 @@
 </ul></div>
 <div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
-<ul><li>Longitudinal PCV calculations now return <code>NA</code> when the null growth variance is effectively zero. The result records this in <code>null_at_boundary</code>.</li>
+<ul><li>
+<code><a href="../reference/calculate_pcv.html">calculate_pcv()</a></code>, <code><a href="../reference/compare_maihda.html">compare_maihda()</a></code>, and <code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> now treat two fits to the same observations supplied in a different row order as the same analytic sample, instead of rejecting the reordered fit or warning about a differing sample. The comparison aligns on the row identifiers and matches the response, stratum partition, and weights after alignment.</li>
+<li>Longitudinal PCV calculations now return <code>NA</code> when the null growth variance is effectively zero. The result records this in <code>null_at_boundary</code>.</li>
 <li>
 <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> now rejects duplicate stratum intercepts, including equivalent spellings such as <code>(1 | stratum) + (0 + 1 | stratum)</code> and compound terms that repeat the intercept such as <code>(1 | stratum) + (1 + x | stratum)</code>, while still allowing an uncorrelated slope such as <code>(1 | stratum) + (0 + x | stratum)</code>.</li>
 <li>Time-dependent formula offsets are now re-evaluated at each time point in longitudinal predictions and count VPC trajectories.</li>
