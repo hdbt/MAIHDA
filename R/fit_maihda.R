@@ -281,7 +281,17 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # and subset = y %in% c("no", "yes") all work at any nesting depth. Evaluating the
   # subset here, against the ORIGINAL response, also makes it immune to the 0/1
   # recoding below. The resulting values feed binary detection and the engine call.
-  dot_vals <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
+  dot_quos <- rlang::enquos(...)
+  # Internal fast-path flag set only by maihda()'s crossed-dimensions preliminary
+  # pass, which needs the resolved strata/family metadata but discards the fit
+  # itself. Pull it out of the engine dots BEFORE they are evaluated, so it is
+  # neither eval'd against the data nor forwarded to lme4/brms; a full fit never
+  # sees it (default FALSE). It is intentionally not a formal argument -- it is an
+  # internal switch, not part of the public fit_maihda() interface.
+  metadata_only <- isTRUE(tryCatch(
+    rlang::eval_tidy(dot_quos[[".metadata_only"]]), error = function(e) FALSE))
+  dot_quos[[".metadata_only"]] <- NULL
+  dot_vals <- lapply(dot_quos, function(q) rlang::eval_tidy(q, data = data))
   subset_value <- dot_vals[["subset"]]
   # Resolve a character (row-name) subset to a positional logical mask against this
   # data's own row names, up front, so the engine receives a logical vector rather
@@ -665,6 +675,36 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # pre-built analytic sample, matching maihda_describe()'s documented contract
   # (totals == analytic there).
   original_data <- NULL
+
+  # Metadata-only fast path (maihda()'s crossed-dimensions preliminary pass). That
+  # decomposition builds and fits a SINGLE cross-classified model from the resolved
+  # strata/family metadata; the preliminary fit of the supplied formula was only
+  # ever read for that metadata and then discarded, so fitting it doubled the cost
+  # (worst for brms: an extra compile + MCMC). Return the metadata -- resolved above
+  # by the SAME strata / family / response-recoding machinery a full fit uses, so it
+  # cannot drift from the fitted path -- and skip the engine dispatch entirely.
+  # $original_data mirrors the default applied at the result-building tail (the full
+  # pre-fit frame, after strata resolution and any 0/1 recoding). No class of
+  # "maihda_model" so a stray summary()/predict() on it errors instead of silently
+  # treating an unfitted stub as a model.
+  if (isTRUE(metadata_only)) {
+    return(structure(
+      list(
+        formula = formula,
+        family = family,
+        strata_info = strata_info,
+        strata_vars = strata_vars,
+        strata_sep = strata_sep,
+        strata_autobin_info = strata_autobin_info,
+        original_data = data,
+        context_vars = context,
+        context_info = context_info,
+        longitudinal_info = longitudinal_info,
+        metadata_only = TRUE
+      ),
+      class = "maihda_model_metadata"
+    ))
+  }
 
   if (identical(engine, "wemix")) {
     # WeMix supports linear and binomial-logit models with the canonical single

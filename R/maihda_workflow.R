@@ -463,15 +463,25 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # model below. When the user leaves 'family' at the default we omit it so fit_maihda()
   # can auto-detect a binary outcome, then reuse the resolved family for every model so
   # they agree.
+  #
+  # The crossed-dimensions decomposition, uniquely, never reuses this fit: it builds
+  # and fits its own single cross-classified model from the resolved metadata below.
+  # So there we take the metadata-only fast path -- same strata/family resolution, no
+  # engine fit -- instead of fitting the supplied formula only to discard it (which
+  # roughly doubled the cost, especially for brms). The two-model and longitudinal
+  # branches DO reuse this fit as the null or adjusted model, so they keep a full fit.
+  metadata_only <- identical(decomposition, "crossed-dimensions")
   if (missing(family)) {
     model <- fit_maihda_fwd(formula, data, engine = engine, autobin = autobin,
                             context = context, sampling_weights = sampling_weights,
-                            id = id, time = time, time_degree = time_degree)
+                            id = id, time = time, time_degree = time_degree,
+                            .metadata_only = metadata_only)
   } else {
     model <- fit_maihda_fwd(formula, data, engine = engine, family = family,
                             autobin = autobin, context = context,
                             sampling_weights = sampling_weights,
-                            id = id, time = time, time_degree = time_degree)
+                            id = id, time = time, time_degree = time_degree,
+                            .metadata_only = metadata_only)
   }
   family_used <- model$family
 

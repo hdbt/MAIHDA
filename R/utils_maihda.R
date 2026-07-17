@@ -857,15 +857,23 @@ maihda_nobs <- function(model) {
 # Reorder `values` into a canonical sequence keyed on the stable per-row `ids`
 # (row names), so a content fingerprint pasted from the result is INDEPENDENT of
 # row order: two models fitted to the same rows in a different order produce the
-# same sequence. Falls back to the given order -- the conservative, order-sensitive
+# same sequence. `values` may be a vector (one element per row) or a MATRIX with
+# one ROW per observation -- an aggregated-binomial cbind(success, failure)
+# response is the latter -- and matrix rows are permuted with the dimensions
+# preserved. Falls back to the given order -- the conservative, order-sensitive
 # behaviour -- whenever a usable per-row key is unavailable (ids NULL, not 1-1 with
-# the values, containing NA, or duplicated), since none of those can align the two
+# the rows, containing NA, or duplicated), since none of those can align the two
 # samples reliably. Row names from a model frame / data.frame are unique, so the
 # fallback bites only for engines that expose no row identity at all.
 maihda_order_by_ids <- function(values, ids) {
-  if (!is.null(ids) && length(ids) == length(values) &&
+  n <- if (is.matrix(values)) nrow(values) else length(values)
+  if (!is.null(ids) && length(ids) == n &&
       !anyNA(ids) && anyDuplicated(ids) == 0L) {
-    return(values[order(ids)])
+    ord <- order(ids)
+    if (is.matrix(values)) {
+      return(values[ord, , drop = FALSE])
+    }
+    return(values[ord])
   }
   values
 }

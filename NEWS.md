@@ -5,6 +5,10 @@
 * Gaussian PCV calculations now use each model's fitted (REML) between-stratum variance by default. Use `estimation = "ML"` in `calculate_pcv()`, `stepwise_pcv()`, `pcv_importance()`, `compare_maihda_groups()`, or `maihda()` to restore the previous ML-refit behaviour.
 * `pcv_importance(method = "sequential")` is soft-deprecated. Use `stepwise_pcv()` for an order-dependent path or `method = "shapley"` for order-invariant attribution.
 
+## Performance
+
+* `maihda(decomposition = "crossed-dimensions")` now fits the model once instead of twice. The preliminary pass that resolves the strata and family no longer refits the supplied formula only to discard it, which roughly halves the fitting cost (most noticeable for `brms`).
+
 ## Bug fixes
 
 * `calculate_pcv()`, `compare_maihda()`, and `maihda_ic()` now treat two fits to the same observations supplied in a different row order as the same analytic sample, instead of rejecting the reordered fit or warning about a differing sample. The comparison aligns on the row identifiers and matches the response, stratum partition, and weights after alignment.
