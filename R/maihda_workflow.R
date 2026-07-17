@@ -375,10 +375,13 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # and failing. Pre-evaluating makes the subset immune to the recoding, exactly as
   # fit_maihda() does internally for a single fit and compare_maihda_groups() does for
   # its per-group fits. The subset is normalized to a full-length logical so it stays
-  # row-aligned with each derived fit's data (which has the same rows as `data`).
+  # row-aligned with each derived fit's data (which has the same rows as `data`) --
+  # including a character (row-name) subset, resolved against rownames(data) here so
+  # it too is a positional logical, not a raw character vector re-matched downstream.
   dots_eval <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
   if (!is.null(dots_eval[["subset"]])) {
-    dots_eval[["subset"]] <- maihda_normalize_subset(dots_eval[["subset"]], nrow(data))
+    dots_eval[["subset"]] <- maihda_normalize_subset(dots_eval[["subset"]], nrow(data),
+                                                     rownames(data))
   }
   # Normalize invalid lme4 precision weights (zero / negative / non-finite -> NA)
   # BEFORE the ordinal engine pre-detection below and before forwarding to the

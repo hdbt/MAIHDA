@@ -597,15 +597,25 @@ maihda_row_mask <- function(data, subset = NULL, weights = NULL, offset = NULL) 
 }
 
 # Expand an (already-evaluated) `subset` value into a full-length logical mask over
-# `n` rows. Positional subsets -- numeric row indices (e.g. c(1:10, 31:40)) or a
-# recycled logical mask -- are GLOBAL: index k means the k-th row of the data the
-# subset was written against. They must be turned into a full-length mask BEFORE
+# `n` rows. EVERY supported form -- numeric row indices (e.g. c(1:10, 31:40)), a
+# recycled logical mask, and character row names -- is resolved to a positional mask
+# GLOBAL to the data the subset was written against (index/name k means the k-th /
+# name-matched row of that data). They must be turned into a full-length mask BEFORE
 # being sliced per group, otherwise the same vector is silently reinterpreted
-# relative to each subgroup and selects the wrong rows. Mirrors the subset
-# handling in maihda_row_mask(). Character (row-name) subsets are name-based, not
-# positional -- base `[` preserves row names in a group's slice, so they are
-# returned unchanged and matched per group by name; NULL stays NULL.
-maihda_normalize_subset <- function(subset, n) {
+# relative to each subgroup and selects the wrong rows. Mirrors the subset handling
+# in maihda_row_mask(). A character subset is resolved against `row_names` (the
+# original data's row names) by exact %in%, exactly as maihda_row_mask() does, for
+# two reasons: (1) it becomes positional like the others, so the per-group slicing
+# (slice_full / slice_dots_for_group) and the min_group_n guard treat it identically
+# to a numeric/logical subset -- previously a character vector's length != n made the
+# guard drop it (slice_full -> NULL) while the whole vector was still forwarded to the
+# fit, so guard and fit diverged; (2) lme4/brms then receive a plain logical rather
+# than a raw character vector, avoiding base `[`'s character row-indexing, which
+# partial-matches and inserts phantom NA rows once per-group slicing has de-duplicated
+# row names (r40 -> r40.1), silently pulling in the wrong observations. `row_names` is
+# NULL only when a caller cannot supply them, in which case the character vector is
+# returned unchanged (prior behaviour). NULL subset stays NULL.
+maihda_normalize_subset <- function(subset, n, row_names = NULL) {
   if (is.null(subset)) {
     return(NULL)
   }
@@ -630,6 +640,12 @@ maihda_normalize_subset <- function(subset, n) {
     idx <- idx[!is.na(idx) & idx >= 1L & idx <= n]
     mask[idx] <- TRUE
     return(mask)
+  }
+  if (is.character(subset)) {
+    if (is.null(row_names) || length(row_names) != n) {
+      return(subset)
+    }
+    return(row_names %in% subset)
   }
   subset
 }

@@ -642,13 +642,21 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   dot_vals <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
   n_full <- nrow(data)
   # A numeric `subset` (e.g. subset = c(1:10, 31:40)) holds GLOBAL row indices into
-  # `data`, and a recycled logical mask is likewise positional over the full data.
-  # Expand both to a full-length logical mask BEFORE the per-group slicing below;
-  # otherwise the same vector is reinterpreted relative to each subgroup (numeric
-  # index k picks the k-th row of the group, not global row k), silently fitting
-  # the wrong rows. Store the normalized value back into dot_vals so the per-group
-  # fit (slice_dots_for_group) slices it too, not just the row-count guard.
-  subset_value <- maihda_normalize_subset(dot_vals[["subset"]], n_full)
+  # `data`, a recycled logical mask is likewise positional over the full data, and a
+  # character subset names rows of the full data. Resolve ALL THREE to a full-length
+  # logical mask (character names via rownames(data), by exact %in%) BEFORE the
+  # per-group slicing below; otherwise the same vector is reinterpreted relative to
+  # each subgroup (numeric index k picks the k-th row of the group, not global row k;
+  # a character name is re-matched against the group's de-duplicated row names), so
+  # the min_group_n guard and the per-group fit end up selecting different, wrong
+  # rows. A character subset was previously left as-is, so slice_full() dropped it
+  # from the guard (length != n_full -> NULL) while slice_dots_for_group() still
+  # forwarded the whole vector to the fit: the guard ignored the subset (undersized
+  # groups slipped through) and lme4's base `[` character indexing partial-matched
+  # per group. Store the normalized value back into dot_vals so the per-group fit
+  # (slice_dots_for_group) slices it too, not just the row-count guard.
+  subset_value <- maihda_normalize_subset(dot_vals[["subset"]], n_full,
+                                          rownames(data))
   dot_vals[["subset"]] <- subset_value
   weights_value <- dot_vals[["weights"]]
   # Normalize invalid lme4 precision weights (zero / negative / non-finite -> NA,

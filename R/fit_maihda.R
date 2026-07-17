@@ -283,6 +283,17 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # recoding below. The resulting values feed binary detection and the engine call.
   dot_vals <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
   subset_value <- dot_vals[["subset"]]
+  # Resolve a character (row-name) subset to a positional logical mask against this
+  # data's own row names, up front, so the engine receives a logical vector rather
+  # than a raw character subset. base `[`'s character row-indexing partial-matches
+  # and inserts phantom NA rows, so a raw character subset can make the fitted sample
+  # diverge from the analytic sample family detection, 0/1 recoding and strata
+  # binning key off (all of which resolve names by exact %in% via maihda_row_mask).
+  # A no-op for logical/numeric subsets and when there is no `subset`.
+  if (is.character(subset_value)) {
+    subset_value <- rownames(data) %in% subset_value
+    dot_vals[["subset"]] <- subset_value
+  }
   weights_value <- dot_vals[["weights"]]
   # The external offset= (lme4's only NA-dropping fitting argument besides weights)
   # is forwarded to the engine below, where lme4 puts it in its model frame and
@@ -941,6 +952,39 @@ maihda_re_lhs_has_intercept <- function(lhs) {
   isTRUE(int == 1L)
 }
 
+# TRUE when a random-effect term's design matrix -- built on the analytic `data` the
+# way lme4 builds it, model.matrix(~ lhs, data) -- carries the all-ones (intercept)
+# vector in its COLUMN SPACE. This catches an intercept that maihda_re_lhs_has_intercept()
+# (which reads only the formula intercept attribute) misses because it is realized
+# NUMERICALLY rather than written as `1`: a constant slope column such as (0 + one |
+# stratum) with one == 1, or a full dummy encoding (0 + f | stratum) whose columns sum
+# to the intercept. Two stratum terms that each span the intercept put two intercepts on
+# the same grouping factor, which lme4 fits as separate 'stratum'/'stratum.1' variance
+# components and splits the between-stratum variance arbitrarily across -- the same
+# non-identifiable defect the attribute test guards against for explicit duplicates.
+# Membership is tested by QR rank: the all-ones vector is in colspace(Z) exactly when
+# rank([Z, 1]) == rank(Z). Falls back to the attribute test when the design cannot be
+# built or ranked (an absent/all-NA column, a parse error): conservative -- it never
+# silently drops the guard, and never over-rejects on an un-buildable term.
+maihda_re_lhs_spans_intercept <- function(lhs, data) {
+  fm <- tryCatch(stats::as.formula(paste("~", paste(deparse(lhs), collapse = " "))),
+                 error = function(e) NULL)
+  if (!is.null(fm) && is.data.frame(data) && nrow(data) > 0L) {
+    z <- tryCatch(
+      stats::model.matrix(fm, stats::model.frame(fm, data = data,
+                                                 na.action = stats::na.omit)),
+      error = function(e) NULL)
+    if (!is.null(z) && nrow(z) > 0L && ncol(z) > 0L) {
+      r_z <- tryCatch(qr(z)$rank, error = function(e) NA_integer_)
+      r_aug <- tryCatch(qr(cbind(z, 1))$rank, error = function(e) NA_integer_)
+      if (!is.na(r_z) && !is.na(r_aug)) {
+        return(isTRUE(r_aug == r_z))
+      }
+    }
+  }
+  maihda_re_lhs_has_intercept(lhs)
+}
+
 maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE,
                                           bin_rows = NULL) {
   re_terms <- reformulas::findbars(formula)
@@ -967,15 +1011,29 @@ maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE,
     # between them. That partition is non-identifiable and makes the VPC and PCV
     # ill-defined: the summary counts only the first component as between-stratum
     # variance and misclassifies the rest as "other random effects". Test each stratum
-    # term for an intercept via its formula intercept attribute
-    # (maihda_re_lhs_has_intercept), not its deparsed text, so every spelling -- 1,
-    # 0 + 1, 1 + x, and a bare slope x with its implicit intercept -- is caught. A single
-    # compound (1 + x | stratum) term (one correlated intercept+slope) and an uncorrelated
-    # pair (1 | stratum) + (0 + x | stratum) (second term slope-only, no intercept) are
-    # both identifiable and are left to the downstream intercept-only validation / the fit.
+    # term for an intercept by whether its random-effect design matrix -- built on the
+    # ANALYTIC rows lme4 fits (bin_rows) -- spans the intercept vector
+    # (maihda_re_lhs_spans_intercept), not merely by its formula intercept attribute.
+    # That catches every spelling -- 1, 0 + 1, 1 + x, and a bare slope x with its implicit
+    # intercept -- AND an intercept realized NUMERICALLY: a constant slope column such as
+    # (0 + one | stratum) with one == 1, or a full dummy encoding whose columns sum to 1,
+    # both of which the attribute test reports as "no intercept" yet lme4 fits as a second
+    # stratum intercept variance. A single compound (1 + x | stratum) term (one correlated
+    # intercept+slope) and an uncorrelated pair (1 | stratum) + (0 + x | stratum) (second
+    # term a genuinely varying slope, no intercept in its column space) are both
+    # identifiable and are left to the downstream intercept-only validation / the fit.
     if (sum(is_stratum_term) > 1) {
+      # The analytic sample (subset / missing / weight-NA rows dropped) -- a column can be
+      # constant there yet vary in the raw data, so the intercept-span test must see the
+      # rows the fit uses. bin_rows is that keep mask (NULL when no filtering applies).
+      analytic_data <- if (!is.null(bin_rows) && is.logical(bin_rows) &&
+                           length(bin_rows) == nrow(data)) {
+        data[bin_rows, , drop = FALSE]
+      } else {
+        data
+      }
       has_intercept <- vapply(re_terms[is_stratum_term], function(term) {
-        maihda_re_lhs_has_intercept(term[[2]])
+        maihda_re_lhs_spans_intercept(term[[2]], analytic_data)
       }, logical(1))
       if (sum(has_intercept) > 1) {
         stop("The model formula includes ", sum(has_intercept), " random-effect terms ",
