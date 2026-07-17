@@ -66,6 +66,14 @@
 <div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>
+<code>calculate_pcv(bootstrap = TRUE)</code> now permutes each simulated response into each model’s own row order before refitting, so a bootstrap across two fits of the same observations in a different row order no longer corrupts the interval.</li>
+<li>Individual predictions now reject a supplied <code>stratum</code> that contradicts the intersectional dimension columns in the same <code>newdata</code>, instead of pairing one intersection’s fixed effects with another’s random effect.</li>
+<li>
+<code>lme4</code> convergence reporting now also consults the optimizer return code and message, so a fit whose optimizer stopped early (e.g. <code>bobyqa</code> hitting <code>maxfun</code>) is no longer reported as converged when <code>lme4</code>’s own gradient check happens to pass.</li>
+<li>
+<code>brms</code> individual predictions with <code>allow_new_levels = TRUE</code> now zero every unseen grouping level (context and longitudinal, not only stratum) to match <code>lme4</code>, instead of sampling unseen non-stratum effects from the random-effects distribution.</li>
+<li>Longitudinal PCV now records <code>estimation_used</code> (<code>"fitted"</code>, <code>"ML"</code>, or <code>"mixed"</code>), so a boundary skip or failed ML refit that leaves a mixed REML/ML comparison is reported rather than mistaken for a clean fitted one.</li>
+<li>
 <code><a href="../reference/calculate_pcv.html">calculate_pcv()</a></code>, <code><a href="../reference/compare_maihda.html">compare_maihda()</a></code>, and <code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> now treat two fits to the same observations supplied in a different row order as the same analytic sample, instead of rejecting the reordered fit or warning about a differing sample. The comparison aligns on the row identifiers and matches the response, stratum partition, and weights after alignment.</li>
 <li>Longitudinal PCV calculations now return <code>NA</code> when the null growth variance is effectively zero. The result records this in <code>null_at_boundary</code>.</li>
 <li>

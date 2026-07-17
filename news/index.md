@@ -26,6 +26,26 @@
 
 ### Bug fixes
 
+- `calculate_pcv(bootstrap = TRUE)` now permutes each simulated response
+  into each model’s own row order before refitting, so a bootstrap
+  across two fits of the same observations in a different row order no
+  longer corrupts the interval.
+- Individual predictions now reject a supplied `stratum` that
+  contradicts the intersectional dimension columns in the same
+  `newdata`, instead of pairing one intersection’s fixed effects with
+  another’s random effect.
+- `lme4` convergence reporting now also consults the optimizer return
+  code and message, so a fit whose optimizer stopped early
+  (e.g. `bobyqa` hitting `maxfun`) is no longer reported as converged
+  when `lme4`’s own gradient check happens to pass.
+- `brms` individual predictions with `allow_new_levels = TRUE` now zero
+  every unseen grouping level (context and longitudinal, not only
+  stratum) to match `lme4`, instead of sampling unseen non-stratum
+  effects from the random-effects distribution.
+- Longitudinal PCV now records `estimation_used` (`"fitted"`, `"ML"`, or
+  `"mixed"`), so a boundary skip or failed ML refit that leaves a mixed
+  REML/ML comparison is reported rather than mistaken for a clean fitted
+  one.
 - [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
   [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md),
   and
