@@ -112,15 +112,6 @@ test_that("fit_maihda() rejects (1 | stratum) + (0 + 1 | stratum)", {
   expect_no_error(suppressMessages(fit_maihda(health_outcome ~ (1 | stratum), data = d)))
 })
 
-test_that("maihda_re_lhs_is_constant_intercept detects intercept columns by design", {
-  d <- data.frame(x = 1:5, time = c(0, 1, 2, 3, 4))
-  expect_true(MAIHDA:::maihda_re_lhs_is_constant_intercept(quote(1), d))
-  expect_true(MAIHDA:::maihda_re_lhs_is_constant_intercept(quote(0 + 1), d))
-  expect_false(MAIHDA:::maihda_re_lhs_is_constant_intercept(quote(time), d))     # slope
-  expect_false(MAIHDA:::maihda_re_lhs_is_constant_intercept(quote(1 + time), d)) # int + slope
-  expect_false(MAIHDA:::maihda_re_lhs_is_constant_intercept(quote(0 + time), d)) # slope only
-})
-
 # ---- #3 P1: time-dependent formula offsets are re-evaluated on the grid -----
 
 test_that("maihda_lme4_formula_offset_at re-evaluates a formula offset on newdata", {

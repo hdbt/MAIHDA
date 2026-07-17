@@ -8,7 +8,7 @@
 ## Bug fixes
 
 * Longitudinal PCV calculations now return `NA` when the null growth variance is effectively zero. The result records this in `null_at_boundary`.
-* `fit_maihda()` now rejects duplicate stratum intercepts, including equivalent forms such as `(1 | stratum) + (0 + 1 | stratum)`.
+* `fit_maihda()` now rejects duplicate stratum intercepts, including equivalent spellings such as `(1 | stratum) + (0 + 1 | stratum)` and compound terms that repeat the intercept such as `(1 | stratum) + (1 + x | stratum)`, while still allowing an uncorrelated slope such as `(1 | stratum) + (0 + x | stratum)`.
 * Time-dependent formula offsets are now re-evaluated at each time point in longitudinal predictions and count VPC trajectories.
 * Failed or skipped ML refits are reported as `estimation_used = "mixed"`; `brms` comparisons are reported as `"posterior"`.
 * PCV boundary detection now covers `lme4`, `wemix`, and `ordinal` fits and is shared by `calculate_pcv()`, `stepwise_pcv()`, and `pcv_importance()`.
@@ -25,7 +25,9 @@
 * PCV result objects now retain and print the requested and actual estimation basis.
 * `fit_maihda(engine = "brms")` now rejects unsupported lme4-style `weights`, `subset`, and `offset` arguments.
 * Design-weighted `brms` workflows now complete derived null and adjusted fits without conflicting with the internal weight column.
+* Design-weighted `brms` fits now keep the full pre-fit data as `original_data`, so `maihda_describe()` reports the original total, missingness, and excluded-weight counts rather than the analytic sample alone.
 * Non-positive or non-finite Gaussian precision weights are dropped before fitting.
+* `compare_maihda_groups()` and `maihda()` now apply the same non-positive/non-finite precision-weight exclusion before family/engine detection, shared-strata binning, and analytic sample-size checks.
 * Individual predictions now reject missing strata unless `allow_new_levels = TRUE`.
 * Count-family longitudinal VPCs now evaluate residual variance at each time point; the summary includes `var_resid_t`.
 * Crossed-dimensions predictions now exclude contextual random effects from the stratum baseline.

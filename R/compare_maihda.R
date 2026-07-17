@@ -651,6 +651,19 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   subset_value <- maihda_normalize_subset(dot_vals[["subset"]], n_full)
   dot_vals[["subset"]] <- subset_value
   weights_value <- dot_vals[["weights"]]
+  # Normalize invalid lme4 precision weights (zero / negative / non-finite -> NA,
+  # the rows lme4 drops) BEFORE family/engine detection, the shared-strata binning,
+  # the per-group analytic-size guard (min_group_n), and the per-group fits -- so all
+  # of them key off the same analytic sample the engine fits, exactly as fit_maihda()
+  # does. Without it a zero-weight row carrying an out-of-sample outcome value flipped
+  # the detected family (e.g. gaussian instead of binomial) and inflated a group's
+  # analytic n past min_group_n. Updates both `weights_value` (feeding detect_weights
+  # and the size guard's slice) and dot_vals$weights (sliced to each per-group fit).
+  if (is.numeric(weights_value)) {
+    weights_value <- maihda_normalize_precision_weights(
+      weights_value, n_full, engine, "compare_maihda_groups()")
+    dot_vals[["weights"]] <- weights_value
+  }
   # The external offset= (lme4 only) is dropped by na.omit for offset-NA rows, so it
   # must inform family detection and the analytic row count exactly as it does in
   # fit_maihda(); otherwise an offset-NA row carrying an out-of-sample outcome value

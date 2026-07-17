@@ -526,6 +526,37 @@ maihda_sampling_weight_mask <- function(w) {
   w
 }
 
+# lme4 PRECISION weights (weights=) that are zero -- or negative / non-finite --
+# carry no information, but lmer does NOT drop such a row: it returns a degenerate
+# fit (logLik -Inf, NA gradient) while the residual-variance helper silently
+# discards the zero weight and still reports a finite VPC, so the variance
+# estimates differ materially from fitting after removing the row. Map those
+# weights to NA -- the case lme4 DOES drop, reproducing the row-removed fit
+# exactly -- so binary/ordinal (family) detection, strata auto-binning, the
+# analytic-size checks (min_group_n), and the fit all key off the SAME analytic
+# sample. Only the lme4 path takes precision weights; wemix/brms/ordinal reject
+# them, so this is a no-op there (and for a NULL / non-numeric / wrong-length
+# value). Returns the (possibly remapped) weights and warns once -- tagged with
+# `fn` -- when any row is remapped. Shared by fit_maihda(), compare_maihda_groups()
+# and maihda() so the three cannot drift apart: the high-level APIs had each
+# re-derived the analytic sample WITHOUT this normalization, letting an invalid
+# precision weight flip the detected family/engine and inflate a group's analytic n.
+maihda_normalize_precision_weights <- function(weights_value, n, engine, fn) {
+  if (identical(engine, "wemix") || identical(engine, "brms") ||
+      !is.numeric(weights_value) || length(weights_value) != n) {
+    return(weights_value)
+  }
+  bad_w <- !is.na(weights_value) & !(is.finite(weights_value) & weights_value > 0)
+  if (any(bad_w)) {
+    warning(sprintf(paste0("%s: dropped %d row(s) with a non-positive or ",
+                           "non-finite precision weight ('weights') before ",
+                           "fitting (a zero weight otherwise degenerates the ",
+                           "lme4 fit)."), fn, sum(bad_w)), call. = FALSE)
+    weights_value[bad_w] <- NA_real_
+  }
+  weights_value
+}
+
 # Logical keep-mask over `n` rows reproducing the row selection lme4/brms apply
 # before fitting: an (already-evaluated) `subset` value -- logical (recycled,
 # NA -> drop), positive/negative numeric indices, or character row names -- the

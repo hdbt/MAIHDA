@@ -380,6 +380,16 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   if (!is.null(dots_eval[["subset"]])) {
     dots_eval[["subset"]] <- maihda_normalize_subset(dots_eval[["subset"]], nrow(data))
   }
+  # Normalize invalid lme4 precision weights (zero / negative / non-finite -> NA)
+  # BEFORE the ordinal engine pre-detection below and before forwarding to the
+  # derived null/adjusted fits, so the engine choice and every derived fit key off
+  # the same analytic sample fit_maihda() fits. Without it a zero-weight row carrying
+  # a third ordered level wrongly selected engine = "ordinal", which then errored
+  # against the (binary) analytic sample. Mirrors fit_maihda()/compare_maihda_groups().
+  if (is.numeric(dots_eval[["weights"]])) {
+    dots_eval[["weights"]] <- maihda_normalize_precision_weights(
+      dots_eval[["weights"]], nrow(data), engine, "maihda()")
+  }
   fit_maihda_fwd <- function(...) do.call(fit_maihda, c(list(...), dots_eval))
 
   # Ordinal (cumulative) family <-> engine handshake, mirroring fit_maihda():

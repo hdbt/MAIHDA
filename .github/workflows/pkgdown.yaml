@@ -42,7 +42,10 @@ jobs:
 
       - name: Deploy to GitHub pages 🚀
         if: github.event_name != 'pull_request'
-        uses: JamesIves/github-pages-deploy-action@v4.5.0
+        # Third-party action with contents: write on push to main -- pin to a full
+        # commit SHA so a moved tag cannot swap in unreviewed code (supply-chain
+        # hardening). Bump the SHA (and the trailing version comment) deliberately.
+        uses: JamesIves/github-pages-deploy-action@65b5dfd4f5bcd3a7403bbc2959c144256167464e # v4.5.0
         with:
           clean: false
           branch: gh-pages

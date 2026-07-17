@@ -300,26 +300,16 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
          "(precision weights), not both.", call. = FALSE)
   }
 
-  # lme4 PRECISION weights (weights=) that are zero -- or negative / non-finite --
-  # carry no information, but lmer does NOT drop such a row: it returns a degenerate
-  # fit (logLik -Inf, NA gradient) while the residual-variance helper silently
-  # discards the zero weight and still reports a finite VPC, so the variance
-  # estimates differ materially from fitting after removing the row. Map those
-  # weights to NA -- the case lme4 DOES drop, reproducing the row-removed fit
-  # exactly -- up front, so binary/ordinal detection, strata auto-binning, and the
-  # fit all use the same analytic sample. Only the lme4 path takes precision
-  # weights; wemix/brms reject them below, so skip their (unused) `weights` value.
-  if (!identical(engine, "wemix") && !identical(engine, "brms") &&
-      is.numeric(weights_value) && length(weights_value) == nrow(data)) {
-    bad_w <- !is.na(weights_value) & !(is.finite(weights_value) & weights_value > 0)
-    if (any(bad_w)) {
-      warning(sprintf(paste0("fit_maihda(): dropped %d row(s) with a non-positive ",
-                             "or non-finite precision weight ('weights') before ",
-                             "fitting (a zero weight otherwise degenerates the ",
-                             "lme4 fit)."), sum(bad_w)), call. = FALSE)
-      weights_value[bad_w] <- NA_real_
-      dot_vals[["weights"]] <- weights_value
-    }
+  # Normalize invalid lme4 PRECISION weights (zero / negative / non-finite -> NA,
+  # the case lme4 actually drops) up front, so binary/ordinal detection, strata
+  # auto-binning, and the fit all use the same analytic sample. Shared with
+  # compare_maihda_groups() and maihda() via maihda_normalize_precision_weights()
+  # so the three cannot drift apart. A no-op on the wemix/brms paths (they reject
+  # precision weights below) and when no numeric `weights` was supplied.
+  if (is.numeric(weights_value)) {
+    weights_value <- maihda_normalize_precision_weights(
+      weights_value, nrow(data), engine, "fit_maihda()")
+    dot_vals[["weights"]] <- weights_value
   }
 
   if (identical(engine, "wemix")) {
@@ -654,6 +644,17 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     response_recoding <- attr(data, "response_recoding")
   }
 
+  # The pre-fit descriptive frame stored as $original_data: the FULL data (after
+  # strata resolution and any 0/1 recoding) BEFORE the engine's analytic-sample drop,
+  # so maihda_describe() can report the original total, missingness, and
+  # excluded-weight counts against the analytic $data. Left NULL here and defaulted to
+  # the path's `data` just before the result is built; only the design-weighted brms
+  # path (which prunes `data` in place below) sets it explicitly to the pre-prune frame.
+  # The wemix/ordinal paths intentionally leave it NULL -> it defaults to their
+  # pre-built analytic sample, matching maihda_describe()'s documented contract
+  # (totals == analytic there).
+  original_data <- NULL
+
   if (identical(engine, "wemix")) {
     # WeMix supports linear and binomial-logit models with the canonical single
     # (1 | stratum) intercept; reject anything else with a targeted message before
@@ -753,6 +754,15 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     # missing/non-positive weights are dropped here so the stored data matches the
     # fitted rows.
     if (!is.null(sampling_weights)) {
+      # Keep the pre-prune frame as $original_data (the descriptive total). The drop
+      # below is the brms engine's analytic-sample selection -- the pseudo-likelihood
+      # counterpart of lme4's na.omit -- so the fitted $data reflects it, but
+      # $original_data must stay the full pre-fit frame (as on the lme4 path) or
+      # maihda_describe() cannot report the original total / missingness / excluded
+      # invalid-weight rows and would make total == analytic. A derived null/adjusted
+      # refit re-enters here and re-prunes this same frame, so the fitted models are
+      # unchanged; only the recorded provenance differs.
+      original_data <- data
       prep <- maihda_prepare_brms_sampling_weights(data, formula, sampling_weights)
       data <- prep$data
       formula <- prep$formula
@@ -863,13 +873,19 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     longitudinal_info$ref_time <- min(tv_fit, na.rm = TRUE)
   }
 
+  # Default the descriptive frame to this path's `data` unless the design-weighted
+  # brms path already captured the pre-prune frame above. For lme4 / unweighted brms
+  # this is the full pre-fit frame; for wemix / ordinal it is the pre-built analytic
+  # sample (totals == analytic, as documented).
+  if (is.null(original_data)) original_data <- data
+
   result <- structure(
     list(
       model = model,
       engine = engine,
       formula = formula,
       data = model_data,
-      original_data = data,
+      original_data = original_data,
       family = family,
       strata_info = strata_info,
       strata_vars = strata_vars,
@@ -906,23 +922,23 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
 # make_strata() attached to `data`. Shared by fit_maihda() and
 # maihda_describe() so the pre-model description and the fit build their strata
 # from the same machinery -- identical IDs, labels, counts, and validation.
-# TRUE when a random-effect term's left-hand side (the `1` in `(1 | g)`) resolves to a
-# single CONSTANT design column -- an intercept -- however it is spelled (`1`,
-# `0 + 1`). Two intercept columns on the same grouping factor are perfectly collinear
-# and hence non-identifiable, so maihda_resolve_strata_formula() rejects duplicated
-# stratum intercepts; it inspects the design columns here rather than the deparsed text,
-# so equivalent spellings cannot slip past a literal string comparison. A random-slope
-# LHS yields two or more columns (an intercept plus the slope) or a single non-constant
-# column, so it is not flagged. Returns FALSE on any evaluation error (conservative --
-# the downstream intercept-only validation still applies).
-maihda_re_lhs_is_constant_intercept <- function(lhs, data) {
+# TRUE when a random-effect term's left-hand side carries a random INTERCEPT --
+# whether written explicitly (`1`, `1 + x`, `0 + 1`) or implicitly (`x`, which lme4
+# expands to `1 + x`). This is TRUE for any term that CONTAINS an intercept (not only a
+# bare intercept), so it catches a compound intercept-plus-slope term. maihda_resolve_strata_formula()
+# uses it to reject more than one intercept-bearing term on 'stratum': (1 | stratum) +
+# (1 + x | stratum), and (1 | stratum) + (x | stratum), each put two intercepts on the
+# same grouping factor, which lme4 splits arbitrarily across 'stratum' and 'stratum.1'
+# (non-identifiable). A slope-only second term (0 + x | stratum) carries no intercept and
+# stays identifiable. Reads the formula's intercept attribute -- exactly how lme4 itself
+# decides whether a term has a random intercept -- so it needs no data and cannot disagree
+# with the fitted structure. Returns FALSE on any parse error (conservative: no over-reject).
+maihda_re_lhs_has_intercept <- function(lhs) {
   fm <- tryCatch(stats::as.formula(paste("~", paste(deparse(lhs), collapse = " "))),
                  error = function(e) NULL)
   if (is.null(fm)) return(FALSE)
-  mm <- tryCatch(stats::model.matrix(fm, data), error = function(e) NULL)
-  if (is.null(mm) || ncol(mm) != 1L) return(FALSE)
-  col <- mm[, 1L]
-  all(is.finite(col)) && diff(range(col)) < sqrt(.Machine$double.eps) && abs(col[1L]) > 0
+  int <- tryCatch(attr(stats::terms(fm), "intercept"), error = function(e) 0L)
+  isTRUE(int == 1L)
 }
 
 maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE,
@@ -943,36 +959,34 @@ maihda_resolve_strata_formula <- function(formula, data, autobin = TRUE,
     }, logical(1))
     has_stratum_group <- any(is_stratum_term)
 
-    # Reject duplicate intercept-only stratum terms. lme4 fits, e.g.,
-    # `... + (1 | stratum) + (1 | stratum)` as two SEPARATE variance components
-    # ("stratum" and "stratum.1") and splits the between-stratum variance
-    # arbitrarily between them -- a non-identifiable partition that makes the VPC
-    # and PCV ill-defined: the summary counts only the first component as
-    # between-stratum variance and misclassifies the rest as "other random
-    # effects". A single stratum intercept PLUS a stratum random *slope* is a
-    # different (identifiable) structure and is caught downstream by the
-    # intercept-only validation, so restrict this guard to duplicated
-    # intercept-only stratum terms.
+    # Reject more than one random-effect term that puts an INTERCEPT on 'stratum'.
+    # lme4 fits `... + (1 | stratum) + (1 | stratum)` -- and equally the compound
+    # `(1 | stratum) + (1 + x | stratum)`, or `(1 | stratum) + (x | stratum)` whose
+    # second intercept is implicit -- as two SEPARATE stratum variance components
+    # ("stratum" and "stratum.1") and splits the between-stratum variance arbitrarily
+    # between them. That partition is non-identifiable and makes the VPC and PCV
+    # ill-defined: the summary counts only the first component as between-stratum
+    # variance and misclassifies the rest as "other random effects". Test each stratum
+    # term for an intercept via its formula intercept attribute
+    # (maihda_re_lhs_has_intercept), not its deparsed text, so every spelling -- 1,
+    # 0 + 1, 1 + x, and a bare slope x with its implicit intercept -- is caught. A single
+    # compound (1 + x | stratum) term (one correlated intercept+slope) and an uncorrelated
+    # pair (1 | stratum) + (0 + x | stratum) (second term slope-only, no intercept) are
+    # both identifiable and are left to the downstream intercept-only validation / the fit.
     if (sum(is_stratum_term) > 1) {
-      # Detect duplicate CONSTANT-INTERCEPT stratum terms from each term's random-effect
-      # design columns, not its deparsed text: (1 | stratum), (0 + 1 | stratum) and the
-      # mixed pair (1 | stratum) + (0 + 1 | stratum) all build the same single intercept
-      # column, so a literal `== "1"` comparison misses the non-`1` spellings and lets a
-      # non-identifiable duplicate through (lme4 then fits 'stratum' and 'stratum.1' and
-      # splits the between-stratum variance arbitrarily). A stratum random *slope* term is
-      # a different, identifiable structure caught downstream by the intercept-only
-      # validation, so restrict this guard to duplicated constant-intercept terms.
-      is_const_int <- vapply(re_terms[is_stratum_term], function(term) {
-        maihda_re_lhs_is_constant_intercept(term[[2]], data)
+      has_intercept <- vapply(re_terms[is_stratum_term], function(term) {
+        maihda_re_lhs_has_intercept(term[[2]])
       }, logical(1))
-      if (all(is_const_int)) {
-        stop("The model formula includes ", sum(is_stratum_term), " separate ",
-             "constant-intercept random-effect terms on 'stratum' (e.g. (1 | stratum) ",
-             "and (0 + 1 | stratum) build the same intercept column). Duplicate stratum ",
+      if (sum(has_intercept) > 1) {
+        stop("The model formula includes ", sum(has_intercept), " random-effect terms ",
+             "that each put an intercept on 'stratum' (e.g. (1 | stratum) and ",
+             "(1 + x | stratum), or (x | stratum) whose intercept is implicit; ",
+             "(0 + 1 | stratum) also builds an intercept column). Duplicate stratum ",
              "intercepts are non-identifiable: lme4 splits the between-stratum variance ",
              "arbitrarily across them (fitted as 'stratum' and 'stratum.1'), so the VPC ",
-             "and PCV are not well defined. Use a single (1 | stratum) term.",
-             call. = FALSE)
+             "and PCV are not well defined. Use a single stratum intercept -- combine ",
+             "them into one (1 + x | stratum) term, or make the extra term slope-only, ",
+             "(0 + x | stratum).", call. = FALSE)
       }
     }
 
