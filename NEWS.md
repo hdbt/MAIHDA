@@ -11,6 +11,11 @@
 
 ## Bug fixes
 
+* `calculate_pcv(bootstrap = TRUE)` now permutes each simulated response into each model's own row order before refitting, so a bootstrap across two fits of the same observations in a different row order no longer corrupts the interval.
+* Individual predictions now reject a supplied `stratum` that contradicts the intersectional dimension columns in the same `newdata`, instead of pairing one intersection's fixed effects with another's random effect.
+* `lme4` convergence reporting now also consults the optimizer return code and message, so a fit whose optimizer stopped early (e.g. `bobyqa` hitting `maxfun`) is no longer reported as converged when `lme4`'s own gradient check happens to pass.
+* `brms` individual predictions with `allow_new_levels = TRUE` now zero every unseen grouping level (context and longitudinal, not only stratum) to match `lme4`, instead of sampling unseen non-stratum effects from the random-effects distribution.
+* Longitudinal PCV now records `estimation_used` (`"fitted"`, `"ML"`, or `"mixed"`), so a boundary skip or failed ML refit that leaves a mixed REML/ML comparison is reported rather than mistaken for a clean fitted one.
 * `calculate_pcv()`, `compare_maihda()`, and `maihda_ic()` now treat two fits to the same observations supplied in a different row order as the same analytic sample, instead of rejecting the reordered fit or warning about a differing sample. The comparison aligns on the row identifiers and matches the response, stratum partition, and weights after alignment.
 * Longitudinal PCV calculations now return `NA` when the null growth variance is effectively zero. The result records this in `null_at_boundary`.
 * `fit_maihda()` now rejects duplicate stratum intercepts, including equivalent spellings such as `(1 | stratum) + (0 + 1 | stratum)` and compound terms that repeat the intercept such as `(1 | stratum) + (1 + x | stratum)`, while still allowing an uncorrelated slope such as `(1 | stratum) + (0 + x | stratum)`.

@@ -719,6 +719,38 @@ validate_pcv_models <- function(model1, model2) {
   invisible(TRUE)
 }
 
+# Permutation mapping model2's model-frame row order onto model1's, keyed on the
+# persistent row names -- the same identifiers validate_pcv_models() aligns on when
+# it accepts two fits of the SAME observations supplied in a DIFFERENT row order.
+# The parametric bootstrap simulates responses in model2's order and refit()
+# replaces the response POSITIONALLY, so without this permutation a model2-ordered
+# draw fed into model1's refit would pair each simulated value with the WRONG row.
+# Returns NULL -- meaning "leave the draw as-is", the safe positional fallback --
+# when the two frames are already in the same order (the identity permutation, the
+# common case) or when the row ids are unusable (absent, NA, non-unique, or not the
+# same set), degrading to the previous order-sensitive behaviour.
+maihda_pcv_boot_align <- function(model1, model2) {
+  ids1 <- rownames(maihda_model_frame(model1))
+  ids2 <- rownames(maihda_model_frame(model2))
+  if (is.null(ids1) || is.null(ids2) || length(ids1) != length(ids2) ||
+      anyNA(ids1) || anyNA(ids2) ||
+      anyDuplicated(ids1) != 0L || anyDuplicated(ids2) != 0L ||
+      !setequal(ids1, ids2)) {
+    return(NULL)
+  }
+  perm <- match(ids1, ids2)
+  if (identical(perm, seq_along(perm))) NULL else perm
+}
+
+# Reorder a simulated response by `perm`. lme4::refit() replaces the response
+# positionally, so a response simulated in one fit's row order must be permuted
+# into another's before refitting there. Handles a plain vector (one value per row)
+# and an aggregated-binomial cbind(success, failure) n x 2 matrix (one row per
+# observation) alike.
+maihda_reorder_response <- function(resp, perm) {
+  if (is.matrix(resp)) resp[perm, , drop = FALSE] else resp[perm]
+}
+
 #' Bootstrap PCV
 #'
 #' Internal function to compute bootstrap confidence intervals for PCV.
@@ -775,11 +807,21 @@ bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
   # and the fixed-effects distributions, unlike naive row-resampling.
   sim_data <- stats::simulate(model2$model, nsim = n_boot)
 
+  # The draws are in model2's row order. model2's own refit takes them as-is, but
+  # model1 may have been fitted to the SAME observations in a different order (which
+  # validate_pcv_models() permits), so each draw is permuted into model1's row order
+  # before refitting model1. NULL means the frames are already aligned (or the ids
+  # are unusable): the draw is then used positionally, as before.
+  perm1 <- maihda_pcv_boot_align(model1$model, model2$model)
+
   for (i in 1:n_boot) {
     tryCatch({
-      # Fast parametric refitting with the newly simulated response vector
-      boot_model1 <- lme4::refit(model1$model, newresp = sim_data[[i]])
-      boot_model2 <- lme4::refit(model2$model, newresp = sim_data[[i]])
+      # Fast parametric refitting with the newly simulated response vector, aligned
+      # to each model's own row order.
+      resp2 <- sim_data[[i]]
+      resp1 <- if (is.null(perm1)) resp2 else maihda_reorder_response(resp2, perm1)
+      boot_model1 <- lme4::refit(model1$model, newresp = resp1)
+      boot_model2 <- lme4::refit(model2$model, newresp = resp2)
 
       # Extract variances
       var1 <- maihda_stratum_variance_lme4(boot_model1)

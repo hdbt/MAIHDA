@@ -963,8 +963,12 @@ maihda_stratum_growth_at_boundary_lme4 <- function(model, tol = 1e-4) {
 #' used, matching the single-model summaries and avoiding ML's finite-sample bias. The
 #' stored models (and the single-model summaries computed from them, e.g. the
 #' time-varying VPC) always keep their REML fit; \code{ml_refit} on the result records
-#' whether an ML refit applied. glmer (GLMM) and brms fits are already on the
-#' ML / posterior scale, so the choice does not affect them.
+#' whether an ML refit fully applied, and \code{estimation_used} records the basis
+#' ACTUALLY used -- \code{"fitted"}, \code{"ML"}, or \code{"mixed"} when an ML refit
+#' was requested but a model kept its REML fit (a boundary skip or a failed refit),
+#' so a mixed REML/ML comparison is not mistaken for a clean one. glmer (GLMM) and
+#' brms fits are already on the ML / posterior scale, so the choice does not affect
+#' them.
 #'
 #' @param null_model,adjusted_model Longitudinal \code{maihda_model}s from a
 #'   \code{maihda(decomposition = "longitudinal")} pair.
@@ -1001,13 +1005,28 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
       tryCatch(isTRUE(lme4::isREML(m$model)), error = function(e) FALSE)
   }
   do_ml <- identical(estimation, "ML")
-  refit_needed <- do_ml && (is_reml_lng(null_model) || is_reml_lng(adjusted_model))
+  null_was_reml <- is_reml_lng(null_model)
+  adj_was_reml  <- is_reml_lng(adjusted_model)
+  refit_needed <- do_ml && (null_was_reml || adj_was_reml)
   if (do_ml) {
     null_model <- maihda_longitudinal_refit_ml(null_model)
     adjusted_model <- maihda_longitudinal_refit_ml(adjusted_model)
   }
-  ml_refit <- refit_needed &&
-    !(is_reml_lng(null_model) || is_reml_lng(adjusted_model))
+  # A model we WANTED on ML that is STILL REML after the refit -- a boundary skip
+  # (maihda_longitudinal_refit_ml()'s guard) or a failed refitML() -- makes the
+  # comparison MIXED: one covariance block on ML, the other on REML, which is
+  # exactly the cross-model REML incomparability estimation = "ML" was meant to
+  # remove. `ml_refit` alone cannot record this (it is FALSE for a plain fitted/REML
+  # request too), so it silently read as a clean fitted comparison. Track the basis
+  # ACTUALLY used ("fitted"/"ML"/"mixed") on the result, mirroring calculate_pcv().
+  still_reml <- is_reml_lng(null_model) || is_reml_lng(adjusted_model)
+  ml_incomplete <- refit_needed && still_reml
+  # ml_refit stays TRUE only for a fully-applied ML refit (kept for backward
+  # compatibility with objects/tests that read it); estimation_used carries the
+  # three-way basis and is what print() keys on.
+  ml_refit <- refit_needed && !still_reml
+  estimation_used <- maihda_pcv_estimation_used(estimation, ml_incomplete,
+                                                engine = null_model$engine)
 
   Sn <- maihda_re_block(null_model, "stratum")
   Sa <- maihda_re_block(adjusted_model, "stratum")
@@ -1085,6 +1104,8 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
       time = lng$time,
       time_degree = lng$time_degree,
       ml_refit = ml_refit,
+      estimation = estimation,
+      estimation_used = estimation_used,
       null_at_boundary = null_at_boundary
     ),
     class = "maihda_long_pcv"
@@ -1181,7 +1202,20 @@ print.maihda_long_pcv <- function(x, ...) {
         "explain), so the PCV is undefined (0/0) and reported as NA. This is consistent with\n",
         "genuinely additive strata as well as a degenerate fit; the two cannot be told apart.\n")))
   }
-  if (isTRUE(x$ml_refit)) {
+  if (identical(x$estimation_used, "mixed")) {
+    # estimation = "ML" was requested, but a growth model kept its REML fit (a
+    # between-stratum trajectory variance at the singularity boundary, or a failed
+    # refitML()), so the comparison mixes an ML block with a REML one -- NOT the
+    # pure, correction-free ML basis requested. Surface it, mirroring
+    # calculate_pcv()'s "mixed" basis note, so the output is not mistaken for a
+    # clean fitted (REML) comparison.
+    cat(pal$warn(paste0(
+        "\nNote: estimation = \"ML\" was requested, but a growth model kept its REML fit\n",
+        "(a between-stratum trajectory variance at the singularity boundary, or a failed\n",
+        "refitML()), so this compares an ML variance block against a REML one -- not the\n",
+        "pure, correction-free ML basis requested. Compare against estimation = \"fitted\".\n",
+        "See ?calculate_pcv.\n")))
+  } else if (isTRUE(x$ml_refit)) {
     # REML growth fits were ML-refitted for this comparison (see
     # maihda_longitudinal_pcv), so the variances above are on the ML scale while
     # summary()'s time-varying VPC keeps each fit's own REML estimate -- say so,

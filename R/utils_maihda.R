@@ -114,10 +114,30 @@ maihda_fit_diagnostics <- function(model) {
     diagnostics$engine <- "lme4"
     diagnostics$singular <- tryCatch(isTRUE(lme4::isSingular(model)),
                                      error = function(e) NA)
-    msgs <- tryCatch(model@optinfo$conv$lme4$messages,
-                     error = function(e) NULL)
-    msgs <- as.character(msgs)
-    msgs <- msgs[nzchar(msgs)]
+    # lme4 records (non-)convergence in TWO independent places, and a fit can fail
+    # one while passing the other: (a) conv$lme4$messages holds lme4's post-hoc
+    # relative-gradient / Hessian checks, and (b) conv$opt holds the OPTIMISER's own
+    # return code (0 = converged for every optimiser lme4 wraps), with
+    # optinfo$message its wording. An optimiser that stops early -- e.g. bobyqa
+    # hitting maxfun (code 1, "maximum number of function evaluations exceeded") --
+    # can land at a point whose gradient still passes lme4's check, leaving
+    # conv$lme4$messages EMPTY; reading only (a) then reports that non-converged fit
+    # as converged. Consult both, so `converged` is TRUE only when neither flags a
+    # problem.
+    lme4_msgs <- tryCatch(model@optinfo$conv$lme4$messages, error = function(e) NULL)
+    lme4_msgs <- as.character(lme4_msgs)
+    lme4_msgs <- lme4_msgs[nzchar(lme4_msgs)]
+    opt_code <- tryCatch(model@optinfo$conv$opt, error = function(e) NA_integer_)
+    opt_failed <- is.numeric(opt_code) && length(opt_code) == 1 &&
+      !is.na(opt_code) && opt_code != 0
+    opt_msg <- character(0)
+    if (opt_failed) {
+      om <- tryCatch(as.character(model@optinfo$message), error = function(e) character(0))
+      om <- om[nzchar(om)]
+      opt_msg <- if (length(om) > 0) om else
+        sprintf("optimizer did not converge (return code %d).", as.integer(opt_code))
+    }
+    msgs <- unique(c(lme4_msgs, opt_msg))
     diagnostics$messages <- msgs
     diagnostics$converged <- length(msgs) == 0
   } else if (inherits(model, "WeMixResults")) {
@@ -2970,6 +2990,58 @@ maihda_check_known_strata <- function(stratum, known, type = "individual") {
        call. = FALSE)
 }
 
+# Reject a caller-supplied 'stratum' that CONTRADICTS the intersectional dimension
+# columns in the same newdata. A supplied stratum sets the random effect while the
+# dimension columns set the fixed effects, so a row whose stratum and dimensions
+# disagree would silently pair one intersection's fixed part with another's random
+# effect -- a prediction belonging to no real stratum. When BOTH are present we
+# rebuild the stratum each row's dimensions imply and compare. Rows whose dimensions
+# are incomplete or fall outside the training auto-bin ranges (rebuilt stratum NA)
+# cannot be cross-checked and are left to the normal path; a genuinely new
+# combination that maps to no training stratum is likewise NA and handled by the
+# allow_new_levels logic downstream, not here. A no-op unless the dimension columns,
+# the stored label table and the supplied stratum column are all available.
+maihda_check_stratum_matches_dims <- function(object, newdata) {
+  if (!"stratum" %in% names(newdata)) {
+    return(invisible(NULL))
+  }
+  strata_vars <- object$strata_vars
+  if (is.null(strata_vars) || length(strata_vars) == 0) {
+    strata_vars <- maihda_infer_strata_vars(object$strata_info)
+  }
+  strata_info <- object$strata_info
+  if (is.null(strata_vars) || length(strata_vars) == 0 ||
+      is.null(strata_info) || !all(c("stratum", "label") %in% names(strata_info)) ||
+      !all(strata_vars %in% names(newdata))) {
+    return(invisible(NULL))
+  }
+  # A numeric dimension outside the training auto-bin range cannot be mapped to a
+  # training stratum; skip the whole check rather than misread it as a contradiction.
+  if (length(maihda_autobin_out_of_range(newdata, object$strata_autobin_info)) > 0) {
+    return(invisible(NULL))
+  }
+  sep <- object$strata_sep
+  if (is.null(sep) || length(sep) != 1) {
+    sep <- paste0(" ", intToUtf8(0x00D7), " ")
+  }
+  rebuilt <- as.character(maihda_stratum_lookup(
+    newdata, strata_info, strata_vars, sep, object$strata_autobin_info))
+  supplied <- as.character(newdata$stratum)
+  mismatch <- !is.na(supplied) & !is.na(rebuilt) & supplied != rebuilt
+  if (any(mismatch)) {
+    i <- which(mismatch)[1]
+    stop(sprintf(paste0(
+      "newdata row %d gives stratum '%s', but its intersectional dimension ",
+      "column(s) (%s) identify stratum '%s'. A supplied 'stratum' must match the ",
+      "dimension columns; otherwise the prediction would combine one intersection's ",
+      "fixed effects with another's random effect. Supply the 'stratum' column or ",
+      "the dimension columns, or correct them to agree."),
+      i, supplied[i], paste(strata_vars, collapse = ", "), rebuilt[i]),
+      call. = FALSE)
+  }
+  invisible(NULL)
+}
+
 maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
                                            allow_new_levels = FALSE) {
   if (!is.data.frame(newdata)) {
@@ -3014,6 +3086,12 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
     if (!permit_new) {
       maihda_check_known_strata(newdata$stratum, maihda_known_strata(object), type)
     }
+    # If the stratum-defining dimension columns are ALSO present, the supplied
+    # stratum must AGREE with them -- otherwise the prediction would pair one
+    # intersection's fixed effects (from the dimensions) with another's random
+    # effect (from the stratum column). (When the dimensions are absent there is
+    # nothing to cross-check and the supplied stratum is trusted as-is.)
+    maihda_check_stratum_matches_dims(object, newdata)
     return(newdata)
   }
 

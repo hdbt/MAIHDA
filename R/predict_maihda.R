@@ -199,15 +199,14 @@ predict_maihda <- function(object, newdata = NULL,
     }
 
     if (type == "individual") {
-      # Individual-level predictions. As for lme4, unseen strata are rejected
+      # Individual-level predictions. As for lme4, unseen levels are rejected
       # upstream unless allow_new_levels = TRUE. Forwarding allow_new_levels to brms
-      # is NOT enough to honour the documented zero-effect fallback for unseen
-      # strata -- brms's default sample_new_levels = "uncertainty" DRAWS a new
-      # stratum effect from the estimated random-effects distribution rather than
-      # treating it as zero -- so the unseen rows are split off and predicted with
-      # re_formula = NA (see maihda_brms_individual_prediction()). allow_new_levels
-      # is still forwarded for the seen rows so an unseen *context* level (a
-      # different kind of new level) keeps working as before.
+      # is NOT enough to honour the documented zero-effect fallback -- brms's default
+      # sample_new_levels = "uncertainty" DRAWS a new effect from the estimated
+      # random-effects distribution rather than treating it as zero -- so
+      # maihda_brms_individual_prediction() zeroes each unseen grouping level (via a
+      # per-row re_formula dropping only the terms that row has not seen), stratum
+      # AND context/longitudinal alike, matching lme4's allow.new.levels.
       dots <- maihda_dots_default(list(...), "allow_new_levels",
                                   isTRUE(allow_new_levels))
       predictions <- maihda_brms_individual_prediction(object, newdata, scale,
@@ -281,73 +280,126 @@ maihda_lme4_has_external_offset <- function(object) {
 # fallback. allow_new_levels = TRUE promises a prediction that drops the stratum
 # random effect (treating it as zero) for a stratum the model never saw. brms does
 # NOT do this by simply receiving allow_new_levels = TRUE: its default
-# sample_new_levels = "uncertainty" SAMPLES a new stratum effect from the random-
-# effects distribution. So the unseen-stratum rows are predicted separately with an
-# re_formula that excludes the stratum term (see maihda_brms_unseen_re_formula());
-# the seen-stratum rows keep their estimated stratum effect. A blanket re_formula on
-# all rows would wrongly drop the seen strata's effects too, which is why the rows
-# are split. Any OTHER random effect the unseen row participates in -- a contextual
-# (1 | school) intercept, a longitudinal (time | id) growth term -- is retained,
-# matching lme4's allow.new.levels (which zeroes only the unseen level's effect); for
-# the usual single-stratum model the excluding re_formula is NA (fixed effects only),
-# the population average. Unseen rows are only possible when allow_new_levels = TRUE
-# (otherwise upstream validation rejected them), so without it every row takes the
-# ordinary full-random-effects path.
+# sample_new_levels = "uncertainty" SAMPLES a new random effect from the random-
+# effects distribution. lme4's allow.new.levels instead ZEROES the effect of any
+# unseen grouping level -- stratum OR a context/longitudinal grouping -- while
+# keeping the effects of the levels a row HAS seen. To reproduce that, each row is
+# predicted with an re_formula that drops exactly the grouping terms whose level
+# that row never saw, and keeps the rest; rows sharing a kept-term signature are
+# predicted together. A row that keeps every term is the ordinary full-random-
+# effects prediction; one that keeps none is the fixed-effects-only population
+# average (re_formula = NA). Unseen levels are only possible when
+# allow_new_levels = TRUE (otherwise upstream validation / brms rejects them), so
+# without it every row takes the full path unchanged. Previously only the STRATUM
+# term was zeroed for unseen strata; an unseen context/longitudinal level was left
+# in the re_formula and thus SAMPLED, diverging from lme4 (a different, marginal
+# estimand, visible on the response scale) -- this generalisation closes that gap.
 maihda_brms_individual_prediction <- function(object, newdata, scale,
                                               allow_new_levels, dots) {
-  known <- maihda_known_strata(object)
-  unseen <- if (isTRUE(allow_new_levels) && !is.null(known) &&
-                "stratum" %in% names(newdata)) {
-    !as.character(newdata$stratum) %in% known
-  } else {
-    rep(FALSE, nrow(newdata))
+  bars <- maihda_brms_re_bars(object)
+
+  # No random effects, no new-levels request, or no rows: every row uses the full
+  # model. brms rejects a genuinely new level upstream, so there is nothing to zero.
+  if (!isTRUE(allow_new_levels) || length(bars) == 0 || nrow(newdata) == 0) {
+    return(maihda_brms_predict_rows(object, newdata, scale, dots))
   }
 
-  pred <- rep(NA_real_, nrow(newdata))
-  if (any(!unseen)) {
-    pred[!unseen] <- maihda_brms_predict_rows(
-      object, newdata[!unseen, , drop = FALSE], scale, dots)
+  # For each bar, the grouping levels seen in training and the level each newdata
+  # row takes; a bar is KEPT for a row only where that row's level is known. The
+  # check is conservative: a bar whose training levels or newdata column cannot be
+  # resolved is kept (never silently dropped), so at worst the previous behaviour is
+  # retained. An NA grouping value is likewise left to the normal path.
+  known   <- lapply(bars, function(b) maihda_brms_bar_known_levels(object, b))
+  row_lab <- lapply(bars, function(b) maihda_brms_bar_row_levels(newdata, b))
+  keep <- matrix(TRUE, nrow = nrow(newdata), ncol = length(bars))
+  for (j in seq_along(bars)) {
+    kn <- known[[j]]
+    rl <- row_lab[[j]]
+    if (length(kn) > 0 && !is.null(rl)) {
+      keep[, j] <- is.na(rl) | rl %in% kn
+    }
   }
-  if (any(unseen)) {
-    unseen_dots <- dots
-    # Drop the stratum effect (treat as zero) but keep any non-stratum random effect.
-    unseen_dots$re_formula <- maihda_brms_unseen_re_formula(object)
-    pred[unseen] <- maihda_brms_predict_rows(
-      object, newdata[unseen, , drop = FALSE], scale, unseen_dots)
+
+  # Predict each distinct kept-bar signature once, with the re_formula that keeps
+  # exactly those bars (unchanged full-model dots when every bar is kept).
+  key <- apply(keep, 1L, function(z) paste0(which(z), collapse = ","))
+  pred <- rep(NA_real_, nrow(newdata))
+  for (k in unique(key)) {
+    idx <- which(key == k)
+    kept_j <- keep[idx[1L], ]
+    grp_dots <- dots
+    if (!all(kept_j)) {
+      grp_dots$re_formula <- maihda_brms_re_formula_from_bars(bars[kept_j])
+    }
+    pred[idx] <- maihda_brms_predict_rows(
+      object, newdata[idx, , drop = FALSE], scale, grp_dots)
   }
   pred
 }
 
-# A brms re_formula that keeps every grouping (random-effect) term EXCEPT the
-# stratum one, for predicting an unseen stratum: the stratum random effect is
-# dropped (treated as zero -- the population-average fallback) while any other
-# random effect the row participates in is retained, matching lme4's
-# allow.new.levels (which zeroes only the unseen level's effect, keeping seen ones).
-# Returns NA -- the brms re_formula that drops ALL group terms -- when the stratum is
-# the only random effect, i.e. the ordinary fixed-effects-only population average.
-# A bar's grouping factor is read with all.vars() so a context (1 | school) or a
-# longitudinal (poly | id) term is kept while (... | stratum) is removed.
-maihda_brms_unseen_re_formula <- function(object) {
+# The random-effect bars of a brms MAIHDA fit's stored formula (brmsformula-aware),
+# or an empty list when there are none or the formula is unusable. Shared by the
+# unseen-level prediction logic so bar extraction cannot drift.
+maihda_brms_re_bars <- function(object) {
   f <- object$formula
   if (inherits(f, "brmsformula") && inherits(f$formula, "formula")) {
     f <- f$formula
   }
   if (!inherits(f, "formula")) {
-    return(NA)
+    return(list())
   }
   bars <- tryCatch(reformulas::findbars(f), error = function(e) NULL)
-  if (is.null(bars) || length(bars) == 0) {
+  if (is.null(bars)) list() else bars
+}
+
+# Build a brms re_formula "~ (bar1) + (bar2) + ..." from a set of random-effect
+# bars. Returns NA -- brms's re_formula that drops ALL group terms (the fixed-
+# effects-only population average) -- when the set is empty.
+maihda_brms_re_formula_from_bars <- function(bars) {
+  if (length(bars) == 0) {
     return(NA)
   }
-  keep <- Filter(function(b) !("stratum" %in% all.vars(b[[3]])), bars)
-  if (length(keep) == 0) {
-    return(NA)
-  }
-  terms_chr <- vapply(keep, function(b)
+  terms_chr <- vapply(bars, function(b)
     paste0("(", paste(deparse(b, width.cutoff = 500L), collapse = " "), ")"),
     character(1))
   stats::as.formula(paste("~", paste(terms_chr, collapse = " + ")),
                     env = baseenv())
+}
+
+# A brms re_formula that keeps every grouping term EXCEPT the stratum one (kept for
+# backward compatibility and the Stan-free unit test). Now a thin wrapper over the
+# shared bar helpers.
+maihda_brms_unseen_re_formula <- function(object) {
+  bars <- maihda_brms_re_bars(object)
+  keep <- Filter(function(b) !("stratum" %in% all.vars(b[[3]])), bars)
+  maihda_brms_re_formula_from_bars(keep)
+}
+
+# The grouping levels a random-effect bar's grouping factor took in the TRAINING
+# data (character labels), for telling a seen level from a new one. An empty result
+# means "cannot determine" -- the caller then keeps the bar rather than risk
+# dropping a real effect.
+maihda_brms_bar_known_levels <- function(object, bar) {
+  data <- object$data
+  grp <- bar[[3]]
+  if (!is.data.frame(data) || !all(all.vars(grp) %in% names(data))) {
+    return(character(0))
+  }
+  lev <- tryCatch(as.character(eval(grp, data)), error = function(e) NULL)
+  if (is.null(lev)) character(0) else unique(lev[!is.na(lev)])
+}
+
+# The grouping level each newdata row takes for a random-effect bar's grouping
+# factor, or NULL when the grouping column(s) are absent from newdata (the caller
+# then keeps the bar so brms raises its usual missing-column error rather than the
+# effect being silently dropped).
+maihda_brms_bar_row_levels <- function(newdata, bar) {
+  grp <- bar[[3]]
+  if (!all(all.vars(grp) %in% names(newdata))) {
+    return(NULL)
+  }
+  lab <- tryCatch(as.character(eval(grp, newdata)), error = function(e) NULL)
+  if (is.null(lab) || length(lab) != nrow(newdata)) NULL else lab
 }
 
 # Response- or link-scale brms predictions for a block of rows. On the response
