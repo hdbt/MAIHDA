@@ -23,8 +23,11 @@
   variance is effectively zero. The result records this in
   `null_at_boundary`.
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  now rejects duplicate stratum intercepts, including equivalent forms
-  such as `(1 | stratum) + (0 + 1 | stratum)`.
+  now rejects duplicate stratum intercepts, including equivalent
+  spellings such as `(1 | stratum) + (0 + 1 | stratum)` and compound
+  terms that repeat the intercept such as
+  `(1 | stratum) + (1 + x | stratum)`, while still allowing an
+  uncorrelated slope such as `(1 | stratum) + (0 + x | stratum)`.
 - Time-dependent formula offsets are now re-evaluated at each time point
   in longitudinal predictions and count VPC trajectories.
 - Failed or skipped ML refits are reported as
@@ -68,8 +71,18 @@
   `weights`, `subset`, and `offset` arguments.
 - Design-weighted `brms` workflows now complete derived null and
   adjusted fits without conflicting with the internal weight column.
+- Design-weighted `brms` fits now keep the full pre-fit data as
+  `original_data`, so
+  [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+  reports the original total, missingness, and excluded-weight counts
+  rather than the analytic sample alone.
 - Non-positive or non-finite Gaussian precision weights are dropped
   before fitting.
+- [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  and [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  now apply the same non-positive/non-finite precision-weight exclusion
+  before family/engine detection, shared-strata binning, and analytic
+  sample-size checks.
 - Individual predictions now reject missing strata unless
   `allow_new_levels = TRUE`.
 - Count-family longitudinal VPCs now evaluate residual variance at each

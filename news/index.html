@@ -62,7 +62,7 @@
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>Longitudinal PCV calculations now return <code>NA</code> when the null growth variance is effectively zero. The result records this in <code>null_at_boundary</code>.</li>
 <li>
-<code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> now rejects duplicate stratum intercepts, including equivalent forms such as <code>(1 | stratum) + (0 + 1 | stratum)</code>.</li>
+<code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> now rejects duplicate stratum intercepts, including equivalent spellings such as <code>(1 | stratum) + (0 + 1 | stratum)</code> and compound terms that repeat the intercept such as <code>(1 | stratum) + (1 + x | stratum)</code>, while still allowing an uncorrelated slope such as <code>(1 | stratum) + (0 + x | stratum)</code>.</li>
 <li>Time-dependent formula offsets are now re-evaluated at each time point in longitudinal predictions and count VPC trajectories.</li>
 <li>Failed or skipped ML refits are reported as <code>estimation_used = "mixed"</code>; <code>brms</code> comparisons are reported as <code>"posterior"</code>.</li>
 <li>PCV boundary detection now covers <code>lme4</code>, <code>wemix</code>, and <code>ordinal</code> fits and is shared by <code><a href="../reference/calculate_pcv.html">calculate_pcv()</a></code>, <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code>, and <code><a href="../reference/pcv_importance.html">pcv_importance()</a></code>.</li>
@@ -83,7 +83,10 @@
 <li>
 <code>fit_maihda(engine = "brms")</code> now rejects unsupported lme4-style <code>weights</code>, <code>subset</code>, and <code>offset</code> arguments.</li>
 <li>Design-weighted <code>brms</code> workflows now complete derived null and adjusted fits without conflicting with the internal weight column.</li>
+<li>Design-weighted <code>brms</code> fits now keep the full pre-fit data as <code>original_data</code>, so <code><a href="../reference/maihda_describe.html">maihda_describe()</a></code> reports the original total, missingness, and excluded-weight counts rather than the analytic sample alone.</li>
 <li>Non-positive or non-finite Gaussian precision weights are dropped before fitting.</li>
+<li>
+<code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code> and <code><a href="../reference/maihda.html">maihda()</a></code> now apply the same non-positive/non-finite precision-weight exclusion before family/engine detection, shared-strata binning, and analytic sample-size checks.</li>
 <li>Individual predictions now reject missing strata unless <code>allow_new_levels = TRUE</code>.</li>
 <li>Count-family longitudinal VPCs now evaluate residual variance at each time point; the summary includes <code>var_resid_t</code>.</li>
 <li>Crossed-dimensions predictions now exclude contextual random effects from the stratum baseline.</li>
