@@ -59,6 +59,11 @@
 <code>pcv_importance(method = "sequential")</code> is soft-deprecated. Use <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code> for an order-dependent path or <code>method = "shapley"</code> for order-invariant attribution.</li>
 </ul></div>
 <div class="section level3">
+<h3 id="performance-development-version">Performance<a class="anchor" aria-label="anchor" href="#performance-development-version"></a></h3>
+<ul><li>
+<code>maihda(decomposition = "crossed-dimensions")</code> now fits the model once instead of twice. The preliminary pass that resolves the strata and family no longer refits the supplied formula only to discard it, which roughly halves the fitting cost (most noticeable for <code>brms</code>).</li>
+</ul></div>
+<div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>
 <code><a href="../reference/calculate_pcv.html">calculate_pcv()</a></code>, <code><a href="../reference/compare_maihda.html">compare_maihda()</a></code>, and <code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> now treat two fits to the same observations supplied in a different row order as the same analytic sample, instead of rejecting the reordered fit or warning about a differing sample. The comparison aligns on the row identifiers and matches the response, stratum partition, and weights after alignment.</li>

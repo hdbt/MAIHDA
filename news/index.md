@@ -17,6 +17,13 @@
   for an order-dependent path or `method = "shapley"` for
   order-invariant attribution.
 
+### Performance
+
+- `maihda(decomposition = "crossed-dimensions")` now fits the model once
+  instead of twice. The preliminary pass that resolves the strata and
+  family no longer refits the supplied formula only to discard it, which
+  roughly halves the fitting cost (most noticeable for `brms`).
+
 ### Bug fixes
 
 - [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
