@@ -98,8 +98,11 @@ maihda_sampling_weight_fingerprint <- function(model) {
   if (is.null(w)) {
     return(paste0("col:", sw))
   }
+  # Align to the analytic frame's row names so a reordered-but-identical fit gets
+  # the same fingerprint (the values live in model$data, keyed by its row names).
+  w <- maihda_order_by_ids(as.numeric(w), rownames(model$data))
   paste0(sw, ":",
-         paste(formatC(as.numeric(w), format = "g", digits = 12), collapse = "\r"))
+         paste(formatC(w, format = "g", digits = 12), collapse = "\r"))
 }
 
 # Stop early with an installation hint when WeMix is unavailable.

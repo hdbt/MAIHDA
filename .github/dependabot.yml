@@ -1,9 +1,11 @@
 version: 2
 updates:
-  # Keep GitHub Actions current. Actions are pinned to commit SHAs for supply-chain
-  # immutability (a mutable tag can be moved to point at compromised code); Dependabot
-  # opens reviewed PRs that bump those SHAs and their version comments, so pinning does
-  # not mean the actions silently rot.
+  # Keep GitHub Actions current; Dependabot opens reviewed bump PRs weekly. Third-party
+  # and deployment actions (codecov, the pkgdown gh-pages deploy action) are pinned to
+  # full commit SHAs for supply-chain immutability (a mutable tag can be moved to point
+  # at compromised code); the widely used first-party actions (actions/*, r-lib/actions/*)
+  # are tracked by major-version tag. Dependabot updates both forms -- advancing the
+  # pinned SHAs and their version comments as well as the tags -- so neither silently rots.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

@@ -594,11 +594,18 @@ validate_pcv_models <- function(model1, model2) {
          call. = FALSE)
   }
 
+  # Match on the SET of row identifiers, not their order: two fits to the same rows
+  # in a different order describe the same analytic sample (variance components, and
+  # hence the PCV, are order-invariant), so requiring identical order rejected valid
+  # comparisons. A genuinely different sample of the same size -- disjoint or only
+  # partially overlapping rows -- still differs as a set and is caught here; and when
+  # the ids are default 1:n names shared across unrelated data, the response, stratum
+  # and weight fingerprints below (all row-order independent) disambiguate.
   rows1 <- maihda_wrapper_row_ids(model1)
   rows2 <- maihda_wrapper_row_ids(model2)
-  if (!is.null(rows1) && !is.null(rows2) && !identical(rows1, rows2)) {
-    stop("PCV requires both models to use the same analytic sample in the same row order.",
-         call. = FALSE)
+  if (!is.null(rows1) && !is.null(rows2) && !setequal(rows1, rows2)) {
+    stop("PCV requires both models to use the same analytic sample; the two models ",
+         "were fitted to different sets of observations.", call. = FALSE)
   }
 
   # Content fingerprint: catch unrelated datasets that share n and default 1:n
@@ -634,8 +641,11 @@ validate_pcv_models <- function(model1, model2) {
     stop("PCV requires both models to include a 'stratum' column in their analytic data.",
          call. = FALSE)
   }
-  row_strata1 <- as.character(model1$data$stratum)
-  row_strata2 <- as.character(model2$data$stratum)
+  # Compare the PARTITION the stratum column induces over the analytic rows, not the
+  # arbitrary integer labels (fit_maihda numbers strata by order of appearance, so a
+  # different row order relabels the same cell) nor the incidental row order.
+  row_strata1 <- maihda_stratum_partition_key(model1$data$stratum, rownames(model1$data))
+  row_strata2 <- maihda_stratum_partition_key(model2$data$stratum, rownames(model2$data))
   if (!identical(row_strata1, row_strata2)) {
     stop("PCV requires both models to assign each analytic row to the same stratum.",
          call. = FALSE)
@@ -653,10 +663,13 @@ validate_pcv_models <- function(model1, model2) {
   info1 <- model1$strata_info
   info2 <- model2$strata_info
   if (!is.null(info1) && !is.null(info2) &&
-      all(c("stratum", "label") %in% names(info1)) &&
-      all(c("stratum", "label") %in% names(info2))) {
-    labels1 <- info1$label[order(as.character(info1$stratum))]
-    labels2 <- info2$label[order(as.character(info2$stratum))]
+      "label" %in% names(info1) && "label" %in% names(info2)) {
+    # Compare the SET of intersectional cell labels the two models define, not the
+    # labels ordered by stratum id: the id -> label mapping is order-dependent (a
+    # different row order renumbers the cells), so an id-ordered comparison rejected
+    # identical strata that were merely relabelled.
+    labels1 <- sort(as.character(info1$label))
+    labels2 <- sort(as.character(info2$label))
     if (!identical(labels1, labels2)) {
       stop("PCV requires both models to use the same stratum labels.",
            call. = FALSE)
@@ -688,10 +701,15 @@ validate_pcv_models <- function(model1, model2) {
   }
   # For each shared non-stratum grouping that is a single data column, the row-level
   # assignments must match too (the stratum assignment is already checked above).
+  # These are user-supplied grouping columns (e.g. a 'site'), whose labels are stable
+  # -- unlike the auto-numbered stratum -- so aligning by row name (rather than the
+  # partition key used for the stratum) keeps the check exact while making it
+  # independent of row order.
   for (g in setdiff(g1, "stratum")) {
     if (g %in% names(model1$data) && g %in% names(model2$data) &&
-        !identical(as.character(model1$data[[g]]),
-                   as.character(model2$data[[g]]))) {
+        !identical(
+          maihda_order_by_ids(as.character(model1$data[[g]]), rownames(model1$data)),
+          maihda_order_by_ids(as.character(model2$data[[g]]), rownames(model2$data)))) {
       stop("PCV requires both models to assign each analytic row to the same '", g,
            "' random-effect level; the '", g, "' assignments differ between the ",
            "two models.", call. = FALSE)

@@ -7,6 +7,7 @@
 
 ## Bug fixes
 
+* `calculate_pcv()`, `compare_maihda()`, and `maihda_ic()` now treat two fits to the same observations supplied in a different row order as the same analytic sample, instead of rejecting the reordered fit or warning about a differing sample. The comparison aligns on the row identifiers and matches the response, stratum partition, and weights after alignment.
 * Longitudinal PCV calculations now return `NA` when the null growth variance is effectively zero. The result records this in `null_at_boundary`.
 * `fit_maihda()` now rejects duplicate stratum intercepts, including equivalent spellings such as `(1 | stratum) + (0 + 1 | stratum)` and compound terms that repeat the intercept such as `(1 | stratum) + (1 + x | stratum)`, while still allowing an uncorrelated slope such as `(1 | stratum) + (0 + x | stratum)`.
 * Time-dependent formula offsets are now re-evaluated at each time point in longitudinal predictions and count VPC trajectories.

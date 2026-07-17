@@ -854,11 +854,41 @@ maihda_nobs <- function(model) {
   })
 }
 
-# Content fingerprint of a model's analytic response vector. Two models fitted to
-# the same data share a fingerprint even if the rows were reordered or carry
-# default 1:n names; models fitted to unrelated data do not. Used to catch
-# comparisons/PCV across different datasets that happen to share n, row names and
-# stratum ids.
+# Reorder `values` into a canonical sequence keyed on the stable per-row `ids`
+# (row names), so a content fingerprint pasted from the result is INDEPENDENT of
+# row order: two models fitted to the same rows in a different order produce the
+# same sequence. Falls back to the given order -- the conservative, order-sensitive
+# behaviour -- whenever a usable per-row key is unavailable (ids NULL, not 1-1 with
+# the values, containing NA, or duplicated), since none of those can align the two
+# samples reliably. Row names from a model frame / data.frame are unique, so the
+# fallback bites only for engines that expose no row identity at all.
+maihda_order_by_ids <- function(values, ids) {
+  if (!is.null(ids) && length(ids) == length(values) &&
+      !anyNA(ids) && anyDuplicated(ids) == 0L) {
+    return(values[order(ids)])
+  }
+  values
+}
+
+# Canonical, label- and order-independent encoding of the PARTITION a stratum
+# column induces over the analytic rows. fit_maihda() numbers strata by order of
+# appearance, so two fits of the same data supplied in a different row order can
+# give the SAME intersectional cell a different integer label; and the rows may be
+# in a different order. Aligning the stratum vector to the row names and then
+# renumbering by order of first appearance removes both, so two models that assign
+# the same rows to the same strata produce identical keys regardless of labelling
+# or row order. (When ids are unusable, maihda_order_by_ids() leaves the vector in
+# its given order, degrading to the previous order-sensitive comparison.)
+maihda_stratum_partition_key <- function(stratum, ids) {
+  s <- maihda_order_by_ids(as.character(stratum), ids)
+  as.integer(factor(s, levels = unique(s)))
+}
+
+# Content fingerprint of a model's analytic response vector, aligned to the row
+# names so it is independent of row order. Two models fitted to the same data
+# share a fingerprint even if the rows were reordered or carry default 1:n names;
+# models fitted to unrelated data do not. Used to catch comparisons/PCV across
+# different datasets that happen to share n, row names and stratum ids.
 maihda_response_fingerprint <- function(model) {
   frame <- maihda_model_frame(model)
   if (is.null(frame)) {
@@ -868,7 +898,7 @@ maihda_response_fingerprint <- function(model) {
   if (is.null(resp)) {
     return(NA_character_)
   }
-  resp <- unname(resp)
+  resp <- maihda_order_by_ids(unname(resp), row.names(frame))
   if (is.numeric(resp)) {
     paste(formatC(resp, format = "g", digits = 12), collapse = "\r")
   } else {
@@ -891,6 +921,9 @@ maihda_weight_fingerprint <- function(model) {
   if (all(is.finite(w)) && isTRUE(all(abs(w - 1) < sqrt(.Machine$double.eps)))) {
     return("unit")
   }
+  # Prior weights returned by weights() align to the model frame's rows; key the
+  # fingerprint on those row names so a reordered-but-identical fit compares equal.
+  w <- maihda_order_by_ids(w, maihda_row_ids(model))
   paste(formatC(w, format = "g", digits = 12), collapse = "\r")
 }
 
@@ -945,7 +978,7 @@ maihda_wrapper_response_fingerprint <- function(model) {
     resp <- tryCatch(eval(model$formula[[2]], envir = model$data),
                      error = function(e) NULL)
     if (!is.null(resp)) {
-      resp <- unname(resp)
+      resp <- maihda_order_by_ids(unname(resp), row.names(model$data))
       return(if (is.numeric(resp)) {
         paste(formatC(resp, format = "g", digits = 12), collapse = "\r")
       } else {

@@ -104,14 +104,18 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
       if (is.finite(n)) as.integer(n) else NA_integer_
     }, integer(1))
     # Row identity of the analytic sample and the row-wise stratum assignment, so
-    # disjoint samples of the SAME size and strata are still flagged.
+    # disjoint samples of the SAME size and strata are still flagged. Both keys are
+    # made order-invariant (the id set is sorted; the stratum vector is aligned to
+    # the row names) so a reordered-but-identical fit is NOT reported as a different
+    # sample.
     row_keys <- vapply(models, function(m) {
       rid <- maihda_wrapper_row_ids(m)
-      if (is.null(rid)) NA_character_ else paste(rid, collapse = "\r")
+      if (is.null(rid)) NA_character_ else paste(sort(rid), collapse = "\r")
     }, character(1))
     row_stratum_keys <- vapply(models, function(m) {
       if (!is.null(m$data) && "stratum" %in% names(m$data)) {
-        paste(as.character(m$data$stratum), collapse = "\r")
+        paste(maihda_stratum_partition_key(m$data$stratum, rownames(m$data)),
+              collapse = "\r")
       } else {
         NA_character_
       }

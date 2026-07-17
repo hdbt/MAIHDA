@@ -336,9 +336,11 @@ maihda_ic_delta_issues <- function(models) {
     n <- maihda_wrapper_nobs(m)
     if (is.finite(n)) as.integer(n) else NA_integer_
   }, integer(1))
+  # Sort the id set so a reordered-but-identical sample is not read as a different
+  # one; the response fingerprint is likewise row-order independent.
   row_keys <- vapply(models, function(m) {
     rid <- maihda_wrapper_row_ids(m)
-    if (is.null(rid)) NA_character_ else paste(rid, collapse = "\r")
+    if (is.null(rid)) NA_character_ else paste(sort(rid), collapse = "\r")
   }, character(1))
   response_keys <- vapply(models, maihda_wrapper_response_fingerprint, character(1))
 
