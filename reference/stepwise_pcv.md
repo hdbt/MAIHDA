@@ -114,6 +114,14 @@ is recorded as `"estimation_used"` (`"mixed"` when `estimation = "ML"`
 but a step's ML refit was skipped at the boundary, leaving it on REML).
 Both are shown by [`print()`](https://rdrr.io/r/base/print.html).
 
+`Step_PCV` is `NA` for any step whose *preceding* model has a
+between-stratum variance at the singularity boundary: that variance is
+the step's denominator, and at the boundary it carries only optimizer
+noise, so the ratio is undefined rather than small. Those steps are
+listed in an `"undefined_step_pcv"` attribute and noted by
+[`print()`](https://rdrr.io/r/base/print.html). `Total_PCV` is
+unaffected, since it divides by the null model's variance.
+
 ## Details
 
 All models are fit on the complete cases for \`outcome\`, \`stratum\`,

@@ -26,6 +26,17 @@
 
 ### Bug fixes
 
+- [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  now reports `Step_PCV` as `NA` when the preceding step’s
+  between-stratum variance is at the singularity boundary, instead of
+  dividing by optimizer noise. The affected steps are listed in an
+  `"undefined_step_pcv"` attribute and noted by
+  [`print()`](https://rdrr.io/r/base/print.html); `Total_PCV` is
+  unchanged.
+- The response-scale VPC for a model with non-stratum random effects now
+  estimates the total probability variance on the same basis as its
+  numerator, removing an `n_sim / (n_sim - 1)` inflation that was
+  largest at small `n_sim`.
 - `calculate_pcv(bootstrap = TRUE)` now permutes each simulated response
   into each model’s own row order before refitting, so a bootstrap
   across two fits of the same observations in a different row order no
