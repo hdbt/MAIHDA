@@ -36,6 +36,13 @@
   another’s random effect. The check also covers dimension combinations
   the model never saw, and a row whose dimensions cannot be resolved no
   longer exempts the rest of the `newdata`.
+- Predictions now check the numeric auto-bin ranges whether or not
+  `newdata` supplies a `stratum` column. A row whose auto-binned numeric
+  dimension falls outside the training range previously went unremarked
+  when a `stratum` was supplied, silently pairing that stratum’s random
+  effect with a combination the training bins cannot contain; it now
+  warns. Existing results are unchanged, and the warning will become an
+  error in a future release.
 - `lme4` convergence reporting now also consults the optimizer return
   code and message, so a fit whose optimizer stopped early
   (e.g. `bobyqa` hitting `maxfun`) is no longer reported as converged

@@ -68,6 +68,7 @@
 <ul><li>
 <code>calculate_pcv(bootstrap = TRUE)</code> now permutes each simulated response into each model’s own row order before refitting, so a bootstrap across two fits of the same observations in a different row order no longer corrupts the interval.</li>
 <li>Individual predictions now reject a supplied <code>stratum</code> that contradicts the intersectional dimension columns in the same <code>newdata</code>, instead of pairing one intersection’s fixed effects with another’s random effect. The check also covers dimension combinations the model never saw, and a row whose dimensions cannot be resolved no longer exempts the rest of the <code>newdata</code>.</li>
+<li>Predictions now check the numeric auto-bin ranges whether or not <code>newdata</code> supplies a <code>stratum</code> column. A row whose auto-binned numeric dimension falls outside the training range previously went unremarked when a <code>stratum</code> was supplied, silently pairing that stratum’s random effect with a combination the training bins cannot contain; it now warns. Existing results are unchanged, and the warning will become an error in a future release.</li>
 <li>
 <code>lme4</code> convergence reporting now also consults the optimizer return code and message, so a fit whose optimizer stopped early (e.g. <code>bobyqa</code> hitting <code>maxfun</code>) is no longer reported as converged when <code>lme4</code>’s own gradient check happens to pass.</li>
 <li>
