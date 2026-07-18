@@ -320,8 +320,23 @@ maihda_brms_individual_prediction <- function(object, newdata, scale,
     }
   }
 
-  # Predict each distinct kept-bar signature once, with the re_formula that keeps
-  # exactly those bars (unchanged full-model dots when every bar is kept).
+  # The caller's own random-effect scope, if they set one. Zeroing an unseen level
+  # may only NARROW that scope -- never widen or replace it. Overwriting the scope
+  # outright reintroduced grouping terms the caller had explicitly excluded (most
+  # visibly re_formula = NA, the fixed-effects-only population average, which came
+  # back as "~ (1 | <other group>)"), and for a partial re_formula it substituted a
+  # different term for the requested one.
+  scope <- maihda_brms_requested_re(dots)
+  if (!scope$understood) {
+    # An re_formula/re.form this helper cannot interpret is left strictly alone --
+    # deferring to the caller rather than silently overriding them. brms still
+    # receives allow_new_levels via dots and applies its own handling.
+    return(maihda_brms_predict_rows(object, newdata, scale, dots))
+  }
+
+  # Predict each distinct kept-bar signature once, under the scope that keeps exactly
+  # the requested bars minus the ones this row never saw (unchanged dots when the
+  # row keeps every bar, or when none of the dropped bars was requested anyway).
   key <- apply(keep, 1L, function(z) paste0(which(z), collapse = ","))
   pred <- rep(NA_real_, nrow(newdata))
   for (k in unique(key)) {
@@ -329,12 +344,58 @@ maihda_brms_individual_prediction <- function(object, newdata, scale,
     kept_j <- keep[idx[1L], ]
     grp_dots <- dots
     if (!all(kept_j)) {
-      grp_dots$re_formula <- maihda_brms_re_formula_from_bars(bars[kept_j])
+      dropped <- vapply(bars[!kept_j], maihda_brms_bar_key, character(1))
+      if (is.null(scope$bars)) {
+        # No caller restriction: keep every model bar this row has seen.
+        grp_dots[[scope$name]] <- maihda_brms_re_formula_from_bars(bars[kept_j])
+      } else {
+        effective <- Filter(
+          function(b) !(maihda_brms_bar_key(b) %in% dropped), scope$bars)
+        if (length(effective) < length(scope$bars)) {
+          grp_dots[[scope$name]] <- maihda_brms_re_formula_from_bars(effective)
+        }
+      }
     }
     pred[idx] <- maihda_brms_predict_rows(
       object, newdata[idx, , drop = FALSE], scale, grp_dots)
   }
   pred
+}
+
+# A random-effect bar's deparsed text, the key used to tell two bars apart (and the
+# same form maihda_brms_re_formula_from_bars() writes out).
+maihda_brms_bar_key <- function(bar) {
+  paste(deparse(bar, width.cutoff = 500L), collapse = " ")
+}
+
+# The random-effect scope a caller requested through predict_maihda()'s `...`.
+# Returns the argument NAME to write any narrowed scope back under (so a caller who
+# used one spelling never ends up with both), plus the requested `bars`: NULL for
+# brms's unrestricted default (re_formula = NULL or absent), an empty list for
+# re_formula = NA (fixed effects only), otherwise the bars of the supplied formula.
+# brms honours the lme4 spelling re.form as an alias on some prediction paths but not
+# others, and lets re.form win when both are given; this resolves the same way.
+# `understood = FALSE` marks a value outside brms's documented {NULL, NA, formula}
+# contract, which the caller then owns untouched.
+maihda_brms_requested_re <- function(dots) {
+  nm <- intersect(c("re.form", "re_formula"), names(dots))
+  if (length(nm) == 0) {
+    return(list(understood = TRUE, name = "re_formula", bars = NULL))
+  }
+  nm <- nm[1L]
+  v <- dots[[nm]]
+  if (is.null(v)) {
+    return(list(understood = TRUE, name = nm, bars = NULL))
+  }
+  if (inherits(v, "formula")) {
+    b <- tryCatch(reformulas::findbars(v), error = function(e) NULL)
+    return(list(understood = TRUE, name = nm,
+                bars = if (is.null(b)) list() else b))
+  }
+  if (is.logical(v) && length(v) == 1L && is.na(v)) {
+    return(list(understood = TRUE, name = nm, bars = list()))
+  }
+  list(understood = FALSE, name = nm, bars = NULL)
 }
 
 # The random-effect bars of a brms MAIHDA fit's stored formula (brmsformula-aware),

@@ -190,7 +190,11 @@ maihda_fit_diagnostics <- function(model) {
       }
       n_div <- tryCatch({
         np <- brms::nuts_params(model)
-        sum(np$Value[np$Parameter == "divergent__"], na.rm = TRUE)
+        v <- np$Value[np$Parameter == "divergent__"]
+        # sum(na.rm = TRUE) of an absent or all-NA divergence column is 0, which
+        # would read as "no divergences observed" when in fact none were REPORTED;
+        # distinguish the two so the verdict below cannot rest on a missing value.
+        if (length(v) == 0 || all(is.na(v))) NA_real_ else sum(v, na.rm = TRUE)
       }, error = function(e) NA_real_)
       if (is.finite(n_div) && n_div > 0) {
         msgs <- c(msgs, sprintf(
@@ -198,13 +202,20 @@ maihda_fit_diagnostics <- function(model) {
           as.integer(n_div)))
       }
       diagnostics$messages <- msgs
-      # "No warning" only means "converged" when a diagnostic was actually
-      # available to raise one. A one-chain fit, a variational/approximate
-      # algorithm, or an unusual object can leave BOTH the maximum Rhat and the
-      # divergence count non-finite; there is then no evidence either way, so
-      # leave converged = NA rather than silently reporting a clean fit.
-      any_diag <- is.finite(max_rhat) || is.finite(n_div)
-      diagnostics$converged <- if (any_diag) length(msgs) == 0 else NA
+      # Only Rhat can support a POSITIVE verdict. The divergence count is a check on
+      # the sampler's geometry, not on whether the chains mixed: zero divergences
+      # says a pathology was not detected, never that the fit converged. So a clean
+      # divergence count alone leaves converged = NA (no evidence either way) rather
+      # than reporting a clean fit -- as for a variational/approximate algorithm or
+      # an unusual object, where Rhat is unavailable. A diagnostic that DID flag a
+      # problem still yields FALSE.
+      diagnostics$converged <- if (length(msgs) > 0) {
+        FALSE
+      } else if (is.finite(max_rhat)) {
+        TRUE
+      } else {
+        NA
+      }
     }
   }
 
@@ -2995,12 +3006,13 @@ maihda_check_known_strata <- function(stratum, known, type = "individual") {
 # dimension columns set the fixed effects, so a row whose stratum and dimensions
 # disagree would silently pair one intersection's fixed part with another's random
 # effect -- a prediction belonging to no real stratum. When BOTH are present we
-# rebuild the stratum each row's dimensions imply and compare. Rows whose dimensions
-# are incomplete or fall outside the training auto-bin ranges (rebuilt stratum NA)
-# cannot be cross-checked and are left to the normal path; a genuinely new
-# combination that maps to no training stratum is likewise NA and handled by the
-# allow_new_levels logic downstream, not here. A no-op unless the dimension columns,
-# the stored label table and the supplied stratum column are all available.
+# rebuild the stratum each row's dimensions imply and compare -- a training stratum
+# id where the combination was seen, otherwise the combination's own label, which is
+# what the rebuild path names such a row. Only rows whose dimensions cannot be
+# resolved at all (incomplete, or a numeric value outside the training auto-bin
+# ranges) are exempt, and the exemption applies to those rows alone. A no-op unless
+# the dimension columns, the stored label table and the supplied stratum column are
+# all available.
 maihda_check_stratum_matches_dims <- function(object, newdata) {
   if (!"stratum" %in% names(newdata)) {
     return(invisible(NULL))
@@ -3015,28 +3027,43 @@ maihda_check_stratum_matches_dims <- function(object, newdata) {
       !all(strata_vars %in% names(newdata))) {
     return(invisible(NULL))
   }
-  # A numeric dimension outside the training auto-bin range cannot be mapped to a
-  # training stratum; skip the whole check rather than misread it as a contradiction.
-  if (length(maihda_autobin_out_of_range(newdata, object$strata_autobin_info)) > 0) {
-    return(invisible(NULL))
-  }
   sep <- object$strata_sep
   if (is.null(sep) || length(sep) != 1) {
     sep <- paste0(" ", intToUtf8(0x00D7), " ")
   }
+  # The stratum each row's dimensions imply. A complete combination the model SAW
+  # maps to its training stratum id. A complete combination it never saw maps to no
+  # id, but it is still fully identified -- by the label the rebuild path below would
+  # give it (maihda_prepare_prediction_data() assigns labels[unknown] there) -- so
+  # fall back to that label instead of skipping the row: otherwise a supplied KNOWN
+  # stratum silently lends its random effect to an unseen intersection's fixed
+  # effects, exactly the pairing this check exists to prevent.
   rebuilt <- as.character(maihda_stratum_lookup(
     newdata, strata_info, strata_vars, sep, object$strata_autobin_info))
+  labels <- maihda_stratum_labels(newdata, strata_vars, sep, object$strata_autobin_info)
+  implied <- ifelse(is.na(rebuilt), labels, rebuilt)
+  # Only a row whose dimensions cannot be resolved AT ALL goes unchecked: an
+  # incomplete (NA) combination, or a numeric dimension outside the training
+  # auto-bin range -- both cut() to NA and so leave `implied` NA. That exemption is
+  # PER ROW; it previously short-circuited the whole function, so one out-of-range
+  # row disabled contradiction checking for every other row in the same newdata.
   supplied <- as.character(newdata$stratum)
-  mismatch <- !is.na(supplied) & !is.na(rebuilt) & supplied != rebuilt
+  mismatch <- !is.na(supplied) & !is.na(implied) & supplied != implied
   if (any(mismatch)) {
     i <- which(mismatch)[1]
+    identifies <- if (is.na(rebuilt[i])) {
+      sprintf("identify '%s', a combination that was not present when the model was fit",
+              implied[i])
+    } else {
+      sprintf("identify stratum '%s'", implied[i])
+    }
     stop(sprintf(paste0(
       "newdata row %d gives stratum '%s', but its intersectional dimension ",
-      "column(s) (%s) identify stratum '%s'. A supplied 'stratum' must match the ",
+      "column(s) (%s) %s. A supplied 'stratum' must match the ",
       "dimension columns; otherwise the prediction would combine one intersection's ",
       "fixed effects with another's random effect. Supply the 'stratum' column or ",
       "the dimension columns, or correct them to agree."),
-      i, supplied[i], paste(strata_vars, collapse = ", "), rebuilt[i]),
+      i, supplied[i], paste(strata_vars, collapse = ", "), identifies),
       call. = FALSE)
   }
   invisible(NULL)

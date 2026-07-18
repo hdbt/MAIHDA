@@ -12,9 +12,10 @@
 ## Bug fixes
 
 * `calculate_pcv(bootstrap = TRUE)` now permutes each simulated response into each model's own row order before refitting, so a bootstrap across two fits of the same observations in a different row order no longer corrupts the interval.
-* Individual predictions now reject a supplied `stratum` that contradicts the intersectional dimension columns in the same `newdata`, instead of pairing one intersection's fixed effects with another's random effect.
+* Individual predictions now reject a supplied `stratum` that contradicts the intersectional dimension columns in the same `newdata`, instead of pairing one intersection's fixed effects with another's random effect. The check also covers dimension combinations the model never saw, and a row whose dimensions cannot be resolved no longer exempts the rest of the `newdata`.
 * `lme4` convergence reporting now also consults the optimizer return code and message, so a fit whose optimizer stopped early (e.g. `bobyqa` hitting `maxfun`) is no longer reported as converged when `lme4`'s own gradient check happens to pass.
 * `brms` individual predictions with `allow_new_levels = TRUE` now zero every unseen grouping level (context and longitudinal, not only stratum) to match `lme4`, instead of sampling unseen non-stratum effects from the random-effects distribution.
+* Zeroing an unseen grouping level no longer overrides a caller-supplied `re_formula` or `re.form`. The requested scope is narrowed to drop the unseen terms rather than replaced, so `re_formula = NA` stays a fixed-effects-only prediction and a partial `re_formula` is not swapped for a different term.
 * Longitudinal PCV now records `estimation_used` (`"fitted"`, `"ML"`, or `"mixed"`), so a boundary skip or failed ML refit that leaves a mixed REML/ML comparison is reported rather than mistaken for a clean fitted one.
 * `calculate_pcv()`, `compare_maihda()`, and `maihda_ic()` now treat two fits to the same observations supplied in a different row order as the same analytic sample, instead of rejecting the reordered fit or warning about a differing sample. The comparison aligns on the row identifiers and matches the response, stratum partition, and weights after alignment.
 * Longitudinal PCV calculations now return `NA` when the null growth variance is effectively zero. The result records this in `null_at_boundary`.
@@ -45,7 +46,7 @@
 * The AUC scope is now labelled `"intersectional"` when fixed effects contribute to the prediction.
 * Crossed-dimensions response-scale VPCs now include additive dimension variances in the between-stratum component.
 * Contextual binary models now report discriminatory accuracy and optional response-scale VPCs.
-* `brms` convergence is reported as unknown when no MCMC diagnostic is available.
+* `brms` convergence is reported as unknown unless an R-hat is available; a divergent-transition count alone is not evidence that the chains converged.
 * Optional summaries and plots now warn when a requested component fails instead of silently omitting it.
 * WAIC and PSIS-LOO reliability warnings are now passed through.
 * Bootstrap requests below 200 replications now warn about unstable percentile intervals.

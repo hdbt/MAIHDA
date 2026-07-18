@@ -295,8 +295,12 @@ test_that("clmm predictions work on both scales and respect newdata strata", {
   )
 
   # Public individual predictions reject an unseen stratum by default rather than
-  # silently returning a fixed-only (0-random-effect) prediction.
+  # silently returning a fixed-only (0-random-effect) prediction. The stratum is
+  # supplied DIRECTLY, so the dimension columns are dropped: leaving them in place
+  # would keep identifying the copied row's own stratum, which a supplied 'stratum'
+  # must agree with (see the contradiction check in maihda_prepare_prediction_data).
   nd_unseen <- m$data[1, , drop = FALSE]
+  nd_unseen[c("gender", "race", "edu")] <- NULL
   nd_unseen$stratum <- "999"
   expect_error(
     predict_maihda(m, newdata = nd_unseen, type = "individual", scale = "link"),
