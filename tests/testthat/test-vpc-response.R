@@ -211,8 +211,12 @@ test_that("response-scale VPC integrates the non-stratum effect by exact quadrat
   wq <- gh$weights
   P <- stats::plogis(outer(us, z, `+`) + eta0)
   ms <- as.vector(P %*% wq)
+  # Total variance by the law of total variance, so the between piece matches the
+  # numerator's estimator exactly (see the 2026-07-28 audit): the earlier reference
+  # divided stats::var(ms) (n-1) by pooled population moments (n), inflating the VPC
+  # by n/(n-1).
   ref <- stats::var(ms) /
-    (max(mean(as.vector((P * P) %*% wq)) - mean(ms)^2, 0) +
+    (stats::var(ms) + mean(pmax(as.vector((P * P) %*% wq) - ms^2, 0)) +
        mean(as.vector((P * (1 - P)) %*% wq)))
   expect_equal(v$estimate, ref, tolerance = 1e-9)
 })

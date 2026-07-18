@@ -80,6 +80,13 @@ A data.frame (class \code{maihda_stepwise}) showing the sequential
   recorded as \code{"estimation_used"} (\code{"mixed"} when \code{estimation = "ML"}
   but a step's ML refit was skipped at the boundary, leaving it on REML). Both are
   shown by \code{print()}.
+
+  \code{Step_PCV} is \code{NA} for any step whose \emph{preceding} model has a
+  between-stratum variance at the singularity boundary: that variance is the step's
+  denominator, and at the boundary it carries only optimizer noise, so the ratio is
+  undefined rather than small. Those steps are listed in an
+  \code{"undefined_step_pcv"} attribute and noted by \code{print()}. \code{Total_PCV}
+  is unaffected, since it divides by the null model's variance.
 }
 \description{
 Estimates the proportional change in variance (PCV) sequentially by fitting

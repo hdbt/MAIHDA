@@ -266,9 +266,15 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
     p_mat <- linkinv(outer(u, z, `+`) + lp_fixed)          # n_sim x inner_nodes
     m_stratum <- as.vector(p_mat %*% wq)                   # E[p | u_i], exact inner
     v_between <- stats::var(m_stratum)
-    e_p <- mean(m_stratum)                                 # E[p]
-    e_p2 <- mean(as.vector((p_mat * p_mat) %*% wq))        # E[p^2]
-    v_total_p <- max(e_p2 - e_p^2, 0)                      # Var(p) over the joint
+    # Var(p) over the joint distribution via the LAW OF TOTAL VARIANCE, so the
+    # between piece of the denominator is the SAME estimator as the numerator.
+    # Reading it instead off pooled population moments (E[p^2] - E[p]^2) divides an
+    # n-1 sample variance by a total whose between part uses n, inflating the VPC by
+    # exactly n/(n-1) -- 1.01% at the allowed minimum n_sim = 100. The inner term is
+    # a mean of per-draw quantities, already on that same footing. This form is also
+    # exactly continuous with the var_other == 0 branch below, where it vanishes.
+    v_cond <- as.vector((p_mat * p_mat) %*% wq) - m_stratum^2   # Var(p | u_i)
+    v_total_p <- v_between + mean(pmax(v_cond, 0))         # Var(p) over the joint
     v_within <- mean(as.vector((p_mat * (1 - p_mat)) %*% wq))  # E[p(1-p)]
     vpc <- v_between / (v_total_p + v_within)
   } else {

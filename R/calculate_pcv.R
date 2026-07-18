@@ -1181,6 +1181,13 @@ maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
 #'   but a step's ML refit was skipped at the boundary, leaving it on REML). Both are
 #'   shown by \code{print()}.
 #'
+#'   \code{Step_PCV} is \code{NA} for any step whose \emph{preceding} model has a
+#'   between-stratum variance at the singularity boundary: that variance is the step's
+#'   denominator, and at the boundary it carries only optimizer noise, so the ratio is
+#'   undefined rather than small. Those steps are listed in an
+#'   \code{"undefined_step_pcv"} attribute and noted by \code{print()}. \code{Total_PCV}
+#'   is unaffected, since it divides by the null model's variance.
+#'
 #' @details
 #' All models are fit on the complete cases for `outcome`, `stratum`, and all
 #' variables in `vars` so that each sequential variance comparison uses the same
@@ -1342,6 +1349,12 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   # their Total_PCV saturates near 100% as an artefact of a singular fit, not genuine
   # attenuation (the same status calculate_pcv() flags for its adjusted model2).
   boundary_steps <- character(0)
+  # Steps whose Step_PCV is left NA because the PREVIOUS model -- their denominator --
+  # was itself at the boundary (see the gate below).
+  undefined_step_pcv <- character(0)
+  # The null model is hard-stopped at the boundary above, so the first step always
+  # divides by a healthy denominator; only a later step can inherit a degenerate one.
+  prev_at_boundary <- FALSE
 
   for (i in seq_along(vars)) {
     current_terms <- c(current_terms, model_terms[i])
@@ -1355,7 +1368,8 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     curr_var <- extract_between_variance(mod)
     if (isTRUE(mod$ml_refit_skipped_boundary)) ml_refit_skipped <- TRUE
     if (isTRUE(mod$ml_refit_failed)) ml_refit_failed_any <- TRUE
-    if (maihda_pcv_null_at_boundary(mod)) {
+    curr_at_boundary <- maihda_pcv_null_at_boundary(mod)
+    if (curr_at_boundary) {
       boundary_steps <- c(boundary_steps, vars[i])
     }
 
@@ -1369,7 +1383,20 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
       ctx_var_vec[i + 1] <- maihda_stepwise_context_variance(mod, context)
     }
 
-    step_pcv <- if (prev_var > 0) (prev_var - curr_var) / prev_var else NA
+    # Step_PCV divides by the PREVIOUS step's variance, so once that model sits on the
+    # singularity boundary the ratio is built from two optimizer artefacts rather than
+    # from any attenuation. lme4 usually returns an exact zero there (which prev_var > 0
+    # already catches), but the wemix and ordinal optimizers return a tiny POSITIVE
+    # value that passes it -- a 1.4e-21 -> 4.0e-16 wemix pair reports a Step_PCV of
+    # -276564 (-27656406%) -- so the boundary flag, not the sign, has to gate this.
+    # Total_PCV is unaffected: its denominator is the null variance, kept healthy by
+    # the hard stop above, so it stays available for every step.
+    if (prev_at_boundary) undefined_step_pcv <- c(undefined_step_pcv, vars[i])
+    step_pcv <- if (!prev_at_boundary && prev_var > 0) {
+      (prev_var - curr_var) / prev_var
+    } else {
+      NA_real_
+    }
     total_pcv <- if (null_var > 0) (null_var - curr_var) / null_var else NA
 
     results[i + 1, ] <- list(
@@ -1382,6 +1409,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     )
 
     prev_var <- curr_var
+    prev_at_boundary <- curr_at_boundary
   }
 
   # A singular (boundary) adjusted fit at some step makes that step's Total_PCV read as
@@ -1421,6 +1449,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   attr(results, "estimation_used") <- maihda_pcv_estimation_used(
     estimation, ml_refit_skipped || ml_refit_failed_any, engine = engine)
   attr(results, "boundary_steps") <- boundary_steps
+  attr(results, "undefined_step_pcv") <- undefined_step_pcv
   class(results) <- c("maihda_stepwise", "data.frame")
   return(results)
 }
@@ -1459,6 +1488,15 @@ print.maihda_stepwise <- function(x, ...) {
       "consistent with genuinely additive strata (no interaction beyond the main effects)\n",
       "as well as a degenerate fit; the two cannot be told apart.\n"),
       paste(bstep, collapse = ", "))))
+  }
+  ustep <- attr(x, "undefined_step_pcv")
+  if (length(ustep) > 0) {
+    cat(maihda_palette()$muted(sprintf(paste0(
+      "\nNote: Step_PCV is NA after adding: %s. Each of these steps is measured against\n",
+      "a preceding model whose between-stratum variance is at the singularity boundary,\n",
+      "so the denominator carries only optimizer noise and the step ratio is undefined.\n",
+      "Total_PCV is unaffected -- it divides by the null model's variance.\n"),
+      paste(ustep, collapse = ", "))))
   }
   invisible(x)
 }

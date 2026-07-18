@@ -11,6 +11,8 @@
 
 ## Bug fixes
 
+* `stepwise_pcv()` now reports `Step_PCV` as `NA` when the preceding step's between-stratum variance is at the singularity boundary, instead of dividing by optimizer noise. The affected steps are listed in an `"undefined_step_pcv"` attribute and noted by `print()`; `Total_PCV` is unchanged.
+* The response-scale VPC for a model with non-stratum random effects now estimates the total probability variance on the same basis as its numerator, removing an `n_sim / (n_sim - 1)` inflation that was largest at small `n_sim`.
 * `calculate_pcv(bootstrap = TRUE)` now permutes each simulated response into each model's own row order before refitting, so a bootstrap across two fits of the same observations in a different row order no longer corrupts the interval.
 * Individual predictions now reject a supplied `stratum` that contradicts the intersectional dimension columns in the same `newdata`, instead of pairing one intersection's fixed effects with another's random effect. The check also covers dimension combinations the model never saw, and a row whose dimensions cannot be resolved no longer exempts the rest of the `newdata`.
 * Predictions now check the numeric auto-bin ranges whether or not `newdata` supplies a `stratum` column. A row whose auto-binned numeric dimension falls outside the training range previously went unremarked when a `stratum` was supplied, silently pairing that stratum's random effect with a combination the training bins cannot contain; it now warns. Existing results are unchanged, and the warning will become an error in a future release.
