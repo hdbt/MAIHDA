@@ -33,7 +33,9 @@
 - Individual predictions now reject a supplied `stratum` that
   contradicts the intersectional dimension columns in the same
   `newdata`, instead of pairing one intersection’s fixed effects with
-  another’s random effect.
+  another’s random effect. The check also covers dimension combinations
+  the model never saw, and a row whose dimensions cannot be resolved no
+  longer exempts the rest of the `newdata`.
 - `lme4` convergence reporting now also consults the optimizer return
   code and message, so a fit whose optimizer stopped early
   (e.g. `bobyqa` hitting `maxfun`) is no longer reported as converged
@@ -42,6 +44,11 @@
   every unseen grouping level (context and longitudinal, not only
   stratum) to match `lme4`, instead of sampling unseen non-stratum
   effects from the random-effects distribution.
+- Zeroing an unseen grouping level no longer overrides a caller-supplied
+  `re_formula` or `re.form`. The requested scope is narrowed to drop the
+  unseen terms rather than replaced, so `re_formula = NA` stays a
+  fixed-effects-only prediction and a partial `re_formula` is not
+  swapped for a different term.
 - Longitudinal PCV now records `estimation_used` (`"fitted"`, `"ML"`, or
   `"mixed"`), so a boundary skip or failed ML refit that leaves a mixed
   REML/ML comparison is reported rather than mistaken for a clean fitted
@@ -133,8 +140,9 @@
   variances in the between-stratum component.
 - Contextual binary models now report discriminatory accuracy and
   optional response-scale VPCs.
-- `brms` convergence is reported as unknown when no MCMC diagnostic is
-  available.
+- `brms` convergence is reported as unknown unless an R-hat is
+  available; a divergent-transition count alone is not evidence that the
+  chains converged.
 - Optional summaries and plots now warn when a requested component fails
   instead of silently omitting it.
 - WAIC and PSIS-LOO reliability warnings are now passed through.

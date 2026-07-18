@@ -67,11 +67,12 @@
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>
 <code>calculate_pcv(bootstrap = TRUE)</code> now permutes each simulated response into each model’s own row order before refitting, so a bootstrap across two fits of the same observations in a different row order no longer corrupts the interval.</li>
-<li>Individual predictions now reject a supplied <code>stratum</code> that contradicts the intersectional dimension columns in the same <code>newdata</code>, instead of pairing one intersection’s fixed effects with another’s random effect.</li>
+<li>Individual predictions now reject a supplied <code>stratum</code> that contradicts the intersectional dimension columns in the same <code>newdata</code>, instead of pairing one intersection’s fixed effects with another’s random effect. The check also covers dimension combinations the model never saw, and a row whose dimensions cannot be resolved no longer exempts the rest of the <code>newdata</code>.</li>
 <li>
 <code>lme4</code> convergence reporting now also consults the optimizer return code and message, so a fit whose optimizer stopped early (e.g. <code>bobyqa</code> hitting <code>maxfun</code>) is no longer reported as converged when <code>lme4</code>’s own gradient check happens to pass.</li>
 <li>
 <code>brms</code> individual predictions with <code>allow_new_levels = TRUE</code> now zero every unseen grouping level (context and longitudinal, not only stratum) to match <code>lme4</code>, instead of sampling unseen non-stratum effects from the random-effects distribution.</li>
+<li>Zeroing an unseen grouping level no longer overrides a caller-supplied <code>re_formula</code> or <code>re.form</code>. The requested scope is narrowed to drop the unseen terms rather than replaced, so <code>re_formula = NA</code> stays a fixed-effects-only prediction and a partial <code>re_formula</code> is not swapped for a different term.</li>
 <li>Longitudinal PCV now records <code>estimation_used</code> (<code>"fitted"</code>, <code>"ML"</code>, or <code>"mixed"</code>), so a boundary skip or failed ML refit that leaves a mixed REML/ML comparison is reported rather than mistaken for a clean fitted one.</li>
 <li>
 <code><a href="../reference/calculate_pcv.html">calculate_pcv()</a></code>, <code><a href="../reference/compare_maihda.html">compare_maihda()</a></code>, and <code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> now treat two fits to the same observations supplied in a different row order as the same analytic sample, instead of rejecting the reordered fit or warning about a differing sample. The comparison aligns on the row identifiers and matches the response, stratum partition, and weights after alignment.</li>
@@ -110,7 +111,7 @@
 <li>Crossed-dimensions response-scale VPCs now include additive dimension variances in the between-stratum component.</li>
 <li>Contextual binary models now report discriminatory accuracy and optional response-scale VPCs.</li>
 <li>
-<code>brms</code> convergence is reported as unknown when no MCMC diagnostic is available.</li>
+<code>brms</code> convergence is reported as unknown unless an R-hat is available; a divergent-transition count alone is not evidence that the chains converged.</li>
 <li>Optional summaries and plots now warn when a requested component fails instead of silently omitting it.</li>
 <li>WAIC and PSIS-LOO reliability warnings are now passed through.</li>
 <li>Bootstrap requests below 200 replications now warn about unstable percentile intervals.</li>
