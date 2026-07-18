@@ -86,8 +86,11 @@ test_that("one out-of-range row does not disable the check for the rest of newda
   expect_error(f(obj, rbind(contradiction, out_of_range)), "identify stratum '1'")
   expect_error(f(obj, rbind(out_of_range, contradiction)), "identify stratum '1'")
 
-  # The out-of-range row on its own stays exempt (its bin, and so its stratum,
-  # genuinely cannot be determined) -- as does an incomplete combination.
+  # The out-of-range row on its own stays exempt WITHIN this helper (its bin, and
+  # so the stratum it implies, cannot be determined here) -- as does an incomplete
+  # combination. It is not unremarked, though: since the 2026-07-27 audit the
+  # caller separately warns about it via maihda_check_autobin_in_range(), ahead of
+  # the supplied-'stratum' early return (see test-audit-2026-07-27.R).
   expect_null(f(obj, out_of_range))
   expect_null(f(obj, data.frame(gender = NA_character_, income = 25, stratum = "3",
                                 stringsAsFactors = FALSE)))

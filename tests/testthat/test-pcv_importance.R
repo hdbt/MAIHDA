@@ -323,10 +323,17 @@ test_that("print and plot methods work for every attribution flavour", {
     pcv_importance(d, "y", c("gender", "race"), method = "dominance"))
   sq <- suppressWarnings(suppressMessages(
     pcv_importance(d, "y", c("gender", "race"), method = "sequential")))
+  # n_perm = 60 is deliberately low (it keeps the print fixture cheap and pins the
+  # "60 permutations" header below), which is few enough that the largest MC_SE
+  # exceeds 0.01 -- so the package's own convergence warning fires. Assert it
+  # rather than letting it escape as a stray suite warning; it is not seed
+  # sensitive, this fixture warns at n_perm = 60 for any seed.
   set.seed(3)
-  mc <- suppressMessages(
-    pcv_importance(d, "y", c("gender", "race"), approx = "montecarlo",
-                   n_perm = 60))
+  mc <- expect_warning(
+    suppressMessages(
+      pcv_importance(d, "y", c("gender", "race"), approx = "montecarlo",
+                     n_perm = 60)),
+    "largest Monte-Carlo standard error")
 
   expect_output(print(imp), "Shapley values \\(exact\\)")
   expect_output(print(imp), "Total PCV")

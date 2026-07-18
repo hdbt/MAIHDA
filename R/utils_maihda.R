@@ -2895,6 +2895,61 @@ maihda_autobin_out_of_range <- function(data, autobin_info) {
   out
 }
 
+# Flag prediction rows whose numeric stratum dimension lies outside the stored
+# auto-bin range. Such a value falls in NO training bin, so the intersection the
+# row names cannot exist in the fitted model.
+#
+# The two prediction paths differ in severity, deliberately.
+#
+# The REBUILD path (no 'stratum' column) must ERROR: with no bin for the value
+# there is no stratum to predict with, so there is nothing to return. Long-standing
+# behaviour, unchanged.
+#
+# The SUPPLIED-'stratum' path only WARNS. Such a row is not merely unresolvable but
+# resolvably outside every intersection the bins can contain, so the supplied
+# stratum does not resolve it, it contradicts it -- honouring it lends a training
+# stratum's random effect to a combination the stored bins cannot hold. That is the
+# same class of defect maihda_check_stratum_matches_dims() rejects outright, and it
+# cannot catch this case itself (an out-of-range value cut()s to NA, so the implied
+# stratum is NA and the row is exempt there as "unresolvable"). It is nonetheless
+# only a warning: erroring would break callers who relied on the previous silent
+# behaviour, so the escalation to an error is deferred to a future release.
+#
+# Warning does NOT guarantee the call completes. Where the model carries the binned
+# dimension as a FIXED effect too (any adjusted / cross-classified fit), the row's
+# .maihda_dim_<var> is NA, so the model matrix cannot be built and the engine fails
+# downstream with its own opaque message. That is pre-existing behaviour -- it is
+# what happened before this check existed -- and it is precisely what escalating to
+# an error would replace with an explanatory one. Only a fit that does not use the
+# binned dimension as a fixed effect (e.g. the null model) actually returns a value.
+#
+# Either way the check sits ahead of the supplied-'stratum' early return, so no
+# path can skip it, and neither branch is relaxed by allow_new_levels: a row in no
+# bin is not a "new level" the population average can stand in for.
+maihda_check_autobin_in_range <- function(newdata, autobin_info,
+                                          has_stratum = FALSE) {
+  out_of_range <- maihda_autobin_out_of_range(newdata, autobin_info)
+  if (length(out_of_range) == 0) {
+    return(invisible(NULL))
+  }
+  ranges <- paste(out_of_range, collapse = "; ")
+  if (!isTRUE(has_stratum)) {
+    stop("Cannot rebuild 'stratum' for prediction because numeric grouping values ",
+         "fall outside the training auto-bin ranges: ", ranges, ".",
+         call. = FALSE)
+  }
+  warning("newdata has numeric grouping values outside the training auto-bin ",
+          "ranges: ", ranges, ". Such a row lies outside every intersection the ",
+          "training bins can contain, so the supplied 'stratum' pairs that ",
+          "stratum's random effect with a combination the model never held. This ",
+          "will become an error in a future release; where the model also uses the ",
+          "binned dimension as a fixed effect the prediction cannot complete at ",
+          "all. Drop the out-of-range row(s), or correct the dimension column(s) ",
+          "to agree with the supplied stratum.",
+          call. = FALSE)
+  invisible(NULL)
+}
+
 # Row-wise display labels from stratum-defining columns, joining each row's
 # values with `sep`. Each column is converted with as.character() individually --
 # NOT via apply(), whose as.matrix() coercion runs numeric columns through
@@ -3010,9 +3065,12 @@ maihda_check_known_strata <- function(stratum, known, type = "individual") {
 # id where the combination was seen, otherwise the combination's own label, which is
 # what the rebuild path names such a row. Only rows whose dimensions cannot be
 # resolved at all (incomplete, or a numeric value outside the training auto-bin
-# ranges) are exempt, and the exemption applies to those rows alone. A no-op unless
-# the dimension columns, the stored label table and the supplied stratum column are
-# all available.
+# ranges) are exempt, and the exemption applies to those rows alone. The
+# out-of-range case is not silent, though: it is a contradiction rather than a
+# genuine unknown, and maihda_check_autobin_in_range() warns about it upstream (it
+# cannot be caught here, since an out-of-range value cut()s to NA and so leaves the
+# implied stratum NA). A no-op unless the dimension columns, the stored label table
+# and the supplied stratum column are all available.
 maihda_check_stratum_matches_dims <- function(object, newdata) {
   if (!"stratum" %in% names(newdata)) {
     return(invisible(NULL))
@@ -3047,6 +3105,8 @@ maihda_check_stratum_matches_dims <- function(object, newdata) {
   # auto-bin range -- both cut() to NA and so leave `implied` NA. That exemption is
   # PER ROW; it previously short-circuited the whole function, so one out-of-range
   # row disabled contradiction checking for every other row in the same newdata.
+  # The out-of-range row is separately warned about by the caller's
+  # maihda_check_autobin_in_range() call, so it is exempt here but not unremarked.
   supplied <- as.character(newdata$stratum)
   mismatch <- !is.na(supplied) & !is.na(implied) & supplied != implied
   if (any(mismatch)) {
@@ -3104,7 +3164,21 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
   # the population average); stratum-level predictions always require known strata.
   permit_new <- isTRUE(allow_new_levels) && identical(type, "individual")
 
-  if ("stratum" %in% names(newdata)) {
+  has_stratum <- "stratum" %in% names(newdata)
+
+  # Ahead of the supplied-'stratum' early return, so a numeric dimension outside
+  # the training auto-bin ranges is seen on BOTH paths. Previously only the rebuild
+  # path below checked, so supplying a 'stratum' bypassed the bin bounds silently
+  # and attached that stratum's random effect to a row the bins cannot contain.
+  # Errors on the rebuild path (no stratum can be derived), warns on the supplied
+  # path (see the helper for why warning does not guarantee the call completes).
+  # A no-op unless a numeric dimension was auto-binned AND its source column is
+  # present in newdata (when the dimension columns are absent there is nothing to
+  # range-check, exactly as there is nothing to cross-check below).
+  maihda_check_autobin_in_range(newdata, object$strata_autobin_info,
+                                has_stratum = has_stratum)
+
+  if (has_stratum) {
     # A caller-supplied 'stratum' column previously skipped validation entirely,
     # so a misspelled or genuinely new stratum silently flowed through to a
     # fixed-only prediction (the WeMix/ordinal helpers map an unseen stratum's
@@ -3147,13 +3221,8 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
     sep <- " \u00d7 "
   }
 
-  out_of_range <- maihda_autobin_out_of_range(newdata, object$strata_autobin_info)
-  if (length(out_of_range) > 0) {
-    stop("Cannot rebuild 'stratum' for prediction because numeric grouping values ",
-         "fall outside the training auto-bin ranges: ",
-         paste(out_of_range, collapse = "; "), ".",
-         call. = FALSE)
-  }
+  # (The auto-bin range check ran above, ahead of the supplied-'stratum' early
+  # return, so it covers this path too.)
 
   labels <- maihda_stratum_labels(newdata, strata_vars, sep, object$strata_autobin_info)
   newdata$stratum <- maihda_stratum_lookup(
