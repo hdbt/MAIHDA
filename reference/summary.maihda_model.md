@@ -173,20 +173,22 @@ share. For non-Gaussian families the level-1 (residual) variance uses a
 latent/distributional approximation (\\\pi^2/3\\ for logistic;
 \\\log(1 + 1/\lambda)\\ for Poisson per Stryhn et al. 2006 and
 \\\log(1 + 1/\lambda + 1/\theta)\\ for the negative binomial per
-Nakagawa, Johnson & Schielzeth 2017, each evaluated at the *marginal*
-expected count \\\lambda_i = \exp(x_i'\beta + v_i/2)\\ – the fixed-part
-prediction with the log-normal correction for the row's total
-random-effect variance \\v_i\\, which reduces to Nakagawa et al.'s
-\\\lambda = \exp(\beta_0 + \sigma^2/2)\\ in the null model – and
-averaged over the analytic sample, *not* at the conditional fitted
-means, whose BLUPs would tie the level-1 variance to the realized random
-effects), so the VPC is on that latent scale; for a *weighted* Gaussian
-model the level-1 variance is the mean conditional residual variance,
-\\\bar{\sigma^2 / w_i}\\, since the per-observation residual variance is
-\\\sigma^2 / w_i\\. The stratum random effects represent the total
-between-stratum deviation; they equal the *pure* intersectional
-(interaction) component only when the additive main effects of the
-strata variables are included in the model.
+Nakagawa, Johnson & Schielzeth 2017, each evaluated at a single
+*marginal* expected count \\\lambda\\: the mean over the analytic sample
+of the row-level \\\lambda_i = \exp(x_i'\beta + v_i/2)\\ – the
+fixed-part prediction with the log-normal correction for the row's total
+random-effect variance \\v_i\\. The counts are averaged *before* the
+transform, which is where the cited \\\lambda\\ is defined and which
+reduces to Nakagawa et al.'s \\\lambda = \exp(\beta_0 + \sigma^2/2)\\ in
+the null model; *not* at the conditional fitted means, whose BLUPs would
+tie the level-1 variance to the realized random effects), so the VPC is
+on that latent scale; for a *weighted* Gaussian model the level-1
+variance is the mean conditional residual variance, \\\bar{\sigma^2 /
+w_i}\\, since the per-observation residual variance is \\\sigma^2 /
+w_i\\. The stratum random effects represent the total between-stratum
+deviation; they equal the *pure* intersectional (interaction) component
+only when the additive main effects of the strata variables are included
+in the model.
 
 ## Examples
 

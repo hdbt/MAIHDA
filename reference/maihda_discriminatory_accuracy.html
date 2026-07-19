@@ -207,16 +207,21 @@ full and intersectional scopes coincide and only <code>auc</code> is reported
   sampling weight as case/control mass, estimating the population discriminatory
   accuracy); <code>n_case</code> / <code>n_control</code> stay unweighted observation counts.
   <code>weight_type</code> is <code>NULL</code> for an unweighted AUC. An
-  <strong>aggregated-binomial</strong> fit (an lme4 <code>cbind(success, failure)</code> or a
-  brms <code>y | trials(n)</code> model) is reported <code>weighted = FALSE</code> with
+  <strong>aggregated-binomial</strong> fit is reported <code>weighted = FALSE</code> with
   <code>weight_type = NULL</code>: its count-weighted AUC equals the ordinary
   individual-level concordance over the implied 0/1 data (the trial counts are
   real observations, not sampling weights), so it is not a design-weighted
-  population quantity.
-  <strong>lme4 precision weights</strong> (non-integer <code>weights=</code> on a Bernoulli fit)
-  scale likelihood/dispersion, not population frequency, so they carry no
-  population-AUC interpretation: the AUC ignores them and reports the ordinary
-  observation-level concordance (<code>weighted = FALSE</code>), with
+  population quantity. Aggregation is recognised <em>structurally</em> – an lme4
+  <code>cbind(success, failure)</code> matrix response, an lme4 proportion response
+  whose integer trial counts are supplied as <code>weights=</code> (see
+  <code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></code>), or a brms <code>y | trials(n)</code> term. Note that an
+  aggregated fit whose every row is all-success or all-failure has a proportion
+  response of exactly 0/1 and so cannot be distinguished from a Bernoulli fit;
+  write <code>cbind(successes, failures)</code> for such data.
+  <strong>lme4 precision weights</strong> (any non-unit <code>weights=</code> on a Bernoulli
+  fit, integer or not) scale likelihood/dispersion, not population frequency, so
+  they carry no population-AUC interpretation: the AUC ignores them and reports
+  the ordinary observation-level concordance (<code>weighted = FALSE</code>), with
   <code>precision_weights_ignored = TRUE</code> flagging that such weights were present.</p>
     </div>
     <div class="section level2">

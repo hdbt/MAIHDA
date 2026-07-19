@@ -215,14 +215,15 @@ expensive \(ndraws \times nobs\) computation.</p>
   latent/distributional approximation (\(\pi^2/3\) for logistic;
   \(\log(1 + 1/\lambda)\) for Poisson per Stryhn et al. 2006 and
   \(\log(1 + 1/\lambda + 1/\theta)\) for the negative binomial per Nakagawa,
-  Johnson &amp; Schielzeth 2017, each evaluated at the <em>marginal</em> expected
-  count \(\lambda_i = \exp(x_i'\beta + v_i/2)\) – the fixed-part prediction
-  with the log-normal correction for the row's total random-effect variance
-  \(v_i\), which reduces to Nakagawa et al.'s
-  \(\lambda = \exp(\beta_0 + \sigma^2/2)\) in the null model – and
-  averaged over the analytic sample, <em>not</em> at the conditional fitted
-  means, whose BLUPs would tie the level-1 variance to the realized random
-  effects), so the
+  Johnson &amp; Schielzeth 2017, each evaluated at a single <em>marginal</em>
+  expected count \(\lambda\): the mean over the analytic sample of the
+  row-level \(\lambda_i = \exp(x_i'\beta + v_i/2)\) – the fixed-part
+  prediction with the log-normal correction for the row's total random-effect
+  variance \(v_i\). The counts are averaged <em>before</em> the transform,
+  which is where the cited \(\lambda\) is defined and which reduces to
+  Nakagawa et al.'s \(\lambda = \exp(\beta_0 + \sigma^2/2)\) in the null
+  model; <em>not</em> at the conditional fitted means, whose BLUPs would tie the
+  level-1 variance to the realized random effects), so the
   VPC is on that latent scale; for a <em>weighted</em> Gaussian model the level-1
   variance is the mean conditional residual variance,
   \(\bar{\sigma^2 / w_i}\), since the per-observation residual variance is

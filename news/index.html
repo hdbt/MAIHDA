@@ -61,6 +61,7 @@
 <code><a href="../reference/maihda_mor.html">maihda_mor()</a></code> on a crossed-dimensions fit now returns the mixture MOR over pairs of distinct strata instead of applying the independent-strata closed form to the summed variance. Reported values fall, most where the variance sits in the additive dimensions.</li>
 <li>
 <code>fit_maihda(engine = "wemix")</code> now rejects a <code>max_iteration</code> that is not a single whole number of at least 1.</li>
+<li>The Poisson and negative-binomial level-1 variance behind the VPC is now evaluated at a single mean count, <code>log(1 + 1/mean(lambda))</code>, as Stryhn et al. (2006) and Nakagawa, Johnson &amp; Schielzeth (2017) define it, instead of averaging <code>log(1 + 1/lambda_i)</code> over rows. Null-model count VPCs are unchanged; adjusted, offset, weighted, and longitudinal count VPCs rise.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="documentation-development-version">Documentation<a class="anchor" aria-label="anchor" href="#documentation-development-version"></a></h3>
@@ -73,7 +74,8 @@
 </ul></div>
 <div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
-<ul><li>
+<ul><li>Integer <code>weights=</code> on a Bernoulli fit are no longer read as aggregated binomial trial counts by <code><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy()</a></code>. Aggregation is now inferred structurally from a <code><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind()</a></code> matrix response or a proportion response, so precision weights no longer change the AUC estimand or inflate the reported case/control totals.</li>
+<li>
 <code>wemix</code> fits are no longer reported as converged unconditionally. WeMix returns the last iterate without warning when its optimisation is abandoned, so convergence is now judged from its own gradient criterion and reported as <code>NA</code> when no evidence is readable.</li>
 <li>Longitudinal count VPC trajectories now evaluate raw-time fixed-effect terms such as <code>x:wave</code> at the reporting time. Under internal time centering only the derived centered column was moved, so those terms stayed at each row’s own observed time.</li>
 <li>
