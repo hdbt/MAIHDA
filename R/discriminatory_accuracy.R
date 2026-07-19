@@ -194,6 +194,15 @@ maihda_mor_crossed <- function(model) {
   if (is.null(parts)) {
     return(NA_real_)
   }
+  maihda_mor_crossed_from_parts(parts)
+}
+
+# Solve the pair-mixture for the crossed MOR, given the parts (per-pattern contrast
+# variance and pair weights) from maihda_mor_crossed_parts(). Split out as a pure
+# function so the mixture-median logic -- in particular the zero-variance-mass
+# boundary -- can be tested directly without a fitted model. Returns the MOR, or
+# NA_real_ when the median cannot be resolved.
+maihda_mor_crossed_from_parts <- function(parts) {
   v_pair <- 2 * (parts$interaction + as.numeric(parts$pattern %*% parts$dims))
   keep <- is.finite(v_pair) & v_pair > 0
   # Every pair has variance 0 (all components at the boundary): no heterogeneity,
@@ -203,6 +212,15 @@ maihda_mor_crossed <- function(model) {
   }
   w <- parts$weight
   w <- w / sum(w)
+  # The zero-variance pairs put a point mass at 0. When that mass alone is at
+  # least half the total weight, the median |difference| is exactly 0 (the CDF
+  # already reaches 0.5 at x = 0), so the MOR is exp(0) = 1. Handle it here: the
+  # root search below cannot bracket this root -- both endpoints of [eps, hi]
+  # give cdf >= 0.5, so uniroot() errors ("values at end points not of opposite
+  # sign") and the crossed MOR would be reported NA instead of 1.
+  if (sum(w[!keep]) >= 0.5) {
+    return(1)
+  }
   # P(|difference| <= x) marginalised over the pairs. Pairs whose variance is 0
   # contribute a point mass at 0, i.e. probability 1 for every x > 0.
   cdf <- function(x) {

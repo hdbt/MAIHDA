@@ -287,6 +287,7 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
     result$n_boot_ok <- attr(pcv_ci, "n_ok")
     result$mc_se <- attr(pcv_ci, "mc_se")
     result$n_boot_boundary <- attr(pcv_ci, "n_boundary")
+    result$n_boot_nonconverged <- attr(pcv_ci, "n_nonconverged")
   }
 
   class(result) <- c("pcv_result", "pvc_result")
@@ -801,6 +802,9 @@ bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
   # so the initial value is what survives a failure.
   pcv_boot <- rep(NA_real_, n_boot)
   boundary <- rep(FALSE, n_boot)
+  # Count draws that contribute to the interval but whose refit optimiser did not
+  # converge, so the reported n_boot_ok does not silently imply convergence.
+  n_nonconv <- 0L
 
   # Parametric Bootstrap: Simulate new responses from the adjusted model (model2)
   # This mathematically preserves the hierarchical structure (random effects)
@@ -836,6 +840,10 @@ bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
       if (is.finite(var1) && var1 > 0 &&
           !isTRUE(maihda_stratum_at_boundary_lme4(boot_model1))) {
         pcv_boot[i] <- (var1 - var2) / var1
+        if (maihda_lme4_optimizer_failed(boot_model1) ||
+            maihda_lme4_optimizer_failed(boot_model2)) {
+          n_nonconv <- n_nonconv + 1L
+        }
       } else if (is.finite(var1)) {
         boundary[i] <- TRUE
       }
@@ -858,10 +866,25 @@ bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
       n_boundary, n_boot), call. = FALSE)
   }
 
+  # Non-converged draws are retained (an lme4 relative-gradient flag is often a
+  # false positive), but the count is reported so n_boot_ok is not read as implying
+  # convergence that was never checked.
+  if (n_nonconv > 0) {
+    warning(sprintf(paste0(
+      "%d of %d contributing PCV bootstrap draw(s) had an lme4 optimiser that did ",
+      "not converge; they are retained in the interval. n_boot_ok counts converged ",
+      "and non-converged refits alike -- interpret the interval accordingly."),
+      n_nonconv, sum(is.finite(pcv_boot))), call. = FALSE)
+  }
+
   # Reduce to an interval, requiring a minimum number of successful refits and
-  # warning on a high failure rate.
-  ci <- maihda_bootstrap_ci(pcv_boot, n_boot, conf_level, "PCV")
+  # warning on a high failure rate. Boundary draws are a legitimate exclusion (the
+  # PCV is undefined there), not a failure, so they are passed as n_excluded and do
+  # not count against the success-fraction gate.
+  ci <- maihda_bootstrap_ci(pcv_boot, n_boot, conf_level, "PCV",
+                            n_excluded = n_boundary)
   attr(ci, "n_boundary") <- n_boundary
+  attr(ci, "n_nonconverged") <- n_nonconv
 
   return(ci)
 }

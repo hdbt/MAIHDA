@@ -233,6 +233,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
           bootstrap = TRUE,
           method = "bootstrap",
           n_boot_ok = attr(vpc_ci, "n_ok"),
+          n_boot_nonconverged = attr(vpc_ci, "n_nonconverged"),
           mc_se = attr(vpc_ci, "mc_se")
         )
       } else {
@@ -973,6 +974,9 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
   # The error handler runs in its own scope and cannot write back to this vector,
   # so the initial value is what survives a failure.
   vpc_boot <- rep(NA_real_, n_boot)
+  # Count draws that contribute to the interval but whose refit optimiser did not
+  # converge, so the reported n_boot_ok does not silently imply convergence.
+  n_nonconv <- 0L
   sim_data <- stats::simulate(model, nsim = n_boot)
 
   for (i in 1:n_boot) {
@@ -987,11 +991,24 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
       var_residual <- maihda_residual_variance_lme4(boot_model, vc)
 
       vpc_boot[i] <- var_random / (var_random + var_other_random + var_residual)
+      if (maihda_lme4_optimizer_failed(boot_model)) {
+        n_nonconv <- n_nonconv + 1L
+      }
     }, error = function(e) NULL)
+  }
+
+  # Non-converged draws are retained but reported (see bootstrap_pcv()).
+  if (n_nonconv > 0) {
+    warning(sprintf(paste0(
+      "%d of %d contributing VPC bootstrap draw(s) had an lme4 optimiser that did ",
+      "not converge; they are retained in the interval. n_boot_ok counts converged ",
+      "and non-converged refits alike -- interpret the interval accordingly."),
+      n_nonconv, sum(is.finite(vpc_boot))), call. = FALSE)
   }
 
   # Reduce to an interval, requiring a minimum number of successful refits.
   ci <- maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC")
+  attr(ci, "n_nonconverged") <- n_nonconv
 
   return(ci)
 }

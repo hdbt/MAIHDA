@@ -18,6 +18,10 @@
 
 ## Bug fixes
 
+* `fit_maihda(family = "binomial")` no longer recodes a two-level proportion response (e.g. 0.25 and 0.5) to 0/1. A numeric response is Bernoulli only when its values are whole numbers, so a proportion of successes supplied with `weights =` trial counts stays an aggregated binomial fit instead of a silently different one.
+* Bootstrap intervals (VPC, PCV, crossed and contextual decomposition, longitudinal VPC, `pcv_importance()`) now require a majority of the eligible refits to succeed, not only an absolute minimum of ten. An extreme failure rate makes the interval unavailable rather than returning one from a handful of draws; legitimately excluded draws (e.g. PCV boundary draws) are not counted against the success fraction.
+* The crossed-dimensions MOR now returns 1, not `NA`, when at least half of the stratum pairs have zero contrast variance. The median odds ratio is exactly 1 there, but the mixture root search could not bracket it.
+* Bootstrap draws whose refit optimizer did not converge are counted and reported (`n_boot_nonconverged` and a warning) instead of silently counted as successful refits, so `n_boot_ok` no longer implies convergence that was never checked.
 * Integer `weights=` on a Bernoulli fit are no longer read as aggregated binomial trial counts by `maihda_discriminatory_accuracy()`. Aggregation is now inferred structurally from a `cbind()` matrix response or a proportion response, so precision weights no longer change the AUC estimand or inflate the reported case/control totals.
 * `wemix` fits are no longer reported as converged unconditionally. WeMix returns the last iterate without warning when its optimisation is abandoned, so convergence is now judged from its own gradient criterion and reported as `NA` when no evidence is readable.
 * Longitudinal count VPC trajectories now evaluate raw-time fixed-effect terms such as `x:wave` at the reporting time. Under internal time centering only the derived centered column was moved, so those terms stayed at each row's own observed time.

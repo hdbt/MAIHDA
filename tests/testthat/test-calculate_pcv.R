@@ -322,11 +322,24 @@ test_that("maihda_bootstrap_ci requires a minimum number of successful draws", {
     MAIHDA:::maihda_bootstrap_ci(numeric(0), n_boot = 100, conf_level = 0.95, what = "VPC"),
     "All"
   )
+  # Below the absolute floor (10).
   expect_error(
     MAIHDA:::maihda_bootstrap_ci(rep(0.5, 5), n_boot = 100, conf_level = 0.95, what = "VPC"),
     "at least"
   )
-  ci <- MAIHDA:::maihda_bootstrap_ci(seq(0, 1, length.out = 50), n_boot = 100, conf_level = 0.95)
+  # Above the absolute floor but far below a majority of the requested draws:
+  # the interval must be unavailable, not returned with a warning (finding 2).
+  expect_error(
+    MAIHDA:::maihda_bootstrap_ci(rep(0.5, 30), n_boot = 100, conf_level = 0.95, what = "VPC"),
+    "must succeed"
+  )
+  # Legitimately excluded draws (n_excluded) do not count against the success
+  # fraction, so 30 successes of 50 eligible (100 requested, 50 excluded) is fine.
+  ci_excl <- MAIHDA:::maihda_bootstrap_ci(rep(0.5, 30), n_boot = 100,
+                                          conf_level = 0.95, n_excluded = 50)
+  expect_length(ci_excl, 2)
+  # A clean majority succeeding returns an interval.
+  ci <- MAIHDA:::maihda_bootstrap_ci(seq(0, 1, length.out = 80), n_boot = 100, conf_level = 0.95)
   expect_length(ci, 2)
   expect_true(ci[1] < ci[2])
 })

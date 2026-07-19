@@ -298,14 +298,51 @@ maihda_validate_conf_level <- function(conf_level) {
   as.numeric(conf_level)
 }
 
-# Reduce successful bootstrap draws to a central interval, requiring a minimum
-# number of successful refits (so an interval is never returned from one or a
-# handful of draws) and warning when the failure rate is high.
-maihda_bootstrap_ci <- function(values, n_boot, conf_level, what = "VPC") {
+# TRUE when a fitted lme4 (merMod) model's OPTIMISER reported non-convergence
+# (model@optinfo$conv$opt != 0 -- e.g. bobyqa exceeding maxfun), FALSE when it
+# converged and for a non-lme4 / unreadable object (no evidence of failure). This is
+# the low-false-positive convergence signal: lme4's post-hoc relative-gradient check
+# (conv$lme4$messages) fires spuriously on a large fraction of simulated bootstrap
+# refits, so it is NOT used here, whereas the optimiser's own return code flags a
+# genuine failure to reach an optimum. Used to COUNT (not exclude) bootstrap refits
+# that did not converge, so a reported n_boot_ok never silently implies convergence
+# that was never checked. maihda_fit_diagnostics() consults both sources because it
+# reports a single user fit, where a spurious caveat is cheap; a bootstrap counts
+# across hundreds of refits, where false positives would be misleading.
+maihda_lme4_optimizer_failed <- function(model) {
+  if (!inherits(model, "merMod")) {
+    return(FALSE)
+  }
+  opt_code <- tryCatch(model@optinfo$conv$opt, error = function(e) NA_integer_)
+  is.numeric(opt_code) && length(opt_code) == 1L && !is.na(opt_code) && opt_code != 0
+}
+
+# Reduce successful bootstrap draws to a central interval. An interval is refused
+# unless the successful refits clear BOTH an absolute floor (never form an interval
+# from a handful of draws) AND a majority of the ELIGIBLE draws (so an extreme
+# failure rate makes the interval unavailable, not merely warned about). Draws that
+# were legitimately EXCLUDED rather than failed -- e.g. a PCV draw whose null model
+# hit the zero-variance boundary, where the statistic is undefined -- are passed via
+# n_excluded so they do not count against the success fraction; callers that make no
+# such exclusion leave it at 0.
+maihda_bootstrap_ci <- function(values, n_boot, conf_level, what = "VPC",
+                                n_excluded = 0L) {
   values <- values[is.finite(values)]
   n_ok <- length(values)
-  failed <- n_boot - n_ok
+  n_excluded <- suppressWarnings(as.integer(n_excluded))
+  if (length(n_excluded) != 1L || is.na(n_excluded) || n_excluded < 0L) {
+    n_excluded <- 0L
+  }
+  # Eligible = the draws that could have yielded a value (requested minus the
+  # legitimately excluded). n_failed is then a GENUINE failure count.
+  n_eligible <- max(n_ok, n_boot - n_excluded)
+  n_failed <- n_eligible - n_ok
   min_ok <- 10L
+  # A percentile interval is trustworthy only when most refits succeed: the
+  # survivors of a mostly-failed bootstrap are the draws that happened to converge,
+  # a biased subset. Require a majority of the eligible draws (this is what makes
+  # "10 of 1000 succeeded" unavailable rather than returned-with-a-warning).
+  min_frac <- 0.5
 
   if (n_ok == 0) {
     stop("All ", what, " bootstrap refits failed; no interval can be computed.",
@@ -317,9 +354,19 @@ maihda_bootstrap_ci <- function(values, n_boot, conf_level, what = "VPC") {
                         "for singular/failing fits."),
                  n_ok, n_boot, what, min_ok), call. = FALSE)
   }
-  if (failed > n_boot * 0.5) {
-    warning(sprintf("%d of %d %s bootstrap refits failed (%.0f%%); the interval may be unreliable.",
-                    failed, n_boot, what, 100 * failed / n_boot), call. = FALSE)
+  min_frac_ok <- as.integer(ceiling(min_frac * n_eligible))
+  if (n_ok < min_frac_ok) {
+    stop(sprintf(paste0("Only %d of %d eligible %s bootstrap refits succeeded (%.0f%%); ",
+                        "at least %.0f%% must succeed to form a dependable interval. ",
+                        "Increase n_boot or check for singular/failing fits."),
+                 n_ok, n_eligible, what, 100 * n_ok / n_eligible, 100 * min_frac),
+         call. = FALSE)
+  }
+  if (n_failed > n_eligible * 0.25) {
+    warning(sprintf(paste0("%d of %d eligible %s bootstrap refits failed (%.0f%%); ",
+                           "the interval may be unreliable."),
+                    n_failed, n_eligible, what, 100 * n_failed / n_eligible),
+            call. = FALSE)
   }
 
   alpha <- 1 - conf_level
@@ -490,7 +537,25 @@ maihda_is_binary_vector <- function(x) {
   }
 
   x <- x[!is.na(x)]
-  length(unique(x)) == 2
+  u <- unique(x)
+  if (length(u) != 2L) {
+    return(FALSE)
+  }
+  # A NUMERIC two-level response counts as Bernoulli only when both values are
+  # whole numbers (0/1, or a 1/2-style coding recoded to 0/1). A numeric response
+  # taking two NON-integer values -- e.g. the proportions 0.25 and 0.5 -- is a
+  # PROPORTION of successes, the aggregated-binomial form glm()/glmer() fit with
+  # weights = trial counts (documented at ?maihda_discriminatory_accuracy), NOT a
+  # Bernoulli outcome. Treating it as Bernoulli would recode 0.25 -> 0 and 0.5 -> 1
+  # and silently fit a different (wrong) model, so exclude it here. A response of
+  # exactly 0/1 stays Bernoulli (an all-success/all-failure aggregated fit is
+  # indistinguishable from Bernoulli -- write cbind(successes, failures) for it).
+  # Factors, logicals and characters are categorical two-level outcomes and remain
+  # binary.
+  if (is.numeric(u)) {
+    return(all(is.finite(u)) && all(abs(u - round(u)) < 1e-8))
+  }
+  TRUE
 }
 
 maihda_binary_levels <- function(x) {

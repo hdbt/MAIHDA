@@ -667,6 +667,14 @@ pcv_importance <- function(data, outcome, vars,
     sim_data <- stats::simulate(boot_models[[as.character(full_mask)]],
                                 nsim = n_boot)
     boot_phi <- matrix(NA_real_, nrow = n_boot, ncol = k)
+    # Draws whose null refit lands on the zero-variance boundary are a legitimate
+    # EXCLUSION (the attribution is undefined there), not a refit failure; count
+    # them so the interval reducer measures the success fraction against eligible
+    # draws only (matching calculate_pcv()'s n_boundary handling).
+    n_excluded_boot <- 0L
+    # Contributing draws whose refit optimiser did not converge (retained, but
+    # counted so n_boot_ok is not read as implying convergence).
+    n_nonconv_boot <- 0L
     for (b in seq_len(n_boot)) {
       # Refit every subset on the simulated response, keeping the refit models so
       # the null draw's boundary can be tested before it enters a denominator.
@@ -681,10 +689,16 @@ pcv_importance <- function(data, outcome, vars,
       # would blow up every ratio below, so exclude it exactly as the
       # point-estimate guard and calculate_pcv()'s bootstrap do.
       if (isTRUE(tryCatch(maihda_stratum_at_boundary_lme4(refits_b[["0"]]),
-                          error = function(e) TRUE))) next
+                          error = function(e) TRUE))) {
+        n_excluded_boot <- n_excluded_boot + 1L
+        next
+      }
       variances_b <- vapply(refits_b, maihda_stratum_variance_lme4, numeric(1))
       v0_b <- variances_b[["0"]]
-      if (!is.finite(v0_b) || v0_b <= 0) next
+      if (!is.finite(v0_b) || v0_b <= 0) {
+        n_excluded_boot <- n_excluded_boot + 1L
+        next
+      }
       vfun_b <- function(mask) {
         if (mask == 0L) return(0)
         (v0_b - variances_b[[as.character(mask)]]) / v0_b
@@ -692,6 +706,17 @@ pcv_importance <- function(data, outcome, vars,
       # For method = "dominance" this is still the right draw statistic:
       # general dominance is mathematically the Shapley value.
       boot_phi[b, ] <- as.numeric(compute_phi(vfun_b))
+      if (any(vapply(refits_b, maihda_lme4_optimizer_failed, logical(1)))) {
+        n_nonconv_boot <- n_nonconv_boot + 1L
+      }
+    }
+    if (n_nonconv_boot > 0) {
+      warning(sprintf(paste0(
+        "%d of %d contributing PCV-attribution bootstrap draw(s) had an lme4 ",
+        "optimiser that did not converge; they are retained. n_boot_ok counts ",
+        "converged and non-converged refits alike -- interpret the intervals ",
+        "accordingly."), n_nonconv_boot, sum(is.finite(boot_phi[, 1]))),
+        call. = FALSE)
     }
 
     # Draws fail as a whole, so the successful-draw count is shared across
@@ -701,10 +726,11 @@ pcv_importance <- function(data, outcome, vars,
     for (i in seq_len(k)) {
       ci_list[[i]] <- if (i == 1) {
         maihda_bootstrap_ci(boot_phi[, i], n_boot, conf_level,
-                            "PCV attribution")
+                            "PCV attribution", n_excluded = n_excluded_boot)
       } else {
         suppressWarnings(maihda_bootstrap_ci(boot_phi[, i], n_boot, conf_level,
-                                             "PCV attribution"))
+                                             "PCV attribution",
+                                             n_excluded = n_excluded_boot))
       }
     }
     result$importance$CI_lower <- vapply(ci_list, function(ci) ci[1], numeric(1))
@@ -713,6 +739,7 @@ pcv_importance <- function(data, outcome, vars,
     result$conf_level <- conf_level
     result$n_boot <- n_boot
     result$n_boot_ok <- attr(ci_list[[1]], "n_ok")
+    result$n_boot_nonconverged <- n_nonconv_boot
   }
 
   class(result) <- "maihda_pcv_importance"
