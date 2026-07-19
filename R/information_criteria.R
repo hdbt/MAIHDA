@@ -31,12 +31,17 @@
 #' \code{estimator} column then reads \code{"REML"}).
 #'
 #' \strong{Comparability.} Like the VPC, information criteria are only comparable
-#' across models fitted to the \emph{same} analytic sample (same rows and outcome).
-#' AIC/BIC additionally require the same response distribution -- they are not
-#' comparable across families (e.g. a Gaussian vs a Poisson fit), nor between the
-#' likelihood engines and \code{brms} (AIC/BIC vs WAIC/LOOIC are different scales).
-#' \code{maihda_ic()} does not enforce this; \code{\link{compare_maihda}} warns when
-#' the supplied models differ in outcome, sample, or family.
+#' across models fitted to the \emph{same} analytic sample (same rows and outcome)
+#' with the \emph{same} weights -- prior (precision) weights and sampling
+#' (design) weights each change which likelihood, or pseudo-likelihood, is being
+#' maximised, so the criteria of a weighted and an unweighted fit of the identical
+#' model are not on a common scale. AIC/BIC additionally require the same response
+#' distribution -- they are not comparable across families (e.g. a Gaussian vs a
+#' Poisson fit), nor between the likelihood engines and \code{brms} (AIC/BIC vs
+#' WAIC/LOOIC are different scales). When the supplied models differ in any of
+#' these respects \code{maihda_ic()} warns and omits the \code{delta} column,
+#' still reporting each model's own criteria; \code{\link{compare_maihda}} warns
+#' on the same grounds.
 #'
 #' \strong{Design-weighted fits.} For the \code{wemix} (design-weighted) engine the
 #' criteria are reported as \code{NA}: a pseudo-likelihood with sampling weights does
@@ -167,9 +172,10 @@ maihda_ic <- function(..., model_names = NULL) {
               paste(delta_issues, collapse = " and "),
               ", so a delta is not meaningful and is omitted -- information ",
               "criteria are only comparable across models fitted to the same ",
-              "analytic sample and, for AIC/BIC, the same response distribution, and ",
-              "are never comparable across the likelihood/Bayesian divide. The ",
-              "per-model criteria are still reported.", call. = FALSE)
+              "analytic sample with the same weights and, for AIC/BIC, the same ",
+              "response distribution, and are never comparable across the ",
+              "likelihood/Bayesian divide. The per-model criteria are still ",
+              "reported.", call. = FALSE)
     } else {
       vals <- out[[primary]]
       if (any(is.finite(vals))) {
@@ -315,15 +321,15 @@ maihda_ic_primary <- function(df) {
 }
 
 # The ways a set of models differ that make a delta between their information
-# criteria meaningless: a differing outcome, family/link, or analytic sample. A
-# delta is a difference of criteria, so it inherits exactly the comparability
-# requirements the criteria themselves have (same sample; for AIC/BIC same
-# response distribution) -- the caveat spelled out in the maihda_ic Details and
-# enforced by compare_maihda()'s warning. Returns the human-readable list of
-# differences (empty when the models are mutually comparable). Uses the same
-# response/family/sample fingerprints as compare_maihda() so the two agree, and
-# deliberately does NOT compare fixed effects: the canonical null-vs-adjusted
-# comparison differs only there and must keep its delta.
+# criteria meaningless: a differing outcome, family/link, analytic sample, or set
+# of weights. A delta is a difference of criteria, so it inherits exactly the
+# comparability requirements the criteria themselves have (same sample; for
+# AIC/BIC same response distribution) -- the caveat spelled out in the maihda_ic
+# Details and enforced by compare_maihda()'s warning. Returns the human-readable
+# list of differences (empty when the models are mutually comparable). Uses the
+# same response/family/sample/weight fingerprints as compare_maihda() so the two
+# agree, and deliberately does NOT compare fixed effects: the canonical
+# null-vs-adjusted comparison differs only there and must keep its delta.
 maihda_ic_delta_issues <- function(models) {
   if (length(models) < 2L) {
     return(character(0))
@@ -343,6 +349,16 @@ maihda_ic_delta_issues <- function(models) {
     if (is.null(rid)) NA_character_ else paste(sort(rid), collapse = "\r")
   }, character(1))
   response_keys <- vapply(models, maihda_wrapper_response_fingerprint, character(1))
+  # Weights define WHICH likelihood is being maximised, so criteria built on
+  # different weights are not on a common scale at all -- an unweighted fit and a
+  # weighted fit of the identical model report different AICs, and their
+  # difference measures the weighting, not the models. The same two fingerprints
+  # calculate_pcv() hard-errors on and compare_maihda() warns about; PRIOR
+  # (precision) weights live on the fitted object, SAMPLING (design) weights on
+  # the maihda_model wrapper.
+  weight_keys <- vapply(models, function(m) maihda_weight_fingerprint(m$model),
+                        character(1))
+  sampling_keys <- vapply(models, maihda_sampling_weight_fingerprint, character(1))
 
   issues <- character(0)
   if (length(unique(responses)) > 1L) {
@@ -350,6 +366,12 @@ maihda_ic_delta_issues <- function(models) {
   }
   if (length(unique(fam_keys)) > 1L) {
     issues <- c(issues, paste0("families/links (", paste(unique(fam_keys), collapse = ", "), ")"))
+  }
+  if (length(unique(stats::na.omit(weight_keys))) > 1L) {
+    issues <- c(issues, "prior weights")
+  }
+  if (length(unique(stats::na.omit(sampling_keys))) > 1L) {
+    issues <- c(issues, "sampling weights")
   }
   sample_differs <- length(unique(stats::na.omit(nobs_vec))) > 1L ||
     length(unique(stats::na.omit(row_keys))) > 1L ||
@@ -396,7 +418,7 @@ print.maihda_ic <- function(x, ...) {
   }
   if (any(c("AIC", "BIC", "WAIC", "LOOIC") %in% names(x))) {
     cat(pal$muted(paste0("Information criteria are only comparable across models fitted to the same ",
-        "analytic sample (and, for AIC/BIC, the same family).\n")))
+        "analytic sample with the same weights (and, for AIC/BIC, the same family).\n")))
   }
   invisible(x)
 }

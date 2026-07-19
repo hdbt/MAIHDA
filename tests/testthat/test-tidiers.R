@@ -122,7 +122,7 @@ test_that("tidy/glance work for the wemix engine (design-weighted)", {
 
   fe <- tidy(m, component = "fixed")
   expect_true(all(c("term", "estimate", "std.error") %in% names(fe)))
-  expect_true(any(is.finite(fe$std.error)))   # WeMix reports design-consistent SEs
+  expect_true(any(is.finite(fe$std.error)))   # WeMix reports sandwich (robust) SEs
 
   g <- glance(m)
   expect_identical(g$engine, "wemix")

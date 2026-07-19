@@ -142,16 +142,24 @@ maihda_fit_diagnostics <- function(model) {
     diagnostics$converged <- length(msgs) == 0
   } else if (inherits(model, "WeMixResults")) {
     diagnostics$engine <- "wemix"
-    # WeMix raises a hard error when optimisation fails, so a returned fit has
-    # converged; flag a boundary (zero between-stratum variance) fit the same way
-    # lme4's isSingular() does, since it makes the VPC unreliable in exactly the
-    # same way.
-    diagnostics$converged <- TRUE
+    # Flag a boundary (zero between-stratum variance) fit the same way lme4's
+    # isSingular() does, since it makes the VPC unreliable in exactly the same way.
     diagnostics$singular <- tryCatch({
       vd <- model$varDF
       s <- as.numeric(vd$vcov[vd$grp == "stratum"][1])
       is.finite(s) && s < 1e-8
     }, error = function(e) NA)
+    # WeMix does NOT raise an error when its optimisation fails: it abandons the
+    # Newton loop at 'max_iteration' and discards its bobyqa return code, then
+    # returns the last iterate with no convergence field, no iteration count and no
+    # warning. Reporting every returned fit as converged therefore rested on a false
+    # premise. Re-derive the evidence from the likelihood function the fit carries,
+    # and where that is unreadable leave the verdict NA -- "not known to have
+    # failed" is not the same as converged (the standard this file already applies
+    # to a brms fit whose Rhat is unavailable).
+    conv <- maihda_wemix_convergence(model, singular = diagnostics$singular)
+    diagnostics$converged <- conv$converged
+    diagnostics$messages <- conv$messages
   } else if (inherits(model, "clmm")) {
     diagnostics$engine <- "ordinal"
     # clmm stores the optimiser result: convergence code 0 means converged, and

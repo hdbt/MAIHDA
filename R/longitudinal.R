@@ -447,6 +447,33 @@ maihda_longitudinal_time_grid <- function(time_values) {
   seq(min(u), max(u), length.out = 25L)
 }
 
+# Move a reporting frame to a single time, setting EVERY column the model reads as
+# time -- the centered term the growth block is fit on AND the user's original time
+# column.
+#
+# Under internal centering the two are different columns, and the original one does
+# not simply disappear from the fixed part: maihda_longitudinal_formula() drops
+# only the BARE raw-time polynomial that the centered terms replace, so anything
+# else the user wrote on the raw axis survives into the fitted model -- a covariate
+# interaction (x:wave), a transformation (poly(wave, 2), log(wave)), or a formula
+# offset. Moving only the centered column leaves those terms evaluated at each
+# row's OWN observed time while the result is reported as "at time t", which biases
+# any quantity built from the linear predictor on the grid (the count VPC's
+# marginal lambda). The columns must move together, so this is the one place that
+# does it.
+maihda_longitudinal_set_time <- function(newdata, time_term, t_c,
+                                         orig_time = time_term, center = 0) {
+  newdata[[time_term]] <- t_c
+  if (!identical(orig_time, time_term)) {
+    # Assigned unconditionally, not only when the column is already present: a
+    # formula offset such as offset(0.5 * wave) is re-evaluated against this frame
+    # and needs the raw time even when the model frame carries only the derived
+    # 'offset(...)' column.
+    newdata[[orig_time]] <- t_c + center
+  }
+  newdata
+}
+
 # Level-1 (residual) variance of a longitudinal VPC evaluated on a time grid
 # (lme4). For Gaussian and binomial families the level-1 variance is a constant
 # (attr(sc)^2, pi^2/3, or 1), so the single maihda_residual_variance_lme4() value
@@ -481,18 +508,16 @@ maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t,
   # offset(0.5 * time) is RE-EVALUATED at each grid time -- it shifts the marginal count
   # and must track the modified time -- whereas an EXTERNAL offset= vector has no
   # expression to re-evaluate and is kept per fitted row (a fixed per-row exposure). Under
-  # internal time centering the offset references the ORIGINAL time, so the original-time
-  # column is moved in lockstep with the centered term (t_c[j] + center). off_ext = NULL
-  # for a fit with no external offset; a no-offset fit reproduces predict(re.form = NA).
+  # internal time centering both the offset AND any surviving raw-time fixed term
+  # reference the ORIGINAL time column, so maihda_longitudinal_set_time() moves it in
+  # lockstep with the centered term. off_ext is NULL for a fit with no external
+  # offset; a no-offset fit reproduces predict(re.form = NA).
   off_ext <- maihda_fitted_offset_external(model)
   has_formula_off <- !is.null(
     attr(stats::terms(maihda_nobars(stats::formula(model))), "offset"))
   vapply(seq_along(t_c), function(j) {
-    nd <- frame
-    nd[[time_term]] <- t_c[j]
-    if (has_formula_off && !identical(orig_time, time_term)) {
-      nd[[orig_time]] <- t_c[j] + center
-    }
+    nd <- maihda_longitudinal_set_time(frame, time_term, t_c[j],
+                                       orig_time = orig_time, center = center)
     off_j <- off_ext
     if (has_formula_off) {
       fo <- maihda_lme4_formula_offset_at(model, nd)
@@ -514,9 +539,10 @@ maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t,
 # negative binomial the 'shape' (theta) draws are propagated per draw exactly as in
 # that path, so the return is a per-draw vector. `v_t` is VarStratum(t) + VarId(t)
 # (posterior-mean) at `t_c`. Only called for count families.
-maihda_longitudinal_resid_at_brms <- function(model, draws, time_term, t_c, v_t) {
-  nd <- model$data
-  nd[[time_term]] <- t_c
+maihda_longitudinal_resid_at_brms <- function(model, draws, time_term, t_c, v_t,
+                                              orig_time = time_term, center = 0) {
+  nd <- maihda_longitudinal_set_time(model$data, time_term, t_c,
+                                     orig_time = orig_time, center = center)
   eta <- maihda_brms_linpred_mean(model, newdata = nd, re_formula = NA)
   lambda <- pmax(exp(eta + v_t / 2), .Machine$double.eps)
   w <- maihda_fit_prior_weights(model)
@@ -711,8 +737,8 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
     n_draws <- length(sig_s$v0)
     function(t_c) {
       v_t_draws <- var_at(sig_s, t_c) + var_at(sig_i, t_c)
-      nd <- model$data
-      nd[[time_term]] <- t_c
+      nd <- maihda_longitudinal_set_time(model$data, time_term, t_c,
+                                         orig_time = lng$time, center = center)
       eta_link <- tryCatch(
         as.matrix(brms::posterior_linpred(model, newdata = nd, re_formula = NA)),
         error = function(e) NULL)
@@ -723,7 +749,8 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
       } else {
         v_t_mean <- maihda_var_at_time(Sigma_s, t_c) +
           maihda_var_at_time(Sigma_i, t_c)
-        maihda_longitudinal_resid_at_brms(model, draws, time_term, t_c, v_t_mean)
+        maihda_longitudinal_resid_at_brms(model, draws, time_term, t_c, v_t_mean,
+                                          orig_time = lng$time, center = center)
       }
     }
   } else {

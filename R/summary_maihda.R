@@ -284,9 +284,12 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     )
     vpc_result <- list(estimate = vpc, bootstrap = FALSE)
 
-    # WeMix fixed-effect standard errors are design-consistent (sandwich), the
-    # main payoff of the design-weighted fit -- include them alongside the
-    # estimates (the lme4 table reports estimates only).
+    # WeMix reports sandwich (robust) fixed-effect standard errors -- include them
+    # alongside the estimates (the lme4 table reports estimates only). They cover
+    # the weighting and within-stratum dependence, NOT the clustering or
+    # stratification of a complex sample design, which this wrapper has no way to
+    # represent from a single person-weight column (see fit_maihda's
+    # `sampling_weights`); do not describe them as design-consistent.
     fixed_effects <- data.frame(
       term = names(object$model$coef),
       estimate = as.numeric(object$model$coef),

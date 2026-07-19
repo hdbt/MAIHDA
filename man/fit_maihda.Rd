@@ -108,38 +108,56 @@ only \code{context =} activates the labelled contextual partition.
 Not supported by the \code{wemix} engine.}
 
 \item{sampling_weights}{Optional single character string naming a numeric
-column of \code{data} holding individual \emph{sampling} (survey/design)
-weights, for a \strong{design-weighted MAIHDA} on complex-survey data
-(e.g. NHANES, PISA). Sampling weights are not the same thing as lme4's
-\code{weights=} (precision weights, which rescale the residual variance), so
-combining \code{sampling_weights} with \code{engine = "lme4"} is an error.
-Two engines support them:
-\itemize{
-  \item \code{engine = "wemix"} (chosen automatically when \code{engine} is
-    left at its default): weighted pseudo-maximum-likelihood via
-    \code{WeMix::mix()} (Rabe-Hesketh & Skrondal 2006), the estimator used
-    for NAEP/PISA analysis. The individual weights enter at level 1
-    unchanged and the level-2 (stratum) weights are 1, because
-    intersectional strata are exhaustive population cells included with
-    certainty. Supports \code{gaussian(identity)} and
-    \code{binomial(logit)} models with the canonical single
-    \code{(1 | stratum)} random intercept. Fixed-effect standard errors are
-    design-consistent (sandwich); the VPC/PCV are reported as point
-    estimates (no bootstrap -- see \code{\link{summary.maihda_model}}).
-  \item \code{engine = "brms"}: the weights enter the model as likelihood
-    weights (\code{y | weights(w)}), normalized to mean 1, giving a
-    \emph{pseudo-posterior}: point estimates target the population-weighted
-    estimand but credible intervals are not design-based -- interpret them
-    cautiously. Full design-based (replicate-weight / linearised) variances
-    for the variance components are not computed.
-}
-Rows with a missing or non-positive sampling weight are dropped with a
-warning. The column names \code{.maihda_sw} (brms likelihood weight) and
-\code{.maihda_l2wt} (WeMix level-2 weight) are \strong{reserved} for the
-design-weighted engines: they are written into the analytic data internally,
-so a model that supplies \code{sampling_weights} may not also reference a
-variable of either name in its formula (fitting would error). Default
-\code{NULL} (unweighted).}
+  column of \code{data} holding individual \emph{sampling} (survey/design)
+  weights, for a \strong{weighted MAIHDA} on survey data. Sampling weights are
+  not the same thing as lme4's \code{weights=} (precision weights, which
+  rescale the residual variance), so combining \code{sampling_weights} with
+  \code{engine = "lme4"} is an error.
+
+  \strong{What this does and does not buy you.} A single person-level weight
+  column is all this argument accepts: there is no representation of the
+  sampling hierarchy -- no primary sampling units, no sampling strata, no
+  higher-stage or conditional weights, no finite-population corrections, and no
+  replicate weights. Weighting the likelihood makes the point estimates target
+  the population-weighted estimand, which is the main reason to use it. The
+  standard errors, however, are \emph{not} general design-based standard errors
+  for a multistage or stratified sample, because none of the design features
+  that drive them are supplied. Treat the intervals as approximate unless your
+  design genuinely matches the assumptions below; for full design-based
+  inference on such data, use replicate weights with a survey-specific package.
+
+  Two engines support them:
+  \itemize{
+    \item \code{engine = "wemix"} (chosen automatically when \code{engine} is
+      left at its default): weighted pseudo-maximum-likelihood via
+      \code{WeMix::mix()} (Rabe-Hesketh & Skrondal 2006), the estimator used
+      for NAEP/PISA analysis. The individual weights enter at level 1
+      unchanged and the level-2 (stratum) weights are 1, because
+      intersectional strata are treated as exhaustive population cells
+      included with certainty -- so this is a \emph{single-stage} weighted
+      model, and it is that assumption the inference rests on. Supports
+      \code{gaussian(identity)} and \code{binomial(logit)} models with the
+      canonical single \code{(1 | stratum)} random intercept. Fixed-effect
+      standard errors are the sandwich (robust) errors WeMix reports, which
+      account for the weighting and for dependence within the model's own
+      grouping (the intersectional strata) -- but not for clustering or
+      stratification induced by the sample design, which the strata do not
+      represent. The VPC/PCV are reported as point estimates (no bootstrap --
+      see \code{\link{summary.maihda_model}}).
+    \item \code{engine = "brms"}: the weights enter the model as likelihood
+      weights (\code{y | weights(w)}), normalized to mean 1, giving a
+      \emph{pseudo-posterior}: point estimates target the population-weighted
+      estimand but credible intervals are not design-based -- interpret them
+      cautiously. Full design-based (replicate-weight / linearised) variances
+      for the variance components are not computed.
+  }
+  Rows with a missing or non-positive sampling weight are dropped with a
+  warning. The column names \code{.maihda_sw} (brms likelihood weight) and
+  \code{.maihda_l2wt} (WeMix level-2 weight) are \strong{reserved} for the
+  design-weighted engines: they are written into the analytic data internally,
+  so a model that supplies \code{sampling_weights} may not also reference a
+  variable of either name in its formula (fitting would error). Default
+  \code{NULL} (unweighted).}
 
 \item{id}{Optional single character string naming a person/unit identifier
 column for a \strong{longitudinal (growth-curve) MAIHDA} on long-format data

@@ -21,6 +21,10 @@
 .maihda_wemix_l2_col <- ".maihda_l2wt"
 .maihda_brms_weights_col <- ".maihda_sw"
 
+# Gradient-criterion threshold below which a WeMix fit counts as having reached a
+# maximum; see maihda_wemix_convergence() for how it is calibrated.
+.maihda_wemix_grad_tol <- 1e-2
+
 # Guard a reserved internal weight column against silently overwriting a user
 # variable. The weighted engines write '.maihda_sw' / '.maihda_l2wt' into the
 # analytic data; if the user's data already carries a column of that name AND the
@@ -198,6 +202,16 @@ maihda_fit_wemix <- function(formula, data, family, sampling_weights, dot_vals) 
   }
   data[[.maihda_wemix_l2_col]] <- 1
 
+  # WeMix silently returns whatever it has when the Newton loop hits
+  # 'max_iteration' (its own source carries an EMPTY `if (iteration >=
+  # max_iteration) {}` block where a non-convergence warning belongs), and its
+  # loop guard `iteration < max_iteration` accepts anything comparable: 0 and
+  # negative values skip the optimisation entirely and return the starting
+  # values, while a string is compared ALPHABETICALLY. Since the returned object
+  # records no iteration count, a nonsense limit is unrecoverable after the fact
+  # -- so reject it here, where the user can still act on it.
+  dot_vals <- maihda_validate_wemix_max_iteration(dot_vals)
+
   args <- list(
     formula = formula,
     data = data,
@@ -213,6 +227,147 @@ maihda_fit_wemix <- function(formula, data, family, sampling_weights, dot_vals) 
   model <- do.call(WeMix::mix, c(args, dot_vals))
 
   list(model = model, data = data)
+}
+
+# Reject a 'max_iteration' forwarded to WeMix::mix() that would abandon (or never
+# enter) the optimisation. WeMix's loop condition is `iteration < max_iteration`,
+# so any value <= 0 returns the starting values untouched, and a non-numeric one
+# is coerced by `<` into a silent string comparison. Returns dot_vals unchanged
+# when the argument is absent or valid.
+maihda_validate_wemix_max_iteration <- function(dot_vals) {
+  if (!"max_iteration" %in% names(dot_vals)) {
+    return(dot_vals)
+  }
+  mi <- dot_vals$max_iteration
+  bad <- !is.numeric(mi) || length(mi) != 1L || !is.finite(mi) ||
+    mi < 1 || mi != round(mi)
+  if (bad) {
+    stop("'max_iteration' passed to the wemix engine must be a single whole ",
+         "number >= 1; got ", paste(deparse(mi), collapse = ""),
+         ". WeMix stops at that many iterations WITHOUT reporting that it did, ",
+         "so a value below 1 would silently return the unoptimized starting ",
+         "values as if they were the fit.", call. = FALSE)
+  }
+  dot_vals$max_iteration <- as.integer(mi)
+  dot_vals
+}
+
+# Convergence criterion of a fitted WeMixResults, or NA when it cannot be judged.
+#
+# WeMix reports NOTHING about how its optimisation terminated: the returned object
+# carries no iteration count, no convergence code and no gradient, and the fitter
+# neither warns nor errors when it exhausts 'max_iteration' (linear path) or its
+# bobyqa return code is non-zero (whose `opt` object it discards). The one thing it
+# does return is the log-likelihood FUNCTION, so re-derive the evidence: evaluate
+# the gradient at the reported estimates and apply WeMix's own exit test,
+# max(pmin(|est * g|, |g|)).
+#
+# The two engine paths parameterise that function differently -- the adaptive
+# (non-Gaussian) path takes c(beta, variances) directly, the linear path takes
+# (v = named theta, sigma, beta) and returns a list -- and neither signature is
+# documented API. So the objective is SELF-CHECKED first: unless it reproduces the
+# fit's own reported log-likelihood, this returns NA and the caller reports
+# "unknown" rather than risk a verdict built on a misread parameterisation.
+maihda_wemix_gradient_criterion <- function(model) {
+  tryCatch({
+    lnlf <- model$lnlf
+    lnl0 <- suppressWarnings(as.numeric(model$lnl))
+    if (!is.function(lnlf) || length(lnl0) != 1L || !is.finite(lnl0)) {
+      return(NA_real_)
+    }
+    if (isTRUE(model$is_adaptive)) {
+      pars <- c(as.numeric(model$coef), as.numeric(model$vars))
+      f <- function(p) sum(as.numeric(lnlf(p)))
+    } else {
+      theta <- model$theta
+      k <- length(model$coef)
+      q <- length(theta)
+      pars <- c(as.numeric(model$coef), as.numeric(theta), as.numeric(model$sigma))
+      if (q < 1L || !is.finite(pars[k + q + 1L])) {
+        return(NA_real_)
+      }
+      f <- function(p) {
+        v <- p[k + seq_len(q)]
+        # The linear-path objective looks its variance terms up BY NAME.
+        names(v) <- names(theta)
+        as.numeric(lnlf(v = v, sigma = p[k + q + 1L],
+                        beta = p[seq_len(k)])$lnl)
+      }
+    }
+    if (length(pars) < 1L || !all(is.finite(pars))) {
+      return(NA_real_)
+    }
+    base <- f(pars)
+    # Self-check: refuse to judge unless the rebuilt objective agrees with the
+    # likelihood the fit itself reports.
+    if (!is.finite(base) ||
+        abs(base - lnl0) > 1e-4 * max(1, abs(lnl0))) {
+      return(NA_real_)
+    }
+    grad <- vapply(seq_along(pars), function(j) {
+      h <- max(1e-6, 1e-6 * abs(pars[j]))
+      up <- down <- pars
+      up[j] <- up[j] + h
+      down[j] <- down[j] - h
+      (f(up) - f(down)) / (2 * h)
+    }, numeric(1))
+    if (!all(is.finite(grad))) {
+      return(NA_real_)
+    }
+    max(pmin(abs(pars * grad), abs(grad)))
+  }, error = function(e) NA_real_)
+}
+
+# Convergence verdict + messages for a WeMixResults, mirroring the structure the
+# lme4 / ordinal / brms branches of maihda_fit_diagnostics() produce.
+#
+# `singular` is the caller's boundary flag. A variance pinned at zero sits on the
+# EDGE of the parameter space, where the gradient legitimately does not vanish
+# (the optimality condition is one-sided), so the stationarity test cannot
+# distinguish a converged boundary fit from an abandoned one -- report "unknown"
+# there and let the separately-surfaced singular flag carry the warning.
+maihda_wemix_convergence <- function(model, singular = NA) {
+  fail <- function(msg) list(converged = FALSE, messages = msg)
+
+  # A field that is PRESENT but non-finite is failure evidence; a field that is
+  # ABSENT is no evidence at all, and must not be read as one.
+  lnl <- suppressWarnings(as.numeric(model$lnl))
+  if (length(lnl) == 1L && !is.finite(lnl)) {
+    return(fail("The weighted pseudo-log-likelihood is not finite: the fit did not converge."))
+  }
+  coefs <- suppressWarnings(as.numeric(model$coef))
+  if (length(coefs) > 0 && !all(is.finite(coefs))) {
+    return(fail("One or more fixed-effect estimates are not finite: the fit did not converge."))
+  }
+  ses <- suppressWarnings(as.numeric(model$SE))
+  if (length(ses) > 0 && !all(is.finite(ses))) {
+    return(fail(paste0("One or more fixed-effect standard errors are not finite: the ",
+                       "fit did not converge, or its information matrix is singular.")))
+  }
+
+  crit <- maihda_wemix_gradient_criterion(model)
+  # Deliberately far looser than WeMix's own 1e-5 exit test. This gradient is a
+  # central DIFFERENCE taken in the variance parameterisation, not the analytic one
+  # the fitter optimises in, so the two do not agree to WeMix's precision: across
+  # healthy gaussian and binomial fits the criterion here ran from 0 to 8e-04,
+  # while fits whose optimisation was abandoned sat between 0.1 and 5. The
+  # threshold is placed in that gap. The purpose is to catch a grossly unfinished
+  # optimisation, NOT to second-guess where WeMix chose to stop -- a false alarm on
+  # a sound fit would cost more than missing a marginal one.
+  if (!is.na(crit) && crit < .maihda_wemix_grad_tol) {
+    return(list(converged = TRUE, messages = character(0)))
+  }
+  if (!is.na(crit) && !isTRUE(singular)) {
+    return(fail(sprintf(
+      paste0("The optimisation stopped well away from a maximum (gradient ",
+             "criterion %.3g, against a %g threshold): WeMix returns the last ",
+             "iterate without reporting this, so treat the estimates as ",
+             "provisional. Consider raising 'max_iteration' or 'nQuad'."),
+      crit, .maihda_wemix_grad_tol)))
+  }
+  # No usable evidence either way (unreadable likelihood function, an unfamiliar
+  # WeMix version, or a boundary fit): say so rather than assume success.
+  list(converged = NA, messages = character(0))
 }
 
 #' Variance components of a wemix MAIHDA fit

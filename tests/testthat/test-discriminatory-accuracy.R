@@ -301,10 +301,15 @@ test_that("intersectional-scope AUC includes individual-level covariates (not st
   expect_false(grepl("intersectional strata", out, fixed = TRUE))
 })
 
-test_that("crossed-dimensions MOR sums the intersectional variances", {
-  # Regression: maihda_mor() on a crossed-dimensions fit read only the
-  # interaction ("stratum") variance, ignoring the additive dimension REs that
-  # are part of the between-stratum effect at the intersection level.
+test_that("crossed-dimensions MOR uses the correlated-strata mixture", {
+  # Regression, two layers deep. First: maihda_mor() on a crossed-dimensions fit
+  # read only the interaction ("stratum") variance, ignoring the additive
+  # dimension REs that are part of the between-stratum effect at the intersection
+  # level. Then: having summed them, it fed the total to the INDEPENDENT-strata
+  # closed form exp(sqrt(2 V) qnorm(.75)) -- but two crossed strata sharing a
+  # dimension share that dimension's random effect, so the shared part cancels
+  # from their difference instead of contributing 2 tau^2 to it. The MOR now
+  # comes from the resulting mixture over strata pairs.
   skip_on_cran()
   set.seed(606)
   n <- 900
@@ -322,9 +327,34 @@ test_that("crossed-dimensions MOR sums the intersectional variances", {
                     interaction_group = "stratum")
 
   vars <- MAIHDA:::maihda_random_variances_lme4(m$model)
-  expect_equal(maihda_mor(m),
-               exp(sqrt(2 * sum(vars[c("g", "r", "stratum")])) *
-                     stats::qnorm(0.75)))
+  got <- maihda_mor(m)
+
+  # All three variances still enter (the first defect): dropping the dimension
+  # REs would leave only the interaction, which is ~0 here, hence an MOR of ~1.
+  expect_gt(got, 1.2)
+
+  # Reference computed independently by enumerating every unordered pair of the
+  # six observed strata: a pair differing on BOTH dimensions has difference
+  # variance 2(tau_g^2 + tau_r^2 + tau_I^2), one sharing g only 2(tau_r^2 +
+  # tau_I^2), one sharing r only 2(tau_g^2 + tau_I^2).
+  cells <- unique(m$data[, c("g", "r")])
+  vpair <- unlist(lapply(seq_len(nrow(cells) - 1), function(i) {
+    vapply((i + 1):nrow(cells), function(j) {
+      2 * (vars[["stratum"]] +
+             (cells$g[i] != cells$g[j]) * vars[["g"]] +
+             (cells$r[i] != cells$r[j]) * vars[["r"]])
+    }, numeric(1))
+  }))
+  cdf <- function(x) mean(2 * stats::pnorm(x / sqrt(vpair)) - 1)
+  ref <- exp(stats::uniroot(function(x) cdf(x) - 0.5,
+                            c(1e-10, 10 * sqrt(max(vpair))),
+                            tol = .Machine$double.eps^0.5)$root)
+  expect_equal(got, ref, tolerance = 1e-6)
+
+  # And it is STRICTLY BELOW the independent-strata closed form, because these
+  # strata share dimensions. That inequality is the whole finding.
+  expect_lt(got, exp(sqrt(2 * sum(vars[c("g", "r", "stratum")])) *
+                       stats::qnorm(0.75)))
   # The dimension REs are intersectional: the DA reports a single-scope AUC.
   da <- maihda_discriminatory_accuracy(m)
   expect_identical(da$auc_scope, "model")

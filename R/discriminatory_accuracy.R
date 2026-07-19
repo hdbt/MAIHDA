@@ -91,21 +91,43 @@ maihda_auc <- function(prob, y) {
 #' strata (under the model's proportional-odds assumption it is the same for
 #' every category split).
 #'
-#' \strong{Scope.} \code{V_A} is the \emph{between-stratum} variance. For a
-#' crossed-dimensions fit (from \code{maihda(decomposition =
-#' "crossed-dimensions")}) that is the \emph{total} intersectional variance --
-#' the additive dimension variances plus the interaction component, since the
-#' independent crossed random effects sum at the intersection level. Contextual
+#' \strong{Scope.} \code{V_A} is the \emph{between-stratum} variance. Contextual
 #' (\code{context = }) and other non-stratum random effects are never included:
 #' the MOR compares two individuals from randomly chosen strata \emph{within
 #' the same context}.
+#'
+#' \strong{Crossed-dimensions fits use a different calculation.} The closed form
+#' above assumes the two strata's random effects are \emph{independent}, which is
+#' what makes their difference \eqn{N(0, 2 V_A)}. In a crossed-dimensions fit
+#' (from \code{maihda(decomposition = "crossed-dimensions")}) a stratum's effect
+#' is the sum of its dimension effects plus the intersection effect, so two
+#' strata sharing a dimension -- say two strata that are both "female" -- share
+#' that dimension's random effect and are \strong{correlated}. Their difference
+#' is then a \emph{mixture} of normals, one component per pattern of shared
+#' dimensions, and applying the closed form to the summed variance overstates the
+#' MOR (substantially so when the variance sits mainly in the additive
+#' dimensions, and not at all when it sits entirely in the interaction).
+#'
+#' The MOR reported for such a fit is therefore computed from that mixture, under
+#' an explicit sampling scheme: \strong{two distinct strata drawn uniformly at
+#' random from the strata present in the analytic sample}. Writing
+#' \eqn{\tau^2_d} for dimension \eqn{d}'s variance and \eqn{\tau^2_I} for the
+#' intersection variance, a pair differing on the dimension set \eqn{D^*} has
+#' difference variance \eqn{v = 2(\tau^2_I + \sum_{d \in D^*} \tau^2_d)}, and the
+#' MOR is \code{exp(x)} for the \code{x} solving
+#' \eqn{\sum_{pairs} (2\Phi(x/\sqrt{v}) - 1) / n_{pairs} = 0.5}. For a canonical
+#' single-stratum fit the two calculations coincide, and that closed form is
+#' used.
 #'
 #' @param model A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
 #'   \code{binomial} (lme4), \code{bernoulli} (brms), or \code{cumulative}
 #'   (ordinal) family and a \strong{logit} link.
 #'
 #' @return A single number (the MOR, \eqn{\ge 1}), or \code{NA_real_} if the
-#'   between-stratum variance is unavailable.
+#'   between-stratum variance is unavailable -- which for a crossed-dimensions fit
+#'   also covers the case where the stratum grid needed for the mixture cannot be
+#'   resolved (fewer than two strata, absent dimension columns, or more than 12
+#'   dimensions).
 #'
 #' @references
 #' Larsen, K., & Merlo, J. (2005). Appropriate assessment of neighborhood effects
@@ -137,6 +159,13 @@ maihda_mor <- function(model) {
          "variance is on a different scale.", call. = FALSE)
   }
 
+  # A crossed-dimensions fit's strata are NOT independent draws -- two strata that
+  # share a dimension share that dimension's random effect -- so the closed form
+  # below does not apply to them; their difference is a mixture (see Details).
+  if (!is.null(model$cc_info)) {
+    return(maihda_mor_crossed(model))
+  }
+
   v_a <- tryCatch(maihda_mor_between_variance(model), error = function(e) NA_real_)
   if (!is.numeric(v_a) || length(v_a) != 1 || !is.finite(v_a) || v_a < 0) {
     return(NA_real_)
@@ -145,20 +174,143 @@ maihda_mor <- function(model) {
   exp(sqrt(2 * v_a) * stats::qnorm(0.75))
 }
 
-# Between-stratum (intersectional) variance for the MOR. For the canonical fit
-# this is the stratum intercept variance. For a crossed-dimensions fit
-# ($cc_info) the between-stratum effect is the SUM of the independent crossed
-# REs -- each additive dimension effect plus the interaction -- so its variance
-# is their total; reading only the "stratum" (interaction) component would
-# understate the between-stratum heterogeneity the MOR translates. Contextual
-# and other non-intersectional REs are never included: the MOR compares two
-# individuals from different strata within the same context.
-maihda_mor_between_variance <- function(model) {
-  if (is.null(model$cc_info)) {
-    return(extract_between_variance(model))
+# MOR of a crossed-dimensions fit: the median |difference| between two DISTINCT
+# strata drawn uniformly at random from those present in the analytic sample.
+#
+# Stratum (a1, ..., aD) carries the effect sum_d u_d[a_d] + w[cell], every term
+# independent. Two distinct strata therefore differ by
+#   sum_{d : a_d != a'_d} (u_d[a_d] - u_d[a'_d])  +  (w[cell] - w[cell']),
+# whose variance is 2 * (tau_I^2 + sum over the DIFFERING dimensions of tau_d^2):
+# a dimension the two strata share contributes NOTHING, because its random effect
+# cancels. Summing every variance for every pair -- the independent-strata closed
+# form -- charges the shared dimensions to all pairs and overstates the MOR.
+#
+# The pattern of differing dimensions varies across pairs, so |difference| follows
+# a MIXTURE of half-normals and its median has no closed form; solve the mixture
+# CDF for 0.5 instead. Returns NA_real_ when the variances or the stratum grid
+# cannot be resolved.
+maihda_mor_crossed <- function(model) {
+  parts <- tryCatch(maihda_mor_crossed_parts(model), error = function(e) NULL)
+  if (is.null(parts)) {
+    return(NA_real_)
   }
-  groups <- unique(c(model$cc_info$interaction_group,
-                     unname(model$cc_info$dim_groups)))
+  v_pair <- 2 * (parts$interaction + as.numeric(parts$pattern %*% parts$dims))
+  keep <- is.finite(v_pair) & v_pair > 0
+  # Every pair has variance 0 (all components at the boundary): no heterogeneity,
+  # so the two strata never differ and the median odds ratio is exactly 1.
+  if (!any(keep)) {
+    return(1)
+  }
+  w <- parts$weight
+  w <- w / sum(w)
+  # P(|difference| <= x) marginalised over the pairs. Pairs whose variance is 0
+  # contribute a point mass at 0, i.e. probability 1 for every x > 0.
+  cdf <- function(x) {
+    sum(w[keep] * (2 * stats::pnorm(x / sqrt(v_pair[keep])) - 1)) + sum(w[!keep])
+  }
+  hi <- 10 * sqrt(max(v_pair[keep]))
+  if (cdf(hi) < 0.5) {
+    return(NA_real_)
+  }
+  root <- tryCatch(
+    stats::uniroot(function(x) cdf(x) - 0.5, c(.Machine$double.eps, hi),
+                   tol = .Machine$double.eps^0.5)$root,
+    error = function(e) NA_real_)
+  if (!is.finite(root)) {
+    return(NA_real_)
+  }
+  exp(root)
+}
+
+# The pieces maihda_mor_crossed() needs: the per-dimension variances, the
+# interaction variance, and -- over the DISTINCT unordered pairs of observed
+# strata -- which dimensions differ.
+#
+# Pairs are grouped by their differing-dimension PATTERN rather than enumerated,
+# so the cost is O(2^D * n_strata) instead of O(n_strata^2) -- which matters
+# because a MAIHDA has few dimensions but can have many levels within them.
+# `pattern` is one row per distinct pattern and `weight` how many pairs share it.
+# Counting uses inclusion-exclusion over the subset lattice: the number of ordered
+# pairs matching on every dimension in S is a sum of squared group sizes, and the
+# exact-agreement counts follow by Mobius inversion.
+maihda_mor_crossed_parts <- function(model) {
+  cc <- model$cc_info
+  dim_groups <- unname(cc$dim_groups)
+  if (length(dim_groups) < 1L || is.null(cc$interaction_group)) {
+    return(NULL)
+  }
+  v <- maihda_cc_variances(model)
+  tau_dim <- unname(v$dims)
+  tau_int <- v$interaction
+  if (!all(is.finite(c(tau_dim, tau_int))) || any(c(tau_dim, tau_int) < 0)) {
+    return(NULL)
+  }
+
+  dat <- model$data
+  if (is.null(dat) || !all(dim_groups %in% names(dat))) {
+    return(NULL)
+  }
+  cells <- unique(dat[stats::complete.cases(dat[, dim_groups, drop = FALSE]),
+                      dim_groups, drop = FALSE])
+  n <- nrow(cells)
+  if (n < 2L) {
+    return(NULL)
+  }
+  D <- length(dim_groups)
+  # One grouping pass per subset, so the work is 2^D tabulations. A MAIHDA has a
+  # handful of dimensions -- 12 already implies at least 4096 strata -- so cap it
+  # rather than grind, and let the caller report NA.
+  if (D > 12L) {
+    return(NULL)
+  }
+
+  subsets <- seq_len(2^D) - 1L
+  bits <- bitwShiftL(1L, seq_len(D) - 1L)
+  # counts[S] = ordered pairs (i, j), i == j included, agreeing on every dimension
+  # in S. Each is a sum of squared group sizes, hence an exact integer.
+  counts <- vapply(subsets, function(s) {
+    dims <- which(bitwAnd(s, bits) > 0L)
+    if (length(dims) == 0L) {
+      return(n^2)
+    }
+    key <- do.call(paste, c(lapply(cells[, dims, drop = FALSE], as.character),
+                            sep = "\r"))
+    sum(as.numeric(table(key))^2)
+  }, numeric(1))
+  # Superset Mobius inversion, in place: counts[S] becomes the number of pairs
+  # agreeing on EXACTLY S. One vectorised sweep per dimension (D * 2^D) rather
+  # than the 4^D of an explicit alternating sum over every superset.
+  for (b in bits) {
+    lo <- subsets[bitwAnd(subsets, b) == 0L]
+    counts[lo + 1L] <- counts[lo + 1L] - counts[bitwOr(lo, b) + 1L]
+  }
+  agree_exactly <- counts
+
+  full <- 2^D - 1L
+  # Drop S = all dimensions: those "pairs" are a stratum with itself.
+  keep <- subsets != full & agree_exactly > 0.5
+  if (!any(keep)) {
+    return(NULL)
+  }
+  # One row per surviving pattern, flagging the dimensions the pair DIFFERS on.
+  pattern <- t(vapply(subsets[keep], function(s) as.numeric(bitwAnd(s, bits) == 0L),
+                      numeric(D)))
+  # vapply drops to a vector when D == 1; restore the matrix shape.
+  if (D == 1L) {
+    pattern <- matrix(pattern, ncol = 1L)
+  }
+  list(dims = tau_dim, interaction = tau_int, pattern = pattern,
+       weight = agree_exactly[keep] / 2)   # ordered -> unordered pairs
+}
+
+# The intersectional random-effect variances of a crossed-dimensions fit: one per
+# additive dimension (in cc_info$dim_groups order) plus the interaction. Shared by
+# the total-variance accessor below and the MOR mixture above, so the two cannot
+# drift apart on engine support or on which effects count as intersectional.
+maihda_cc_variances <- function(model) {
+  cc <- model$cc_info
+  dim_groups <- unname(cc$dim_groups)
+  inter_group <- cc$interaction_group
   var_named <- if (identical(model$engine, "lme4")) {
     maihda_random_variances_lme4(model$model)
   } else if (identical(model$engine, "brms")) {
@@ -167,12 +319,33 @@ maihda_mor_between_variance <- function(model) {
     stop("Crossed-dimensions MOR is supported for the lme4 and brms engines ",
          "only.", call. = FALSE)
   }
-  missing_re <- setdiff(groups, names(var_named))
+  missing_re <- setdiff(unique(c(inter_group, dim_groups)), names(var_named))
   if (length(missing_re) > 0) {
     stop("Crossed-dimensions MOR is missing the random effect(s): ",
          paste(missing_re, collapse = ", "), ".", call. = FALSE)
   }
-  sum(var_named[groups])
+  list(dims = stats::setNames(as.numeric(var_named[dim_groups]), dim_groups),
+       interaction = as.numeric(var_named[inter_group]))
+}
+
+# TOTAL between-stratum (intersectional) variance. For the canonical fit this is
+# the stratum intercept variance. For a crossed-dimensions fit ($cc_info) the
+# between-stratum effect is the SUM of the independent crossed REs -- each
+# additive dimension effect plus the interaction -- so its variance is their
+# total; reading only the "stratum" (interaction) component would understate the
+# between-stratum heterogeneity. Contextual and other non-intersectional REs are
+# never included.
+#
+# NOTE this total is the variance of ONE stratum's effect. It is NOT half the
+# variance of the DIFFERENCE between two strata, because crossed strata sharing a
+# dimension are correlated -- which is why maihda_mor() routes a crossed fit
+# through maihda_mor_crossed() instead of through the 2 * V_A closed form.
+maihda_mor_between_variance <- function(model) {
+  if (is.null(model$cc_info)) {
+    return(extract_between_variance(model))
+  }
+  v <- maihda_cc_variances(model)
+  sum(c(v$dims, v$interaction))
 }
 
 #' Discriminatory accuracy of a binary MAIHDA model

@@ -47,12 +47,17 @@ this happened. For a single model the criterion is reported as fitted (the
 \code{estimator} column then reads \code{"REML"}).
 
 \strong{Comparability.} Like the VPC, information criteria are only comparable
-across models fitted to the \emph{same} analytic sample (same rows and outcome).
-AIC/BIC additionally require the same response distribution -- they are not
-comparable across families (e.g. a Gaussian vs a Poisson fit), nor between the
-likelihood engines and \code{brms} (AIC/BIC vs WAIC/LOOIC are different scales).
-\code{maihda_ic()} does not enforce this; \code{\link{compare_maihda}} warns when
-the supplied models differ in outcome, sample, or family.
+across models fitted to the \emph{same} analytic sample (same rows and outcome)
+with the \emph{same} weights -- prior (precision) weights and sampling
+(design) weights each change which likelihood, or pseudo-likelihood, is being
+maximised, so the criteria of a weighted and an unweighted fit of the identical
+model are not on a common scale. AIC/BIC additionally require the same response
+distribution -- they are not comparable across families (e.g. a Gaussian vs a
+Poisson fit), nor between the likelihood engines and \code{brms} (AIC/BIC vs
+WAIC/LOOIC are different scales). When the supplied models differ in any of
+these respects \code{maihda_ic()} warns and omits the \code{delta} column,
+still reporting each model's own criteria; \code{\link{compare_maihda}} warns
+on the same grounds.
 
 \strong{Design-weighted fits.} For the \code{wemix} (design-weighted) engine the
 criteria are reported as \code{NA}: a pseudo-likelihood with sampling weights does

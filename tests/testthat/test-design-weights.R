@@ -343,7 +343,9 @@ test_that("fit_maihda auto-switches to wemix and fits a weighted gaussian model"
   expect_s3_class(s, "maihda_summary")
   expect_gt(s$vpc$estimate, 0)
   expect_lt(s$vpc$estimate, 1)
-  # Design-consistent (sandwich) fixed-effect standard errors are reported.
+  # Sandwich (robust) fixed-effect standard errors are reported. NOT described as
+  # design-consistent: the wrapper takes only a person weight, so it cannot
+  # represent a complex design's PSUs or sampling strata.
   expect_true("se" %in% names(s$fixed_effects))
   expect_true(all(is.finite(s$fixed_effects$se)))
   expect_true(all(s$fixed_effects$se > 0))
@@ -782,7 +784,9 @@ test_that("maihda_fit_diagnostics flags a boundary (singular) wemix fit", {
     class = "WeMixResults")
   diag_s <- maihda_fit_diagnostics(singular)
   expect_identical(diag_s$engine, "wemix")
-  expect_true(isTRUE(diag_s$converged))
+  # This stub carries no likelihood function, so there is no evidence about how
+  # the optimisation terminated: the verdict is "unknown", not "converged".
+  expect_true(is.na(diag_s$converged))
   expect_true(isTRUE(diag_s$singular))
 
   healthy <- structure(

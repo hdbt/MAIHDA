@@ -4,6 +4,12 @@
 
 * Gaussian PCV calculations now use each model's fitted (REML) between-stratum variance by default. Use `estimation = "ML"` in `calculate_pcv()`, `stepwise_pcv()`, `pcv_importance()`, `compare_maihda_groups()`, or `maihda()` to restore the previous ML-refit behaviour.
 * `pcv_importance(method = "sequential")` is soft-deprecated. Use `stepwise_pcv()` for an order-dependent path or `method = "shapley"` for order-invariant attribution.
+* `maihda_mor()` on a crossed-dimensions fit now returns the mixture MOR over pairs of distinct strata instead of applying the independent-strata closed form to the summed variance. Reported values fall, most where the variance sits in the additive dimensions.
+* `fit_maihda(engine = "wemix")` now rejects a `max_iteration` that is not a single whole number of at least 1.
+
+## Documentation
+
+* The design-weighted documentation no longer describes the fixed-effect standard errors as design-consistent for complex surveys. `sampling_weights` takes one person-level weight column and cannot represent PSUs, sampling strata, higher-stage weights, finite-population corrections, or replicate weights, so it delivers population-weighted point estimates rather than general design-based inference.
 
 ## Performance
 
@@ -11,6 +17,9 @@
 
 ## Bug fixes
 
+* `wemix` fits are no longer reported as converged unconditionally. WeMix returns the last iterate without warning when its optimisation is abandoned, so convergence is now judged from its own gradient criterion and reported as `NA` when no evidence is readable.
+* Longitudinal count VPC trajectories now evaluate raw-time fixed-effect terms such as `x:wave` at the reporting time. Under internal time centering only the derived centered column was moved, so those terms stayed at each row's own observed time.
+* `maihda_ic()` now warns and omits the delta when the models differ in prior or sampling weights, which change the likelihood being maximised.
 * `stepwise_pcv()` now reports `Step_PCV` as `NA` when the preceding step's between-stratum variance is at the singularity boundary, instead of dividing by optimizer noise. The affected steps are listed in an `"undefined_step_pcv"` attribute and noted by `print()`; `Total_PCV` is unchanged.
 * The response-scale VPC for a model with non-stratum random effects now estimates the total probability variance on the same basis as its numerator, removing an `n_sim / (n_sim - 1)` inflation that was largest at small `n_sim`.
 * `calculate_pcv(bootstrap = TRUE)` now permutes each simulated response into each model's own row order before refitting, so a bootstrap across two fits of the same observations in a different row order no longer corrupts the interval.

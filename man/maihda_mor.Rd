@@ -13,7 +13,10 @@ maihda_mor(model)
 }
 \value{
 A single number (the MOR, \eqn{\ge 1}), or \code{NA_real_} if the
-  between-stratum variance is unavailable.
+  between-stratum variance is unavailable -- which for a crossed-dimensions fit
+  also covers the case where the stratum grid needed for the mixture cannot be
+  resolved (fewer than two strata, absent dimension columns, or more than 12
+  dimensions).
 }
 \description{
 The Median Odds Ratio translates the between-stratum variance of a logistic
@@ -33,14 +36,33 @@ of being at or below any given outcome category between two randomly chosen
 strata (under the model's proportional-odds assumption it is the same for
 every category split).
 
-\strong{Scope.} \code{V_A} is the \emph{between-stratum} variance. For a
-crossed-dimensions fit (from \code{maihda(decomposition =
-"crossed-dimensions")}) that is the \emph{total} intersectional variance --
-the additive dimension variances plus the interaction component, since the
-independent crossed random effects sum at the intersection level. Contextual
+\strong{Scope.} \code{V_A} is the \emph{between-stratum} variance. Contextual
 (\code{context = }) and other non-stratum random effects are never included:
 the MOR compares two individuals from randomly chosen strata \emph{within
 the same context}.
+
+\strong{Crossed-dimensions fits use a different calculation.} The closed form
+above assumes the two strata's random effects are \emph{independent}, which is
+what makes their difference \eqn{N(0, 2 V_A)}. In a crossed-dimensions fit
+(from \code{maihda(decomposition = "crossed-dimensions")}) a stratum's effect
+is the sum of its dimension effects plus the intersection effect, so two
+strata sharing a dimension -- say two strata that are both "female" -- share
+that dimension's random effect and are \strong{correlated}. Their difference
+is then a \emph{mixture} of normals, one component per pattern of shared
+dimensions, and applying the closed form to the summed variance overstates the
+MOR (substantially so when the variance sits mainly in the additive
+dimensions, and not at all when it sits entirely in the interaction).
+
+The MOR reported for such a fit is therefore computed from that mixture, under
+an explicit sampling scheme: \strong{two distinct strata drawn uniformly at
+random from the strata present in the analytic sample}. Writing
+\eqn{\tau^2_d} for dimension \eqn{d}'s variance and \eqn{\tau^2_I} for the
+intersection variance, a pair differing on the dimension set \eqn{D^*} has
+difference variance \eqn{v = 2(\tau^2_I + \sum_{d \in D^*} \tau^2_d)}, and the
+MOR is \code{exp(x)} for the \code{x} solving
+\eqn{\sum_{pairs} (2\Phi(x/\sqrt{v}) - 1) / n_{pairs} = 0.5}. For a canonical
+single-stratum fit the two calculations coincide, and that closed form is
+used.
 }
 \references{
 Larsen, K., & Merlo, J. (2005). Appropriate assessment of neighborhood effects

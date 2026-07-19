@@ -141,11 +141,12 @@ for a binomial/Bernoulli outcome regardless of this flag (see Details).}
 \item{seed}{Optional integer seed for the response-scale VPC simulation.}
 
 \item{sampling_weights}{Optional name of a sampling-weight column for a
-\strong{design-weighted MAIHDA} on complex-survey data; see
-\code{\link{fit_maihda}} for the full semantics (engine selection, the
-pseudo-likelihood weighting, and what is/is not design-based). Both the null
-and the adjusted model (and any per-group fits) use the same weights, so the
-PCV is a design-weighted decomposition. Not compatible with
+\strong{weighted MAIHDA} on survey data; see \code{\link{fit_maihda}} for the
+full semantics (engine selection, the pseudo-likelihood weighting, and --
+importantly -- why a single person weight does not deliver design-based
+inference for a multistage or stratified sample). Both the null and the
+adjusted model (and any per-group fits) use the same weights, so the
+PCV is a weighted decomposition. Not compatible with
 \code{engine = "lme4"}, \code{decomposition = "crossed-dimensions"} under
 the wemix engine, or \code{bootstrap = TRUE}.}
 
