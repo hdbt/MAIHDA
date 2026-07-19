@@ -57,6 +57,14 @@
 <ul><li>Gaussian PCV calculations now use each model’s fitted (REML) between-stratum variance by default. Use <code>estimation = "ML"</code> in <code><a href="../reference/calculate_pcv.html">calculate_pcv()</a></code>, <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code>, <code><a href="../reference/pcv_importance.html">pcv_importance()</a></code>, <code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code>, or <code><a href="../reference/maihda.html">maihda()</a></code> to restore the previous ML-refit behaviour.</li>
 <li>
 <code>pcv_importance(method = "sequential")</code> is soft-deprecated. Use <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code> for an order-dependent path or <code>method = "shapley"</code> for order-invariant attribution.</li>
+<li>
+<code><a href="../reference/maihda_mor.html">maihda_mor()</a></code> on a crossed-dimensions fit now returns the mixture MOR over pairs of distinct strata instead of applying the independent-strata closed form to the summed variance. Reported values fall, most where the variance sits in the additive dimensions.</li>
+<li>
+<code>fit_maihda(engine = "wemix")</code> now rejects a <code>max_iteration</code> that is not a single whole number of at least 1.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="documentation-development-version">Documentation<a class="anchor" aria-label="anchor" href="#documentation-development-version"></a></h3>
+<ul><li>The design-weighted documentation no longer describes the fixed-effect standard errors as design-consistent for complex surveys. <code>sampling_weights</code> takes one person-level weight column and cannot represent PSUs, sampling strata, higher-stage weights, finite-population corrections, or replicate weights, so it delivers population-weighted point estimates rather than general design-based inference.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="performance-development-version">Performance<a class="anchor" aria-label="anchor" href="#performance-development-version"></a></h3>
@@ -66,6 +74,11 @@
 <div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>
+<code>wemix</code> fits are no longer reported as converged unconditionally. WeMix returns the last iterate without warning when its optimisation is abandoned, so convergence is now judged from its own gradient criterion and reported as <code>NA</code> when no evidence is readable.</li>
+<li>Longitudinal count VPC trajectories now evaluate raw-time fixed-effect terms such as <code>x:wave</code> at the reporting time. Under internal time centering only the derived centered column was moved, so those terms stayed at each row’s own observed time.</li>
+<li>
+<code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> now warns and omits the delta when the models differ in prior or sampling weights, which change the likelihood being maximised.</li>
+<li>
 <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code> now reports <code>Step_PCV</code> as <code>NA</code> when the preceding step’s between-stratum variance is at the singularity boundary, instead of dividing by optimizer noise. The affected steps are listed in an <code>"undefined_step_pcv"</code> attribute and noted by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>; <code>Total_PCV</code> is unchanged.</li>
 <li>The response-scale VPC for a model with non-stratum random effects now estimates the total probability variance on the same basis as its numerator, removing an <code>n_sim / (n_sim - 1)</code> inflation that was largest at small <code>n_sim</code>.</li>
 <li>

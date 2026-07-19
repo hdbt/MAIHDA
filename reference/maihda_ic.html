@@ -118,12 +118,17 @@ refits any REML <code>lmer</code> model with maximum likelihood
 this happened. For a single model the criterion is reported as fitted (the
 <code>estimator</code> column then reads <code>"REML"</code>).</p>
 <p><strong>Comparability.</strong> Like the VPC, information criteria are only comparable
-across models fitted to the <em>same</em> analytic sample (same rows and outcome).
-AIC/BIC additionally require the same response distribution – they are not
-comparable across families (e.g. a Gaussian vs a Poisson fit), nor between the
-likelihood engines and <code>brms</code> (AIC/BIC vs WAIC/LOOIC are different scales).
-<code>maihda_ic()</code> does not enforce this; <code><a href="compare_maihda.html">compare_maihda</a></code> warns when
-the supplied models differ in outcome, sample, or family.</p>
+across models fitted to the <em>same</em> analytic sample (same rows and outcome)
+with the <em>same</em> weights – prior (precision) weights and sampling
+(design) weights each change which likelihood, or pseudo-likelihood, is being
+maximised, so the criteria of a weighted and an unweighted fit of the identical
+model are not on a common scale. AIC/BIC additionally require the same response
+distribution – they are not comparable across families (e.g. a Gaussian vs a
+Poisson fit), nor between the likelihood engines and <code>brms</code> (AIC/BIC vs
+WAIC/LOOIC are different scales). When the supplied models differ in any of
+these respects <code>maihda_ic()</code> warns and omits the <code>delta</code> column,
+still reporting each model's own criteria; <code><a href="compare_maihda.html">compare_maihda</a></code> warns
+on the same grounds.</p>
 <p><strong>Design-weighted fits.</strong> For the <code>wemix</code> (design-weighted) engine the
 criteria are reported as <code>NA</code>: a pseudo-likelihood with sampling weights does
 not define a standard AIC/BIC.</p>
@@ -152,7 +157,7 @@ not define a standard AIC/BIC.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">delta = difference from the best model on AIC (lower is better).</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Information criteria are only comparable across models fitted to the same analytic sample with the same weights (and, for AIC/BIC, the same family).</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Or straight from a one-call maihda() analysis (null + adjusted rows)</span></span></span>
@@ -168,7 +173,7 @@ not define a standard AIC/BIC.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">delta = difference from the best model on AIC (lower is better).</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Information criteria are only comparable across models fitted to the same analytic sample with the same weights (and, for AIC/BIC, the same family).</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>

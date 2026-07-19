@@ -145,11 +145,25 @@ fit_maihda(
 
   Optional single character string naming a numeric column of `data`
   holding individual *sampling* (survey/design) weights, for a
-  **design-weighted MAIHDA** on complex-survey data (e.g. NHANES, PISA).
-  Sampling weights are not the same thing as lme4's `weights=`
-  (precision weights, which rescale the residual variance), so combining
-  `sampling_weights` with `engine = "lme4"` is an error. Two engines
-  support them:
+  **weighted MAIHDA** on survey data. Sampling weights are not the same
+  thing as lme4's `weights=` (precision weights, which rescale the
+  residual variance), so combining `sampling_weights` with
+  `engine = "lme4"` is an error.
+
+  **What this does and does not buy you.** A single person-level weight
+  column is all this argument accepts: there is no representation of the
+  sampling hierarchy – no primary sampling units, no sampling strata, no
+  higher-stage or conditional weights, no finite-population corrections,
+  and no replicate weights. Weighting the likelihood makes the point
+  estimates target the population-weighted estimand, which is the main
+  reason to use it. The standard errors, however, are *not* general
+  design-based standard errors for a multistage or stratified sample,
+  because none of the design features that drive them are supplied.
+  Treat the intervals as approximate unless your design genuinely
+  matches the assumptions below; for full design-based inference on such
+  data, use replicate weights with a survey-specific package.
+
+  Two engines support them:
 
   - `engine = "wemix"` (chosen automatically when `engine` is left at
     its default): weighted pseudo-maximum-likelihood via
@@ -157,11 +171,16 @@ fit_maihda(
     (Rabe-Hesketh & Skrondal 2006), the estimator used for NAEP/PISA
     analysis. The individual weights enter at level 1 unchanged and the
     level-2 (stratum) weights are 1, because intersectional strata are
-    exhaustive population cells included with certainty. Supports
-    `gaussian(identity)` and `binomial(logit)` models with the canonical
-    single `(1 | stratum)` random intercept. Fixed-effect standard
-    errors are design-consistent (sandwich); the VPC/PCV are reported as
-    point estimates (no bootstrap – see
+    treated as exhaustive population cells included with certainty – so
+    this is a *single-stage* weighted model, and it is that assumption
+    the inference rests on. Supports `gaussian(identity)` and
+    `binomial(logit)` models with the canonical single `(1 | stratum)`
+    random intercept. Fixed-effect standard errors are the sandwich
+    (robust) errors WeMix reports, which account for the weighting and
+    for dependence within the model's own grouping (the intersectional
+    strata) – but not for clustering or stratification induced by the
+    sample design, which the strata do not represent. The VPC/PCV are
+    reported as point estimates (no bootstrap – see
     [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)).
 
   - `engine = "brms"`: the weights enter the model as likelihood weights

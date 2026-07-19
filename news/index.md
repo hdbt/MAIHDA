@@ -16,6 +16,23 @@
   [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   for an order-dependent path or `method = "shapley"` for
   order-invariant attribution.
+- [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
+  on a crossed-dimensions fit now returns the mixture MOR over pairs of
+  distinct strata instead of applying the independent-strata closed form
+  to the summed variance. Reported values fall, most where the variance
+  sits in the additive dimensions.
+- `fit_maihda(engine = "wemix")` now rejects a `max_iteration` that is
+  not a single whole number of at least 1.
+
+### Documentation
+
+- The design-weighted documentation no longer describes the fixed-effect
+  standard errors as design-consistent for complex surveys.
+  `sampling_weights` takes one person-level weight column and cannot
+  represent PSUs, sampling strata, higher-stage weights,
+  finite-population corrections, or replicate weights, so it delivers
+  population-weighted point estimates rather than general design-based
+  inference.
 
 ### Performance
 
@@ -26,6 +43,17 @@
 
 ### Bug fixes
 
+- `wemix` fits are no longer reported as converged unconditionally.
+  WeMix returns the last iterate without warning when its optimisation
+  is abandoned, so convergence is now judged from its own gradient
+  criterion and reported as `NA` when no evidence is readable.
+- Longitudinal count VPC trajectories now evaluate raw-time fixed-effect
+  terms such as `x:wave` at the reporting time. Under internal time
+  centering only the derived centered column was moved, so those terms
+  stayed at each row’s own observed time.
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  now warns and omits the delta when the models differ in prior or
+  sampling weights, which change the likelihood being maximised.
 - [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   now reports `Step_PCV` as `NA` when the preceding step’s
   between-stratum variance is at the singularity boundary, instead of

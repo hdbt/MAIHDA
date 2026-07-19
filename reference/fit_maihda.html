@@ -187,35 +187,51 @@ Not supported by the <code>wemix</code> engine.</p></dd>
 
 <dt id="arg-sampling-weights">sampling_weights<a class="anchor" aria-label="anchor" href="#arg-sampling-weights"></a></dt>
 <dd><p>Optional single character string naming a numeric
-column of <code>data</code> holding individual <em>sampling</em> (survey/design)
-weights, for a <strong>design-weighted MAIHDA</strong> on complex-survey data
-(e.g. NHANES, PISA). Sampling weights are not the same thing as lme4's
-<code>weights=</code> (precision weights, which rescale the residual variance), so
-combining <code>sampling_weights</code> with <code>engine = "lme4"</code> is an error.
-Two engines support them:</p><ul><li><p><code>engine = "wemix"</code> (chosen automatically when <code>engine</code> is
-    left at its default): weighted pseudo-maximum-likelihood via
-    <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> (Rabe-Hesketh &amp; Skrondal 2006), the estimator used
-    for NAEP/PISA analysis. The individual weights enter at level 1
-    unchanged and the level-2 (stratum) weights are 1, because
-    intersectional strata are exhaustive population cells included with
-    certainty. Supports <code>gaussian(identity)</code> and
-    <code>binomial(logit)</code> models with the canonical single
-    <code>(1 | stratum)</code> random intercept. Fixed-effect standard errors are
-    design-consistent (sandwich); the VPC/PCV are reported as point
-    estimates (no bootstrap – see <code><a href="summary.maihda_model.html">summary.maihda_model</a></code>).</p></li>
+  column of <code>data</code> holding individual <em>sampling</em> (survey/design)
+  weights, for a <strong>weighted MAIHDA</strong> on survey data. Sampling weights are
+  not the same thing as lme4's <code>weights=</code> (precision weights, which
+  rescale the residual variance), so combining <code>sampling_weights</code> with
+  <code>engine = "lme4"</code> is an error.</p>
+<p><strong>What this does and does not buy you.</strong> A single person-level weight
+  column is all this argument accepts: there is no representation of the
+  sampling hierarchy – no primary sampling units, no sampling strata, no
+  higher-stage or conditional weights, no finite-population corrections, and no
+  replicate weights. Weighting the likelihood makes the point estimates target
+  the population-weighted estimand, which is the main reason to use it. The
+  standard errors, however, are <em>not</em> general design-based standard errors
+  for a multistage or stratified sample, because none of the design features
+  that drive them are supplied. Treat the intervals as approximate unless your
+  design genuinely matches the assumptions below; for full design-based
+  inference on such data, use replicate weights with a survey-specific package.</p>
+<p>Two engines support them:</p><ul><li><p><code>engine = "wemix"</code> (chosen automatically when <code>engine</code> is
+      left at its default): weighted pseudo-maximum-likelihood via
+      <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> (Rabe-Hesketh &amp; Skrondal 2006), the estimator used
+      for NAEP/PISA analysis. The individual weights enter at level 1
+      unchanged and the level-2 (stratum) weights are 1, because
+      intersectional strata are treated as exhaustive population cells
+      included with certainty – so this is a <em>single-stage</em> weighted
+      model, and it is that assumption the inference rests on. Supports
+      <code>gaussian(identity)</code> and <code>binomial(logit)</code> models with the
+      canonical single <code>(1 | stratum)</code> random intercept. Fixed-effect
+      standard errors are the sandwich (robust) errors WeMix reports, which
+      account for the weighting and for dependence within the model's own
+      grouping (the intersectional strata) – but not for clustering or
+      stratification induced by the sample design, which the strata do not
+      represent. The VPC/PCV are reported as point estimates (no bootstrap –
+      see <code><a href="summary.maihda_model.html">summary.maihda_model</a></code>).</p></li>
 <li><p><code>engine = "brms"</code>: the weights enter the model as likelihood
-    weights (<code>y | weights(w)</code>), normalized to mean 1, giving a
-    <em>pseudo-posterior</em>: point estimates target the population-weighted
-    estimand but credible intervals are not design-based – interpret them
-    cautiously. Full design-based (replicate-weight / linearised) variances
-    for the variance components are not computed.</p></li>
+      weights (<code>y | weights(w)</code>), normalized to mean 1, giving a
+      <em>pseudo-posterior</em>: point estimates target the population-weighted
+      estimand but credible intervals are not design-based – interpret them
+      cautiously. Full design-based (replicate-weight / linearised) variances
+      for the variance components are not computed.</p></li>
 </ul><p>Rows with a missing or non-positive sampling weight are dropped with a
-warning. The column names <code>.maihda_sw</code> (brms likelihood weight) and
-<code>.maihda_l2wt</code> (WeMix level-2 weight) are <strong>reserved</strong> for the
-design-weighted engines: they are written into the analytic data internally,
-so a model that supplies <code>sampling_weights</code> may not also reference a
-variable of either name in its formula (fitting would error). Default
-<code>NULL</code> (unweighted).</p></dd>
+  warning. The column names <code>.maihda_sw</code> (brms likelihood weight) and
+  <code>.maihda_l2wt</code> (WeMix level-2 weight) are <strong>reserved</strong> for the
+  design-weighted engines: they are written into the analytic data internally,
+  so a model that supplies <code>sampling_weights</code> may not also reference a
+  variable of either name in its formula (fitting would error). Default
+  <code>NULL</code> (unweighted).</p></dd>
 
 
 <dt id="arg-id">id<a class="anchor" aria-label="anchor" href="#arg-id"></a></dt>

@@ -58,13 +58,18 @@ criterion is reported as fitted (the `estimator` column then reads
 
 **Comparability.** Like the VPC, information criteria are only
 comparable across models fitted to the *same* analytic sample (same rows
-and outcome). AIC/BIC additionally require the same response
-distribution – they are not comparable across families (e.g. a Gaussian
-vs a Poisson fit), nor between the likelihood engines and `brms`
-(AIC/BIC vs WAIC/LOOIC are different scales). `maihda_ic()` does not
-enforce this;
+and outcome) with the *same* weights – prior (precision) weights and
+sampling (design) weights each change which likelihood, or
+pseudo-likelihood, is being maximised, so the criteria of a weighted and
+an unweighted fit of the identical model are not on a common scale.
+AIC/BIC additionally require the same response distribution – they are
+not comparable across families (e.g. a Gaussian vs a Poisson fit), nor
+between the likelihood engines and `brms` (AIC/BIC vs WAIC/LOOIC are
+different scales). When the supplied models differ in any of these
+respects `maihda_ic()` warns and omits the `delta` column, still
+reporting each model's own criteria;
 [`compare_maihda`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
-warns when the supplied models differ in outcome, sample, or family.
+warns on the same grounds.
 
 **Design-weighted fits.** For the `wemix` (design-weighted) engine the
 criteria are reported as `NA`: a pseudo-likelihood with sampling weights
@@ -96,7 +101,7 @@ maihda_ic(null_model, adj_model, model_names = c("Null", "Adjusted"))
 #> 
 #> delta = difference from the best model on AIC (lower is better).
 #> REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.
-#> Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).
+#> Information criteria are only comparable across models fitted to the same analytic sample with the same weights (and, for AIC/BIC, the same family).
 #> 
 
 # Or straight from a one-call maihda() analysis (null + adjusted rows)
@@ -112,7 +117,7 @@ maihda_ic(a)
 #> 
 #> delta = difference from the best model on AIC (lower is better).
 #> REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.
-#> Information criteria are only comparable across models fitted to the same analytic sample (and, for AIC/BIC, the same family).
+#> Information criteria are only comparable across models fitted to the same analytic sample with the same weights (and, for AIC/BIC, the same family).
 #> 
 # }
 ```
