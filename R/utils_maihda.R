@@ -1716,9 +1716,9 @@ maihda_fit_prior_weights <- function(model) {
   as.numeric(w)
 }
 
-# Mean of a per-observation latent-scale quantity, weighted by prior weights when
-# present. The count-family (Poisson/negative-binomial) level-1 VPC averages a
-# per-row latent variance log1p(1/lambda + ...); with frequency weights w_i that average
+# Mean of a per-observation quantity, weighted by prior weights when present. The
+# count-family (Poisson/negative-binomial) level-1 VPC averages the per-row marginal
+# expected counts lambda_i; with frequency weights w_i that average
 # must be sum(w_i v_i) / sum(w_i) so a weighted fit reproduces the plain mean over the
 # equivalent duplicated-row data. Reduces to mean(v, na.rm = TRUE) when weights are
 # absent, length-mismatched, or all 1.
@@ -1733,6 +1733,31 @@ maihda_weighted_obs_mean <- function(v, w = NULL) {
     return(mean(v, na.rm = TRUE))
   }
   sum(w[ok] * v[ok]) / sum(w[ok])
+}
+
+# Latent-scale level-1 (observation) variance of a log-link count model: the
+# lognormal approximation ln(1 + 1/lambda [+ 1/theta]) of Stryhn et al. (2006)
+# and Nakagawa, Johnson & Schielzeth (2017).
+#
+# lambda is the SINGLE global mean count that derivation is defined at -- the mean
+# of the observation-level marginal expected counts -- so the per-row means `mu`
+# are reduced to that mean BEFORE the transform, not after. Through v0.2.1 this
+# package averaged the transform instead (mean_i log1p(1 / mu_i)). log1p(1 / x) is
+# convex, so by Jensen's inequality that returned a systematically LARGER level-1
+# variance, and hence a SMALLER VPC, whenever the fitted means varied. The two
+# forms agree exactly when every mu_i is equal -- which is why a null model
+# without an offset, the MAIHDA headline, is unchanged -- and diverged on
+# adjusted models, offset models, and the longitudinal VPC(t).
+#
+# Reducing in one place keeps every count call site (lme4 / brms, Poisson /
+# negative binomial, posterior-mean / per-draw, cross-sectional / longitudinal)
+# on the same definition. `theta` is the negative-binomial dispersion (NULL or
+# Inf for Poisson, whose 1 / theta term vanishes); `w` optional prior weights,
+# which now weight the mean COUNT rather than the mean of the transformed terms.
+maihda_count_level1_variance <- function(mu, theta = NULL, w = NULL) {
+  lambda <- maihda_weighted_obs_mean(mu, w)
+  extra <- if (is.null(theta)) 0 else 1 / theta
+  log1p(1 / lambda + extra)
 }
 
 # Theta (the negative-binomial size/dispersion parameter) of an lme4 NB fit.
@@ -1962,17 +1987,18 @@ maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
   }
   if (fam$family == "poisson" && fam$link == "log") {
     # Stryhn et al. (2006) latent-scale level-1 variance approximation
-    # log(1 + 1/lambda), evaluated at the MARGINAL expected count lambda_i =
-    # exp(x_i'beta + v_i/2) (see maihda_count_marginal_mu_lme4) -- exactly
-    # Nakagawa et al.'s exp(beta0 + sigma^2/2) plug-in for the null model --
-    # not at the conditional fitted mean, whose BLUPs would tie the level-1
-    # variance to the realized random effects. The simpler 1/lambda form is the
+    # log(1 + 1/lambda), evaluated at the MARGINAL expected count lambda =
+    # mean_i exp(x_i'beta + v_i/2) (see maihda_count_marginal_mu_lme4) -- for a
+    # null model exactly Nakagawa et al.'s exp(beta0 + sigma^2/2) plug-in -- not
+    # at the conditional fitted mean, whose BLUPs would tie the level-1 variance
+    # to the realized random effects. The per-row means are averaged BEFORE the
+    # transform, which is where the cited lambda lives; see
+    # maihda_count_level1_variance(). The simpler 1/lambda form is the
     # first-order Taylor expansion and matches log1p(1/lambda) only when
     # 1/lambda is small; for low-count outcomes it overestimates residual
-    # variance and biases VPC downward. With prior weights the per-row
-    # variances are averaged by those weights (see maihda_weighted_obs_mean()).
+    # variance and biases VPC downward.
     mu <- maihda_count_marginal_mu_lme4(model)
-    return(maihda_weighted_obs_mean(log1p(1 / mu), maihda_fit_prior_weights(model)))
+    return(maihda_count_level1_variance(mu, w = maihda_fit_prior_weights(model)))
   }
   if (fam$family == "negbinomial" && fam$link == "log") {
     # Negative-binomial analogue of the Poisson approximation above: the
@@ -1980,11 +2006,11 @@ maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
     # Nakagawa, Johnson & Schielzeth (2017, J R Soc Interface 14:20170213),
     # likewise at the marginal expected count. The extra 1/theta term carries
     # the overdispersion, so it reduces to the Stryhn Poisson form as
-    # theta -> Inf. Prior weights average the per-row terms.
+    # theta -> Inf.
     mu <- maihda_count_marginal_mu_lme4(model)
     theta <- maihda_negbin_theta_lme4(model)
-    return(maihda_weighted_obs_mean(log1p(1 / mu + 1 / theta),
-                                    maihda_fit_prior_weights(model)))
+    return(maihda_count_level1_variance(mu, theta = theta,
+                                        w = maihda_fit_prior_weights(model)))
   }
 
   stop("VPC residual variance is not implemented for family '", fam$family,
@@ -2036,10 +2062,10 @@ maihda_residual_variance_brms <- function(model) {
     # Stryhn et al. (2006) latent-scale level-1 variance approximation
     # log(1 + 1/lambda), at the MARGINAL expected count (posterior-mean fixed
     # part + lognormal RE-variance correction; see maihda_count_marginal_mu_brms
-    # and the lme4 sibling for the rationale). Likelihood weights average the
-    # per-row terms (see maihda_weighted_obs_mean()).
+    # and the lme4 sibling for the rationale). Likelihood weights weight the mean
+    # count (see maihda_count_level1_variance()).
     mu <- maihda_count_marginal_mu_brms(model)
-    return(maihda_weighted_obs_mean(log1p(1 / mu), maihda_fit_prior_weights(model)))
+    return(maihda_count_level1_variance(mu, w = maihda_fit_prior_weights(model)))
   }
   if (fam$family == "negbinomial" && fam$link == "log") {
     # Nakagawa, Johnson & Schielzeth (2017) lognormal latent-scale level-1
@@ -2054,8 +2080,8 @@ maihda_residual_variance_brms <- function(model) {
            "the brms posterior.")
     }
     shape <- mean(as.numeric(draws[["shape"]]), na.rm = TRUE)
-    return(maihda_weighted_obs_mean(log1p(1 / mu + 1 / shape),
-                                    maihda_fit_prior_weights(model)))
+    return(maihda_count_level1_variance(mu, theta = shape,
+                                        w = maihda_fit_prior_weights(model)))
   }
 
   stop("VPC residual variance is not implemented for brms family '", fam$family,
@@ -2132,7 +2158,7 @@ maihda_random_variance_draws_brms <- function(draws, group = "stratum") {
 #   gaussian       -> sigma draws squared (exact)
 #   logit latent   -> pi^2 / 3 (constant across draws)
 #   probit latent  -> 1        (constant across draws)
-#   poisson(log)   -> mean(log1p(1 / lambda)) at the MARGINAL expected counts
+#   poisson(log)   -> log1p(1 / mean_i lambda_{d,i}) at the MARGINAL expected counts
 #                     lambda_{d,i} = exp(eta_{d,i} + v_d / 2). For the
 #                     intercept-only VPC structures (strata / crossed / contextual)
 #                     this is computed PER DRAW from the fixed-part linear-predictor
@@ -2143,7 +2169,7 @@ maihda_random_variance_draws_brms <- function(draws, group = "stratum") {
 #                     (longitudinal) structure, whose row design the fast path does
 #                     not carry, falls back to the posterior-mean plug-in marginal
 #                     mean held constant across draws (maihda_count_marginal_mu_brms).
-#   negbinomial(log) -> mean(log1p(1 / lambda + 1 / shape_d)) per draw d: the
+#   negbinomial(log) -> log1p(1 / mean_i lambda_{d,i} + 1 / shape_d) per draw d: the
 #                     'shape' (= theta) draws are always propagated; lambda is
 #                     computed per draw for the intercept-only path and held at the
 #                     posterior-mean plug-in for the random-slope fallback, exactly
@@ -2154,8 +2180,10 @@ maihda_random_variance_draws_brms <- function(draws, group = "stratum") {
 # linear-predictor DRAWS. For each posterior draw d it forms the marginal expected
 # count lambda_{d,i} = exp(eta_{d,i} + v_d / 2) -- eta the fixed-part (re_formula =
 # NA) link-scale linear predictor and v_d the draw's total random-INTERCEPT variance
-# -- then returns the (optionally prior-weighted) mean over observations of
-# log1p(1 / lambda_{d,i} [+ extra_d]). `extra_d` carries the negative-binomial
+# -- then returns log1p(1 / lambda_d [+ extra_d]) at that draw's (optionally
+# prior-weighted) mean count lambda_d = mean_i lambda_{d,i}, the lambda the cited
+# estimator is defined at (maihda_count_level1_variance() carries the full
+# rationale). `extra_d` carries the negative-binomial
 # 1 / shape term (NULL for Poisson). lambda is clamped away from 0 exactly as the
 # posterior-mean helpers do (pmax(., .Machine$double.eps)). Propagating lambda per
 # draw -- rather than holding it at a posterior-mean plug-in -- lets the count VPC
@@ -2170,23 +2198,25 @@ maihda_count_resid_var_from_linpred <- function(eta_link, var_total, w = NULL,
     stop("var_total must have one value per posterior draw (row of eta_link).",
          call. = FALSE)
   }
-  # Marginal mean per draw/row, clamped away from 0; then 1 / lambda.
+  # Marginal mean per draw/row, clamped away from 0.
   mu <- exp(sweep(eta_link, 1L, var_total / 2, "+"))
   mu[mu < .Machine$double.eps] <- .Machine$double.eps
-  inv_mu <- 1 / mu
+  # Reduce the row means to the draw's single mean count BEFORE the transform --
+  # the lambda the cited estimator is defined at (maihda_count_level1_variance()).
+  lambda <- if (is.null(w)) {
+    rowMeans(mu, na.rm = TRUE)
+  } else {
+    vapply(seq_len(nd), function(d) maihda_weighted_obs_mean(mu[d, ], w),
+           numeric(1))
+  }
+  inv_lambda <- 1 / lambda
   if (!is.null(extra)) {
     if (length(extra) != nd) {
       stop("extra must have one value per posterior draw.", call. = FALSE)
     }
-    inv_mu <- sweep(inv_mu, 1L, extra, "+")
+    inv_lambda <- inv_lambda + extra
   }
-  terms <- log1p(inv_mu)                                  # ndraws x nobs
-  if (is.null(w)) {
-    return(rowMeans(terms, na.rm = TRUE))
-  }
-  vapply(seq_len(nd),
-         function(d) maihda_weighted_obs_mean(terms[d, ], w),
-         numeric(1))
+  log1p(inv_lambda)                                       # one value per draw
 }
 
 # brms gatherer for maihda_count_resid_var_from_linpred(): returns the per-draw
@@ -2276,7 +2306,7 @@ maihda_residual_variance_draws_brms <- function(model, draws) {
     }
     mu <- maihda_count_marginal_mu_brms(model, draws)
     w <- maihda_fit_prior_weights(model)
-    return(rep(maihda_weighted_obs_mean(log1p(1 / mu), w), n))
+    return(rep(maihda_count_level1_variance(mu, w = w), n))
   }
   if (fam$family == "negbinomial" && fam$link == "log") {
     # Nakagawa et al. (2017) ln(1 + 1/lambda + 1/theta), theta = brms 'shape'.
@@ -2296,7 +2326,7 @@ maihda_residual_variance_draws_brms <- function(model, draws) {
     mu <- maihda_count_marginal_mu_brms(model, draws)
     w <- maihda_fit_prior_weights(model)
     return(vapply(shape_d,
-                  function(s) maihda_weighted_obs_mean(log1p(1 / mu + 1 / s), w),
+                  function(s) maihda_count_level1_variance(mu, theta = s, w = w),
                   numeric(1)))
   }
 

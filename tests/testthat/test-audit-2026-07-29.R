@@ -199,7 +199,10 @@ test_that("longitudinal count VPC(t) evaluates raw-time terms at the report time
     if (move_raw) nd[["wave"]] <- t_orig
     lambda <- pmax(exp(MAIHDA:::maihda_lme4_fixed_link(m$model, nd) + (vs + vi) / 2),
                    .Machine$double.eps)
-    vs / (vs + vi + MAIHDA:::maihda_weighted_obs_mean(log1p(1 / lambda), wts))
+    # Level-1 term at the single global mean count, as the 2026-07-30 audit made
+    # it; this test is about which TIME each row is evaluated at, so the contrast
+    # below is unaffected by that choice.
+    vs / (vs + vi + log1p(1 / MAIHDA:::maihda_weighted_obs_mean(lambda, wts)))
   }
 
   correct <- vapply(vt$time, vpc_at, numeric(1), move_raw = TRUE)

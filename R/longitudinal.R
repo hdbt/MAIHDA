@@ -482,8 +482,9 @@ maihda_longitudinal_set_time <- function(newdata, time_term, t_c,
 # depends on the MARGINAL expected count lambda, which changes with time in a
 # growth model, so a single sample-wide average reused at every time point biases
 # VPC(t). Evaluate it at each grid time instead: set the model's time term to that
-# value (marginalizing the per-row level-1 term over the observed covariate rows,
-# as the cross-sectional path marginalizes over the sample) and apply the
+# value (averaging the per-row marginal counts over the observed covariate rows
+# before the transform, as the cross-sectional path averages over the sample --
+# see maihda_count_level1_variance()) and apply the
 # log-normal mean correction v(t)/2 from the total growth-block variance v_t at
 # that time. `t_c` is on the model's (possibly centered) coefficient scale; `v_t`
 # is VarStratum(t) + VarId(t) at the same times, aligned to `t_c`.
@@ -524,8 +525,8 @@ maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t,
       off_j <- if (is.null(off_j)) fo else off_j + fo
     }
     eta <- maihda_lme4_fixed_link(model, nd, offset = off_j)
-    lambda <- pmax(exp(eta + v_t[j] / 2), .Machine$double.eps)
-    maihda_weighted_obs_mean(log1p(1 / lambda + 1 / theta), w)
+    mu <- pmax(exp(eta + v_t[j] / 2), .Machine$double.eps)
+    maihda_count_level1_variance(mu, theta = theta, w = w)
   }, numeric(1))
 }
 
@@ -544,7 +545,7 @@ maihda_longitudinal_resid_at_brms <- function(model, draws, time_term, t_c, v_t,
   nd <- maihda_longitudinal_set_time(model$data, time_term, t_c,
                                      orig_time = orig_time, center = center)
   eta <- maihda_brms_linpred_mean(model, newdata = nd, re_formula = NA)
-  lambda <- pmax(exp(eta + v_t / 2), .Machine$double.eps)
+  mu <- pmax(exp(eta + v_t / 2), .Machine$double.eps)
   w <- maihda_fit_prior_weights(model)
   fam <- maihda_family(model)
   if (identical(fam$family, "negbinomial")) {
@@ -554,10 +555,10 @@ maihda_longitudinal_resid_at_brms <- function(model, draws, time_term, t_c, v_t,
     }
     shape_d <- as.numeric(draws[["shape"]])
     return(vapply(shape_d,
-                  function(s) maihda_weighted_obs_mean(log1p(1 / lambda + 1 / s), w),
+                  function(s) maihda_count_level1_variance(mu, theta = s, w = w),
                   numeric(1)))
   }
-  maihda_weighted_obs_mean(log1p(1 / lambda), w)
+  maihda_count_level1_variance(mu, w = w)
 }
 
 # ---- time-varying VPC summary -----------------------------------------------

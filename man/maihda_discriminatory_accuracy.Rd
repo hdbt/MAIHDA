@@ -27,16 +27,21 @@ An object of class \code{maihda_da}: a list with \code{auc},
   sampling weight as case/control mass, estimating the population discriminatory
   accuracy); \code{n_case} / \code{n_control} stay unweighted observation counts.
   \code{weight_type} is \code{NULL} for an unweighted AUC. An
-  \strong{aggregated-binomial} fit (an lme4 \code{cbind(success, failure)} or a
-  brms \code{y | trials(n)} model) is reported \code{weighted = FALSE} with
+  \strong{aggregated-binomial} fit is reported \code{weighted = FALSE} with
   \code{weight_type = NULL}: its count-weighted AUC equals the ordinary
   individual-level concordance over the implied 0/1 data (the trial counts are
   real observations, not sampling weights), so it is not a design-weighted
-  population quantity.
-  \strong{lme4 precision weights} (non-integer \code{weights=} on a Bernoulli fit)
-  scale likelihood/dispersion, not population frequency, so they carry no
-  population-AUC interpretation: the AUC ignores them and reports the ordinary
-  observation-level concordance (\code{weighted = FALSE}), with
+  population quantity. Aggregation is recognised \emph{structurally} -- an lme4
+  \code{cbind(success, failure)} matrix response, an lme4 proportion response
+  whose integer trial counts are supplied as \code{weights=} (see
+  \code{\link[stats]{glm}}), or a brms \code{y | trials(n)} term. Note that an
+  aggregated fit whose every row is all-success or all-failure has a proportion
+  response of exactly 0/1 and so cannot be distinguished from a Bernoulli fit;
+  write \code{cbind(successes, failures)} for such data.
+  \strong{lme4 precision weights} (any non-unit \code{weights=} on a Bernoulli
+  fit, integer or not) scale likelihood/dispersion, not population frequency, so
+  they carry no population-AUC interpretation: the AUC ignores them and reports
+  the ordinary observation-level concordance (\code{weighted = FALSE}), with
   \code{precision_weights_ignored = TRUE} flagging that such weights were present.
 }
 \description{

@@ -127,15 +127,17 @@ test_that("fit_maihda(family = 'negbinomial') fits via glmer.nb with the canonic
   expect_true(is.finite(theta) && theta > 0)
 
   # Nakagawa, Johnson & Schielzeth (2017) level-1 variance at the MARGINAL
-  # expected count lambda = exp(x'beta + v/2), vs hand computation.
+  # expected count -- the single global mean of lambda_i = exp(x_i'beta + v/2),
+  # taken before the log1p transform (see test-audit-2026-07-30.R) -- vs hand
+  # computation.
   rv <- maihda_residual_variance_lme4(m$model)
   eta <- as.numeric(stats::predict(m$model, re.form = NA, type = "link"))
   v <- as.numeric(lme4::VarCorr(m$model)$stratum[1, 1])
   lambda <- pmax(exp(eta + v / 2), .Machine$double.eps)
-  expect_equal(rv, mean(log1p(1 / lambda + 1 / theta)))
+  expect_equal(rv, log1p(1 / mean(lambda) + 1 / theta))
   # The 1/theta overdispersion term makes it strictly larger than the Poisson
-  # approximation on the same marginal means.
-  expect_gt(rv, mean(log1p(1 / lambda)))
+  # approximation on the same marginal mean.
+  expect_gt(rv, log1p(1 / mean(lambda)))
 
   s <- summary(m)
   expect_true(s$vpc$estimate > 0 && s$vpc$estimate < 1)

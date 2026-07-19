@@ -6,6 +6,7 @@
 * `pcv_importance(method = "sequential")` is soft-deprecated. Use `stepwise_pcv()` for an order-dependent path or `method = "shapley"` for order-invariant attribution.
 * `maihda_mor()` on a crossed-dimensions fit now returns the mixture MOR over pairs of distinct strata instead of applying the independent-strata closed form to the summed variance. Reported values fall, most where the variance sits in the additive dimensions.
 * `fit_maihda(engine = "wemix")` now rejects a `max_iteration` that is not a single whole number of at least 1.
+* The Poisson and negative-binomial level-1 variance behind the VPC is now evaluated at a single mean count, `log(1 + 1/mean(lambda))`, as Stryhn et al. (2006) and Nakagawa, Johnson & Schielzeth (2017) define it, instead of averaging `log(1 + 1/lambda_i)` over rows. Null-model count VPCs are unchanged; adjusted, offset, weighted, and longitudinal count VPCs rise.
 
 ## Documentation
 
@@ -17,6 +18,7 @@
 
 ## Bug fixes
 
+* Integer `weights=` on a Bernoulli fit are no longer read as aggregated binomial trial counts by `maihda_discriminatory_accuracy()`. Aggregation is now inferred structurally from a `cbind()` matrix response or a proportion response, so precision weights no longer change the AUC estimand or inflate the reported case/control totals.
 * `wemix` fits are no longer reported as converged unconditionally. WeMix returns the last iterate without warning when its optimisation is abandoned, so convergence is now judged from its own gradient criterion and reported as `NA` when no evidence is readable.
 * Longitudinal count VPC trajectories now evaluate raw-time fixed-effect terms such as `x:wave` at the reporting time. Under internal time centering only the derived centered column was moved, so those terms stayed at each row's own observed time.
 * `maihda_ic()` now warns and omits the delta when the models differ in prior or sampling weights, which change the likelihood being maximised.

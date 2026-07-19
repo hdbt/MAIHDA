@@ -1,8 +1,10 @@
 # Weighted count-model VPC/PCV: the Poisson / negative-binomial latent-scale
-# level-1 variance must average its per-row terms by the model's prior weights,
-# so a frequency-weighted fit reproduces the plain mean over the equivalent
+# level-1 variance must weight its per-row marginal COUNTS by the model's prior
+# weights, so a frequency-weighted fit reproduces the plain mean over the equivalent
 # duplicated-row data. Regression guard for the bug where the average ignored the
 # weights (a targeted weighted Poisson fit gave a 154% larger residual variance).
+# The reduction happens on the counts, before the log1p transform -- see
+# maihda_count_level1_variance() and test-audit-2026-07-30.R.
 
 # ---- pure averaging helper (no fit required) ---------------------------------
 
@@ -29,8 +31,10 @@ test_that("maihda_weighted_obs_mean reproduces the duplicated-row mean", {
 test_that("maihda_count_resid_var_from_linpred folds per-draw marginal means", {
   # Pure, Stan-free core of the per-draw count VPC residual variance: given the
   # fixed-part linear-predictor DRAWS (ndraws x nobs) and each draw's total
-  # random-intercept variance, it forms lambda_{d,i} = exp(eta + v_d/2) per draw and
-  # returns the (weighted) mean of log1p(1/lambda [+ 1/shape]) over observations.
+  # random-intercept variance, it forms lambda_{d,i} = exp(eta + v_d/2) per draw,
+  # reduces those to the draw's single (weighted) MEAN count, and returns
+  # log1p(1/lambda_d [+ 1/shape_d]) -- the cited estimator's single global lambda,
+  # not the average of the per-row transforms (see test-audit-2026-07-30.R).
   eta <- matrix(c(0, 0.5, 1.0,
                   0.2, 0.2, 0.2), nrow = 2, byrow = TRUE)   # 2 draws x 3 obs
   vtot <- c(0.4, 1.0)
@@ -38,20 +42,20 @@ test_that("maihda_count_resid_var_from_linpred folds per-draw marginal means", {
 
   # Poisson (no extra term), unweighted.
   expect_equal(MAIHDA:::maihda_count_resid_var_from_linpred(eta, vtot),
-               rowMeans(log1p(1 / mu)))
+               log1p(1 / rowMeans(mu)))
 
   # Negative-binomial: the per-draw 1/shape term is added to 1/lambda per draw.
   shape <- c(5, 2)
   expect_equal(
     MAIHDA:::maihda_count_resid_var_from_linpred(eta, vtot, extra = 1 / shape),
-    rowMeans(log1p(sweep(1 / mu, 1L, 1 / shape, "+")))
+    log1p(1 / rowMeans(mu) + 1 / shape)
   )
 
-  # Prior weights average the per-row terms within each draw.
+  # Prior weights weight the mean COUNT within each draw.
   w <- c(3, 1, 1)
   expect_equal(
     MAIHDA:::maihda_count_resid_var_from_linpred(eta, vtot, w = w),
-    vapply(seq_len(2), function(d) sum(w * log1p(1 / mu[d, ])) / sum(w), numeric(1))
+    vapply(seq_len(2), function(d) log1p(1 / (sum(w * mu[d, ]) / sum(w))), numeric(1))
   )
 
   # The marginal mean genuinely varies across draws (fixed part + RE variance),
@@ -117,11 +121,11 @@ test_that("weighted Poisson residual variance matches the duplicated-row fit", {
 
   # The pre-fix behaviour (ignore the weights, plain mean over the un-expanded
   # rows) is materially different -- the bug this regression guards against. The
-  # negative-binomial path averages through the same helper, so it is covered too.
-  # (The per-row term is computed at the same marginal means the package uses,
-  # so the contrast isolates the weighting alone.)
+  # negative-binomial path reduces through the same helper, so it is covered too.
+  # (The counts are the same marginal means the package uses, so the contrast
+  # isolates the weighting alone.)
   mu_wt <- MAIHDA:::maihda_count_marginal_mu_lme4(m_wt$model)
-  expect_false(isTRUE(all.equal(rv_wt, mean(log1p(1 / mu_wt)), tolerance = 1e-3)))
+  expect_false(isTRUE(all.equal(rv_wt, log1p(1 / mean(mu_wt)), tolerance = 1e-3)))
 })
 
 # ---- brms sampling-weighted count VPC reads the .maihda_sw column ------------
@@ -172,8 +176,8 @@ test_that("brms Poisson count VPC averages the latent variance by the sampling w
   vtot <- Reduce(`+`, lapply(sd_cols, function(cn) draws[[cn]]^2))
   mu1 <- exp(eta_link[1, ] + vtot[1] / 2)
   mu1[mu1 < .Machine$double.eps] <- .Machine$double.eps
-  rv_unwt_1 <- mean(log1p(1 / mu1))
-  rv_wt_1   <- maihda_weighted_obs_mean(log1p(1 / mu1), w_read)
+  rv_unwt_1 <- log1p(1 / mean(mu1))
+  rv_wt_1   <- log1p(1 / maihda_weighted_obs_mean(mu1, w_read))
 
   rv_path <- maihda_residual_variance_draws_brms(m$model, draws)
   expect_length(rv_path, nrow(draws))

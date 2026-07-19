@@ -205,17 +205,25 @@ test_that("lme4 precision weights are ignored for the AUC (ordinary observation-
   expect_false(isTRUE(da1$weighted))
   expect_true(isTRUE(da1$precision_weights_ignored))
 
-  # Integer frequency weights still take the aggregated path unchanged (they ARE
-  # replicated Bernoulli trials, so case/control mass is meaningful there).
+  # INTEGER precision weights are precision weights too. They used to be read as
+  # aggregated binomial trial counts -- "a genuine Bernoulli fit has unit prior
+  # weights" -- which turned a fitting control into an estimand switch: weights of
+  # 1:3 reported sum(w) cases+controls instead of n, and a weight vector of 2
+  # doubled both totals. Integrality is not the signal (a proportion response is;
+  # see the aggregated tests below), so these now take the same observation-level
+  # path as the fractional weights above, and are flagged the same way.
   d3 <- d
   d3$w <- sample(1:3, n, replace = TRUE)
   m3 <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ (1 | stratum), data = d3, family = "binomial", weights = w)))
   da3 <- maihda_discriminatory_accuracy(m3)
-  expect_equal(da3$n_case + da3$n_control, sum(d3$w))
-  expect_true(is.finite(da3$auc) && da3$auc >= 0 && da3$auc <= 1)
+  prob3 <- predict_maihda(m3, type = "individual", scale = "response")
+  expect_equal(da3$auc, maihda_auc(prob3, d3$y))
+  expect_equal(da3$n_case, sum(d3$y == 1))
+  expect_equal(da3$n_control, sum(d3$y == 0))
   expect_false(isTRUE(da3$weighted))
-  expect_false(isTRUE(da3$precision_weights_ignored))
+  expect_true(isTRUE(da3$precision_weights_ignored))
+  expect_true(is.finite(da3$auc) && da3$auc >= 0 && da3$auc <= 1)
 })
 
 test_that("AUC and MOR share the intersectional scope with extra random effects", {

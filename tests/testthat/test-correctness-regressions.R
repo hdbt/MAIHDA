@@ -208,17 +208,21 @@ test_that("poisson summaries evaluate the level-1 variance at the marginal mean"
   ]
   # Stryhn/Nakagawa level-1 variance at the MARGINAL expected count
   # lambda_i = exp(x_i'beta + v/2), with v the (constant, intercept-only)
-  # between-stratum variance -- the lognormal mean correction -- averaged over
-  # the sample. NOT the conditional fitted mean exp(x'beta + u_hat).
+  # between-stratum variance -- the lognormal mean correction. The per-row counts
+  # are averaged over the sample BEFORE the log1p transform: lambda is the single
+  # global mean count the cited estimator is defined at. NOT the conditional fitted
+  # mean exp(x'beta + u_hat), and NOT the average of the per-row transforms (which
+  # is convex, hence biased upward -- see test-audit-2026-07-30.R).
   eta <- as.numeric(stats::predict(model$model, re.form = NA, type = "link"))
   v <- as.numeric(lme4::VarCorr(model$model)$stratum[1, 1])
   lambda <- pmax(exp(eta + v / 2), .Machine$double.eps)
-  expected <- mean(log1p(1 / lambda))
+  expected <- log1p(1 / mean(lambda))
   expect_equal(observed, expected, tolerance = 1e-8)
   expect_false(isTRUE(all.equal(observed, 1)))
+  expect_false(isTRUE(all.equal(observed, mean(log1p(1 / lambda)), tolerance = 1e-6)))
 
   # ... and it genuinely differs from the conditional-fitted version it replaces.
-  cond <- mean(log1p(1 / pmax(stats::fitted(model$model), .Machine$double.eps)))
+  cond <- log1p(1 / mean(pmax(stats::fitted(model$model), .Machine$double.eps)))
   expect_false(isTRUE(all.equal(observed, cond, tolerance = 1e-6)))
 
   # In the null model every row's lambda is exactly Nakagawa et al.'s single
