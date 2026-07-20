@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x55c2fcab1108>
+#> <environment: 0x55dc68f70598>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x55c2fb0e67e8>
+#> <environment: 0x55dc67599718>
 ```
 
 The returned object carries everything: the full variance components,
@@ -297,8 +297,8 @@ the fit routes through
 [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
 weighted pseudo-maximum-likelihood. The whole workflow (VPC/ICC, PCV,
 stratum summaries, prediction, plots, and the AUC for binary outcomes)
-is then design-weighted, with design-consistent standard errors for the
-fixed effects:
+is then design-weighted (see
+[`?fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)):
 
 ``` r
 

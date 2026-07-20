@@ -371,8 +371,7 @@ analysis <- maihda(
   sampling_weights = "person_weight"
 )
 analysis            # design-weighted VPC/ICC and PCV
-summary(analysis)   # design-consistent (sandwich) SEs for the fixed effects
-
+summary(analysis)   # sandwich (robust) SEs
 # Works across the toolkit: stepwise PCV, group comparison, prediction, plots,
 # and the design-weighted AUC for binary outcomes.
 stepwise_pcv(strata_data, "outcome", c("gender", "race", "education"),

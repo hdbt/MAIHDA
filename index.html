@@ -328,8 +328,7 @@
 <span>  sampling_weights <span class="op">=</span> <span class="st">"person_weight"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">analysis</span>            <span class="co"># design-weighted VPC/ICC and PCV</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span>   <span class="co"># design-consistent (sandwich) SEs for the fixed effects</span></span>
-<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span>   <span class="co"># sandwich (robust) SEs</span></span>
 <span><span class="co"># Works across the toolkit: stepwise PCV, group comparison, prediction, plots,</span></span>
 <span><span class="co"># and the design-weighted AUC for binary outcomes.</span></span>
 <span><span class="fu"><a href="reference/stepwise_pcv.html">stepwise_pcv</a></span><span class="op">(</span><span class="va">strata_data</span>, <span class="st">"outcome"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"race"</span>, <span class="st">"education"</span><span class="op">)</span>,</span>
