@@ -267,9 +267,15 @@ only.</p></dd>
     the pairwise complete-dominance matrix.</p></dd>
 
   <dt>method, approx, n_perm, n_fits, n_obs, engine, family, context,
-    bootstrap, conf_level, n_boot_ok, estimation, estimation_used</dt>
+    bootstrap, conf_level, n_boot_ok, n_boot_boundary, n_boot_nonconverged,
+    estimation, estimation_used</dt>
 <dd><p>Metadata;
     <code>n_fits</code> counts the distinct models fit (including the null),
+    <code>n_boot_ok</code> the number of successful bootstrap draws,
+    <code>n_boot_boundary</code> the draws excluded because the null between-stratum
+    variance hit the zero boundary (the intervals are then conditional on a
+    positive null variance), <code>n_boot_nonconverged</code> the retained draws whose
+    refit optimiser did not converge,
     <code>estimation</code> is the variance-estimation basis
     (<code>"fitted"</code>/<code>"ML"</code>) requested for every subset model's
     between-stratum variance, and <code>estimation_used</code> is the basis actually used

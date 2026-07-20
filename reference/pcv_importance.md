@@ -189,14 +189,19 @@ An object of class `maihda_pcv_importance`: a list with
   matrix.
 
 - method, approx, n_perm, n_fits, n_obs, engine, family, context,
-  bootstrap, conf_level, n_boot_ok, estimation, estimation_used:
+  bootstrap, conf_level, n_boot_ok, n_boot_boundary,
+  n_boot_nonconverged, estimation, estimation_used:
 
   Metadata; `n_fits` counts the distinct models fit (including the
-  null), `estimation` is the variance-estimation basis
-  (`"fitted"`/`"ML"`) requested for every subset model's between-stratum
-  variance, and `estimation_used` is the basis actually used (`"mixed"`
-  when an ML refit was skipped at the boundary, leaving a subset model
-  on REML).
+  null), `n_boot_ok` the number of successful bootstrap draws,
+  `n_boot_boundary` the draws excluded because the null between-stratum
+  variance hit the zero boundary (the intervals are then conditional on
+  a positive null variance), `n_boot_nonconverged` the retained draws
+  whose refit optimiser did not converge, `estimation` is the
+  variance-estimation basis (`"fitted"`/`"ML"`) requested for every
+  subset model's between-stratum variance, and `estimation_used` is the
+  basis actually used (`"mixed"` when an ML refit was skipped at the
+  boundary, leaving a subset model on REML).
 
 ## Details
 
