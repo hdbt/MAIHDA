@@ -75,8 +75,9 @@ reported via a \code{message()} and stored on the result as
 control which level is the event.
 Although any valid family object is accepted for fitting, the MAIHDA variance
 summaries (\code{\link{summary.maihda_model}}, VPC/ICC, PCV) are only defined
-for \code{gaussian("identity")}, the binomial/Bernoulli families with a logit
-or probit link, \code{poisson("log")}, and the negative binomial with a log
+for \code{gaussian("identity")}, the binomial/Bernoulli families with a logit,
+probit, or complementary log-log (\code{cloglog}) link (latent level-1 variance
+\eqn{\pi^2/3}, 1, and \eqn{\pi^2/6} respectively), \code{poisson("log")}, and the negative binomial with a log
 link (level-1 variance \code{log(1 + 1/lambda + 1/theta)} at the
 \emph{marginal} expected count \code{lambda}; Nakagawa, Johnson & Schielzeth
 2017 -- see \code{\link{summary.maihda_model}} for how \code{lambda} is

@@ -2050,6 +2050,19 @@ maihda_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
   if (fam$family %in% latent_families && fam$link == "probit") {
     return(1)
   }
+  if (fam$family %in% latent_families && fam$link == "cloglog") {
+    # The complementary log-log link places the latent residual on a Gumbel
+    # (extreme-value type I) distribution, whose variance is pi^2/6 -- the
+    # extreme-value analogue of the logistic's pi^2/3 (logit) and the normal's 1
+    # (probit). This is the standard latent-scale level-1 variance for cloglog in
+    # the multilevel / discrete-time-survival literature, and it is the scale on
+    # which the between-stratum variance is estimated, so their ratio is a valid
+    # latent-scale VPC. (maihda_vpc_response() maps the same effects through the
+    # cloglog inverse link and complements it on the response scale.) Cumulative
+    # (ordinal) cloglog never reaches here -- fit_maihda() rejects it up front via
+    # maihda_ordinal_check_family() -- so only the binomial-type families arrive.
+    return((pi^2) / 6)
+  }
   if (fam$family == "poisson" && fam$link == "log") {
     # Stryhn et al. (2006) latent-scale level-1 variance approximation
     # log(1 + 1/lambda), evaluated at the MARGINAL expected count lambda =
@@ -2122,6 +2135,12 @@ maihda_residual_variance_brms <- function(model) {
   }
   if (fam$family %in% latent_families && fam$link == "probit") {
     return(1)
+  }
+  if (fam$family %in% latent_families && fam$link == "cloglog") {
+    # Gumbel (extreme-value) latent residual variance pi^2/6; see
+    # maihda_residual_variance_lme4() for the derivation. Cumulative cloglog is
+    # rejected at fit time, so only binomial-type families reach here.
+    return((pi^2) / 6)
   }
   if (fam$family == "poisson" && fam$link == "log") {
     # Stryhn et al. (2006) latent-scale level-1 variance approximation
@@ -2360,6 +2379,12 @@ maihda_residual_variance_draws_brms <- function(model, draws) {
   }
   if (fam$family %in% latent_families && fam$link == "probit") {
     return(rep(1, n))
+  }
+  if (fam$family %in% latent_families && fam$link == "cloglog") {
+    # Gumbel (extreme-value) latent residual variance pi^2/6, constant across
+    # draws; see maihda_residual_variance_lme4(). Cumulative cloglog is rejected at
+    # fit time, so only binomial-type families reach here.
+    return(rep((pi^2) / 6, n))
   }
   if (fam$family == "poisson" && fam$link == "log") {
     # Per-draw marginal mean for the intercept-only VPC path (propagates

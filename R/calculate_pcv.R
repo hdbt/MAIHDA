@@ -1089,6 +1089,18 @@ maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
     model_terms <- adj$terms
   }
 
+  # Warn once, here in the shared preamble, if a numeric stratum dimension among
+  # the attributed 'vars' will enter the (subset/step) models as a raw linear term
+  # rather than categorical main effects -- the same guardrail maihda() emits at
+  # its single entry point (see maihda_warn_linear_strata_dims()). Without this,
+  # pcv_importance()/stepwise_pcv() built the same linear-term models silently,
+  # while maihda() warned. Restricted to intersect(strata_vars, vars): a numeric
+  # dimension that is not being attributed never enters a fixed term, and a numeric
+  # covariate that is not a stratum dimension is expected to be continuous. Auto-
+  # binned dimensions are excluded by the helper (they enter as the tertile factor).
+  maihda_warn_linear_strata_dims(intersect(strata_vars, vars), strata_autobin_info,
+                                 data, fn = fn)
+
   # Auto-detect a binary outcome when family is left at the default, mirroring
   # fit_maihda()/maihda(). Otherwise a binary outcome would silently be fit on the
   # Gaussian (linear) scale for numeric 0/1, or error for a factor. An ordered

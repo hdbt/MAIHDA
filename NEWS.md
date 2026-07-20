@@ -18,6 +18,8 @@
 
 ## Bug fixes
 
+* `summary()`, the VPC, and the PCV helpers now support a binomial model fitted with the complementary log-log (`cloglog`) link, using the extreme-value latent level-1 variance `pi^2/6`. Such a model previously fitted but then stopped with a "not implemented" error, even though the response-scale VPC already handled every binomial link.
+* `pcv_importance()` and `stepwise_pcv()` now emit the same warning `maihda()` does when a numeric stratum dimension (a category code) enters the models as a single linear term rather than categorical main effects. The fitted models and the reported estimates are unchanged; only the previously missing warning was added.
 * `pcv_importance(bootstrap = TRUE)` now warns and records `n_boot_boundary` when bootstrap draws are excluded because the null model's between-stratum variance hit the zero boundary, so an attribution interval conditional on only a handful of surviving draws is no longer returned silently. `calculate_pcv()` already disclosed this.
 * The crossed-dimensions, contextual, and longitudinal VPC bootstraps now count and report non-converged refits (`n_boot_nonconverged` and a warning), so their `n_boot_ok` no longer implies a convergence that was never checked. The longitudinal per-time bands also require a majority of finite draws to form, not only ten.
 * `fit_maihda(family = "binomial")` no longer recodes a two-level proportion response (e.g. 0.25 and 0.5) to 0/1. A numeric response is Bernoulli only when its values are whole numbers, so a proportion of successes supplied with `weights =` trial counts stays an aggregated binomial fit instead of a silently different one.
