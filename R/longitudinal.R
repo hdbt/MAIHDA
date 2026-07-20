@@ -563,6 +563,21 @@ maihda_longitudinal_resid_at_brms <- function(model, draws, time_term, t_c, v_t,
 
 # ---- time-varying VPC summary -----------------------------------------------
 
+# Percentile band for one grid time's bootstrap VPC column. Applies the same
+# absolute floor (10) AND majority-of-eligible rule as maihda_bootstrap_ci() so a
+# time whose refits mostly produced non-finite VPCs yields NA rather than a band from
+# a biased handful of survivors. No draws are legitimately excluded per time, so the
+# eligible count is n_boot; a failing time returns NA (soft) rather than erroring the
+# whole trajectory the way maihda_bootstrap_ci() does for the headline interval.
+maihda_longitudinal_vpc_band <- function(col, n_boot, conf_level) {
+  col <- col[is.finite(col)]
+  if (length(col) < 10L || length(col) < ceiling(0.5 * n_boot)) {
+    return(c(NA_real_, NA_real_))
+  }
+  a <- 1 - conf_level
+  stats::quantile(col, c(a / 2, 1 - a / 2), names = FALSE)
+}
+
 #' Time-varying VPC summary for a longitudinal MAIHDA (lme4)
 #'
 #' @param object A longitudinal \code{maihda_model} (lme4 engine).
@@ -613,6 +628,9 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   vpc_lower <- rep(NA_real_, length(grid))
   vpc_upper <- rep(NA_real_, length(grid))
   ref_ci <- NULL
+  # Count contributing bootstrap draws whose refit optimiser did not converge, so the
+  # reported n_boot_ok does not silently imply convergence (see bootstrap_vpc()).
+  n_nonconv <- 0L
   if (bootstrap) {
     boot <- matrix(NA_real_, nrow = n_boot, ncol = length(grid))
     ref_boot <- rep(NA_real_, n_boot)
@@ -630,15 +648,21 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
         vr_ref <- maihda_longitudinal_resid_grid_lme4(bm, time_term, ref_c, rs + ri,
                                                       orig_time = lng$time, center = center)
         ref_boot[i] <- rs / (rs + ri + vr_ref)
+        if (maihda_lme4_optimizer_failed(bm)) n_nonconv <- n_nonconv + 1L
       }, error = function(e) NULL)
     }
-    a <- 1 - conf_level
+    # Non-converged draws are retained but reported (see bootstrap_pcv()).
+    if (n_nonconv > 0) {
+      warning(sprintf(paste0(
+        "%d of %d contributing longitudinal VPC bootstrap draw(s) had an lme4 ",
+        "optimiser that did not converge; they are retained in the intervals. ",
+        "n_boot_ok counts converged and non-converged refits alike -- interpret the ",
+        "intervals accordingly."), n_nonconv, sum(is.finite(ref_boot))), call. = FALSE)
+    }
     for (j in seq_along(grid)) {
-      col <- boot[, j][is.finite(boot[, j])]
-      if (length(col) >= 10L) {
-        vpc_lower[j] <- stats::quantile(col, a / 2, names = FALSE)
-        vpc_upper[j] <- stats::quantile(col, 1 - a / 2, names = FALSE)
-      }
+      band <- maihda_longitudinal_vpc_band(boot[, j], n_boot, conf_level)
+      vpc_lower[j] <- band[1]
+      vpc_upper[j] <- band[2]
     }
     ref_ci <- maihda_bootstrap_ci(ref_boot, n_boot, conf_level, "VPC")
   }
@@ -647,6 +671,7 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
     list(estimate = ref_vpc, ci_lower = ref_ci[1], ci_upper = ref_ci[2],
          conf_level = conf_level, bootstrap = TRUE, method = "bootstrap",
          ref_time = ref_time, n_boot_ok = attr(ref_ci, "n_ok"),
+         n_boot_nonconverged = n_nonconv,
          mc_se = attr(ref_ci, "mc_se"))
   } else {
     list(estimate = ref_vpc, bootstrap = FALSE, ref_time = ref_time)

@@ -549,6 +549,7 @@ maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level
       bootstrap = TRUE,
       method = "bootstrap",
       n_boot_ok = attr(boot$vpc, "n_ok"),
+      n_boot_nonconverged = attr(boot$vpc, "n_nonconverged"),
       mc_se = attr(boot$vpc, "mc_se")
     )
     decomposition$bootstrap <- TRUE
@@ -711,6 +712,9 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0))
   additive_boot <- rep(NA_real_, n_boot)
   interaction_boot <- rep(NA_real_, n_boot)
   context_boot <- rep(NA_real_, n_boot)
+  # Count contributing draws whose refit optimiser did not converge, so the reported
+  # n_boot_ok does not silently imply convergence (see bootstrap_vpc()).
+  n_nonconv <- 0L
   sim_data <- stats::simulate(model, nsim = n_boot)
 
   for (i in seq_len(n_boot)) {
@@ -726,7 +730,17 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0))
       additive_boot[i] <- part$additive_share
       interaction_boot[i] <- part$interaction_share
       context_boot[i] <- var_context / part$total
+      if (maihda_lme4_optimizer_failed(boot_model)) n_nonconv <- n_nonconv + 1L
     }, error = function(e) NULL)
+  }
+
+  # Non-converged draws are retained but reported (see bootstrap_pcv()).
+  if (n_nonconv > 0) {
+    warning(sprintf(paste0(
+      "%d of %d contributing crossed-dimensions decomposition bootstrap draw(s) had ",
+      "an lme4 optimiser that did not converge; they are retained in the intervals. ",
+      "n_boot_ok counts converged and non-converged refits alike -- interpret the ",
+      "intervals accordingly."), n_nonconv, sum(is.finite(vpc_boot))), call. = FALSE)
   }
 
   out <- list(
@@ -740,6 +754,7 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0))
     out$context_vpc <- maihda_bootstrap_ci(context_boot, n_boot, conf_level,
                                            "context VPC")
   }
+  attr(out$vpc, "n_nonconverged") <- n_nonconv
   out
 }
 
@@ -808,6 +823,7 @@ maihda_context_summary_lme4 <- function(object, ctx, vc, bootstrap, n_boot,
       bootstrap = TRUE,
       method = "bootstrap",
       n_boot_ok = attr(boot$vpc, "n_ok"),
+      n_boot_nonconverged = attr(boot$vpc, "n_nonconverged"),
       mc_se = attr(boot$vpc, "mc_se")
     )
     context_summary$bootstrap <- TRUE
@@ -930,6 +946,9 @@ maihda_context_summary_brms <- function(object, ctx, conf_level,
 bootstrap_context <- function(model, ctx_vars, n_boot, conf_level) {
   vpc_boot <- rep(NA_real_, n_boot)
   context_boot <- rep(NA_real_, n_boot)
+  # Count contributing draws whose refit optimiser did not converge, so the reported
+  # n_boot_ok does not silently imply convergence (see bootstrap_vpc()).
+  n_nonconv <- 0L
   sim_data <- stats::simulate(model, nsim = n_boot)
 
   for (i in seq_len(n_boot)) {
@@ -945,14 +964,26 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level) {
                                        var_within, var_other)
       vpc_boot[i] <- part$vpc_stratum
       context_boot[i] <- part$vpc_context_total
+      if (maihda_lme4_optimizer_failed(boot_model)) n_nonconv <- n_nonconv + 1L
     }, error = function(e) NULL)
   }
 
-  list(
+  # Non-converged draws are retained but reported (see bootstrap_pcv()).
+  if (n_nonconv > 0) {
+    warning(sprintf(paste0(
+      "%d of %d contributing contextual decomposition bootstrap draw(s) had an lme4 ",
+      "optimiser that did not converge; they are retained in the intervals. ",
+      "n_boot_ok counts converged and non-converged refits alike -- interpret the ",
+      "intervals accordingly."), n_nonconv, sum(is.finite(vpc_boot))), call. = FALSE)
+  }
+
+  out <- list(
     vpc = maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC"),
     context_vpc = maihda_bootstrap_ci(context_boot, n_boot, conf_level,
                                       "context VPC")
   )
+  attr(out$vpc, "n_nonconverged") <- n_nonconv
+  out
 }
 
 #' Bootstrap VPC/ICC

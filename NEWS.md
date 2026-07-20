@@ -18,6 +18,8 @@
 
 ## Bug fixes
 
+* `pcv_importance(bootstrap = TRUE)` now warns and records `n_boot_boundary` when bootstrap draws are excluded because the null model's between-stratum variance hit the zero boundary, so an attribution interval conditional on only a handful of surviving draws is no longer returned silently. `calculate_pcv()` already disclosed this.
+* The crossed-dimensions, contextual, and longitudinal VPC bootstraps now count and report non-converged refits (`n_boot_nonconverged` and a warning), so their `n_boot_ok` no longer implies a convergence that was never checked. The longitudinal per-time bands also require a majority of finite draws to form, not only ten.
 * `fit_maihda(family = "binomial")` no longer recodes a two-level proportion response (e.g. 0.25 and 0.5) to 0/1. A numeric response is Bernoulli only when its values are whole numbers, so a proportion of successes supplied with `weights =` trial counts stays an aggregated binomial fit instead of a silently different one.
 * Bootstrap intervals (VPC, PCV, crossed and contextual decomposition, longitudinal VPC, `pcv_importance()`) now require a majority of the eligible refits to succeed, not only an absolute minimum of ten. An extreme failure rate makes the interval unavailable rather than returning one from a handful of draws; legitimately excluded draws (e.g. PCV boundary draws) are not counted against the success fraction.
 * The crossed-dimensions MOR now returns 1, not `NA`, when at least half of the stratum pairs have zero contrast variance. The median odds ratio is exactly 1 there, but the mixture root search could not bracket it.

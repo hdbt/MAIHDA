@@ -197,8 +197,14 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #'     the conditional dominance matrix (variables x adjustment-set size) and
 #'     the pairwise complete-dominance matrix.}
 #'   \item{method, approx, n_perm, n_fits, n_obs, engine, family, context,
-#'     bootstrap, conf_level, n_boot_ok, estimation, estimation_used}{Metadata;
+#'     bootstrap, conf_level, n_boot_ok, n_boot_boundary, n_boot_nonconverged,
+#'     estimation, estimation_used}{Metadata;
 #'     \code{n_fits} counts the distinct models fit (including the null),
+#'     \code{n_boot_ok} the number of successful bootstrap draws,
+#'     \code{n_boot_boundary} the draws excluded because the null between-stratum
+#'     variance hit the zero boundary (the intervals are then conditional on a
+#'     positive null variance), \code{n_boot_nonconverged} the retained draws whose
+#'     refit optimiser did not converge,
 #'     \code{estimation} is the variance-estimation basis
 #'     (\code{"fitted"}/\code{"ML"}) requested for every subset model's
 #'     between-stratum variance, and \code{estimation_used} is the basis actually used
@@ -710,6 +716,20 @@ pcv_importance <- function(data, outcome, vars,
         n_nonconv_boot <- n_nonconv_boot + 1L
       }
     }
+    # Boundary/degenerate null draws are excluded from every attribution interval,
+    # which is therefore CONDITIONAL on the null model estimating a positive
+    # between-stratum variance. They are kept out of the reducer's success-fraction
+    # denominator (n_excluded), so a heavy boundary share can clear the majority gate
+    # unremarked -- surface it explicitly and count it, exactly as calculate_pcv() does.
+    if (n_excluded_boot > 0) {
+      warning(sprintf(paste0(
+        "%d of %d PCV-attribution bootstrap draw(s) estimated a zero or degenerate ",
+        "between-stratum variance in the null model; the attribution is undefined ",
+        "there, so these draws are excluded and the intervals are conditional on a ",
+        "positive null variance. A sizeable boundary share signals weak ",
+        "between-stratum variation -- interpret the attribution and its intervals ",
+        "cautiously."), n_excluded_boot, n_boot), call. = FALSE)
+    }
     if (n_nonconv_boot > 0) {
       warning(sprintf(paste0(
         "%d of %d contributing PCV-attribution bootstrap draw(s) had an lme4 ",
@@ -739,6 +759,7 @@ pcv_importance <- function(data, outcome, vars,
     result$conf_level <- conf_level
     result$n_boot <- n_boot
     result$n_boot_ok <- attr(ci_list[[1]], "n_ok")
+    result$n_boot_boundary <- n_excluded_boot
     result$n_boot_nonconverged <- n_nonconv_boot
   }
 
@@ -829,6 +850,13 @@ print.maihda_pcv_importance <- function(x, digits = 4, ...) {
     cat(pal$muted(sprintf(
       "Parametric bootstrap intervals from %d successful draws of %d.\n",
       as.integer(x$n_boot_ok), as.integer(x$n_boot))))
+    if (!is.null(x$n_boot_boundary) && is.finite(x$n_boot_boundary) &&
+        x$n_boot_boundary > 0) {
+      cat(pal$warn(sprintf(paste0(
+        "%d draw(s) hit the zero null-variance boundary and were excluded;\n",
+        "the intervals are conditional on a positive null variance.\n"),
+        as.integer(x$n_boot_boundary))))
+    }
   }
   if (any(x$importance$Contribution < 0)) {
     cat(pal$muted(paste0(
