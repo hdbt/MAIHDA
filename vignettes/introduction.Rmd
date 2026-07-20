@@ -183,8 +183,7 @@ For complex-survey data (NHANES, PISA, ...), pass the sampling-weight column via
 precision weights, which rescale the residual variance), so the fit routes through
 `WeMix::mix()` weighted pseudo-maximum-likelihood. The whole workflow
 (VPC/ICC, PCV, stratum summaries, prediction, plots, and the AUC for binary
-outcomes) is then design-weighted, with design-consistent standard errors for the
-fixed effects:
+outcomes) is then design-weighted (see `?fit_maihda`):
 
 ```{r maihda-weighted, eval=FALSE}
 weighted <- maihda(outcome ~ age + (1 | gender:race:education),
