@@ -148,8 +148,9 @@ reported via a <code><a href="https://rdrr.io/r/base/message.html" class="extern
 control which level is the event.
 Although any valid family object is accepted for fitting, the MAIHDA variance
 summaries (<code><a href="summary.maihda_model.html">summary.maihda_model</a></code>, VPC/ICC, PCV) are only defined
-for <code>gaussian("identity")</code>, the binomial/Bernoulli families with a logit
-or probit link, <code>poisson("log")</code>, and the negative binomial with a log
+for <code>gaussian("identity")</code>, the binomial/Bernoulli families with a logit,
+probit, or complementary log-log (<code>cloglog</code>) link (latent level-1 variance
+\(\pi^2/3\), 1, and \(\pi^2/6\) respectively), <code>poisson("log")</code>, and the negative binomial with a log
 link (level-1 variance <code>log(1 + 1/lambda + 1/theta)</code> at the
 <em>marginal</em> expected count <code>lambda</code>; Nakagawa, Johnson &amp; Schielzeth
 2017 – see <code><a href="summary.maihda_model.html">summary.maihda_model</a></code> for how <code>lambda</code> is

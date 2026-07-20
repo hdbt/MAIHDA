@@ -100,10 +100,12 @@ fit_maihda(
   family object is accepted for fitting, the MAIHDA variance summaries
   ([`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md),
   VPC/ICC, PCV) are only defined for `gaussian("identity")`, the
-  binomial/Bernoulli families with a logit or probit link,
-  `poisson("log")`, and the negative binomial with a log link (level-1
-  variance `log(1 + 1/lambda + 1/theta)` at the *marginal* expected
-  count `lambda`; Nakagawa, Johnson & Schielzeth 2017 – see
+  binomial/Bernoulli families with a logit, probit, or complementary
+  log-log (`cloglog`) link (latent level-1 variance \\\pi^2/3\\, 1, and
+  \\\pi^2/6\\ respectively), `poisson("log")`, and the negative binomial
+  with a log link (level-1 variance `log(1 + 1/lambda + 1/theta)` at the
+  *marginal* expected count `lambda`; Nakagawa, Johnson & Schielzeth
+  2017 – see
   [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
   for how `lambda` is computed). Other families (for example
   `Gamma(link = "log")`) will fit, but

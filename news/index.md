@@ -49,6 +49,21 @@
 
 ### Bug fixes
 
+- [`summary()`](https://rdrr.io/r/base/summary.html), the VPC, and the
+  PCV helpers now support a binomial model fitted with the complementary
+  log-log (`cloglog`) link, using the extreme-value latent level-1
+  variance `pi^2/6`. Such a model previously fitted but then stopped
+  with a “not implemented” error, even though the response-scale VPC
+  already handled every binomial link.
+- [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  and
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  now emit the same warning
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) does
+  when a numeric stratum dimension (a category code) enters the models
+  as a single linear term rather than categorical main effects. The
+  fitted models and the reported estimates are unchanged; only the
+  previously missing warning was added.
 - `pcv_importance(bootstrap = TRUE)` now warns and records
   `n_boot_boundary` when bootstrap draws are excluded because the null
   model’s between-stratum variance hit the zero boundary, so an
