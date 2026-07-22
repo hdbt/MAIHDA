@@ -71,9 +71,30 @@ reporting each model's own criteria;
 [`compare_maihda`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
 warns on the same grounds.
 
+**Predictive target of the Bayesian criteria.**
+[`brms::waic()`](https://mc-stan.org/loo/reference/waic.html) and
+[`brms::loo()`](https://mc-stan.org/loo/reference/loo.html) are computed
+from pointwise log-likelihoods *conditional on the fitted random
+effects*, so WAIC/LOOIC assess prediction of new observations *within
+the strata (and persons or contexts) already represented in the data* –
+not performance for a new, unseen intersectional stratum. Choosing
+between strata definitions on LOOIC therefore compares conditional
+predictive fit; generalisation to new strata is a leave-one-group-out
+cross-validation question (e.g.
+[`brms::kfold()`](https://mc-stan.org/loo/reference/kfold-generic.html)
+with `group = "stratum"`), which this package does not wrap. AIC/BIC for
+the likelihood engines are instead computed from the *marginal*
+likelihood (random effects integrated out) – a further reason the
+likelihood and Bayesian criteria are never comparable with each other.
+
 **Design-weighted fits.** For the `wemix` (design-weighted) engine the
 criteria are reported as `NA`: a pseudo-likelihood with sampling weights
-does not define a standard AIC/BIC.
+does not define a standard AIC/BIC. A `brms` fit with `sampling_weights`
+is treated the same way: its sampling weights enter as likelihood
+weights, giving a pseudo-posterior whose weighted pointwise
+log-likelihoods are not log predictive densities, so WAIC/LOOIC are
+likewise reported as `NA` (the `estimator` column reads
+`"Bayesian (weighted pseudo-posterior)"`).
 
 ## See also
 

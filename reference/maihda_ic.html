@@ -129,9 +129,26 @@ WAIC/LOOIC are different scales). When the supplied models differ in any of
 these respects <code>maihda_ic()</code> warns and omits the <code>delta</code> column,
 still reporting each model's own criteria; <code><a href="compare_maihda.html">compare_maihda</a></code> warns
 on the same grounds.</p>
+<p><strong>Predictive target of the Bayesian criteria.</strong> <code><a href="https://mc-stan.org/loo/reference/waic.html" class="external-link">brms::waic()</a></code> and
+<code><a href="https://mc-stan.org/loo/reference/loo.html" class="external-link">brms::loo()</a></code> are computed from pointwise log-likelihoods
+<em>conditional on the fitted random effects</em>, so WAIC/LOOIC assess
+prediction of new observations <em>within the strata (and persons or
+contexts) already represented in the data</em> – not performance for a new,
+unseen intersectional stratum. Choosing between strata definitions on LOOIC
+therefore compares conditional predictive fit; generalisation to new strata
+is a leave-one-group-out cross-validation question (e.g.
+<code><a href="https://mc-stan.org/loo/reference/kfold-generic.html" class="external-link">brms::kfold()</a></code> with <code>group = "stratum"</code>), which this package does
+not wrap. AIC/BIC for the likelihood engines are instead computed from the
+<em>marginal</em> likelihood (random effects integrated out) – a further
+reason the likelihood and Bayesian criteria are never comparable with each
+other.</p>
 <p><strong>Design-weighted fits.</strong> For the <code>wemix</code> (design-weighted) engine the
 criteria are reported as <code>NA</code>: a pseudo-likelihood with sampling weights does
-not define a standard AIC/BIC.</p>
+not define a standard AIC/BIC. A <code>brms</code> fit with <code>sampling_weights</code> is
+treated the same way: its sampling weights enter as likelihood weights, giving a
+pseudo-posterior whose weighted pointwise log-likelihoods are not log predictive
+densities, so WAIC/LOOIC are likewise reported as <code>NA</code> (the
+<code>estimator</code> column reads <code>"Bayesian (weighted pseudo-posterior)"</code>).</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

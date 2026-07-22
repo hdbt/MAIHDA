@@ -181,7 +181,7 @@ the experts disagree.</strong></p><ul><li><p><em>Shrinkage (magnitude/sign).</em
     and its interval.</p></li>
 <li><p><em>Whether to correct.</em> If you do want an error-rate screen, whether a
     correction is warranted depends on the <em>inferential structure</em> of the
-    claim – the joint hypothesis, not the number of strata (Rubin 2021). Each
+    claim. Each
     stratum as its own pre-specified hypothesis ("does <em>this</em> stratum
     interact?") is <em>individual</em> testing and needs none – <strong>only</strong> if you
     do not also read the flags collectively. Once the question is "is there an
@@ -193,12 +193,9 @@ in one call is the disjunction/screening case, where controlling the expected
 <code>adjust = "none"</code> only when each stratum is a genuine, pre-specified
 individual hypothesis. The FDR choice (over family-wise
 <code>"bonferroni"</code>/<code>"holm"</code>) is this package's, matching that screening
-goal; it is not a recommendation of Rubin (2021), who raises FDR only to
-distinguish it from the family-wise rate. The flag itself is a Wald test on a
-shrunken BLUP whose
+goal. The flag itself is a Wald test on a shrunken BLUP whose
 conditional SE treats the variance components as known, so it (and any
-<code>adjust</code> on it) is an explicit, approximate <em>screen</em>, not a procedure
-inheriting an exact guarantee from the model. The direction of the
+<code>adjust</code> on it) is an explicit, approximate <em>screen</em>. The direction of the
 approximation is <em>conservative</em>: partial pooling deflates a truly-null
 stratum's BLUP more than its conditional SE, so the null z-statistic is
 sub-normal (variance about the shrinkage fraction, below 1) and the screen

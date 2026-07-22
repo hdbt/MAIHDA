@@ -44,6 +44,13 @@
 
 ### Documentation
 
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  now states the predictive target of the Bayesian criteria: `brms`
+  WAIC/LOOIC condition on the fitted random effects and so assess
+  prediction of new observations within the represented strata, not
+  generalisation to a new stratum (a leave-one-group-out
+  cross-validation question), while the likelihood engines’ AIC/BIC are
+  computed from the marginal likelihood.
 - [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
   now documents the direction of its approximate screen: partial pooling
   deflates a truly-null stratum’s Wald tail (null z variance is about
@@ -68,6 +75,19 @@
 
 ### Bug fixes
 
+- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  now rejects a longitudinal growth curve the observed times cannot
+  identify: fewer than `time_degree + 1` distinct measurement times, or
+  no person measured at two distinct times. Such models previously
+  fitted and returned arbitrary, optimizer-dependent slope variances
+  flagged only as a singular fit. The check runs on the input and again
+  on the analytic sample after row exclusions.
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  now reports `WAIC`/`LOOIC` as `NA` for a sampling-weighted `brms` fit,
+  with estimator `"Bayesian (weighted pseudo-posterior)"`, matching the
+  `wemix` treatment: the weighted pointwise log-likelihoods of a
+  pseudo-posterior are not log predictive densities and define no
+  standard criterion.
 - [`summary()`](https://rdrr.io/r/base/summary.html), the VPC, and the
   PCV helpers now support a binomial model fitted with the complementary
   log-log (`cloglog`) link, using the extreme-value latent level-1

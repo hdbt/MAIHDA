@@ -71,6 +71,8 @@
 <div class="section level3">
 <h3 id="documentation-development-version">Documentation<a class="anchor" aria-label="anchor" href="#documentation-development-version"></a></h3>
 <ul><li>
+<code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> now states the predictive target of the Bayesian criteria: <code>brms</code> WAIC/LOOIC condition on the fitted random effects and so assess prediction of new observations within the represented strata, not generalisation to a new stratum (a leave-one-group-out cross-validation question), while the likelihood engines’ AIC/BIC are computed from the marginal likelihood.</li>
+<li>
 <code><a href="../reference/maihda_interactions.html">maihda_interactions()</a></code> now documents the direction of its approximate screen: partial pooling deflates a truly-null stratum’s Wald tail (null z variance is about the shrinkage fraction), so the default BH flags err conservative rather than exceeding the nominal false-discovery rate. The Bayesian path is described as already partially pooled instead of “multiplicity-free”, and the flag description drops causal phrasing.</li>
 <li>The design-weighted documentation no longer describes the fixed-effect standard errors as design-consistent for complex surveys. <code>sampling_weights</code> takes one person-level weight column and cannot represent PSUs, sampling strata, higher-stage weights, finite-population corrections, or replicate weights, so it delivers population-weighted point estimates rather than general design-based inference.</li>
 </ul></div>
@@ -82,6 +84,10 @@
 <div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>
+<code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> now rejects a longitudinal growth curve the observed times cannot identify: fewer than <code>time_degree + 1</code> distinct measurement times, or no person measured at two distinct times. Such models previously fitted and returned arbitrary, optimizer-dependent slope variances flagged only as a singular fit. The check runs on the input and again on the analytic sample after row exclusions.</li>
+<li>
+<code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> now reports <code>WAIC</code>/<code>LOOIC</code> as <code>NA</code> for a sampling-weighted <code>brms</code> fit, with estimator <code>"Bayesian (weighted pseudo-posterior)"</code>, matching the <code>wemix</code> treatment: the weighted pointwise log-likelihoods of a pseudo-posterior are not log predictive densities and define no standard criterion.</li>
+<li>
 <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, the VPC, and the PCV helpers now support a binomial model fitted with the complementary log-log (<code>cloglog</code>) link, using the extreme-value latent level-1 variance <code>pi^2/6</code>. Such a model previously fitted but then stopped with a “not implemented” error, even though the response-scale VPC already handled every binomial link.</li>
 <li>
 <code><a href="../reference/pcv_importance.html">pcv_importance()</a></code> and <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code> now emit the same warning <code><a href="../reference/maihda.html">maihda()</a></code> does when a numeric stratum dimension (a category code) enters the models as a single linear term rather than categorical main effects. The fitted models and the reported estimates are unchanged; only the previously missing warning was added.</li>
