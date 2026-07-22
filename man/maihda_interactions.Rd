@@ -46,7 +46,8 @@ An object of class \code{maihda_interactions} (a data frame), one row
   shrunken BLUP's conditional SE, with the variance components treated as known
   -- \strong{not} a calibrated frequentist p-value; \code{adjust} (e.g. BH)
   rescales these approximate values and does not confer an exact error-rate
-  guarantee (see Details). \code{brms} instead adds
+  guarantee; the approximation errs conservative for truly-null strata (see
+  Details). \code{brms} instead adds
   \code{pd} (probability of direction, \code{max(P(>0), P(<0))} in
   \code{[0.5, 1]}). When \code{rope} is set, a
   \code{decision} column (\code{"relevant"}/\code{"negligible"}/\code{"inconclusive"})
@@ -60,8 +61,9 @@ its outcome -- the stratum random effect (BLUP) of an \emph{adjusted} MAIHDA
 model, i.e. how far the stratum departs from the additive main-effects
 prediction of its defining dimensions -- and \strong{flags} the strata whose
 interaction is credibly different from zero. This is the heart of "where is
-there genuine intersectionality": a flagged stratum is one whose joint identity
-produces an outcome the additive parts do not.
+there genuine intersectionality": a flagged stratum is one whose outcome
+departs credibly from what the additive parts predict -- a descriptive
+statement about the stratum's outcome, not a causal claim about identity.
 }
 \details{
 \strong{It must be read off the adjusted model.} Only when the dimensions'
@@ -83,7 +85,11 @@ p-value, with an optional multiplicity correction (\code{adjust}). For
 posterior tail is used -- a credible interval at \code{conf_level} and the
 probability of direction \code{pd = max(P(BLUP > 0), P(BLUP < 0))} (in
 \code{[0.5, 1]}; the sign is in \code{direction}) -- and \code{adjust} is not
-applied (the Bayesian answer is multiplicity-free).
+applied: the posterior is already partially pooled, the hierarchical-shrinkage
+answer to multiplicity (Gelman, Hill & Yajima 2012). That is a per-stratum
+answer; the marginal intervals carry no formal joint error-rate guarantee for
+the collective claim "an interaction exists \emph{somewhere}" (the disjunction
+reading below applies to Bayesian flags too).
 
 \strong{Multiplicity: partial pooling and a correction are different things, and
 the experts disagree.}
@@ -117,7 +123,12 @@ distinguish it from the family-wise rate. The flag itself is a Wald test on a
 shrunken BLUP whose
 conditional SE treats the variance components as known, so it (and any
 \code{adjust} on it) is an explicit, approximate \emph{screen}, not a procedure
-inheriting an exact guarantee from the model. Lead with the interval (and, for
+inheriting an exact guarantee from the model. The direction of the
+approximation is \emph{conservative}: partial pooling deflates a truly-null
+stratum's BLUP more than its conditional SE, so the null z-statistic is
+sub-normal (variance about the shrinkage fraction, below 1) and the screen
+under-flags rather than over-flags, degenerating to no flags at the
+singular/zero-variance boundary. Lead with the interval (and, for
 \code{brms}, the probability of direction); the substantive question is often not
 whether an interaction differs from zero but whether it exceeds a smallest
 interaction of interest (an equivalence reading; Schuirmann 1987; Kruschke 2018),

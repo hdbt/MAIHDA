@@ -334,9 +334,12 @@ test_that("maihda_bootstrap_ci requires a minimum number of successful draws", {
     "must succeed"
   )
   # Legitimately excluded draws (n_excluded) do not count against the success
-  # fraction, so 30 successes of 50 eligible (100 requested, 50 excluded) is fine.
-  ci_excl <- MAIHDA:::maihda_bootstrap_ci(rep(0.5, 30), n_boot = 100,
-                                          conf_level = 0.95, n_excluded = 50)
+  # fraction, so 30 successes of 50 eligible (100 requested, 50 excluded) is fine
+  # -- but the 40% failure rate among the eligible draws still warns.
+  ci_excl <- expect_warning(
+    MAIHDA:::maihda_bootstrap_ci(rep(0.5, 30), n_boot = 100,
+                                 conf_level = 0.95, n_excluded = 50),
+    "refits failed")
   expect_length(ci_excl, 2)
   # A clean majority succeeding returns an interval.
   ci <- MAIHDA:::maihda_bootstrap_ci(seq(0, 1, length.out = 80), n_boot = 100, conf_level = 0.95)

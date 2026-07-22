@@ -16,8 +16,9 @@
 #' model, i.e. how far the stratum departs from the additive main-effects
 #' prediction of its defining dimensions -- and \strong{flags} the strata whose
 #' interaction is credibly different from zero. This is the heart of "where is
-#' there genuine intersectionality": a flagged stratum is one whose joint identity
-#' produces an outcome the additive parts do not.
+#' there genuine intersectionality": a flagged stratum is one whose outcome
+#' departs credibly from what the additive parts predict -- a descriptive
+#' statement about the stratum's outcome, not a causal claim about identity.
 #'
 #' @details
 #' \strong{It must be read off the adjusted model.} Only when the dimensions'
@@ -39,7 +40,11 @@
 #' posterior tail is used -- a credible interval at \code{conf_level} and the
 #' probability of direction \code{pd = max(P(BLUP > 0), P(BLUP < 0))} (in
 #' \code{[0.5, 1]}; the sign is in \code{direction}) -- and \code{adjust} is not
-#' applied (the Bayesian answer is multiplicity-free).
+#' applied: the posterior is already partially pooled, the hierarchical-shrinkage
+#' answer to multiplicity (Gelman, Hill & Yajima 2012). That is a per-stratum
+#' answer; the marginal intervals carry no formal joint error-rate guarantee for
+#' the collective claim "an interaction exists \emph{somewhere}" (the disjunction
+#' reading below applies to Bayesian flags too).
 #'
 #' \strong{Multiplicity: partial pooling and a correction are different things, and
 #' the experts disagree.}
@@ -55,7 +60,7 @@
 #'     and its interval.
 #'   \item \emph{Whether to correct.} If you do want an error-rate screen, whether a
 #'     correction is warranted depends on the \emph{inferential structure} of the
-#'     claim -- the joint hypothesis, not the number of strata (Rubin 2021). Each
+#'     claim. Each
 #'     stratum as its own pre-specified hypothesis ("does \emph{this} stratum
 #'     interact?") is \emph{individual} testing and needs none -- \strong{only} if you
 #'     do not also read the flags collectively. Once the question is "is there an
@@ -68,12 +73,14 @@
 #' \code{adjust = "none"} only when each stratum is a genuine, pre-specified
 #' individual hypothesis. The FDR choice (over family-wise
 #' \code{"bonferroni"}/\code{"holm"}) is this package's, matching that screening
-#' goal; it is not a recommendation of Rubin (2021), who raises FDR only to
-#' distinguish it from the family-wise rate. The flag itself is a Wald test on a
-#' shrunken BLUP whose
+#' goal The flag itself is a Wald test on a shrunken BLUP whose
 #' conditional SE treats the variance components as known, so it (and any
-#' \code{adjust} on it) is an explicit, approximate \emph{screen}, not a procedure
-#' inheriting an exact guarantee from the model. Lead with the interval (and, for
+#' \code{adjust} on it) is an explicit, approximate \emph{screen}. The direction of the
+#' approximation is \emph{conservative}: partial pooling deflates a truly-null
+#' stratum's BLUP more than its conditional SE, so the null z-statistic is
+#' sub-normal (variance about the shrinkage fraction, below 1) and the screen
+#' under-flags rather than over-flags, degenerating to no flags at the
+#' singular/zero-variance boundary. Lead with the interval (and, for
 #' \code{brms}, the probability of direction); the substantive question is often not
 #' whether an interaction differs from zero but whether it exceeds a smallest
 #' interaction of interest (an equivalence reading; Schuirmann 1987; Kruschke 2018),
@@ -117,7 +124,8 @@
 #'   shrunken BLUP's conditional SE, with the variance components treated as known
 #'   -- \strong{not} a calibrated frequentist p-value; \code{adjust} (e.g. BH)
 #'   rescales these approximate values and does not confer an exact error-rate
-#'   guarantee (see Details). \code{brms} instead adds
+#'   guarantee; the approximation errs conservative for truly-null strata (see
+#'   Details). \code{brms} instead adds
 #'   \code{pd} (probability of direction, \code{max(P(>0), P(<0))} in
 #'   \code{[0.5, 1]}). When \code{rope} is set, a
 #'   \code{decision} column (\code{"relevant"}/\code{"negligible"}/\code{"inconclusive"})
@@ -201,8 +209,9 @@ maihda_interactions <- function(object, conf_level = 0.95, adjust = "BH",
 
   if (identical(engine, "brms")) {
     if (adjust_was_set && !identical(adjust, "none")) {
-      message("maihda_interactions(): the Bayesian posterior tail is ",
-              "multiplicity-free; 'adjust' is ignored for brms models.")
+      message("maihda_interactions(): 'adjust' is ignored for brms models -- ",
+              "the posterior is already partially pooled, and no additional ",
+              "p-value correction is applied to its tail probabilities.")
     }
     group <- maihda_interaction_group(model)
     tail <- maihda_interaction_brms_tail(model$model, group, conf_level)
