@@ -102,12 +102,13 @@ maihda_linkinv <- function(fam) {
 # convergence once, at fit time, so we re-read both from the fitted object for
 # reporting in print()/summary(). brms (Stan) convergence is diagnosed elsewhere
 # via Rhat, so for brmsfit objects only the engine is recorded here.
-maihda_fit_diagnostics <- function(model) {
+maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
   diagnostics <- list(
     engine = NA_character_,
     singular = NA,
     converged = NA,
-    messages = character(0)
+    messages = character(0),
+    adequacy = NULL
   )
 
   if (inherits(model, "merMod")) {
@@ -227,7 +228,269 @@ maihda_fit_diagnostics <- function(model) {
     }
   }
 
+  # Likelihood-adequacy checks (overdispersion / zero inflation / random-effect
+  # normality / longitudinal autocorrelation / proportional odds). Wrapped so an
+  # adequacy probe can never break a fit that otherwise succeeded; NULL for a
+  # family/engine with no applicable check or when nothing is flagged. Warnings and
+  # messages are suppressed because the internal refits (e.g. the ordinal clm() for
+  # the proportional-odds screen) can emit convergence chatter that is not the user's
+  # to act on and must never leak into a fit the caller wrapped in expect_silent().
+  diagnostics$adequacy <- tryCatch(
+    suppressWarnings(suppressMessages(
+      maihda_adequacy_checks(model, longitudinal_info))),
+    error = function(e) NULL
+  )
+
   structure(diagnostics, class = "maihda_fit_diagnostics")
+}
+
+# ---- Model-adequacy diagnostics ---------------------------------------------
+# The diagnostics above check COMPUTATIONAL adequacy (a singular or non-converged
+# fit). The helpers below check whether the chosen LIKELIHOOD is adequate, because
+# the VPC/PCV and interaction estimates are all conditional on it: an overdispersed
+# or zero-inflated count, a non-normal stratum random effect, autocorrelated
+# longitudinal residuals, or a violated proportional-odds assumption each make the
+# reported variance partition misleading even when the optimiser converged cleanly.
+# Each check is a pure function of already-computed ingredients so it can be
+# unit-tested on synthetic inputs, and the orchestrator wraps every check in
+# tryCatch so a fragile probe degrades to "no signal" rather than an error.
+
+# Thresholds are deliberately conservative: these surface as automatic caveats on
+# every print()/summary(), so a well-specified model must stay silent.
+maihda_adequacy_thresholds <- function() {
+  list(
+    overdispersion_ratio = 1.5,   # Pearson chisq / resid df; Bolker's concern level
+    overdispersion_p     = 0.05,
+    zeroinflation_ratio  = 0.9,   # expected/observed zeros; < 0.9 => underpredicts zeros
+    zeroinflation_min    = 10L,   # need at least this many observed zeros to judge
+    re_min_levels        = 20L,   # too few groups to judge a distribution
+    re_shapiro_p         = 0.01,
+    re_abs_skew          = 0.75,
+    re_excess_kurtosis   = 1.5,
+    autocorr_abs         = 0.3,   # |lag-1 within-unit residual autocorrelation|
+    autocorr_min_pairs   = 30L,
+    ordinal_po_p         = 0.05
+  )
+}
+
+# Pearson overdispersion statistic for a count GLMM (Bolker GLMM FAQ): the Pearson
+# chi-square over the residual df. ratio ~ 1 under a well-specified Poisson; ratio
+# >> 1 signals extra-Poisson variation. Pure in (pearson_resid, rdf).
+maihda_overdispersion_stat <- function(pearson_resid, rdf) {
+  pearson_resid <- pearson_resid[is.finite(pearson_resid)]
+  if (length(pearson_resid) == 0 || !is.finite(rdf) || rdf <= 0) {
+    return(NULL)
+  }
+  chisq <- sum(pearson_resid^2)
+  list(chisq = chisq, rdf = rdf, ratio = chisq / rdf,
+       p = stats::pchisq(chisq, df = rdf, lower.tail = FALSE))
+}
+
+# Zero-inflation statistic: observed zeros vs the count expected under the fitted
+# marginal mass at 0 (performance::check_zeroinflation logic). ratio < 1 means the
+# likelihood underpredicts zeros. Pure in (observed_zeros, expected_zeros, n).
+maihda_zeroinflation_stat <- function(observed_zeros, expected_zeros, n) {
+  if (!is.finite(observed_zeros) || !is.finite(expected_zeros) ||
+      observed_zeros <= 0) {
+    return(NULL)
+  }
+  list(observed = observed_zeros, expected = expected_zeros, n = n,
+       ratio = expected_zeros / observed_zeros)
+}
+
+# Distribution shape of a random-effect (BLUP) vector: sample skew, excess kurtosis,
+# and a Shapiro-Wilk p-value. The stratum BLUPs are the empirical realisation of the
+# assumed-normal random effect the VPC rests on. Shrinkage pulls BLUPs toward normal,
+# so this is CONSERVATIVE -- a rejection is meaningful, a pass is weak. Pure in the
+# BLUP vector.
+maihda_re_normality_stat <- function(re_values) {
+  re_values <- re_values[is.finite(re_values)]
+  n <- length(re_values)
+  if (n < 4L) {
+    return(NULL)
+  }
+  m <- mean(re_values)
+  s2 <- mean((re_values - m)^2)
+  if (s2 <= 0) {
+    return(NULL)
+  }
+  skew <- mean((re_values - m)^3) / s2^1.5
+  kurt <- mean((re_values - m)^4) / s2^2 - 3
+  sh_p <- tryCatch(stats::shapiro.test(re_values)$p.value,
+                   error = function(e) NA_real_)
+  list(n = n, skew = skew, excess_kurtosis = kurt, shapiro_p = sh_p)
+}
+
+# Lag-1 residual autocorrelation for a longitudinal fit: within each id, order the
+# residuals by time and correlate each with its predecessor, pooling the consecutive
+# pairs across ids. |acf1| well above 0 signals serial dependence the random-
+# intercept/slope structure did not absorb. Pure in (resid, id, time).
+maihda_resid_autocorr_stat <- function(resid, id, time) {
+  ok <- is.finite(resid) & !is.na(id) & is.finite(time)
+  resid <- resid[ok]
+  id <- id[ok]
+  time <- time[ok]
+  if (length(resid) < 3L) {
+    return(NULL)
+  }
+  prev <- numeric(0)
+  cur <- numeric(0)
+  for (g in split(seq_along(resid), id)) {
+    if (length(g) < 2L) next
+    gi <- g[order(time[g])]
+    r <- resid[gi]
+    prev <- c(prev, r[-length(r)])
+    cur <- c(cur, r[-1])
+  }
+  if (length(prev) < 2L || stats::sd(prev) == 0 || stats::sd(cur) == 0) {
+    return(NULL)
+  }
+  list(n_pairs = length(prev), acf1 = stats::cor(prev, cur))
+}
+
+# Approximate proportional-odds check for a cumulative (clmm) fit. There is no
+# standard PO test for a MIXED cumulative model, so approximate it on the FIXED-
+# effects part (dropping the stratum random effect): fit two ordinal::clm() models on
+# the fitted frame -- the all-proportional model and one where every covariate enters
+# as a threshold-specific (nominal) effect -- and take the omnibus likelihood-ratio
+# test between them. APPROXIMATE: ignoring the random effect makes this a screening
+# signal, not a definitive test. The two models are fit DIRECTLY (rather than via
+# ordinal::nominal_test(), whose internal update() re-resolves the data symbol in the
+# wrong environment and silently returns NA LRTs when called from inside a function).
+# Only meaningful with >= 1 fixed-effect covariate. Returns NULL on any failure so a
+# fragile refit never breaks a fit.
+maihda_ordinal_po_stat <- function(model) {
+  if (!inherits(model, "clmm") || !requireNamespace("ordinal", quietly = TRUE)) {
+    return(NULL)
+  }
+  tryCatch({
+    f <- stats::formula(model)
+    rhs_terms <- attr(stats::terms(f), "term.labels")
+    fixed_terms <- rhs_terms[!grepl("\\|", rhs_terms)]
+    if (length(fixed_terms) == 0) {
+      return(NULL)   # null model: no covariate slopes to test
+    }
+    resp <- all.vars(f)[1]
+    dat <- tryCatch(stats::model.frame(model), error = function(e) model$model)
+    if (is.null(dat)) {
+      return(NULL)
+    }
+    m_po <- ordinal::clm(stats::reformulate(fixed_terms, response = resp), data = dat)
+    m_nom <- ordinal::clm(stats::reformulate("1", response = resp),
+                          nominal = stats::reformulate(fixed_terms), data = dat)
+    ll_po <- stats::logLik(m_po)
+    ll_nom <- stats::logLik(m_nom)
+    df <- attr(ll_nom, "df") - attr(ll_po, "df")
+    lrt <- 2 * (as.numeric(ll_nom) - as.numeric(ll_po))
+    if (!is.finite(lrt) || !is.finite(df) || df <= 0 || lrt < 0) {
+      return(NULL)
+    }
+    list(min_p = stats::pchisq(lrt, df = df, lower.tail = FALSE),
+         lrt = lrt, df = df, n_terms = length(fixed_terms))
+  }, error = function(e) NULL)
+}
+
+# Orchestrate the applicable adequacy checks for a fitted model, returning a named
+# list (one entry per flagged-or-computed check, each carrying its stats and a
+# logical $flag) or NULL when no check applies. lme4 (merMod) and ordinal (clmm)
+# only: brms carries its own posterior-predictive checks and the design-weighted
+# WeMix estimator is out of scope. Never errors -- each probe is self-contained.
+maihda_adequacy_checks <- function(model, longitudinal_info = NULL) {
+  th <- maihda_adequacy_thresholds()
+  out <- list()
+
+  # ---- count-family checks: overdispersion + zero inflation (lme4) ----
+  if (inherits(model, "glmerMod")) {
+    fam <- tryCatch(stats::family(model)$family, error = function(e) NA_character_)
+    is_poisson <- identical(fam, "poisson")
+    is_negbin <- is.character(fam) && length(fam) == 1 &&
+      grepl("^Negative Binomial", fam)
+    if (is_poisson || is_negbin) {
+      od <- tryCatch(
+        maihda_overdispersion_stat(stats::residuals(model, type = "pearson"),
+                                   stats::df.residual(model)),
+        error = function(e) NULL)
+      if (!is.null(od)) {
+        od$family <- if (is_negbin) "negbinomial" else "poisson"
+        od$flag <- isTRUE(od$ratio > th$overdispersion_ratio &&
+                            od$p < th$overdispersion_p)
+        out$overdispersion <- od
+      }
+      zi <- tryCatch({
+        y <- as.numeric(lme4::getME(model, "y"))
+        mu <- as.numeric(stats::fitted(model))
+        obs0 <- sum(y == 0)
+        exp0 <- if (is_negbin) {
+          theta <- maihda_negbin_theta_lme4(model)
+          if (is.null(theta) || !is.finite(theta)) NA_real_ else
+            sum(stats::dnbinom(0, size = theta, mu = mu))
+        } else {
+          sum(stats::dpois(0, lambda = mu))
+        }
+        if (is.na(exp0)) NULL else maihda_zeroinflation_stat(obs0, exp0, length(y))
+      }, error = function(e) NULL)
+      if (!is.null(zi)) {
+        zi$flag <- isTRUE(is.finite(zi$ratio) && zi$ratio < th$zeroinflation_ratio &&
+                            zi$observed >= th$zeroinflation_min)
+        out$zeroinflation <- zi
+      }
+    }
+  }
+
+  # ---- random-effect distribution adequacy (lme4) ----
+  if (inherits(model, "merMod")) {
+    re_res <- tryCatch(lme4::ranef(model), error = function(e) NULL)
+    for (grp in names(re_res)) {
+      df_g <- re_res[[grp]]
+      if (!"(Intercept)" %in% colnames(df_g)) next
+      vals <- df_g[["(Intercept)"]]
+      if (length(vals) < th$re_min_levels) next
+      st <- maihda_re_normality_stat(vals)
+      if (is.null(st)) next
+      flag <- is.finite(st$shapiro_p) && st$shapiro_p < th$re_shapiro_p &&
+        (abs(st$skew) > th$re_abs_skew ||
+           abs(st$excess_kurtosis) > th$re_excess_kurtosis)
+      if (isTRUE(flag)) {
+        st$group <- grp
+        st$flag <- TRUE
+        out$re_normality <- st
+        break   # one flagged grouping is enough to caveat
+      }
+    }
+  }
+
+  # ---- longitudinal residual autocorrelation (lme4) ----
+  if (!is.null(longitudinal_info) && inherits(model, "merMod")) {
+    ac <- tryCatch({
+      mf <- stats::model.frame(model)
+      id_col <- longitudinal_info$id
+      time_col <- longitudinal_info$time_term
+      if (is.null(time_col)) time_col <- longitudinal_info$time
+      if (is.null(id_col) || is.null(time_col) ||
+          !id_col %in% names(mf) || !time_col %in% names(mf)) {
+        NULL
+      } else {
+        maihda_resid_autocorr_stat(stats::residuals(model, type = "pearson"),
+                                   mf[[id_col]], as.numeric(mf[[time_col]]))
+      }
+    }, error = function(e) NULL)
+    if (!is.null(ac)) {
+      ac$flag <- isTRUE(is.finite(ac$acf1) && abs(ac$acf1) > th$autocorr_abs &&
+                          ac$n_pairs >= th$autocorr_min_pairs)
+      out$autocorrelation <- ac
+    }
+  }
+
+  # ---- ordinal proportional-odds, approximate (clmm) ----
+  if (inherits(model, "clmm")) {
+    po <- maihda_ordinal_po_stat(model)
+    if (!is.null(po)) {
+      po$flag <- isTRUE(is.finite(po$min_p) && po$min_p < th$ordinal_po_p)
+      out$proportional_odds <- po
+    }
+  }
+
+  if (length(out) == 0) NULL else out
 }
 
 # Format fit diagnostics as a character vector of report lines (empty when the fit
@@ -255,6 +518,67 @@ maihda_format_fit_diagnostics <- function(diagnostics) {
     )
     out <- c(out, header, paste0("  - ", diagnostics$messages))
   }
+  out <- c(out, maihda_format_adequacy(diagnostics$adequacy))
+  out
+}
+
+# Turn a maihda_adequacy_checks() result into report lines, one caveat per FLAGGED
+# check (nothing for an unflagged or absent check). Pure in the adequacy list so it
+# can be tested on synthetic flags without a live fit. Kept separate from the fit
+# diagnostics above because the two answer different questions (did the optimiser
+# succeed vs. is the likelihood adequate) and are formatted independently.
+maihda_format_adequacy <- function(adequacy) {
+  if (is.null(adequacy)) {
+    return(character(0))
+  }
+  fp <- function(p) format.pval(p, digits = 2, eps = 1e-4)
+  out <- character(0)
+
+  od <- adequacy$overdispersion
+  if (isTRUE(od$flag)) {
+    out <- c(out,
+      sprintf("Overdispersion: Pearson dispersion ratio %.2f (p %s) for the %s model.",
+              od$ratio, fp(od$p), od$family),
+      if (identical(od$family, "poisson")) {
+        "  The Poisson VPC/PCV overstate precision; consider family = \"negbinomial\"."
+      } else {
+        "  Variation remains beyond the negative binomial; the VPC/PCV may be unreliable."
+      })
+  }
+
+  zi <- adequacy$zeroinflation
+  if (isTRUE(zi$flag)) {
+    out <- c(out,
+      sprintf("Zero inflation: %d observed zeros vs %.0f expected (ratio %.2f).",
+              as.integer(zi$observed), zi$expected, zi$ratio),
+      "  The likelihood underpredicts zeros; the VPC/PCV may be misleading.")
+  }
+
+  re <- adequacy$re_normality
+  if (isTRUE(re$flag)) {
+    out <- c(out,
+      sprintf(paste0("Random-effect distribution: '%s' intercepts depart from normal ",
+                     "(skew %.2f, excess kurtosis %.2f, Shapiro p %s)."),
+              re$group, re$skew, re$excess_kurtosis, fp(re$shapiro_p)),
+      "  Shrinkage makes this conservative; the normal random-effect assumption behind the VPC may not hold.")
+  }
+
+  ac <- adequacy$autocorrelation
+  if (isTRUE(ac$flag)) {
+    out <- c(out,
+      sprintf("Residual autocorrelation: lag-1 within-unit correlation %.2f over %d pairs.",
+              ac$acf1, as.integer(ac$n_pairs)),
+      "  Longitudinal residuals are serially dependent; consider a richer growth or error structure.")
+  }
+
+  po <- adequacy$proportional_odds
+  if (isTRUE(po$flag)) {
+    out <- c(out,
+      sprintf("Proportional odds (approximate): nominal-effects LRT p %s over %d covariate(s).",
+              fp(po$min_p), as.integer(po$n_terms)),
+      "  Approximate check (ignores the stratum random effect); the proportional-odds assumption may be violated.")
+  }
+
   out
 }
 

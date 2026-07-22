@@ -208,7 +208,12 @@
 #'   \item{diagnostics}{Fit-quality diagnostics, surfaced by the print and
 #'     summary methods: singular fit / convergence for lme4 and WeMix, MCMC
 #'     convergence (maximum Rhat, divergent transitions) for brms, and the
-#'     optimizer convergence code for an ordinal (clmm) fit}
+#'     optimizer convergence code for an ordinal (clmm) fit. For lme4 and clmm
+#'     fits it also carries likelihood-adequacy caveats -- count overdispersion
+#'     and zero inflation, stratum random-effect non-normality, longitudinal
+#'     residual autocorrelation, and an approximate ordinal proportional-odds
+#'     screen -- reported only when a conservative threshold is crossed, since the
+#'     VPC/PCV and interaction estimates are conditional on the likelihood holding}
 #'
 #' @examples
 #' \donttest{
@@ -897,9 +902,11 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
 
   }
 
-  # Capture fit-quality diagnostics (singular fit / non-convergence) so they can
-  # be reported by print()/summary(); lme4 surfaces these only once at fit time.
-  diagnostics <- maihda_fit_diagnostics(model)
+  # Capture fit-quality diagnostics (singular fit / non-convergence) and likelihood-
+  # adequacy caveats so they can be reported by print()/summary(); lme4 surfaces the
+  # convergence warnings only once at fit time. longitudinal_info (id / time) lets the
+  # adequacy pass compute within-unit residual autocorrelation.
+  diagnostics <- maihda_fit_diagnostics(model, longitudinal_info)
 
   # Store the actual analytic model frame so downstream calculations use the
   # same rows as lme4/brms after their NA handling. The wemix and ordinal paths

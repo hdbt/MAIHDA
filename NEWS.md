@@ -1,5 +1,9 @@
 # MAIHDA (development version)
 
+## New features
+
+* `fit_maihda()` models now carry likelihood-adequacy diagnostics that `print()` and `summary()` surface alongside the singular/convergence caveats: Poisson/negative-binomial overdispersion (Pearson ratio) and zero inflation, stratum random-effect non-normality, longitudinal residual autocorrelation, and an approximate ordinal proportional-odds screen. A well-specified model stays silent.
+
 ## API changes
 
 * Gaussian PCV calculations now use each model's fitted (REML) between-stratum variance by default. Use `estimation = "ML"` in `calculate_pcv()`, `stepwise_pcv()`, `pcv_importance()`, `compare_maihda_groups()`, or `maihda()` to restore the previous ML-refit behaviour.
