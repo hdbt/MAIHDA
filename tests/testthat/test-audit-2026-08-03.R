@@ -66,6 +66,38 @@ test_that("maihda_re_normality_stat flags a skewed BLUP vector and passes a norm
   expect_null(maihda_re_normality_stat(rep(4, 40)))
 })
 
+test_that("maihda_re_standardize rescales by the marginal BLUP sd and drops degenerate groups", {
+  z <- maihda_re_standardize(c(1, 2), c(0.5, 0.75), tau2 = 1)
+  expect_equal(z, c(1 / sqrt(0.5), 2 / sqrt(0.25)))
+
+  # a group whose condvar reaches tau2 has no marginal BLUP variance: drop, not divide
+  z2 <- maihda_re_standardize(c(1, 2, 3), c(0.5, 1, 2), tau2 = 1)
+  expect_equal(z2, 1 / sqrt(0.5))
+
+  # guards: boundary tau2, mismatched lengths
+  expect_identical(maihda_re_standardize(c(1, 2), c(0.1, 0.1), tau2 = 0), numeric(0))
+  expect_identical(maihda_re_standardize(c(1, 2), c(0.1), tau2 = 1), numeric(0))
+})
+
+test_that("unequal-information scale mixture no longer masquerades as RE non-normality", {
+  # Audit regression: Var(u_hat_j) = tau2 - v_j depends on cell size, so raw BLUPs
+  # from unequal strata are a scale mixture of normals -- leptokurtic with exactly
+  # Gaussian true effects. The shape gate must trip on the raw mixture and must NOT
+  # trip once each half is standardized by its model-implied marginal sd.
+  th <- maihda_adequacy_thresholds()
+  base <- stats::qnorm(stats::ppoints(40))
+  raw <- c(base * 1, base * 4)          # sd 1 (heavily shrunk) vs sd 4 (data-rich)
+  raw_st <- maihda_re_normality_stat(raw)
+  expect_gt(raw_st$excess_kurtosis, th$re_excess_kurtosis)
+  expect_lt(raw_st$shapiro_p, th$re_shapiro_p)
+
+  # tau2 = 16 with v = 15 (tiny cells) / 0 (huge cells) reproduces those sds exactly
+  z <- maihda_re_standardize(raw, c(rep(15, 40), rep(0, 40)), tau2 = 16)
+  std_st <- maihda_re_normality_stat(z)
+  expect_lt(abs(std_st$excess_kurtosis), th$re_excess_kurtosis)
+  expect_gt(std_st$shapiro_p, th$re_shapiro_p)
+})
+
 # ---- residual autocorrelation statistic (pure) ------------------------------
 
 test_that("maihda_resid_autocorr_stat computes pooled lag-1 correlation", {
@@ -73,6 +105,7 @@ test_that("maihda_resid_autocorr_stat computes pooled lag-1 correlation", {
   alt <- maihda_resid_autocorr_stat(rep(c(1, -1), 5), rep(1L, 10), 1:10)
   expect_equal(alt$acf1, -1)
   expect_equal(alt$n_pairs, 9)
+  expect_equal(alt$gap, 1)
 
   # two units, cur = prev + 1 within each -> perfect positive correlation, pooled
   st <- maihda_resid_autocorr_stat(
@@ -81,6 +114,20 @@ test_that("maihda_resid_autocorr_stat computes pooled lag-1 correlation", {
     time = c(1, 2, 3, 1, 2, 3))
   expect_equal(st$acf1, 1)
   expect_equal(st$n_pairs, 4)          # 2 consecutive pairs per unit
+})
+
+test_that("maihda_resid_autocorr_stat pairs only the modal time gap", {
+  # gaps 1, 1, 2 within one unit -> modal gap 1, the wide pair is dropped
+  st <- maihda_resid_autocorr_stat(c(1, 2, 1, 9), rep(1L, 4), c(0, 1, 2, 4))
+  expect_equal(st$gap, 1)
+  expect_equal(st$n_pairs, 2)          # (t0,t1) and (t1,t2) only
+
+  # tie between gap 1 and gap 2 -> smallest wins
+  st2 <- maihda_resid_autocorr_stat(
+    c(1, 2, 9, 5, 3, 7), c(1L, 1L, 1L, 2L, 2L, 2L),
+    c(0, 1, 3, 0, 1, 3))               # gaps 1,2 per unit -> 2 of each
+  expect_equal(st2$gap, 1)
+  expect_equal(st2$n_pairs, 2)
 })
 
 test_that("maihda_resid_autocorr_stat orders by time within unit and skips singletons", {
@@ -104,7 +151,7 @@ test_that("adequacy thresholds are the documented conservative values", {
   expect_equal(th$overdispersion_ratio, 1.5)
   expect_equal(th$zeroinflation_ratio, 0.9)
   expect_equal(th$re_min_levels, 20L)
-  expect_equal(th$autocorr_abs, 0.3)
+  expect_equal(th$autocorr_min, 0.3)
 })
 
 # ---- surfacing: one caveat line per FLAGGED check (pure) ---------------------
@@ -120,16 +167,18 @@ test_that("maihda_format_adequacy renders exactly the flagged checks", {
   full <- list(
     overdispersion = list(ratio = 6.8, p = 1e-9, family = "poisson", flag = TRUE),
     zeroinflation = list(observed = 583, expected = 157, ratio = 0.27, flag = TRUE),
-    re_normality = list(group = "stratum", skew = 1.1, excess_kurtosis = 0.6,
-                        shapiro_p = 0.002, flag = TRUE),
-    autocorrelation = list(acf1 = 0.51, n_pairs = 2100, flag = TRUE),
+    re_normality = list(group = "stratum", term = "(Intercept)", skew = 1.1,
+                        excess_kurtosis = 0.6, shapiro_p = 0.002, flag = TRUE),
+    autocorrelation = list(acf1 = 0.51, n_pairs = 2100, gap = 1, flag = TRUE),
     proportional_odds = list(min_p = 1e-9, lrt = 40, df = 1, n_terms = 1, flag = TRUE))
   lines <- maihda_format_adequacy(full)
   expect_match(lines, "Overdispersion", all = FALSE)
   expect_match(lines, "negbinomial", all = FALSE)          # remedy for a poisson fit
   expect_match(lines, "Zero inflation", all = FALSE)
   expect_match(lines, "Random-effect distribution", all = FALSE)
+  expect_match(lines, "standardized BLUPs", all = FALSE)
   expect_match(lines, "Residual autocorrelation", all = FALSE)
+  expect_match(lines, "at time gap 1", all = FALSE)
   expect_match(lines, "Proportional odds", all = FALSE)
 
   # the negbinomial overdispersion message points beyond the NB, not back to it
@@ -137,6 +186,13 @@ test_that("maihda_format_adequacy renders exactly the flagged checks", {
     overdispersion = list(ratio = 3, p = 1e-4, family = "negbinomial", flag = TRUE)))
   expect_match(nb, "beyond the negative binomial", all = FALSE)
   expect_false(any(grepl("consider family", nb)))
+
+  # a flagged random SLOPE names the term instead of claiming intercepts
+  slope <- maihda_format_adequacy(list(
+    re_normality = list(group = "pid", term = "t", skew = 1.2,
+                        excess_kurtosis = 2.0, shapiro_p = 0.001, flag = TRUE)))
+  expect_match(slope, "random 't' slopes", all = FALSE)
+  expect_false(any(grepl("intercepts", slope)))
 })
 
 # ---- integration: the diagnostics slot carries adequacy ---------------------
@@ -191,7 +247,71 @@ test_that("a longitudinal fit with AR(1) residuals flags autocorrelation", {
     rnorm(np, 0, 0.5)[d$pid] + rnorm(np, 0, 0.05)[d$pid] * d$t + e
   m <- suppressWarnings(fit_maihda(y ~ (1 | a:b), data = d, id = "pid", time = "t"))
   expect_true(isTRUE(m$diagnostics$adequacy$autocorrelation$flag))
-  expect_gt(abs(m$diagnostics$adequacy$autocorrelation$acf1), 0.3)
+  expect_gt(m$diagnostics$adequacy$autocorrelation$acf1, 0.3)
+})
+
+test_that("a CORRECT short panel is not flagged despite the negative detrending artifact", {
+  # Audit regression: conditional residuals subtract the estimated per-id
+  # intercept+slope, which mechanically induces NEGATIVE lag-1 correlation on a
+  # correctly specified model -- around -0.4 at 4 waves with well-resolved random
+  # effects. The one-sided flag must not read that artifact as misspecification.
+  skip_on_cran()
+  set.seed(306)
+  np <- 150
+  base <- expand.grid(pid = 1:np, t = 0:3)                 # 4 waves
+  strat <- data.frame(pid = 1:np, a = factor(sample(1:4, np, TRUE)),
+                      b = factor(sample(1:3, np, TRUE)))
+  d <- merge(base, strat, by = "pid")
+  d <- d[order(d$pid, d$t), ]
+  si <- interaction(d$a, d$b, drop = TRUE)
+  d$y <- 2 + 0.3 * d$t +
+    rnorm(nlevels(si), 0, 0.5)[as.integer(si)] +
+    0.10 * d$t * rnorm(nlevels(si))[as.integer(si)] +
+    rnorm(np, 0, 1.2)[d$pid] +                             # light shrinkage
+    rnorm(np, 0, 0.4)[d$pid] * d$t +
+    rnorm(nrow(d), 0, 0.7)                                 # INDEPENDENT errors
+  m <- suppressWarnings(fit_maihda(y ~ (1 | a:b), data = d, id = "pid", time = "t"))
+  ac <- m$diagnostics$adequacy$autocorrelation
+  expect_false(is.null(ac))
+  expect_lt(ac$acf1, -0.3)             # the artifact is there, clearly
+  expect_false(isTRUE(ac$flag))        # and it must NOT flag
+})
+
+test_that("a correct model with strongly unequal strata is not RE-flagged", {
+  # Audit regression: Gaussian true effects, cells of 5 vs 800. The raw-BLUP
+  # scale-mixture artifact is demonstrably present in this fixture; the
+  # standardized pipeline must not read it as non-normality.
+  skip_on_cran()
+  set.seed(302)
+  sizes <- c(rep(5L, 20), rep(800L, 20))
+  ab <- expand.grid(a = factor(1:8), b = factor(1:5))       # 40 strata
+  u <- rnorm(40, 0, 0.15)                                   # GAUSSIAN truth
+  d <- do.call(rbind, lapply(1:40, function(j)
+    data.frame(a = ab$a[j], b = ab$b[j], x = rnorm(sizes[j]), j = j)))
+  d$y <- 1 + 0.5 * d$x + u[d$j] + rnorm(nrow(d), 0, 1)
+  m <- suppressWarnings(fit_maihda(y ~ x + (1 | a:b), data = d[, c("a", "b", "x", "y")]))
+  # the raw-BLUP artifact would have flagged this fit under BOTH gate conditions
+  th <- maihda_adequacy_thresholds()
+  raw <- maihda_re_normality_stat(lme4::ranef(m$model)$stratum[["(Intercept)"]])
+  expect_gt(raw$excess_kurtosis, th$re_excess_kurtosis)
+  expect_lt(raw$shapiro_p, th$re_shapiro_p)
+  # the standardized pipeline does not read it as misspecification
+  expect_false(isTRUE(m$diagnostics$adequacy$re_normality$flag))
+})
+
+test_that("the standardized RE check still detects a genuinely skewed random effect", {
+  skip_on_cran()
+  set.seed(308)
+  sizes <- c(rep(5L, 20), rep(800L, 20))                    # same unequal design
+  ab <- expand.grid(a = factor(1:8), b = factor(1:5))
+  u <- (rexp(40) - 1) * 0.6                                 # strongly skewed truth
+  d <- do.call(rbind, lapply(1:40, function(j)
+    data.frame(a = ab$a[j], b = ab$b[j], x = rnorm(sizes[j]), j = j)))
+  d$y <- 1 + 0.5 * d$x + u[d$j] + rnorm(nrow(d), 0, 1)
+  m <- suppressWarnings(fit_maihda(y ~ x + (1 | a:b), data = d[, c("a", "b", "x", "y")]))
+  re <- m$diagnostics$adequacy$re_normality
+  expect_true(isTRUE(re$flag))
+  expect_identical(re$term, "(Intercept)")
 })
 
 # ---- ordinal proportional-odds (live clmm) ----------------------------------

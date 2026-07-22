@@ -267,7 +267,11 @@ maihda_adequacy_thresholds <- function() {
     re_shapiro_p         = 0.01,
     re_abs_skew          = 0.75,
     re_excess_kurtosis   = 1.5,
-    autocorr_abs         = 0.3,   # |lag-1 within-unit residual autocorrelation|
+    autocorr_min         = 0.3,   # POSITIVE lag-1 residual autocorrelation only:
+                                  # subtracting estimated per-id trajectories biases
+                                  # the estimate negative on a CORRECT model (to
+                                  # about -0.5 at 3-4 waves), so a negative value is
+                                  # never treated as evidence of misspecification
     autocorr_min_pairs   = 30L,
     ordinal_po_p         = 0.05
   )
@@ -298,11 +302,34 @@ maihda_zeroinflation_stat <- function(observed_zeros, expected_zeros, n) {
        ratio = expected_zeros / observed_zeros)
 }
 
-# Distribution shape of a random-effect (BLUP) vector: sample skew, excess kurtosis,
-# and a Shapiro-Wilk p-value. The stratum BLUPs are the empirical realisation of the
-# assumed-normal random effect the VPC rests on. Shrinkage pulls BLUPs toward normal,
-# so this is CONSERVATIVE -- a rejection is meaningful, a pass is weak. Pure in the
-# BLUP vector.
+# Standardize a BLUP vector by its model-implied marginal sd before any shape test.
+# Raw BLUPs are NOT exchangeable across groups: u_j = u_hat_j + (u_j - u_hat_j)
+# splits the random effect into its posterior mean and an independent posterior
+# deviation, so Var(u_hat_j) = tau2 - v_j with v_j the group's conditional (condVar)
+# variance -- a quantity that grows with the group's information (cell size). With
+# unequal strata the pooled raw-BLUP distribution is therefore a scale MIXTURE of
+# normals: leptokurtic and Shapiro-rejecting even when the true effects are exactly
+# Gaussian (16/100 correct fits false-flagged at tiny-vs-huge stratum sizes).
+# z_j = u_hat_j / sqrt(tau2 - v_j) is approx iid N(0,1) under a correct model
+# whatever the cell sizes. Groups whose marginal variance is not clearly positive
+# (boundary tau2, degenerate condVar) are dropped. Pure in (blups, condvar, tau2).
+maihda_re_standardize <- function(blups, condvar, tau2) {
+  if (!is.numeric(blups) || !is.numeric(condvar) ||
+      length(blups) != length(condvar) ||
+      !is.numeric(tau2) || length(tau2) != 1 || !is.finite(tau2) || tau2 <= 0) {
+    return(numeric(0))
+  }
+  mvar <- tau2 - condvar
+  keep <- is.finite(blups) & is.finite(mvar) & mvar > 1e-6 * tau2
+  blups[keep] / sqrt(mvar[keep])
+}
+
+# Distribution shape of a (standardized) random-effect vector: sample skew, excess
+# kurtosis, and a Shapiro-Wilk p-value. The stratum BLUPs are the empirical
+# realisation of the assumed-normal random effect the VPC rests on; feed them
+# through maihda_re_standardize() first, or the unequal-information mixture above
+# masquerades as non-normality. Shrinkage pulls BLUPs toward normal, so this is
+# CONSERVATIVE -- a rejection is meaningful, a pass is weak. Pure in the vector.
 maihda_re_normality_stat <- function(re_values) {
   re_values <- re_values[is.finite(re_values)]
   n <- length(re_values)
@@ -323,8 +350,19 @@ maihda_re_normality_stat <- function(re_values) {
 
 # Lag-1 residual autocorrelation for a longitudinal fit: within each id, order the
 # residuals by time and correlate each with its predecessor, pooling the consecutive
-# pairs across ids. |acf1| well above 0 signals serial dependence the random-
-# intercept/slope structure did not absorb. Pure in (resid, id, time).
+# pairs across ids. Only pairs at the MODAL within-id time gap are used (ties break
+# to the smallest gap), so "lag 1" is one well-defined spacing rather than a mix of
+# short and long gaps whose serial correlation differs; on a regular panel every
+# consecutive pair qualifies and nothing changes. Pure in (resid, id, time).
+#
+# The estimate is biased NEGATIVE on a correctly specified model: the conditional
+# residuals have the per-id (and per-stratum) intercept+slope BLUPs subtracted, and
+# projecting a T-point series onto its own fitted line induces negative serial
+# correlation in what remains -- about -0.2 at T = 4-5 under typical shrinkage and
+# approaching -0.5 at T = 3-4 when the random effects are well resolved, with no
+# misspecification at all. The caller must therefore treat only POSITIVE values as
+# evidence of unmodelled serial dependence (see maihda_adequacy_checks); the value
+# itself is still reported so the negative bias is visible, not hidden.
 maihda_resid_autocorr_stat <- function(resid, id, time) {
   ok <- is.finite(resid) & !is.na(id) & is.finite(time)
   resid <- resid[ok]
@@ -335,17 +373,31 @@ maihda_resid_autocorr_stat <- function(resid, id, time) {
   }
   prev <- numeric(0)
   cur <- numeric(0)
+  gap <- numeric(0)
   for (g in split(seq_along(resid), id)) {
     if (length(g) < 2L) next
     gi <- g[order(time[g])]
     r <- resid[gi]
     prev <- c(prev, r[-length(r)])
     cur <- c(cur, r[-1])
+    gap <- c(gap, diff(time[gi]))
   }
+  if (length(prev) < 2L) {
+    return(NULL)
+  }
+  # Modal gap over all consecutive pairs; float-safe via signif() keys, ties to the
+  # smallest gap. Then keep only the pairs at that spacing.
+  gap_key <- signif(gap, 8)
+  tab <- table(gap_key)
+  modal_keys <- names(tab)[tab == max(tab)]
+  g0 <- min(as.numeric(modal_keys))
+  keep <- gap_key == signif(g0, 8)
+  prev <- prev[keep]
+  cur <- cur[keep]
   if (length(prev) < 2L || stats::sd(prev) == 0 || stats::sd(cur) == 0) {
     return(NULL)
   }
-  list(n_pairs = length(prev), acf1 = stats::cor(prev, cur))
+  list(n_pairs = length(prev), acf1 = stats::cor(prev, cur), gap = g0)
 }
 
 # Approximate proportional-odds check for a cumulative (clmm) fit. There is no
@@ -438,22 +490,41 @@ maihda_adequacy_checks <- function(model, longitudinal_info = NULL) {
   }
 
   # ---- random-effect distribution adequacy (lme4) ----
+  # Each random-effect column (intercepts AND any slopes) is screened marginally on
+  # its condVar-STANDARDIZED BLUPs -- see maihda_re_standardize() for why raw BLUPs
+  # false-flag correct models with unequal stratum sizes. The joint (multivariate)
+  # distribution is not examined; this is a marginal screen only.
   if (inherits(model, "merMod")) {
-    re_res <- tryCatch(lme4::ranef(model), error = function(e) NULL)
+    re_res <- tryCatch(lme4::ranef(model, condVar = TRUE), error = function(e) NULL)
+    vc_all <- tryCatch(lme4::VarCorr(model), error = function(e) NULL)
     for (grp in names(re_res)) {
       df_g <- re_res[[grp]]
-      if (!"(Intercept)" %in% colnames(df_g)) next
-      vals <- df_g[["(Intercept)"]]
-      if (length(vals) < th$re_min_levels) next
-      st <- maihda_re_normality_stat(vals)
-      if (is.null(st)) next
-      flag <- is.finite(st$shapiro_p) && st$shapiro_p < th$re_shapiro_p &&
-        (abs(st$skew) > th$re_abs_skew ||
-           abs(st$excess_kurtosis) > th$re_excess_kurtosis)
-      if (isTRUE(flag)) {
-        st$group <- grp
-        st$flag <- TRUE
-        out$re_normality <- st
+      pv <- attr(df_g, "postVar")
+      vc_g <- if (is.null(vc_all)) NULL else vc_all[[grp]]
+      if (is.null(pv) || length(dim(pv)) != 3 || is.null(vc_g)) next
+      found <- NULL
+      for (ki in seq_along(colnames(df_g))) {
+        term <- colnames(df_g)[ki]
+        kv <- match(term, rownames(vc_g))
+        if (is.na(kv) || ki > dim(pv)[1]) next
+        z <- maihda_re_standardize(df_g[[ki]], as.numeric(pv[ki, ki, ]),
+                                   as.numeric(vc_g[kv, kv]))
+        if (length(z) < th$re_min_levels) next
+        st <- maihda_re_normality_stat(z)
+        if (is.null(st)) next
+        flag <- is.finite(st$shapiro_p) && st$shapiro_p < th$re_shapiro_p &&
+          (abs(st$skew) > th$re_abs_skew ||
+             abs(st$excess_kurtosis) > th$re_excess_kurtosis)
+        if (isTRUE(flag)) {
+          st$group <- grp
+          st$term <- term
+          st$flag <- TRUE
+          found <- st
+          break
+        }
+      }
+      if (!is.null(found)) {
+        out$re_normality <- found
         break   # one flagged grouping is enough to caveat
       }
     }
@@ -475,7 +546,10 @@ maihda_adequacy_checks <- function(model, longitudinal_info = NULL) {
       }
     }, error = function(e) NULL)
     if (!is.null(ac)) {
-      ac$flag <- isTRUE(is.finite(ac$acf1) && abs(ac$acf1) > th$autocorr_abs &&
+      # One-sided on purpose: only POSITIVE lag-1 correlation flags. The negative
+      # side is dominated by the detrending artifact of the fitted trajectories
+      # (see maihda_resid_autocorr_stat) and false-flags correct short panels.
+      ac$flag <- isTRUE(is.finite(ac$acf1) && ac$acf1 > th$autocorr_min &&
                           ac$n_pairs >= th$autocorr_min_pairs)
       out$autocorrelation <- ac
     }
@@ -556,18 +630,25 @@ maihda_format_adequacy <- function(adequacy) {
 
   re <- adequacy$re_normality
   if (isTRUE(re$flag)) {
+    what <- if (is.null(re$term) || identical(re$term, "(Intercept)")) {
+      sprintf("'%s' intercepts", re$group)
+    } else {
+      sprintf("'%s' random '%s' slopes", re$group, re$term)
+    }
     out <- c(out,
-      sprintf(paste0("Random-effect distribution: '%s' intercepts depart from normal ",
-                     "(skew %.2f, excess kurtosis %.2f, Shapiro p %s)."),
-              re$group, re$skew, re$excess_kurtosis, fp(re$shapiro_p)),
+      sprintf(paste0("Random-effect distribution: %s depart from normal ",
+                     "(standardized BLUPs: skew %.2f, excess kurtosis %.2f, Shapiro p %s)."),
+              what, re$skew, re$excess_kurtosis, fp(re$shapiro_p)),
       "  Shrinkage makes this conservative; the normal random-effect assumption behind the VPC may not hold.")
   }
 
   ac <- adequacy$autocorrelation
   if (isTRUE(ac$flag)) {
+    gap_txt <- if (is.null(ac$gap) || !is.finite(ac$gap)) "" else
+      sprintf(" at time gap %g", ac$gap)
     out <- c(out,
-      sprintf("Residual autocorrelation: lag-1 within-unit correlation %.2f over %d pairs.",
-              ac$acf1, as.integer(ac$n_pairs)),
+      sprintf("Residual autocorrelation: lag-1 within-unit correlation %.2f over %d pairs%s.",
+              ac$acf1, as.integer(ac$n_pairs), gap_txt),
       "  Longitudinal residuals are serially dependent; consider a richer growth or error structure.")
   }
 
