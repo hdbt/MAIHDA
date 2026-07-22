@@ -2,6 +2,18 @@
 
 ## MAIHDA (development version)
 
+### New features
+
+- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  models now carry likelihood-adequacy diagnostics that
+  [`print()`](https://rdrr.io/r/base/print.html) and
+  [`summary()`](https://rdrr.io/r/base/summary.html) surface alongside
+  the singular/convergence caveats: Poisson/negative-binomial
+  overdispersion (Pearson ratio) and zero inflation, stratum
+  random-effect non-normality, longitudinal residual autocorrelation,
+  and an approximate ordinal proportional-odds screen. A well-specified
+  model stays silent.
+
 ### API changes
 
 - Gaussian PCV calculations now use each model’s fitted (REML)

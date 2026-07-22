@@ -53,6 +53,11 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="maihda-development-version">MAIHDA (development version)<a class="anchor" aria-label="anchor" href="#maihda-development-version"></a></h2>
 <div class="section level3">
+<h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
+<ul><li>
+<code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> models now carry likelihood-adequacy diagnostics that <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> and <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> surface alongside the singular/convergence caveats: Poisson/negative-binomial overdispersion (Pearson ratio) and zero inflation, stratum random-effect non-normality, longitudinal residual autocorrelation, and an approximate ordinal proportional-odds screen. A well-specified model stays silent.</li>
+</ul></div>
+<div class="section level3">
 <h3 id="api-changes-development-version">API changes<a class="anchor" aria-label="anchor" href="#api-changes-development-version"></a></h3>
 <ul><li>Gaussian PCV calculations now use each model’s fitted (REML) between-stratum variance by default. Use <code>estimation = "ML"</code> in <code><a href="../reference/calculate_pcv.html">calculate_pcv()</a></code>, <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code>, <code><a href="../reference/pcv_importance.html">pcv_importance()</a></code>, <code><a href="../reference/compare_maihda_groups.html">compare_maihda_groups()</a></code>, or <code><a href="../reference/maihda.html">maihda()</a></code> to restore the previous ML-refit behaviour.</li>
 <li>

@@ -321,7 +321,13 @@ A maihda_model object containing:
   Fit-quality diagnostics, surfaced by the print and summary methods:
   singular fit / convergence for lme4 and WeMix, MCMC convergence
   (maximum Rhat, divergent transitions) for brms, and the optimizer
-  convergence code for an ordinal (clmm) fit
+  convergence code for an ordinal (clmm) fit. For lme4 and clmm fits it
+  also carries likelihood-adequacy caveats – count overdispersion and
+  zero inflation, stratum random-effect non-normality, longitudinal
+  residual autocorrelation, and an approximate ordinal proportional-odds
+  screen – reported only when a conservative threshold is crossed, since
+  the VPC/PCV and interaction estimates are conditional on the
+  likelihood holding
 
 ## Examples
 
