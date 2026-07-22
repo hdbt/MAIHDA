@@ -70,7 +70,9 @@
 </ul></div>
 <div class="section level3">
 <h3 id="documentation-development-version">Documentation<a class="anchor" aria-label="anchor" href="#documentation-development-version"></a></h3>
-<ul><li>The design-weighted documentation no longer describes the fixed-effect standard errors as design-consistent for complex surveys. <code>sampling_weights</code> takes one person-level weight column and cannot represent PSUs, sampling strata, higher-stage weights, finite-population corrections, or replicate weights, so it delivers population-weighted point estimates rather than general design-based inference.</li>
+<ul><li>
+<code><a href="../reference/maihda_interactions.html">maihda_interactions()</a></code> now documents the direction of its approximate screen: partial pooling deflates a truly-null stratum’s Wald tail (null z variance is about the shrinkage fraction), so the default BH flags err conservative rather than exceeding the nominal false-discovery rate. The Bayesian path is described as already partially pooled instead of “multiplicity-free”, and the flag description drops causal phrasing.</li>
+<li>The design-weighted documentation no longer describes the fixed-effect standard errors as design-consistent for complex surveys. <code>sampling_weights</code> takes one person-level weight column and cannot represent PSUs, sampling strata, higher-stage weights, finite-population corrections, or replicate weights, so it delivers population-weighted point estimates rather than general design-based inference.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="performance-development-version">Performance<a class="anchor" aria-label="anchor" href="#performance-development-version"></a></h3>

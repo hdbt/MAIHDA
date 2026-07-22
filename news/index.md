@@ -44,6 +44,13 @@
 
 ### Documentation
 
+- [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  now documents the direction of its approximate screen: partial pooling
+  deflates a truly-null stratum’s Wald tail (null z variance is about
+  the shrinkage fraction), so the default BH flags err conservative
+  rather than exceeding the nominal false-discovery rate. The Bayesian
+  path is described as already partially pooled instead of
+  “multiplicity-free”, and the flag description drops causal phrasing.
 - The design-weighted documentation no longer describes the fixed-effect
   standard errors as design-consistent for complex surveys.
   `sampling_weights` takes one person-level weight column and cannot

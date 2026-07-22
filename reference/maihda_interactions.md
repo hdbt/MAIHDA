@@ -6,8 +6,9 @@ MAIHDA model, i.e. how far the stratum departs from the additive
 main-effects prediction of its defining dimensions – and **flags** the
 strata whose interaction is credibly different from zero. This is the
 heart of "where is there genuine intersectionality": a flagged stratum
-is one whose joint identity produces an outcome the additive parts do
-not.
+is one whose outcome departs credibly from what the additive parts
+predict – a descriptive statement about the stratum's outcome, not a
+causal claim about identity.
 
 ## Usage
 
@@ -70,12 +71,12 @@ fits add `se` and `p_value` (and `p_adjusted` when `adjust != "none"`).
 tail on the shrunken BLUP's conditional SE, with the variance components
 treated as known – **not** a calibrated frequentist p-value; `adjust`
 (e.g. BH) rescales these approximate values and does not confer an exact
-error-rate guarantee (see Details). `brms` instead adds `pd`
-(probability of direction, `max(P(>0), P(<0))` in `[0.5, 1]`). When
-`rope` is set, a `decision` column
-(`"relevant"`/`"negligible"`/`"inconclusive"`) is added. Attributes
-record `conf_level`, `adjust`, `rope`, `engine`, `model_type`,
-`n_strata`, `n_flagged`, `scale` and `singular`.
+error-rate guarantee; the approximation errs conservative for truly-null
+strata (see Details). `brms` instead adds `pd` (probability of
+direction, `max(P(>0), P(<0))` in `[0.5, 1]`). When `rope` is set, a
+`decision` column (`"relevant"`/`"negligible"`/`"inconclusive"`) is
+added. Attributes record `conf_level`, `adjust`, `rope`, `engine`,
+`model_type`, `n_strata`, `n_flagged`, `scale` and `singular`.
 
 ## Details
 
@@ -99,8 +100,12 @@ with an optional multiplicity correction (`adjust`). For `brms` the full
 posterior is already available, so the *exact* posterior tail is used –
 a credible interval at `conf_level` and the probability of direction
 `pd = max(P(BLUP > 0), P(BLUP < 0))` (in `[0.5, 1]`; the sign is in
-`direction`) – and `adjust` is not applied (the Bayesian answer is
-multiplicity-free).
+`direction`) – and `adjust` is not applied: the posterior is already
+partially pooled, the hierarchical-shrinkage answer to multiplicity
+(Gelman, Hill & Yajima 2012). That is a per-stratum answer; the marginal
+intervals carry no formal joint error-rate guarantee for the collective
+claim "an interaction exists *somewhere*" (the disjunction reading below
+applies to Bayesian flags too).
 
 **Multiplicity: partial pooling and a correction are different things,
 and the experts disagree.**
@@ -136,9 +141,14 @@ distinguish it from the family-wise rate. The flag itself is a Wald test
 on a shrunken BLUP whose conditional SE treats the variance components
 as known, so it (and any `adjust` on it) is an explicit, approximate
 *screen*, not a procedure inheriting an exact guarantee from the model.
-Lead with the interval (and, for `brms`, the probability of direction);
-the substantive question is often not whether an interaction differs
-from zero but whether it exceeds a smallest interaction of interest (an
+The direction of the approximation is *conservative*: partial pooling
+deflates a truly-null stratum's BLUP more than its conditional SE, so
+the null z-statistic is sub-normal (variance about the shrinkage
+fraction, below 1) and the screen under-flags rather than over-flags,
+degenerating to no flags at the singular/zero-variance boundary. Lead
+with the interval (and, for `brms`, the probability of direction); the
+substantive question is often not whether an interaction differs from
+zero but whether it exceeds a smallest interaction of interest (an
 equivalence reading; Schuirmann 1987; Kruschke 2018), read from the
 interval.
 
