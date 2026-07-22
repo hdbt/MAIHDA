@@ -43,9 +43,27 @@
 #' still reporting each model's own criteria; \code{\link{compare_maihda}} warns
 #' on the same grounds.
 #'
+#' \strong{Predictive target of the Bayesian criteria.} \code{brms::waic()} and
+#' \code{brms::loo()} are computed from pointwise log-likelihoods
+#' \emph{conditional on the fitted random effects}, so WAIC/LOOIC assess
+#' prediction of new observations \emph{within the strata (and persons or
+#' contexts) already represented in the data} -- not performance for a new,
+#' unseen intersectional stratum. Choosing between strata definitions on LOOIC
+#' therefore compares conditional predictive fit; generalisation to new strata
+#' is a leave-one-group-out cross-validation question (e.g.
+#' \code{brms::kfold()} with \code{group = "stratum"}), which this package does
+#' not wrap. AIC/BIC for the likelihood engines are instead computed from the
+#' \emph{marginal} likelihood (random effects integrated out) -- a further
+#' reason the likelihood and Bayesian criteria are never comparable with each
+#' other.
+#'
 #' \strong{Design-weighted fits.} For the \code{wemix} (design-weighted) engine the
 #' criteria are reported as \code{NA}: a pseudo-likelihood with sampling weights does
-#' not define a standard AIC/BIC.
+#' not define a standard AIC/BIC. A \code{brms} fit with \code{sampling_weights} is
+#' treated the same way: its sampling weights enter as likelihood weights, giving a
+#' pseudo-posterior whose weighted pointwise log-likelihoods are not log predictive
+#' densities, so WAIC/LOOIC are likewise reported as \code{NA} (the
+#' \code{estimator} column reads \code{"Bayesian (weighted pseudo-posterior)"}).
 #'
 #' @param ... One or more \code{maihda_model} objects (from \code{\link{fit_maihda}})
 #'   or \code{maihda_analysis} objects (from \code{\link{maihda}}). A
@@ -282,21 +300,32 @@ maihda_ic_one <- function(model, ml = FALSE) {
     row$estimator <- "ML"
 
   } else if (inherits(fm, "brmsfit")) {
-    # Bayesian analogues: WAIC and the leave-one-out IC (LOOIC). brms emits
-    # progress messages (kept quiet) alongside genuine reliability warnings (high
-    # Pareto-k, low ESS); the latter are surfaced via maihda_ic_quiet_but_warn
-    # rather than suppressed, so a criterion is never reported as if reliable when
-    # its own diagnostics say otherwise.
-    row$estimator <- "Bayesian"
-    if (requireNamespace("brms", quietly = TRUE)) {
-      row$WAIC <- tryCatch({
-        w <- maihda_ic_quiet_but_warn(brms::waic(fm), "WAIC")
-        as.numeric(w$estimates["waic", "Estimate"])
-      }, error = function(e) na_real)
-      row$LOOIC <- tryCatch({
-        l <- maihda_ic_quiet_but_warn(brms::loo(fm), "PSIS-LOO")
-        as.numeric(l$estimates["looic", "Estimate"])
-      }, error = function(e) na_real)
+    if (!is.null(model$sampling_weights)) {
+      # Sampling weights enter brms as likelihood weights, giving a
+      # PSEUDO-posterior (see fit_maihda): the weighted pointwise
+      # log-likelihood terms are not log predictive densities for any
+      # observation process, so they define no standard WAIC/LOOIC -- exactly
+      # as the wemix pseudo-likelihood defines no standard AIC/BIC. Report NA
+      # (silently, matching the wemix branch below; fit_maihda already
+      # messaged the pseudo-posterior caveat at fit time).
+      row$estimator <- "Bayesian (weighted pseudo-posterior)"
+    } else {
+      # Bayesian analogues: WAIC and the leave-one-out IC (LOOIC). brms emits
+      # progress messages (kept quiet) alongside genuine reliability warnings (high
+      # Pareto-k, low ESS); the latter are surfaced via maihda_ic_quiet_but_warn
+      # rather than suppressed, so a criterion is never reported as if reliable when
+      # its own diagnostics say otherwise.
+      row$estimator <- "Bayesian"
+      if (requireNamespace("brms", quietly = TRUE)) {
+        row$WAIC <- tryCatch({
+          w <- maihda_ic_quiet_but_warn(brms::waic(fm), "WAIC")
+          as.numeric(w$estimates["waic", "Estimate"])
+        }, error = function(e) na_real)
+        row$LOOIC <- tryCatch({
+          l <- maihda_ic_quiet_but_warn(brms::loo(fm), "PSIS-LOO")
+          as.numeric(l$estimates["looic", "Estimate"])
+        }, error = function(e) na_real)
+      }
     }
 
   } else if (inherits(fm, "WeMixResults")) {

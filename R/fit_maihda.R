@@ -588,6 +588,13 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     # Checked on the analytic sample so an excluded row cannot inject a spurious
     # (id, stratum) pairing the fit never sees.
     maihda_check_longitudinal_ids(analytic_data, lng_spec$id)
+    # Growth-term identifiability, re-checked on the analytic sample: the input
+    # passed maihda_validate_longitudinal(), but the rows dropped above can push
+    # the FITTED rows below the thresholds -- fewer than time_degree + 1 distinct
+    # times, or no person left with two distinct times -- leaving lme4 to return
+    # arbitrary slope variances with only a singularity note.
+    maihda_check_longitudinal_times(analytic_data, lng_spec$id, lng_spec$time,
+                                    lng_spec$time_degree)
 
     # Fit the growth terms on internally CENTERED time whenever the time axis does
     # not start at 0 (age, calendar year, waves coded 10, 11, ...): the raw

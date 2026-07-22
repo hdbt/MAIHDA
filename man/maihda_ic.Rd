@@ -59,9 +59,27 @@ these respects \code{maihda_ic()} warns and omits the \code{delta} column,
 still reporting each model's own criteria; \code{\link{compare_maihda}} warns
 on the same grounds.
 
+\strong{Predictive target of the Bayesian criteria.} \code{brms::waic()} and
+\code{brms::loo()} are computed from pointwise log-likelihoods
+\emph{conditional on the fitted random effects}, so WAIC/LOOIC assess
+prediction of new observations \emph{within the strata (and persons or
+contexts) already represented in the data} -- not performance for a new,
+unseen intersectional stratum. Choosing between strata definitions on LOOIC
+therefore compares conditional predictive fit; generalisation to new strata
+is a leave-one-group-out cross-validation question (e.g.
+\code{brms::kfold()} with \code{group = "stratum"}), which this package does
+not wrap. AIC/BIC for the likelihood engines are instead computed from the
+\emph{marginal} likelihood (random effects integrated out) -- a further
+reason the likelihood and Bayesian criteria are never comparable with each
+other.
+
 \strong{Design-weighted fits.} For the \code{wemix} (design-weighted) engine the
 criteria are reported as \code{NA}: a pseudo-likelihood with sampling weights does
-not define a standard AIC/BIC.
+not define a standard AIC/BIC. A \code{brms} fit with \code{sampling_weights} is
+treated the same way: its sampling weights enter as likelihood weights, giving a
+pseudo-posterior whose weighted pointwise log-likelihoods are not log predictive
+densities, so WAIC/LOOIC are likewise reported as \code{NA} (the
+\code{estimator} column reads \code{"Bayesian (weighted pseudo-posterior)"}).
 }
 \examples{
 \donttest{

@@ -105,7 +105,7 @@ the experts disagree.}
     and its interval.
   \item \emph{Whether to correct.} If you do want an error-rate screen, whether a
     correction is warranted depends on the \emph{inferential structure} of the
-    claim -- the joint hypothesis, not the number of strata (Rubin 2021). Each
+    claim. Each
     stratum as its own pre-specified hypothesis ("does \emph{this} stratum
     interact?") is \emph{individual} testing and needs none -- \strong{only} if you
     do not also read the flags collectively. Once the question is "is there an
@@ -118,12 +118,9 @@ in one call is the disjunction/screening case, where controlling the expected
 \code{adjust = "none"} only when each stratum is a genuine, pre-specified
 individual hypothesis. The FDR choice (over family-wise
 \code{"bonferroni"}/\code{"holm"}) is this package's, matching that screening
-goal; it is not a recommendation of Rubin (2021), who raises FDR only to
-distinguish it from the family-wise rate. The flag itself is a Wald test on a
-shrunken BLUP whose
+goal. The flag itself is a Wald test on a shrunken BLUP whose
 conditional SE treats the variance components as known, so it (and any
-\code{adjust} on it) is an explicit, approximate \emph{screen}, not a procedure
-inheriting an exact guarantee from the model. The direction of the
+\code{adjust} on it) is an explicit, approximate \emph{screen}. The direction of the
 approximation is \emph{conservative}: partial pooling deflates a truly-null
 stratum's BLUP more than its conditional SE, so the null z-statistic is
 sub-normal (variance about the shrinkage fraction, below 1) and the screen

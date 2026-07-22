@@ -73,7 +73,7 @@
 #' \code{adjust = "none"} only when each stratum is a genuine, pre-specified
 #' individual hypothesis. The FDR choice (over family-wise
 #' \code{"bonferroni"}/\code{"holm"}) is this package's, matching that screening
-#' goal The flag itself is a Wald test on a shrunken BLUP whose
+#' goal. The flag itself is a Wald test on a shrunken BLUP whose
 #' conditional SE treats the variance components as known, so it (and any
 #' \code{adjust} on it) is an explicit, approximate \emph{screen}. The direction of the
 #' approximation is \emph{conservative}: partial pooling deflates a truly-null

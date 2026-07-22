@@ -173,6 +173,12 @@ maihda_validate_longitudinal <- function(id, time, time_degree, data,
          call. = FALSE)
   }
 
+  # Growth-term identifiability: enough distinct observed times for the
+  # polynomial degree, and within-person time variation for the person-level
+  # slopes. Re-checked on the analytic sample by fit_maihda(); dropping rows can
+  # only reduce both, so this early check never rejects a fittable model.
+  maihda_check_longitudinal_times(data, id, time, time_degree)
+
   # Guard the reserved centered-time column against silently overwriting a user
   # variable of the same name. Only fires when centering will actually occur
   # (min(time) != 0 writes the column) AND the formula does not already reference
@@ -228,6 +234,69 @@ maihda_check_longitudinal_ids <- function(data, id) {
          "stratum variables changed between occasions, fix the stratum at a ",
          "single reference occasion (e.g. baseline) first -- the strata are ",
          "person-level groupings and must be constant within a person.",
+         call. = FALSE)
+  }
+  invisible(NULL)
+}
+
+#' Guard against unidentified growth terms (distinct-times checks)
+#'
+#' A degree-\code{d} growth curve is only estimable when the observed times
+#' actually span it. Two conditions, both required: the polynomial basis needs
+#' at least \code{d + 1} distinct observed time values (on a single time even
+#' the linear slope does not exist; on two times a quadratic is collinear with
+#' the linear term), and the person-level slope block \code{(time | id)} needs
+#' at least one id measured at two distinct times (ids repeating only at a
+#' single time are replicate measurements, not a growth design). Data failing
+#' either check can still FIT: lme4 drops rank-deficient fixed-effect columns
+#' but keeps the random-effect columns, leaving the likelihood flat (or
+#' near-flat) in the affected covariance parameters, so the "slope variances"
+#' it returns are arbitrary -- observed: optimizer starting values reported
+#' back verbatim on all-equal times, and a ~1300-fold optimizer-dependent
+#' swing in the between-stratum variance at unobserved times for a quadratic
+#' on two waves -- with at most a "boundary (singular) fit" note. Reject with
+#' guidance instead.
+#'
+#' Called on the full input by \code{maihda_validate_longitudinal()} and again
+#' on the analytic sample by \code{fit_maihda()}: dropped rows (subset,
+#' missing outcome/covariate/weight) can only REDUCE the distinct times, so
+#' the early check never rejects a fittable model, and the re-check catches
+#' data whose identifying occasions sit on rows the fit drops.
+#'
+#' @param data The model data (full input or analytic sample).
+#' @param id,time Column names of the person identifier and time variable.
+#' @param time_degree Integer polynomial degree of the growth curve.
+#' @return \code{NULL}, invisibly; stops when the growth terms are unidentified.
+#' @keywords internal
+maihda_check_longitudinal_times <- function(data, id, time, time_degree) {
+  ids <- data[[id]]
+  tv <- data[[time]]
+  ok <- !is.na(ids) & is.finite(tv)
+  n_times <- length(unique(tv[ok]))
+  if (n_times < time_degree + 1L) {
+    stop("The growth curve is unidentified: '", time, "' takes ", n_times,
+         " distinct observed value(s), but a polynomial of degree ",
+         time_degree, " needs at least ", time_degree + 1L,
+         " (time_degree + 1) distinct measurement times to estimate its ",
+         "fixed and random growth terms",
+         if (n_times <= 1L) {
+           " (with a single observed time there is no time variation to model)"
+         },
+         ". Reduce 'time_degree' or supply data measured at more times.",
+         call. = FALSE)
+  }
+  # Within-person time variation: same unique-pairs bookkeeping as
+  # maihda_check_longitudinal_ids(), duplicated id here meaning "this person
+  # was seen at more than one distinct time".
+  pairs <- unique(data.frame(id = as.character(ids[ok]), time = tv[ok],
+                             stringsAsFactors = FALSE))
+  if (!any(duplicated(pairs$id))) {
+    stop("The growth curve is unidentified: no '", id, "' value is measured ",
+         "at more than one distinct '", time, "' value, so there is no ",
+         "within-person time variation and the person-level growth slopes (",
+         time, " | ", id, ") cannot be estimated. Repeated rows per id at a ",
+         "single time are replicate measurements, not a growth design; a ",
+         "growth-curve MAIHDA needs people observed at multiple times.",
          call. = FALSE)
   }
   invisible(NULL)

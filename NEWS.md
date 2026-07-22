@@ -14,6 +14,7 @@
 
 ## Documentation
 
+* `maihda_ic()` now states the predictive target of the Bayesian criteria: `brms` WAIC/LOOIC condition on the fitted random effects and so assess prediction of new observations within the represented strata, not generalisation to a new stratum (a leave-one-group-out cross-validation question), while the likelihood engines' AIC/BIC are computed from the marginal likelihood.
 * `maihda_interactions()` now documents the direction of its approximate screen: partial pooling deflates a truly-null stratum's Wald tail (null z variance is about the shrinkage fraction), so the default BH flags err conservative rather than exceeding the nominal false-discovery rate. The Bayesian path is described as already partially pooled instead of "multiplicity-free", and the flag description drops causal phrasing.
 * The design-weighted documentation no longer describes the fixed-effect standard errors as design-consistent for complex surveys. `sampling_weights` takes one person-level weight column and cannot represent PSUs, sampling strata, higher-stage weights, finite-population corrections, or replicate weights, so it delivers population-weighted point estimates rather than general design-based inference.
 
@@ -23,6 +24,8 @@
 
 ## Bug fixes
 
+* `fit_maihda()` now rejects a longitudinal growth curve the observed times cannot identify: fewer than `time_degree + 1` distinct measurement times, or no person measured at two distinct times. Such models previously fitted and returned arbitrary, optimizer-dependent slope variances flagged only as a singular fit. The check runs on the input and again on the analytic sample after row exclusions.
+* `maihda_ic()` now reports `WAIC`/`LOOIC` as `NA` for a sampling-weighted `brms` fit, with estimator `"Bayesian (weighted pseudo-posterior)"`, matching the `wemix` treatment: the weighted pointwise log-likelihoods of a pseudo-posterior are not log predictive densities and define no standard criterion.
 * `summary()`, the VPC, and the PCV helpers now support a binomial model fitted with the complementary log-log (`cloglog`) link, using the extreme-value latent level-1 variance `pi^2/6`. Such a model previously fitted but then stopped with a "not implemented" error, even though the response-scale VPC already handled every binomial link.
 * `pcv_importance()` and `stepwise_pcv()` now emit the same warning `maihda()` does when a numeric stratum dimension (a category code) enters the models as a single linear term rather than categorical main effects. The fitted models and the reported estimates are unchanged; only the previously missing warning was added.
 * `pcv_importance(bootstrap = TRUE)` now warns and records `n_boot_boundary` when bootstrap draws are excluded because the null model's between-stratum variance hit the zero boundary, so an attribution interval conditional on only a handful of surviving draws is no longer returned silently. `calculate_pcv()` already disclosed this.
