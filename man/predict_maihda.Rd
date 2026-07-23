@@ -25,7 +25,11 @@ original data from model fitting.}
   \item "strata": Stratum-level predictions (random effects only). For a
     longitudinal (growth-curve) fit a stratum is a \emph{trajectory}, so this
     returns the per-stratum trajectory parameters (baseline deviation, random
-    intercept and random slope(s)) rather than a single random effect.
+    intercept and random slope(s)) rather than a single random effect. A
+    \emph{non-longitudinal} fit whose stratum random effects include random
+    slopes (a hand-written \code{(1 + x | stratum)}) is an error here, as in
+    \code{summary()}: the single value this would return is the intercept
+    alone -- the stratum effect only where the slope variables are zero.
 }
 For backward compatibility, "link" or "response" may also be passed here
 and will be interpreted as individual-level predictions on that scale.}

@@ -1789,7 +1789,17 @@ maihda_variance_components_table <- function(var_stratum, var_other_random, var_
 # Named numeric vector of every grouping factor's intercept variance (lme4). Unlike
 # maihda_stratum_variance_lme4(), which returns only the "stratum" component, this
 # returns one entry per random effect, keyed by the grouping-factor name.
+#
+# Intercept-only models only: the value read below is the intercept diagonal of each
+# random-effect covariance block, so a random slope's variance and its covariance
+# with the intercept would silently vanish from every partition built on this vector
+# (the contextual and crossed-dimensions summaries, their bootstraps, the crossed
+# MOR), and a slope-only term such as (0 + x | site) would surface as an all-NA
+# partition. Enforce the same intercept-only contract as
+# maihda_total_random_variance_lme4() -- the brms twin
+# (maihda_group_variance_draws_brms) rejects slopes the same way.
 maihda_random_variances_lme4 <- function(model) {
+  maihda_validate_intercept_only_random_effects_lme4(model)
   vc <- lme4::VarCorr(model)
   vapply(names(vc), function(g) {
     group_mat <- as.matrix(vc[[g]])
@@ -1829,11 +1839,26 @@ maihda_group_variance_draws_brms <- function(draws) {
   groups <- ifelse(is.na(last_sep), bodies, substr(bodies, 1L, last_sep - 1L))
   out <- list()
   for (g in unique(groups)) {
-    cols_g <- sd_cols[groups == g]
+    idx_g <- which(groups == g)
+    cols_g <- sd_cols[idx_g]
     if (length(cols_g) > 1L) {
       stop("The '", g, "' random effect must include only an intercept for MAIHDA ",
            "variance calculations (found multiple sd_", g,
            "__* draws, suggesting random slopes).", call. = FALSE)
+    }
+    # A single non-Intercept coefficient is a slope-only term such as (0 + x | g):
+    # its SD draws are the SLOPE's, and squaring them here would silently report a
+    # covariate-dependent variance as the group's intercept variance. The coefficient
+    # is the segment after the last "__" (see the group/coefficient split above); a
+    # column with no "__" separator carries no coefficient name to check and keeps
+    # the historical permissive fallback.
+    coef_g <- if (is.na(last_sep[idx_g])) NA_character_ else
+      substring(bodies[idx_g], last_sep[idx_g] + 2L)
+    if (!is.na(coef_g) && coef_g != "Intercept") {
+      stop("The '", g, "' random effect must include an intercept for MAIHDA ",
+           "variance calculations (found only sd_", g, "__", coef_g,
+           " draws, suggesting a slope-only random effect such as (0 + ", coef_g,
+           " | ", g, ")).", call. = FALSE)
     }
     out[[g]] <- as.numeric(draws[[cols_g]])^2
   }
@@ -2063,7 +2088,35 @@ maihda_resolve_decomposition <- function(decomposition) {
   match.arg(decomposition, c("two-model", "crossed-dimensions", "longitudinal"))
 }
 
-maihda_stratum_ranef_lme4 <- function(model, group = "stratum") {
+# A stratum summarised by ONE number requires an intercept-only random-effect
+# block: with a random slope the stratum effect is a line, not a point, and the
+# intercept alone is that line evaluated where the slope variables are zero (an
+# extrapolation for uncentered covariates -- rankings can invert). Shared by the
+# lme4 and brms stratum extractors, which pass the requested group's
+# non-intercept effect names.
+maihda_stop_stratum_ranef_slopes <- function(group, offending) {
+  if (length(offending) == 0) {
+    return(invisible(TRUE))
+  }
+  stop("The '", group, "' random effects include random slopes (",
+       paste(offending, collapse = ", "), "), so a stratum is not described ",
+       "by a single random effect: the intercept alone is the stratum effect ",
+       "only where the slope variables are zero. MAIHDA stratum estimates ",
+       "support intercept-only random effects; for a growth-curve design fit ",
+       "the model longitudinally (fit_maihda(id = , time = ) or ",
+       "maihda(decomposition = \"longitudinal\")), whose stratum-level ",
+       "predictions return the per-stratum trajectory.", call. = FALSE)
+}
+
+# allow_slope_columns: the LONGITUDINAL summary legitimately reads the intercept
+# column of a slope-carrying growth block (its trajectory table reports the
+# slopes separately), so it opts out explicitly; every other caller -- notably
+# predict_maihda(type = "strata") -- keeps the default and errors rather than
+# silently reporting the intercept-only effect. Scoped to the REQUESTED group:
+# a slope on some other random effect leaves this group's intercept BLUP a
+# complete description of this group's effect.
+maihda_stratum_ranef_lme4 <- function(model, group = "stratum",
+                                      allow_slope_columns = FALSE) {
   re <- lme4::ranef(model, condVar = TRUE)
   if (!group %in% names(re)) {
     stop("No '", group, "' random effects found in the model.")
@@ -2071,6 +2124,10 @@ maihda_stratum_ranef_lme4 <- function(model, group = "stratum") {
 
   group_re <- re[[group]]
   effect_names <- colnames(group_re)
+  if (!allow_slope_columns) {
+    maihda_stop_stratum_ranef_slopes(group,
+                                     maihda_non_intercept_effects(effect_names))
+  }
   intercept_name <- intersect(c("(Intercept)", "Intercept"), effect_names)
   if (length(intercept_name) == 0) {
     stop("The '", group, "' random effect must include an intercept for MAIHDA stratum estimates.")
@@ -2096,7 +2153,12 @@ maihda_stratum_ranef_lme4 <- function(model, group = "stratum") {
   )
 }
 
-maihda_stratum_ranef_brms <- function(model, group = "stratum") {
+# allow_slope_columns: see maihda_stratum_ranef_lme4 -- same contract, and the
+# default guard also retires the lone-effect fallback below for slope-only
+# blocks (a (0 + x | stratum) fit no longer has its slope presented as THE
+# stratum effect).
+maihda_stratum_ranef_brms <- function(model, group = "stratum",
+                                      allow_slope_columns = FALSE) {
   if (!requireNamespace("brms", quietly = TRUE)) {
     stop("Package 'brms' is required to work with brms models. Please install it with: install.packages('brms')")
   }
@@ -2112,6 +2174,10 @@ maihda_stratum_ranef_brms <- function(model, group = "stratum") {
   }
 
   effect_names <- dimnames(group_re)[[3]]
+  if (!allow_slope_columns) {
+    maihda_stop_stratum_ranef_slopes(group,
+                                     maihda_non_intercept_effects(effect_names))
+  }
   idx <- match(TRUE, effect_names %in% c("(Intercept)", "Intercept"))
   if (is.na(idx)) {
     if (length(effect_names) == 1) {

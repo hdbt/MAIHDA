@@ -205,9 +205,16 @@ maihda_cross_classified_formula <- function(null_formula, strata_vars, autobin_i
   # strata or the residual. Reject it with a directed error rather than drop it.
   allowed_re_vars <- unique(c(interaction_group, strata_vars, adj$terms, context))
   extra_re <- character(0)
+  slope_re <- character(0)
   for (b in reformulas::findbars(null_formula)) {
     if (!all(all.vars(b[[3]]) %in% allowed_re_vars)) {
       extra_re <- c(extra_re, deparse(b))
+    } else if (paste(deparse(b[[2]]), collapse = " ") != "1") {
+      # An allowed grouping factor carrying a non-intercept left-hand side --
+      # (1 + x | stratum), (0 + x | stratum), or (x | stratum) with its implicit
+      # intercept -- would pass the grouping check above and then have its slope
+      # silently rewritten to a bare intercept by the canonical rebuild below.
+      slope_re <- c(slope_re, deparse(b))
     }
   }
   if (length(extra_re) > 0) {
@@ -218,6 +225,15 @@ maihda_cross_classified_formula <- function(null_formula, strata_vars, autobin_i
          "terms would be silently dropped. Supply a higher-level grouping through ",
          "context = instead (it composes with the crossed model), or use ",
          "decomposition = \"two-model\".", call. = FALSE)
+  }
+  if (length(slope_re) > 0) {
+    stop("decomposition = \"crossed-dimensions\" supports intercept-only random ",
+         "effects, but the formula carries the random-slope term(s) ",
+         paste(sprintf("(%s)", slope_re), collapse = ", "),
+         ": the crossed model replaces the random part with one intercept per ",
+         "stratum dimension plus the intersection (stratum) intercept, so the ",
+         "slope would be silently dropped. Fit random-intercept MAIHDA models ",
+         "for the crossed-dimensions decomposition.", call. = FALSE)
   }
 
   # One additive random intercept per dimension (on the dimension's own grouping

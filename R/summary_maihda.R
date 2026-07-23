@@ -255,7 +255,14 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     # the cross-classified model (the named interaction group), or the single stratum
     # RE otherwise.
     interaction_group <- if (!is.null(cc)) cc$interaction_group else "stratum"
-    stratum_estimates <- maihda_stratum_ranef_lme4(model, group = interaction_group)
+    # A longitudinal growth block carries time slopes by design; its intercept
+    # column (the deviation at the model's coefficient origin) is reported here
+    # while the full trajectory lives in the `longitudinal` slot, so it opts out
+    # of the extractor's intercept-only guard. Every other path reaching this
+    # line is already slope-free (the ordinary branch validated the whole model
+    # above; the crossed builder rejects slope terms).
+    stratum_estimates <- maihda_stratum_ranef_lme4(model, group = interaction_group,
+                                                   allow_slope_columns = !is.null(lng))
     stratum_estimates <- add_stratum_labels(stratum_estimates, object$strata_info)
 
     # Get model summary
@@ -410,7 +417,10 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     fixed_effects <- brms::fixef(model)
 
     interaction_group <- if (!is.null(cc)) cc$interaction_group else "stratum"
-    stratum_estimates <- maihda_stratum_ranef_brms(model, group = interaction_group)
+    # Longitudinal opt-out as in the lme4 branch above: the growth block's time
+    # slopes are reported via the `longitudinal` slot, not this table.
+    stratum_estimates <- maihda_stratum_ranef_brms(model, group = interaction_group,
+                                                   allow_slope_columns = !is.null(lng))
     stratum_estimates <- add_stratum_labels(stratum_estimates, object$strata_info)
 
     model_summary <- summary(model)
