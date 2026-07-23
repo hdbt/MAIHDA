@@ -83,7 +83,12 @@
 </ul></div>
 <div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
-<ul><li>
+<ul><li>The per-group variance extractors behind the contextual and crossed-dimensions partitions now enforce the intercept-only contract the ordinary summary already applied. A contextual lme4 fit with <code>(1 + x | stratum)</code> previously returned a partition whose total silently dropped the slope variance and intercept-slope covariance, and a slope-only context <code>(0 + x | site)</code> produced an all-<code>NA</code> partition; the brms path accepted a slope-only <code>sd_&lt;group&gt;__&lt;slope&gt;</code> column, squaring slope draws as the group’s intercept variance.</li>
+<li>
+<code>maihda(decomposition = "crossed-dimensions")</code> now rejects a random slope on an allowed grouping factor, e.g. <code>(1 + x | stratum)</code>, instead of silently rewriting it to the canonical intercept-only crossed formula. The builder previously checked only the grouping side of each random-effect bar, so the slope vanished without a warning through both <code><a href="../reference/maihda.html">maihda()</a></code> and the per-group crossed workflow.</li>
+<li>
+<code>predict_maihda(type = "strata")</code> now rejects a non-longitudinal fit whose stratum random effects include random slopes, matching the summary guard. It previously returned the intercept column alone as a complete-looking table (estimate, SE, interval) – the stratum effect at zero of the slope variables, an extrapolation that can reorder or sign-flip strata. The brms extractor also no longer presents a slope-only <code>(0 + x | stratum)</code> block’s slope as the stratum effect. Longitudinal trajectory predictions and summaries are unchanged.</li>
+<li>
 <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> now rejects a longitudinal growth curve the observed times cannot identify: fewer than <code>time_degree + 1</code> distinct measurement times, or no person measured at two distinct times. Such models previously fitted and returned arbitrary, optimizer-dependent slope variances flagged only as a singular fit. The check runs on the input and again on the analytic sample after row exclusions.</li>
 <li>
 <code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> now reports <code>WAIC</code>/<code>LOOIC</code> as <code>NA</code> for a sampling-weighted <code>brms</code> fit, with estimator <code>"Bayesian (weighted pseudo-posterior)"</code>, matching the <code>wemix</code> treatment: the weighted pointwise log-likelihoods of a pseudo-posterior are not log predictive densities and define no standard criterion.</li>

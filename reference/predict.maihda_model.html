@@ -98,7 +98,11 @@ original data from model fitting.</p></dd>
 <li><p>"strata": Stratum-level predictions (random effects only). For a
     longitudinal (growth-curve) fit a stratum is a <em>trajectory</em>, so this
     returns the per-stratum trajectory parameters (baseline deviation, random
-    intercept and random slope(s)) rather than a single random effect.</p></li>
+    intercept and random slope(s)) rather than a single random effect. A
+    <em>non-longitudinal</em> fit whose stratum random effects include random
+    slopes (a hand-written <code>(1 + x | stratum)</code>) is an error here, as in
+    <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>: the single value this would return is the intercept
+    alone – the stratum effect only where the slope variables are zero.</p></li>
 </ul><p>For backward compatibility, "link" or "response" may also be passed here
 and will be interpreted as individual-level predictions on that scale.</p></dd>
 

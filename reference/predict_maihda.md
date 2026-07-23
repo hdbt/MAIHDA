@@ -38,7 +38,12 @@ predict_maihda(
     longitudinal (growth-curve) fit a stratum is a *trajectory*, so this
     returns the per-stratum trajectory parameters (baseline deviation,
     random intercept and random slope(s)) rather than a single random
-    effect.
+    effect. A *non-longitudinal* fit whose stratum random effects
+    include random slopes (a hand-written `(1 + x | stratum)`) is an
+    error here, as in
+    [`summary()`](https://rdrr.io/r/base/summary.html): the single value
+    this would return is the intercept alone – the stratum effect only
+    where the slope variables are zero.
 
   For backward compatibility, "link" or "response" may also be passed
   here and will be interpreted as individual-level predictions on that

@@ -75,6 +75,29 @@
 
 ### Bug fixes
 
+- The per-group variance extractors behind the contextual and
+  crossed-dimensions partitions now enforce the intercept-only contract
+  the ordinary summary already applied. A contextual lme4 fit with
+  `(1 + x | stratum)` previously returned a partition whose total
+  silently dropped the slope variance and intercept-slope covariance,
+  and a slope-only context `(0 + x | site)` produced an all-`NA`
+  partition; the brms path accepted a slope-only `sd_<group>__<slope>`
+  column, squaring slope draws as the group’s intercept variance.
+- `maihda(decomposition = "crossed-dimensions")` now rejects a random
+  slope on an allowed grouping factor, e.g. `(1 + x | stratum)`, instead
+  of silently rewriting it to the canonical intercept-only crossed
+  formula. The builder previously checked only the grouping side of each
+  random-effect bar, so the slope vanished without a warning through
+  both [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  and the per-group crossed workflow.
+- `predict_maihda(type = "strata")` now rejects a non-longitudinal fit
+  whose stratum random effects include random slopes, matching the
+  summary guard. It previously returned the intercept column alone as a
+  complete-looking table (estimate, SE, interval) – the stratum effect
+  at zero of the slope variables, an extrapolation that can reorder or
+  sign-flip strata. The brms extractor also no longer presents a
+  slope-only `(0 + x | stratum)` block’s slope as the stratum effect.
+  Longitudinal trajectory predictions and summaries are unchanged.
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   now rejects a longitudinal growth curve the observed times cannot
   identify: fewer than `time_degree + 1` distinct measurement times, or
