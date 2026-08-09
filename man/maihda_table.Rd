@@ -78,10 +78,14 @@ The model-results table is mostly numeric and export-ready (e.g.
 \code{write.csv(maihda_table(a)$models, ...)} or pass it to \code{knitr::kable()}):
 statistics are rows, models are columns, and each estimate has accompanying
 \code{*_lower}/\code{*_upper} columns that hold the confidence/credible interval
-when one is available (the VPC bootstrap or posterior interval, and the bootstrap
-PCV interval) and \code{NA} otherwise. The intercept and the variance/SD rows are
-point estimates. The \code{print()} method renders the same table in the
-familiar \dQuote{estimate [low, high]} layout.
+when one is available (the intercept's interval, the VPC bootstrap or posterior
+interval, and the bootstrap PCV interval) and \code{NA} otherwise. The intercept
+carries the same interval \code{summary()} reports for it -- a Wald
+(normal-approximation) one for the likelihood engines, a credible interval for
+brms -- which, being a between-stratum quantity, is too narrow when the strata
+are few (see \code{\link{maihda_tidiers}}). The variance and SD rows are point
+estimates. The \code{print()} method renders the same table in the familiar
+\dQuote{estimate [low, high]} layout.
 
 For a \code{"crossed-dimensions"} analysis (one model, no null/adjusted pair) the
 results table has a single estimate column and gains \dQuote{Additive share} /

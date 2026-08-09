@@ -665,9 +665,9 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     return(structure(
       list(
         model = null_model,
-        summary = summary_obj,
+        summary = maihda_tag_role(summary_obj, "null"),
         model_adjusted = adjusted_model,
-        summary_adjusted = summary_adj,
+        summary_adjusted = maihda_tag_role(summary_adj, "adjusted"),
         pcv = pcv,
         decomposition = NULL,
         groups = NULL,
@@ -774,9 +774,9 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   analysis <- structure(
     list(
       model = null_model,
-      summary = summary_obj,
+      summary = maihda_tag_role(summary_obj, "null"),
       model_adjusted = adjusted_model,
-      summary_adjusted = summary_adj,
+      summary_adjusted = maihda_tag_role(summary_adj, "adjusted"),
       pcv = pcv,
       decomposition = NULL,
       groups = groups,
@@ -972,15 +972,34 @@ print.maihda_analysis <- function(x, ...) {
 #' Summarize a MAIHDA Analysis
 #'
 #' Returns the variance summary (VPC/ICC, variance components, stratum estimates)
-#' of the fitted model. The per-group comparison, when present, is attached as the
-#' \code{"groups"} attribute.
+#' of one of the analysis's models. The per-group comparison, when present, is
+#' attached as the \code{"groups"} attribute.
+#'
+#' @section Which model: A two-model \code{\link{maihda}} analysis holds a
+#'   \strong{null} model (strata as the only predictor) and an \strong{adjusted}
+#'   model (the dimensions' additive main effects added as fixed effects), and
+#'   this returns the null model's summary by default -- the one the headline
+#'   VPC/ICC comes from. The strata dimensions are the random-effect grouping
+#'   there, not fixed effects, so the printed fixed-effect table shows only the
+#'   intercept and any covariates. Use \code{which = "adjusted"} for the model
+#'   whose fixed effects carry the dimensions' additive main effects (the same
+#'   object as \code{object$summary_adjusted}), matching
+#'   \code{\link[=tidy.maihda_analysis]{tidy}}'s \code{which} argument.
 #'
 #' @param object A \code{maihda_analysis} object from \code{\link{maihda}}.
+#' @param which Which model to summarize: \code{"null"} (default) or
+#'   \code{"adjusted"}. A crossed-dimensions analysis has a single model and
+#'   accepts only \code{"null"}.
 #' @param ... Additional arguments (not used).
-#' @return The \code{maihda_summary} for the fitted model.
+#' @return The \code{maihda_summary} for the requested model.
 #' @export
-summary.maihda_analysis <- function(object, ...) {
-  out <- object$summary
+summary.maihda_analysis <- function(object, which = c("null", "adjusted"), ...) {
+  which <- match.arg(which)
+  out <- if (which == "adjusted") object$summary_adjusted else object$summary
+  if (is.null(out)) {
+    stop("No '", which, "' summary is available on this maihda_analysis (mode = '",
+         maihda_chr(object$mode), "').", call. = FALSE)
+  }
   attr(out, "groups") <- object$groups
   attr(out, "pcv") <- object$pcv
   attr(out, "adjusted") <- object$summary_adjusted

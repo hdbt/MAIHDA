@@ -212,6 +212,44 @@ test_that("maihda() print and summary surface the PCV and adjusted model", {
   expect_s3_class(attr(s, "adjusted"), "maihda_summary")
 })
 
+# 2026-08-09: summary(a) returns the NULL model, whose dimensions are the
+# random-effect grouping rather than fixed effects -- easy to misread as "the
+# dimension main effects are missing". which= selects, print() says which.
+test_that("summary.maihda_analysis selects the null vs adjusted model", {
+  d <- make_workflow_data(4102)
+  a <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d))
+
+  s_null <- summary(a)
+  s_adj  <- summary(a, which = "adjusted")
+  expect_identical(summary(a, which = "null")$fixed_effects, s_null$fixed_effects)
+  expect_identical(s_adj$fixed_effects, a$summary_adjusted$fixed_effects)
+
+  # The null model's fixed effects are the intercept + covariates only; the
+  # adjusted model's add the dimension main effects.
+  expect_setequal(s_null$fixed_effects$term, c("(Intercept)", "age"))
+  expect_true(any(grepl("^gender", s_adj$fixed_effects$term)))
+  expect_gt(nrow(s_adj$fixed_effects), nrow(s_null$fixed_effects))
+
+  # print() names the model, from either access route.
+  expect_output(print(s_null), "Null model")
+  expect_output(print(s_null), 'which = "adjusted"')
+  expect_output(print(s_adj), "Adjusted model")
+  expect_output(print(a$summary_adjusted), "Adjusted model")
+
+  # A bare fit_maihda() summary carries no role and stays unlabelled.
+  m <- suppressMessages(fit_maihda(y ~ age + (1 | gender:race), data = d))
+  expect_false(any(grepl("Null model", capture.output(print(summary(m))))))
+
+  expect_error(summary(a, which = "nope"))
+})
+
+test_that("summary(which = 'adjusted') errors when there is no adjusted model", {
+  d <- make_workflow_data(4102)
+  a <- suppressWarnings(suppressMessages(
+    maihda(y ~ age + (1 | gender:race), data = d, decomposition = "crossed-dimensions")))
+  expect_error(summary(a, which = "adjusted"), "No 'adjusted' summary")
+})
+
 test_that("maihda() enters an auto-binned numeric dimension as the tertile factor", {
   set.seed(4103)
   n <- 600

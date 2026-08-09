@@ -41,6 +41,24 @@ test_that("maihda_table() on a two-model analysis assembles the canonical result
   bv <- tab$models[tab$models$statistic == "Between-stratum variance", "null"]
   sdv <- tab$models[tab$models$statistic == "Between-stratum SD", "null"]
   expect_equal(sdv, sqrt(bv), tolerance = 1e-10)
+
+  # The intercept row carries the summary's own Wald interval (2026-08-09); the
+  # variance and SD rows deliberately stay point estimates.
+  int_row <- tab$models[tab$models$statistic == "Intercept", ]
+  fe_null <- tidy(a, component = "fixed", which = "null")
+  fe_null <- fe_null[fe_null$term == "(Intercept)", ]
+  expect_equal(int_row$null, fe_null$estimate, tolerance = 1e-10)
+  expect_equal(int_row$null_lower, fe_null$conf.low, tolerance = 1e-10)
+  expect_equal(int_row$null_upper, fe_null$conf.high, tolerance = 1e-10)
+  expect_lt(int_row$null_lower, int_row$null)
+  expect_lt(int_row$null, int_row$null_upper)
+
+  fe_adj <- tidy(a, component = "fixed", which = "adjusted")
+  fe_adj <- fe_adj[fe_adj$term == "(Intercept)", ]
+  expect_equal(int_row$adjusted_lower, fe_adj$conf.low, tolerance = 1e-10)
+
+  var_row <- tab$models[tab$models$statistic == "Between-stratum variance", ]
+  expect_true(is.na(var_row$null_lower) && is.na(var_row$null_upper))
 })
 
 test_that("maihda_table() ranks every stratum by predicted value, descending", {
@@ -221,11 +239,32 @@ test_that("maihda_table() attaches no PCV note for single or crossed-dimensions 
 })
 
 test_that("maihda_extract_intercept handles every fixed-effects shape", {
-  # brms-style matrix with an Intercept row + Estimate column.
+  # brms-style matrix with an Intercept row + Estimate column: the credible
+  # interval comes from the two extreme quantile columns (2026-08-09).
   m <- matrix(c(1.5, 0.2, 1.1, 1.9), nrow = 1,
               dimnames = list("Intercept", c("Estimate", "Est.Error", "Q2.5", "Q97.5")))
-  expect_equal(maihda_extract_intercept(list(fixed_effects = m)),
+  expect_equal(maihda_extract_intercept(list(fixed_effects = m)), c(1.5, 1.1, 1.9))
+
+  # Non-default conf_level -> differently named quantile columns, still found.
+  m99 <- matrix(c(1.5, 0.2, 0.9, 2.1), nrow = 1,
+                dimnames = list("Intercept", c("Estimate", "Est.Error", "Q0.5", "Q99.5")))
+  expect_equal(maihda_extract_intercept(list(fixed_effects = m99)), c(1.5, 0.9, 2.1))
+
+  # Estimate-only matrix (no quantiles) -> point estimate.
+  m_pt <- matrix(1.5, nrow = 1, dimnames = list("Intercept", "Estimate"))
+  expect_equal(maihda_extract_intercept(list(fixed_effects = m_pt)),
                c(1.5, NA_real_, NA_real_))
+
+  # Wald table from the likelihood engines.
+  fe_wald <- data.frame(term = c("(Intercept)", "age"), estimate = c(1.5, 0.3),
+                        lower = c(1.1, 0.1), upper = c(1.9, 0.5))
+  expect_equal(maihda_extract_intercept(list(fixed_effects = fe_wald)), c(1.5, 1.1, 1.9))
+
+  # A pre-0.2.2 summary with no interval columns -> point estimate, no error.
+  expect_equal(
+    maihda_extract_intercept(
+      list(fixed_effects = data.frame(term = "(Intercept)", estimate = 1.5))),
+    c(1.5, NA_real_, NA_real_))
 
   # Matrix without an intercept row -> NA triple.
   m2 <- matrix(c(0.3), nrow = 1, dimnames = list("age", "Estimate"))

@@ -20,6 +20,70 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
   return(stratum_estimates)
 }
 
+#' Fixed-effect table with Wald statistics
+#'
+#' Internal helper that assembles the \code{fixed_effects} slot of a
+#' \code{maihda_summary} for the frequentist engines from point estimates and
+#' standard errors: the Wald statistic (\code{estimate / se}), its two-sided
+#' normal-approximation p-value, and the matching Wald interval at
+#' \code{conf_level}. The normal approximation is the same one
+#' \code{\link{maihda_interactions}} uses for the stratum BLUPs -- no
+#' denominator degrees of freedom are estimated, so for a Gaussian fit these are
+#' z-based, not Satterthwaite/Kenward-Roger. That is essentially exact for a
+#' covariate varying within stratum, but anticonservative for terms constant
+#' within a stratum (the intercept and an adjusted model's dimension main
+#' effects), whose effective sample size is the number of strata rather than
+#' \eqn{n}; see the \dQuote{Fixed-effect statistics} section of
+#' \code{\link{maihda_tidiers}}.
+#'
+#' @param term Character vector of coefficient names.
+#' @param estimate Numeric vector of point estimates.
+#' @param se Numeric vector of standard errors (\code{NULL} for none).
+#' @param conf_level Interval level.
+#' @return A data frame with \code{term}, \code{estimate}, \code{se},
+#'   \code{statistic}, \code{p_value}, \code{lower} and \code{upper}.
+#' @keywords internal
+maihda_fixed_effects_table <- function(term, estimate, se, conf_level = 0.95) {
+  estimate <- as.numeric(estimate)
+  se <- if (is.null(se)) rep(NA_real_, length(estimate)) else as.numeric(se)
+  # A zero/NA SE (boundary or non-positive-definite Hessian) leaves the Wald
+  # quantities undefined rather than infinite.
+  se[!is.na(se) & se <= 0] <- NA_real_
+  statistic <- estimate / se
+  z <- stats::qnorm((1 + conf_level) / 2)
+
+  data.frame(
+    term      = as.character(term),
+    estimate  = estimate,
+    se        = se,
+    statistic = statistic,
+    p_value   = 2 * stats::pnorm(-abs(statistic)),
+    lower     = estimate - z * se,
+    upper     = estimate + z * se,
+    row.names = NULL,
+    stringsAsFactors = FALSE
+  )
+}
+
+#' Tag a summary with its role in a two-model analysis
+#'
+#' Internal helper. The null and adjusted summaries of a \code{\link{maihda}}
+#' analysis are indistinguishable once pulled out of the analysis object, which
+#' makes a printed summary easy to misread -- the null model's fixed effects are
+#' the intercept and covariates only, because the strata dimensions are its
+#' random-effect grouping rather than fixed effects. Stamping the role lets
+#' \code{\link{print.maihda_summary}} say which model it is showing.
+#'
+#' @param s A \code{maihda_summary}, or \code{NULL}.
+#' @param role \code{"null"} or \code{"adjusted"}.
+#' @return \code{s} with a \code{"maihda_role"} attribute (\code{NULL} in, \code{NULL} out).
+#' @keywords internal
+maihda_tag_role <- function(s, role) {
+  if (is.null(s)) return(NULL)
+  attr(s, "maihda_role") <- role
+  s
+}
+
 #' Summarize MAIHDA Model
 #'
 #' Provides a summary of a MAIHDA model including variance partition coefficients
@@ -106,7 +170,21 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #'     fit (the context variance enters the VPC denominator); \code{NULL} otherwise
 #'     (including for crossed-dimensions and longitudinal fits)}
 #'   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
-#'   \item{fixed_effects}{Fixed effects estimates}
+#'   \item{fixed_effects}{Fixed-effect estimates. For the lme4, WeMix and ordinal
+#'     engines a data frame with \code{term}, \code{estimate}, \code{se},
+#'     \code{statistic} (the Wald z, \code{estimate / se}),
+#'     \code{p_value} (two-sided, normal approximation) and the Wald interval
+#'     \code{lower}/\code{upper} at \code{conf_level}. No denominator degrees of
+#'     freedom are estimated, so for a Gaussian fit these are z-based rather than
+#'     Satterthwaite/Kenward-Roger -- fine for a within-stratum covariate, but
+#'     anticonservative with few strata for terms constant within a stratum (see
+#'     \code{\link{maihda_tidiers}}); the
+#'     WeMix standard errors are its sandwich (robust) ones. For brms, the
+#'     \code{brms::fixef()} matrix (posterior mean, \code{Est.Error} and the
+#'     credible-interval quantiles at \code{conf_level}). Available in a tidy,
+#'     engine-independent shape from \code{tidy(x, component = "fixed")}}
+#'   \item{conf_level}{The interval level used for the fixed effects (and, when
+#'     bootstrapped or Bayesian, the VPC)}
 #'   \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut
 #'     point) estimates with standard errors -- the cumulative model's
 #'     "intercepts"; NULL otherwise}
@@ -157,6 +235,9 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
   if (!is.logical(bootstrap) || length(bootstrap) != 1 || is.na(bootstrap)) {
     stop("'bootstrap' must be TRUE or FALSE.", call. = FALSE)
   }
+  # Validated for every engine and both bootstrap settings: conf_level also sets
+  # the fixed-effect interval below, not just the bootstrap VPC interval.
+  conf_level <- maihda_validate_conf_level(conf_level)
   if (bootstrap) {
     bootstrap_args <- maihda_validate_bootstrap_args(n_boot, conf_level)
     n_boot <- bootstrap_args$n_boot
@@ -244,11 +325,21 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       }
     }
 
-    # Extract fixed effects
-    fixed_effects <- data.frame(
-      term = names(lme4::fixef(model)),
-      estimate = lme4::fixef(model),
-      row.names = NULL
+    # Get model summary
+    model_summary <- summary(model)
+
+    # Fixed effects with their standard errors, Wald statistics and intervals,
+    # read off the model summary's coefficient matrix (Estimate / Std. Error --
+    # identical to lme4::fixef() plus sqrt(diag(vcov()))). lme4 reports no
+    # p-value for a Gaussian fit by design; the one added here is the
+    # normal-approximation Wald p that matches the interval (see
+    # maihda_fixed_effects_table).
+    fe_coef <- stats::coef(model_summary)
+    fixed_effects <- maihda_fixed_effects_table(
+      term = rownames(fe_coef),
+      estimate = fe_coef[, "Estimate"],
+      se = fe_coef[, "Std. Error"],
+      conf_level = conf_level
     )
 
     # Stratum (intersection) random-effect estimates -- the interaction residuals in
@@ -264,9 +355,6 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     stratum_estimates <- maihda_stratum_ranef_lme4(model, group = interaction_group,
                                                    allow_slope_columns = !is.null(lng))
     stratum_estimates <- add_stratum_labels(stratum_estimates, object$strata_info)
-
-    # Get model summary
-    model_summary <- summary(model)
 
   } else if (engine == "wemix") {
     if (bootstrap) {
@@ -299,11 +387,11 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     # stratification of a complex sample design, which this wrapper has no way to
     # represent from a single person-weight column (see fit_maihda's
     # `sampling_weights`); do not describe them as design-consistent.
-    fixed_effects <- data.frame(
+    fixed_effects <- maihda_fixed_effects_table(
       term = names(object$model$coef),
       estimate = as.numeric(object$model$coef),
       se = as.numeric(object$model$SE[names(object$model$coef)]),
-      row.names = NULL
+      conf_level = conf_level
     )
 
     stratum_estimates <- maihda_wemix_stratum_ranef(object)
@@ -339,19 +427,19 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     # cumulative model's "intercepts") are reported separately below.
     beta <- object$model$beta
     if (is.null(beta) || length(beta) == 0) {
-      fixed_effects <- data.frame(term = character(0), estimate = numeric(0),
-                                  se = numeric(0))
+      fixed_effects <- maihda_fixed_effects_table(character(0), numeric(0),
+                                                  numeric(0), conf_level)
     } else {
       V <- tryCatch(stats::vcov(object$model), error = function(e) NULL)
       beta_se <- rep(NA_real_, length(beta))
       if (!is.null(V) && all(names(beta) %in% rownames(V))) {
         beta_se <- sqrt(pmax(diag(V)[names(beta)], 0))
       }
-      fixed_effects <- data.frame(
+      fixed_effects <- maihda_fixed_effects_table(
         term = names(beta),
         estimate = as.numeric(beta),
         se = as.numeric(beta_se),
-        row.names = NULL
+        conf_level = conf_level
       )
     }
 
@@ -413,8 +501,14 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       )
     }
 
-    # Extract fixed effects
-    fixed_effects <- brms::fixef(model)
+    # Extract fixed effects. Kept in brms::fixef()'s matrix form (Estimate /
+    # Est.Error / two quantile columns); the quantiles are taken at conf_level,
+    # so the interval matches the rest of this summary. A posterior summary has
+    # no test statistic or p-value -- tidy() reports those as NA for brms.
+    fixed_effects <- brms::fixef(
+      model,
+      probs = c((1 - conf_level) / 2, 1 - (1 - conf_level) / 2)
+    )
 
     interaction_group <- if (!is.null(cc)) cc$interaction_group else "stratum"
     # Longitudinal opt-out as in the lme4 branch above: the growth block's time
@@ -471,6 +565,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       vpc_response = vpc_response,
       stratum_estimates = stratum_estimates,
       fixed_effects = fixed_effects,
+      conf_level = conf_level,
       thresholds = thresholds,
       model_summary = model_summary,
       engine = engine,
@@ -1146,6 +1241,16 @@ print.maihda_summary <- function(x, ...) {
   cat(pal$bold("MAIHDA Model Summary"), "\n", sep = "")
   cat("====================\n\n")
 
+  # Say which of a two-model analysis's models this is: the null model's fixed
+  # effects are the intercept and covariates only (its strata dimensions are the
+  # random-effect grouping), so an unlabelled print reads as if the dimensions
+  # were missing. Tagged by maihda(); absent for a bare fit_maihda() summary.
+  role <- attr(x, "maihda_role")
+  if (identical(role, "null")) {
+    cat(pal$muted("Null model. Use which = \"adjusted\" for the adjusted model.\n\n"))
+  } else if (identical(role, "adjusted")) {
+    cat(pal$muted("Adjusted model.\n\n"))
+  }
   maihda_print_fit_diagnostics(x$diagnostics)
 
   is_lng <- !is.null(x$longitudinal)
@@ -1204,8 +1309,24 @@ print.maihda_summary <- function(x, ...) {
     cat("\n")
   }
 
-  cat(pal$bold("Fixed Effects:"), "\n", sep = "")
-  print(x$fixed_effects, row.names = FALSE, digits = 4)
+  # The frequentist engines carry Wald statistics and an interval (see
+  # maihda_fixed_effects_table); brms carries the posterior summary matrix,
+  # whose column names already label the quantiles.
+  fe_level <- if (is.null(x$conf_level)) 95 else 100 * x$conf_level
+  fe_header <- if (is.data.frame(x$fixed_effects) &&
+                   "lower" %in% names(x$fixed_effects)) {
+    sprintf("Fixed Effects (Wald %s%% intervals):",
+            format(round(fe_level, 1), trim = TRUE))
+  } else {
+    "Fixed Effects:"
+  }
+  cat(pal$bold(fe_header), "\n", sep = "")
+  fe_print <- x$fixed_effects
+  if (is.data.frame(fe_print) && "p_value" %in% names(fe_print)) {
+    # Without this a p of 1e-200 prints as "0.00000" next to a p of 0.04.
+    fe_print$p_value <- format.pval(fe_print$p_value, digits = 3, eps = 1e-16)
+  }
+  print(fe_print, row.names = FALSE, digits = 4)
   cat("\n")
 
   if (!is.null(x$thresholds) && nrow(x$thresholds) > 0) {

@@ -4,18 +4,35 @@
 \alias{summary.maihda_analysis}
 \title{Summarize a MAIHDA Analysis}
 \usage{
-\method{summary}{maihda_analysis}(object, ...)
+\method{summary}{maihda_analysis}(object, which = c("null", "adjusted"), ...)
 }
 \arguments{
 \item{object}{A \code{maihda_analysis} object from \code{\link{maihda}}.}
 
+\item{which}{Which model to summarize: \code{"null"} (default) or
+\code{"adjusted"}. A crossed-dimensions analysis has a single model and
+accepts only \code{"null"}.}
+
 \item{...}{Additional arguments (not used).}
 }
 \value{
-The \code{maihda_summary} for the fitted model.
+The \code{maihda_summary} for the requested model.
 }
 \description{
 Returns the variance summary (VPC/ICC, variance components, stratum estimates)
-of the fitted model. The per-group comparison, when present, is attached as the
-\code{"groups"} attribute.
+of one of the analysis's models. The per-group comparison, when present, is
+attached as the \code{"groups"} attribute.
 }
+\section{Which model}{
+ A two-model \code{\link{maihda}} analysis holds a
+  \strong{null} model (strata as the only predictor) and an \strong{adjusted}
+  model (the dimensions' additive main effects added as fixed effects), and
+  this returns the null model's summary by default -- the one the headline
+  VPC/ICC comes from. The strata dimensions are the random-effect grouping
+  there, not fixed effects, so the printed fixed-effect table shows only the
+  intercept and any covariates. Use \code{which = "adjusted"} for the model
+  whose fixed effects carry the dimensions' additive main effects (the same
+  object as \code{object$summary_adjusted}), matching
+  \code{\link[=tidy.maihda_analysis]{tidy}}'s \code{which} argument.
+}
+

@@ -33,29 +33,53 @@ maihda_chr <- function(v) {
 }
 
 # Normalise the engine-specific fixed_effects slot to a broom-shaped tibble:
-#   term / estimate / std.error / conf.low / conf.high
-# lme4 gives data.frame(term, estimate); wemix/ordinal add `se`; brms::fixef() gives a
-# matrix with columns Estimate / Est.Error / Q2.5 / Q97.5.
+#   term / estimate / std.error / statistic / p.value / conf.low / conf.high
+# The lme4, wemix and ordinal summaries store the full Wald table (term / estimate /
+# se / statistic / p_value / lower / upper) built by maihda_fixed_effects_table();
+# brms::fixef() gives a matrix with Estimate / Est.Error and two quantile columns
+# (named for the quantiles themselves, e.g. Q2.5 / Q97.5), and a posterior summary
+# carries no test statistic or p-value, so those are NA there.
+#
+# The estimate/se fallbacks below cover a summary built before those columns existed
+# (a stored maihda_summary object from an older version).
 maihda_tidy_fixed <- function(fe) {
   if (is.null(fe)) return(tibble::tibble())
 
   if (is.matrix(fe)) {
     cn <- colnames(fe)
+    # Interval columns are the two extreme quantile columns, whatever level the
+    # fit was summarised at (Q2.5/Q97.5 at the 95% default).
+    qcol <- grep("^Q[0-9.]+$", cn, value = TRUE)
+    qval <- suppressWarnings(as.numeric(sub("^Q", "", qcol)))
+    has_q <- length(qcol) >= 2L && !anyNA(qval)
     return(tibble::tibble(
       term      = rownames(fe),
       estimate  = if ("Estimate" %in% cn) fe[, "Estimate"] else fe[, 1],
       std.error = if ("Est.Error" %in% cn) fe[, "Est.Error"] else NA_real_,
-      conf.low  = if ("Q2.5" %in% cn) fe[, "Q2.5"] else NA_real_,
-      conf.high = if ("Q97.5" %in% cn) fe[, "Q97.5"] else NA_real_
+      statistic = NA_real_,
+      p.value   = NA_real_,
+      conf.low  = if (has_q) fe[, qcol[which.min(qval)]] else NA_real_,
+      conf.high = if (has_q) fe[, qcol[which.max(qval)]] else NA_real_
     ))
   }
 
+  est <- as.numeric(fe$estimate)
+  se  <- if ("se" %in% names(fe)) as.numeric(fe$se) else NA_real_
+  se[!is.na(se) & se <= 0] <- NA_real_
+  z <- stats::qnorm(0.975)
+
   tibble::tibble(
     term      = as.character(fe$term),
-    estimate  = as.numeric(fe$estimate),
-    std.error = if ("se" %in% names(fe)) as.numeric(fe$se) else NA_real_,
-    conf.low  = NA_real_,
-    conf.high = NA_real_
+    estimate  = est,
+    std.error = se,
+    statistic = if ("statistic" %in% names(fe)) as.numeric(fe$statistic) else est / se,
+    p.value   = if ("p_value" %in% names(fe)) {
+      as.numeric(fe$p_value)
+    } else {
+      2 * stats::pnorm(-abs(est / se))
+    },
+    conf.low  = if ("lower" %in% names(fe)) as.numeric(fe$lower) else est - z * se,
+    conf.high = if ("upper" %in% names(fe)) as.numeric(fe$upper) else est + z * se
   )
 }
 
@@ -78,9 +102,9 @@ maihda_tidy_fixed <- function(fe) {
 #'     \item{\code{"variance"}}{the variance-components table (between-stratum, any
 #'       other random effects, residual, and total) with each component's variance,
 #'       SD and proportion.}
-#'     \item{\code{"fixed"}}{the fixed-effect estimates, in broom's
-#'       \code{term}/\code{estimate}/\code{std.error} shape (with
-#'       \code{conf.low}/\code{conf.high} for the brms engine).}
+#'     \item{\code{"fixed"}}{the fixed-effect estimates in broom's
+#'       \code{term}/\code{estimate}/\code{std.error}/\code{statistic}/
+#'       \code{p.value}/\code{conf.low}/\code{conf.high} shape.}
 #'   }
 #' @param which For a \code{maihda_analysis}, whether to tidy the \code{"null"}
 #'   (default) or \code{"adjusted"} model's summary.
@@ -90,7 +114,32 @@ maihda_tidy_fixed <- function(fe) {
 #'   \code{stratum}, \code{label}, \code{estimate}, \code{std.error},
 #'   \code{conf.low}, \code{conf.high}. For \code{"variance"}: \code{component},
 #'   \code{variance}, \code{sd}, \code{proportion}. For \code{"fixed"}: \code{term},
-#'   \code{estimate}, \code{std.error}, \code{conf.low}, \code{conf.high}.
+#'   \code{estimate}, \code{std.error}, \code{statistic}, \code{p.value},
+#'   \code{conf.low}, \code{conf.high}.
+#'
+#' @section Fixed-effect statistics: For the lme4, WeMix and ordinal engines
+#'   \code{statistic} is the Wald \eqn{z} (\code{estimate / std.error}),
+#'   \code{p.value} its two-sided normal-approximation p-value, and
+#'   \code{conf.low}/\code{conf.high} the matching Wald interval at the
+#'   \code{conf_level} the summary was computed at (95\% by default). No
+#'   denominator degrees of freedom are estimated, so these are z-based rather
+#'   than Satterthwaite or Kenward-Roger.
+#'
+#'   Which terms that approximation is safe for depends on how they vary. A
+#'   covariate that varies \emph{within} a stratum has an effective sample size
+#'   of the number of observations, and z is essentially exact for it. The
+#'   intercept and the dimension main effects of an \emph{adjusted} MAIHDA model
+#'   are constant within a stratum by construction, so their effective sample
+#'   size is the \strong{number of strata}, however large \eqn{n} is: with few
+#'   strata their intervals are too narrow and their p-values anticonservative.
+#'   As a rough guide, a Kenward-Roger check gives those terms about 5\% wider
+#'   intervals at 50 strata but roughly 40\% wider at 10. When that matters,
+#'   apply \pkg{lmerTest} or \pkg{pbkrtest} to the underlying fit
+#'   (\code{x$model}, an \code{lmerMod}), or use the brms engine.
+#'
+#'   For brms the estimate is the posterior mean with its \code{Est.Error} and
+#'   credible interval, and \code{statistic}/\code{p.value} are \code{NA}.
+#'   Standard errors are \code{NA} where they are undefined (a boundary fit).
 #'
 #' @seealso \code{\link{glance.maihda_analysis}} for the one-row model summary.
 #'

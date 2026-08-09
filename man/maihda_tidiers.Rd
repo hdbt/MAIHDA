@@ -32,9 +32,9 @@ a \code{maihda_model} (from \code{\link{fit_maihda}}), or a
   \item{\code{"variance"}}{the variance-components table (between-stratum, any
     other random effects, residual, and total) with each component's variance,
     SD and proportion.}
-  \item{\code{"fixed"}}{the fixed-effect estimates, in broom's
-    \code{term}/\code{estimate}/\code{std.error} shape (with
-    \code{conf.low}/\code{conf.high} for the brms engine).}
+  \item{\code{"fixed"}}{the fixed-effect estimates in broom's
+    \code{term}/\code{estimate}/\code{std.error}/\code{statistic}/
+    \code{p.value}/\code{conf.low}/\code{conf.high} shape.}
 }}
 
 \item{...}{Unused, for S3 consistency.}
@@ -47,7 +47,8 @@ A \code{tibble}. For \code{component = "strata"}: columns
   \code{stratum}, \code{label}, \code{estimate}, \code{std.error},
   \code{conf.low}, \code{conf.high}. For \code{"variance"}: \code{component},
   \code{variance}, \code{sd}, \code{proportion}. For \code{"fixed"}: \code{term},
-  \code{estimate}, \code{std.error}, \code{conf.low}, \code{conf.high}.
+  \code{estimate}, \code{std.error}, \code{statistic}, \code{p.value},
+  \code{conf.low}, \code{conf.high}.
 }
 \description{
 \code{\link[generics]{tidy}} methods that return the MAIHDA estimates as a tidy
@@ -55,6 +56,32 @@ A \code{tibble}. For \code{component = "strata"}: columns
 \code{ggplot2}. They read the slots that \code{\link{summary.maihda_model}}
 already computes and add no new statistics.
 }
+\section{Fixed-effect statistics}{
+ For the lme4, WeMix and ordinal engines
+  \code{statistic} is the Wald \eqn{z} (\code{estimate / std.error}),
+  \code{p.value} its two-sided normal-approximation p-value, and
+  \code{conf.low}/\code{conf.high} the matching Wald interval at the
+  \code{conf_level} the summary was computed at (95\% by default). No
+  denominator degrees of freedom are estimated, so these are z-based rather
+  than Satterthwaite or Kenward-Roger.
+
+  Which terms that approximation is safe for depends on how they vary. A
+  covariate that varies \emph{within} a stratum has an effective sample size
+  of the number of observations, and z is essentially exact for it. The
+  intercept and the dimension main effects of an \emph{adjusted} MAIHDA model
+  are constant within a stratum by construction, so their effective sample
+  size is the \strong{number of strata}, however large \eqn{n} is: with few
+  strata their intervals are too narrow and their p-values anticonservative.
+  As a rough guide, a Kenward-Roger check gives those terms about 5\% wider
+  intervals at 50 strata but roughly 40\% wider at 10. When that matters,
+  apply \pkg{lmerTest} or \pkg{pbkrtest} to the underlying fit
+  (\code{x$model}, an \code{lmerMod}), or use the brms engine.
+
+  For brms the estimate is the posterior mean with its \code{Est.Error} and
+  credible interval, and \code{statistic}/\code{p.value} are \code{NA}.
+  Standard errors are \code{NA} where they are undefined (a boundary fit).
+}
+
 \examples{
 data("maihda_health_data")
 m <- fit_maihda(BMI ~ Age + (1 | Gender:Race:Education), data = maihda_health_data)

@@ -72,7 +72,21 @@ A maihda_summary object containing:
     fit (the context variance enters the VPC denominator); \code{NULL} otherwise
     (including for crossed-dimensions and longitudinal fits)}
   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
-  \item{fixed_effects}{Fixed effects estimates}
+  \item{fixed_effects}{Fixed-effect estimates. For the lme4, WeMix and ordinal
+    engines a data frame with \code{term}, \code{estimate}, \code{se},
+    \code{statistic} (the Wald z, \code{estimate / se}),
+    \code{p_value} (two-sided, normal approximation) and the Wald interval
+    \code{lower}/\code{upper} at \code{conf_level}. No denominator degrees of
+    freedom are estimated, so for a Gaussian fit these are z-based rather than
+    Satterthwaite/Kenward-Roger -- fine for a within-stratum covariate, but
+    anticonservative with few strata for terms constant within a stratum (see
+    \code{\link{maihda_tidiers}}); the
+    WeMix standard errors are its sandwich (robust) ones. For brms, the
+    \code{brms::fixef()} matrix (posterior mean, \code{Est.Error} and the
+    credible-interval quantiles at \code{conf_level}). Available in a tidy,
+    engine-independent shape from \code{tidy(x, component = "fixed")}}
+  \item{conf_level}{The interval level used for the fixed effects (and, when
+    bootstrapped or Bayesian, the VPC)}
   \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut
     point) estimates with standard errors -- the cumulative model's
     "intercepts"; NULL otherwise}

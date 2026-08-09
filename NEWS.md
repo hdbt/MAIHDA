@@ -2,10 +2,14 @@
 
 ## New features
 
+* `summary()` on a `maihda` analysis gained `which = "adjusted"`, matching `tidy()`. It returns the null model by default, whose fixed effects are the intercept and covariates only because the strata dimensions are its random-effect grouping -- easy to misread as the dimension main effects having gone missing. `print()` now names which of the two models it is showing.
+* `summary()` now reports fixed-effect standard errors, Wald statistics, two-sided p-values and intervals for the lme4, WeMix and ordinal engines, so `tidy(component = "fixed")` returns the full broom shape -- `std.error`, `statistic`, `p.value`, `conf.low`, `conf.high` -- instead of estimates beside all-`NA` columns. The interval level follows `summary(conf_level = )`; no denominator degrees of freedom are estimated, so a Gaussian fit's statistics are z-based rather than Satterthwaite/Kenward-Roger.
 * `fit_maihda()` models now carry likelihood-adequacy diagnostics that `print()` and `summary()` surface alongside the singular/convergence caveats: Poisson/negative-binomial overdispersion (Pearson ratio) and zero inflation, stratum random-effect non-normality, longitudinal residual autocorrelation, and an approximate ordinal proportional-odds screen. A well-specified model stays silent.
 
 ## API changes
 
+* The `maihda_table()` intercept row now carries an interval (`*_lower`/`*_upper`, previously always `NA`): the summary's Wald interval for the likelihood engines, the credible interval for brms. Being a between-stratum quantity it is too narrow when the strata are few, as the printed footnote now says. The variance and SD rows remain point estimates.
+* The `fixed_effects` element of a `summary()` object gained `statistic`, `p_value`, `lower` and `upper` columns (and `se` for lme4), and `summary(conf_level = )` now sets the brms credible-interval quantiles as well as the Wald ones. Code reading `term`/`estimate`/`se` is unaffected; code assuming the exact column set is not.
 * Gaussian PCV calculations now use each model's fitted (REML) between-stratum variance by default. Use `estimation = "ML"` in `calculate_pcv()`, `stepwise_pcv()`, `pcv_importance()`, `compare_maihda_groups()`, or `maihda()` to restore the previous ML-refit behaviour.
 * `pcv_importance(method = "sequential")` is soft-deprecated. Use `stepwise_pcv()` for an order-dependent path or `method = "shapley"` for order-invariant attribution.
 * `maihda_mor()` on a crossed-dimensions fit now returns the mixture MOR over pairs of distinct strata instead of applying the independent-strata closed form to the summed variance. Reported values fall, most where the variance sits in the additive dimensions.
