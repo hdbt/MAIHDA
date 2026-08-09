@@ -161,7 +161,23 @@ families/engines.</p></dd>
 <dd><p>Data frame of stratum-specific random effects with labels if available</p></dd>
 
   <dt>fixed_effects</dt>
-<dd><p>Fixed effects estimates</p></dd>
+<dd><p>Fixed-effect estimates. For the lme4, WeMix and ordinal
+    engines a data frame with <code>term</code>, <code>estimate</code>, <code>se</code>,
+    <code>statistic</code> (the Wald z, <code>estimate / se</code>),
+    <code>p_value</code> (two-sided, normal approximation) and the Wald interval
+    <code>lower</code>/<code>upper</code> at <code>conf_level</code>. No denominator degrees of
+    freedom are estimated, so for a Gaussian fit these are z-based rather than
+    Satterthwaite/Kenward-Roger – fine for a within-stratum covariate, but
+    anticonservative with few strata for terms constant within a stratum (see
+    <code><a href="maihda_tidiers.html">maihda_tidiers</a></code>); the
+    WeMix standard errors are its sandwich (robust) ones. For brms, the
+    <code><a href="https://rdrr.io/pkg/nlme/man/fixed.effects.html" class="external-link">brms::fixef()</a></code> matrix (posterior mean, <code>Est.Error</code> and the
+    credible-interval quantiles at <code>conf_level</code>). Available in a tidy,
+    engine-independent shape from <code>tidy(x, component = "fixed")</code></p></dd>
+
+  <dt>conf_level</dt>
+<dd><p>The interval level used for the fixed effects (and, when
+    bootstrapped or Bayesian, the VPC)</p></dd>
 
   <dt>thresholds</dt>
 <dd><p>For a cumulative (ordinal) clmm fit, the threshold (cut

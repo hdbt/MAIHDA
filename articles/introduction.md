@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x556f4dbb76f0>
+#> <environment: 0x557af8843ac8>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x556f4c0067b0>
+#> <environment: 0x557af6cd9278>
 ```
 
 The returned object carries everything: the full variance components,
@@ -126,6 +126,8 @@ summary(analysis)       # variance components, VPC/ICC, stratum estimates
 #> MAIHDA Model Summary
 #> ====================
 #> 
+#> Null model. Use which = "adjusted" for the adjusted model.
+#> 
 #> Variance Partition Coefficient (VPC/ICC):
 #>   Estimate: 0.0636
 #> 
@@ -135,9 +137,9 @@ summary(analysis)       # variance components, VPC/ICC, stratum estimates
 #>  Within-stratum (residual)   43.187 6.572    0.93643
 #>                      Total   46.118 6.791    1.00000
 #> 
-#> Fixed Effects:
-#>         term estimate
-#>  (Intercept)    29.01
+#> Fixed Effects (Wald 95% intervals):
+#>         term estimate     se statistic p_value lower upper
+#>  (Intercept)    29.01 0.3113     93.19  <1e-16  28.4 29.62
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id                           label random_effect     se
@@ -374,9 +376,9 @@ summary(model_null)
 #>  Within-stratum (residual)   43.187 6.572    0.93643
 #>                      Total   46.118 6.791    1.00000
 #> 
-#> Fixed Effects:
-#>         term estimate
-#>  (Intercept)    29.01
+#> Fixed Effects (Wald 95% intervals):
+#>         term estimate     se statistic p_value lower upper
+#>  (Intercept)    29.01 0.3113     93.19  <1e-16  28.4 29.62
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id                           label random_effect     se

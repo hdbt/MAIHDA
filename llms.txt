@@ -89,7 +89,8 @@ data("maihda_health_data")
 analysis <- maihda(BMI ~ Age + Gender + Race + Education + (1 | Gender:Race:Education),
                    data = maihda_health_data)
 analysis
-summary(analysis)
+summary(analysis)                     # null model: VPC/ICC, variance components
+summary(analysis, which = "adjusted") # adjusted model: dimension main effects
 
 plot(analysis, type = "vpc")
 plot(analysis, type = "effect_decomp")
@@ -447,6 +448,8 @@ glance(analysis)
 # Per-estimate tidy frames (broom's term/estimate/std.error/conf.low/conf.high shape):
 tidy(analysis)                          # stratum (intersection) effects, with labels
 tidy(analysis, component = "variance")  # variance components
+
+# Fixed effects add statistic/p.value (Wald z, normal approximation) to that shape:
 tidy(analysis, component = "fixed", which = "adjusted")
 
 # A caterpillar plot in two lines:

@@ -4,6 +4,23 @@
 
 ### New features
 
+- [`summary()`](https://rdrr.io/r/base/summary.html) on a `maihda`
+  analysis gained `which = "adjusted"`, matching
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html). It returns
+  the null model by default, whose fixed effects are the intercept and
+  covariates only because the strata dimensions are its random-effect
+  grouping – easy to misread as the dimension main effects having gone
+  missing. [`print()`](https://rdrr.io/r/base/print.html) now names
+  which of the two models it is showing.
+- [`summary()`](https://rdrr.io/r/base/summary.html) now reports
+  fixed-effect standard errors, Wald statistics, two-sided p-values and
+  intervals for the lme4, WeMix and ordinal engines, so
+  `tidy(component = "fixed")` returns the full broom shape –
+  `std.error`, `statistic`, `p.value`, `conf.low`, `conf.high` – instead
+  of estimates beside all-`NA` columns. The interval level follows
+  `summary(conf_level = )`; no denominator degrees of freedom are
+  estimated, so a Gaussian fit’s statistics are z-based rather than
+  Satterthwaite/Kenward-Roger.
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   models now carry likelihood-adequacy diagnostics that
   [`print()`](https://rdrr.io/r/base/print.html) and
@@ -16,6 +33,20 @@
 
 ### API changes
 
+- The
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
+  intercept row now carries an interval (`*_lower`/`*_upper`, previously
+  always `NA`): the summary’s Wald interval for the likelihood engines,
+  the credible interval for brms. Being a between-stratum quantity it is
+  too narrow when the strata are few, as the printed footnote now says.
+  The variance and SD rows remain point estimates.
+- The `fixed_effects` element of a
+  [`summary()`](https://rdrr.io/r/base/summary.html) object gained
+  `statistic`, `p_value`, `lower` and `upper` columns (and `se` for
+  lme4), and `summary(conf_level = )` now sets the brms
+  credible-interval quantiles as well as the Wald ones. Code reading
+  `term`/`estimate`/`se` is unaffected; code assuming the exact column
+  set is not.
 - Gaussian PCV calculations now use each model’s fitted (REML)
   between-stratum variance by default. Use `estimation = "ML"` in
   [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
@@ -52,12 +83,17 @@
   cross-validation question), while the likelihood engines’ AIC/BIC are
   computed from the marginal likelihood.
 - [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
-  now documents the direction of its approximate screen: partial pooling
-  deflates a truly-null stratum’s Wald tail (null z variance is about
-  the shrinkage fraction), so the default BH flags err conservative
-  rather than exceeding the nominal false-discovery rate. The Bayesian
-  path is described as already partially pooled instead of
+  now documents that its default BH flags are a conservative screen:
+  partial pooling deflates a truly-null stratum’s Wald tail (null z
+  variance is about the shrinkage fraction), so the flags under-flag
+  rather than exceed the nominal false-discovery rate. The Bayesian path
+  is described as already partially pooled instead of
   “multiplicity-free”, and the flag description drops causal phrasing.
+- The finding-interactions vignette no longer calls the default BH flags
+  “false-discovery-rate controlled”. It now matches
+  [`?maihda_interactions`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md):
+  the flags are a conservative FDR screen that under-flags rather than
+  over-flags, not an exact error-rate guarantee.
 - The design-weighted documentation no longer describes the fixed-effect
   standard errors as design-consistent for complex surveys.
   `sampling_weights` takes one person-level weight column and cannot

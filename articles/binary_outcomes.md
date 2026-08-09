@@ -111,9 +111,9 @@ print(summary_null)
 #>   model, so it is optimistically biased -- more so with sparse strata. It
 #>   is a descriptive measure, not cross-validated out-of-sample discrimination.)
 #> 
-#> Fixed Effects:
-#>         term estimate
-#>  (Intercept)   -0.616
+#> Fixed Effects (Wald 95% intervals):
+#>         term estimate      se statistic  p_value   lower   upper
+#>  (Intercept)   -0.616 0.09022    -6.828 8.61e-12 -0.7928 -0.4392
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id                           label random_effect     se

@@ -116,7 +116,25 @@ A maihda_summary object containing:
 
 - fixed_effects:
 
-  Fixed effects estimates
+  Fixed-effect estimates. For the lme4, WeMix and ordinal engines a data
+  frame with `term`, `estimate`, `se`, `statistic` (the Wald z,
+  `estimate / se`), `p_value` (two-sided, normal approximation) and the
+  Wald interval `lower`/`upper` at `conf_level`. No denominator degrees
+  of freedom are estimated, so for a Gaussian fit these are z-based
+  rather than Satterthwaite/Kenward-Roger – fine for a within-stratum
+  covariate, but anticonservative with few strata for terms constant
+  within a stratum (see
+  [`maihda_tidiers`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md));
+  the WeMix standard errors are its sandwich (robust) ones. For brms,
+  the [`brms::fixef()`](https://rdrr.io/pkg/nlme/man/fixed.effects.html)
+  matrix (posterior mean, `Est.Error` and the credible-interval
+  quantiles at `conf_level`). Available in a tidy, engine-independent
+  shape from `tidy(x, component = "fixed")`
+
+- conf_level:
+
+  The interval level used for the fixed effects (and, when bootstrapped
+  or Bayesian, the VPC)
 
 - thresholds:
 

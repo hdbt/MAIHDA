@@ -119,9 +119,15 @@ The model-results table is mostly numeric and export-ready (e.g.
 [`knitr::kable()`](https://rdrr.io/pkg/knitr/man/kable.html)):
 statistics are rows, models are columns, and each estimate has
 accompanying `*_lower`/`*_upper` columns that hold the
-confidence/credible interval when one is available (the VPC bootstrap or
-posterior interval, and the bootstrap PCV interval) and `NA` otherwise.
-The intercept and the variance/SD rows are point estimates. The
+confidence/credible interval when one is available (the intercept's
+interval, the VPC bootstrap or posterior interval, and the bootstrap PCV
+interval) and `NA` otherwise. The intercept carries the same interval
+[`summary()`](https://rdrr.io/r/base/summary.html) reports for it – a
+Wald (normal-approximation) one for the likelihood engines, a credible
+interval for brms – which, being a between-stratum quantity, is too
+narrow when the strata are few (see
+[`maihda_tidiers`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md)).
+The variance and SD rows are point estimates. The
 [`print()`](https://rdrr.io/r/base/print.html) method renders the same
 table in the familiar “estimate \[low, high\]” layout.
 
@@ -167,12 +173,12 @@ tab                 # printed: model-results table + top/bottom strata
 #> Observations: 3000 | Strata: 10
 #> 
 #> Model results:
-#>                 Statistic Null (Model 1) Adjusted (Model 2)
-#>                 Intercept         28.034             30.103
-#>  Between-stratum variance          2.738              1.379
-#>        Between-stratum SD          1.655              1.174
-#>                   VPC/ICC          0.058              0.030
-#>    PCV (null -> adjusted)                             0.496
+#>                 Statistic          Null (Model 1)      Adjusted (Model 2)
+#>                 Intercept 28.034 [26.783, 29.285] 30.103 [28.053, 32.152]
+#>  Between-stratum variance                   2.738                   1.379
+#>        Between-stratum SD                   1.655                   1.174
+#>                   VPC/ICC                   0.058                   0.030
+#>    PCV (null -> adjusted)                                           0.496
 #> 
 #> Strata ranked by predicted value (null model):
 #>  Rank           Stratum    N               Predicted              Stratum RE
@@ -188,16 +194,18 @@ tab                 # printed: model-results table + top/bottom strata
 #>    10    female × Other  111 26.357 [25.202, 27.511] -2.444 [-3.598, -1.289]
 #>   Predicted intervals are conditional (random-effect) only; Stratum RE is the stratum BLUP.
 #> 
-#> Estimates are point values unless a [low, high] interval is shown (VPC/PCV).
+#> Estimates are point values unless a [low, high] interval is shown. The
+#> intercept interval is a Wald (normal-approximation) one -- with few strata
+#> it is too narrow; the variance and SD rows carry no interval.
 tab$models          # the numeric, export-ready results table
 #>                  statistic        null null_lower null_upper    adjusted
-#> 1                Intercept 28.03406530         NA         NA 30.10251452
+#> 1                Intercept 28.03406530   26.78309   29.28505 30.10251452
 #> 2 Between-stratum variance  2.73828213         NA         NA  1.37921627
 #> 3       Between-stratum SD  1.65477555         NA         NA  1.17440039
 #> 4                  VPC/ICC  0.05845177         NA         NA  0.03032209
 #> 5   PCV (null -> adjusted)          NA         NA         NA  0.49632061
 #>   adjusted_lower adjusted_upper
-#> 1             NA             NA
+#> 1       28.05254       32.15249
 #> 2             NA             NA
 #> 3             NA             NA
 #> 4             NA             NA

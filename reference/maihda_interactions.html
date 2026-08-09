@@ -130,12 +130,12 @@ entirely outside it), <code>"negligible"</code> (entirely inside it), or
   <code>interaction</code> (the BLUP), <code>lower</code>/<code>upper</code> (the interval),
   <code>flagged</code> (logical), and <code>direction</code> (<code>"above"</code>/<code>"below"</code>
   the additive expectation). Frequentist fits add <code>se</code> and <code>p_value</code>
-  (and <code>p_adjusted</code> when <code>adjust != "none"</code>). <code>p_value</code> is an
-  <em>approximate, conditional</em> screening statistic – a Wald tail on the
+  (and <code>p_adjusted</code> when <code>adjust != "none"</code>). <code>p_value</code> is a
+  <em>conditional</em> screening statistic – a Wald tail on the
   shrunken BLUP's conditional SE, with the variance components treated as known
-  – <strong>not</strong> a calibrated frequentist p-value; <code>adjust</code> (e.g. BH)
-  rescales these approximate values and does not confer an exact error-rate
-  guarantee; the approximation errs conservative for truly-null strata (see
+  – <strong>not</strong> a calibrated frequentist p-value; it is <em>conservative</em>
+  (stochastically large under a true null), so the BH-adjusted flag under-flags
+  truly-null strata rather than delivering an exact error-rate guarantee (see
   Details). <code>brms</code> instead adds
   <code>pd</code> (probability of direction, <code>max(P(&gt;0), P(&lt;0))</code> in
   <code>[0.5, 1]</code>). When <code>rope</code> is set, a
@@ -195,8 +195,8 @@ individual hypothesis. The FDR choice (over family-wise
 <code>"bonferroni"</code>/<code>"holm"</code>) is this package's, matching that screening
 goal. The flag itself is a Wald test on a shrunken BLUP whose
 conditional SE treats the variance components as known, so it (and any
-<code>adjust</code> on it) is an explicit, approximate <em>screen</em>. The direction of the
-approximation is <em>conservative</em>: partial pooling deflates a truly-null
+<code>adjust</code> on it) is an explicit, <em>conservative</em> screen – strict, not
+liberal. Partial pooling deflates a truly-null
 stratum's BLUP more than its conditional SE, so the null z-statistic is
 sub-normal (variance about the shrinkage fraction, below 1) and the screen
 under-flags rather than over-flags, degenerating to no flags at the
@@ -251,7 +251,7 @@ estimation. <em>Advances in Methods and Practices in Psychological Science</em>,
 <span class="r-in"><span>            data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">maihda_interactions</span><span class="op">(</span><span class="va">a</span><span class="op">)</span>                  <span class="co"># FDR-screened (default adjust = "BH")</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #D78700; font-weight: bold;">4</span> of 10 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted approximate p-values</span>).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #D78700; font-weight: bold;">4</span> of 10 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted conservative p-values</span>).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Model: adjusted (two-model); interaction on the link (latent) scale.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  stratum          label    n interaction     se   lower   upper  p_value</span>
@@ -290,7 +290,7 @@ estimation. <em>Advances in Methods and Practices in Psychological Science</em>,
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="fu">maihda_interactions</span><span class="op">(</span><span class="va">a</span>, rope <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>      <span class="co"># equivalence: |interaction| within 0.1?</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #D78700; font-weight: bold;">4</span> of 10 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted approximate p-values</span>).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #D78700; font-weight: bold;">4</span> of 10 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted conservative p-values</span>).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Model: adjusted (two-model); interaction on the link (latent) scale.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Equivalence vs ROPE [-0.1, 0.1]: <span style="color: #D78700;">4 relevant</span> | <span style="color: #0087D7;">0 negligible</span> | <span style="color: #555555;">6 inconclusive</span>.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>

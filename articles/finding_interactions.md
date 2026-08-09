@@ -15,9 +15,13 @@ reused by the effect-decomposition and predicted-strata plots.
 ## Run a standard analysis and choose the multiplicity rule
 
 The default is `adjust = "BH"` (Benjamini-Hochberg): scanning all strata
-to see which ones interact is a screening question, so the flags are
-false-discovery-rate controlled. For the uncorrected, per-stratum
-individual view, set `interactions = "none"`.
+to see which ones interact is a screening question, so the flags are a
+conservative false-discovery-rate screen. Partial pooling shrinks a
+truly-null stratum’s Wald tail, so the screen under-flags rather than
+over-flags – it errs strict, never liberal (see
+[`?maihda_interactions`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)).
+For the uncorrected, per-stratum individual view, set
+`interactions = "none"`.
 
 The call below names the (default) Benjamini-Hochberg rule explicitly:
 
@@ -39,7 +43,7 @@ adjustment rule was used. The full table is stored in
 
 model_bh$interactions
 #> ── Intersectional interactions ─────────────────────────────────────────────────
-#> 1 of 50 strata flagged (95% interval; BH-adjusted approximate p-values).
+#> 1 of 50 strata flagged (95% interval; BH-adjusted conservative p-values).
 #> Model: adjusted (two-model); interaction on the link (latent) scale.
 #> 
 #>  stratum                       label   n interaction     se  lower upper
@@ -108,7 +112,7 @@ the region), `negligible` (entirely inside it), or `inconclusive`
 
 maihda_interactions(model_bh, rope = 0.5)
 #> ── Intersectional interactions ─────────────────────────────────────────────────
-#> 1 of 50 strata flagged (95% interval; BH-adjusted approximate p-values).
+#> 1 of 50 strata flagged (95% interval; BH-adjusted conservative p-values).
 #> Model: adjusted (two-model); interaction on the link (latent) scale.
 #> Equivalence vs ROPE [-0.5, 0.5]: 1 relevant | 0 negligible | 49 inconclusive.
 #> 

@@ -67,12 +67,12 @@ to every engine: `stratum`, `label`, `n` (stratum size), `interaction`
 (the BLUP), `lower`/`upper` (the interval), `flagged` (logical), and
 `direction` (`"above"`/`"below"` the additive expectation). Frequentist
 fits add `se` and `p_value` (and `p_adjusted` when `adjust != "none"`).
-`p_value` is an *approximate, conditional* screening statistic – a Wald
-tail on the shrunken BLUP's conditional SE, with the variance components
-treated as known – **not** a calibrated frequentist p-value; `adjust`
-(e.g. BH) rescales these approximate values and does not confer an exact
-error-rate guarantee; the approximation errs conservative for truly-null
-strata (see Details). `brms` instead adds `pd` (probability of
+`p_value` is a *conditional* screening statistic – a Wald tail on the
+shrunken BLUP's conditional SE, with the variance components treated as
+known – **not** a calibrated frequentist p-value; it is *conservative*
+(stochastically large under a true null), so the BH-adjusted flag
+under-flags truly-null strata rather than delivering an exact error-rate
+guarantee (see Details). `brms` instead adds `pd` (probability of
 direction, `max(P(>0), P(<0))` in `[0.5, 1]`). When `rope` is set, a
 `decision` column (`"relevant"`/`"negligible"`/`"inconclusive"`) is
 added. Attributes record `conf_level`, `adjust`, `rope`, `engine`,
@@ -137,17 +137,16 @@ pre-specified individual hypothesis. The FDR choice (over family-wise
 `"bonferroni"`/`"holm"`) is this package's, matching that screening
 goal. The flag itself is a Wald test on a shrunken BLUP whose
 conditional SE treats the variance components as known, so it (and any
-`adjust` on it) is an explicit, approximate *screen*. The direction of
-the approximation is *conservative*: partial pooling deflates a
-truly-null stratum's BLUP more than its conditional SE, so the null
-z-statistic is sub-normal (variance about the shrinkage fraction,
-below 1) and the screen under-flags rather than over-flags, degenerating
-to no flags at the singular/zero-variance boundary. Lead with the
-interval (and, for `brms`, the probability of direction); the
-substantive question is often not whether an interaction differs from
-zero but whether it exceeds a smallest interaction of interest (an
-equivalence reading; Schuirmann 1987; Kruschke 2018), read from the
-interval.
+`adjust` on it) is an explicit, *conservative* screen – strict, not
+liberal. Partial pooling deflates a truly-null stratum's BLUP more than
+its conditional SE, so the null z-statistic is sub-normal (variance
+about the shrinkage fraction, below 1) and the screen under-flags rather
+than over-flags, degenerating to no flags at the singular/zero-variance
+boundary. Lead with the interval (and, for `brms`, the probability of
+direction); the substantive question is often not whether an interaction
+differs from zero but whether it exceeds a smallest interaction of
+interest (an equivalence reading; Schuirmann 1987; Kruschke 2018), read
+from the interval.
 
 The interaction is reported on the model's link (latent) scale – a
 log-odds deviation for a logistic model, etc. – because the
@@ -207,7 +206,7 @@ a <- maihda(BMI ~ Age + Gender + Race + (1 | Gender:Race),
             data = maihda_health_data)
 maihda_interactions(a)                  # FDR-screened (default adjust = "BH")
 #> ── Intersectional interactions ─────────────────────────────────────────────────
-#> 4 of 10 strata flagged (95% interval; BH-adjusted approximate p-values).
+#> 4 of 10 strata flagged (95% interval; BH-adjusted conservative p-values).
 #> Model: adjusted (two-model); interaction on the link (latent) scale.
 #> 
 #>  stratum          label    n interaction     se   lower   upper  p_value
@@ -246,7 +245,7 @@ maihda_interactions(a, adjust = "none") # uncorrected per-stratum individual vie
 #> 
 maihda_interactions(a, rope = 0.1)      # equivalence: |interaction| within 0.1?
 #> ── Intersectional interactions ─────────────────────────────────────────────────
-#> 4 of 10 strata flagged (95% interval; BH-adjusted approximate p-values).
+#> 4 of 10 strata flagged (95% interval; BH-adjusted conservative p-values).
 #> Model: adjusted (two-model); interaction on the link (latent) scale.
 #> Equivalence vs ROPE [-0.1, 0.1]: 4 relevant | 0 negligible | 6 inconclusive.
 #> 

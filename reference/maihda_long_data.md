@@ -92,10 +92,10 @@ summary(m)
 #>   slope), so the VPC varies; it depends on where time is zeroed. See
 #>   plot(type = "vpc_trajectory") for the full curve.
 #> 
-#> Fixed Effects:
-#>         term  estimate
-#>  (Intercept)  4.986465
-#>         wave -0.006306
+#> Fixed Effects (Wald 95% intervals):
+#>         term  estimate     se statistic p_value   lower  upper
+#>  (Intercept)  4.986465 0.1870   26.6719  <1e-16  4.6200 5.3529
+#>         wave -0.006306 0.0607   -0.1039   0.917 -0.1253 0.1127
 #> 
 #> Stratum baseline (intercept) deviations (first 10):
 #>  stratum stratum_id               label random_effect      se lower_95 upper_95

@@ -372,9 +372,9 @@ summary(model3)  # between-stratum vs. between-country vs. residual
 #>   the context random effect(s). The context share is the between-context
 #>   component of the unexplained variance.
 #> 
-#> Fixed Effects:
-#>         term estimate
-#>  (Intercept)    492.3
+#> Fixed Effects (Wald 95% intervals):
+#>         term estimate    se statistic p_value lower upper
+#>  (Intercept)    492.3 18.55     26.54  <1e-16 455.9 528.6
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id           label random_effect    se lower_95 upper_95

@@ -131,7 +131,8 @@
 <span><span class="va">analysis</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>                   data <span class="op">=</span> <span class="va">maihda_health_data</span><span class="op">)</span></span>
 <span><span class="va">analysis</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span>                     <span class="co"># null model: VPC/ICC, variance components</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">analysis</span>, which <span class="op">=</span> <span class="st">"adjusted"</span><span class="op">)</span> <span class="co"># adjusted model: dimension main effects</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">analysis</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">analysis</span>, type <span class="op">=</span> <span class="st">"effect_decomp"</span><span class="op">)</span></span>
@@ -389,6 +390,8 @@
 <span><span class="co"># Per-estimate tidy frames (broom's term/estimate/std.error/conf.low/conf.high shape):</span></span>
 <span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">analysis</span><span class="op">)</span>                          <span class="co"># stratum (intersection) effects, with labels</span></span>
 <span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">analysis</span>, component <span class="op">=</span> <span class="st">"variance"</span><span class="op">)</span>  <span class="co"># variance components</span></span>
+<span></span>
+<span><span class="co"># Fixed effects add statistic/p.value (Wald z, normal approximation) to that shape:</span></span>
 <span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">analysis</span>, component <span class="op">=</span> <span class="st">"fixed"</span>, which <span class="op">=</span> <span class="st">"adjusted"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># A caterpillar plot in two lines:</span></span>
