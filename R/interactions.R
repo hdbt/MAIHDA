@@ -75,8 +75,8 @@
 #' \code{"bonferroni"}/\code{"holm"}) is this package's, matching that screening
 #' goal. The flag itself is a Wald test on a shrunken BLUP whose
 #' conditional SE treats the variance components as known, so it (and any
-#' \code{adjust} on it) is an explicit, approximate \emph{screen}. The direction of the
-#' approximation is \emph{conservative}: partial pooling deflates a truly-null
+#' \code{adjust} on it) is an explicit, \emph{conservative} screen -- strict, not
+#' liberal. Partial pooling deflates a truly-null
 #' stratum's BLUP more than its conditional SE, so the null z-statistic is
 #' sub-normal (variance about the shrinkage fraction, below 1) and the screen
 #' under-flags rather than over-flags, degenerating to no flags at the
@@ -119,12 +119,12 @@
 #'   \code{interaction} (the BLUP), \code{lower}/\code{upper} (the interval),
 #'   \code{flagged} (logical), and \code{direction} (\code{"above"}/\code{"below"}
 #'   the additive expectation). Frequentist fits add \code{se} and \code{p_value}
-#'   (and \code{p_adjusted} when \code{adjust != "none"}). \code{p_value} is an
-#'   \emph{approximate, conditional} screening statistic -- a Wald tail on the
+#'   (and \code{p_adjusted} when \code{adjust != "none"}). \code{p_value} is a
+#'   \emph{conditional} screening statistic -- a Wald tail on the
 #'   shrunken BLUP's conditional SE, with the variance components treated as known
-#'   -- \strong{not} a calibrated frequentist p-value; \code{adjust} (e.g. BH)
-#'   rescales these approximate values and does not confer an exact error-rate
-#'   guarantee; the approximation errs conservative for truly-null strata (see
+#'   -- \strong{not} a calibrated frequentist p-value; it is \emph{conservative}
+#'   (stochastically large under a true null), so the BH-adjusted flag under-flags
+#'   truly-null strata rather than delivering an exact error-rate guarantee (see
 #'   Details). \code{brms} instead adds
 #'   \code{pd} (probability of direction, \code{max(P(>0), P(<0))} in
 #'   \code{[0.5, 1]}). When \code{rope} is set, a
@@ -337,10 +337,11 @@ print.maihda_interactions <- function(x, ...) {
   } else if (identical(adjust, "none")) {
     sprintf("%.0f%% interval; no multiplicity correction", conf_pct)
   } else {
-    # "approximate": the p-value is a Wald tail on a shrunken BLUP's conditional
-    # SE (variance components treated as known), a screening statistic -- not a
+    # "conservative": the null p-value is a Wald tail on a shrunken BLUP's
+    # conditional SE (variance components treated as known), stochastically large
+    # under a true null -- so the BH flag under-flags, it does not over-flag; not a
     # calibrated frequentist p-value that BH could repair. See ?maihda_interactions.
-    sprintf("%.0f%% interval; %s-adjusted approximate p-values", conf_pct, adjust)
+    sprintf("%.0f%% interval; %s-adjusted conservative p-values", conf_pct, adjust)
   }
   count_label <- if (is.na(n_flagged)) "?" else as.character(n_flagged)
   cat(sprintf("%s of %d strata flagged (%s).\n",

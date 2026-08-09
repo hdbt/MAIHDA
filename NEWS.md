@@ -15,7 +15,8 @@
 ## Documentation
 
 * `maihda_ic()` now states the predictive target of the Bayesian criteria: `brms` WAIC/LOOIC condition on the fitted random effects and so assess prediction of new observations within the represented strata, not generalisation to a new stratum (a leave-one-group-out cross-validation question), while the likelihood engines' AIC/BIC are computed from the marginal likelihood.
-* `maihda_interactions()` now documents the direction of its approximate screen: partial pooling deflates a truly-null stratum's Wald tail (null z variance is about the shrinkage fraction), so the default BH flags err conservative rather than exceeding the nominal false-discovery rate. The Bayesian path is described as already partially pooled instead of "multiplicity-free", and the flag description drops causal phrasing.
+* `maihda_interactions()` now documents that its default BH flags are a conservative screen: partial pooling deflates a truly-null stratum's Wald tail (null z variance is about the shrinkage fraction), so the flags under-flag rather than exceed the nominal false-discovery rate. The Bayesian path is described as already partially pooled instead of "multiplicity-free", and the flag description drops causal phrasing.
+* The finding-interactions vignette no longer calls the default BH flags "false-discovery-rate controlled". It now matches `?maihda_interactions`: the flags are a conservative FDR screen that under-flags rather than over-flags, not an exact error-rate guarantee.
 * The design-weighted documentation no longer describes the fixed-effect standard errors as design-consistent for complex surveys. `sampling_weights` takes one person-level weight column and cannot represent PSUs, sampling strata, higher-stage weights, finite-population corrections, or replicate weights, so it delivers population-weighted point estimates rather than general design-based inference.
 
 ## Performance

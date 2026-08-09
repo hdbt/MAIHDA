@@ -32,9 +32,11 @@ predicted-strata plots.
 ## Run a standard analysis and choose the multiplicity rule
 
 The default is `adjust = "BH"` (Benjamini-Hochberg): scanning all strata to see
-which ones interact is a screening question, so the flags are
-false-discovery-rate controlled. For the uncorrected, per-stratum individual view,
-set `interactions = "none"`.
+which ones interact is a screening question, so the flags are a conservative
+false-discovery-rate screen. Partial pooling shrinks a truly-null stratum's Wald
+tail, so the screen under-flags rather than over-flags -- it errs strict, never
+liberal (see `?maihda_interactions`). For the uncorrected, per-stratum individual
+view, set `interactions = "none"`.
 
 The call below names the (default) Benjamini-Hochberg rule explicitly:
 

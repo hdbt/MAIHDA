@@ -168,9 +168,10 @@ test_that("print reports the flagged count and is exploratory", {
   expect_output(print(mi), "strata flagged")
   # The default correction is now BH (FDR), named in the evidence line.
   expect_output(print(mi), "BH")
-  # The frequentist p-values are labelled "approximate": they are a Wald tail on a
-  # shrunken BLUP's conditional SE, not calibrated p-values (BH does not repair that).
-  expect_output(print(mi), "approximate p-values")
+  # The frequentist p-values are labelled "conservative": a Wald tail on a shrunken
+  # BLUP's conditional SE, stochastically large under a true null, so the BH flag
+  # under-flags (not a calibrated p-value BH could repair).
+  expect_output(print(mi), "conservative p-values")
 })
 
 # Subsetting (head / `[` / dplyr verbs) keeps the maihda_interactions class but, in
