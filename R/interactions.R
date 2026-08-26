@@ -421,7 +421,9 @@ maihda_resolve_interaction_model <- function(object) {
     (inherits(object, "maihda_analysis") && identical(object$mode, "longitudinal")) ||
     (inherits(object, "maihda_model") && !is.null(object$longitudinal_info))
   if (is_longitudinal) {
-    maihda_stop_longitudinal_scalar("A scalar per-stratum interaction diagnostic")
+    maihda_stop_longitudinal_scalar(
+      "A scalar per-stratum interaction diagnostic",
+      stratum_slope = maihda_object_stratum_slope(object))
   }
 
   if (inherits(object, "maihda_analysis")) {

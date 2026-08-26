@@ -9,7 +9,8 @@ maihda_longitudinal_formula(
   id,
   time,
   time_degree,
-  orig_time = time
+  orig_time = time,
+  stratum_slope = TRUE
 )
 }
 \arguments{
@@ -21,6 +22,10 @@ centering applies).}
 
 \item{orig_time}{The user's original time column name; differs from
 \code{time} only when centering applies.}
+
+\item{stratum_slope}{Keep the stratum-level random slope(s) on time? When
+\code{FALSE} the level-3 block is a random intercept only,
+\code{(1 | stratum)}, while the person level keeps its full growth block.}
 }
 \value{
 The growth formula (same environment as \code{base_formula}).

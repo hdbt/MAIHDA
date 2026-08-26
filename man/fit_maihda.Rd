@@ -15,6 +15,7 @@ fit_maihda(
   id = NULL,
   time = NULL,
   time_degree = 1,
+  stratum_slope = TRUE,
   interactions = FALSE,
   ...
 )
@@ -193,6 +194,21 @@ variable. Default \code{NULL}.}
 \item{time_degree}{Polynomial degree of the growth curve when \code{time} is
 supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
 degree 1 only.}
+
+\item{stratum_slope}{Longitudinal only: keep the stratum-level random slope(s)
+on \code{time}? \code{TRUE} (default) fits the canonical Bell et al. (2024)
+structure, \code{(time | id) + (time | stratum)}, in which the between-stratum
+variance is a function of time. \code{FALSE} fits \code{(time | id) +
+(1 | stratum)}: the individual level keeps its growth block, but strata differ
+in \emph{level} only, so the between-stratum variance -- and the numerator of
+the VPC -- is constant over time and no \code{PCV_slope} is defined. Use it
+when the stratum slope variance is at the singularity boundary: with few
+strata, few occasions per stratum, or irregular measurement times, a
+\code{(time | stratum)} block routinely collapses to a perfect intercept-slope
+correlation, and the trajectory decomposition it supports is then a boundary
+artefact. The VPC still varies with time through the person-level slope
+variance and the residual, so this is a time-constant between-stratum
+\emph{variance}, not a time-constant VPC.}
 
 \item{interactions}{Opt-in per-stratum interaction diagnostic
 (\code{\link{maihda_interactions}}), attached as the \code{interactions} slot

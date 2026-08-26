@@ -12,7 +12,8 @@ maihda_validate_longitudinal(
   engine = "lme4",
   sampling_weights = NULL,
   context = NULL,
-  formula = NULL
+  formula = NULL,
+  stratum_slope = TRUE
 )
 }
 \arguments{
@@ -34,9 +35,12 @@ longitudinal models are out of scope.}
 \item{formula}{Optional model formula, used only to tell a package-derived
 refit (whose formula already references the reserved \code{.maihda_ctime}
 column) from a fresh user call when guarding that reserved name.}
+
+\item{stratum_slope}{Single \code{TRUE}/\code{FALSE}: keep the stratum-level
+random slope(s) on time.}
 }
 \value{
-A list \code{list(id, time, time_degree)}.
+A list \code{list(id, time, time_degree, stratum_slope)}.
 }
 \description{
 Validate a longitudinal (id / time) specification

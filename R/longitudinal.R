@@ -73,6 +73,17 @@ maihda_lng_time_center <- function(lng) {
 # Centering offset for a time vector: its minimum finite value, anchoring the
 # growth terms at the observed baseline. 0 (no centering; the historical raw-time
 # path, byte-identical results) when the axis already starts at 0.
+# The polynomial degree of the STRATUM (level-3) random-effect block: the full
+# time_degree normally, but 0 under stratum_slope = FALSE, where the stratum level
+# keeps a random intercept only. The between-stratum variance is then a single
+# number that does not vary with time -- Var_S(t) = sigma^2_u0 -- so the VPC
+# trajectory moves only through the person-level slope variance and the residual.
+# NULL-safe: a maihda_model stored before stratum_slope existed carries the full
+# intercept-and-slope block, matching its fit.
+maihda_lng_stratum_degree <- function(lng) {
+  if (isFALSE(lng$stratum_slope)) 0L else as.integer(lng$time_degree)
+}
+
 maihda_longitudinal_center <- function(time_values) {
   tv <- time_values[is.finite(time_values)]
   if (length(tv) == 0) {
@@ -90,6 +101,8 @@ maihda_longitudinal_center <- function(time_values) {
 #' @param time Single column name: a numeric measurement-time variable (level 1).
 #' @param time_degree Integer >= 1: polynomial degree of the growth curve (1 =
 #'   linear). brms supports degree 1 only.
+#' @param stratum_slope Single \code{TRUE}/\code{FALSE}: keep the stratum-level
+#'   random slope(s) on time.
 #' @param data The model data.
 #' @param engine The fitting engine; only "lme4"/"brms" support the 3-level
 #'   growth structure.
@@ -98,13 +111,14 @@ maihda_longitudinal_center <- function(time_values) {
 #' @param formula Optional model formula, used only to tell a package-derived
 #'   refit (whose formula already references the reserved \code{.maihda_ctime}
 #'   column) from a fresh user call when guarding that reserved name.
-#' @return A list \code{list(id, time, time_degree)}.
+#' @return A list \code{list(id, time, time_degree, stratum_slope)}.
 #' @keywords internal
 maihda_validate_longitudinal <- function(id, time, time_degree, data,
                                          engine = "lme4",
                                          sampling_weights = NULL,
                                          context = NULL,
-                                         formula = NULL) {
+                                         formula = NULL,
+                                         stratum_slope = TRUE) {
   if (!is.character(time) || length(time) != 1 || is.na(time) || !nzchar(time)) {
     stop("'time' must be a single column name (a character string) naming the ",
          "measurement-time variable for a longitudinal MAIHDA.", call. = FALSE)
@@ -142,6 +156,9 @@ maihda_validate_longitudinal <- function(id, time, time_degree, data,
          call. = FALSE)
   }
   time_degree <- as.integer(time_degree)
+  if (!is.logical(stratum_slope) || length(stratum_slope) != 1 || is.na(stratum_slope)) {
+    stop("'stratum_slope' must be a single TRUE or FALSE.", call. = FALSE)
+  }
 
   # Genuinely repeated measures: at least one id must appear more than once, else
   # the level-2 (person) random effects are unidentified and this is not longitudinal.
@@ -195,7 +212,8 @@ maihda_validate_longitudinal <- function(id, time, time_degree, data,
          "your '", .maihda_ctime_col, "' column before fitting.", call. = FALSE)
   }
 
-  list(id = id, time = time, time_degree = time_degree)
+  list(id = id, time = time, time_degree = time_degree,
+       stratum_slope = stratum_slope)
 }
 
 #' Guard against longitudinal ids reused across strata
@@ -304,8 +322,14 @@ maihda_check_longitudinal_times <- function(data, id, time, time_degree) {
 
 # Polynomial-in-time term labels, e.g. c("wave", "I(wave^2)") for degree 2. The
 # first random/fixed term is the linear time; higher degrees use I(time^k) so the
-# design vector at time t is a(t) = (1, t, t^2, ..., t^degree).
+# design vector at time t is a(t) = (1, t, t^2, ..., t^degree). Degree 0 is
+# intercept-only -- no growth terms at all -- which is what the stratum level uses
+# under stratum_slope = FALSE; a(t) is then the constant 1 and the level's variance
+# does not vary with time.
 maihda_time_terms <- function(time, time_degree) {
+  if (time_degree < 1) {
+    return(character(0))
+  }
   qtime <- maihda_quote_name(time)
   terms <- qtime
   if (time_degree >= 2) {
@@ -340,11 +364,14 @@ maihda_time_terms <- function(time, time_degree) {
 #'   centering applies).
 #' @param orig_time The user's original time column name; differs from
 #'   \code{time} only when centering applies.
+#' @param stratum_slope Keep the stratum-level random slope(s) on time? When
+#'   \code{FALSE} the level-3 block is a random intercept only,
+#'   \code{(1 | stratum)}, while the person level keeps its full growth block.
 #' @return The growth formula (same environment as \code{base_formula}).
 #' @keywords internal
 #' @importFrom stats update as.formula terms
 maihda_longitudinal_formula <- function(base_formula, id, time, time_degree,
-                                        orig_time = time) {
+                                        orig_time = time, stratum_slope = TRUE) {
   poly_terms <- maihda_time_terms(time, time_degree)
   ptime <- paste(poly_terms, collapse = " + ")
 
@@ -366,9 +393,13 @@ maihda_longitudinal_formula <- function(base_formula, id, time, time_degree,
       paste(". ~ . +", paste(add_fixed, collapse = " + "))))
   }
 
+  # The fixed time polynomial is added either way -- dropping the stratum random
+  # slope changes only how the stratum DEVIATIONS around the average trajectory are
+  # modelled, never whether there is an average trajectory.
+  stratum_re <- if (isTRUE(stratum_slope)) ptime else "1"
   re <- sprintf("(%s | %s) + (%s | %s)",
                 ptime, maihda_quote_name(id),
-                ptime, maihda_quote_name("stratum"))
+                stratum_re, maihda_quote_name("stratum"))
   stats::update(fixed, stats::as.formula(paste(". ~ . +", re)))
 }
 
@@ -433,18 +464,75 @@ maihda_re_block_lme4 <- function(model, group, time, time_degree) {
   m[idx, idx, drop = FALSE]
 }
 
+# TRUE when the stratum growth block has LOST A DIMENSION -- a variance at zero or,
+# far more commonly, a perfect intercept-slope correlation. lme4 pins the slope's
+# own Cholesky diagonal at exactly 0 in that case, so the block is rank 1: the
+# slope variance is no longer separately identified from the intercept variance,
+# even though both are strictly positive and neither is anywhere near zero on the
+# residual scale.
+#
+# This is precisely the case maihda_stratum_growth_at_boundary_lme4() cannot see
+# (it requires EVERY variance to be at the boundary) and that
+# maihda_variance_at_boundary() cannot see either (it tests the magnitude of the
+# scalar a(t)' Sigma a(t), which is perfectly healthy). Left undetected it yields a
+# confident-looking PCV_slope built on a boundary artefact -- the reported cause of
+# "puzzling slope PCV" values on irregular longitudinal data.
+maihda_stratum_growth_rank_deficient_lme4 <- function(model, tol = 1e-4) {
+  "stratum" %in% maihda_singular_terms_lme4(model, tol = tol)
+}
+
+# Engine-agnostic wrapper: TRUE only for an lme4 growth fit whose stratum block is
+# rank-deficient. brms samples the correlation rather than optimizing it to a
+# boundary, so the question does not arise there and the answer is FALSE.
+maihda_stratum_growth_rank_deficient <- function(object) {
+  identical(object$engine, "lme4") &&
+    isTRUE(tryCatch(maihda_stratum_growth_rank_deficient_lme4(object$model),
+                    error = function(e) FALSE))
+}
+
+# TRUE when the stratum block's LINEAR TIME component specifically sits at the
+# boundary -- its Cholesky diagonal is ~0, so the stratum slope variance conditional
+# on the stratum intercept is zero and the slope is not separately identified.
+#
+# This is deliberately NARROWER than rank deficiency of the whole block. For the 2x2
+# linear block the two coincide (Sigma = ss' forces sigma^2_u1 = s2^2), but a 3x3
+# quadratic block that loses only its I(time^2) dimension still estimates the linear
+# slope variance perfectly well -- gating PCV_slope on the block-level verdict there
+# would discard a sound proportion (observed: 0.874 on the package's own quadratic
+# fixture, whose stratum Cholesky diagonal is 1.074, 0.2357, 0).
+maihda_stratum_slope_at_boundary_lme4 <- function(model, tol = 1e-4) {
+  comps <- maihda_re_boundary_components_lme4(model, tol = tol)
+  if (is.null(comps) || !"stratum" %in% names(comps)) {
+    return(FALSE)
+  }
+  blk <- comps[[which(names(comps) == "stratum")[1]]]
+  length(blk) >= 2L && isTRUE(unname(blk[[2]]))
+}
+
+maihda_stratum_slope_at_boundary <- function(object) {
+  identical(object$engine, "lme4") &&
+    isTRUE(tryCatch(maihda_stratum_slope_at_boundary_lme4(object$model),
+                    error = function(e) FALSE))
+}
+
 # Posterior-mean ordered covariance block of a grouping factor (brms), for the
 # point-estimate PCV / components table. Built from the SD and correlation draws
 # (maihda_re_cov_draws_brms), avoiding any dependence on the dimension order of
 # brms::VarCorr()'s $cov array. The brms longitudinal engine is restricted to
 # linear growth (time_degree 1), so the block is the 2x2 (intercept, slope).
 maihda_re_block_brms <- function(model, group, time, time_degree) {
-  if (time_degree != 1L) {
+  if (time_degree > 1L) {
     stop("The brms longitudinal engine supports linear growth only ",
          "(time_degree = 1).", call. = FALSE)
   }
   draws <- maihda_posterior_draws_brms(model)
-  blk <- maihda_re_cov_draws_brms(draws, group, time)
+  blk <- maihda_re_cov_draws_brms(draws, group, time, time_degree = time_degree)
+  if (time_degree < 1L) {
+    # Intercept-only level (stratum_slope = FALSE): a 1x1 block, so a(t)'Sigma a(t)
+    # is the intercept variance at every t.
+    return(matrix(mean(blk$v0), nrow = 1,
+                  dimnames = list("(Intercept)", "(Intercept)")))
+  }
   v0 <- mean(blk$v0); v1 <- mean(blk$v1); cv <- mean(blk$cov)
   matrix(c(v0, cv, cv, v1), nrow = 2,
          dimnames = list(c("(Intercept)", time), c("(Intercept)", time)))
@@ -457,10 +545,17 @@ maihda_re_block_brms <- function(model, group, time, time_degree) {
 maihda_re_block <- function(object, group) {
   lng <- object$longitudinal_info
   time_term <- maihda_lng_time_term(lng)
+  # The stratum level carries fewer growth terms than the person level under
+  # stratum_slope = FALSE (a random intercept only, degree 0).
+  deg <- if (identical(group, "stratum")) {
+    maihda_lng_stratum_degree(lng)
+  } else {
+    lng$time_degree
+  }
   if (identical(object$engine, "lme4")) {
-    maihda_re_block_lme4(object$model, group, time_term, lng$time_degree)
+    maihda_re_block_lme4(object$model, group, time_term, deg)
   } else if (identical(object$engine, "brms")) {
-    maihda_re_block_brms(object$model, group, time_term, lng$time_degree)
+    maihda_re_block_brms(object$model, group, time_term, deg)
   } else {
     stop("Longitudinal MAIHDA is supported only for lme4/brms.", call. = FALSE)
   }
@@ -498,12 +593,38 @@ maihda_slope_var_at_time <- function(Sigma, t) {
 # is a TRAJECTORY (random intercept + slope(s)), so collapsing it to one number
 # produces a cross-sectional-looking result that is not the right quantity. Point
 # the user to the trajectory tools instead.
-maihda_stop_longitudinal_scalar <- function(what) {
+# Whether a maihda_model / maihda_analysis was fit with a stratum-level random
+# slope. TRUE for anything non-longitudinal or stored before stratum_slope existed,
+# so the callers' messages default to the historical wording.
+maihda_object_stratum_slope <- function(object) {
+  lng <- object$longitudinal_info
+  if (is.null(lng) && !is.null(object$model)) {
+    lng <- object$model$longitudinal_info   # a maihda_analysis holds the fit in $model
+  }
+  !isFALSE(lng$stratum_slope)
+}
+
+maihda_stop_longitudinal_scalar <- function(what, stratum_slope = TRUE) {
+  # Under stratum_slope = FALSE the stratum effect IS a single number (a constant
+  # deviation), so the "each stratum is a trajectory" rationale does not apply and
+  # must not be asserted. The tool is still unavailable -- the cross-sectional
+  # ranking/BLUP paths are not wired for a growth fit's person-level slopes -- but
+  # say why truthfully, and point at the route that does produce the per-stratum
+  # values.
+  if (isFALSE(stratum_slope)) {
+    stop(what, " is not available for a longitudinal MAIHDA. The stratum level was ",
+         "fit with a random intercept only (stratum_slope = FALSE), so each stratum ",
+         "does have a single deviation: read it with predict(type = \"strata\") ",
+         "($baseline), which is the per-stratum value the cross-sectional tools ",
+         "would rank.", call. = FALSE)
+  }
   stop(what, " is not defined for a longitudinal MAIHDA: each stratum is a ",
        "trajectory (random intercept + slope), not a single value. Use ",
        "predict(type = \"strata\") for the per-stratum intercept and slope, ",
        "plot(type = \"trajectories\") for the stratum mean trajectories, or ",
-       "plot(type = \"vpc_trajectory\") for the time-varying VPC.", call. = FALSE)
+       "plot(type = \"vpc_trajectory\") for the time-varying VPC. Fitting with ",
+       "stratum_slope = FALSE gives a time-constant between-stratum variance ",
+       "instead.", call. = FALSE)
 }
 
 # A time grid for reporting VPC(t): the observed unique times when few, else a
@@ -662,7 +783,10 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   model <- object$model
   time_term <- maihda_lng_time_term(lng)
   center <- maihda_lng_time_center(lng)
-  Sigma_s <- maihda_re_block_lme4(model, "stratum", time_term, lng$time_degree)
+  # Degree 0 at the stratum level under stratum_slope = FALSE: a 1x1 block, so
+  # a(t)'Sigma_s a(t) is constant and VPC(t) moves only through Var_I(t)/residual.
+  stratum_deg <- maihda_lng_stratum_degree(lng)
+  Sigma_s <- maihda_re_block_lme4(model, "stratum", time_term, stratum_deg)
   Sigma_i <- maihda_re_block_lme4(model, lng$id, time_term, lng$time_degree)
 
   grid <- maihda_longitudinal_time_grid(object$data[[lng$time]])
@@ -707,7 +831,7 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
     for (i in seq_len(n_boot)) {
       tryCatch({
         bm <- lme4::refit(model, newresp = sim[[i]])
-        Ss <- maihda_re_block_lme4(bm, "stratum", time_term, lng$time_degree)
+        Ss <- maihda_re_block_lme4(bm, "stratum", time_term, stratum_deg)
         Si <- maihda_re_block_lme4(bm, lng$id, time_term, lng$time_degree)
         vs <- maihda_var_at_time(Ss, grid_c); vi <- maihda_var_at_time(Si, grid_c)
         vr_grid <- maihda_longitudinal_resid_grid_lme4(bm, time_term, grid_c, vs + vi,
@@ -789,12 +913,18 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
   time_term <- maihda_lng_time_term(lng)
   center <- maihda_lng_time_center(lng)
   draws <- maihda_posterior_draws_brms(model)
-  sig_s <- maihda_re_cov_draws_brms(draws, "stratum", time_term)
-  sig_i <- maihda_re_cov_draws_brms(draws, lng$id, time_term)
+  # As on the lme4 path: degree 0 at the stratum level under stratum_slope = FALSE.
+  # The draws helper reports that as v1 = cov = 0, so var_at() below reduces to the
+  # constant intercept variance with no separate branch.
+  stratum_deg <- maihda_lng_stratum_degree(lng)
+  sig_s <- maihda_re_cov_draws_brms(draws, "stratum", time_term,
+                                    time_degree = stratum_deg)
+  sig_i <- maihda_re_cov_draws_brms(draws, lng$id, time_term,
+                                    time_degree = lng$time_degree)
 
   # Posterior-mean covariance blocks (components table, and the log-normal mean
   # correction v(t)/2 in the count residual below).
-  Sigma_s <- maihda_re_block_brms(model, "stratum", time_term, lng$time_degree)
+  Sigma_s <- maihda_re_block_brms(model, "stratum", time_term, stratum_deg)
   Sigma_i <- maihda_re_block_brms(model, lng$id, time_term, lng$time_degree)
 
   # Per-draw VarS(t) / VarI(t) for the linear growth block:
@@ -924,8 +1054,21 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
 
 # Per-draw 2x2 covariance pieces (v0 = intercept var, v1 = slope var,
 # cov = intercept-slope covariance) of a group's linear growth block (brms).
-maihda_re_cov_draws_brms <- function(draws, group, time) {
+maihda_re_cov_draws_brms <- function(draws, group, time, time_degree = 1L) {
   sd0 <- draws[[paste0("sd_", group, "__Intercept")]]
+  if (time_degree < 1L) {
+    # Intercept-only level (stratum_slope = FALSE). Reported as a degenerate growth
+    # block with a zero slope variance and covariance, so every a(t)'Sigma a(t)
+    # consumer (var_at(), the VPC bands) reduces to the constant intercept variance
+    # without a separate code path.
+    if (is.null(sd0)) {
+      stop("Could not find the intercept SD draws for the '", group,
+           "' random effect in the brms posterior (expected sd_", group,
+           "__Intercept).", call. = FALSE)
+    }
+    sd0 <- as.numeric(sd0)
+    return(list(v0 = sd0^2, v1 = rep(0, length(sd0)), cov = rep(0, length(sd0))))
+  }
   sd1 <- draws[[paste0("sd_", group, "__", time)]]
   cor01 <- draws[[paste0("cor_", group, "__Intercept__", time)]]
   if (is.null(sd0) || is.null(sd1) || is.null(cor01)) {
@@ -1177,6 +1320,30 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
   null_at_boundary <- identical(null_model$engine, "lme4") &&
     isTRUE(tryCatch(maihda_stratum_growth_at_boundary_lme4(null_model$model),
                     error = function(e) FALSE))
+  # The ADJUSTED model's stratum block on the boundary pins the PCV near 100% as an
+  # optimizer artefact rather than as evidence of additivity -- the same caveat
+  # calculate_pcv() attaches to a boundary model2, which the longitudinal path was
+  # missing entirely (it flagged only the null). Both are surfaced by print().
+  adjusted_at_boundary <- identical(adjusted_model$engine, "lme4") &&
+    isTRUE(tryCatch(maihda_stratum_growth_at_boundary_lme4(adjusted_model$model),
+                    error = function(e) FALSE))
+  # Rank-deficient (perfectly correlated intercept-slope) stratum blocks. Neither
+  # boundary test above sees these -- every variance is nonzero and a(t)'Sigma a(t)
+  # is healthy -- yet the slope variance is not separately identified, so PCV_slope
+  # is a ratio of two boundary artefacts. Only meaningful when there IS a slope
+  # (stratum_slope = FALSE gives a 1x1 block, for which rank deficiency would just be
+  # a zero variance, already covered by *_at_boundary).
+  has_stratum_slope <- nrow(Sn) >= 2
+  null_rank_deficient <- has_stratum_slope &&
+    maihda_stratum_growth_rank_deficient(null_model)
+  adjusted_rank_deficient <- has_stratum_slope &&
+    maihda_stratum_growth_rank_deficient(adjusted_model)
+  # The narrower question the slope PCV actually turns on: is the LINEAR TIME
+  # component of the null block at the boundary? For a linear (2x2) block this is
+  # implied by rank deficiency; for a quadratic block it is not (see
+  # maihda_stratum_slope_at_boundary_lme4).
+  null_slope_at_boundary <- has_stratum_slope &&
+    maihda_stratum_slope_at_boundary(null_model)
 
   pcv_cell <- function(vn, va) if (!denom_at_boundary(vn)) (vn - va) / vn else NA_real_
 
@@ -1199,7 +1366,31 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
   # t, so this reduces to Sn[2, 2] there).
   var_slope_null <- if (deg >= 1) maihda_slope_var_at_time(Sn, ref_c) else NA_real_
   var_slope_adjusted <- if (deg >= 1) maihda_slope_var_at_time(Sa, ref_c) else NA_real_
-  pcv_slope <- if (deg >= 1) pcv_cell(var_slope_null, var_slope_adjusted) else NA_real_
+  # A null slope component at the BOUNDARY makes PCV_slope undefined, not merely
+  # uncertain. Its Cholesky diagonal is 0, so the stratum slope variance conditional
+  # on the stratum intercept is zero: the stratum variation has collapsed onto a
+  # subspace, sigma^2_u1 is whatever that collapse direction implies rather than a
+  # free parameter, and the adjusted fit can collapse onto a DIFFERENT direction --
+  # so the ratio does not compare the same quantity before and after adjustment.
+  # Empirically it is not just fragile but explosive: across 30 replicates of an
+  # irregular design with no true stratum slope variance, such fits gave PCV_slope
+  # from -196 to +1.0 (sd 59) against -0.65 to +0.94 for healthy blocks.
+  #
+  # The magnitude guard below cannot catch this: maihda_variance_at_boundary()
+  # scales sqrt(var) against the RESIDUAL sd, and a slope variance is in
+  # outcome-units^2 per time-unit^2, so its 1e-4 relative threshold has no fixed
+  # meaning for this cell -- a denominator of 1.3e-06 that sends the ratio to -196
+  # still tests 17x above the threshold. Identifiability, not magnitude, is the
+  # right question, and rank deficiency answers it at lme4's own tolerance.
+  #
+  # PCV_intercept and PCV(t) are NOT gated: they are dominated by the intercept
+  # variance, which stays estimable, and were no more variable under rank
+  # deficiency than without it (sd 0.24 vs 0.23) with no excursion outside [0, 1].
+  pcv_slope <- if (deg < 1 || isTRUE(null_slope_at_boundary)) {
+    NA_real_
+  } else {
+    pcv_cell(var_slope_null, var_slope_adjusted)
+  }
 
   if (is.null(times)) {
     times <- maihda_longitudinal_time_grid(null_model$data[[lng$time]])
@@ -1228,7 +1419,12 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
       ml_refit = ml_refit,
       estimation = estimation,
       estimation_used = estimation_used,
-      null_at_boundary = null_at_boundary
+      null_at_boundary = null_at_boundary,
+      adjusted_at_boundary = adjusted_at_boundary,
+      null_rank_deficient = null_rank_deficient,
+      null_slope_at_boundary = null_slope_at_boundary,
+      adjusted_rank_deficient = adjusted_rank_deficient,
+      stratum_slope = has_stratum_slope
     ),
     class = "maihda_long_pcv"
   )
@@ -1258,7 +1454,11 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
 maihda_longitudinal_strata_predictions <- function(object) {
   re <- maihda_longitudinal_stratum_re(object)
   lng <- object$longitudinal_info
-  deg <- lng$time_degree
+  # The STRATUM block's degree, not the growth curve's: under stratum_slope = FALSE
+  # the level-3 coefficients are intercepts only, and padding them out to
+  # time_degree + 1 columns would leave an all-NA slope column and turn every
+  # `baseline` (a' coef) into NA.
+  deg <- maihda_lng_stratum_degree(lng)
   # The coefficients are in the model's (possibly centered) coordinates, so the
   # baseline deviation is evaluated at ref_time - center.
   ref_c <- lng$ref_time - maihda_lng_time_center(lng)
@@ -1308,11 +1508,60 @@ print.maihda_long_pcv <- function(x, ...) {
     cat(sprintf("  PCV_slope:     %s of the *trajectory* between-stratum inequality is additive\n",
                 fmt(x$pcv_slope)))
     cat("                 (the remainder is the multiplicative/interaction part).\n")
+  } else if (isFALSE(x$stratum_slope)) {
+    # stratum_slope = FALSE: the level-3 block is a random intercept only, so the
+    # between-stratum variance does not vary with time and there is no trajectory
+    # inequality to decompose. Say so rather than silently omitting the slope lines.
+    cat(pal$muted(paste0(
+        "\nThe stratum level was fit with a random intercept only (stratum_slope = FALSE),\n",
+        "so the between-stratum variance is constant over ", x$time, " and there is no\n",
+        "PCV_slope: strata differ in level, not in trajectory, by construction.\n")))
   }
-  cat(pal$muted(paste0(
+  # The closing explanation tracks whether a slope decomposition was actually
+  # reported: promising that "a high PCV_slope means ..." under an intercept-only
+  # stratum block points at a number that is not on the page.
+  cat(pal$muted(if (nrow(x$Sigma_stratum_null) >= 2) {
+    paste0(
       "\nThe PCV is the share of the null model's between-stratum (trajectory) variance\n",
       "explained by the dimensions' additive main effects and their time interactions;\n",
-      "a high PCV_slope means trajectory inequalities are 'mostly additive'.\n")))
+      "a high PCV_slope means trajectory inequalities are 'mostly additive'.\n")
+  } else {
+    paste0(
+      "\nThe PCV is the share of the null model's between-stratum variance explained by\n",
+      "the dimensions' additive main effects and their time interactions.\n")
+  }))
+  if (isTRUE(x$null_rank_deficient) || isTRUE(x$adjusted_rank_deficient)) {
+    # A stratum growth block that has lost a dimension: lme4 has pinned one of the
+    # block's Cholesky diagonals at 0, so the stratum variation lies in a subspace of
+    # (intercept, slope, ...) rather than filling it. For the linear 2x2 block that is
+    # a perfect intercept-slope correlation. Every VARIANCE stays nonzero and
+    # a(t)'Sigma a(t) is healthy, so neither the magnitude guard above nor lme4's own
+    # reporting distinguishes this from a well-estimated block -- which is exactly why
+    # it has to be said out loud.
+    which_fit <- if (isTRUE(x$null_rank_deficient) && isTRUE(x$adjusted_rank_deficient)) {
+      "Both the null and the adjusted"
+    } else if (isTRUE(x$null_rank_deficient)) {
+      "The null"
+    } else {
+      "The adjusted"
+    }
+    cat(pal$warn(paste0(
+        "\nNote: ", which_fit, " model's between-stratum block is RANK-DEFICIENT --\n",
+        "one of its dimensions is at the boundary (for a linear growth block, a perfect\n",
+        "intercept-slope correlation), i.e. a singular fit at the stratum level. The\n",
+        "stratum variation has collapsed onto a subspace, and the null and adjusted fits\n",
+        "need not have collapsed onto the SAME one.\n",
+        if (isTRUE(x$null_slope_at_boundary)) paste0(
+        "The null model's SLOPE component is one of those at the boundary, so PCV_slope is\n",
+        "reported as NA: it would not compare the same quantity before and after\n",
+        "adjustment (in simulation such ratios ranged from -196 to +1).\n") else paste0(
+        "The slope component itself is still estimable, so PCV_slope is reported -- but\n",
+        "read it alongside this caveat.\n"),
+        "PCV_intercept and PCV(", x$time, ") are still reported: they are carried by the\n",
+        "intercept variance, which stays estimable. A trajectory decomposition needs\n",
+        "either more measurement occasions per stratum, or stratum_slope = FALSE, which\n",
+        "models a time-constant between-stratum variance and says so explicitly.\n")))
+  }
   if (isTRUE(x$null_at_boundary)) {
     # The null growth model's between-stratum block sits on the singularity boundary
     # (effectively no stratum trajectory variance), so every PCV is a 0/0 ratio and is
@@ -1323,6 +1572,17 @@ print.maihda_long_pcv <- function(x, ...) {
         "boundary (a singular fit -- effectively no between-stratum trajectory variation to\n",
         "explain), so the PCV is undefined (0/0) and reported as NA. This is consistent with\n",
         "genuinely additive strata as well as a degenerate fit; the two cannot be told apart.\n")))
+  }
+  if (isTRUE(x$adjusted_at_boundary)) {
+    # The longitudinal counterpart of calculate_pcv()'s model2 boundary note, which
+    # this print method was missing: the adjusted growth model's stratum block is at
+    # the singularity boundary, so the numerator is (null - ~0) and every PCV cell is
+    # pinned near 100% by the fit, not by the additive main effects.
+    cat(pal$warn(paste0(
+        "\nNote: the ADJUSTED model's between-stratum (trajectory) variance is at the\n",
+        "singularity boundary, so the PCV above is pinned near 100% as an artefact of that\n",
+        "fit rather than as evidence that the strata are additive. A singular adjusted fit\n",
+        "and genuinely additive strata produce the same number and cannot be told apart.\n")))
   }
   if (identical(x$estimation_used, "mixed")) {
     # estimation = "ML" was requested, but a growth model kept its REML fit (a

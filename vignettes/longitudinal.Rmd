@@ -122,8 +122,32 @@ plot(a, type = "pcv_trajectory")   # the additive share over time
   original time scale, and the baseline (`ref_time`) is always the earliest
   observed time.
 * **Identifiability.** A stratum random slope needs enough occasions per stratum;
-  sparse strata or few waves can give a singular lme4 fit (surfaced in the fit
-  diagnostics) -- the brms engine handles this better.
+  sparse strata, few waves, or irregular measurement times can give a singular lme4
+  fit -- the brms engine handles this better. The fit diagnostics name the
+  random-effects block that is at the boundary, which is what tells you whether the
+  problem matters: a boundary `(time | id)` block leaves the between-stratum
+  variance well estimated, while a boundary `(time | stratum)` block does not.
+  Note that a singular fit is *not* a convergence failure; lme4 reports the two
+  separately and so does this package.
+* **When the stratum slope collapses.** The commonest failure is not a zero
+  variance but a **perfect stratum intercept-slope correlation** (`Corr = 1.00` in
+  `VarCorr()`): the block is then rank 1, so the stratum slope variance is pinned to
+  the intercept variance rather than separately identified, and `PCV_slope` becomes
+  a ratio of boundary estimates. `print()` on the PCV says so. The remedy is
+  `stratum_slope = FALSE`, which fits `(time | id) + (1 | stratum)` -- individuals
+  still have their own growth curves, but strata differ in *level* only:
+
+    ```r
+    m <- fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+                    data = maihda_long_data, id = "id", time = "wave",
+                    stratum_slope = FALSE)
+    ```
+
+    The between-stratum variance is then a single time-constant number and the
+    decomposition reports `PCV_intercept` only. The VPC still varies with time,
+    because the *person*-level slope variance and the residual are still in its
+    denominator -- so this is a time-constant between-stratum variance, not a
+    time-constant VPC.
 * **Not a single number.** The VPC is time-varying, so `extract_between_variance()`
   and `calculate_pcv()` deliberately refuse a longitudinal model; use the
   longitudinal decomposition above.

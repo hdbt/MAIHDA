@@ -134,6 +134,11 @@
 #'   \code{decomposition = "longitudinal"}. See \code{\link{fit_maihda}} for the
 #'   model structure; \code{group}, \code{context}, and \code{sampling_weights} are
 #'   not supported alongside them. Default \code{NULL} (cross-sectional).
+#' @param stratum_slope Longitudinal only: keep the stratum-level random slope(s)
+#'   on \code{time}? \code{FALSE} fits a random intercept at the stratum level, so
+#'   the between-stratum variance is constant over time and the decomposition
+#'   reports \code{PCV_intercept} only. Applied to the null and adjusted growth
+#'   models alike. See \code{\link{fit_maihda}}.
 #' @param autobin Logical passed to \code{\link{make_strata}}; tertile-bins numeric
 #'   grouping variables. Default TRUE.
 #' @param shared_strata Logical, forwarded to \code{\link{compare_maihda_groups}}
@@ -291,6 +296,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
                    response_vpc = FALSE, seed = NULL,
                    sampling_weights = NULL,
                    id = NULL, time = NULL, time_degree = 1,
+                   stratum_slope = TRUE,
                    interactions = TRUE, estimation = c("fitted", "ML"), ...) {
   call <- match.call()
   estimation <- match.arg(estimation)
@@ -476,12 +482,14 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     model <- fit_maihda_fwd(formula, data, engine = engine, autobin = autobin,
                             context = context, sampling_weights = sampling_weights,
                             id = id, time = time, time_degree = time_degree,
+                            stratum_slope = stratum_slope,
                             .metadata_only = metadata_only)
   } else {
     model <- fit_maihda_fwd(formula, data, engine = engine, family = family,
                             autobin = autobin, context = context,
                             sampling_weights = sampling_weights,
                             id = id, time = time, time_degree = time_degree,
+                            stratum_slope = stratum_slope,
                             .metadata_only = metadata_only)
   }
   family_used <- model$family
@@ -632,7 +640,8 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     null_model <- if (length(present_terms) > 0) {
       fit_maihda_fwd(remove_terms(model$formula, present_terms), model$original_data,
                      engine = engine, family = family_used,
-                     id = id, time = time, time_degree = time_degree)
+                     id = id, time = time, time_degree = time_degree,
+                     stratum_slope = stratum_slope)
     } else {
       model
     }
@@ -647,7 +656,8 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
       time_degree = time_degree)
     adjusted_model <- fit_maihda_fwd(laf$formula, laf$data, engine = engine,
                                      family = family_used, id = id, time = time,
-                                     time_degree = time_degree)
+                                     time_degree = time_degree,
+                                     stratum_slope = stratum_slope)
 
     summary_obj <- summary(null_model, bootstrap = bootstrap, n_boot = n_boot,
                            conf_level = conf_level)
@@ -878,7 +888,14 @@ print.maihda_analysis <- function(x, ...) {
         "\n", sep = "")
     cat("Engine: ", x$model$engine, " | Family: ", x$model$family$family, "\n",
         sep = "")
-    maihda_print_fit_diagnostics(x$model$diagnostics)
+    # BOTH growth fits' diagnostics. The PCV below is a two-model quantity, so a
+    # singular or non-converged ADJUSTED fit is as consequential as a bad null --
+    # it is the denominator's counterpart and pins the reported additive share --
+    # yet only the null's diagnostics were ever printed, letting a non-converged
+    # adjusted growth model deliver a confident "N% additive" headline in silence.
+    maihda_print_fit_diagnostics(x$model$diagnostics, label = "null model")
+    maihda_print_fit_diagnostics(x$model_adjusted$diagnostics,
+                                 label = "adjusted model")
 
     vpc <- x$summary$vpc
     if (maihda_vpc_has_interval(vpc)) {
@@ -917,6 +934,18 @@ print.maihda_analysis <- function(x, ...) {
         sep = "")
   }
 
+  # Fit diagnostics for BOTH models -- this branch printed neither, so a
+  # non-converged adjusted fit produced its headline PCV in silence. The adjusted
+  # model's report drops two things on purpose: a STRATUM-block singularity (the
+  # expected outcome of an additive decomposition -- the boundary note after the PCV
+  # says the useful thing instead) and the likelihood-adequacy caveats (both fits sit
+  # on the same data, so they would duplicate the null model's). Convergence failures
+  # and non-stratum singularities are never expected and always print.
+  maihda_print_fit_diagnostics(x$model$diagnostics, label = "null model")
+  maihda_print_fit_diagnostics(x$model_adjusted$diagnostics, label = "adjusted model",
+                               suppress_stratum_singular = TRUE,
+                               include_adequacy = FALSE)
+
   vpc <- x$summary$vpc
   if (maihda_vpc_has_interval(vpc)) {
     cat(sprintf("VPC/ICC (null): %s [%.4f, %.4f]\n",
@@ -949,6 +978,13 @@ print.maihda_analysis <- function(x, ...) {
     } else {
       cat("  PCV < 0: the additive main effects do not account for the between-stratum\n",
           "  variance (possible suppression/rescaling).\n", sep = "")
+    }
+    if (isTRUE(pcv$adjusted_at_boundary)) {
+      # Shared with print.pcv_result() (maihda_pcv_boundary_note): this branch formats
+      # the PCV inline instead of calling print(x$pcv), so the caveat never reached the
+      # default output even though calculate_pcv() had recorded it all along.
+      cat(pal$muted(maihda_pcv_boundary_note("the adjusted model")))
+      cat("\n")   # keep the note a distinct block, not run into the Strata line
     }
   }
 

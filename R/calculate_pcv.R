@@ -500,6 +500,19 @@ extract_between_variance <- function(model) {
   # stratum, so the between-stratum variance is a function of time -- there is no
   # single scalar to return. Route the user to the time-varying decomposition.
   if (!is.null(model$longitudinal_info)) {
+    if (isFALSE(model$longitudinal_info$stratum_slope)) {
+      # stratum_slope = FALSE: the between-stratum variance IS a single number. Still
+      # routed to the longitudinal tools -- the PCV machinery below is built around a
+      # cross-sectional REML/ML refit rule that deliberately skips growth fits -- but
+      # do not claim a time-varying variance that this model does not have.
+      stop("This is a longitudinal MAIHDA. Its stratum level was fit with a random ",
+           "intercept only (stratum_slope = FALSE), so the between-stratum variance ",
+           "is a single, time-constant number -- but it is read from a growth fit, ",
+           "whose null-vs-adjusted comparison needs the longitudinal PCV. Use ",
+           "maihda(decomposition = \"longitudinal\"): its PCV_intercept is exactly ",
+           "this quantity, and summary()$variance_components reports the variance ",
+           "itself.", call. = FALSE)
+    }
     stop("This is a longitudinal MAIHDA: the between-stratum variance is ",
          "time-varying (random intercept + slope), so a single PCV/VPC scalar is ",
          "undefined. Use maihda(decomposition = \"longitudinal\") for the ",
@@ -949,14 +962,31 @@ print.pcv_result <- function(x, ...) {
   }
 
   if (isTRUE(x$adjusted_at_boundary)) {
-    cat(pal$muted(paste0(
-      "\nNote: Model 2's between-stratum variance is at the singularity boundary, so the\n",
-      "PCV is pinned near 100% and its interval/SE are unreliable. A near-complete PCV is\n",
-      "consistent with genuinely additive strata (no interaction beyond the main effects)\n",
-      "as well as a degenerate fit; the two cannot be told apart from this fit.\n")))
+    cat(pal$muted(maihda_pcv_boundary_note("Model 2")))
   }
 
   invisible(x)
+}
+
+# The "adjusted fit is at the singularity boundary" caveat. Shared by
+# print.pcv_result() and the two-model branch of print.maihda_analysis() so the two
+# cannot drift apart: the analysis print formats its PCV inline rather than calling
+# print(x$pcv), so before this helper existed the note reached a bare
+# calculate_pcv() result but NEVER the default maihda() output -- a "100% additive"
+# headline off a singular fit, with no caveat anywhere the reader looks.
+#
+# `subject` names the model in the caller's vocabulary ("Model 2" for a bare
+# calculate_pcv() result, "the adjusted model" inside an analysis). Wrapped with
+# strwrap() rather than hand-broken lines so both subjects, of different lengths,
+# come out evenly filled.
+maihda_pcv_boundary_note <- function(subject, width = 84) {
+  txt <- paste0(
+    "Note: ", subject, "'s between-stratum variance is at the singularity boundary, ",
+    "so the PCV is pinned near 100% and its interval/SE are unreliable. A ",
+    "near-complete PCV is consistent with genuinely additive strata (no interaction ",
+    "beyond the main effects) as well as a degenerate fit; the two cannot be told ",
+    "apart from this fit.")
+  paste0("\n", paste(strwrap(txt, width = width), collapse = "\n"), "\n")
 }
 
 # Objects saved by a pre-rename version of the package carry only the "pvc_result"

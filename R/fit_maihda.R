@@ -169,6 +169,20 @@
 #' @param time_degree Polynomial degree of the growth curve when \code{time} is
 #'   supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
 #'   degree 1 only.
+#' @param stratum_slope Longitudinal only: keep the stratum-level random slope(s)
+#'   on \code{time}? \code{TRUE} (default) fits the canonical Bell et al. (2024)
+#'   structure, \code{(time | id) + (time | stratum)}, in which the between-stratum
+#'   variance is a function of time. \code{FALSE} fits \code{(time | id) +
+#'   (1 | stratum)}: the individual level keeps its growth block, but strata differ
+#'   in \emph{level} only, so the between-stratum variance -- and the numerator of
+#'   the VPC -- is constant over time and no \code{PCV_slope} is defined. Use it
+#'   when the stratum slope variance is at the singularity boundary: with few
+#'   strata, few occasions per stratum, or irregular measurement times, a
+#'   \code{(time | stratum)} block routinely collapses to a perfect intercept-slope
+#'   correlation, and the trajectory decomposition it supports is then a boundary
+#'   artefact. The VPC still varies with time through the person-level slope
+#'   variance and the residual, so this is a time-constant between-stratum
+#'   \emph{variance}, not a time-constant VPC.
 #' @param interactions Opt-in per-stratum interaction diagnostic
 #'   (\code{\link{maihda_interactions}}), attached as the \code{interactions} slot
 #'   and shown by \code{print()}. \code{FALSE} (default) skips it; \code{TRUE}
@@ -246,7 +260,7 @@
 fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
                        autobin = TRUE, context = NULL, sampling_weights = NULL,
                        id = NULL, time = NULL, time_degree = 1,
-                       interactions = FALSE, ...) {
+                       stratum_slope = TRUE, interactions = FALSE, ...) {
   # Input validation
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a formula object")
@@ -480,7 +494,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
                                              engine = engine,
                                              sampling_weights = sampling_weights,
                                              context = context,
-                                             formula = formula)
+                                             formula = formula,
+                                             stratum_slope = stratum_slope)
   }
 
   # Parse formula to find grouping variables and resolve the strata shorthand.
@@ -629,12 +644,14 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     }
     formula <- maihda_longitudinal_formula(formula, lng_spec$id, time_term,
                                            lng_spec$time_degree,
-                                           orig_time = lng_spec$time)
+                                           orig_time = lng_spec$time,
+                                           stratum_slope = lng_spec$stratum_slope)
     # time_range/ref_time here are provisional (pre-fit): they are recomputed
     # from the fitted analytic frame after the engine drops rows (see below),
     # so a baseline wave lost to missing outcomes does not anchor the VPC/PCV.
     longitudinal_info <- list(id = lng_spec$id, time = lng_spec$time,
                               time_degree = lng_spec$time_degree,
+                              stratum_slope = lng_spec$stratum_slope,
                               time_term = time_term, time_center = center,
                               time_range = range(tv, na.rm = TRUE),
                               ref_time = min(tv, na.rm = TRUE))

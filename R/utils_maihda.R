@@ -97,6 +97,66 @@ maihda_linkinv <- function(fam) {
          stop("Unsupported link function for response-scale transformation: ", link, call. = FALSE))
 }
 
+# Grouping factors whose random-effects block sits at (or near) the singularity
+# boundary, in model order. This is lme4::isSingular()'s own test applied PER
+# RANDOM-EFFECT TERM rather than over the whole theta vector: theta holds each
+# term's relative covariance Cholesky factor, and `lower` is 0 exactly on that
+# factor's diagonal, so a diagonal element below `tol` means that term's block
+# has lost a dimension -- a zero variance OR a rank-deficient block (a perfect
+# intercept-slope correlation, the dominant failure mode of a longitudinal growth
+# fit, which a variances-only test misses because every variance is nonzero).
+#
+# Knowing WHICH block is degenerate is what makes the singular-fit report
+# actionable: a boundary (time | id) block leaves the between-stratum variance --
+# and hence the VPC/PCV -- perfectly well estimated, while a boundary
+# (time | stratum) block does not. calculate_pcv() already refuses to read the
+# global isSingular() flag for exactly this reason.
+#
+# Returns character(0) when the model is not an lme4 fit or theta cannot be read;
+# callers then fall back to the global flag.
+# Per-COMPONENT boundary flags for every random-effects term: a named list, one
+# entry per term (named by its grouping factor), each a logical vector named by the
+# term's components -- "(Intercept)", the time slope, and so on. TRUE means that
+# component's Cholesky diagonal is below `tol`, i.e. its variance CONDITIONAL on the
+# earlier components in the block is zero and the block has lost that dimension.
+#
+# Working per component rather than per block matters: a 3x3 quadratic growth block
+# that loses only its I(time^2) dimension still estimates the linear slope variance
+# perfectly well, so a block-level "is anything at the boundary" verdict would
+# condemn a sound quantity. Returns NULL when theta cannot be read.
+maihda_re_boundary_components_lme4 <- function(model, tol = 1e-4) {
+  tryCatch({
+    th <- lme4::getME(model, "theta")
+    lo <- lme4::getME(model, "lower")
+    cnms <- lme4::getME(model, "cnms")
+    sizes <- vapply(cnms, function(cn) as.integer(length(cn) * (length(cn) + 1) / 2),
+                    integer(1))
+    if (length(th) == 0 || length(th) != length(lo) || sum(sizes) != length(th)) {
+      NULL
+    } else {
+      end <- cumsum(sizes)
+      start <- end - sizes + 1L
+      res <- lapply(seq_along(sizes), function(i) {
+        # `lower == 0` selects the Cholesky diagonal within this term's slice, in
+        # component order; off-diagonals carry -Inf and are unconstrained.
+        dg <- seq.int(start[i], end[i])
+        dg <- dg[is.finite(lo[dg]) & lo[dg] == 0]
+        if (length(dg) != length(cnms[[i]])) return(NULL)
+        stats::setNames(abs(th[dg]) < tol, cnms[[i]])
+      })
+      if (any(vapply(res, is.null, logical(1)))) NULL else stats::setNames(res, names(cnms))
+    }
+  }, error = function(e) NULL)
+}
+
+maihda_singular_terms_lme4 <- function(model, tol = 1e-4) {
+  comps <- maihda_re_boundary_components_lme4(model, tol = tol)
+  if (is.null(comps)) {
+    return(character(0))
+  }
+  unique(names(comps)[vapply(comps, any, logical(1))])
+}
+
 # Capture fit-quality diagnostics (singular fit, non-convergence) so they can be
 # surfaced on demand. lme4 returns singular fits silently and only warns about
 # convergence once, at fit time, so we re-read both from the fitted object for
@@ -106,6 +166,8 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
   diagnostics <- list(
     engine = NA_character_,
     singular = NA,
+    singular_terms = character(0),
+    stratum_singular = NA,
     converged = NA,
     messages = character(0),
     adequacy = NULL
@@ -115,6 +177,21 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
     diagnostics$engine <- "lme4"
     diagnostics$singular <- tryCatch(isTRUE(lme4::isSingular(model)),
                                      error = function(e) NA)
+    # WHICH random-effects block is at the boundary. Only meaningful when the fit is
+    # singular at all; a per-term scan of a healthy fit returns character(0) anyway,
+    # but skipping it keeps the common path free of the getME() round-trip.
+    if (isTRUE(diagnostics$singular)) {
+      diagnostics$singular_terms <- maihda_singular_terms_lme4(model)
+      # NA (not FALSE) when the per-term scan could not read theta: "not known to be
+      # the stratum block" is not the same as "known not to be", and the report must
+      # fall back to the conservative wording rather than silently clearing the
+      # VPC/PCV caveat. Same standard the WeMix/brms verdicts apply below.
+      diagnostics$stratum_singular <- if (length(diagnostics$singular_terms) == 0) {
+        NA
+      } else {
+        "stratum" %in% diagnostics$singular_terms
+      }
+    }
     # lme4 records (non-)convergence in TWO independent places, and a fit can fail
     # one while passing the other: (a) conv$lme4$messages holds lme4's post-hoc
     # relative-gradient / Hessian checks, and (b) conv$opt holds the OPTIMISER's own
@@ -128,6 +205,18 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
     lme4_msgs <- tryCatch(model@optinfo$conv$lme4$messages, error = function(e) NULL)
     lme4_msgs <- as.character(lme4_msgs)
     lme4_msgs <- lme4_msgs[nzchar(lme4_msgs)]
+    # A SINGULAR FIT IS NOT A CONVERGENCE FAILURE. lme4 files "boundary (singular)
+    # fit" in conv$lme4$messages alongside its genuine relative-gradient/Hessian
+    # warnings, so treating that list as the convergence verdict reported a fit whose
+    # optimizer returned code 0 as non-converged, and printed the one condition twice
+    # -- once correctly as "Singular fit", once under a "Convergence warnings"
+    # header (which is also what led users to diagnose a boundary estimate as an
+    # optimizer problem and go looking for the wrong fix). Drop it here: it is already
+    # carried, with the right wording, by `singular`/`singular_terms`. Only when the
+    # fit is KNOWN singular, so a stray message is never silently swallowed.
+    if (isTRUE(diagnostics$singular)) {
+      lme4_msgs <- lme4_msgs[!grepl("boundary (singular)", lme4_msgs, fixed = TRUE)]
+    }
     opt_code <- tryCatch(model@optinfo$conv$opt, error = function(e) NA_integer_)
     opt_failed <- is.numeric(opt_code) && length(opt_code) == 1 &&
       !is.na(opt_code) && opt_code != 0
@@ -567,20 +656,76 @@ maihda_adequacy_checks <- function(model, longitudinal_info = NULL) {
   if (length(out) == 0) NULL else out
 }
 
+# "a", "a and b", "a, b and c" -- for listing grouping factors in a report line.
+maihda_and_list <- function(x) {
+  n <- length(x)
+  if (n <= 1) return(paste(x, collapse = ""))
+  paste(paste(x[-n], collapse = ", "), "and", x[n])
+}
+
 # Format fit diagnostics as a character vector of report lines (empty when the fit
 # looks clean), shared by the maihda_model and maihda_summary print methods.
-maihda_format_fit_diagnostics <- function(diagnostics) {
+#
+# suppress_stratum_singular: drop the "Singular fit" block when the degenerate block
+#   is the STRATUM one. For the ADJUSTED model of a cross-sectional two-model
+#   decomposition that state is the expected, desirable outcome -- it is what "the
+#   strata are additive" looks like -- so banner-warning about it on nearly every
+#   healthy analysis would train readers to ignore the banner. The information is not
+#   lost: the caller emits maihda_pcv_boundary_note() instead, which says the useful
+#   thing (the PCV is pinned near 100% by this fit). Deliberately scoped to the
+#   stratum block: a boundary in a CONTEXT or other non-stratum block is never
+#   expected and still prints.
+# include_adequacy: keep the likelihood-adequacy caveats (overdispersion, zero
+#   inflation, random-effect non-normality, residual autocorrelation). Suppressed for
+#   the adjusted model of a two-model decomposition, where both fits sit on the same
+#   data and would report the same caveat twice.
+maihda_format_fit_diagnostics <- function(diagnostics,
+                                          suppress_stratum_singular = FALSE,
+                                          include_adequacy = TRUE) {
   if (is.null(diagnostics)) {
     return(character(0))
   }
 
+  show_singular <- isTRUE(diagnostics$singular) &&
+    !(isTRUE(suppress_stratum_singular) && isTRUE(diagnostics$stratum_singular))
   out <- character(0)
-  if (isTRUE(diagnostics$singular)) {
-    out <- c(
-      out,
-      "Singular fit: at least one variance component is estimated at (or near) zero.",
-      "  The between-stratum variance and any VPC/PCV derived from it may be unreliable."
-    )
+  if (show_singular) {
+    # Name the offending random-effects block(s) where we could identify them, and
+    # scope the VPC/PCV caveat to whether the STRATUM block is one of them. The old
+    # wording asserted that the between-stratum variance "may be unreliable" for
+    # every singular fit, which is simply false when the boundary sits in a
+    # non-stratum block -- routinely the case in a longitudinal fit, where a
+    # (time | id) block with no person-level slope variation goes to the boundary
+    # while the stratum block is comfortably estimated. Sending the analyst after the
+    # wrong variance component is worse than saying nothing.
+    terms <- diagnostics$singular_terms
+    if (length(terms) > 0) {
+      which_blocks <- sprintf("the random-effects block for %s is",
+                              maihda_and_list(sprintf("'%s'", terms)))
+      if (length(terms) > 1) {
+        which_blocks <- sprintf("the random-effects blocks for %s are",
+                                maihda_and_list(sprintf("'%s'", terms)))
+      }
+      out <- c(out, sprintf("Singular fit: %s at (or near) the boundary", which_blocks),
+               paste0("  (a variance estimated at ~0, or a perfect correlation between ",
+                      "an intercept and a slope)."))
+      if (isTRUE(diagnostics$stratum_singular)) {
+        out <- c(out, paste0("  The between-stratum variance and any VPC/PCV derived ",
+                             "from it may be unreliable."))
+      } else if (isFALSE(diagnostics$stratum_singular)) {
+        out <- c(out, paste0("  The 'stratum' block is NOT at the boundary, so the ",
+                             "between-stratum variance and"),
+                 "  the VPC/PCV are unaffected by this.")
+      }
+    } else {
+      # Per-term scan unavailable (non-lme4 engine, or theta unreadable): keep the
+      # original conservative wording.
+      out <- c(
+        out,
+        "Singular fit: at least one variance component is estimated at (or near) zero.",
+        "  The between-stratum variance and any VPC/PCV derived from it may be unreliable."
+      )
+    }
   }
   if (isFALSE(diagnostics$converged) && length(diagnostics$messages) > 0) {
     header <- switch(
@@ -592,7 +737,9 @@ maihda_format_fit_diagnostics <- function(diagnostics) {
     )
     out <- c(out, header, paste0("  - ", diagnostics$messages))
   }
-  out <- c(out, maihda_format_adequacy(diagnostics$adequacy))
+  if (isTRUE(include_adequacy)) {
+    out <- c(out, maihda_format_adequacy(diagnostics$adequacy))
+  }
   out
 }
 
@@ -664,13 +811,22 @@ maihda_format_adequacy <- function(adequacy) {
 }
 
 # Print the fit-diagnostics block (nothing is printed for a clean fit).
-maihda_print_fit_diagnostics <- function(diagnostics) {
-  diag_lines <- maihda_format_fit_diagnostics(diagnostics)
+maihda_print_fit_diagnostics <- function(diagnostics, label = NULL,
+                                        suppress_stratum_singular = FALSE,
+                                        include_adequacy = TRUE) {
+  diag_lines <- maihda_format_fit_diagnostics(
+    diagnostics, suppress_stratum_singular = suppress_stratum_singular,
+    include_adequacy = include_adequacy)
   if (length(diag_lines) == 0) {
     return(invisible(NULL))
   }
   pal <- maihda_palette()
-  cat(pal$warn("Fit diagnostics:"), "\n", sep = "")        # genuine caveat -> warn
+  # `label` names which fit these belong to, for the two-model decompositions that
+  # report a null and an adjusted fit side by side; a single-fit caller omits it and
+  # keeps the plain header.
+  header <- if (is.null(label)) "Fit diagnostics:" else
+    sprintf("Fit diagnostics (%s):", label)
+  cat(pal$warn(header), "\n", sep = "")                    # genuine caveat -> warn
   cat(pal$warn(paste0("  ", diag_lines)), sep = "\n")
   cat("\n\n")
   invisible(NULL)
@@ -3355,7 +3511,9 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
   if (!is.null(object$longitudinal_info)) {
     # Backstop: a single per-stratum prediction adds only the random INTERCEPT and
     # drops the random slope, so it is a cross-sectional value, not the trajectory.
-    maihda_stop_longitudinal_scalar("A single per-stratum prediction")
+    maihda_stop_longitudinal_scalar(
+      "A single per-stratum prediction",
+      stratum_slope = maihda_object_stratum_slope(object))
   }
   data <- object$data
   if (!"stratum" %in% names(data)) {
@@ -3876,7 +4034,9 @@ maihda_stratum_predictions_brms <- function(object, summary_obj, scale = c("resp
   if (!is.null(object$longitudinal_info)) {
     # Backstop: as in the lme4 helper, the scalar per-stratum prediction drops the
     # random slope and so misrepresents a growth model's trajectory estimand.
-    maihda_stop_longitudinal_scalar("A single per-stratum prediction")
+    maihda_stop_longitudinal_scalar(
+      "A single per-stratum prediction",
+      stratum_slope = maihda_object_stratum_slope(object))
   }
   if (!requireNamespace("brms", quietly = TRUE)) {
     stop("Package 'brms' is required. Please install it with: install.packages('brms')")

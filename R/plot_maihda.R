@@ -214,7 +214,9 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     # prediction_deviation) is a cross-sectional BLUP scalar per stratum, which
     # misrepresents a growth model's trajectory estimand. Refuse them and point
     # to the trajectory views above.
-    maihda_stop_longitudinal_scalar(paste0("plot(type = \"", type, "\")"))
+    maihda_stop_longitudinal_scalar(
+      paste0("plot(type = \"", type, "\")"),
+      stratum_slope = maihda_object_stratum_slope(object))
   } else if (type %in% c("vpc_trajectory", "trajectories")) {
     stop("type = \"", type, "\" is only available for a longitudinal MAIHDA ",
          "(fit_maihda(id = , time = )).", call. = FALSE)

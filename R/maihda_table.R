@@ -465,7 +465,9 @@ maihda_table_pcv_note <- function(model_stats, pcv, model_keys, engine) {
 maihda_strata_ranking <- function(object, summary_obj, scale = c("response", "link")) {
   scale <- match.arg(scale)
   if (!is.null(object$longitudinal_info)) {
-    maihda_stop_longitudinal_scalar("A ranked-strata table")
+    maihda_stop_longitudinal_scalar(
+      "A ranked-strata table",
+      stratum_slope = maihda_object_stratum_slope(object))
   }
   pred <- switch(object$engine,
     lme4 = maihda_stratum_predictions_lme4(object, summary_obj, scale = scale),

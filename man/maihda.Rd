@@ -24,6 +24,7 @@ maihda(
   id = NULL,
   time = NULL,
   time_degree = 1,
+  stratum_slope = TRUE,
   interactions = TRUE,
   estimation = c("fitted", "ML"),
   ...
@@ -156,6 +157,12 @@ polynomial degree (1 = linear). Supplying \code{id}/\code{time} selects
 \code{decomposition = "longitudinal"}. See \code{\link{fit_maihda}} for the
 model structure; \code{group}, \code{context}, and \code{sampling_weights} are
 not supported alongside them. Default \code{NULL} (cross-sectional).}
+
+\item{stratum_slope}{Longitudinal only: keep the stratum-level random slope(s)
+on \code{time}? \code{FALSE} fits a random intercept at the stratum level, so
+the between-stratum variance is constant over time and the decomposition
+reports \code{PCV_intercept} only. Applied to the null and adjusted growth
+models alike. See \code{\link{fit_maihda}}.}
 
 \item{interactions}{Whether to compute the per-stratum interaction diagnostic
 (\code{\link{maihda_interactions}}) on the adjusted / crossed-dimensions model
