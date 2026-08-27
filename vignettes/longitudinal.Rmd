@@ -123,31 +123,46 @@ plot(a, type = "pcv_trajectory")   # the additive share over time
   observed time.
 * **Identifiability.** A stratum random slope needs enough occasions per stratum;
   sparse strata, few waves, or irregular measurement times can give a singular lme4
-  fit -- the brms engine handles this better. The fit diagnostics name the
-  random-effects block that is at the boundary, which is what tells you whether the
-  problem matters: a boundary `(time | id)` block leaves the between-stratum
-  variance well estimated, while a boundary `(time | stratum)` block does not.
-  Note that a singular fit is *not* a convergence failure; lme4 reports the two
-  separately and so does this package.
-* **When the stratum slope collapses.** The commonest failure is not a zero
-  variance but a **perfect stratum intercept-slope correlation** (`Corr = 1.00` in
-  `VarCorr()`): the block is then rank 1, so the stratum slope variance is pinned to
-  the intercept variance rather than separately identified, and `PCV_slope` becomes
-  a ratio of boundary estimates. `print()` on the PCV says so. The remedy is
-  `stratum_slope = FALSE`, which fits `(time | id) + (1 | stratum)` -- individuals
-  still have their own growth curves, but strata differ in *level* only:
+  fit -- the brms engine handles this better. The fit diagnostics name the block that
+  is at the boundary. Which block it is decides whether the result is affected: a
+  boundary `(time | id)` block leaves the between-stratum variance well estimated, a
+  boundary `(time | stratum)` block does not. A singular fit is *not* a convergence
+  failure; lme4 reports the two separately, and so does this package.
+* **Rank-deficient stratum blocks.** The usual boundary outcome is a stratum
+  intercept-slope correlation of exactly 1 or -1 (`Corr = 1.00` in `VarCorr()`), not
+  a zero variance. The block is then rank 1, one parameter short of a full covariance
+  matrix, and the stratum slope variance is not separately identified. `PCV_slope` is
+  `NA` in that case, and `print()` on the PCV object says why. `PCV_intercept` and the
+  VPC trajectory come from the intercept variance, which is still estimable.
+
+    How often this happens depends on the stratum-level slope variance: common when
+    that is near zero, rare when it is not, and where the effect exists the model
+    recovers it. A rank-deficient block is usually evidence that the strata do not
+    diverge over time.
+
+    Both structures share the same fixed effects, so their REML fits can be compared
+    with `AIC`:
 
     ```r
-    m <- fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
-                    data = maihda_long_data, id = "id", time = "wave",
-                    stratum_slope = FALSE)
+    m_slope <- fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+                          data = maihda_long_data, id = "id", time = "wave")
+    m_level <- fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+                          data = maihda_long_data, id = "id", time = "wave",
+                          stratum_slope = FALSE)
+    AIC(m_slope$model) - AIC(m_level$model)   # negative favours keeping the slope
     ```
 
-    The between-stratum variance is then a single time-constant number and the
+    The constrained model sits on the boundary of the parameter space, so `AIC` here
+    is approximate. It still separates the two when a stratum-level slope effect is
+    present.
+
+    `stratum_slope = FALSE` fits `(time | id) + (1 | stratum)`. Individuals keep their
+    growth curves; strata are constrained to differ in level only. Report the
+    constraint -- under it the absence of trajectory divergence is assumed, not
+    estimated. The between-stratum variance is then one time-constant number and the
     decomposition reports `PCV_intercept` only. The VPC still varies with time,
-    because the *person*-level slope variance and the residual are still in its
-    denominator -- so this is a time-constant between-stratum variance, not a
-    time-constant VPC.
+    because the individual-level slope variance and the residual are in its
+    denominator.
 * **Not a single number.** The VPC is time-varying, so `extract_between_variance()`
   and `calculate_pcv()` deliberately refuse a longitudinal model; use the
   longitudinal decomposition above.
