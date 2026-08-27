@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-08-09</h4>
+            <h4 data-toc-skip class="date">2026-08-27</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/longitudinal.Rmd" class="external-link"><code>vignettes/longitudinal.Rmd</code></a></small>
       <div class="d-none name"><code>longitudinal.Rmd</code></div>
@@ -254,34 +254,70 @@ multiplicative/interaction part.</li>
 <h2 id="scope-and-cautions">Scope and cautions<a class="anchor" aria-label="anchor" href="#scope-and-cautions"></a>
 </h2>
 <ul>
-<li>
-<strong>Time coding.</strong> You can code time however is natural –
-waves 0, 1, 2, …, waves 10, 11, …, age, or calendar year. When the axis
-does not start at 0, the growth terms are fit on internally
+<li><p><strong>Time coding.</strong> You can code time however is
+natural – waves 0, 1, 2, …, waves 10, 11, …, age, or calendar year. When
+the axis does not start at 0, the growth terms are fit on internally
 <em>centered</em> time (<code>time - min(time)</code>, with a message),
 because the raw polynomial basis over an offset range is ill-conditioned
 and can silently converge to a wrong solution. All results – the VPC
 trajectory, the PCV, plots, and predictions – are reported on your
 original time scale, and the baseline (<code>ref_time</code>) is always
-the earliest observed time.</li>
+the earliest observed time.</p></li>
+<li><p><strong>Identifiability.</strong> A stratum random slope needs
+enough occasions per stratum; sparse strata, few waves, or irregular
+measurement times can give a singular lme4 fit – the brms engine handles
+this better. The fit diagnostics name the block that is at the boundary.
+Which block it is decides whether the result is affected: a boundary
+<code>(time | id)</code> block leaves the between-stratum variance well
+estimated, a boundary <code>(time | stratum)</code> block does not. A
+singular fit is <em>not</em> a convergence failure; lme4 reports the two
+separately, and so does this package.</p></li>
 <li>
-<strong>Identifiability.</strong> A stratum random slope needs
-enough occasions per stratum; sparse strata or few waves can give a
-singular lme4 fit (surfaced in the fit diagnostics) – the brms engine
-handles this better.</li>
-<li>
-<strong>Not a single number.</strong> The VPC is time-varying, so
+<p><strong>Rank-deficient stratum blocks.</strong> The usual
+boundary outcome is a stratum intercept-slope correlation of exactly 1
+or -1 (<code>Corr = 1.00</code> in <code>VarCorr()</code>), not a zero
+variance. The block is then rank 1, one parameter short of a full
+covariance matrix, and the stratum slope variance is not separately
+identified. <code>PCV_slope</code> is <code>NA</code> in that case, and
+<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> on the PCV object says why.
+<code>PCV_intercept</code> and the VPC trajectory come from the
+intercept variance, which is still estimable.</p>
+<p>How often this happens depends on the stratum-level slope variance:
+common when that is near zero, rare when it is not, and where the effect
+exists the model recovers it. A rank-deficient block is usually evidence
+that the strata do not diverge over time.</p>
+<p>Both structures share the same fixed effects, so their REML fits can
+be compared with <code>AIC</code>:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">m_slope</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">wave</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ethnicity</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
+<span>                      data <span class="op">=</span> <span class="va">maihda_long_data</span>, id <span class="op">=</span> <span class="st">"id"</span>, time <span class="op">=</span> <span class="st">"wave"</span><span class="op">)</span></span>
+<span><span class="va">m_level</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">wave</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ethnicity</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
+<span>                      data <span class="op">=</span> <span class="va">maihda_long_data</span>, id <span class="op">=</span> <span class="st">"id"</span>, time <span class="op">=</span> <span class="st">"wave"</span>,</span>
+<span>                      stratum_slope <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">AIC</a></span><span class="op">(</span><span class="va">m_slope</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">AIC</a></span><span class="op">(</span><span class="va">m_level</span><span class="op">$</span><span class="va">model</span><span class="op">)</span>   <span class="co"># negative favours keeping the slope</span></span></code></pre></div>
+<p>The constrained model sits on the boundary of the parameter space, so
+<code>AIC</code> here is approximate. It still separates the two when a
+stratum-level slope effect is present.</p>
+<p><code>stratum_slope = FALSE</code> fits
+<code>(time | id) + (1 | stratum)</code>. Individuals keep their growth
+curves; strata are constrained to differ in level only. Report the
+constraint – under it the absence of trajectory divergence is assumed,
+not estimated. The between-stratum variance is then one time-constant
+number and the decomposition reports <code>PCV_intercept</code> only.
+The VPC still varies with time, because the individual-level slope
+variance and the residual are in its denominator.</p>
+</li>
+<li><p><strong>Not a single number.</strong> The VPC is time-varying, so
 <code><a href="../reference/extract_between_variance.html">extract_between_variance()</a></code> and <code><a href="../reference/calculate_pcv.html">calculate_pcv()</a></code>
 deliberately refuse a longitudinal model; use the longitudinal
-decomposition above.</li>
-<li>
-<strong>Out of scope (v1).</strong> Design-weighted, contextual
+decomposition above.</p></li>
+<li><p><strong>Out of scope (v1).</strong> Design-weighted, contextual
 (stratum
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
 place
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
 time), and <code>wemix</code>/<code>ordinal</code> longitudinal models
-are not yet supported.</li>
+are not yet supported.</p></li>
 </ul>
 </div>
 <div class="section level2">

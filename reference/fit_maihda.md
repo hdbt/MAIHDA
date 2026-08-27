@@ -20,6 +20,7 @@ fit_maihda(
   id = NULL,
   time = NULL,
   time_degree = 1,
+  stratum_slope = TRUE,
   interactions = FALSE,
   ...
 )
@@ -239,6 +240,24 @@ fit_maihda(
   Polynomial degree of the growth curve when `time` is supplied: 1
   (default) linear, 2 quadratic, etc. The brms engine supports degree 1
   only.
+
+- stratum_slope:
+
+  Longitudinal only: keep the stratum-level random slope(s) on `time`?
+  `TRUE` (default) fits the canonical Bell et al. (2024) structure,
+  `(time | id) + (time | stratum)`, in which the between-stratum
+  variance is a function of time. `FALSE` fits
+  `(time | id) + (1 | stratum)`: the individual level keeps its growth
+  block, but strata differ in *level* only, so the between-stratum
+  variance – and the numerator of the VPC – is constant over time and no
+  `PCV_slope` is defined. Use it when the stratum slope variance is at
+  the singularity boundary: with few strata, few occasions per stratum,
+  or irregular measurement times, a `(time | stratum)` block routinely
+  collapses to a perfect intercept-slope correlation, and the trajectory
+  decomposition it supports is then a boundary artefact. The VPC still
+  varies with time through the person-level slope variance and the
+  residual, so this is a time-constant between-stratum *variance*, not a
+  time-constant VPC.
 
 - interactions:
 

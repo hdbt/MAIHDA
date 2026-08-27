@@ -13,7 +13,8 @@ maihda_validate_longitudinal(
   engine = "lme4",
   sampling_weights = NULL,
   context = NULL,
-  formula = NULL
+  formula = NULL,
+  stratum_slope = TRUE
 )
 ```
 
@@ -52,6 +53,10 @@ maihda_validate_longitudinal(
   (whose formula already references the reserved `.maihda_ctime` column)
   from a fresh user call when guarding that reserved name.
 
+- stratum_slope:
+
+  Single `TRUE`/`FALSE`: keep the stratum-level random slope(s) on time.
+
 ## Value
 
-A list `list(id, time, time_degree)`.
+A list `list(id, time, time_degree, stratum_slope)`.

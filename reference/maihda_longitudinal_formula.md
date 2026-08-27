@@ -17,7 +17,8 @@ maihda_longitudinal_formula(
   id,
   time,
   time_degree,
-  orig_time = time
+  orig_time = time,
+  stratum_slope = TRUE
 )
 ```
 
@@ -37,6 +38,12 @@ maihda_longitudinal_formula(
 
   The user's original time column name; differs from `time` only when
   centering applies.
+
+- stratum_slope:
+
+  Keep the stratum-level random slope(s) on time? When `FALSE` the
+  level-3 block is a random intercept only, `(1 | stratum)`, while the
+  person level keeps its full growth block.
 
 ## Value
 

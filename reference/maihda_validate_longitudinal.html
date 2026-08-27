@@ -65,7 +65,8 @@
 <span>  engine <span class="op">=</span> <span class="st">"lme4"</span>,</span>
 <span>  sampling_weights <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  context <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  formula <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  formula <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  stratum_slope <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -105,10 +106,15 @@ longitudinal models are out of scope.</p></dd>
 refit (whose formula already references the reserved <code>.maihda_ctime</code>
 column) from a fresh user call when guarding that reserved name.</p></dd>
 
+
+<dt id="arg-stratum-slope">stratum_slope<a class="anchor" aria-label="anchor" href="#arg-stratum-slope"></a></dt>
+<dd><p>Single <code>TRUE</code>/<code>FALSE</code>: keep the stratum-level
+random slope(s) on time.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list <code>list(id, time, time_degree)</code>.</p>
+    <p>A list <code>list(id, time, time_degree, stratum_slope)</code>.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

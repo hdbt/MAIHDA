@@ -77,7 +77,8 @@ random effects in the base formula are replaced by this canonical structure.</p>
 <span>  <span class="va">id</span>,</span>
 <span>  <span class="va">time</span>,</span>
 <span>  <span class="va">time_degree</span>,</span>
-<span>  orig_time <span class="op">=</span> <span class="va">time</span></span>
+<span>  orig_time <span class="op">=</span> <span class="va">time</span>,</span>
+<span>  stratum_slope <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -98,6 +99,12 @@ centering applies).</p></dd>
 <dt id="arg-orig-time">orig_time<a class="anchor" aria-label="anchor" href="#arg-orig-time"></a></dt>
 <dd><p>The user's original time column name; differs from
 <code>time</code> only when centering applies.</p></dd>
+
+
+<dt id="arg-stratum-slope">stratum_slope<a class="anchor" aria-label="anchor" href="#arg-stratum-slope"></a></dt>
+<dd><p>Keep the stratum-level random slope(s) on time? When
+<code>FALSE</code> the level-3 block is a random intercept only,
+<code>(1 | stratum)</code>, while the person level keeps its full growth block.</p></dd>
 
 </dl></div>
     <div class="section level2">

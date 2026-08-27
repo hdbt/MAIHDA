@@ -186,16 +186,64 @@ plot(a, type = "pcv_trajectory")   # the additive share over time
   wrong solution. All results – the VPC trajectory, the PCV, plots, and
   predictions – are reported on your original time scale, and the
   baseline (`ref_time`) is always the earliest observed time.
+
 - **Identifiability.** A stratum random slope needs enough occasions per
-  stratum; sparse strata or few waves can give a singular lme4 fit
-  (surfaced in the fit diagnostics) – the brms engine handles this
-  better.
+  stratum; sparse strata, few waves, or irregular measurement times can
+  give a singular lme4 fit – the brms engine handles this better. The
+  fit diagnostics name the block that is at the boundary. Which block it
+  is decides whether the result is affected: a boundary `(time | id)`
+  block leaves the between-stratum variance well estimated, a boundary
+  `(time | stratum)` block does not. A singular fit is *not* a
+  convergence failure; lme4 reports the two separately, and so does this
+  package.
+
+- **Rank-deficient stratum blocks.** The usual boundary outcome is a
+  stratum intercept-slope correlation of exactly 1 or -1 (`Corr = 1.00`
+  in `VarCorr()`), not a zero variance. The block is then rank 1, one
+  parameter short of a full covariance matrix, and the stratum slope
+  variance is not separately identified. `PCV_slope` is `NA` in that
+  case, and [`print()`](https://rdrr.io/r/base/print.html) on the PCV
+  object says why. `PCV_intercept` and the VPC trajectory come from the
+  intercept variance, which is still estimable.
+
+  How often this happens depends on the stratum-level slope variance:
+  common when that is near zero, rare when it is not, and where the
+  effect exists the model recovers it. A rank-deficient block is usually
+  evidence that the strata do not diverge over time.
+
+  Both structures share the same fixed effects, so their REML fits can
+  be compared with `AIC`:
+
+  ``` r
+
+  m_slope <- fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+                        data = maihda_long_data, id = "id", time = "wave")
+  m_level <- fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+                        data = maihda_long_data, id = "id", time = "wave",
+                        stratum_slope = FALSE)
+  AIC(m_slope$model) - AIC(m_level$model)   # negative favours keeping the slope
+  ```
+
+  The constrained model sits on the boundary of the parameter space, so
+  `AIC` here is approximate. It still separates the two when a
+  stratum-level slope effect is present.
+
+  `stratum_slope = FALSE` fits `(time | id) + (1 | stratum)`.
+  Individuals keep their growth curves; strata are constrained to differ
+  in level only. Report the constraint – under it the absence of
+  trajectory divergence is assumed, not estimated. The between-stratum
+  variance is then one time-constant number and the decomposition
+  reports `PCV_intercept` only. The VPC still varies with time, because
+  the individual-level slope variance and the residual are in its
+  denominator.
+
 - **Not a single number.** The VPC is time-varying, so
   [`extract_between_variance()`](https://hdbt.github.io/MAIHDA/reference/extract_between_variance.md)
   and
   [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
   deliberately refuse a longitudinal model; use the longitudinal
   decomposition above.
+
 - **Out of scope (v1).** Design-weighted, contextual (stratum $`\times`$
   place $`\times`$ time), and `wemix`/`ordinal` longitudinal models are
   not yet supported.

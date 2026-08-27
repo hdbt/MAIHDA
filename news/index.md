@@ -22,6 +22,17 @@
   estimated, so a Gaussian fit’s statistics are z-based rather than
   Satterthwaite/Kenward-Roger.
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  and [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  gained `stratum_slope` for longitudinal fits. `stratum_slope = FALSE`
+  fits `(time | id) + (1 | stratum)`: individuals keep their growth
+  curves but strata differ in level only, so the between-stratum
+  variance is constant over time and the decomposition reports
+  `PCV_intercept` alone. It is the remedy when the stratum slope
+  variance sits at the singularity boundary, which few strata, few
+  occasions per stratum, or irregular measurement times routinely
+  produce. The VPC still varies with time, through the person-level
+  slope variance and the residual.
+- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   models now carry likelihood-adequacy diagnostics that
   [`print()`](https://rdrr.io/r/base/print.html) and
   [`summary()`](https://rdrr.io/r/base/summary.html) surface alongside
@@ -111,6 +122,64 @@
 
 ### Bug fixes
 
+- A singular fit is no longer reported as a convergence failure. lme4
+  files “boundary (singular) fit” among its own convergence messages, so
+  a fit whose optimizer returned code 0 was recorded as
+  `converged = FALSE` and printed twice – once as “Singular fit”, once
+  under a “Convergence warnings reported by lme4” header – which also
+  double-counted such groups in
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)’s
+  singular and non-converged warnings.
+- The singular-fit report now names the random-effects block that is at
+  the boundary and scopes its VPC/PCV caveat accordingly. It previously
+  said the between-stratum variance “may be unreliable” for every
+  singular fit, which is false when the boundary sits in a non-stratum
+  block – routine in a longitudinal fit whose `(time | id)` block has no
+  person-level slope variation.
+- `PCV_slope` is now `NA` when the null model’s between-stratum block is
+  rank-deficient (a perfect intercept-slope correlation), with a note
+  saying why. The stratum variation has collapsed onto a single
+  direction in (intercept, slope) space, so the slope variance is not a
+  free parameter and the null and adjusted fits need not have collapsed
+  onto the same direction – the ratio does not compare the same quantity
+  before and after adjustment. It was not merely uncertain but
+  explosive: across replicates of an irregular design with no true
+  stratum slope variance, rank-deficient fits returned values from -196
+  to +1. The existing denominator guard could not catch it, because it
+  scales a slope variance (outcome-units squared per time-unit squared)
+  against the residual variance, so its relative threshold has no fixed
+  meaning for that cell. `PCV_intercept` and `PCV(t)` are unaffected and
+  still reported. [`print()`](https://rdrr.io/r/base/print.html) also
+  gained the adjusted-model boundary note the cross-sectional
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  has carried all along.
+- [`print()`](https://rdrr.io/r/base/print.html) on a longitudinal
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) now
+  shows both growth fits’ diagnostics, labelled. Only the null model’s
+  were shown, so a singular or non-converged adjusted fit – which pins
+  the reported additive share – delivered its headline PCV in silence.
+- [`print()`](https://rdrr.io/r/base/print.html) on a cross-sectional
+  two-model
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) now
+  shows fit diagnostics, which that branch printed for neither model: a
+  non-converged fit, or one singular in a non-stratum block such as a
+  `context` random intercept, produced its headline PCV in silence. A
+  stratum-block singularity in the ADJUSTED fit is deliberately not
+  banner-warned – it is the expected shape of an additive decomposition
+  – and is reported instead by the boundary note below, so the
+  diagnostics block stays a signal rather than firing on nearly every
+  healthy analysis.
+- The “PCV is pinned near 100%” boundary note now reaches
+  [`print()`](https://rdrr.io/r/base/print.html) on a
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis.
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  has recorded `adjusted_at_boundary` all along and
+  [`print.pcv_result()`](https://hdbt.github.io/MAIHDA/reference/print.pcv_result.md)
+  showed the caveat, but the analysis print formats its PCV inline
+  rather than calling `print(x$pcv)`, so a “100% additive” headline read
+  off a singular adjusted fit carried no caveat anywhere the reader
+  looks. Both methods now share one note.
 - The per-group variance extractors behind the contextual and
   crossed-dimensions partitions now enforce the intercept-only contract
   the ordinary summary already applied. A contextual lme4 fit with

@@ -187,10 +187,9 @@ over
 #> Formula: BMI ~ (1 | stratum) 
 #> 
 #> Fit diagnostics:
-#>   Singular fit: at least one variance component is estimated at (or near) zero.
+#>   Singular fit: the random-effects block for 'stratum' is at (or near) the boundary
+#>     (a variance estimated at ~0, or a perfect correlation between an intercept and a slope).
 #>     The between-stratum variance and any VPC/PCV derived from it may be unreliable.
-#>   Convergence warnings reported by lme4:
-#>     - boundary (singular) fit: see help('isSingular')
 #> 
 #> 
 #> Underlying model:

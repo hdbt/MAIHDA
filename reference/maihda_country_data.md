@@ -120,6 +120,12 @@ analysis
 #>   ~100.0% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
+#> 
+#> Note: the adjusted model's between-stratum variance is at the singularity boundary,
+#> so the PCV is pinned near 100% and its interval/SE are unreliable. A near-complete
+#> PCV is consistent with genuinely additive strata (no interaction beyond the main
+#> effects) as well as a degenerate fit; the two cannot be told apart from this fit.
+#> 
 #> Strata: 6
 #> Intersectional interactions: 0 of 6 strata flagged (95% interval, BH-adjusted)
 #> 

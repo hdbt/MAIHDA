@@ -101,6 +101,7 @@ supplied it also compares this decomposition across that variable's levels.</p>
 <span>  id <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  time <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  time_degree <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  stratum_slope <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  interactions <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  estimation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fitted"</span>, <span class="st">"ML"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
@@ -270,6 +271,14 @@ polynomial degree (1 = linear). Supplying <code>id</code>/<code>time</code> sele
 <code>decomposition = "longitudinal"</code>. See <code><a href="fit_maihda.html">fit_maihda</a></code> for the
 model structure; <code>group</code>, <code>context</code>, and <code>sampling_weights</code> are
 not supported alongside them. Default <code>NULL</code> (cross-sectional).</p></dd>
+
+
+<dt id="arg-stratum-slope">stratum_slope<a class="anchor" aria-label="anchor" href="#arg-stratum-slope"></a></dt>
+<dd><p>Longitudinal only: keep the stratum-level random slope(s)
+on <code>time</code>? <code>FALSE</code> fits a random intercept at the stratum level, so
+the between-stratum variance is constant over time and the decomposition
+reports <code>PCV_intercept</code> only. Applied to the null and adjusted growth
+models alike. See <code><a href="fit_maihda.html">fit_maihda</a></code>.</p></dd>
 
 
 <dt id="arg-interactions">interactions<a class="anchor" aria-label="anchor" href="#arg-interactions"></a></dt>
@@ -467,10 +476,10 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5640ed02fdf0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55a52c857020&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5640ec154b90&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55a52c7ede80&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -496,10 +505,10 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Formula:         BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Engine: lme4 | Family: gaussian</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">Fit diagnostics:</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">  Singular fit: at least one variance component is estimated at (or near) zero.</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">    The between-stratum variance and any VPC/PCV derived from it may be unreliable.</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">  Convergence warnings reported by lme4:</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">    - boundary (singular) fit: see help('isSingular')</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">  Singular fit: the random-effects block for 'Gender' is at (or near) the boundary</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">    (a variance estimated at ~0, or a perfect correlation between an intercept and a slope).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">    The 'stratum' block is NOT at the boundary, so the between-stratum variance and</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">    the VPC/PCV are unaffected by this.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> VPC/ICC: <span style="color: #D78700;">0.0637</span></span>
@@ -525,7 +534,7 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5640e9cc6e78&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55a52be93a28&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>
@@ -552,6 +561,12 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   ~100.0% of the between-stratum variance is additive (the dimensions' main</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   effects); the remainder is the between-stratum variance remaining after the</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   additive main effects -- a model-dependent quantity</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Note: the adjusted model's between-stratum variance is at the singularity boundary,</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">so the PCV is pinned near 100% and its interval/SE are unreliable. A near-complete</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">PCV is consistent with genuinely additive strata (no interaction beyond the main</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">effects) as well as a degenerate fit; the two cannot be told apart from this fit.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Strata: 6</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Intersectional interactions:</span> <span style="color: #555555;">0</span> of 6 strata flagged (<span style="color: #555555;">95% interval, BH-adjusted</span>)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>

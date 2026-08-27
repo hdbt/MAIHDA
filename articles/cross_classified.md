@@ -87,10 +87,10 @@ cc
 #> Formula:         BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 |      stratum)
 #> Engine: lme4 | Family: gaussian
 #> Fit diagnostics:
-#>   Singular fit: at least one variance component is estimated at (or near) zero.
-#>     The between-stratum variance and any VPC/PCV derived from it may be unreliable.
-#>   Convergence warnings reported by lme4:
-#>     - boundary (singular) fit: see help('isSingular')
+#>   Singular fit: the random-effects block for 'Gender' is at (or near) the boundary
+#>     (a variance estimated at ~0, or a perfect correlation between an intercept and a slope).
+#>     The 'stratum' block is NOT at the boundary, so the between-stratum variance and
+#>     the VPC/PCV are unaffected by this.
 #> 
 #> 
 #> VPC/ICC: 0.0707
@@ -126,7 +126,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x557dc0947008>
+#> <environment: 0x558cc9de50a8>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -157,10 +157,10 @@ summary(cc$model)
 #> ====================
 #> 
 #> Fit diagnostics:
-#>   Singular fit: at least one variance component is estimated at (or near) zero.
-#>     The between-stratum variance and any VPC/PCV derived from it may be unreliable.
-#>   Convergence warnings reported by lme4:
-#>     - boundary (singular) fit: see help('isSingular')
+#>   Singular fit: the random-effects block for 'Gender' is at (or near) the boundary
+#>     (a variance estimated at ~0, or a perfect correlation between an intercept and a slope).
+#>     The 'stratum' block is NOT at the boundary, so the between-stratum variance and
+#>     the VPC/PCV are unaffected by this.
 #> 
 #> 
 #> Variance Partition Coefficient (VPC/ICC):

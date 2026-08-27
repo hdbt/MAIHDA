@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-08-09</h4>
+            <h4 data-toc-skip class="date">2026-08-27</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/cross_classified.Rmd" class="external-link"><code>vignettes/cross_classified.Rmd</code></a></small>
       <div class="d-none name"><code>cross_classified.Rmd</code></div>
@@ -170,10 +170,10 @@ require any special toolchain.</p>
 <span><span class="co">#&gt; Formula:         BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 |      stratum)</span></span>
 <span><span class="co">#&gt; Engine: lme4 | Family: gaussian</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">Fit diagnostics:</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">  Singular fit: at least one variance component is estimated at (or near) zero.</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">    The between-stratum variance and any VPC/PCV derived from it may be unreliable.</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">  Convergence warnings reported by lme4:</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">    - boundary (singular) fit: see help('isSingular')</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">  Singular fit: the random-effects block for 'Gender' is at (or near) the boundary</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">    (a variance estimated at ~0, or a perfect correlation between an intercept and a slope).</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">    The 'stratum' block is NOT at the boundary, so the between-stratum variance and</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">    the VPC/PCV are unaffected by this.</span></span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; VPC/ICC: <span style="color: #D78700;">0.0707</span></span></span>
@@ -205,7 +205,7 @@ the intersection random intercept, and fits the single model:</p>
 <code class="sourceCode R"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span></span>
 <span><span class="co">#&gt; BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | </span></span>
 <span><span class="co">#&gt;     stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x557dc0947008&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x558cc9de50a8&gt;</span></span></code></pre></div>
 <p>The partition is on <code>cc$decomposition</code> (and printed
 above):</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
@@ -229,10 +229,10 @@ decomposition:</p>
 <span><span class="co">#&gt; ====================</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">Fit diagnostics:</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">  Singular fit: at least one variance component is estimated at (or near) zero.</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">    The between-stratum variance and any VPC/PCV derived from it may be unreliable.</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">  Convergence warnings reported by lme4:</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">    - boundary (singular) fit: see help('isSingular')</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">  Singular fit: the random-effects block for 'Gender' is at (or near) the boundary</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">    (a variance estimated at ~0, or a perfect correlation between an intercept and a slope).</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">    The 'stratum' block is NOT at the boundary, so the between-stratum variance and</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">    the VPC/PCV are unaffected by this.</span></span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Variance Partition Coefficient (VPC/ICC):</span></span>
