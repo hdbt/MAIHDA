@@ -21,6 +21,19 @@
   `summary(conf_level = )`; no denominator degrees of freedom are
   estimated, so a Gaussian fit’s statistics are z-based rather than
   Satterthwaite/Kenward-Roger.
+- A longitudinal [`summary()`](https://rdrr.io/r/base/summary.html) now
+  also reports the intercept and slope VPCs of Bell et al. (2024, eq. 5)
+  as `$longitudinal$vpc_intercept` and `$vpc_slope`. These exclude the
+  occasion-level residual from the denominator, so they measure the
+  between-stratum share of between-INDIVIDUAL variation in where a
+  trajectory starts and how fast it changes, and are unaffected by
+  measurement noise; the headline VPC keeps the residual and answers the
+  discriminatory-accuracy question. `vpc_slope` is the only scale-free
+  summary of how intersectional the rates of change are, and it pairs
+  with the `PCV_slope` the decomposition already reported. Report the
+  headline VPC unless you mean the trajectory question –
+  [`?summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
+  and the longitudinal vignette set out the contrast.
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   and [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
   gained `stratum_slope` for longitudinal fits. `stratum_slope = FALSE`

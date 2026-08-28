@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-08-27</h4>
+            <h4 data-toc-skip class="date">2026-08-28</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/longitudinal.Rmd" class="external-link"><code>vignettes/longitudinal.Rmd</code></a></small>
       <div class="d-none name"><code>longitudinal.Rmd</code></div>
@@ -174,6 +174,12 @@ you.</p>
 <span><span class="co">#&gt;   slope), so the VPC varies; it depends on where time is zeroed. See</span></span>
 <span><span class="co">#&gt;   plot(type = "vpc_trajectory") for the full curve.</span></span>
 <span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Trajectory VPCs (Bell et al. 2024, eq. 5; occasion-level variance excluded):</span></span>
+<span><span class="co">#&gt;   Intercept (wave = 0): <span style="color: #D78700;">0.6147</span>    Slope: <span style="color: #D78700;">0.6888</span></span></span>
+<span><span class="co">#&gt;   These ask how intersectionally patterned trajectories are; the VPC</span></span>
+<span><span class="co">#&gt;   above asks how much of an observed measurement a stratum explains,</span></span>
+<span><span class="co">#&gt;   so at a given time these are larger. See ?summary.maihda_model.</span></span>
+<span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Fixed Effects (Wald 95% intervals):</span></span></span>
 <span><span class="co">#&gt;         term  estimate     se statistic p_value   lower  upper</span></span>
 <span><span class="co">#&gt;  (Intercept)  4.986465 0.1870   26.6719  &lt;1e-16  4.6200 5.3529</span></span>
@@ -204,6 +210,56 @@ observed times. Plot it:</p>
 <p><img src="longitudinal_files/figure-html/vpc-traj-2.png" class="r-plt" alt="" width="672"></p>
 <p>A rising VPC trajectory means the strata fan out over time
 (intersectional inequality grows).</p>
+<div class="section level3">
+<h3 id="two-vpcs-and-which-one-to-report">Two VPCs, and which one to report<a class="anchor" aria-label="anchor" href="#two-vpcs-and-which-one-to-report"></a>
+</h3>
+<p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports <strong>two different variance
+partitions</strong> for a growth model. They differ in a single
+denominator term; the level-1 (occasion) residual
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup><annotation encoding="application/x-tex">\sigma^2_e</annotation></semantics></math>,
+which here is <em>within-individual volatility</em>, or in other words
+how far one measurement falls from that person’s own smooth trajectory.
+It mixes measurement error, real short-term fluctuation, and any misfit
+of the functional form.</p>
+<p>The headline VPC keeps the term, and therfore answers the
+discriminatory-accuracy question of how much of an <em>observed
+measurement</em> a stratum accounts for:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">VPC</mi><mo>⁡</mo></mrow><mi>S</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><mrow><msub><mrow><mi mathvariant="normal">Var</mi><mo>⁡</mo></mrow><mi>S</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo></mrow><mrow><msub><mrow><mi mathvariant="normal">Var</mi><mo>⁡</mo></mrow><mi>S</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mrow><mi mathvariant="normal">Var</mi><mo>⁡</mo></mrow><mi>I</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">\operatorname{VPC}_S(t) = \frac{\operatorname{Var}_S(t)}
+  {\operatorname{Var}_S(t) + \operatorname{Var}_I(t) + \sigma^2_e}.</annotation></semantics></math></p>
+<p>The <strong>trajectory VPCs</strong> drop this term, following Bell
+et al. (2024), equation (5):</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">VPC</mi><mo>⁡</mo></mrow><mtext mathvariant="normal">intercept</mtext></msub><mo>=</mo><mfrac><mrow><msub><mrow><mi mathvariant="normal">Var</mi><mo>⁡</mo></mrow><mi>S</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mn>0</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow><mrow><msub><mrow><mi mathvariant="normal">Var</mi><mo>⁡</mo></mrow><mi>S</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mn>0</mn></msub><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mrow><mi mathvariant="normal">Var</mi><mo>⁡</mo></mrow><mi>I</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mn>0</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><msub><mrow><mi mathvariant="normal">VPC</mi><mo>⁡</mo></mrow><mtext mathvariant="normal">slope</mtext></msub><mo>=</mo><mfrac><mrow><msub><mrow><mi mathvariant="normal">SlopeVar</mi><mo>⁡</mo></mrow><mi>S</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mn>0</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow><mrow><msub><mrow><mi mathvariant="normal">SlopeVar</mi><mo>⁡</mo></mrow><mi>S</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mn>0</mn></msub><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mrow><mi mathvariant="normal">SlopeVar</mi><mo>⁡</mo></mrow><mi>I</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mn>0</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">\operatorname{VPC}_{\text{intercept}} = \frac{\operatorname{Var}_S(t_0)}
+  {\operatorname{Var}_S(t_0) + \operatorname{Var}_I(t_0)},
+\qquad
+\operatorname{VPC}_{\text{slope}} = \frac{\operatorname{SlopeVar}_S(t_0)}
+  {\operatorname{SlopeVar}_S(t_0) + \operatorname{SlopeVar}_I(t_0)}.</annotation></semantics></math></p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>intercept <span class="op">=</span> <span class="va">s</span><span class="op">$</span><span class="va">longitudinal</span><span class="op">$</span><span class="va">vpc_intercept</span>, slope <span class="op">=</span> <span class="va">s</span><span class="op">$</span><span class="va">longitudinal</span><span class="op">$</span><span class="va">vpc_slope</span><span class="op">)</span></span>
+<span><span class="co">#&gt; intercept     slope </span></span>
+<span><span class="co">#&gt; 0.6146997 0.6887613</span></span></code></pre></div>
+<p>These ask how intersectionally patterned people’s
+<em>trajectories</em> are. What share of the between-individual
+variation in where a trajectory starts, and in how fast it changes, lies
+between strata. Because
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup><annotation encoding="application/x-tex">\sigma^2_e</annotation></semantics></math>
+is absent they are always larger than the headline VPC, and they do not
+shrink when the outcome is measured noisily making them comparable
+across studies using different instruments, where the headline VPC does
+not.</p>
+<p><strong>Report the headline VPC unless you specifically mean the
+trajectory question.</strong> It is the quantity comparable to published
+cross-sectional MAIHDA VPCs, and it is the one that accounts for the
+discriminatory accuracy. The trajectory VPCs should be reported next to
+<code>PCV_intercept</code> and <code>PCV_slope</code>, and
+<code>VPC_slope</code> is the only scale-free way to describe how
+intersectional the rates of change are.</p>
+<p>Please note the intercept VPC drops the term also for symmetry. And
+both are evaluated at the baseline
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>t</mi><mn>0</mn></msub><annotation encoding="application/x-tex">t_0</annotation></semantics></math>;
+the intercept VPC depends on where time is zeroed (the slope VPC does
+not).</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="decomposing-the-trajectory-additive-vs--multiplicative">Decomposing the trajectory: additive vs. multiplicative<a class="anchor" aria-label="anchor" href="#decomposing-the-trajectory-additive-vs--multiplicative"></a>
@@ -214,7 +270,7 @@ a null growth model and an adjusted growth model. The adjusted model
 adds the dimensions’ main effects and their interactions with time
 (<code>dim:time</code>), so the stratum-level variance it leaves behind
 is the interaction beyond additive.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">wave</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ethnicity</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
 <span>            data <span class="op">=</span> <span class="va">maihda_long_data</span>, id <span class="op">=</span> <span class="st">"id"</span>, time <span class="op">=</span> <span class="st">"wave"</span>,</span>
 <span>            decomposition <span class="op">=</span> <span class="st">"longitudinal"</span><span class="op">)</span></span>
@@ -236,17 +292,17 @@ is the interaction beyond additive.</p>
 trajectory:</p>
 <ul>
 <li>
-<strong><code>PCV_intercept</code></strong> – the share of the
-<em>baseline</em> between-stratum inequality explained by the additive
-main effects.</li>
+<strong><code>PCV_intercept</code></strong> describes the share of
+the <em>baseline</em> between-stratum inequality explained by the
+additive main effects.</li>
 <li>
-<strong><code>PCV_slope</code></strong> – the share of the
+<strong><code>PCV_slope</code></strong> describes the share of the
 <em>trajectory</em> (slope) between-stratum inequality explained
-additively. A high <code>PCV_slope</code> is the “trajectories are
+additively. A high <code>PCV_slope</code> means the “trajectories are
 mostly additive” finding; the remainder is the
 multiplicative/interaction part.</li>
 </ul>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"pcv_trajectory"</span><span class="op">)</span>   <span class="co"># the additive share over time</span></span></code></pre></div>
 <p><img src="longitudinal_files/figure-html/pcv-traj-1.png" class="r-plt" alt="" width="672"></p>
 </div>
@@ -255,62 +311,64 @@ multiplicative/interaction part.</li>
 </h2>
 <ul>
 <li><p><strong>Time coding.</strong> You can code time however is
-natural – waves 0, 1, 2, …, waves 10, 11, …, age, or calendar year. When
-the axis does not start at 0, the growth terms are fit on internally
-<em>centered</em> time (<code>time - min(time)</code>, with a message),
-because the raw polynomial basis over an offset range is ill-conditioned
-and can silently converge to a wrong solution. All results – the VPC
-trajectory, the PCV, plots, and predictions – are reported on your
-original time scale, and the baseline (<code>ref_time</code>) is always
-the earliest observed time.</p></li>
+convenient for your workflow ( waves 0, 1, 2, …, waves 10, 11, …, age,
+or calendar year). When the axis does not start at 0, the growth terms
+are fit on internally <em>centered</em> time
+(<code>time - min(time)</code>, with a message), because the raw
+polynomial basis over an offset range is ill-conditioned and can
+silently converge to a wrong solution. All results ( the VPC trajectory,
+the PCV, plots, and predictions ) are reported on your original time
+scale, and the baseline (<code>ref_time</code>) is always the earliest
+observed time.</p></li>
 <li><p><strong>Identifiability.</strong> A stratum random slope needs
 enough occasions per stratum; sparse strata, few waves, or irregular
-measurement times can give a singular lme4 fit – the brms engine handles
-this better. The fit diagnostics name the block that is at the boundary.
-Which block it is decides whether the result is affected: a boundary
-<code>(time | id)</code> block leaves the between-stratum variance well
-estimated, a boundary <code>(time | stratum)</code> block does not. A
-singular fit is <em>not</em> a convergence failure; lme4 reports the two
-separately, and so does this package.</p></li>
+measurement times can give a singular lme4 fit (the brms engine handles
+this better). The fit diagnostics name the block that is at the
+boundary. Which block it is decides whether the result is affected. For
+example a boundary <code>(time | id)</code> block leaves the
+between-stratum variance well estimated, a boundary
+<code>(time | stratum)</code> block does not.</p></li>
 <li>
 <p><strong>Rank-deficient stratum blocks.</strong> The usual
 boundary outcome is a stratum intercept-slope correlation of exactly 1
-or -1 (<code>Corr = 1.00</code> in <code>VarCorr()</code>), not a zero
-variance. The block is then rank 1, one parameter short of a full
-covariance matrix, and the stratum slope variance is not separately
-identified. <code>PCV_slope</code> is <code>NA</code> in that case, and
+or -1 (<code>Corr = 1.00</code> in <code>VarCorr()</code>). The block is
+then rank 1 (one row), one parameter short of a full covariance matrix,
+and the stratum slope variance is not separately identified.
+<code>PCV_slope</code> is <code>NA</code> in that case, and
 <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> on the PCV object says why.
 <code>PCV_intercept</code> and the VPC trajectory come from the
 intercept variance, which is still estimable.</p>
-<p>How often this happens depends on the stratum-level slope variance:
-common when that is near zero, rare when it is not, and where the effect
-exists the model recovers it. A rank-deficient block is usually evidence
-that the strata do not diverge over time.</p>
-<p>Both structures share the same fixed effects, so their REML fits can
-be compared with <code>AIC</code>:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<p>How often this happens depends on the stratum-level slope variance.
+it is common when the slope variance is near zero, but rare when it is
+near zero. A rank-deficient block is usually evidence that the strata do
+not diverge over time.</p>
+<p>Both structures share the same fixed effects, so their fits can be
+compared with <code>AIC</code>:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m_slope</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">wave</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ethnicity</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
 <span>                      data <span class="op">=</span> <span class="va">maihda_long_data</span>, id <span class="op">=</span> <span class="st">"id"</span>, time <span class="op">=</span> <span class="st">"wave"</span><span class="op">)</span></span>
 <span><span class="va">m_level</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">wave</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ethnicity</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
 <span>                      data <span class="op">=</span> <span class="va">maihda_long_data</span>, id <span class="op">=</span> <span class="st">"id"</span>, time <span class="op">=</span> <span class="st">"wave"</span>,</span>
 <span>                      stratum_slope <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">AIC</a></span><span class="op">(</span><span class="va">m_slope</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">AIC</a></span><span class="op">(</span><span class="va">m_level</span><span class="op">$</span><span class="va">model</span><span class="op">)</span>   <span class="co"># negative favours keeping the slope</span></span></code></pre></div>
-<p>The constrained model sits on the boundary of the parameter space, so
-<code>AIC</code> here is approximate. It still separates the two when a
-stratum-level slope effect is present.</p>
 <p><code>stratum_slope = FALSE</code> fits
 <code>(time | id) + (1 | stratum)</code>. Individuals keep their growth
 curves; strata are constrained to differ in level only. Report the
-constraint – under it the absence of trajectory divergence is assumed,
-not estimated. The between-stratum variance is then one time-constant
-number and the decomposition reports <code>PCV_intercept</code> only.
-The VPC still varies with time, because the individual-level slope
-variance and the residual are in its denominator.</p>
+constraint, when the absence of trajectory divergence is assumed, and
+therefore not estimated. The between-stratum variance is then one
+time-constant number and the decomposition reports
+<code>PCV_intercept</code> (no slope) only. The VPC still varies with
+time, because the individual-level slope variance and the residual are
+in its denominator.</p>
 </li>
 <li><p><strong>Not a single number.</strong> The VPC is time-varying, so
 <code><a href="../reference/extract_between_variance.html">extract_between_variance()</a></code> and <code><a href="../reference/calculate_pcv.html">calculate_pcv()</a></code>
 deliberately refuse a longitudinal model; use the longitudinal
 decomposition above.</p></li>
+<li><p><strong>Which VPC.</strong> <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports both
+the discriminatory-accuracy VPC(t) and the Bell et al. trajectory VPCs,
+which use a different denominator; see <a href="#two-vpcs-and-which-one-to-report">Two VPCs, and which one to
+report</a>.</p></li>
 <li><p><strong>Out of scope (v1).</strong> Design-weighted, contextual
 (stratum
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>

@@ -84,6 +84,15 @@ A maihda_summary object containing:
   fit (`fit_maihda(context = )`) each context appears as its own
   `Context: <name>` row
 
+- longitudinal:
+
+  For a longitudinal (growth-curve) fit, the time-varying summary:
+  `vpc_t` (the VPC over a reporting grid, with bootstrap or posterior
+  bands), the per-level variances over that grid, the stratum and
+  individual covariance blocks, and the two *trajectory VPCs*
+  `vpc_intercept` and `vpc_slope` described below. `NULL` for a
+  cross-sectional fit
+
 - context:
 
   For a contextual cross-classified fit, the stratum vs. context
@@ -207,6 +216,63 @@ w_i\\. The stratum random effects represent the total between-stratum
 deviation; they equal the *pure* intersectional (interaction) component
 only when the additive main effects of the strata variables are included
 in the model.
+
+## Two VPCs for a longitudinal fit
+
+A longitudinal summary reports **two different variance partitions**,
+and they are not interchangeable. They differ in one term of the
+denominator: the level-1 (occasion) residual variance \\\sigma^2_e\\,
+which in a growth model is *within-individual volatility* – how far a
+single measurement falls from that person's own smooth trajectory. It
+mixes measurement error, genuine short-term fluctuation, and any misfit
+of the assumed functional form. A cross-sectional MAIHDA cannot separate
+it from between-individual variance at all; repeated measures are what
+split the two.
+
+**The headline VPC** (`vpc`, and `longitudinal$vpc_t` over time) keeps
+it: \$\$VPC_S(t) = \frac{Var_S(t)}{Var_S(t) + Var_I(t) +
+\sigma^2_e}.\$\$ This is the discriminatory-accuracy question – how much
+of an *observed measurement* at time \\t\\ a stratum accounts for – and
+it is the quantity comparable to published cross-sectional MAIHDA VPCs.
+Report this one unless you specifically mean the trajectory question.
+
+**The trajectory VPCs** (`longitudinal$vpc_intercept` and
+`longitudinal$vpc_slope`) drop it, following Bell et al. (2024),
+equation (5): \$\$VPC\_{intercept} = \frac{Var_S(t_0)}{Var_S(t_0) +
+Var_I(t_0)}, \qquad VPC\_{slope} =
+\frac{SlopeVar_S(t_0)}{SlopeVar_S(t_0) + SlopeVar_I(t_0)}.\$\$ These ask
+how intersectionally patterned people's *trajectories* are – what share
+of the between-individual variation in where a trajectory starts, and in
+how fast it changes, lies between strata. Because \\\sigma^2_e\\ is
+absent they are systematically **larger** than the headline VPC, and
+they are unaffected by how noisy the outcome measure is, which makes
+them comparable across studies using different instruments.
+
+For the slope the residual could not be included even in principle: a
+slope variance is in \\(\mathrm{outcome}/\mathrm{time})^2\\ while
+\\\sigma^2_e\\ is in \\\mathrm{outcome}^2\\, so the sum would be
+dimensionally meaningless. (The headline VPC is well formed because
+\\a(t)'\Sigma a(t)\\ returns to \\\mathrm{outcome}^2\\.) The intercept
+VPC drops it for symmetry with the slope.
+
+Both are evaluated at the baseline \\t_0\\ (`ref_time`, the earliest
+observed time), pairing with `PCV_intercept` and `PCV_slope` from
+`maihda(decomposition = "longitudinal")`. The intercept VPC depends on
+where time is zeroed and the slope VPC does not, as Bell et al. note;
+their own examples centre on mean age rather than the baseline, so an
+intercept VPC replicated from the paper will differ from the one
+reported here unless the reference points are aligned. `vpc_slope` is
+`NA` when the model was fit with `stratum_slope = FALSE` (no
+between-stratum slope variance exists to take a share of).
+
+## References
+
+Bell, A., Evans, C., Holman, D., & Leckie, G. (2024). Extending
+intersectional multilevel analysis of individual heterogeneity and
+discriminatory accuracy (MAIHDA) to study individual longitudinal
+trajectories, with application to mental health in the UK. *Social
+Science & Medicine*, 351, 116955.
+[doi:10.1016/j.socscimed.2024.116955](https://doi.org/10.1016/j.socscimed.2024.116955)
 
 ## Examples
 

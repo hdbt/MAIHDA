@@ -92,6 +92,12 @@ summary(m)
 #>   slope), so the VPC varies; it depends on where time is zeroed. See
 #>   plot(type = "vpc_trajectory") for the full curve.
 #> 
+#> Trajectory VPCs (Bell et al. 2024, eq. 5; occasion-level variance excluded):
+#>   Intercept (wave = 0): 0.6147    Slope: 0.6888
+#>   These ask how intersectionally patterned trajectories are; the VPC
+#>   above asks how much of an observed measurement a stratum explains,
+#>   so at a given time these are larger. See ?summary.maihda_model.
+#> 
 #> Fixed Effects (Wald 95% intervals):
 #>         term  estimate     se statistic p_value   lower  upper
 #>  (Intercept)  4.986465 0.1870   26.6719  <1e-16  4.6200 5.3529
