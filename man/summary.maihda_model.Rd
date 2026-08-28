@@ -55,6 +55,12 @@ A maihda_summary object containing:
   \item{variance_components}{Data frame of variance components. For a
     contextual cross-classified fit (\code{fit_maihda(context = )}) each
     context appears as its own \code{Context: <name>} row}
+  \item{longitudinal}{For a longitudinal (growth-curve) fit, the time-varying
+    summary: \code{vpc_t} (the VPC over a reporting grid, with bootstrap or
+    posterior bands), the per-level variances over that grid, the stratum and
+    individual covariance blocks, and the two \emph{trajectory VPCs}
+    \code{vpc_intercept} and \code{vpc_slope} described below. \code{NULL} for a
+    cross-sectional fit}
   \item{context}{For a contextual cross-classified fit, the stratum vs.
     context partition: per-context variances and shares, the contexts' total
     share (\code{vpc_context_total}, with an interval when bootstrapped or for
@@ -153,6 +159,54 @@ expensive \eqn{ndraws \times nobs} computation.
   variables are included in the model.
 }
 
+\section{Two VPCs for a longitudinal fit}{
+
+A longitudinal summary reports \strong{two different variance partitions}, and
+they are not interchangeable. They differ in one term of the denominator: the
+level-1 (occasion) residual variance \eqn{\sigma^2_e}, which in a growth model is
+\emph{within-individual volatility} -- how far a single measurement falls from
+that person's own smooth trajectory. It mixes measurement error, genuine
+short-term fluctuation, and any misfit of the assumed functional form. A
+cross-sectional MAIHDA cannot separate it from between-individual variance at
+all; repeated measures are what split the two.
+
+\strong{The headline VPC} (\code{vpc}, and \code{longitudinal$vpc_t} over time)
+keeps it:
+\deqn{VPC_S(t) = \frac{Var_S(t)}{Var_S(t) + Var_I(t) + \sigma^2_e}.}
+This is the discriminatory-accuracy question -- how much of an \emph{observed
+measurement} at time \eqn{t} a stratum accounts for -- and it is the quantity
+comparable to published cross-sectional MAIHDA VPCs. Report this one unless you
+specifically mean the trajectory question.
+
+\strong{The trajectory VPCs} (\code{longitudinal$vpc_intercept} and
+\code{longitudinal$vpc_slope}) drop it, following Bell et al. (2024), equation
+(5):
+\deqn{VPC_{intercept} = \frac{Var_S(t_0)}{Var_S(t_0) + Var_I(t_0)}, \qquad
+      VPC_{slope} = \frac{SlopeVar_S(t_0)}{SlopeVar_S(t_0) + SlopeVar_I(t_0)}.}
+These ask how intersectionally patterned people's \emph{trajectories} are -- what
+share of the between-individual variation in where a trajectory starts, and in how
+fast it changes, lies between strata. Because \eqn{\sigma^2_e} is absent they are
+systematically \strong{larger} than the headline VPC, and they are unaffected by
+how noisy the outcome measure is, which makes them comparable across studies using
+different instruments.
+
+For the slope the residual could not be included even in principle: a slope
+variance is in \eqn{(\mathrm{outcome}/\mathrm{time})^2} while \eqn{\sigma^2_e} is
+in \eqn{\mathrm{outcome}^2}, so the sum would be dimensionally meaningless. (The
+headline VPC is well formed because \eqn{a(t)'\Sigma a(t)} returns to
+\eqn{\mathrm{outcome}^2}.) The intercept VPC drops it for symmetry with the slope.
+
+Both are evaluated at the baseline \eqn{t_0} (\code{ref_time}, the earliest
+observed time), pairing with \code{PCV_intercept} and \code{PCV_slope} from
+\code{maihda(decomposition = "longitudinal")}. The intercept VPC depends on where
+time is zeroed and the slope VPC does not, as Bell et al. note; their own examples
+centre on mean age rather than the baseline, so an intercept VPC replicated from
+the paper will differ from the one reported here unless the reference points are
+aligned. \code{vpc_slope} is \code{NA} when the model was fit with
+\code{stratum_slope = FALSE} (no between-stratum slope variance exists to take a
+share of).
+}
+
 \examples{
 \donttest{
 strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
@@ -163,4 +217,11 @@ summary_result <- summary(model)
 # summary_boot <- summary(model, bootstrap = TRUE, n_boot = 50)
 }
 
+}
+\references{
+Bell, A., Evans, C., Holman, D., & Leckie, G. (2024). Extending intersectional
+multilevel analysis of individual heterogeneity and discriminatory accuracy
+(MAIHDA) to study individual longitudinal trajectories, with application to
+mental health in the UK. \emph{Social Science & Medicine}, 351, 116955.
+\doi{10.1016/j.socscimed.2024.116955}
 }

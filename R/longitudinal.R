@@ -627,6 +627,40 @@ maihda_stop_longitudinal_scalar <- function(what, stratum_slope = TRUE) {
        "instead.", call. = FALSE)
 }
 
+# The intercept and slope VPCs of Bell, Evans, Holman & Leckie (2024), equation
+# (5): the between-stratum share of the between-INDIVIDUAL variance in each growth
+# parameter,
+#
+#   VPC_intercept = Var_S(t0) / (Var_S(t0) + Var_I(t0)),
+#   VPC_slope     = SlopeVar_S(t0) / (SlopeVar_S(t0) + SlopeVar_I(t0)),
+#
+# with the level-1 (occasion) residual deliberately ABSENT from both denominators.
+# This is a different estimand from the package's headline VPC(t), which keeps the
+# residual and so answers the discriminatory-accuracy question -- how much of an
+# observed measurement a stratum explains. These two answer how intersectionally
+# patterned people's trajectories are, and are unaffected by measurement noise.
+#
+
+maihda_longitudinal_trajectory_vpc <- function(Sigma_s, Sigma_i, ref_c) {
+  share <- function(vs, vi) {
+    tot <- vs + vi
+    if (!is.finite(tot) || tot <= 0) NA_real_ else vs / tot
+  }
+  # No stratum slope block (stratum_slope = FALSE) means there is no between-stratum
+  # slope variance to take a share OF -- NA, not the 0 the arithmetic would return.
+  has_slope <- nrow(Sigma_s) >= 2 && nrow(Sigma_i) >= 2
+  list(
+    vpc_intercept = share(maihda_var_at_time(Sigma_s, ref_c),
+                          maihda_var_at_time(Sigma_i, ref_c)),
+    vpc_slope = if (has_slope) {
+      share(maihda_slope_var_at_time(Sigma_s, ref_c),
+            maihda_slope_var_at_time(Sigma_i, ref_c))
+    } else {
+      NA_real_
+    }
+  )
+}
+
 # A time grid for reporting VPC(t): the observed unique times when few, else a
 # 25-point grid spanning their range.
 maihda_longitudinal_time_grid <- function(time_values) {
@@ -870,9 +904,15 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
     list(estimate = ref_vpc, bootstrap = FALSE, ref_time = ref_time)
   }
 
+  # Bell et al. (2024) eq. (5) intercept/slope VPCs -- a different denominator from
+  # vpc_t above (no occasion-level residual); see maihda_longitudinal_trajectory_vpc.
+  traj_vpc <- maihda_longitudinal_trajectory_vpc(Sigma_s, Sigma_i, ref_c)
+
   longitudinal <- list(
     vpc_t = data.frame(time = grid, estimate = vpc_t_est,
                        lower = vpc_lower, upper = vpc_upper),
+    vpc_intercept = traj_vpc$vpc_intercept,
+    vpc_slope = traj_vpc$vpc_slope,
     var_stratum_t = var_s_grid,
     var_id_t = var_i_grid,
     var_resid = var_resid,
@@ -1024,9 +1064,14 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
   var_resid <- mean(resid_ref_draws)
   resid_grid <- vapply(resid_grid_draws, mean, numeric(1))
 
+  # As on the lme4 path: Bell et al. (2024) eq. (5), from the posterior-mean blocks.
+  traj_vpc <- maihda_longitudinal_trajectory_vpc(Sigma_s, Sigma_i, ref_c)
+
   longitudinal <- list(
     vpc_t = data.frame(time = grid, estimate = mat[1, ],
                        lower = mat[2, ], upper = mat[3, ]),
+    vpc_intercept = traj_vpc$vpc_intercept,
+    vpc_slope = traj_vpc$vpc_slope,
     var_stratum_t = maihda_var_at_time(Sigma_s, grid_c),
     var_id_t = maihda_var_at_time(Sigma_i, grid_c),
     var_resid = var_resid,

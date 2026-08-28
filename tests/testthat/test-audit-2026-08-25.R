@@ -488,3 +488,75 @@ test_that("a cross-sectional maihda() print surfaces non-converged and non-strat
   expect_match(out_ctx, "Fit diagnostics (adjusted model)", fixed = TRUE)
   expect_match(out_ctx, "block for 'country'", fixed = TRUE)
 })
+
+# ---- Bell et al. (2024) eq. (5) trajectory VPCs ------------------------------
+#
+# Added in the same pass, from the same correspondence: the package reported only
+# the discriminatory-accuracy VPC(t), which keeps the occasion-level residual in the
+# denominator, while the paper it cites defines intercept and slope VPCs that
+# exclude it. Both are now reported, with the distinction documented.
+
+test_that("the trajectory VPCs are Bell eq. (5), excluding level-1 variance", {
+  skip_on_cran()
+  data(maihda_long_data, envir = environment())
+  m <- suppressMessages(suppressWarnings(
+    fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+               data = maihda_long_data, id = "id", time = "wave")))
+  s <- suppressWarnings(summary(m))
+  Ss <- s$longitudinal$Sigma_stratum
+  Si <- s$longitudinal$Sigma_id
+
+  # Exactly the paper's ratios, computed from the raw covariance-block cells.
+  expect_equal(s$longitudinal$vpc_intercept, Ss[1, 1] / (Ss[1, 1] + Si[1, 1]))
+  expect_equal(s$longitudinal$vpc_slope, Ss[2, 2] / (Ss[2, 2] + Si[2, 2]))
+
+  # The point of the distinction: the headline VPC keeps sigma^2_e, so it is
+  # strictly smaller than the intercept VPC on the same fit.
+  vpc_headline <- s$vpc$estimate
+  expect_gt(s$longitudinal$vpc_intercept, vpc_headline)
+  expect_equal(vpc_headline,
+               Ss[1, 1] / (Ss[1, 1] + Si[1, 1] + s$longitudinal$var_resid))
+
+  out <- paste(utils::capture.output(print(s)), collapse = "\n")
+  expect_match(out, "Trajectory VPCs (Bell et al. 2024, eq. 5", fixed = TRUE)
+  expect_match(out, "occasion-level variance excluded", fixed = TRUE)
+  # The one sentence that says which question each VPC answers, so the larger
+  # number is not reported as "the VPC".
+  expect_match(out, "how intersectionally patterned trajectories are", fixed = TRUE)
+  expect_match(out, "?summary.maihda_model", fixed = TRUE)
+})
+
+test_that("vpc_slope is NA when there is no stratum slope to take a share of", {
+  skip_on_cran()
+  data(maihda_long_data, envir = environment())
+  m <- suppressMessages(suppressWarnings(
+    fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
+               data = maihda_long_data, id = "id", time = "wave",
+               stratum_slope = FALSE)))
+  s <- suppressWarnings(summary(m))
+  # A 1x1 stratum block would make the arithmetic return 0/(0 + slope_var_id) = 0,
+  # which reads as "no intersectional patterning of trajectories" rather than
+  # "not estimated". It must be NA.
+  expect_true(is.na(s$longitudinal$vpc_slope))
+  expect_true(is.finite(s$longitudinal$vpc_intercept))
+  out <- paste(utils::capture.output(print(s)), collapse = "\n")
+  expect_match(out, "Slope: NA", fixed = TRUE)
+})
+
+test_that("maihda_longitudinal_trajectory_vpc guards degenerate denominators", {
+  S2 <- matrix(c(0.3, 0.02, 0.02, 0.004), 2, 2)
+  I2 <- matrix(c(0.9, 0.01, 0.01, 0.006), 2, 2)
+  v <- maihda_longitudinal_trajectory_vpc(S2, I2, 0)
+  expect_equal(v$vpc_intercept, 0.3 / (0.3 + 0.9))
+  expect_equal(v$vpc_slope, 0.004 / (0.004 + 0.006))
+
+  # Intercept-only stratum block -> no slope share.
+  S1 <- matrix(0.3, 1, 1)
+  expect_true(is.na(maihda_longitudinal_trajectory_vpc(S1, I2, 0)$vpc_slope))
+
+  # An all-zero pair is 0/0, not 0.
+  Z <- matrix(0, 2, 2)
+  z <- maihda_longitudinal_trajectory_vpc(Z, Z, 0)
+  expect_true(is.na(z$vpc_intercept))
+  expect_true(is.na(z$vpc_slope))
+})
