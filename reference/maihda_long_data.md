@@ -95,8 +95,9 @@ summary(m)
 #> Trajectory VPCs (Bell et al. 2024, eq. 5; occasion-level variance excluded):
 #>   Intercept (wave = 0): 0.6147    Slope: 0.6888
 #>   These ask how intersectionally patterned trajectories are; the VPC
-#>   above asks how much of an observed measurement a stratum explains,
-#>   so at a given time these are larger. See ?summary.maihda_model.
+#>   above asks how much of an observed measurement a stratum explains.
+#>   Intercept exceeds it at the reference time; Slope is on a different
+#>   scale and is not comparable to it. See ?summary.maihda_model.
 #> 
 #> Fixed Effects (Wald 95% intervals):
 #>         term  estimate     se statistic p_value   lower  upper

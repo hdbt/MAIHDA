@@ -110,7 +110,12 @@ share of that group's intersectional inequality.</p>
 <dd><p>A model formula. Either the shorthand intersectional form
 <code>outcome ~ covars + (1 | var1:var2)</code> (strata are built automatically)
 or <code>outcome ~ covars + (1 | stratum)</code> when <code>data</code> already contains
-a <code>stratum</code> column from <code><a href="make_strata.html">make_strata</a></code>.</p></dd>
+a <code>stratum</code> column from <code><a href="make_strata.html">make_strata</a></code>.
+Any dimension main effect listed must be written as its bare column name: a
+transformed term such as <code>factor(edu)</code> is rejected, because only a bare
+name is recognised as a dimension's main effect and the transform would
+otherwise survive into the derived null model. Transform the column in
+<code>data</code> instead (<code>data$edu &lt;- factor(data$edu)</code>).</p></dd>
 
 
 <dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>

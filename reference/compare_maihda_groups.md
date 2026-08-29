@@ -44,6 +44,12 @@ compare_maihda_groups(
   or `outcome ~ covars + (1 | stratum)` when `data` already contains a
   `stratum` column from
   [`make_strata`](https://hdbt.github.io/MAIHDA/reference/make_strata.md).
+  Any dimension main effect listed must be written as its bare column
+  name: a transformed term such as `factor(edu)` is rejected, because
+  only a bare name is recognised as a dimension's main effect and the
+  transform would otherwise survive into the derived null model.
+  Transform the column in `data` instead
+  (`data$edu <- factor(data$edu)`).
 
 - data:
 

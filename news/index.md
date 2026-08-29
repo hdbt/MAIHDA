@@ -79,6 +79,20 @@
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md),
   or [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) to
   restore the previous ML-refit behaviour.
+- [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now reject a stratum dimension written in transformed form in the
+  fixed part – `y ~ factor(edu) + gender + (1 | edu:gender)`, and
+  likewise [`scale()`](https://rdrr.io/r/base/scale.html),
+  [`I()`](https://rdrr.io/r/base/AsIs.html),
+  [`poly()`](https://rdrr.io/r/stats/poly.html) or a spline. Only a bare
+  column name was ever recognised as a dimension’s main effect, so the
+  transform was not removed when the null model was derived: the null
+  already adjusted for that dimension, its between-stratum variance was
+  deflated and the PCV was computed against the wrong baseline (in
+  `decomposition = "crossed-dimensions"` the dimension entered as a
+  fixed effect and a random intercept at once). Transform the column in
+  `data` and write the bare name.
 - `pcv_importance(method = "sequential")` is soft-deprecated. Use
   [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   for an order-dependent path or `method = "shapley"` for
@@ -135,6 +149,16 @@
 
 ### Bug fixes
 
+- The fixed-cell-interaction guard now sees a transformed dimension.
+  `y ~ factor(a) * b + (1 | a:b)` passed the guard because `factor(a)`
+  did not match the dimension name, so the fixed `factor(a):b` cell
+  means survived into both derived formulas, saturated the strata and
+  left the stratum variance unidentified (a degenerate Hessian, and a
+  PCV of essentially zero).
+- [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  on a model carrying a transformed dimension now says so instead of
+  reporting it as a null model, which was true in effect but named
+  neither the cause nor the remedy.
 - A singular fit is no longer reported as a convergence failure. lme4
   files “boundary (singular) fit” among its own convergence messages, so
   a fit whose optimizer returned code 0 was recorded as

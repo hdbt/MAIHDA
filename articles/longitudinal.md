@@ -92,8 +92,9 @@ summary(m)
 #> Trajectory VPCs (Bell et al. 2024, eq. 5; occasion-level variance excluded):
 #>   Intercept (wave = 0): 0.6147    Slope: 0.6888
 #>   These ask how intersectionally patterned trajectories are; the VPC
-#>   above asks how much of an observed measurement a stratum explains,
-#>   so at a given time these are larger. See ?summary.maihda_model.
+#>   above asks how much of an observed measurement a stratum explains.
+#>   Intercept exceeds it at the reference time; Slope is on a different
+#>   scale and is not comparable to it. See ?summary.maihda_model.
 #> 
 #> Fixed Effects (Wald 95% intervals):
 #>         term  estimate     se statistic p_value   lower  upper
@@ -140,14 +141,16 @@ A rising VPC trajectory means the strata fan out over time
 ### Two VPCs, and which one to report
 
 [`summary()`](https://rdrr.io/r/base/summary.html) reports **two
-different variance partitions** for a growth model. They differ in a
-single denominator term; the level-1 (occasion) residual $`\sigma^2_e`$,
-which here is *within-individual volatility*, or in other words how far
-one measurement falls from that person’s own smooth trajectory. It mixes
-measurement error, real short-term fluctuation, and any misfit of the
-functional form.
+different variance partitions** for a growth model, and they are not
+interchangeable. They differ in a single denominator term: the level-1
+(occasion) residual $`\sigma^2_e`$, which here is *within-individual
+volatility* – how far one measurement falls from that person’s own
+smooth trajectory. It mixes measurement error, real short-term
+fluctuation, and any misfit of the functional form. A cross-sectional
+MAIHDA cannot separate it from between-individual variance at all;
+repeated measures are what split the two.
 
-The headline VPC keeps the term, and therfore answers the
+The headline VPC keeps the term, and therefore answers the
 discriminatory-accuracy question of how much of an *observed
 measurement* a stratum accounts for:
 
@@ -175,24 +178,43 @@ c(intercept = s$longitudinal$vpc_intercept, slope = s$longitudinal$vpc_slope)
 #> 0.6146997 0.6887613
 ```
 
-These ask how intersectionally patterned people’s *trajectories* are.
-What share of the between-individual variation in where a trajectory
+These ask how intersectionally patterned people’s *trajectories* are –
+what share of the between-individual variation in where a trajectory
 starts, and in how fast it changes, lies between strata. Because
-$`\sigma^2_e`$ is absent they are always larger than the headline VPC,
-and they do not shrink when the outcome is measured noisily making them
-comparable across studies using different instruments, where the
-headline VPC does not.
+$`\sigma^2_e`$ is absent, neither shrinks when the outcome is measured
+noisily, which makes them comparable across studies using different
+instruments where the headline VPC is not.
+
+Do not expect them to be uniformly larger than the headline VPC. Only
+one comparison is guaranteed: at $`t_0`$ the intercept VPC has the same
+numerator as the headline VPC and a denominator short of $`\sigma^2_e`$,
+so it is strictly larger there. That says nothing about later times –
+when strata fan out, $`\operatorname{VPC}_S(t)`$ rises and readily
+overtakes it. The slope VPC is not comparable to the headline VPC at
+all: its numerator is a between-stratum *slope* variance, not
+$`\operatorname{Var}_S(t_0)`$, so it can sit anywhere relative to it,
+and sits far below it whenever strata differ in level but barely in rate
+of change.
 
 **Report the headline VPC unless you specifically mean the trajectory
 question.** It is the quantity comparable to published cross-sectional
-MAIHDA VPCs, and it is the one that accounts for the discriminatory
-accuracy. The trajectory VPCs should be reported next to `PCV_intercept`
-and `PCV_slope`, and `VPC_slope` is the only scale-free way to describe
-how intersectional the rates of change are.
+MAIHDA VPCs, and it is the one that speaks to discriminatory accuracy.
+The trajectory VPCs should be reported next to `PCV_intercept` and
+`PCV_slope`, and `vpc_slope` is the only scale-free way to describe how
+intersectional the rates of change are.
 
-Please note the intercept VPC drops the term also for symmetry. And both
-are evaluated at the baseline $`t_0`$; the intercept VPC depends on
-where time is zeroed (the slope VPC does not).
+For the slope the residual could not have been included even in
+principle: a slope variance is in $`(\text{outcome}/\text{time})^2`$
+while $`\sigma^2_e`$ is in $`\text{outcome}^2`$, so the sum would be
+dimensionally meaningless. (The headline VPC is well formed because
+$`a(t)'\Sigma a(t)`$ returns to $`\text{outcome}^2`$.) The intercept VPC
+drops it for symmetry with the slope.
+
+Both are evaluated at the baseline $`t_0`$; the intercept VPC depends on
+where time is zeroed and the slope VPC does not, as Bell et al. note.
+Their own examples centre on mean age rather than the baseline, so an
+intercept VPC replicated from the paper will differ from the one
+reported here unless the reference points are aligned.
 
 ## Decomposing the trajectory: additive vs. multiplicative
 
