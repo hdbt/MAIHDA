@@ -12,6 +12,7 @@ plot_upset_strata(
   highlight = NULL,
   only_flagged = FALSE,
   select = c("order", "deviation"),
+  order_by = c("size", "predicted_desc", "stratum", "predicted_asc", "deviation"),
   quantity = c("predicted", "interaction")
 )
 }
@@ -39,6 +40,13 @@ attached as attributes (including \code{highlight_by} and \code{rope}).}
 regardless; this governs the fill / the unflagged case. It controls
 \emph{which} strata are shown, separately from how they are ordered for
 display.}
+
+\item{order_by}{Left-to-right column order (\strong{display-only}; does not
+change which strata are shown, nor any value): \code{"size"} (default,
+largest intersection first -- the UpSet convention), \code{"stratum"} native
+stratum order, or \code{"predicted_desc"} / \code{"predicted_asc"} /
+\code{"deviation"}, which sort on the quantity the estimate panel actually
+shows and so follow \code{quantity}. \code{NULL} takes this view's default.}
 }
 \value{
 A \pkg{patchwork} object stacking the three panels.
@@ -49,9 +57,11 @@ replaces the long intersectional axis labels with an UpSet-style category
 matrix. Three panels share one column order: a top bar of intersection
 (stratum) sizes, a middle matrix encoding each stratum's category on every
 dimension, and a bottom panel of predicted values with conditional intervals.
-Columns are ordered by intersection size (largest first). Binary 0/1 (or
-logical) dimensions collapse to a single present/absent row; multi-level
-factors get one row per level, and each column lights exactly one dot per
-dimension.
+Columns are ordered by intersection size (largest first) by default, or by any
+other \code{order_by} rule -- \code{"predicted_desc"} turns the view into the
+ranked caterpillar of \code{plot_predicted_strata()} drawn against the category
+matrix instead of long text labels. Binary 0/1 (or logical) dimensions collapse
+to a single present/absent row; multi-level factors get one row per level, and
+each column lights exactly one dot per dimension.
 }
 \keyword{internal}

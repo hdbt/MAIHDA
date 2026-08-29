@@ -22,7 +22,10 @@
 #'       every dimension, and the predicted-value panel, all sharing one column
 #'       order. Replaces the long intersectional axis labels with the matrix.
 #'       Binary 0/1 dimensions show as a single present/absent row; multi-level
-#'       factors get one row per level
+#'       factors get one row per level. Columns are ordered by intersection size
+#'       (largest first) by default; \code{order_by = "predicted_desc"} gives the
+#'       ranked caterpillar of \code{"predicted"} with the matrix in place of the
+#'       text labels
 #'     \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
 #'     \item "prediction_deviation": Detailed deviation panels for individuals or strata
 #'     \item "context_vpc": Stratum vs. context variance bars for a contextual
@@ -95,16 +98,25 @@
 #'   governs the fill and the unflagged case. \code{select} changes \emph{which}
 #'   strata appear; their left-to-right display order is a separate choice governed
 #'   by \code{order_by}.
-#' @param order_by For \code{type = "predicted"}, how to order the strata that are
-#'   displayed (\strong{display-only} -- it does not change \emph{which} strata are
-#'   shown, that is \code{n_strata}/\code{select}, nor the predicted values,
-#'   intervals, reference line, or highlighted set): \code{"predicted_desc"}
-#'   (default) orders labels from the highest predicted value to the lowest,
-#'   \code{"stratum"} keeps the native stratum order (the previous behaviour),
-#'   \code{"predicted_asc"} orders from lowest to highest, and \code{"deviation"}
-#'   orders by largest absolute deviation from the reference line
-#'   (\code{|predicted - reference|}). Ignored by the other plot types
-#'   (\code{"upset"} orders by intersection size).
+#' @param order_by For \code{type = "predicted"} and \code{type = "upset"}, how to
+#'   order the strata that are displayed (\strong{display-only} -- it does not
+#'   change \emph{which} strata are shown, that is \code{n_strata}/\code{select},
+#'   nor the predicted values, intervals, reference line, or highlighted set):
+#'   \code{"predicted_desc"} orders from the highest predicted value to the lowest,
+#'   \code{"stratum"} keeps the native stratum order, \code{"predicted_asc"} orders
+#'   from lowest to highest, \code{"deviation"} orders by largest absolute deviation
+#'   from the reference line (\code{|predicted - reference|}), and \code{"size"}
+#'   orders by intersection (stratum) size, largest first. The default is
+#'   \strong{per view}: \code{"predicted_desc"} for \code{"predicted"} (labels run
+#'   from the highest predicted value down) and \code{"size"} for \code{"upset"}
+#'   (the UpSet convention, which also makes its intersection-size bar monotone).
+#'   On the \code{"upset"} view the three value-based orders sort on the quantity
+#'   the bottom panel actually shows, so they follow \code{quantity} -- with
+#'   \code{quantity = "interaction"} they order by the stratum random effect and
+#'   \code{"deviation"} measures the distance from zero. Combining
+#'   \code{order_by = "predicted_desc"} with \code{type = "upset"} gives the
+#'   ranked caterpillar of the \code{"predicted"} view drawn against the UpSet
+#'   category matrix instead of long text labels. Ignored by the other plot types.
 #' @param quantity For \code{type = "upset"}, which quantity the bottom panel
 #'   shows: \code{"predicted"} (default) the stratum's predicted value (fixed +
 #'   random effect) against the across-strata reference line, or
@@ -144,7 +156,7 @@
 #' @import ggplot2
 #' @importFrom dplyr arrange
 plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "predicted", "upset", "effect_decomp", "prediction_deviation", "context_vpc", "vpc_trajectory", "trajectories"),
-                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, highlight_by = c("flag", "rope"), rope = NULL, select = c("order", "deviation"), order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"), quantity = c("predicted", "interaction"), ...) {
+                       summary_obj = NULL, n_strata = 50, highlight_interactions = FALSE, only_flagged = FALSE, highlight_by = c("flag", "rope"), rope = NULL, select = c("order", "deviation"), order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation", "size"), quantity = c("predicted", "interaction"), ...) {
   if (!inherits(x, "maihda_model")) {
     stop("'x' must be a maihda_model object from fit_maihda()")
   }
@@ -163,9 +175,16 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
   highlight_by <- match.arg(highlight_by)
   # Which strata survive the n_strata cap on the predicted / trajectory views.
   select <- match.arg(select)
-  # How the predicted view orders the strata it displays (display-only; does not
-  # change which strata are shown -- that is n_strata / select).
-  order_by <- match.arg(order_by)
+  # How the stratum views order the strata they display (display-only; does not
+  # change which strata are shown -- that is n_strata / select). The two views
+  # have DIFFERENT sensible defaults (highest predicted first for "predicted";
+  # largest intersection first for "upset", the UpSet convention its size bar
+  # relies on), so an unsupplied order_by forwards as NULL -- "let the view
+  # choose" -- rather than as this formal's first choice. NULL also arrives from
+  # plot.maihda_analysis(), which forwards the same sentinel; a supplied value is
+  # still validated here so a typo errors at the entry point.
+  order_by_supplied <- !missing(order_by) && !is.null(order_by)
+  order_by <- if (order_by_supplied) match.arg(order_by) else NULL
   # Which quantity the upset view's estimate panel shows: the predicted value or
   # the stratum random effect (interaction).
   quantity <- match.arg(quantity)
@@ -258,7 +277,7 @@ plot.maihda_model <- function(x, type = c("all", "vpc", "obs_vs_shrunken", "pred
     } else if (type == "predicted") {
       plot <- plot_predicted_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select, order_by = order_by)
     } else if (type == "upset") {
-      plot <- plot_upset_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select, quantity = quantity)
+      plot <- plot_upset_strata(object, summary_obj, n_strata, highlight = highlight_ids, only_flagged = only_flagged, select = select, order_by = order_by, quantity = quantity)
     } else if (type == "effect_decomp") {
       # The waterfall's value IS the full-distribution context, so filtering it
       # away defeats the view; keep it highlighted and say so rather than no-op.
@@ -1011,14 +1030,18 @@ maihda_observed_outcome_for_plot <- function(x, family = NULL) {
 #'   not change which strata are shown -- that is \code{n_strata}/\code{select} --
 #'   nor the predicted values, intervals, or reference line): \code{"predicted_desc"}
 #'   (default) highest predicted at the top, \code{"stratum"} native stratum order,
-#'   \code{"predicted_asc"} lowest at the top, or \code{"deviation"} largest
-#'   \code{|predicted - reference|} at the top.
+#'   \code{"predicted_asc"} lowest at the top, \code{"deviation"} largest
+#'   \code{|predicted - reference|} at the top, or \code{"size"} largest stratum
+#'   first. \code{NULL} means the caller expressed no preference and takes this
+#'   view's default (\code{"predicted_desc"}).
 #' @return A ggplot2 object
 #' @keywords internal
 #' @import ggplot2
 #' @importFrom dplyr arrange slice
-plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL, only_flagged = FALSE, select = c("order", "deviation"), order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation")) {
-  order_by <- match.arg(order_by)
+plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"), highlight = NULL, only_flagged = FALSE, select = c("order", "deviation"), order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation", "size")) {
+  # NULL is the "no explicit order asked for" sentinel the dispatchers forward;
+  # this view's default is the ranked caterpillar (highest predicted at the top).
+  order_by <- if (is.null(order_by)) "predicted_desc" else match.arg(order_by)
   prep <- maihda_prepare_predicted_strata(
     object, summary_obj, n_strata, scale = scale,
     highlight = highlight, only_flagged = only_flagged, select = select)
@@ -1041,7 +1064,8 @@ plot_predicted_strata <- function(object, summary_obj, n_strata, scale = c("resp
     stratum        = seq_len(nrow(stratum_est)),
     predicted_desc = order(stratum_est$predicted, decreasing = TRUE),
     predicted_asc  = order(stratum_est$predicted, decreasing = FALSE),
-    deviation      = order(abs(stratum_est$predicted - fixed_reference), decreasing = TRUE))
+    deviation      = order(abs(stratum_est$predicted - fixed_reference), decreasing = TRUE),
+    size           = order(stratum_est$n, decreasing = TRUE))
   stratum_est <- stratum_est[ord, , drop = FALSE]
 
   # Create factor to preserve order for plotting. Levels are reversed so that
@@ -1255,21 +1279,34 @@ maihda_prepare_predicted_strata <- function(object, summary_obj, n_strata,
 #' matrix. Three panels share one column order: a top bar of intersection
 #' (stratum) sizes, a middle matrix encoding each stratum's category on every
 #' dimension, and a bottom panel of predicted values with conditional intervals.
-#' Columns are ordered by intersection size (largest first). Binary 0/1 (or
-#' logical) dimensions collapse to a single present/absent row; multi-level
-#' factors get one row per level, and each column lights exactly one dot per
-#' dimension.
+#' Columns are ordered by intersection size (largest first) by default, or by any
+#' other \code{order_by} rule -- \code{"predicted_desc"} turns the view into the
+#' ranked caterpillar of \code{plot_predicted_strata()} drawn against the category
+#' matrix instead of long text labels. Binary 0/1 (or logical) dimensions collapse
+#' to a single present/absent row; multi-level factors get one row per level, and
+#' each column lights exactly one dot per dimension.
 #'
 #' @inheritParams plot_predicted_strata
+#' @param order_by Left-to-right column order (\strong{display-only}; does not
+#'   change which strata are shown, nor any value): \code{"size"} (default,
+#'   largest intersection first -- the UpSet convention), \code{"stratum"} native
+#'   stratum order, or \code{"predicted_desc"} / \code{"predicted_asc"} /
+#'   \code{"deviation"}, which sort on the quantity the estimate panel actually
+#'   shows and so follow \code{quantity}. \code{NULL} takes this view's default.
 #' @return A \pkg{patchwork} object stacking the three panels.
 #' @keywords internal
 #' @import ggplot2
 plot_upset_strata <- function(object, summary_obj, n_strata, scale = c("response", "link"),
                               highlight = NULL, only_flagged = FALSE,
                               select = c("order", "deviation"),
+                              order_by = c("size", "predicted_desc", "stratum",
+                                           "predicted_asc", "deviation"),
                               quantity = c("predicted", "interaction")) {
   scale <- match.arg(scale)
   select <- match.arg(select)
+  # NULL is the "no explicit order asked for" sentinel the dispatchers forward;
+  # this view's default is the UpSet convention, largest intersection first.
+  order_by <- if (is.null(order_by)) "size" else match.arg(order_by)
   quantity <- match.arg(quantity)
   is_interaction <- quantity == "interaction"
   plot_title <- if (is_interaction) {
@@ -1311,11 +1348,30 @@ plot_upset_strata <- function(object, summary_obj, n_strata, scale = c("response
          call. = FALSE)
   }
 
-  # Order the kept strata by intersection size (largest first) -- the UpSet
-  # convention, and the most useful here since the largest strata carry the most
-  # reliably estimated effects. `select` already chose WHICH strata survive the
-  # cap; this governs only their left-to-right order.
-  ord <- order(stratum_est$n, decreasing = TRUE)
+  # Which column the estimate panel shows: the predicted value against the
+  # across-strata reference, or the random effect (interaction) against zero.
+  # Resolved HERE, above the ordering, because the value-based orders sort on the
+  # quantity actually plotted -- ordering by `predicted` while drawing the random
+  # effect would render as an unsorted panel.
+  est_y   <- if (is_interaction) "random_effect" else "predicted"
+  est_lo  <- if (is_interaction) "lower_95" else "lower"
+  est_hi  <- if (is_interaction) "upper_95" else "upper"
+  est_ref <- if (is_interaction) 0 else fixed_reference
+  est_ylab <- if (is_interaction) "Stratum random effect" else "Predicted Value"
+
+  # Left-to-right order of the kept strata. Purely cosmetic: `select` already
+  # chose WHICH strata survive the cap and the reference line was fixed from ALL
+  # strata, so this changes neither the shown set nor any value. The default is
+  # intersection size (largest first) -- the UpSet convention, the most useful
+  # here since the largest strata carry the most reliably estimated effects, and
+  # the only order under which the top size bar decreases monotonically.
+  # order() sinks any NA estimates to the right-hand end.
+  ord <- switch(order_by,
+    size           = order(stratum_est$n, decreasing = TRUE),
+    stratum        = seq_len(nrow(stratum_est)),
+    predicted_desc = order(stratum_est[[est_y]], decreasing = TRUE),
+    predicted_asc  = order(stratum_est[[est_y]], decreasing = FALSE),
+    deviation      = order(abs(stratum_est[[est_y]] - est_ref), decreasing = TRUE))
   stratum_est <- stratum_est[ord, , drop = FALSE]
   stratum_est$rank <- seq_len(nrow(stratum_est))
   k <- nrow(stratum_est)
@@ -1410,15 +1466,8 @@ plot_upset_strata <- function(object, summary_obj, n_strata, scale = c("response
     base_theme +
     theme(panel.grid.major.y = element_blank())
 
-  # Panel 3: the per-stratum estimate (inherits the highlight). `quantity` picks
-  # the column shown: the predicted value against the across-strata reference, or
-  # the random effect (interaction) against zero.
-  est_y   <- if (is_interaction) "random_effect" else "predicted"
-  est_lo  <- if (is_interaction) "lower_95" else "lower"
-  est_hi  <- if (is_interaction) "upper_95" else "upper"
-  est_ref <- if (is_interaction) 0 else fixed_reference
-  est_ylab <- if (is_interaction) "Stratum random effect" else "Predicted Value"
-
+  # Panel 3: the per-stratum estimate (inherits the highlight). The column shown
+  # was resolved from `quantity` above, alongside the display order.
   has_hl <- any(stratum_est$.maihda_flag)
   est_layers <- if (has_hl) {
     list(
@@ -1434,8 +1483,19 @@ plot_upset_strata <- function(object, summary_obj, n_strata, scale = c("response
                     width = 0.25, alpha = 0.5, color = "#0072B2")
     )
   }
+  # The caption states the order actually drawn -- it is no longer fixed, and a
+  # figure that misreports its own column order is worse than one that omits it.
+  est_word <- if (is_interaction) "stratum random effect" else "predicted value"
+  order_note <- switch(order_by,
+    size           = "intersection size (largest first)",
+    stratum        = "stratum order",
+    predicted_desc = paste0(est_word, " (highest first)"),
+    predicted_asc  = paste0(est_word, " (lowest first)"),
+    deviation      = paste0("absolute deviation from ",
+                            if (is_interaction) "zero" else "the reference",
+                            " (largest first)"))
   note <- paste0("Dark dot = the stratum's category on each dimension; columns ",
-                 "ordered by intersection size (largest first).")
+                 "ordered by ", order_note, ".")
   if (is_interaction) {
     note <- paste0(note, "\nLower panel: stratum random effect on the link scale ",
                    "(deviation from the model's fixed prediction; the pure ",

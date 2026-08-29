@@ -133,7 +133,9 @@ alternative to the rotated labels above. A dot matrix encodes each stratum's
 category on every dimension -- a single present/absent row for a binary 0/1
 dimension, one row per level for a multi-level factor such as `Race` or
 `Education` -- with an intersection-size bar above and the predicted values below,
-all sharing one column order (largest stratum first). Highlighting carries over:
+all sharing one column order (largest stratum first, which `order_by` changes --
+`order_by = "predicted_desc"` gives the ranked caterpillar of `type = "predicted"`
+with the matrix in place of the long text labels). Highlighting carries over:
 with `highlight_by = "rope"`, strata whose interaction is credibly outside a
 *region of practical equivalence* are drawn in the accent colour. Here a ROPE of
 +/-0.25 BMI flags only two intersections -- a reminder that the intersectional

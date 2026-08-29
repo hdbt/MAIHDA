@@ -15,7 +15,7 @@
   highlight_by = c("flag", "rope"),
   rope = NULL,
   select = c("order", "deviation"),
-  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
+  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation", "size"),
   quantity = c("predicted", "interaction"),
   ...
 )
@@ -40,7 +40,10 @@
     every dimension, and the predicted-value panel, all sharing one column
     order. Replaces the long intersectional axis labels with the matrix.
     Binary 0/1 dimensions show as a single present/absent row; multi-level
-    factors get one row per level
+    factors get one row per level. Columns are ordered by intersection size
+    (largest first) by default; \code{order_by = "predicted_desc"} gives the
+    ranked caterpillar of \code{"predicted"} with the matrix in place of the
+    text labels
   \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
   \item "prediction_deviation": Detailed deviation panels for individuals or strata
   \item "context_vpc": Stratum vs. context variance bars for a contextual
@@ -121,16 +124,25 @@ governs the fill and the unflagged case. \code{select} changes \emph{which}
 strata appear; their left-to-right display order is a separate choice governed
 by \code{order_by}.}
 
-\item{order_by}{For \code{type = "predicted"}, how to order the strata that are
-displayed (\strong{display-only} -- it does not change \emph{which} strata are
-shown, that is \code{n_strata}/\code{select}, nor the predicted values,
-intervals, reference line, or highlighted set): \code{"predicted_desc"}
-(default) orders labels from the highest predicted value to the lowest,
-\code{"stratum"} keeps the native stratum order (the previous behaviour),
-\code{"predicted_asc"} orders from lowest to highest, and \code{"deviation"}
-orders by largest absolute deviation from the reference line
-(\code{|predicted - reference|}). Ignored by the other plot types
-(\code{"upset"} orders by intersection size).}
+\item{order_by}{For \code{type = "predicted"} and \code{type = "upset"}, how to
+order the strata that are displayed (\strong{display-only} -- it does not
+change \emph{which} strata are shown, that is \code{n_strata}/\code{select},
+nor the predicted values, intervals, reference line, or highlighted set):
+\code{"predicted_desc"} orders from the highest predicted value to the lowest,
+\code{"stratum"} keeps the native stratum order, \code{"predicted_asc"} orders
+from lowest to highest, \code{"deviation"} orders by largest absolute deviation
+from the reference line (\code{|predicted - reference|}), and \code{"size"}
+orders by intersection (stratum) size, largest first. The default is
+\strong{per view}: \code{"predicted_desc"} for \code{"predicted"} (labels run
+from the highest predicted value down) and \code{"size"} for \code{"upset"}
+(the UpSet convention, which also makes its intersection-size bar monotone).
+On the \code{"upset"} view the three value-based orders sort on the quantity
+the bottom panel actually shows, so they follow \code{quantity} -- with
+\code{quantity = "interaction"} they order by the stratum random effect and
+\code{"deviation"} measures the distance from zero. Combining
+\code{order_by = "predicted_desc"} with \code{type = "upset"} gives the
+ranked caterpillar of the \code{"predicted"} view drawn against the UpSet
+category matrix instead of long text labels. Ignored by the other plot types.}
 
 \item{quantity}{For \code{type = "upset"}, which quantity the bottom panel
 shows: \code{"predicted"} (default) the stratum's predicted value (fixed +

@@ -12,7 +12,7 @@ plot_predicted_strata(
   highlight = NULL,
   only_flagged = FALSE,
   select = c("order", "deviation"),
-  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation")
+  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation", "size")
 )
 }
 \arguments{
@@ -44,8 +44,10 @@ display.}
 not change which strata are shown -- that is \code{n_strata}/\code{select} --
 nor the predicted values, intervals, or reference line): \code{"predicted_desc"}
 (default) highest predicted at the top, \code{"stratum"} native stratum order,
-\code{"predicted_asc"} lowest at the top, or \code{"deviation"} largest
-\code{|predicted - reference|} at the top.}
+\code{"predicted_asc"} lowest at the top, \code{"deviation"} largest
+\code{|predicted - reference|} at the top, or \code{"size"} largest stratum
+first. \code{NULL} means the caller expressed no preference and takes this
+view's default (\code{"predicted_desc"}).}
 }
 \value{
 A ggplot2 object

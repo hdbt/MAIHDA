@@ -1116,12 +1116,14 @@ summary.maihda_analysis <- function(object, which = c("null", "adjusted"), ...) 
 #'   keep: \code{"order"} (default, first n_strata in stratum order) or
 #'   \code{"deviation"} (the n_strata furthest from the reference, both tails). See
 #'   \code{\link[=plot.maihda_model]{plot}}.
-#' @param order_by Display order of the strata on the \code{"predicted"} view
-#'   (display-only; does not change which strata are shown, nor any value):
-#'   \code{"predicted_desc"} (default) highest predicted first, \code{"stratum"}
-#'   native order, \code{"predicted_asc"} lowest first, or \code{"deviation"}
-#'   largest \code{|predicted - reference|} first. See
-#'   \code{\link[=plot.maihda_model]{plot}}.
+#' @param order_by Display order of the strata on the \code{"predicted"} and
+#'   \code{"upset"} views (display-only; does not change which strata are shown,
+#'   nor any value): \code{"predicted_desc"} highest predicted first,
+#'   \code{"stratum"} native order, \code{"predicted_asc"} lowest first,
+#'   \code{"deviation"} largest \code{|predicted - reference|} first, or
+#'   \code{"size"} largest stratum first. The default is per view --
+#'   \code{"predicted_desc"} for \code{"predicted"}, \code{"size"} for
+#'   \code{"upset"}. See \code{\link[=plot.maihda_model]{plot}}.
 #' @param model For \code{type = "vpc"}, which model's variance partition to show:
 #'   \code{"null"} (default) the total between-stratum heterogeneity (the previous,
 #'   backward-compatible behaviour), \code{"adjusted"} the between-stratum
@@ -1144,7 +1146,7 @@ summary.maihda_analysis <- function(object, which = c("null", "adjusted"), ...) 
 plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE,
                                  only_flagged = FALSE, highlight_by = c("flag", "rope"),
                                  rope = NULL, select = c("order", "deviation"),
-                                 order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
+                                 order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation", "size"),
                                  model = c("null", "adjusted", "both"),
                                  ...) {
   type <- match.arg(type, c(
@@ -1167,8 +1169,11 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
   highlight_by <- match.arg(highlight_by)
   # Which strata survive the n_strata cap on the predicted / trajectory views.
   select <- match.arg(select)
-  # Display order for the predicted view (display-only; see plot.maihda_model()).
-  order_by <- match.arg(order_by)
+  # Display order for the stratum views (display-only; see plot.maihda_model()).
+  # The "predicted" and "upset" views have different defaults, so forward NULL --
+  # "no order requested, let the view choose" -- when the caller did not supply
+  # one, rather than silently imposing this formal's first choice on both.
+  order_by <- if (missing(order_by) || is.null(order_by)) NULL else match.arg(order_by)
   # Which model's VPC the "vpc" view shows: the null model (default, backward
   # compatible), the adjusted model, or "both" as a single change plot. It selects
   # the VPC view only -- pairing a non-default `model` with any other `type` is a

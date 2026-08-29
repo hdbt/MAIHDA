@@ -12,7 +12,7 @@
   highlight_by = c("flag", "rope"),
   rope = NULL,
   select = c("order", "deviation"),
-  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
+  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation", "size"),
   model = c("null", "adjusted", "both"),
   ...
 )
@@ -69,12 +69,14 @@ keep: \code{"order"} (default, first n_strata in stratum order) or
 \code{"deviation"} (the n_strata furthest from the reference, both tails). See
 \code{\link[=plot.maihda_model]{plot}}.}
 
-\item{order_by}{Display order of the strata on the \code{"predicted"} view
-(display-only; does not change which strata are shown, nor any value):
-\code{"predicted_desc"} (default) highest predicted first, \code{"stratum"}
-native order, \code{"predicted_asc"} lowest first, or \code{"deviation"}
-largest \code{|predicted - reference|} first. See
-\code{\link[=plot.maihda_model]{plot}}.}
+\item{order_by}{Display order of the strata on the \code{"predicted"} and
+\code{"upset"} views (display-only; does not change which strata are shown,
+nor any value): \code{"predicted_desc"} highest predicted first,
+\code{"stratum"} native order, \code{"predicted_asc"} lowest first,
+\code{"deviation"} largest \code{|predicted - reference|} first, or
+\code{"size"} largest stratum first. The default is per view --
+\code{"predicted_desc"} for \code{"predicted"}, \code{"size"} for
+\code{"upset"}. See \code{\link[=plot.maihda_model]{plot}}.}
 
 \item{model}{For \code{type = "vpc"}, which model's variance partition to show:
 \code{"null"} (default) the total between-stratum heterogeneity (the previous,
