@@ -399,6 +399,11 @@ plot_comparison <- function(comparison_df) {
 #'   \code{outcome ~ covars + (1 | var1:var2)} (strata are built automatically)
 #'   or \code{outcome ~ covars + (1 | stratum)} when \code{data} already contains
 #'   a \code{stratum} column from \code{\link{make_strata}}.
+#'   Any dimension main effect listed must be written as its bare column name: a
+#'   transformed term such as \code{factor(edu)} is rejected, because only a bare
+#'   name is recognised as a dimension's main effect and the transform would
+#'   otherwise survive into the derived null model. Transform the column in
+#'   \code{data} instead (\code{data$edu <- factor(data$edu)}).
 #' @param data A data frame containing the variables in \code{formula} and the
 #'   grouping variable.
 #' @param group Character string naming the grouping variable in \code{data}
@@ -899,6 +904,12 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     dim_terms <- maihda_adjusted_terms(decomp_vars,
                                        carried_attrs[["strata_autobin_info"]],
                                        data)$terms
+    # Reject a stratum dimension written in transformed form (e.g. `factor(gender)`):
+    # the main-effect stripping below matches bare column names only, so the transform
+    # would stay in every group's null model and corrupt that group's PCV. (maihda()
+    # catches this earlier; this guards a direct call.)
+    maihda_check_no_transformed_dimension(fit_formula, decomp_vars, dim_terms,
+                                          fn = "compare_maihda_groups")
     # Reject a fixed interaction among the stratum dimensions (e.g. `gender * ses`).
     # Stripping only the main effects below would leave the fixed gender:ses term in
     # place, duplicating the (1 | stratum) random intercept and driving every group's

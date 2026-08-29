@@ -1003,6 +1003,109 @@ maihda_nobars <- function(formula) {
   out
 }
 
+# TRUE when a variable label from terms() is a CALL that involves at least one stratum
+# dimension -- a TRANSFORMED appearance such as factor(a), as.factor(a), relevel(a, ...),
+# scale(a), I(a > 2), poly(a, 2) or ns(a, 3). A bare variable name is FALSE, including a
+# backtick-quoted non-syntactic name (`gender var` parses to a name, not a call), and so
+# is a call over covariates only (log(age) with `age` a covariate). Detection is by
+# expression inspection plus all.vars(), so it holds for any nesting depth.
+maihda_is_transformed_dim <- function(var_label, dim_names) {
+  expr <- tryCatch(str2lang(var_label), error = function(e) NULL)
+  if (is.null(expr) || is.name(expr) || is.atomic(expr)) {
+    return(FALSE)
+  }
+  any(all.vars(expr) %in% dim_names)
+}
+
+# Detect stratum dimensions that appear in a formula's fixed part only in TRANSFORMED
+# form -- the second way a MAIHDA decomposition goes silently wrong. A dimension's
+# additive main effect is recognised only when it is written as its bare column name
+# (see the dim_terms presence tests in maihda() and compare_maihda_groups()), so a term
+# like `factor(a)` is not stripped when the NULL model is derived: the null then already
+# adjusts for the dimension, its between-stratum variance is deflated, and the PCV is
+# computed against the wrong baseline. The adjusted model meanwhile ADDS the bare `a`
+# alongside the transform, so the two spellings of one dimension collide. In
+# crossed-dimensions mode the transform survives as a fixed effect while the same
+# dimension also enters as a random intercept, absorbing that dimension's additive
+# variance; in longitudinal mode the transform contaminates the null growth model.
+#
+# Returns the offending VARIABLE labels (character(0) when there are none) -- the
+# transformed spellings themselves, which is what the user has to rewrite. Only
+# variables that enter a fixed-effect term are considered: the response row and any
+# offset() row are all-zero in the terms() factors matrix and are skipped, so
+# `cbind(s, f) ~ .` and `offset(log(exposure))` are never flagged.
+maihda_transformed_dimension_terms <- function(formula, strata_vars,
+                                               dim_terms = character(0)) {
+  if (is.null(strata_vars) || length(strata_vars) == 0) {
+    return(character(0))
+  }
+  tt <- tryCatch(stats::terms(maihda_nobars(formula)),
+                 error = function(e) NULL)
+  if (is.null(tt)) return(character(0))
+  factors <- attr(tt, "factors")
+  if (is.null(factors) || length(factors) == 0) return(character(0))
+  var_labels <- rownames(factors)
+  if (is.null(var_labels) || length(var_labels) == 0) return(character(0))
+
+  dim_names <- unique(c(strata_vars, dim_terms))
+  in_a_term <- rowSums(factors != 0) > 0
+  transformed <- vapply(var_labels, maihda_is_transformed_dim, logical(1),
+                        dim_names = dim_names)
+  unique(unname(var_labels[in_a_term & transformed]))
+}
+
+# The stratum dimension name(s) involved in a set of flagged transformed variable
+# labels, in strata_vars order -- what the message must point at, since `factor(a)` in a
+# three-dimension design implicates `a` alone. Falls back to the raw dimension name when
+# an auto-binned dimension is implicated through its .maihda_dim_* reconstruction.
+maihda_transformed_dimension_vars <- function(flagged, strata_vars,
+                                              dim_terms = character(0)) {
+  involved <- unique(unlist(lapply(flagged, function(v) {
+    expr <- tryCatch(str2lang(v), error = function(e) NULL)
+    if (is.null(expr)) character(0) else all.vars(expr)
+  })))
+  hit <- vapply(seq_along(strata_vars), function(i) {
+    strata_vars[i] %in% involved ||
+      (length(dim_terms) >= i && dim_terms[i] %in% involved)
+  }, logical(1))
+  out <- strata_vars[hit]
+  if (length(out) == 0) strata_vars else out
+}
+
+# Stop with a single, actionable message when a formula's fixed part names a stratum
+# dimension only in transformed form (see maihda_transformed_dimension_terms()). Called
+# by the workflow entry points (maihda(), compare_maihda_groups()) BEFORE the
+# interaction guard, so `factor(a) * b` -- which the interaction guard alone would have
+# to unpick -- is rejected with the more specific message. Rejection rather than silent
+# normalisation matches maihda_check_no_dimension_interaction(): a transform is not
+# guaranteed to span the dimension's additive main effect (`scale(a)` and `I(a^2)` do
+# not), and normalising `factor(a, levels = ...)` would silently drop levels and change
+# the analytic sample. Transforming the COLUMN keeps the strata and the main effect in
+# step.
+maihda_check_no_transformed_dimension <- function(formula, strata_vars,
+                                                  dim_terms = character(0),
+                                                  fn = "maihda") {
+  flagged <- maihda_transformed_dimension_terms(formula, strata_vars, dim_terms)
+  if (length(flagged) == 0) {
+    return(invisible(NULL))
+  }
+  # Name the dimension(s) actually transformed, not the whole stratum set: with three
+  # dimensions and one `factor()` the message must point at the term to rewrite.
+  offenders <- maihda_transformed_dimension_vars(flagged, strata_vars, dim_terms)
+  stop(fn, "(): the formula's fixed part contains ", paste(flagged, collapse = ", "),
+       " -- a transformed appearance of the stratum-defining dimension(s) ",
+       paste(offenders, collapse = ", "), ". A dimension's additive main effect is ",
+       "recognised only when it is written as its bare column name, so a transformed ",
+       "term is NOT removed when the null model is derived: the null would already ",
+       "adjust for that dimension, its between-stratum variance would be deflated and ",
+       "the PCV computed against the wrong baseline (in crossed-dimensions mode the ",
+       "dimension would enter as a fixed effect AND a random intercept). Apply the ",
+       "transformation to the column in the data before fitting and write the bare ",
+       "name -- e.g. data$", offenders[1], " <- factor(data$", offenders[1],
+       "), then `", paste(strata_vars, collapse = " + "), "` -- or omit the term and ",
+       "let ", fn, "() add the dimensions' main effects itself.", call. = FALSE)
+}
+
 # Detect fixed-effect interaction term(s) among the stratum dimensions in a formula's
 # fixed part -- the bug behind a corrupt MAIHDA decomposition. The shorthand
 # `var1 * var2` expands to `var1 + var2 + var1:var2`, so the dimensions' main-effect
@@ -1039,7 +1142,13 @@ maihda_dimension_interaction_terms <- function(formula, strata_vars,
 
   dim_names <- unique(c(strata_vars, dim_terms))
   dim_quoted <- vapply(dim_names, maihda_quote_name, character(1))
-  is_dim_var <- var_labels %in% dim_names | var_labels %in% dim_quoted
+  # A TRANSFORMED appearance (factor(a):b) counts as the dimension too -- otherwise the
+  # guard reads `factor(a)` as an ordinary covariate, the term is not all-dimension, and
+  # a fixed cell-means interaction walks straight past into both derived formulas. The
+  # entry points reject transformed dimensions outright before this runs; keeping the
+  # match here makes the guard correct on its own for any other caller.
+  is_dim_var <- var_labels %in% dim_names | var_labels %in% dim_quoted |
+    vapply(var_labels, maihda_is_transformed_dim, logical(1), dim_names = dim_names)
 
   flagged <- character(0)
   for (j in seq_along(term_labels)) {

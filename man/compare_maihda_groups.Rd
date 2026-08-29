@@ -28,7 +28,12 @@ compare_maihda_groups(
 \item{formula}{A model formula. Either the shorthand intersectional form
 \code{outcome ~ covars + (1 | var1:var2)} (strata are built automatically)
 or \code{outcome ~ covars + (1 | stratum)} when \code{data} already contains
-a \code{stratum} column from \code{\link{make_strata}}.}
+a \code{stratum} column from \code{\link{make_strata}}.
+Any dimension main effect listed must be written as its bare column name: a
+transformed term such as \code{factor(edu)} is rejected, because only a bare
+name is recognised as a dimension's main effect and the transform would
+otherwise survive into the derived null model. Transform the column in
+\code{data} instead (\code{data$edu <- factor(data$edu)}).}
 
 \item{data}{A data frame containing the variables in \code{formula} and the
 grouping variable.}

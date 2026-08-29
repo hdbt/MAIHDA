@@ -35,7 +35,12 @@ maihda(
 \code{outcome ~ covars + (1 | var1:var2)} or \code{... + (1 | stratum)} when
 \code{data} already has a \code{stratum} column from \code{\link{make_strata}}.
 The dimensions' additive main effects may be listed (the fully-specified adjusted
-model) or omitted (added automatically, with a message); see Details.}
+model) or omitted (added automatically, with a message); see Details.
+Any dimension main effect listed must be written as its bare column name: a
+transformed term such as \code{factor(edu)} is rejected, because only a bare
+name is recognised as a dimension's main effect and the transform would
+otherwise survive into the derived null model. Transform the column in
+\code{data} instead (\code{data$edu <- factor(data$edu)}).}
 
 \item{data}{A data frame with the model variables (and the \code{group}
 variable, if used).}

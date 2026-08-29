@@ -494,6 +494,23 @@ maihda_warn_if_not_adjusted <- function(model) {
             "dimensions' ADDITIVE main effects (e.g. ", paste(sv, collapse = " + "),
             ", not ", paste(sv, collapse = " * "), "), or pass a maihda() result.",
             call. = FALSE)
+  } else if (length(flagged_tf <- tryCatch(
+      maihda_transformed_dimension_terms(model$formula, sv, expected),
+      error = function(e) character(0))) > 0) {
+    # A dimension written in transformed form (e.g. factor(gender)) fails the bare-name
+    # presence test above, so without this branch the model would be reported as a NULL
+    # model -- true in effect but misleading about the cause and about the remedy.
+    tf_dim <- maihda_transformed_dimension_vars(flagged_tf, sv, expected)[1]
+    warning("maihda_interactions(): the model's fixed part contains ",
+            paste(flagged_tf, collapse = ", "), " -- a transformed appearance of the ",
+            "stratum dimension(s) ",
+            paste(maihda_transformed_dimension_vars(flagged_tf, sv, expected),
+                  collapse = ", "), ". Only a bare ",
+            "column name counts as a dimension's additive main effect, so this model ",
+            "is treated as a NULL model: its stratum random effects are the TOTAL ",
+            "between-stratum deviation, not the pure interaction. Transform the column ",
+            "in the data (e.g. data$", tf_dim, " <- factor(data$", tf_dim, ")) and write ",
+            "the bare name, or pass a maihda() result.", call. = FALSE)
   } else if (!all(expected_quoted %in% fixed_terms)) {
     warning("maihda_interactions(): this looks like a null model -- the stratum ",
             "dimensions' additive main effects (", paste(sv, collapse = ", "),
