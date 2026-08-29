@@ -221,38 +221,56 @@ maihda_tag_role <- function(s, role) {
 #' expensive \eqn{ndraws \times nobs} computation.
 #'
 #' @section Two VPCs for a longitudinal fit:
-#' A longitudinal summary reports \strong{two different variance partitions}. They differ in one term of the denominator. The
+#' A longitudinal summary reports \strong{two different variance partitions}, and
+#' they are not interchangeable. They differ in one term of the denominator: the
 #' level-1 (occasion) residual variance \eqn{\sigma^2_e}, which in a growth model is
-#' \emph{within-individual volatility},  how far a single measurement falls from
+#' \emph{within-individual volatility} -- how far a single measurement falls from
 #' that person's own smooth trajectory. It mixes measurement error, genuine
-#' short-term fluctuation, and any misfit of the assumed functional form.
+#' short-term fluctuation, and any misfit of the assumed functional form. A
+#' cross-sectional MAIHDA cannot separate it from between-individual variance at
+#' all; repeated measures are what split the two.
 #'
 #' \strong{The headline VPC} (\code{vpc}, and \code{longitudinal$vpc_t} over time)
-#' keeps the term in the denominator:
+#' keeps it:
 #' \deqn{VPC_S(t) = \frac{Var_S(t)}{Var_S(t) + Var_I(t) + \sigma^2_e}.}
-#' This answers the question, how much of an \emph{observed
-#' measurement} at time \eqn{t} a stratum accounts for, and it is the quantity
-#' comparable to published cross-sectional MAIHDA VPCs (discriminatory-accuracy). It is recommended to report this one unless you
-#' specifically mean to answer the trajectory question.
+#' This is the discriminatory-accuracy question -- how much of an \emph{observed
+#' measurement} at time \eqn{t} a stratum accounts for -- and it is the quantity
+#' comparable to published cross-sectional MAIHDA VPCs. Report this one unless you
+#' specifically mean the trajectory question.
 #'
 #' \strong{The trajectory VPCs} (\code{longitudinal$vpc_intercept} and
-#' \code{longitudinal$vpc_slope}) drop the term, following Bell et al. (2024), equation
+#' \code{longitudinal$vpc_slope}) drop it, following Bell et al. (2024), equation
 #' (5):
 #' \deqn{VPC_{intercept} = \frac{Var_S(t_0)}{Var_S(t_0) + Var_I(t_0)}, \qquad
 #'       VPC_{slope} = \frac{SlopeVar_S(t_0)}{SlopeVar_S(t_0) + SlopeVar_I(t_0)}.}
-#' These ask how intersectionally patterned people's \emph{trajectories} are, i.e.
+#' These ask how intersectionally patterned people's \emph{trajectories} are -- what
 #' share of the between-individual variation in where a trajectory starts, and in how
-#' fast it changes, lies between strata. Because \eqn{\sigma^2_e} is absent they are
-#' systematically \strong{larger} than the headline VPC, and they are unaffected by
-#' how noisy the outcome measure is, which makes them comparable across studies using
-#' different instruments.
+#' fast it changes, lies between strata. Because \eqn{\sigma^2_e} is absent neither is
+#' affected by how noisy the outcome measure is, which makes them comparable across
+#' studies using different instruments.
 #'
-#' The intercept VPC drops it for symmetry with the slope.
+#' Do not expect them to be uniformly \strong{larger} than the headline VPC. Only one
+#' comparison is guaranteed: at \eqn{t_0} the intercept VPC has the same numerator as
+#' the headline VPC and a denominator short of \eqn{\sigma^2_e}, so it is strictly
+#' larger there. That says nothing about later times -- when strata fan out
+#' \eqn{VPC_S(t)} rises and readily overtakes it. The slope VPC is not comparable to
+#' the headline VPC at all: its numerator is a between-stratum \emph{slope} variance,
+#' not \eqn{Var_S(t_0)}, so it can sit anywhere relative to it, and sits far below it
+#' whenever strata differ in level but barely in rate of change.
+#'
+#' For the slope the residual could not be included even in principle: a slope
+#' variance is in \eqn{(\mathrm{outcome}/\mathrm{time})^2} while \eqn{\sigma^2_e} is
+#' in \eqn{\mathrm{outcome}^2}, so the sum would be dimensionally meaningless. (The
+#' headline VPC is well formed because \eqn{a(t)'\Sigma a(t)} returns to
+#' \eqn{\mathrm{outcome}^2}.) The intercept VPC drops it for symmetry with the slope.
 #'
 #' Both are evaluated at the baseline \eqn{t_0} (\code{ref_time}, the earliest
 #' observed time), pairing with \code{PCV_intercept} and \code{PCV_slope} from
 #' \code{maihda(decomposition = "longitudinal")}. The intercept VPC depends on where
-#' time is zeroed and the slope VPC does not. \code{vpc_slope} is \code{NA} when the model was fit with
+#' time is zeroed and the slope VPC does not, as Bell et al. note; their own examples
+#' centre on mean age rather than the baseline, so an intercept VPC replicated from
+#' the paper will differ from the one reported here unless the reference points are
+#' aligned. \code{vpc_slope} is \code{NA} when the model was fit with
 #' \code{stratum_slope = FALSE} (no between-stratum slope variance exists to take a
 #' share of).
 #'
@@ -1337,11 +1355,12 @@ print.maihda_summary <- function(x, ...) {
     cat("  The between-stratum variance is a function of time (random intercept +\n")
     cat("  slope), so the VPC varies; it depends on where time is zeroed. See\n")
     cat("  plot(type = \"vpc_trajectory\") for the full curve.\n\n")
-
     # Bell et al. (2024) eq. (5). A DIFFERENT denominator from the VPC above -- the
-    # occasion-level residual is excluded -- so these are systematically larger and
-    # answer a different question. Kept to two lines here; ?summary.maihda_model and
-    # the longitudinal vignette carry the full contrast.
+    # occasion-level residual is excluded -- so they answer a different question.
+    # Only the intercept VPC is ordered against the VPC above (larger, at the
+    # reference time); the slope VPC is on the slope scale and is not comparable to
+    # it at all. Kept to a few lines here; ?summary.maihda_model and the
+    # longitudinal vignette carry the full contrast.
     tv_i <- x$longitudinal$vpc_intercept
     tv_s <- x$longitudinal$vpc_slope
     if (!is.null(tv_i) || !is.null(tv_s)) {
@@ -1352,11 +1371,14 @@ print.maihda_summary <- function(x, ...) {
                   pal$accent(fmt_tv(tv_i)), pal$accent(fmt_tv(tv_s))))
       # One sentence on WHICH QUESTION each answers -- the part a reader cannot infer
       # from the header, and the one that stops the larger number being reported as
-      # "the VPC". "at a given time" is load-bearing: these exceed the VPC at the same
-      # time point, but not necessarily its maximum over the whole trajectory.
+      # "the VPC". The ordering claim is deliberately split: "at the reference time"
+      # is load-bearing for the intercept (it exceeds the VPC at the same time point,
+      # but not necessarily its maximum over the whole trajectory), and the slope VPC
+      # gets no ordering at all because its numerator is a slope variance.
       cat("  These ask how intersectionally patterned trajectories are; the VPC\n")
-      cat("  above asks how much of an observed measurement a stratum explains,\n")
-      cat("  so at a given time these are larger. See ?summary.maihda_model.\n\n")
+      cat("  above asks how much of an observed measurement a stratum explains.\n")
+      cat("  Intercept exceeds it at the reference time; Slope is on a different\n")
+      cat("  scale and is not comparable to it. See ?summary.maihda_model.\n\n")
     }
   }
 
