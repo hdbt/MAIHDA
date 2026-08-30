@@ -863,6 +863,7 @@ print.maihda_analysis <- function(x, ...) {
           " (crossed contextual random intercept)\n", sep = "")
     }
     maihda_print_fit_diagnostics(x$model$diagnostics)
+    maihda_print_autobin_info(x$model$strata_autobin_info)
 
     vpc <- x$summary$vpc
     if (maihda_vpc_has_interval(vpc)) {
@@ -909,6 +910,7 @@ print.maihda_analysis <- function(x, ...) {
     maihda_print_fit_diagnostics(x$model$diagnostics, label = "null model")
     maihda_print_fit_diagnostics(x$model_adjusted$diagnostics,
                                  label = "adjusted model")
+    maihda_print_autobin_info(x$model$strata_autobin_info)
 
     vpc <- x$summary$vpc
     if (maihda_vpc_has_interval(vpc)) {
@@ -958,6 +960,8 @@ print.maihda_analysis <- function(x, ...) {
   maihda_print_fit_diagnostics(x$model_adjusted$diagnostics, label = "adjusted model",
                                suppress_stratum_singular = TRUE,
                                include_adequacy = FALSE)
+  # Both models share the null model's strata, so one block covers the pair.
+  maihda_print_autobin_info(x$model$strata_autobin_info)
 
   vpc <- x$summary$vpc
   if (maihda_vpc_has_interval(vpc)) {

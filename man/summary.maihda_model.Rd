@@ -99,6 +99,12 @@ A maihda_summary object containing:
   \item{model_summary}{Original model summary}
   \item{diagnostics}{Fit-quality diagnostics (singular fit / convergence)
     carried over from the fitted model and reported by the print method}
+  \item{strata_autobin_info}{The auto-binning recipe carried over from the
+    fitted model: for each numeric stratum dimension \code{make_strata()}
+    discretised, its \code{breaks} and \code{labels}. The cut-points are
+    quantiles of the analytic sample, so they define the strata (and hence the
+    estimand); the print method reports them. An empty list when nothing was
+    binned}
 }
 \description{
 Provides a summary of a MAIHDA model including variance partition coefficients

@@ -832,6 +832,45 @@ maihda_print_fit_diagnostics <- function(diagnostics, label = NULL,
   invisible(NULL)
 }
 
+# Print the auto-binned dimensions block: which numeric stratum dimensions
+# make_strata() discretised, and the cut-points it used. Nothing is printed when
+# nothing was binned. The cut-points are quantiles of the analytic sample, so the
+# stratum definitions -- and therefore the estimand -- are data-dependent.
+# make_strata() announces them once via message() at fit time, but that is lost to
+# a model reloaded in a later session or fitted inside a script whose messages went
+# to a log, leaving them readable only from $strata_autobin_info. Reporting them in
+# the printed output keeps the binning recipe on the page with the numbers it
+# produced. The stored breaks remain the authoritative (full-precision) copy.
+maihda_print_autobin_info <- function(autobin_info, indent = "") {
+  if (!is.list(autobin_info) || length(autobin_info) == 0 ||
+      is.null(names(autobin_info))) {
+    return(invisible(NULL))
+  }
+  lines <- character(0)
+  for (v in names(autobin_info)) {
+    info <- autobin_info[[v]]
+    if (!is.list(info)) next
+    brk <- suppressWarnings(as.numeric(info$breaks))
+    if (length(brk) == 0 || anyNA(brk)) next
+    # Format each cut-point on its own so a wide range does not pad the small
+    # values with trailing zeros the way a vector-wide format() would.
+    brk_txt <- vapply(brk, function(b) format(b, digits = 6, trim = TRUE),
+                      character(1))
+    lines <- c(lines, sprintf("  %s: %s -> %s", v,
+                              paste(brk_txt, collapse = ", "),
+                              paste(as.character(info$labels), collapse = ", ")))
+  }
+  if (length(lines) == 0) {
+    return(invisible(NULL))
+  }
+  pal <- maihda_palette()
+  cat(indent, pal$muted("Auto-binned dimensions (data-dependent cut-points):"),
+      "\n", sep = "")
+  cat(paste0(indent, lines), sep = "\n")
+  cat("\n")
+  invisible(NULL)
+}
+
 # Run `expr`, returning its value; on error return NULL but re-emit the failure
 # as a warning carrying the ORIGINAL condition's message, so an output a caller
 # asked for is never dropped without a trace. `what` names the output for the

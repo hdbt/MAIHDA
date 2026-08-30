@@ -197,6 +197,12 @@ maihda_tag_role <- function(s, role) {
 #'   \item{model_summary}{Original model summary}
 #'   \item{diagnostics}{Fit-quality diagnostics (singular fit / convergence)
 #'     carried over from the fitted model and reported by the print method}
+#'   \item{strata_autobin_info}{The auto-binning recipe carried over from the
+#'     fitted model: for each numeric stratum dimension \code{make_strata()}
+#'     discretised, its \code{breaks} and \code{labels}. The cut-points are
+#'     quantiles of the analytic sample, so they define the strata (and hence the
+#'     estimand); the print method reports them. An empty list when nothing was
+#'     binned}
 #'
 #' @note
 #' For \code{lme4} models a VPC/ICC interval is obtained from a parametric
@@ -639,7 +645,8 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       cc_info = cc,
       context_info = ctx,
       longitudinal_info = lng,
-      diagnostics = object$diagnostics
+      diagnostics = object$diagnostics,
+      strata_autobin_info = object$strata_autobin_info
     ),
     class = "maihda_summary"
   )
@@ -1319,6 +1326,11 @@ print.maihda_summary <- function(x, ...) {
     cat(pal$muted("Adjusted model.\n\n"))
   }
   maihda_print_fit_diagnostics(x$diagnostics)
+  # The auto-bin recipe belongs next to the numbers it produced: a tertile-binned
+  # numeric dimension makes the strata (and so the VPC/PCV below) data-dependent,
+  # and make_strata()'s fit-time message is long gone by the time a saved model is
+  # printed in another session.
+  maihda_print_autobin_info(x$strata_autobin_info)
 
   is_lng <- !is.null(x$longitudinal)
   if (is_lng) {
