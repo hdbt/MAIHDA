@@ -195,6 +195,20 @@
   finite-population corrections, or replicate weights, so it delivers
   population-weighted point estimates rather than general design-based
   inference.
+- [`?plot.maihda_model`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md)
+  now describes the stratum intervals correctly. Its description called
+  them “confidence intervals”; they are the random effect’s own
+  conditional interval – Wald on the BLUP’s conditional SD for the
+  likelihood engines, the posterior interval of `u_j` for brms – shifted
+  onto the outcome scale by a fixed-effect prediction held at its point
+  estimate. They answer whether a stratum departs from the dashed
+  across-strata reference, not how precisely its outcome is predicted,
+  and are *wider* than a full interval for that outcome would be,
+  because holding the fixed effects fixed stops the fixed-effect
+  uncertainty they carry from cancelling against the random effect it is
+  correlated with. The plot titles and the
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
+  footnote already said “conditional”.
 
 ### Performance
 

@@ -193,17 +193,6 @@ $`\sigma^2_e`$ is absent, neither shrinks when the outcome is measured
 noisily, which makes them comparable across studies using different
 instruments where the headline VPC is not.
 
-Do not expect them to be uniformly larger than the headline VPC. Only
-one comparison is guaranteed: at $`t_0`$ the intercept VPC has the same
-numerator as the headline VPC and a denominator short of $`\sigma^2_e`$,
-so it is strictly larger there. That says nothing about later times –
-when strata fan out, $`\operatorname{VPC}_S(t)`$ rises and readily
-overtakes it. The slope VPC is not comparable to the headline VPC at
-all: its numerator is a between-stratum *slope* variance, not
-$`\operatorname{Var}_S(t_0)`$, so it can sit anywhere relative to it,
-and sits far below it whenever strata differ in level but barely in rate
-of change.
-
 **Report the headline VPC unless you specifically mean the trajectory
 question.** It is the quantity comparable to published cross-sectional
 MAIHDA VPCs, and it is the one that speaks to discriminatory accuracy.
