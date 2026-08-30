@@ -249,17 +249,11 @@ maihda_tag_role <- function(s, role) {
 #' (5):
 #' \deqn{VPC_{intercept} = \frac{Var_S(t_0)}{Var_S(t_0) + Var_I(t_0)}, \qquad
 #'       VPC_{slope} = \frac{SlopeVar_S(t_0)}{SlopeVar_S(t_0) + SlopeVar_I(t_0)}.}
-#' These ask how intersectionally patterned people's \emph{trajectories} are -- what
+#' These ask how intersectionally patterned people's \emph{trajectories} are i.e., what
 #' share of the between-individual variation in where a trajectory starts, and in how
 #' fast it changes, lies between strata. Because \eqn{\sigma^2_e} is absent neither is
 #' affected by how noisy the outcome measure is, which makes them comparable across
 #' studies using different instruments.
-#'
-#' For the slope the residual could not be included even in principle: a slope
-#' variance is in \eqn{(\mathrm{outcome}/\mathrm{time})^2} while \eqn{\sigma^2_e} is
-#' in \eqn{\mathrm{outcome}^2}, so the sum would be dimensionally meaningless. (The
-#' headline VPC is well formed because \eqn{a(t)'\Sigma a(t)} returns to
-#' \eqn{\mathrm{outcome}^2}.) The intercept VPC drops it for symmetry with the slope.
 #'
 #' Both are evaluated at the baseline \eqn{t_0} (\code{ref_time}, the earliest
 #' observed time), pairing with \code{PCV_intercept} and \code{PCV_slope} from
