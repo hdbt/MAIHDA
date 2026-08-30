@@ -88,7 +88,80 @@
 #'
 #' The interaction is reported on the model's link (latent) scale -- a log-odds
 #' deviation for a logistic model, etc. -- because the additive/interaction split
-#' is only exact there.
+#' is only exact there. On a non-identity link that makes it a \emph{multiplicative}
+#' departure, which is a different quantity from a shift in the outcome itself; see
+#' the section below before reporting it.
+#'
+#' @section What the interaction means on a non-identity link:
+#' For a Gaussian (identity-link) fit the stratum BLUP \eqn{u_j} \emph{is} the part
+#' of the stratum's mean outcome attributable to interaction, in the outcome's own
+#' units. For a logistic fit it is not: \eqn{u_j} is a deviation in
+#' \strong{log-odds}, so what this function reports is the \emph{multiplicative},
+#' odds-scale interaction. (What follows is written for the logistic case, the one
+#' the literature works in. The same logic holds on any non-identity link, in its own
+#' units: a Poisson fit's \eqn{u_j} is a log-rate departure and \code{scale =
+#' "response"} gives it as a difference in expected counts, and a cumulative
+#' (ordinal) fit's is a latent shift reported as a difference in expected category
+#' score. The printed column is named for whichever applies.) Evans et al. (2024, section 2.5.1)
+#' put it directly -- in a logistic MAIHDA one can "no longer directly interpret
+#' \eqn{u_j} as the change in mean outcomes (i.e., shift in probabilities)
+#' attributable to interaction effects".
+#'
+#' \strong{Three quantities, of which this function reports two.} Keeping them apart
+#' is the whole of the difficulty:
+#' \enumerate{
+#'   \item \strong{The multiplicative interaction, \eqn{u_j}} -- the departure from
+#'     additivity \emph{in log-odds}, i.e. whether a dimension multiplies the odds by
+#'     the same factor at every level of the others. This is what the default
+#'     \code{scale = "link"} reports and what \code{flagged} is about.
+#'   \item \strong{The same departure in outcome units, \eqn{\pi^B_j}} -- what
+#'     \code{scale = "response"} returns. Evans et al. (2024) define it as
+#'     \deqn{\pi^B_j = \pi_j - \pi^A_j, \qquad
+#'           \pi_j = \mathrm{logit}^{-1}(x_j'\beta + u_j), \qquad
+#'           \pi^A_j = \mathrm{logit}^{-1}(x_j'\beta),}
+#'     the gap between a stratum's total predicted probability and the probability
+#'     implied by the additive main effects alone, and rank-plot \eqn{\pi^B_j} where
+#'     the linear case plots \eqn{u_j}. This is quantity 1 \emph{re-expressed}, not a
+#'     second finding: it is zero exactly when \eqn{u_j} is zero and it flags the same
+#'     strata, so it changes the units you report, not what you may conclude.
+#'   \item \strong{The additive (risk-difference) interaction} -- whether a dimension
+#'     adds the same number of percentage points of risk at every level of the others.
+#'     \strong{Neither of the above reports this}, and it is generally non-zero even
+#'     where \eqn{u_j} is exactly zero, because the logistic curve is steeper in the
+#'     middle than in the tails. With a \eqn{-2} baseline and \eqn{+0.7} for each of
+#'     two dimensions and no interaction at all (\eqn{u_j = 0} throughout), the second
+#'     dimension still adds 9.5 percentage points of risk at one level of the first
+#'     and 14.0 at the other. That excess is a property of the link, not a finding.
+#' }
+#'
+#' So "no strata flagged" supports "no credible \strong{multiplicative} interaction",
+#' not "no interaction": additivity in log-odds does not carry over to probabilities,
+#' so quantity 3 is generally non-zero regardless, and it is often the one a policy
+#' audience cares about. (\emph{Generally}, not always. The risk-difference
+#' interaction is positive below the curve's midpoint and negative above it, so it
+#' passes through zero: with two dimensions of effect \eqn{a} and \eqn{b} it vanishes
+#' exactly at an intercept of \eqn{-(a + b)/2}, where the two comparisons straddle the
+#' midpoint symmetrically. That is a single configuration, not the general case, and
+#' the flags say nothing about which one you are in either way.)
+#'
+#' \strong{Both scales flag the same strata.} Writing \eqn{g(u)} for the map from a
+#' stratum's BLUP to its \eqn{\pi^B_j}, \eqn{g} is strictly increasing with
+#' \eqn{g(0) = 0}, so estimate, interval endpoints and zero all carry across
+#' together. \code{flagged}, \code{direction}, \code{p_value} / \code{p_adjusted} and
+#' \code{pd} are therefore identical under either \code{scale}, and the response-scale
+#' interval is the \emph{exact} image of the link-scale one rather than a delta-method
+#' approximation -- inheriting its conditionality (fixed effects and variance
+#' components held at their point estimates), which is why no simulation step is
+#' needed. What does change is the size and the ranking: the same log-odds departure
+#' is worth more probability near \eqn{\pi = 0.5} than in the tail, so strata are
+#' ordered by the quantity actually reported.
+#'
+#' \strong{If quantity 3 is what you need}, no argument here will give it to you --
+#' fit a linear probability model instead: \code{fit_maihda(..., family = "gaussian")}
+#' on a 0/1 outcome, which \code{\link{fit_maihda}} signposts when it auto-detects a
+#' binary outcome. There the BLUP \emph{is} the risk-difference interaction by
+#' construction, at the usual costs (predictions outside \code{[0, 1]},
+#' heteroskedastic residuals).
 #'
 #' @param object A \code{maihda_analysis} from \code{\link{maihda}} (preferred --
 #'   its adjusted / crossed-dimensions model is used automatically) or a
@@ -102,9 +175,24 @@
 #'   the uncorrected, per-stratum individual-testing view. Ignored for \code{brms}
 #'   (which uses the posterior tail directly; a message is shown only if you set it
 #'   explicitly).
+#' @param scale Scale the interaction is reported on. \code{"link"} (default) gives
+#'   the stratum BLUP \eqn{u_j} on the model's link scale -- for a Gaussian fit the
+#'   outcome's own units, for a logistic fit a log-odds departure.
+#'   \code{"response"} instead gives Evans et al.'s (2024, sec. 2.5.1)
+#'   \eqn{\pi^B_j = \pi_j - \pi^A_j}: the stratum's total predicted outcome minus the
+#'   outcome implied by its additive main effects alone, so a logistic fit reports a
+#'   difference in \emph{probability}, a count fit a difference in expected count, and
+#'   a cumulative (ordinal) fit a difference in expected category score -- the printed
+#'   column is named for whichever it is.
+#'   The two scales flag the same strata (see the section below); an identity-link
+#'   fit returns the same numbers either way. For a
+#'   \code{decomposition = "crossed-dimensions"} model the additive baseline is the
+#'   dimension random effects, matching that decomposition.
 #' @param rope Optional equivalence region (a "smallest interaction of interest")
 #'   for an "is the interaction \emph{negligible}?" reading (Schuirmann 1987;
-#'   Kruschke 2018), on the link (latent) scale. \code{NULL} (default) gives
+#'   Kruschke 2018), read on the requested \code{scale} -- log-odds under the
+#'   default, probability points under \code{scale = "response"} for a logistic
+#'   fit. \code{NULL} (default) gives
 #'   only the usual zero-centred flag. A single positive number \code{d} means the
 #'   symmetric region \code{c(-d, d)}; or supply \code{c(lower, upper)}. When set, the
 #'   result gains a \code{decision} column classifying each stratum from its
@@ -116,9 +204,15 @@
 #' @return An object of class \code{maihda_interactions} (a data frame), one row
 #'   per stratum, sorted flagged-first then by \code{abs(interaction)}. Columns
 #'   common to every engine: \code{stratum}, \code{label}, \code{n} (stratum size),
-#'   \code{interaction} (the BLUP), \code{lower}/\code{upper} (the interval),
+#'   \code{interaction} (the BLUP, under the default \code{scale}),
+#'   \code{lower}/\code{upper} (the interval),
 #'   \code{flagged} (logical), and \code{direction} (\code{"above"}/\code{"below"}
-#'   the additive expectation). Frequentist fits add \code{se} and \code{p_value}
+#'   the additive expectation). Under \code{scale = "response"} the
+#'   \code{interaction}/\code{lower}/\code{upper} columns hold \eqn{\pi^B_j} and its
+#'   interval, and \code{se} is dropped: the conditional standard error is a
+#'   link-scale quantity, and the response-scale interval is deliberately not
+#'   symmetric about the estimate, so no single SE would reproduce it. Frequentist
+#'   fits add \code{se} (link scale only) and \code{p_value}
 #'   (and \code{p_adjusted} when \code{adjust != "none"}). \code{p_value} is a
 #'   \emph{conditional} screening statistic -- a Wald tail on the
 #'   shrunken BLUP's conditional SE, with the variance components treated as known
@@ -131,7 +225,17 @@
 #'   \code{decision} column (\code{"relevant"}/\code{"negligible"}/\code{"inconclusive"})
 #'   is added. Attributes record \code{conf_level}, \code{adjust}, \code{rope},
 #'   \code{engine}, \code{model_type}, \code{n_strata}, \code{n_flagged},
-#'   \code{scale} and \code{singular}.
+#'   \code{scale}, \code{link} (the model's link name, so a caller can tell a
+#'   log-odds departure from one in the outcome's own units), \code{response_kind}
+#'   (what the model's response scale is -- \code{"probability"}, \code{"count"},
+#'   \code{"score"} or \code{"response"} -- which the link alone does not settle,
+#'   since a cumulative fit is logit-linked but scores categories), \code{singular},
+#'   and -- on a non-identity link under the default \code{scale} --
+#'   \code{response_interaction}, the outcome-scale estimates keyed by stratum. That
+#'   last attribute exists so \code{print()} can show the outcome-scale size beside
+#'   the link-scale one; the columns are the same either way, and
+#'   \code{scale = "response"} is how to obtain those numbers, with their interval,
+#'   as data.
 #'
 #' @references
 #' Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V. (2018). A
@@ -141,6 +245,11 @@
 #' Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
 #' discriminatory accuracy (MAIHDA) within an intersectional framework.
 #' \emph{Social Science & Medicine}, 203, 74-80.
+#'
+#' Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J. (2024). A
+#' tutorial for conducting intersectional multilevel analysis of individual
+#' heterogeneity and discriminatory accuracy (MAIHDA).
+#' \emph{SSM - Population Health}, 26, 101664. \doi{10.1016/j.ssmph.2024.101664}
 #'
 #' Gelman, A., Hill, J., & Yajima, M. (2012). Why we (usually) don't have to worry
 #' about multiple comparisons. \emph{Journal of Research on Educational
@@ -178,13 +287,19 @@
 #' maihda_interactions(a)                  # FDR-screened (default adjust = "BH")
 #' maihda_interactions(a, adjust = "none") # uncorrected per-stratum individual view
 #' maihda_interactions(a, rope = 0.1)      # equivalence: |interaction| within 0.1?
+#'
+#' # On a logistic fit the BLUP is a log-odds departure; scale = "response" reports
+#' # Evans et al.'s (2024) pi_j - pi^A_j, the same interaction in probability points.
+#' b <- maihda(Obese ~ Gender + Race + (1 | Gender:Race),
+#'             data = maihda_health_data, family = "binomial")
+#' maihda_interactions(b, scale = "response")
 #' }
 #'
 #' @export
 #' @importFrom stats qnorm pnorm quantile median p.adjust terms p.adjust.methods
 #' @importFrom reformulas nobars
 maihda_interactions <- function(object, conf_level = 0.95, adjust = "BH",
-                                rope = NULL, ...) {
+                                rope = NULL, scale = c("link", "response"), ...) {
   adjust_was_set <- !missing(adjust)
   resolved <- maihda_resolve_interaction_model(object)
   model <- resolved$model
@@ -193,6 +308,7 @@ maihda_interactions <- function(object, conf_level = 0.95, adjust = "BH",
 
   conf_level <- maihda_validate_conf_level(conf_level)
   adjust <- match.arg(adjust, c("none", stats::p.adjust.methods))
+  scale <- match.arg(scale)
   rope <- maihda_normalize_rope(rope)
 
   se_tab <- summary_obj$stratum_estimates
@@ -256,6 +372,41 @@ maihda_interactions <- function(object, conf_level = 0.95, adjust = "BH",
     out$direction <- ifelse(est >= 0, "above", "below")
   }
 
+  # Carry the interaction onto the response scale (Evans et al. 2024, sec. 2.5.1)
+  # BEFORE the ROPE block and the sort, so the equivalence region is read on the
+  # scale the caller asked for and the ranking follows the reported quantity. The
+  # map is monotone through zero, so flagged / direction / p_value / pd are
+  # untouched; `se` is dropped because the conditional SE is a link-scale quantity
+  # and the response-scale interval is deliberately not symmetric about the estimate,
+  # so no single SE reproduces it.
+  link <- maihda_model_link_name(model)
+  # What the response scale IS for this family -- not inferable from the link alone
+  # (a cumulative fit is logit-linked but scores categories, not probabilities).
+  response_kind <- maihda_interaction_response_kind(model)
+  response_map <- NULL
+  if (identical(scale, "response")) {
+    resp <- maihda_interaction_response_values(
+      model, summary_obj, out$stratum, out$interaction, out$lower, out$upper)
+    out$interaction <- resp$interaction
+    out$lower <- resp$lower
+    out$upper <- resp$upper
+    out$se <- NULL
+  } else if (!is.na(link) && !identical(link, "identity")) {
+    # Link scale on a non-identity link: also carry the outcome-scale estimate, which
+    # print() shows beside the log-odds departure so the reader sees the size in
+    # probability points without re-running. Kept as an attribute rather than a
+    # column so the returned shape is unchanged; scale = "response" is the way to
+    # get it (with its interval) as data. Never fatal -- an engine that cannot
+    # produce per-stratum predictions just prints as before.
+    response_map <- tryCatch(
+      stats::setNames(
+        maihda_interaction_response_values(model, summary_obj, out$stratum,
+                                           out$interaction, out$lower,
+                                           out$upper)$interaction,
+        as.character(out$stratum)),
+      error = function(e) NULL)
+  }
+
   # Equivalence / ROPE reading (Schuirmann 1987; Kruschke 2018): an
   # "is the interaction negligible?" classification from each stratum's interval
   # relative to the smallest-interaction-of-interest region, separate from the
@@ -286,7 +437,13 @@ maihda_interactions <- function(object, conf_level = 0.95, adjust = "BH",
   attr(out, "model_type") <- model_type
   attr(out, "n_strata") <- nrow(out)
   attr(out, "n_flagged") <- sum(out$flagged)
-  attr(out, "scale") <- "link"
+  attr(out, "scale") <- scale
+  # The link name travels with the result so print() -- and any caller -- can tell a
+  # log-odds departure from one in the outcome's own units. NA for an engine that
+  # exposes no family (nothing is claimed then).
+  attr(out, "link") <- link
+  attr(out, "response_kind") <- response_kind
+  attr(out, "response_interaction") <- response_map
   attr(out, "singular") <- singular
   class(out) <- c("maihda_interactions", "data.frame")
   out
@@ -346,11 +503,37 @@ print.maihda_interactions <- function(x, ...) {
   count_label <- if (is.na(n_flagged)) "?" else as.character(n_flagged)
   cat(sprintf("%s of %d strata flagged (%s).\n",
               count_style(count_label), n_strata, pal$muted(evidence)))
-  if (!is.na(model_type)) {
-    cat(pal$muted(sprintf("Model: %s; interaction on the link (latent) scale.\n",
-                          model_type)))
+  scale_attr <- get_attr("scale", "link")
+  scale_word <- if (identical(scale_attr, "response")) {
+    "response (outcome)"
   } else {
-    cat(pal$muted("Interaction reported on the link (latent) scale.\n"))
+    "link (latent)"
+  }
+  if (!is.na(model_type)) {
+    cat(pal$muted(sprintf("Model: %s; interaction on the %s scale.\n",
+                          model_type, scale_word)))
+  } else {
+    cat(pal$muted(sprintf("Interaction reported on the %s scale.\n", scale_word)))
+  }
+  # Show the outcome-scale interaction next to the link-scale one, so the reader at
+  # the console sees the departure in probability points (or expected counts) without
+  # having to re-run. Display only: the object's columns are unchanged, and the
+  # footer says how to get these numbers as data.
+  resp_map <- get_attr("response_interaction", NULL)
+  kind_attr <- get_attr("response_kind", NULL)
+  show_resp <- function(df) {
+    maihda_interactions_add_response_col(df, resp_map, kind_attr)
+  }
+
+  # On a non-identity link the BLUP is a departure in LINK units, so a flag (or its
+  # absence) is a statement about MULTIPLICATIVE interaction only -- the one thing a
+  # reader cannot infer from the numbers on screen. ?maihda_interactions carries the
+  # rest, including the probability-scale quantity this is not.
+  link_note <- maihda_interaction_link_note(get_attr("link", NA_character_), scale_attr,
+                                            has_response = !is.null(resp_map),
+                                            kind = kind_attr)
+  if (!is.null(link_note)) {
+    cat(pal$muted(link_note))
   }
 
   rope <- attr(x, "rope")
@@ -375,14 +558,15 @@ print.maihda_interactions <- function(x, ...) {
   cat("\n")
   if (!has_flagged) {
     # The 'flagged' column was selected away in a subset; show the rows as-is.
-    print(utils::head(as.data.frame(x), 10), row.names = FALSE, digits = 4)
+    print(show_resp(utils::head(as.data.frame(x), 10)), row.names = FALSE, digits = 4)
   } else {
     flagged_rows <- x[x$flagged %in% TRUE, , drop = FALSE]
     if (nrow(flagged_rows) == 0) {
       cat(pal$muted(
         "No strata show interaction credibly different from zero at this level.\n"))
     } else {
-      print(utils::head(as.data.frame(flagged_rows), 10), row.names = FALSE, digits = 4)
+      print(show_resp(utils::head(as.data.frame(flagged_rows), 10)),
+            row.names = FALSE, digits = 4)
       if (nrow(flagged_rows) > 10) {
         cat(pal$muted(sprintf("  ... and %d more flagged strata\n",
                               nrow(flagged_rows) - 10)))
@@ -404,6 +588,199 @@ print.maihda_interactions <- function(x, ...) {
 }
 
 # ---- internal helpers -------------------------------------------------------
+
+# The response-scale interaction of Evans et al. (2024, sec. 2.5.1):
+# pi^B_j = pi_j - pi^A_j, a stratum's total predicted outcome minus the outcome
+# implied by the additive main effects alone. On the link scale the interaction IS
+# the BLUP; on the response scale it is this difference -- for a logistic fit a
+# difference in PROBABILITY rather than in log-odds.
+#
+# Computed by reusing the engine's own per-stratum prediction helper (the one behind
+# plot(type = "predicted")), so offsets, prior/sampling/trial weights,
+# aggregated-binomial responses and the crossed-dimensions additive baseline are all
+# handled in one place -- and the pi_j here is the same pi_j that plot draws. Those
+# helpers read their three link-scale inputs from random_effect / lower_95 /
+# upper_95, so the conf_level-specific interval this function was given is
+# substituted in before the call. Where covariates vary within a stratum the two
+# predictions are each averaged over that stratum's own rows, which reduces exactly
+# to Evans et al.'s definition when the fixed part is constant within a stratum (the
+# canonical adjusted model, whose fixed effects are the dimension main effects).
+#
+# g(u) = weighted mean over a stratum's rows of [linkinv(eta_i + u) - linkinv(eta_i)]
+# is strictly increasing with g(0) = 0, so estimate, interval endpoints and zero all
+# map across together: the flag, the direction and the p-value / pd are IDENTICAL on
+# both scales, and the returned interval is the exact image of the link-scale one,
+# not a delta-method approximation. It inherits that interval's conditionality (fixed
+# effects and variance components held at their point estimates).
+maihda_interaction_response_values <- function(model, summary_obj, strata,
+                                               est, lower, upper) {
+  se_tab <- summary_obj$stratum_estimates
+  idx <- match(as.character(se_tab$stratum), as.character(strata))
+  se_tab$random_effect <- est[idx]
+  se_tab$lower_95 <- lower[idx]
+  se_tab$upper_95 <- upper[idx]
+  summary_obj$stratum_estimates <- se_tab
+
+  pred <- switch(
+    model$engine,
+    lme4 = maihda_stratum_predictions_lme4(model, summary_obj, scale = "response"),
+    brms = maihda_stratum_predictions_brms(model, summary_obj, scale = "response"),
+    wemix = maihda_stratum_predictions_wemix(model, summary_obj, scale = "response"),
+    ordinal = maihda_stratum_predictions_ordinal(model, summary_obj, scale = "response"),
+    stop("scale = \"response\" is not available for engine \"", model$engine, "\".",
+         call. = FALSE))
+
+  k <- match(as.character(strata), as.character(pred$stratum))
+  # A stratum whose link-scale input was NA (a singular fit's undefined BLUP SE)
+  # aggregates to NaN; report it as the NA it came from rather than as NaN.
+  clean <- function(x) {
+    x[!is.finite(x)] <- NA_real_
+    x
+  }
+  list(interaction = clean(pred$predicted_row[k] - pred$fixed_row[k]),
+       lower = clean(pred$lower_row[k] - pred$fixed_row[k]),
+       upper = clean(pred$upper_row[k] - pred$fixed_row[k]))
+}
+
+# Column header for the printed outcome-scale interaction, named for what it is on
+# this link so the header itself says which units the number is in.
+# What the RESPONSE scale of a model actually is. The link alone does not settle it:
+# a cumulative (ordinal) fit has a LOGIT link, but its response scale is the expected
+# category score, not a probability -- so switching on the link labels an ordinal
+# fit's interaction "prob_diff ... probability points", which is simply wrong. Drives
+# the printed header and its gloss; the DEPARTURE units still come from the link.
+maihda_response_kind_from_link <- function(link) {
+  switch(as.character(link),
+         logit = "probability",
+         probit = "probability",
+         cloglog = "probability",
+         log = "count",
+         "response")
+}
+
+maihda_interaction_response_kind <- function(model) {
+  is_ord <- isTRUE(tryCatch(maihda_family_is_ordinal(model$family),
+                            error = function(e) FALSE))
+  if (is_ord) {
+    return("score")
+  }
+  maihda_response_kind_from_link(maihda_model_link_name(model))
+}
+
+maihda_interaction_response_header <- function(kind) {
+  switch(as.character(kind),
+         probability = "prob_diff",
+         count = "count_diff",
+         score = "score_diff",
+         "resp_diff")
+}
+
+# Insert the outcome-scale interaction into a frame about to be PRINTED, directly
+# after the link-scale one. Display only -- maihda_interactions() returns the same
+# columns it always did, and scale = "response" is how these numbers are obtained as
+# data. `resp_map` is keyed by stratum, so a reordered or subset frame still lines
+# up, and anything the map does not cover is left out rather than silently NA-filled.
+maihda_interactions_add_response_col <- function(df, resp_map, kind) {
+  if (is.null(resp_map) || !is.data.frame(df) || nrow(df) == 0 ||
+      !"stratum" %in% names(df)) {
+    return(df)
+  }
+  vals <- unname(resp_map[as.character(df$stratum)])
+  if (all(is.na(vals))) {
+    return(df)
+  }
+  header <- maihda_interaction_response_header(kind)
+  if (header %in% names(df)) {
+    return(df)
+  }
+  out <- df
+  out[[header]] <- vals
+  pos <- match("interaction", names(df))
+  if (!is.na(pos)) {
+    # Sit next to the quantity it restates, not at the far right of a wide table.
+    out <- out[, append(names(df), header, after = pos), drop = FALSE]
+  }
+  out
+}
+
+# One printed line naming what a non-identity-link interaction actually is. The
+# additive/interaction split is exact only on the link scale, so for a logit fit the
+# BLUP is a LOG-ODDS departure. NULL for an identity link (where the BLUP is already
+# in the outcome's units) or an unknown link (claim nothing). `kind` names the
+# response scale (see maihda_interaction_response_kind); it defaults to the link's
+# own reading, which is right for every family except the cumulative one.
+maihda_interaction_link_note <- function(link, scale = "link", has_response = FALSE,
+                                         kind = NULL) {
+  if (length(link) != 1L || is.na(link) || identical(link, "identity")) {
+    return(NULL)
+  }
+  if (is.null(kind) || is.na(kind)) {
+    kind <- maihda_response_kind_from_link(link)
+  }
+  units <- switch(link,
+                  logit = "log-odds",
+                  probit = "probit (latent)",
+                  cloglog = "complementary log-log",
+                  log = "log-rate",
+                  sprintf("%s-scale", link))
+  if (identical(scale, "response")) {
+    # On this scale the number already IS the outcome-scale interaction, so the
+    # caveat below does not apply; what a reader needs instead is which quantity it
+    # is and that the flags did not change with the scale. The pi notation is
+    # Evans et al.'s and is probability notation, so it appears only where the
+    # response scale really is a probability.
+    lead <- switch(as.character(kind),
+                   probability = "A probability difference (pi_j - pi^A_j, Evans et al. 2024)",
+                   count = "An expected-count difference",
+                   score = "An expected-score difference",
+                   "An outcome-scale difference")
+    return(sprintf(paste0("%s: the
+",
+                          "  interaction carried onto the outcome scale; flags match the
+",
+                          "  %s scale.
+"),
+                   lead, units))
+  }
+  # Name the two scales and which one the flags are about. Two wordings to avoid:
+  # "odds combine additively" (when log-odds add, odds MULTIPLY), and "the
+  # probability scale" for what is ruled out -- that phrase would collide with the
+  # probability-POINTS restatement below and reintroduce the conflation between the
+  # risk-scale departure and pi^B_j that this note exists to prevent. What the flags
+  # do and do not license is in ?maihda_interactions; the line stays to one sentence.
+  ruled_out <- switch(as.character(kind),
+                      probability = "risks",
+                      count = "counts",
+                      score = "expected scores",
+                      "outcomes")
+  note <- sprintf(paste0("A %s departure (%s link): the flags test additivity on the link
+",
+                         "  scale, not in %s.
+"),
+                  units, link, ruled_out)
+  if (isTRUE(has_response)) {
+    # A printed column nobody asked for needs one line saying which question it
+    # answers and where to get it as data; the rest is in ?maihda_interactions.
+    resp_units <- switch(as.character(kind),
+                         probability = "probability points",
+                         count = "expected counts",
+                         score = "expected category score",
+                         "outcome units")
+    formula_txt <- if (identical(as.character(kind), "probability")) {
+      " (pi_j - pi^A_j)"
+    } else {
+      ""
+    }
+    note <- paste0(note,
+                   sprintf(paste0("  %s is that same departure in %s%s;
+",
+                                  "  scale = \"response\" returns it with its interval.
+"),
+                           maihda_interaction_response_header(kind), resp_units,
+                           formula_txt))
+  }
+  note
+}
 
 # Resolve the model + summary the interaction diagnostic should read, and label
 # the model type. A maihda_analysis routes to its adjusted (two-model) or single

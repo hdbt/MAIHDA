@@ -704,3 +704,301 @@ test_that("highlight_by defaults to 'flag' and is validated", {
   expect_error(
     plot(a$model_adjusted, type = "predicted", highlight_by = "nope"))
 })
+
+# --- link-scale note (2026-08-29) -------------------------------------------
+# The stratum BLUP is a departure in LINK units. On a logit fit that makes it a
+# log-odds (multiplicative) interaction -- a different quantity from the
+# probability-scale one Evans et al. (2024, sec. 2.5.1) define as pi_j - pi^A_j --
+# so the result carries the link and print() names it. On an identity link the BLUP
+# is already in the outcome's units and nothing extra is said.
+
+test_that("maihda_interactions() records the model's link", {
+  a <- maihda_interaction_analysis()
+  expect_identical(attr(maihda_interactions(a), "link"), "identity")
+
+  d <- maihda_interaction_data()
+  d$yb <- as.integer(d$y > stats::median(d$y))
+  m <- suppressMessages(suppressWarnings(
+    fit_maihda(yb ~ A + B + (1 | A:B), data = d, family = "binomial")
+  ))
+  expect_identical(attr(maihda_interactions(m), "link"), "logit")
+})
+
+test_that("print() names the link-scale departure only for a non-identity link", {
+  a <- maihda_interaction_analysis()
+  gaussian_out <- paste(utils::capture.output(print(maihda_interactions(a))),
+                        collapse = "\n")
+  expect_false(grepl("MULTIPLICATIVE", gaussian_out, fixed = TRUE))
+
+  d <- maihda_interaction_data()
+  d$yb <- as.integer(d$y > stats::median(d$y))
+  m <- suppressMessages(suppressWarnings(
+    fit_maihda(yb ~ A + B + (1 | A:B), data = d, family = "binomial")
+  ))
+  binomial_out <- paste(utils::capture.output(print(maihda_interactions(m))),
+                        collapse = "\n")
+  expect_true(grepl("log-odds departure (logit link)", binomial_out, fixed = TRUE))
+  expect_true(grepl("additivity on the link", binomial_out, fixed = TRUE))
+  expect_true(grepl("not in risks", binomial_out, fixed = TRUE))
+  # The surviving departure is called "risks", never "the probability scale": that
+  # phrase would collide with the probability-POINTS restatement two lines below and
+  # reintroduce the very conflation the note exists to prevent.
+  expect_false(grepl("probability scale", binomial_out, fixed = TRUE))
+  # Additivity is claimed for the LINK scale, never for the odds -- when log-odds
+  # add, odds multiply, so "odds combine additively" would be an error on screen.
+  expect_false(grepl("odds combine", binomial_out, ignore.case = TRUE))
+  # Nor may the note claim risks NEVER add. The risk-difference interaction is
+  # positive below the curve's midpoint and negative above it, so it crosses zero:
+  # with effects a and b it vanishes exactly at an intercept of -(a + b)/2, where the
+  # two comparisons straddle the midpoint symmetrically. Pinned below.
+  expect_false(grepl("never add", binomial_out, fixed = TRUE))
+})
+
+test_that("risks CAN add exactly under a logit link (so the note must not say never)", {
+  rd_int <- function(b0, a, b) {
+    (stats::plogis(b0 + a + b) - stats::plogis(b0 + a)) -
+      (stats::plogis(b0 + b) - stats::plogis(b0))
+  }
+  a <- 0.7; b <- 0.7
+
+  # Vanishes exactly at the symmetric straddle ...
+  expect_equal(rd_int(-(a + b) / 2, a, b), 0)
+  # ... and is non-zero, with opposite signs, on either side of it.
+  expect_gt(rd_int(-2, a, b), 0)
+  expect_lt(rd_int(0, a, b), 0)
+})
+
+test_that("the link note is silent when the link is unknown", {
+  expect_null(maihda_interaction_link_note(NA_character_))
+  expect_null(maihda_interaction_link_note(character(0)))
+  expect_null(maihda_interaction_link_note("identity"))
+  expect_match(maihda_interaction_link_note("probit"), "not in risks")
+  expect_match(maihda_interaction_link_note("log"), "not in counts")
+})
+
+# --- response-scale interaction, pi^B_j (2026-08-29) ------------------------
+# Evans et al. (2024, sec. 2.5.1): pi^B_j = pi_j - pi^A_j, the stratum's total
+# predicted outcome minus the outcome implied by its additive main effects alone.
+# The map from the BLUP is strictly increasing through zero, so the evidence
+# (flags, direction, p-values) must be invariant while the units change.
+
+maihda_binomial_interaction_model <- function() {
+  d <- maihda_interaction_data()
+  d$yb <- as.integer(d$y > stats::median(d$y))
+  suppressMessages(suppressWarnings(
+    fit_maihda(yb ~ A + B + (1 | A:B), data = d, family = "binomial")
+  ))
+}
+
+test_that("scale = 'response' reproduces the Evans et al. (2024) definition", {
+  m <- maihda_binomial_interaction_model()
+  link <- maihda_interactions(m)
+  resp <- maihda_interactions(m, scale = "response")
+
+  # pi^B_j computed straight from the definition, averaged over the stratum's own
+  # rows (which reduces to Evans' constant-x_j form for this dimension-only model).
+  eta <- stats::predict(m$model, re.form = NA, type = "link")
+  key <- as.character(m$data$stratum)
+  hand <- vapply(as.character(resp$stratum), function(s) {
+    e <- eta[key == s]
+    u <- link$interaction[match(s, as.character(link$stratum))]
+    mean(stats::plogis(e + u) - stats::plogis(e))
+  }, numeric(1))
+  expect_equal(resp$interaction, unname(hand))
+
+  # ... and the interval endpoints are the same map applied to the same endpoints.
+  hand_lo <- vapply(as.character(resp$stratum), function(s) {
+    e <- eta[key == s]
+    lo <- link$lower[match(s, as.character(link$stratum))]
+    mean(stats::plogis(e + lo) - stats::plogis(e))
+  }, numeric(1))
+  expect_equal(resp$lower, unname(hand_lo))
+})
+
+test_that("the response scale changes the units, not the evidence", {
+  m <- maihda_binomial_interaction_model()
+  link <- maihda_interactions(m)
+  resp <- maihda_interactions(m, scale = "response")
+
+  i <- match(as.character(resp$stratum), as.character(link$stratum))
+  expect_identical(resp$flagged, link$flagged[i])
+  expect_identical(resp$direction, link$direction[i])
+  expect_equal(resp$p_value, link$p_value[i])
+  expect_equal(resp$p_adjusted, link$p_adjusted[i])
+  expect_identical(sign(resp$interaction), sign(link$interaction[i]))
+  # A probability difference is bounded by 1; the log-odds departure here is not.
+  expect_true(all(abs(resp$interaction) < 1))
+  expect_true(max(abs(link$interaction)) > 1)
+
+  # se is link-scale only: the response interval is asymmetric about the estimate.
+  expect_true("se" %in% names(link))
+  expect_false("se" %in% names(resp))
+  expect_identical(attr(resp, "scale"), "response")
+  expect_false(isTRUE(all.equal(resp$interaction - resp$lower,
+                                resp$upper - resp$interaction)))
+})
+
+test_that("an identity link returns the same numbers on either scale", {
+  a <- maihda_interaction_analysis()
+  link <- maihda_interactions(a)
+  resp <- maihda_interactions(a, scale = "response")
+  i <- match(as.character(resp$stratum), as.character(link$stratum))
+  expect_equal(resp$interaction, link$interaction[i])
+  expect_equal(resp$lower, link$lower[i])
+  expect_equal(resp$upper, link$upper[i])
+})
+
+test_that("the ROPE is read on the requested scale", {
+  m <- maihda_binomial_interaction_model()
+  # 0.02 probability points is a tight region the log-odds BLUPs would clear
+  # trivially, so the two scales must classify differently.
+  resp <- maihda_interactions(m, scale = "response", rope = 0.02)
+  link <- maihda_interactions(m, rope = 0.02)
+  expect_identical(attr(resp, "rope"), c(-0.02, 0.02))
+  expect_false(identical(sort(resp$decision), sort(link$decision)))
+  # ... and the plot caption names the scale it was screened on.
+  expect_match(maihda_highlight_screen_label(
+    structure(1, highlight_by = "rope", rope = c(-0.02, 0.02), scale = "response")),
+    "response (outcome) scale", fixed = TRUE)
+})
+
+test_that("print() names the response scale and the quantity", {
+  m <- maihda_binomial_interaction_model()
+  out <- paste(utils::capture.output(print(maihda_interactions(m, scale = "response"))),
+               collapse = "\n")
+  expect_match(out, "interaction on the response (outcome) scale", fixed = TRUE)
+  expect_match(out, "pi_j - pi^A_j", fixed = TRUE)
+  expect_false(grepl("MULTIPLICATIVE", out, fixed = TRUE))
+})
+
+test_that("scale is validated", {
+  a <- maihda_interaction_analysis()
+  expect_error(maihda_interactions(a, scale = "probability"))
+})
+
+# --- printed outcome-scale column (2026-08-29) ------------------------------
+# print() shows pi^B_j beside the link-scale BLUP on a non-identity link, so the
+# reader never sees the log-odds figure alone. It is DISPLAY ONLY: the returned
+# columns must be exactly what they were before, with scale = "response" the way to
+# get the quantity (and its interval) as data.
+
+test_that("print() shows the outcome-scale column without changing the object", {
+  m <- maihda_binomial_interaction_model()
+  x <- maihda_interactions(m)
+
+  expect_identical(
+    names(x),
+    c("stratum", "label", "n", "interaction", "se", "lower", "upper",
+      "p_value", "p_adjusted", "flagged", "direction"))
+  expect_false("prob_diff" %in% names(x))
+
+  out <- paste(utils::capture.output(print(x)), collapse = "\n")
+  expect_match(out, "prob_diff", fixed = TRUE)
+  expect_match(out, "probability points", fixed = TRUE)
+})
+
+test_that("the printed column is the same number scale = 'response' returns", {
+  m <- maihda_binomial_interaction_model()
+  x <- maihda_interactions(m)
+  resp <- maihda_interactions(m, scale = "response")
+
+  map <- attr(x, "response_interaction")
+  expect_false(is.null(map))
+  expect_equal(unname(map[as.character(resp$stratum)]), resp$interaction)
+})
+
+test_that("no outcome-scale column on an identity link or already-response result", {
+  a <- maihda_interaction_analysis()
+  expect_null(attr(maihda_interactions(a), "response_interaction"))
+  expect_false(grepl("resp_diff|prob_diff",
+                     paste(utils::capture.output(print(maihda_interactions(a))),
+                           collapse = "\n")))
+
+  m <- maihda_binomial_interaction_model()
+  # Already reported on the response scale: the estimate IS pi^B, so no second copy.
+  expect_null(attr(maihda_interactions(m, scale = "response"), "response_interaction"))
+  resp_out <- paste(
+    utils::capture.output(print(maihda_interactions(m, scale = "response"))),
+    collapse = "\n")
+  expect_false(grepl("prob_diff", resp_out, fixed = TRUE))
+})
+
+test_that("the display helper is keyed by stratum and degrades quietly", {
+  df <- data.frame(stratum = c("b", "a"), interaction = c(2, 1), n = c(5L, 6L),
+                   stringsAsFactors = FALSE)
+  map <- c(a = 0.1, b = 0.2)
+
+  out <- maihda_interactions_add_response_col(df, map, "probability")
+  # Matched by name, not by position, so a reordered frame still lines up ...
+  expect_identical(out$prob_diff, c(0.2, 0.1))
+  # ... and it sits next to the quantity it restates.
+  expect_identical(names(out), c("stratum", "interaction", "prob_diff", "n"))
+
+  expect_identical(maihda_interactions_add_response_col(df, NULL, "probability"), df)
+  expect_identical(
+    maihda_interactions_add_response_col(df, c(z = 1), "probability"), df)
+  expect_identical(
+    maihda_interactions_add_response_col(df[0, ], map, "probability"), df[0, ])
+  expect_identical(
+    names(maihda_interactions_add_response_col(df, map, "count")),
+    c("stratum", "interaction", "count_diff", "n"))
+  expect_identical(
+    names(maihda_interactions_add_response_col(df, map, "score")),
+    c("stratum", "interaction", "score_diff", "n"))
+})
+
+
+# --- response-scale labelling follows the FAMILY, not the link (2026-08-30) ---
+# A cumulative (ordinal) fit is LOGIT-linked but its response scale is the expected
+# category score, not a probability. Labelling off the link alone called that
+# "prob_diff ... probability points", which was simply wrong.
+
+test_that("the response kind is read from the family, not the link alone", {
+  expect_identical(maihda_response_kind_from_link("logit"), "probability")
+  expect_identical(maihda_response_kind_from_link("log"), "count")
+  expect_identical(maihda_response_kind_from_link("wibble"), "response")
+
+  expect_identical(maihda_interaction_response_header("probability"), "prob_diff")
+  expect_identical(maihda_interaction_response_header("count"), "count_diff")
+  expect_identical(maihda_interaction_response_header("score"), "score_diff")
+  expect_identical(maihda_interaction_response_header("anything else"), "resp_diff")
+})
+
+test_that("an ordinal fit is never labelled as probabilities", {
+  skip_if_not_installed("ordinal")
+  d <- maihda_interaction_data()
+  d$ord <- factor(cut(d$y, 3), ordered = TRUE)
+  m <- suppressMessages(suppressWarnings(
+    fit_maihda(ord ~ A + B + (1 | A:B), data = d)
+  ))
+  skip_if_not(identical(m$engine, "ordinal"))
+
+  x <- suppressWarnings(maihda_interactions(m))
+  expect_identical(attr(x, "response_kind"), "score")
+  # The DEPARTURE is still log-odds -- that part the link does settle.
+  expect_identical(attr(x, "link"), "logit")
+
+  out <- paste(utils::capture.output(print(x)), collapse = "
+")
+  expect_match(out, "log-odds departure (logit link)", fixed = TRUE)
+  expect_match(out, "not in expected scores", fixed = TRUE)
+  expect_false(grepl("prob_diff", out, fixed = TRUE))
+  expect_false(grepl("probability points", out, fixed = TRUE))
+  expect_false(grepl("not in risks", out, fixed = TRUE))
+  # pi is Evans et al.'s probability notation and has no business on a score scale.
+  expect_false(grepl("pi_j - pi^A_j", out, fixed = TRUE))
+})
+
+test_that("the pi notation appears only where the response really is a probability", {
+  probability <- maihda_interaction_link_note("logit", has_response = TRUE,
+                                              kind = "probability")
+  expect_match(probability, "pi_j - pi^A_j", fixed = TRUE)
+  for (k in c("count", "score", "response")) {
+    note <- maihda_interaction_link_note("logit", has_response = TRUE, kind = k)
+    expect_false(grepl("pi_j - pi^A_j", note, fixed = TRUE))
+  }
+  expect_match(maihda_interaction_link_note("logit", "response", kind = "score"),
+               "expected-score difference", fixed = TRUE)
+  expect_match(maihda_interaction_link_note("logit", "response", kind = "count"),
+               "expected-count difference", fixed = TRUE)
+})

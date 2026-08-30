@@ -409,8 +409,15 @@ maihda_highlight_screen_label <- function(highlight) {
     } else {
       sprintf("interval outside [%g, %g]", rope[1], rope[2])
     }
-    return(sprintf("%s on the latent (link) scale, %.0f%% interval",
-                   region, conf_pct))
+    # The region is read on whichever scale the screen was built on -- a
+    # maihda_interactions(scale = "response") object carries a ROPE in outcome
+    # units (probability points for a logistic fit), not log-odds.
+    scale_txt <- if (identical(attr(highlight, "scale"), "response")) {
+      "the response (outcome) scale"
+    } else {
+      "the latent (link) scale"
+    }
+    return(sprintf("%s on %s, %.0f%% interval", region, scale_txt, conf_pct))
   }
 
   adjust <- attr(highlight, "adjust")
@@ -939,10 +946,7 @@ maihda_observed_weighted_mean <- function(numerator, denominator, w = NULL) {
 
   # Incorporate the model's prior/precision weights so the observed stratum mean is
   # on the same weighted footing as the weighted shrunken estimate. These are lme4
-  # prior/precision weights, not a complex survey design -- no design-based
-  # (e.g. Taylor-linearised) variance is computed -- so results are not
-  # survey-representative. With unit weights this is the previous
-  # sum(numerator)/sum(denominator).
+  # prior/precision weights, not a complex survey design 
   if (is.null(w)) {
     w <- rep(1, length(numerator))
   }
