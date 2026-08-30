@@ -134,7 +134,10 @@ maihda_tag_role <- function(s, role) {
 #'   theta (theta's own sampling uncertainty is not propagated). The
 #'   \code{ordinal} (clmm) engine has no simulate/refit machinery, so
 #'   \code{bootstrap = TRUE} is rejected there (use \code{engine = "brms"} for
-#'   interval estimates).
+#'   interval estimates). For a Gaussian model carrying lme4 precision
+#'   \code{weights}, the simulated responses draw each residual at
+#'   \eqn{\sigma / \sqrt{w_i}}, so the interval rests on the same
+#'   \eqn{\sigma^2 / w_i} semantics as the point estimate above.
 #' @param n_boot Number of bootstrap samples if bootstrap = TRUE. Default is 1000.
 #' @param conf_level Confidence level for the VPC/ICC interval -- the lme4
 #'   bootstrap CI or the brms posterior credible interval. Default is 0.95.
@@ -914,7 +917,7 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0),
   # Count contributing draws whose refit optimiser did not converge, so the reported
   # n_boot_ok does not silently imply convergence (see bootstrap_vpc()).
   n_nonconv <- 0L
-  sim_data <- stats::simulate(model, nsim = n_boot)
+  sim_data <- maihda_simulate_lme4(model, nsim = n_boot)
 
   for (i in seq_len(n_boot)) {
     tryCatch({
@@ -1156,7 +1159,7 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level,
   # Count contributing draws whose refit optimiser did not converge, so the reported
   # n_boot_ok does not silently imply convergence (see bootstrap_vpc()).
   n_nonconv <- 0L
-  sim_data <- stats::simulate(model, nsim = n_boot)
+  sim_data <- maihda_simulate_lme4(model, nsim = n_boot)
 
   for (i in seq_len(n_boot)) {
     tryCatch({
@@ -1219,7 +1222,7 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level,
   # Count draws that contribute to the interval but whose refit optimiser did not
   # converge, so the reported n_boot_ok does not silently imply convergence.
   n_nonconv <- 0L
-  sim_data <- stats::simulate(model, nsim = n_boot)
+  sim_data <- maihda_simulate_lme4(model, nsim = n_boot)
 
   for (i in 1:n_boot) {
     tryCatch({

@@ -40,6 +40,7 @@
 
 ## Bug fixes
 
+* Parametric bootstrap intervals on a weighted Gaussian lme4 fit now simulate the residual as `sigma / sqrt(w_i)`. `lme4::simulate()` draws equal-variance noise for every row while `refit()` keeps the `1/w_i` weights, which inflated the bootstrap residual variance by about `mean(w)` and pushed VPC, PCV, context, crossed-dimensions, longitudinal and `pcv_importance()` intervals off their own point estimates. Only all-unit weights were unaffected; a constant weight `c != 1` was biased by `c`. Unweighted fits and every GLMM are unchanged.
 * The fixed-cell-interaction guard now sees a transformed dimension. `y ~ factor(a) * b + (1 | a:b)` passed the guard because `factor(a)` did not match the dimension name, so the fixed `factor(a):b` cell means survived into both derived formulas, saturated the strata and left the stratum variance unidentified (a degenerate Hessian, and a PCV of essentially zero).
 * `maihda_interactions()` on a model carrying a transformed dimension now says so instead of reporting it as a null model, which was true in effect but named neither the cause nor the remedy.
 * A singular fit is no longer reported as a convergence failure. lme4 files "boundary (singular) fit" among its own convergence messages, so a fit whose optimizer returned code 0 was recorded as `converged = FALSE` and printed twice -- once as "Singular fit", once under a "Convergence warnings reported by lme4" header -- which also double-counted such groups in `compare_maihda_groups()`'s singular and non-converged warnings.

@@ -870,7 +870,7 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   if (bootstrap) {
     boot <- matrix(NA_real_, nrow = n_boot, ncol = length(grid))
     ref_boot <- rep(NA_real_, n_boot)
-    sim <- stats::simulate(model, nsim = n_boot)
+    sim <- maihda_simulate_lme4(model, nsim = n_boot)
     for (i in seq_len(n_boot)) {
       tryCatch({
         bm <- lme4::refit(model, newresp = sim[[i]])

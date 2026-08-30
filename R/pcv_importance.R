@@ -670,8 +670,8 @@ pcv_importance <- function(data, outcome, vars,
     message("pcv_importance(): parametric bootstrap -- ", n_boot, " draws x ",
             length(boot_masks), " subset refits (",
             n_boot * length(boot_masks), " refits total).")
-    sim_data <- stats::simulate(boot_models[[as.character(full_mask)]],
-                                nsim = n_boot)
+    sim_data <- maihda_simulate_lme4(boot_models[[as.character(full_mask)]],
+                                     nsim = n_boot)
     boot_phi <- matrix(NA_real_, nrow = n_boot, ncol = k)
     # Draws whose null refit lands on the zero-variance boundary are a legitimate
     # EXCLUSION (the attribution is undefined there), not a refit failure; count

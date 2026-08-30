@@ -27,7 +27,10 @@ its original estimate, so the interval is conditional on the estimated
 theta (theta's own sampling uncertainty is not propagated). The
 \code{ordinal} (clmm) engine has no simulate/refit machinery, so
 \code{bootstrap = TRUE} is rejected there (use \code{engine = "brms"} for
-interval estimates).}
+interval estimates). For a Gaussian model carrying lme4 precision
+\code{weights}, the simulated responses draw each residual at
+\eqn{\sigma / \sqrt{w_i}}, so the interval rests on the same
+\eqn{\sigma^2 / w_i} semantics as the point estimate above.}
 
 \item{n_boot}{Number of bootstrap samples if bootstrap = TRUE. Default is 1000.}
 

@@ -822,7 +822,7 @@ bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
   # Parametric Bootstrap: Simulate new responses from the adjusted model (model2)
   # This mathematically preserves the hierarchical structure (random effects)
   # and the fixed-effects distributions, unlike naive row-resampling.
-  sim_data <- stats::simulate(model2$model, nsim = n_boot)
+  sim_data <- maihda_simulate_lme4(model2$model, nsim = n_boot)
 
   # The draws are in model2's row order. model2's own refit takes them as-is, but
   # model1 may have been fitted to the SAME observations in a different order (which

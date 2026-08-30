@@ -2522,6 +2522,83 @@ maihda_gaussian_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(mod
   sigma2 * mean(1 / w)
 }
 
+# Prior (precision) weights to use when SIMULATING responses from an lme4 fit, or
+# NULL when lme4's own simulate() is already correct. Returns a numeric vector only
+# for a Gaussian LMM whose USABLE (finite, positive) prior weights are not all 1;
+# a GLMM, an unweighted LMM, and a fit with no usable weight at all yield NULL.
+# The vector is returned verbatim, unusable entries included -- lmer does accept a
+# zero weight, and dropping the whole correction because one row carries one would
+# silently return that fit to the equal-variance bug. maihda_simulate_lme4() gives
+# those rows lme4's own sigma; maihda_gaussian_residual_variance_lme4() likewise
+# ignores them rather than the fit.
+maihda_lme4_simulation_weights <- function(model) {
+  # GLMM families already receive `wts` in lme4:::.simulateFun(), so only the LMM
+  # branch -- which draws sigma * rnorm(n) for every row -- needs correcting.
+  if (!inherits(model, "merMod") || !isTRUE(lme4::isLMM(model))) {
+    return(NULL)
+  }
+  w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
+  if (is.null(w) || length(w) == 0) {
+    return(NULL)
+  }
+  w <- as.numeric(w)
+  usable <- is.finite(w) & w > 0
+  if (!any(usable)) {
+    return(NULL)
+  }
+  # Every usable weight is 1, so the residual sd is sigma on every row anyway
+  # (unusable rows fall back to sigma too) -- lme4's draws are already right.
+  if (isTRUE(all(abs(w[usable] - 1) < sqrt(.Machine$double.eps)))) {
+    return(NULL)
+  }
+  w
+}
+
+# Parametric-bootstrap response draws from an lme4 fit, honouring PRIOR (precision)
+# weights. Every MAIHDA bootstrap (VPC, PCV, context, crossed dimensions,
+# longitudinal, PCV importance) routes its simulation through here.
+#
+# lme4's simulate.merMod() draws the Gaussian conditional residual as
+# sigma * rnorm(n) for EVERY row, ignoring the prior weights, even though an lmer
+# fitted with weights w_i has conditional residual variance sigma^2 / w_i -- the
+# semantics maihda_gaussian_residual_variance_lme4() encodes for the point VPC, and
+# the semantics lme4::refit() keeps when it refits the draw. Simulating
+# equal-variance noise and refitting under 1/w_i weights inflates the bootstrap
+# residual variance by roughly mean(w) (a factor of ~12 for weights of 1 vs 25, and
+# a factor of c even for a CONSTANT weight c != 1), so intervals built that way do
+# not surround their own point estimate.
+#
+# For such a fit we therefore ask lme4 for the fixed + random predictor with no
+# conditional noise (cond.sim = FALSE) and add the correctly scaled residual
+# ourselves, leaving lme4's random-effect simulation untouched. Unweighted (or
+# all-weights-1) LMMs and every GLMM take the plain stats::simulate() path, so
+# those draws stay bit-identical to before.
+maihda_simulate_lme4 <- function(model, nsim) {
+  w <- maihda_lme4_simulation_weights(model)
+  if (is.null(w)) {
+    return(stats::simulate(model, nsim = nsim))
+  }
+  sim <- stats::simulate(model, nsim = nsim, cond.sim = FALSE)
+  # Fall back to lme4's own draws if the residual-free predictor is not the
+  # one-value-per-row shape the weight vector describes (e.g. a matrix response).
+  # NROW(), not nrow(): the latter is NULL for a non-matrix-like object, and a
+  # guard that errors is worse than the shape it guards against.
+  if (NROW(sim) != length(w)) {
+    return(stats::simulate(model, nsim = nsim))
+  }
+  sigma_hat <- stats::sigma(model)
+  # A row whose weight is zero (or non-finite) contributes nothing to the weighted
+  # likelihood, so its drawn value cannot affect the refit -- but it must stay
+  # finite, so give it lme4's own sigma instead of an infinite sd.
+  usable <- is.finite(w) & w > 0
+  sd_i <- rep(sigma_hat, length(w))
+  sd_i[usable] <- sigma_hat / sqrt(w[usable])
+  for (i in seq_len(ncol(sim))) {
+    sim[[i]] <- sim[[i]] + stats::rnorm(length(w), mean = 0, sd = sd_i)
+  }
+  sim
+}
+
 # Prior (precision/frequency) weights of a RAW fitted model object (glmerMod /
 # brmsfit) as a plain numeric vector, or NULL when the fit is unweighted or the
 # weights are unavailable. lme4 exposes them through stats::weights(type = "prior")
