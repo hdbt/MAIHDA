@@ -818,7 +818,13 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL, only_fla
     stop("'stratum' variable not found in data. Make sure to use data from make_strata()")
   }
 
-  observed_outcome <- maihda_observed_outcome_for_plot(observed_response, object$family)
+  # An aggregated-binomial `y | trials(n)` fit keeps its denominator in the
+  # trials() addition term, not in the response, so hand the trial counts to the
+  # extractor -- otherwise the x-axis would be each stratum's mean success COUNT
+  # while the y-axis is a per-trial probability.
+  observed_outcome <- maihda_observed_outcome_for_plot(
+    observed_response, object$family,
+    trials = maihda_trials_from_formula(object$formula, data))
 
   # Calculate observed stratum means
   obs_data <- data
@@ -977,7 +983,52 @@ maihda_observed_sample_size <- function(numerator, denominator) {
   sum(denominator[keep])
 }
 
-maihda_observed_outcome_for_plot <- function(x, family = NULL) {
+# Numerator/denominator for an aggregated binomial whose denominator arrives
+# SEPARATELY from the response -- a brms `y | trials(n)` outcome, whose response is
+# a plain vector of success counts. The lme4 cbind(success, failure) form carries
+# both columns in the response itself and is handled structurally by the matrix
+# branch below; this is its addition-term twin, and produces the same contract
+# (successes / trials), so both engines summarise and plot an aggregated binomial
+# on the proportion scale.
+#
+# Rows whose trial count is missing or non-positive carry no observed outcome and
+# are marked NA -- the same rule the matrix branch applies to a non-finite or
+# zero row total. brms refuses to fit successes outside [0, trials] ("Number of
+# trials is smaller than the number of events"), so a fitted model cannot reach
+# that state; the pre-fit maihda_describe(formula, data) path can, and warns and
+# drops those rows rather than reporting a proportion above 1 (or below 0).
+maihda_observed_trials_values <- function(successes, trials) {
+  if (!is.numeric(successes) && !is.logical(successes)) {
+    stop("An aggregated binomial `trials()` outcome must be numeric success counts.",
+         call. = FALSE)
+  }
+  successes <- as.numeric(successes)
+  trials <- as.numeric(trials)
+  if (length(trials) != length(successes)) {
+    stop("The `trials()` term does not have one trial count per observation.",
+         call. = FALSE)
+  }
+
+  usable <- is.finite(trials) & trials > 0
+  malformed <- usable & is.finite(successes) & (successes < 0 | successes > trials)
+  if (any(malformed)) {
+    bad <- which(malformed)
+    warning("Aggregated binomial outcome: ", length(bad),
+            " row(s) have successes outside [0, trials] (row",
+            if (length(bad) > 1) "s " else " ",
+            paste(utils::head(bad, 5), collapse = ", "),
+            if (length(bad) > 5) ", ..." else "",
+            "); excluded from the observed summary. brms will not fit such rows.",
+            call. = FALSE)
+    successes[malformed] <- NA_real_
+    trials[malformed] <- NA_real_
+  }
+  successes[!usable] <- NA_real_
+
+  maihda_observed_plot_values(successes, trials)
+}
+
+maihda_observed_outcome_for_plot <- function(x, family = NULL, trials = NULL) {
   fam_name <- if (!is.null(family) && !is.null(family$family)) family$family else NULL
   is_binomial <- !is.null(fam_name) && fam_name %in% c("binomial", "quasibinomial")
 
@@ -991,6 +1042,14 @@ maihda_observed_outcome_for_plot <- function(x, family = NULL) {
     numerator <- x_mat[, 1]
     numerator[!is.finite(totals) | totals <= 0] <- NA_real_
     return(maihda_observed_plot_values(numerator, totals))
+  }
+
+  # A brms `y | trials(n)` response: success counts in `x`, the denominator in the
+  # separately supplied trial counts. Without them the numeric branch below would
+  # take the denominator to be 1 and report a mean success COUNT where the model
+  # (and the cbind() form) report a proportion.
+  if (!is.null(trials) && is_binomial) {
+    return(maihda_observed_trials_values(x, trials))
   }
 
   if (is.numeric(x)) {

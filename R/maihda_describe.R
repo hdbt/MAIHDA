@@ -51,8 +51,11 @@
 #' with a Gaussian mean/SD as if continuous:
 #' \itemize{
 #'   \item gaussian (and other continuous families): mean, SD, median, min, max;
-#'   \item binomial (including an aggregated \code{cbind(success, failure)}
-#'     outcome): event count, trials, and the observed proportion;
+#'   \item binomial (including an aggregated outcome written either as
+#'     \code{cbind(success, failure)} or, for \code{brms}, as
+#'     \code{success | trials(n)}): event count, trials, and the observed
+#'     proportion. Trials are the binomial denominator, so a row with a missing
+#'     or non-positive trial count has no observed outcome;
 #'   \item poisson / negative binomial: the same numeric summaries, read as the
 #'     observed count mean (rate);
 #'   \item cumulative (ordinal): the mean and (lower) median category score
@@ -380,6 +383,15 @@ maihda_describe_build <- function(formula, data, analytic_data, fam_obj,
     error = function(e) stop("maihda_describe(): could not evaluate the outcome '",
                              outcome_name, "' in the data: ",
                              conditionMessage(e), call. = FALSE))
+  # An aggregated-binomial brms response keeps its denominator in a `trials()`
+  # addition term (`y | trials(n)`), which the leftmost-leaf extraction above
+  # strips off with the rest of the `|` expression. Recover the trial counts from
+  # the same formula so the denominator is the trials, not 1 -- otherwise the
+  # "proportion" is a mean success COUNT (26 events / 4 trials = 6.5 for a
+  # four-row 26-of-62 sample) and $observations feeds the outcome histogram raw
+  # counts. NULL for every other response, which then takes the branches below
+  # unchanged.
+  outcome_trials <- maihda_trials_from_formula(formula, data, n = n_total)
   if (is.matrix(outcome_vals) || is.data.frame(outcome_vals)) {
     if (nrow(outcome_vals) != n_total) {
       stop("The outcome '", outcome_name, "' does not have one row per data row.",
@@ -415,14 +427,37 @@ maihda_describe_build <- function(formula, data, analytic_data, fam_obj,
   } else {
     fam_obj
   }
+  # The trial counts are the binomial denominator and nothing else; a trials()
+  # term under some other family is not a denominator, so it is dropped rather
+  # than allowed to redefine the outcome (or its missingness) there.
+  if (outcome_kind != "binomial") {
+    outcome_trials <- NULL
+  }
+  # A row with no finite, positive trial count has no observed outcome -- the same
+  # rule the matrix branch applies to a zero/NA row total.
+  if (!is.null(outcome_trials)) {
+    outcome_missing <- outcome_missing |
+      !is.finite(outcome_trials) | outcome_trials <= 0
+  }
   od <- tryCatch(
-    maihda_observed_outcome_for_plot(outcome_vals, fam_for_extract),
+    maihda_observed_outcome_for_plot(outcome_vals, fam_for_extract,
+                                     trials = outcome_trials),
     error = function(e) stop("maihda_describe(): cannot summarise the outcome '",
                              outcome_name, "' under family '", fam_name, "': ",
                              conditionMessage(e), call. = FALSE))
   num <- od$numerator
   den <- od$denominator
   complete <- maihda_observed_complete(num, den)
+  # On the trials path the extractor can also reject a row the checks above
+  # accepted -- successes outside [0, trials], which it warns about and drops.
+  # Fold that back into the missingness accounting, or the report would not
+  # reconcile: "23 events / 52 trials" over "4 non-missing" rows and 0 missing
+  # outcomes, when only 3 rows contributed. Restricted to the trials path so no
+  # other family's missingness rule moves (the matrix branch already derives
+  # outcome_missing from the same row totals the extractor uses).
+  if (!is.null(outcome_trials)) {
+    outcome_missing <- outcome_missing | !complete
+  }
 
   # Category levels (binomial / ordinal vector outcomes) for $outcome_levels and
   # the event-level report; the second binary level is the modeled event, the

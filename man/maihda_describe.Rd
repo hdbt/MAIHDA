@@ -124,8 +124,11 @@ is recorded in \code{$outcome_summary} -- a 0/1 outcome is never described
 with a Gaussian mean/SD as if continuous:
 \itemize{
   \item gaussian (and other continuous families): mean, SD, median, min, max;
-  \item binomial (including an aggregated \code{cbind(success, failure)}
-    outcome): event count, trials, and the observed proportion;
+  \item binomial (including an aggregated outcome written either as
+    \code{cbind(success, failure)} or, for \code{brms}, as
+    \code{success | trials(n)}): event count, trials, and the observed
+    proportion. Trials are the binomial denominator, so a row with a missing
+    or non-positive trial count has no observed outcome;
   \item poisson / negative binomial: the same numeric summaries, read as the
     observed count mean (rate);
   \item cumulative (ordinal): the mean and (lower) median category score

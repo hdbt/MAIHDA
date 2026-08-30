@@ -3655,22 +3655,27 @@ maihda_find_trials_expr <- function(expr) {
   NULL
 }
 
-# Binomial TRIAL counts of a brms `y | trials(n)` fit, or NULL when the fit is not
-# a brms aggregated-binomial model. By default the counts are aligned to
-# object$data; pass `data` (e.g. a prediction newdata) to evaluate the trials()
-# term on a different frame instead, so a response-scale prediction can be
-# normalised by the trial counts of the rows it was made on. brms exposes
-# model.frame.brmsfit but NO weights.brmsfit, so -- unlike an lme4 cbind() fit,
-# whose trials come through stats::weights(type = "prior") -- the counts are not
-# recoverable that way and a brms trials() fit would silently fall back to unit
-# row weights. Parse the trials() addition term off the stored formula instead and
-# evaluate it on the supplied frame, so brms trials() fits are trial-weighted like
-# their lme4 cbind() counterparts.
-maihda_brms_trial_counts <- function(object, data = object$data) {
-  if (!inherits(object$model, "brmsfit")) {
-    return(NULL)
-  }
-  f <- object$formula
+# One binomial TRIAL count per row of `data`, read off a `y | trials(n)` addition
+# term, or NULL when the formula carries no trials() term (a Bernoulli / continuous
+# / count response, or a `y | weights(w)` addition term without trials). Accepts a
+# plain formula or a brmsformula, and finds the term inside a combined addition
+# expression in either order (`trials(n) + weights(w)`).
+#
+# brms allows the trial count to be a CONSTANT rather than a column -- `y |
+# trials(20)` -- which make_standata() recycles to one value per row; recycle a
+# length-1 result the same way, or a constant-trials fit would look like "no usable
+# trial counts" to every caller below. Measured on a real trials(40) fit: unit
+# prediction weights; predict_maihda(scale = "response") returning expected COUNTS
+# (9.7-23.2 out of 40) where it documents a per-trial probability; and
+# maihda_discriminatory_accuracy() erroring outright ("'y' must be a binary 0/1
+# outcome") because the aggregated-counts helper returned NULL and the
+# observation-level path cannot rank a count response. Any OTHER length mismatch is
+# a genuinely unusable alignment and returns NULL rather than a recycled vector.
+#
+# Formula-level (no fitted model needed) so the pre-fit maihda_describe() path can
+# use it too; maihda_brms_trial_counts() is the fitted-model wrapper.
+maihda_trials_from_formula <- function(formula_obj, data, n = NULL) {
+  f <- formula_obj
   if (inherits(f, "brmsformula") && inherits(f$formula, "formula")) {
     f <- f$formula
   }
@@ -3687,10 +3692,38 @@ maihda_brms_trial_counts <- function(object, data = object$data) {
   }
   vals <- tryCatch(eval(trials_expr, envir = data, enclos = baseenv()),
                    error = function(e) NULL)
-  if (is.null(vals)) {
+  if (is.null(vals) || !is.numeric(vals) || length(vals) == 0L) {
     return(NULL)
   }
-  as.numeric(vals)
+  vals <- as.numeric(vals)
+  if (is.null(n)) {
+    n <- if (is.data.frame(data)) nrow(data) else length(vals)
+  }
+  if (length(vals) == 1L && n >= 1L) {
+    vals <- rep(vals, n)
+  }
+  if (length(vals) != n) {
+    return(NULL)
+  }
+  vals
+}
+
+# Binomial TRIAL counts of a brms `y | trials(n)` fit, or NULL when the fit is not
+# a brms aggregated-binomial model. By default the counts are aligned to
+# object$data; pass `data` (e.g. a prediction newdata) to evaluate the trials()
+# term on a different frame instead, so a response-scale prediction can be
+# normalised by the trial counts of the rows it was made on. brms exposes
+# model.frame.brmsfit but NO weights.brmsfit, so -- unlike an lme4 cbind() fit,
+# whose trials come through stats::weights(type = "prior") -- the counts are not
+# recoverable that way and a brms trials() fit would silently fall back to unit
+# row weights. Parse the trials() addition term off the stored formula instead and
+# evaluate it on the supplied frame, so brms trials() fits are trial-weighted like
+# their lme4 cbind() counterparts.
+maihda_brms_trial_counts <- function(object, data = object$data) {
+  if (!inherits(object$model, "brmsfit")) {
+    return(NULL)
+  }
+  maihda_trials_from_formula(object$formula, data)
 }
 
 # Convert a brms response-scale prediction to the probability scale for an
