@@ -4,7 +4,14 @@
 \alias{bootstrap_vpc}
 \title{Bootstrap VPC/ICC}
 \usage{
-bootstrap_vpc(model, data, formula, n_boot, conf_level)
+bootstrap_vpc(
+  model,
+  data,
+  formula,
+  n_boot,
+  conf_level,
+  approximation = "lognormal"
+)
 }
 \arguments{
 \item{model}{An lme4 model object}
@@ -16,6 +23,9 @@ bootstrap_vpc(model, data, formula, n_boot, conf_level)
 \item{n_boot}{Number of bootstrap samples}
 
 \item{conf_level}{Confidence level}
+
+\item{approximation}{The count level-1 variance approximation of the fitted
+model (\code{maihda_count_approximation()}); inert for every non-count family.}
 }
 \value{
 A vector with lower and upper confidence bounds

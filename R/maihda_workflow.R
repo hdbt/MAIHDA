@@ -188,7 +188,9 @@
 #'   \code{summary()} reports); \code{"ML"} refits REML \code{lmer} fits with maximum
 #'   likelihood first. Affects Gaussian \code{lmer} fits only.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
-#'   \code{lmer}/\code{glmer}).
+#'   \code{lmer}/\code{glmer}). Includes \code{count_approximation}, which selects
+#'   the log-link count level-1 variance approximation for the VPC and is applied
+#'   to every derived fit.
 #'
 #' @section Numeric stratum dimensions:
 #' The stratum-defining dimensions are categorical. A factor or character dimension

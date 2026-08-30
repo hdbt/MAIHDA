@@ -103,7 +103,10 @@ maihda_tag_role <- function(s, role) {
 #'   latent/distributional approximation (\eqn{\pi^2/3} for logistic;
 #'   \eqn{\log(1 + 1/\lambda)} for Poisson per Stryhn et al. 2006 and
 #'   \eqn{\log(1 + 1/\lambda + 1/\theta)} for the negative binomial per Nakagawa,
-#'   Johnson & Schielzeth 2017, each evaluated at a single \emph{marginal}
+#'   Johnson & Schielzeth 2017 -- their \code{"delta"} and \code{"trigamma"}
+#'   alternatives are available via \code{fit_maihda(count_approximation = )}, and
+#'   the choice is reported in the printed summary and in \code{count_vpc} because
+#'   the three diverge materially below a marginal count of 2 -- each evaluated at a single \emph{marginal}
 #'   expected count \eqn{\lambda}: the mean over the analytic sample of the
 #'   row-level \eqn{\lambda_i = \exp(x_i'\beta + v_i/2)} -- the fixed-part
 #'   prediction with the log-normal correction for the row's total random-effect
@@ -171,6 +174,17 @@ maihda_tag_role <- function(s, role) {
 #'     is the intersectional-scope concordance that excludes the context random
 #'     effect. \code{NULL} for a crossed-dimensions fit (whose headline here is the
 #'     additive/interaction decomposition) and a longitudinal fit}
+#'   \item{count_vpc}{For a log-link count model, the \code{approximation} the
+#'     level-1 variance came from, the marginal count \code{lambda} (and
+#'     \code{theta} / \code{lambda_effective} for the negative binomial) it was
+#'     evaluated at, the \code{alternatives} all three approximations give at that
+#'     \code{lambda} (\code{level1_variance} is the one used), and
+#'     \code{low_count} -- \code{TRUE} below the \eqn{\lambda = 2} threshold above
+#'     which Nakagawa et al. (2017) report the three agree. These are plug-in
+#'     values at a single \code{lambda}: on the likelihood engines that is exactly
+#'     the number in \code{variance_components}, but a \code{brms} summary works
+#'     draw by draw and reports \eqn{E[\sigma^2_e]} there, which differs slightly.
+#'     \code{NULL} for every other family.}
 #'   \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
 #'     \code{response_vpc = TRUE} for a binomial lme4 model, including a contextual
 #'     fit (the context variance enters the VPC denominator); \code{NULL} otherwise
@@ -351,7 +365,8 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       var_random <- maihda_stratum_variance_lme4(model)
       var_total_random <- maihda_total_random_variance_lme4(model)
       var_other_random <- max(0, var_total_random - var_random)
-      var_residual <- maihda_residual_variance_lme4(model, vc)
+      var_residual <- maihda_residual_variance_lme4(
+        model, vc, approximation = maihda_count_approximation(object))
 
       # Calculate VPC (ICC)
       vpc <- var_random / (var_random + var_other_random + var_residual)
@@ -363,7 +378,9 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
 
       # Bootstrap confidence intervals for VPC if requested
       if (bootstrap) {
-        vpc_ci <- bootstrap_vpc(model, object$data, object$formula, n_boot, conf_level)
+        vpc_ci <- bootstrap_vpc(model, object$data, object$formula, n_boot,
+                                conf_level,
+                                approximation = maihda_count_approximation(object))
         vpc_result <- list(
           estimate = vpc,
           ci_lower = vpc_ci[1],
@@ -542,7 +559,9 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     } else {
       # Summarise the VPC/ICC from posterior draws (E[sd^2], with a credible
       # interval) rather than from the posterior summary SDs (E[sd]^2, no interval).
-      vpc_draws <- maihda_vpc_draws_brms(model, conf_level = conf_level)
+      vpc_draws <- maihda_vpc_draws_brms(
+        model, conf_level = conf_level,
+        approximation = maihda_count_approximation(object))
 
       # Components table reports the posterior-mean variance of each component.
       variance_components <- maihda_variance_components_table(
@@ -611,10 +630,19 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     }
   }
 
+  # Which count level-1 approximation the VPC used, and the marginal lambda it was
+  # evaluated at -- Nakagawa et al. (2017) ask that the choice be reported because
+  # the three approximations diverge materially at low counts, and this is the only
+  # place the user sees it. NULL for every non-count family. Wrapped like the other
+  # optional summaries so a failure here never breaks the VPC.
+  count_vpc <- maihda_try_optional(maihda_count_vpc_note(object),
+                                   "Count VPC approximation note")
+
   # Create summary object
   result <- structure(
     list(
       vpc = vpc_result,
+      count_vpc = count_vpc,
       variance_components = variance_components,
       decomposition = decomposition,
       context = context_summary,
@@ -661,7 +689,8 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
 maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level) {
   model <- object$model
   var_named <- maihda_random_variances_lme4(model)
-  var_within <- maihda_residual_variance_lme4(model, vc)
+  var_within <- maihda_residual_variance_lme4(
+    model, vc, approximation = maihda_count_approximation(object))
   split <- maihda_cc_variance_split(var_named, cc$dim_groups, cc$interaction_group)
   ctx_vars <- if (!is.null(object$context_info)) {
     object$context_info$context_vars
@@ -704,7 +733,8 @@ maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level
   }
 
   if (bootstrap) {
-    boot <- bootstrap_cc(model, cc, n_boot, conf_level, ctx_vars = ctx_vars)
+    boot <- bootstrap_cc(model, cc, n_boot, conf_level, ctx_vars = ctx_vars,
+                         approximation = maihda_count_approximation(object))
     vpc_result <- list(
       estimate = part$vpc,
       ci_lower = boot$vpc[1],
@@ -756,7 +786,8 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
   model <- object$model
   draws <- maihda_posterior_draws_brms(model)
   gv <- maihda_group_variance_draws_brms(draws)
-  within_draws <- maihda_residual_variance_draws_brms(model, draws)
+  within_draws <- maihda_residual_variance_draws_brms(
+    model, draws, approximation = maihda_count_approximation(object))
 
   dim_re <- unname(cc$dim_groups)
   ctx_vars <- if (!is.null(object$context_info)) {
@@ -866,12 +897,16 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
 #' @param n_boot Number of bootstrap samples.
 #' @param conf_level Confidence level.
 #' @param ctx_vars Character vector of contextual grouping factors (may be empty).
+#' @param approximation The count level-1 variance approximation of the
+#'   fitted model (\code{maihda_count_approximation()}); inert for every
+#'   non-count family.
 #' @return A list with \code{vpc}, \code{additive_share}, \code{interaction_share}
 #'   (and \code{context_vpc} when \code{ctx_vars} is non-empty), each a length-2
 #'   interval carrying \code{n_ok}/\code{mc_se} attributes.
 #' @keywords internal
 #' @importFrom lme4 refit
-bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0)) {
+bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0),
+                         approximation = "lognormal") {
   vpc_boot <- rep(NA_real_, n_boot)
   additive_boot <- rep(NA_real_, n_boot)
   interaction_boot <- rep(NA_real_, n_boot)
@@ -885,7 +920,8 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0))
     tryCatch({
       boot_model <- lme4::refit(model, newresp = sim_data[[i]])
       var_named <- maihda_random_variances_lme4(boot_model)
-      var_within <- maihda_residual_variance_lme4(boot_model)
+      var_within <- maihda_residual_variance_lme4(boot_model,
+                                                  approximation = approximation)
       split <- maihda_cc_variance_split(var_named, cc$dim_groups, cc$interaction_group)
       var_context <- if (length(ctx_vars) > 0) sum(var_named[ctx_vars]) else 0
       part <- maihda_cc_partition(split$additive, split$interaction, var_within,
@@ -944,7 +980,8 @@ maihda_context_summary_lme4 <- function(object, ctx, vc, bootstrap, n_boot,
                                         conf_level) {
   model <- object$model
   var_named <- maihda_random_variances_lme4(model)
-  var_within <- maihda_residual_variance_lme4(model, vc)
+  var_within <- maihda_residual_variance_lme4(
+    model, vc, approximation = maihda_count_approximation(object))
   ctx_vars <- ctx$context_vars
   missing_re <- setdiff(c("stratum", ctx_vars), names(var_named))
   if (length(missing_re) > 0) {
@@ -978,7 +1015,8 @@ maihda_context_summary_lme4 <- function(object, ctx, vc, bootstrap, n_boot,
   )
 
   if (bootstrap) {
-    boot <- bootstrap_context(model, ctx_vars, n_boot, conf_level)
+    boot <- bootstrap_context(model, ctx_vars, n_boot, conf_level,
+                              approximation = maihda_count_approximation(object))
     vpc_result <- list(
       estimate = part$vpc_stratum,
       ci_lower = boot$vpc[1],
@@ -1021,7 +1059,8 @@ maihda_context_summary_brms <- function(object, ctx, conf_level,
   model <- object$model
   draws <- maihda_posterior_draws_brms(model)
   gv <- maihda_group_variance_draws_brms(draws)
-  within_draws <- maihda_residual_variance_draws_brms(model, draws)
+  within_draws <- maihda_residual_variance_draws_brms(
+    model, draws, approximation = maihda_count_approximation(object))
 
   ctx_vars <- ctx$context_vars
   missing_re <- setdiff(c("stratum", ctx_vars), names(gv))
@@ -1102,12 +1141,16 @@ maihda_context_summary_brms <- function(object, ctx, conf_level,
 #' @param ctx_vars Character vector of context grouping factors.
 #' @param n_boot Number of bootstrap samples.
 #' @param conf_level Confidence level.
+#' @param approximation The count level-1 variance approximation of the
+#'   fitted model (\code{maihda_count_approximation()}); inert for every
+#'   non-count family.
 #' @return A list with \code{vpc} (between-stratum share) and \code{context_vpc}
 #'   (contexts' total share), each a length-2 interval carrying
 #'   \code{n_ok}/\code{mc_se} attributes.
 #' @keywords internal
 #' @importFrom lme4 refit
-bootstrap_context <- function(model, ctx_vars, n_boot, conf_level) {
+bootstrap_context <- function(model, ctx_vars, n_boot, conf_level,
+                              approximation = "lognormal") {
   vpc_boot <- rep(NA_real_, n_boot)
   context_boot <- rep(NA_real_, n_boot)
   # Count contributing draws whose refit optimiser did not converge, so the reported
@@ -1119,7 +1162,8 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level) {
     tryCatch({
       boot_model <- lme4::refit(model, newresp = sim_data[[i]])
       var_named <- maihda_random_variances_lme4(boot_model)
-      var_within <- maihda_residual_variance_lme4(boot_model)
+      var_within <- maihda_residual_variance_lme4(boot_model,
+                                                  approximation = approximation)
       var_stratum <- unname(var_named[["stratum"]])
       per_context <- var_named[ctx_vars]
       var_other <- max(0, sum(var_named, na.rm = TRUE) - var_stratum -
@@ -1159,11 +1203,14 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level) {
 #' @param formula The model formula
 #' @param n_boot Number of bootstrap samples
 #' @param conf_level Confidence level
+#' @param approximation The count level-1 variance approximation of the fitted
+#'   model (\code{maihda_count_approximation()}); inert for every non-count family.
 #'
 #' @return A vector with lower and upper confidence bounds
 #' @keywords internal
 #' @importFrom lme4 lmer glmer VarCorr
-bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
+bootstrap_vpc <- function(model, data, formula, n_boot, conf_level,
+                          approximation = "lognormal") {
   # Initialise to NA so iterations whose refit() throws -- and never reach the
   # assignment inside the tryCatch body -- stay NA rather than the numeric() default of 0.
   # The error handler runs in its own scope and cannot write back to this vector,
@@ -1183,7 +1230,8 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level) {
       var_random <- maihda_stratum_variance_lme4(boot_model)
       var_total_random <- maihda_total_random_variance_lme4(boot_model)
       var_other_random <- max(0, var_total_random - var_random)
-      var_residual <- maihda_residual_variance_lme4(boot_model, vc)
+      var_residual <- maihda_residual_variance_lme4(
+        boot_model, vc, approximation = approximation)
 
       vpc_boot[i] <- var_random / (var_random + var_other_random + var_residual)
       if (maihda_lme4_optimizer_failed(boot_model)) {
@@ -1337,6 +1385,7 @@ print.maihda_summary <- function(x, ...) {
   } else {
     cat(sprintf("  Estimate: %s\n\n", pal$accent(sprintf("%.4f", x$vpc$estimate))))
   }
+  maihda_print_count_vpc_note(x$count_vpc, pal)
 
   cat(pal$bold("Variance Components:"), "\n", sep = "")
   print(x$variance_components, row.names = FALSE, digits = 4)

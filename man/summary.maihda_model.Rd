@@ -73,6 +73,17 @@ A maihda_summary object containing:
     is the intersectional-scope concordance that excludes the context random
     effect. \code{NULL} for a crossed-dimensions fit (whose headline here is the
     additive/interaction decomposition) and a longitudinal fit}
+  \item{count_vpc}{For a log-link count model, the \code{approximation} the
+    level-1 variance came from, the marginal count \code{lambda} (and
+    \code{theta} / \code{lambda_effective} for the negative binomial) it was
+    evaluated at, the \code{alternatives} all three approximations give at that
+    \code{lambda} (\code{level1_variance} is the one used), and
+    \code{low_count} -- \code{TRUE} below the \eqn{\lambda = 2} threshold above
+    which Nakagawa et al. (2017) report the three agree. These are plug-in
+    values at a single \code{lambda}: on the likelihood engines that is exactly
+    the number in \code{variance_components}, but a \code{brms} summary works
+    draw by draw and reports \eqn{E[\sigma^2_e]} there, which differs slightly.
+    \code{NULL} for every other family.}
   \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
     \code{response_vpc = TRUE} for a binomial lme4 model, including a contextual
     fit (the context variance enters the VPC denominator); \code{NULL} otherwise
@@ -147,7 +158,10 @@ expensive \eqn{ndraws \times nobs} computation.
   latent/distributional approximation (\eqn{\pi^2/3} for logistic;
   \eqn{\log(1 + 1/\lambda)} for Poisson per Stryhn et al. 2006 and
   \eqn{\log(1 + 1/\lambda + 1/\theta)} for the negative binomial per Nakagawa,
-  Johnson & Schielzeth 2017, each evaluated at a single \emph{marginal}
+  Johnson & Schielzeth 2017 -- their \code{"delta"} and \code{"trigamma"}
+  alternatives are available via \code{fit_maihda(count_approximation = )}, and
+  the choice is reported in the printed summary and in \code{count_vpc} because
+  the three diverge materially below a marginal count of 2 -- each evaluated at a single \emph{marginal}
   expected count \eqn{\lambda}: the mean over the analytic sample of the
   row-level \eqn{\lambda_i = \exp(x_i'\beta + v_i/2)} -- the fixed-part
   prediction with the log-normal correction for the row's total random-effect
@@ -189,17 +203,11 @@ specifically mean the trajectory question.
 (5):
 \deqn{VPC_{intercept} = \frac{Var_S(t_0)}{Var_S(t_0) + Var_I(t_0)}, \qquad
       VPC_{slope} = \frac{SlopeVar_S(t_0)}{SlopeVar_S(t_0) + SlopeVar_I(t_0)}.}
-These ask how intersectionally patterned people's \emph{trajectories} are -- what
+These ask how intersectionally patterned people's \emph{trajectories} are i.e., what
 share of the between-individual variation in where a trajectory starts, and in how
 fast it changes, lies between strata. Because \eqn{\sigma^2_e} is absent neither is
 affected by how noisy the outcome measure is, which makes them comparable across
 studies using different instruments.
-
-For the slope the residual could not be included even in principle: a slope
-variance is in \eqn{(\mathrm{outcome}/\mathrm{time})^2} while \eqn{\sigma^2_e} is
-in \eqn{\mathrm{outcome}^2}, so the sum would be dimensionally meaningless. (The
-headline VPC is well formed because \eqn{a(t)'\Sigma a(t)} returns to
-\eqn{\mathrm{outcome}^2}.) The intercept VPC drops it for symmetry with the slope.
 
 Both are evaluated at the baseline \eqn{t_0} (\code{ref_time}, the earliest
 observed time), pairing with \code{PCV_intercept} and \code{PCV_slope} from

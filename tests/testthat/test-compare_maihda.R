@@ -38,7 +38,11 @@ test_that("compare_maihda warns when models use different families", {
   m_pois  <- fit_maihda(y_count ~ x + (1 | stratum), data = d, family = "poisson")
 
   # These models differ in BOTH outcome and family: still a single warning.
+  # The Poisson model's marginal count is below 2, so summarising it also emits
+  # the count level-1 approximation note; drop that one -- the COMPARABILITY
+  # check itself must stay a single warning.
   w <- testthat::capture_warnings(compare_maihda(m_gauss, m_pois))
+  w <- grep("count VPC/ICC level-1 variance", w, value = TRUE, invert = TRUE)
   expect_length(w, 1)
   expect_match(w, "differ in")
   expect_match(w, "outcomes")

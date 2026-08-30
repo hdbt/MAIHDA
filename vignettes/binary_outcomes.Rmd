@@ -362,6 +362,16 @@ A Poisson (count) outcome follows the identical pattern -- pass
 latent-scale residual variance, and the summary, PCV, and plotting helpers all
 behave as above.
 
+One thing to watch with counts: that latent-scale residual variance is an
+*approximation*, and which one you use matters when the outcome is rare.
+`fit_maihda(count_approximation = )` offers the three of Nakagawa, Johnson &
+Schielzeth (2017) -- `"lognormal"` (the default), `"delta"` and `"trigamma"`.
+They agree above a mean count of about 2 and diverge sharply below it: at a mean
+count of 0.34 they give level-1 variances of 1.37, 2.94 and 9.76, so the same
+model reports a VPC six times larger under one than another. `summary()`
+therefore names the approximation and the mean count it was evaluated at, and
+warns when that count is at or below 2. Report which one you used.
+
 ## References
 
 - Merlo, J. (2018). Multilevel analysis of individual heterogeneity and discriminatory accuracy (MAIHDA) within an intersectional framework. *Social Science & Medicine*, 203, 74-80.

@@ -166,7 +166,9 @@ maihda_app_bootstrap_vpc_cis <- function(null_model, adjusted_model,
       return(NULL)
     }
     tryCatch(
-      bootstrap_vpc(model$model, model$data, model$formula, args$n_boot, args$conf_level),
+      bootstrap_vpc(model$model, model$data, model$formula, args$n_boot,
+                    args$conf_level,
+                    approximation = maihda_count_approximation(model)),
       error = function(e) NULL
     )
   }

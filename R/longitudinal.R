@@ -713,12 +713,15 @@ maihda_longitudinal_set_time <- function(newdata, time_term, t_c,
 # that time. `t_c` is on the model's (possibly centered) coefficient scale; `v_t`
 # is VarStratum(t) + VarId(t) at the same times, aligned to `t_c`.
 maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t,
-                                                orig_time = time_term, center = 0) {
+                                                orig_time = time_term, center = 0,
+                                                approximation = "lognormal") {
   fam <- maihda_family(model)
   is_count <- !is.null(fam) && identical(fam$link, "log") &&
     fam$family %in% c("poisson", "negbinomial")
   if (!is_count) {
-    return(rep(maihda_residual_variance_lme4(model), length(t_c)))
+    return(rep(maihda_residual_variance_lme4(model,
+                                             approximation = approximation),
+               length(t_c)))
   }
   theta <- if (identical(fam$family, "negbinomial")) {
     maihda_negbin_theta_lme4(model)
@@ -750,7 +753,8 @@ maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t,
     }
     eta <- maihda_lme4_fixed_link(model, nd, offset = off_j)
     mu <- pmax(exp(eta + v_t[j] / 2), .Machine$double.eps)
-    maihda_count_level1_variance(mu, theta = theta, w = w)
+    maihda_count_level1_variance(mu, theta = theta, w = w,
+                                 approximation = approximation)
   }, numeric(1))
 }
 
@@ -765,7 +769,8 @@ maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t,
 # that path, so the return is a per-draw vector. `v_t` is VarStratum(t) + VarId(t)
 # (posterior-mean) at `t_c`. Only called for count families.
 maihda_longitudinal_resid_at_brms <- function(model, draws, time_term, t_c, v_t,
-                                              orig_time = time_term, center = 0) {
+                                              orig_time = time_term, center = 0,
+                                              approximation = "lognormal") {
   nd <- maihda_longitudinal_set_time(model$data, time_term, t_c,
                                      orig_time = orig_time, center = center)
   eta <- maihda_brms_linpred_mean(model, newdata = nd, re_formula = NA)
@@ -779,10 +784,11 @@ maihda_longitudinal_resid_at_brms <- function(model, draws, time_term, t_c, v_t,
     }
     shape_d <- as.numeric(draws[["shape"]])
     return(vapply(shape_d,
-                  function(s) maihda_count_level1_variance(mu, theta = s, w = w),
+                  function(s) maihda_count_level1_variance(
+                    mu, theta = s, w = w, approximation = approximation),
                   numeric(1)))
   }
-  maihda_count_level1_variance(mu, w = w)
+  maihda_count_level1_variance(mu, w = w, approximation = approximation)
 }
 
 # ---- time-varying VPC summary -----------------------------------------------
@@ -839,12 +845,15 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   var_i_grid <- maihda_var_at_time(Sigma_i, grid_c)
   var_s_ref <- maihda_var_at_time(Sigma_s, ref_c)
   var_i_ref <- maihda_var_at_time(Sigma_i, ref_c)
+  count_approx <- maihda_count_approximation(object)
   resid_grid <- maihda_longitudinal_resid_grid_lme4(model, time_term, grid_c,
                                                     var_s_grid + var_i_grid,
-                                                    orig_time = lng$time, center = center)
+                                                    orig_time = lng$time, center = center,
+                                                    approximation = count_approx)
   resid_ref <- maihda_longitudinal_resid_grid_lme4(model, time_term, ref_c,
                                                    var_s_ref + var_i_ref,
-                                                   orig_time = lng$time, center = center)
+                                                   orig_time = lng$time, center = center,
+                                                   approximation = count_approx)
   # Scalar residual for the components table / headline: the reference-time value
   # (a single latent-scale number that the trajectory generalises over time).
   var_resid <- as.numeric(resid_ref)
@@ -869,11 +878,13 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
         Si <- maihda_re_block_lme4(bm, lng$id, time_term, lng$time_degree)
         vs <- maihda_var_at_time(Ss, grid_c); vi <- maihda_var_at_time(Si, grid_c)
         vr_grid <- maihda_longitudinal_resid_grid_lme4(bm, time_term, grid_c, vs + vi,
-                                                       orig_time = lng$time, center = center)
+                                                       orig_time = lng$time, center = center,
+                                                       approximation = count_approx)
         boot[i, ] <- vs / (vs + vi + vr_grid)
         rs <- maihda_var_at_time(Ss, ref_c); ri <- maihda_var_at_time(Si, ref_c)
         vr_ref <- maihda_longitudinal_resid_grid_lme4(bm, time_term, ref_c, rs + ri,
-                                                      orig_time = lng$time, center = center)
+                                                      orig_time = lng$time, center = center,
+                                                      approximation = count_approx)
         ref_boot[i] <- rs / (rs + ri + vr_ref)
         if (maihda_lme4_optimizer_failed(bm)) n_nonconv <- n_nonconv + 1L
       }, error = function(e) NULL)
@@ -950,6 +961,7 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
   }
   lng <- object$longitudinal_info
   model <- object$model
+  count_approx <- maihda_count_approximation(object)
   time_term <- maihda_lng_time_term(lng)
   center <- maihda_lng_time_center(lng)
   draws <- maihda_posterior_draws_brms(model)
@@ -1010,16 +1022,19 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
       if (!is.null(eta_link) && length(dim(eta_link)) == 2L &&
           nrow(eta_link) == n_draws && length(v_t_draws) == n_draws) {
         maihda_count_resid_var_from_linpred(eta_link, v_t_draws, w = resid_w,
-                                            extra = nb_extra)
+                                            extra = nb_extra,
+                                            approximation = count_approx)
       } else {
         v_t_mean <- maihda_var_at_time(Sigma_s, t_c) +
           maihda_var_at_time(Sigma_i, t_c)
         maihda_longitudinal_resid_at_brms(model, draws, time_term, t_c, v_t_mean,
-                                          orig_time = lng$time, center = center)
+                                          orig_time = lng$time, center = center,
+                                          approximation = count_approx)
       }
     }
   } else {
-    var_resid_draws <- maihda_residual_variance_draws_brms(model, draws)
+    var_resid_draws <- maihda_residual_variance_draws_brms(
+      model, draws, approximation = count_approx)
     if (length(var_resid_draws) == 1L) {
       var_resid_draws <- rep(var_resid_draws, length(sig_s$v0))
     }
@@ -1354,7 +1369,9 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
   # the helper falls back to an absolute near-zero test.
   resid_var_null <- tryCatch(
     if (identical(null_model$engine, "lme4"))
-      maihda_residual_variance_lme4(null_model$model) else NA_real_,
+      maihda_residual_variance_lme4(
+        null_model$model,
+        approximation = maihda_count_approximation(null_model)) else NA_real_,
     error = function(e) NA_real_)
   denom_at_boundary <- function(v) maihda_variance_at_boundary(v, resid_var_null)
   # TRUE when the WHOLE null stratum growth block is degenerate (every variance on the

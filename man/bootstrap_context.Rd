@@ -4,7 +4,13 @@
 \alias{bootstrap_context}
 \title{Bootstrap a contextual cross-classified MAIHDA partition (lme4)}
 \usage{
-bootstrap_context(model, ctx_vars, n_boot, conf_level)
+bootstrap_context(
+  model,
+  ctx_vars,
+  n_boot,
+  conf_level,
+  approximation = "lognormal"
+)
 }
 \arguments{
 \item{model}{The underlying lme4 model object.}
@@ -14,6 +20,10 @@ bootstrap_context(model, ctx_vars, n_boot, conf_level)
 \item{n_boot}{Number of bootstrap samples.}
 
 \item{conf_level}{Confidence level.}
+
+\item{approximation}{The count level-1 variance approximation of the
+fitted model (\code{maihda_count_approximation()}); inert for every
+non-count family.}
 }
 \value{
 A list with \code{vpc} (between-stratum share) and \code{context_vpc}

@@ -188,7 +188,9 @@ between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit, as
 likelihood first. Affects Gaussian \code{lmer} fits only.}
 
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
-\code{lmer}/\code{glmer}).}
+\code{lmer}/\code{glmer}). Includes \code{count_approximation}, which selects
+the log-link count level-1 variance approximation for the VPC and is applied
+to every derived fit.}
 }
 \value{
 An object of class \code{maihda_analysis}: a list with

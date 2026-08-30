@@ -4,7 +4,14 @@
 \alias{bootstrap_cc}
 \title{Bootstrap a crossed-dimensions MAIHDA partition (lme4)}
 \usage{
-bootstrap_cc(model, cc, n_boot, conf_level, ctx_vars = character(0))
+bootstrap_cc(
+  model,
+  cc,
+  n_boot,
+  conf_level,
+  ctx_vars = character(0),
+  approximation = "lognormal"
+)
 }
 \arguments{
 \item{model}{The underlying lme4 model object.}
@@ -16,6 +23,10 @@ bootstrap_cc(model, cc, n_boot, conf_level, ctx_vars = character(0))
 \item{conf_level}{Confidence level.}
 
 \item{ctx_vars}{Character vector of contextual grouping factors (may be empty).}
+
+\item{approximation}{The count level-1 variance approximation of the
+fitted model (\code{maihda_count_approximation()}); inert for every
+non-count family.}
 }
 \value{
 A list with \code{vpc}, \code{additive_share}, \code{interaction_share}

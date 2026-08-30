@@ -139,7 +139,7 @@ test_that("fit_maihda(family = 'negbinomial') fits via glmer.nb with the canonic
   # approximation on the same marginal mean.
   expect_gt(rv, log1p(1 / mean(lambda)))
 
-  s <- summary(m)
+  s <- suppressWarnings(summary(m))
   expect_true(s$vpc$estimate > 0 && s$vpc$estimate < 1)
   resid_row <- s$variance_components$variance[
     s$variance_components$component == "Within-stratum (residual)"]
@@ -162,7 +162,7 @@ test_that("a fixed-theta negative.binomial family object fits via glmer and reco
   # the user's fixed theta is recovered exactly.
   expect_equal(maihda_negbin_theta_lme4(m$model), 2)
 
-  s <- summary(m)
+  s <- suppressWarnings(summary(m))
   expect_true(s$vpc$estimate > 0 && s$vpc$estimate < 1)
 })
 
@@ -312,7 +312,7 @@ test_that("the plot layer treats a glmer.nb fit as a count model", {
 
   d <- make_nb_data()
   m <- fit_nb(d)
-  s <- summary(m)
+  s <- suppressWarnings(summary(m))
 
   # The normalized family name routes the deviation panels to the count branch
   # (pre-normalization the raw label matched nothing).
