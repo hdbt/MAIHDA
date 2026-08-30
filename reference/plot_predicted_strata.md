@@ -13,7 +13,7 @@ plot_predicted_strata(
   highlight = NULL,
   only_flagged = FALSE,
   select = c("order", "deviation"),
-  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation")
+  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation", "size")
 )
 ```
 
@@ -64,8 +64,10 @@ plot_predicted_strata(
   which strata are shown – that is `n_strata`/`select` – nor the
   predicted values, intervals, or reference line): `"predicted_desc"`
   (default) highest predicted at the top, `"stratum"` native stratum
-  order, `"predicted_asc"` lowest at the top, or `"deviation"` largest
-  `|predicted - reference|` at the top.
+  order, `"predicted_asc"` lowest at the top, `"deviation"` largest
+  `|predicted - reference|` at the top, or `"size"` largest stratum
+  first. `NULL` means the caller expressed no preference and takes this
+  view's default (`"predicted_desc"`).
 
 ## Value
 

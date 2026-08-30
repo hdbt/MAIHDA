@@ -243,6 +243,184 @@ decomposition.
 > covariates and using
 > `control = lme4::glmerControl(optimizer = "bobyqa")` usually helps.
 
+## What “interaction” means on the logit scale
+
+Once those main effects *are* in the model, the stratum random effect is
+the pure intersectional component, and
+[`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+flags the strata whose component is credibly non-zero:
+
+``` r
+
+model_int <- fit_maihda(
+  Obese ~ Gender + Race + Education + (1 | Gender:Race:Education),
+  data = health_complete, family = "binomial"
+)
+#> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.
+
+maihda_interactions(model_int)
+#> ── Intersectional interactions ─────────────────────────────────────────────────
+#> 1 of 50 strata flagged (95% interval; BH-adjusted conservative p-values).
+#> Model: adjusted; interaction on the link (latent) scale.
+#> A log-odds departure (logit link): the flags test additivity on the link
+#>   scale, not in risks.
+#>   prob_diff is that same departure in probability points (pi_j - pi^A_j);
+#>   scale = "response" returns it with its interval.
+#> 
+#>  stratum                       label   n interaction prob_diff     se  lower
+#>        8 male × White × Some College 328      0.3713    0.0896 0.0993 0.1766
+#>   upper  p_value p_adjusted flagged direction
+#>  0.5659 0.000185   0.009249    TRUE     above
+#> 
+#> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
+#>   exploratory. See ?maihda_interactions.
+#> 
+```
+
+Read the numbers on the scale they were computed on. In the Gaussian
+case the stratum BLUP $`u_j`$ is the part of the stratum’s mean outcome
+attributable to interaction, in the outcome’s own units. Here it is a
+deviation in **log-odds** – so what is flagged is *multiplicative*,
+odds-scale interaction. Evans et al. (2024, sec. 2.5.1) say it plainly:
+in a logistic MAIHDA you can “no longer directly interpret $`u_j`$ as
+the change in mean outcomes (i.e., shift in probabilities) attributable
+to interaction effects”. The printed output says so too, which is why
+the binomial fit above carries a line the Gaussian one does not – and
+why it prints a `prob_diff` column the Gaussian one does not: the same
+departure expressed in probability points, so the log-odds figure is
+never the only number on screen. That column is a display convenience;
+`scale = "response"` below is how to get it, with its interval, as data.
+
+There are in fact **three** quantities in play here, and this analysis
+reports two of them. Keeping them apart is the whole of the difficulty.
+
+**1. The multiplicative interaction, $`u_j`$** – whether a dimension
+multiplies the odds by the same factor at every level of the others.
+That is what was just printed, and what `flagged` is about.
+
+**2. The same departure in probability points, $`\pi^{B}_{j}`$** – the
+units to report if your reader thinks in risks. More on it in a moment.
+
+**3. The additive (risk-difference) interaction** – whether a dimension
+adds the same number of *percentage points* of risk at every level of
+the others. Neither 1 nor 2 reports this, and it is generally non-zero
+even when $`u_j`$ is exactly zero. Take a model with a $`-2`$ baseline
+and $`+0.7`$ for each of two dimensions and no interaction whatsoever:
+
+``` r
+
+p <- function(a, b) plogis(-2 + 0.7 * a + 0.7 * b)
+
+c(`risk added by B, at A = 0` = p(0, 1) - p(0, 0),
+  `risk added by B, at A = 1` = p(1, 1) - p(1, 0))
+#> risk added by B, at A = 0 risk added by B, at A = 1 
+#>                0.09496209                0.14017868
+```
+
+The odds ratio for B is identical at both levels of A – that is what
+$`u_j = 0`$ means – yet B adds nine and a half points of risk in one
+group and fourteen in the other. The excess is a property of the
+logistic curve, which is steeper in the middle than in the tails, not a
+finding about the world. So **“no strata flagged” supports “no credible
+multiplicative interaction”, not “no interaction”**: quantity 3 is
+generally non-zero regardless, and it is often the one a policy audience
+cares about.
+
+*Generally*, not always – worth knowing, because the exception is a
+perfectly ordinary design rather than a curiosity. The risk-difference
+interaction is positive below the curve’s midpoint and negative above
+it, so it must pass through zero, and it does so where the two
+comparisons straddle the midpoint symmetrically:
+
+``` r
+
+rd_int <- function(b0, a, b) {
+  (plogis(b0 + a + b) - plogis(b0 + a)) - (plogis(b0 + b) - plogis(b0))
+}
+
+vapply(c(`-2.0` = -2, `-0.7` = -0.7, `0.0` = 0), rd_int, numeric(1), a = 0.7, b = 0.7)
+#>          -2.0          -0.7           0.0 
+#>  4.521658e-02  5.551115e-17 -3.419166e-02
+```
+
+At an intercept of $`-(a + b)/2 = -0.7`$ the risks add exactly. That is
+one configuration out of many, and nothing in the flags tells you which
+one you are in – which is the point: they are not evidence about
+quantity 3 in either direction.
+
+Quantity 2, then. Evans et al. (2024) define it as the gap between a
+stratum’s total predicted probability and the probability implied by the
+additive main effects alone,
+
+``` math
+\pi^{B}_{j} = \pi_j - \pi^{A}_{j}, \qquad
+\pi_j = \mathrm{logit}^{-1}(x_j'\beta + u_j), \qquad
+\pi^{A}_{j} = \mathrm{logit}^{-1}(x_j'\beta),
+```
+
+and rank-plot $`\pi^{B}_{j}`$ where the linear case plots $`u_j`$. Ask
+for it with `scale = "response"`:
+
+``` r
+
+maihda_interactions(model_int, scale = "response")
+#> ── Intersectional interactions ─────────────────────────────────────────────────
+#> 1 of 50 strata flagged (95% interval; BH-adjusted conservative p-values).
+#> Model: adjusted; interaction on the response (outcome) scale.
+#> A probability difference (pi_j - pi^A_j, Evans et al. 2024): the
+#>   interaction carried onto the outcome scale; flags match the
+#>   log-odds scale.
+#> 
+#>  stratum                       label   n interaction   lower  upper  p_value
+#>        8 male × White × Some College 328      0.0896 0.04188 0.1381 0.000185
+#>  p_adjusted flagged direction
+#>    0.009249    TRUE     above
+#> 
+#> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
+#>   exploratory. See ?maihda_interactions.
+#> 
+```
+
+Same strata, same evidence, readable units: a flagged stratum’s
+interaction is now a difference in **percentage points** of predicted
+probability rather than a log-odds departure.
+
+That correspondence is exact, not approximate. Write $`g`$ for the map
+from a stratum’s BLUP to its $`\pi^{B}_{j}`$; $`g`$ is strictly
+increasing and $`g(0) = 0`$, so the estimate, both interval endpoints
+and zero carry across together. `flagged`, `direction` and the p-values
+are identical under either scale, and the response-scale interval is the
+exact image of the link-scale one – no simulation, and no delta-method
+approximation. It inherits the same conditionality (fixed effects and
+variance components held at their point estimates). Two things do
+change: `se` is dropped, because the resulting interval is deliberately
+asymmetric about the estimate and no single standard error would
+reproduce it; and the ranking can differ, since the same log-odds
+departure buys more probability near $`\pi = 0.5`$ than out in the tail.
+
+A `rope` is then read in the same units, which is often where the
+argument becomes concrete – “are more than two percentage points of this
+stratum’s risk attributable to its interaction?” is a question a reader
+can actually answer:
+
+``` r
+
+table(maihda_interactions(model_int, scale = "response", rope = 0.02)$decision)
+#> 
+#> inconclusive     relevant 
+#>           49            1
+```
+
+**If it is quantity 3 you want**, neither scale will give it to you –
+`scale = "response"` re-expresses the multiplicative interaction, it
+does not replace it with the risk-difference one. Fit a linear
+probability model instead: `family = "gaussian"` on the 0/1 outcome, the
+option
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+points at when it auto-detects a binary outcome. There the BLUP *is* the
+risk-difference interaction by construction, at the usual costs
+(predictions outside $`[0, 1]`$, heteroskedastic residuals).
+
 ## Discriminatory accuracy (AUC and Median Odds Ratio)
 
 The VPC summarises *variation*; discriminatory accuracy summarises
@@ -372,6 +550,12 @@ summary, PCV, and plotting helpers all behave as above.
   (2018). A multilevel approach to modeling health inequalities at the
   intersection of multiple social identities. *Social Science &
   Medicine*, 203, 64-73.
+
+- Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J.
+  (2024). A tutorial for conducting intersectional multilevel analysis
+  of individual heterogeneity and discriminatory accuracy (MAIHDA).
+  *SSM - Population Health*, 26, 101664.
+  <doi:10.1016/j.ssmph.2024.101664>
 
 - Merlo, J., Wagner, P., Ghith, N., & Leckie, G. (2016). An original
   stepwise multilevel logistic regression analysis of discriminatory

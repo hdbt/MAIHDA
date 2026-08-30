@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-08-29</h4>
+            <h4 data-toc-skip class="date">2026-08-30</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/binary_outcomes.Rmd" class="external-link"><code>vignettes/binary_outcomes.Rmd</code></a></small>
       <div class="d-none name"><code>binary_outcomes.Rmd</code></div>
@@ -312,6 +312,183 @@ helps.</p>
 </blockquote>
 </div>
 <div class="section level2">
+<h2 id="what-interaction-means-on-the-logit-scale">What “interaction” means on the logit scale<a class="anchor" aria-label="anchor" href="#what-interaction-means-on-the-logit-scale"></a>
+</h2>
+<p>Once those main effects <em>are</em> in the model, the stratum random
+effect is the pure intersectional component, and
+<code><a href="../reference/maihda_interactions.html">maihda_interactions()</a></code> flags the strata whose component is
+credibly non-zero:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">model_int</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
+<span>  <span class="va">Obese</span> <span class="op">~</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">health_complete</span>, family <span class="op">=</span> <span class="st">"binomial"</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt; Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">model_int</span><span class="op">)</span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span></span>
+<span><span class="co">#&gt; <span style="color: #D78700; font-weight: bold;">1</span> of 50 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted conservative p-values</span>).</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">Model: adjusted; interaction on the link (latent) scale.</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; A log-odds departure (logit link): the flags test additivity on the link</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   scale, not in risks.</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   prob_diff is that same departure in probability points (pi_j - pi^A_j);</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   scale = "response" returns it with its interval.</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
+<span><span class="co">#&gt;  stratum                       label   n interaction prob_diff     se  lower</span></span>
+<span><span class="co">#&gt;        8 male × White × Some College 328      0.3713    0.0896 0.0993 0.1766</span></span>
+<span><span class="co">#&gt;   upper  p_value p_adjusted flagged direction</span></span>
+<span><span class="co">#&gt;  0.5659 0.000185   0.009249    TRUE     above</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   exploratory. See ?maihda_interactions.</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span></code></pre></div>
+<p>Read the numbers on the scale they were computed on. In the Gaussian
+case the stratum BLUP
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>u</mi><mi>j</mi></msub><annotation encoding="application/x-tex">u_j</annotation></semantics></math>
+is the part of the stratum’s mean outcome attributable to interaction,
+in the outcome’s own units. Here it is a deviation in
+<strong>log-odds</strong> – so what is flagged is
+<em>multiplicative</em>, odds-scale interaction. Evans et al. (2024,
+sec. 2.5.1) say it plainly: in a logistic MAIHDA you can “no longer
+directly interpret
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>u</mi><mi>j</mi></msub><annotation encoding="application/x-tex">u_j</annotation></semantics></math>
+as the change in mean outcomes (i.e., shift in probabilities)
+attributable to interaction effects”. The printed output says so too,
+which is why the binomial fit above carries a line the Gaussian one does
+not – and why it prints a <code>prob_diff</code> column the Gaussian one
+does not: the same departure expressed in probability points, so the
+log-odds figure is never the only number on screen. That column is a
+display convenience; <code>scale = "response"</code> below is how to get
+it, with its interval, as data.</p>
+<p>There are in fact <strong>three</strong> quantities in play here, and
+this analysis reports two of them. Keeping them apart is the whole of
+the difficulty.</p>
+<p><strong>1. The multiplicative interaction,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>u</mi><mi>j</mi></msub><annotation encoding="application/x-tex">u_j</annotation></semantics></math></strong>
+– whether a dimension multiplies the odds by the same factor at every
+level of the others. That is what was just printed, and what
+<code>flagged</code> is about.</p>
+<p><strong>2. The same departure in probability points,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>π</mi><mi>j</mi><mi>B</mi></msubsup><annotation encoding="application/x-tex">\pi^{B}_{j}</annotation></semantics></math></strong>
+– the units to report if your reader thinks in risks. More on it in a
+moment.</p>
+<p><strong>3. The additive (risk-difference) interaction</strong> –
+whether a dimension adds the same number of <em>percentage points</em>
+of risk at every level of the others. Neither 1 nor 2 reports this, and
+it is generally non-zero even when
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>u</mi><mi>j</mi></msub><annotation encoding="application/x-tex">u_j</annotation></semantics></math>
+is exactly zero. Take a model with a
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">-2</annotation></semantics></math>
+baseline and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mn>0.7</mn></mrow><annotation encoding="application/x-tex">+0.7</annotation></semantics></math>
+for each of two dimensions and no interaction whatsoever:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">p</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span> <span class="op">+</span> <span class="fl">0.7</span> <span class="op">*</span> <span class="va">a</span> <span class="op">+</span> <span class="fl">0.7</span> <span class="op">*</span> <span class="va">b</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>`risk added by B, at A = 0` <span class="op">=</span> <span class="fu">p</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span> <span class="op">-</span> <span class="fu">p</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>  `risk added by B, at A = 1` <span class="op">=</span> <span class="fu">p</span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span> <span class="op">-</span> <span class="fu">p</span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; risk added by B, at A = 0 risk added by B, at A = 1 </span></span>
+<span><span class="co">#&gt;                0.09496209                0.14017868</span></span></code></pre></div>
+<p>The odds ratio for B is identical at both levels of A – that is what
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mi>j</mi></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">u_j = 0</annotation></semantics></math>
+means – yet B adds nine and a half points of risk in one group and
+fourteen in the other. The excess is a property of the logistic curve,
+which is steeper in the middle than in the tails, not a finding about
+the world. So <strong>“no strata flagged” supports “no credible
+multiplicative interaction”, not “no interaction”</strong>: quantity 3
+is generally non-zero regardless, and it is often the one a policy
+audience cares about.</p>
+<p><em>Generally</em>, not always – worth knowing, because the exception
+is a perfectly ordinary design rather than a curiosity. The
+risk-difference interaction is positive below the curve’s midpoint and
+negative above it, so it must pass through zero, and it does so where
+the two comparisons straddle the midpoint symmetrically:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">rd_int</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">b0</span>, <span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="va">b0</span> <span class="op">+</span> <span class="va">a</span> <span class="op">+</span> <span class="va">b</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="va">b0</span> <span class="op">+</span> <span class="va">a</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="va">b0</span> <span class="op">+</span> <span class="va">b</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="va">b0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>`-2.0` <span class="op">=</span> <span class="op">-</span><span class="fl">2</span>, `-0.7` <span class="op">=</span> <span class="op">-</span><span class="fl">0.7</span>, `0.0` <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, <span class="va">rd_int</span>, <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, a <span class="op">=</span> <span class="fl">0.7</span>, b <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span></span>
+<span><span class="co">#&gt;          -2.0          -0.7           0.0 </span></span>
+<span><span class="co">#&gt;  4.521658e-02  5.551115e-17 -3.419166e-02</span></span></code></pre></div>
+<p>At an intercept of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>+</mo><mi>b</mi><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mn>2</mn><mo>=</mo><mi>−</mi><mn>0.7</mn></mrow><annotation encoding="application/x-tex">-(a + b)/2 = -0.7</annotation></semantics></math>
+the risks add exactly. That is one configuration out of many, and
+nothing in the flags tells you which one you are in – which is the
+point: they are not evidence about quantity 3 in either direction.</p>
+<p>Quantity 2, then. Evans et al. (2024) define it as the gap between a
+stratum’s total predicted probability and the probability implied by the
+additive main effects alone,</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>π</mi><mi>j</mi><mi>B</mi></msubsup><mo>=</mo><msub><mi>π</mi><mi>j</mi></msub><mo>−</mo><msubsup><mi>π</mi><mi>j</mi><mi>A</mi></msubsup><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>π</mi><mi>j</mi></msub><mo>=</mo><msup><mrow><mi mathvariant="normal">l</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">g</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">t</mi></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mo stretchy="false" form="prefix">(</mo><msubsup><mi>x</mi><mi>j</mi><mo>′</mo></msubsup><mi>β</mi><mo>+</mo><msub><mi>u</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="2.0em"></mspace><msubsup><mi>π</mi><mi>j</mi><mi>A</mi></msubsup><mo>=</mo><msup><mrow><mi mathvariant="normal">l</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">g</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">t</mi></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mo stretchy="false" form="prefix">(</mo><msubsup><mi>x</mi><mi>j</mi><mo>′</mo></msubsup><mi>β</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo></mrow><annotation encoding="application/x-tex">
+\pi^{B}_{j} = \pi_j - \pi^{A}_{j}, \qquad
+\pi_j = \mathrm{logit}^{-1}(x_j'\beta + u_j), \qquad
+\pi^{A}_{j} = \mathrm{logit}^{-1}(x_j'\beta),
+</annotation></semantics></math></p>
+<p>and rank-plot
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>π</mi><mi>j</mi><mi>B</mi></msubsup><annotation encoding="application/x-tex">\pi^{B}_{j}</annotation></semantics></math>
+where the linear case plots
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>u</mi><mi>j</mi></msub><annotation encoding="application/x-tex">u_j</annotation></semantics></math>.
+Ask for it with <code>scale = "response"</code>:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">model_int</span>, scale <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span></span>
+<span><span class="co">#&gt; <span style="color: #D78700; font-weight: bold;">1</span> of 50 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted conservative p-values</span>).</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">Model: adjusted; interaction on the response (outcome) scale.</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; A probability difference (pi_j - pi^A_j, Evans et al. 2024): the</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   interaction carried onto the outcome scale; flags match the</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   log-odds scale.</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
+<span><span class="co">#&gt;  stratum                       label   n interaction   lower  upper  p_value</span></span>
+<span><span class="co">#&gt;        8 male × White × Some College 328      0.0896 0.04188 0.1381 0.000185</span></span>
+<span><span class="co">#&gt;  p_adjusted flagged direction</span></span>
+<span><span class="co">#&gt;    0.009249    TRUE     above</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt;   exploratory. See ?maihda_interactions.</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span></code></pre></div>
+<p>Same strata, same evidence, readable units: a flagged stratum’s
+interaction is now a difference in <strong>percentage points</strong> of
+predicted probability rather than a log-odds departure.</p>
+<p>That correspondence is exact, not approximate. Write
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+for the map from a stratum’s BLUP to its
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>π</mi><mi>j</mi><mi>B</mi></msubsup><annotation encoding="application/x-tex">\pi^{B}_{j}</annotation></semantics></math>;
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+is strictly increasing and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">g(0) = 0</annotation></semantics></math>,
+so the estimate, both interval endpoints and zero carry across together.
+<code>flagged</code>, <code>direction</code> and the p-values are
+identical under either scale, and the response-scale interval is the
+exact image of the link-scale one – no simulation, and no delta-method
+approximation. It inherits the same conditionality (fixed effects and
+variance components held at their point estimates). Two things do
+change: <code>se</code> is dropped, because the resulting interval is
+deliberately asymmetric about the estimate and no single standard error
+would reproduce it; and the ranking can differ, since the same log-odds
+departure buys more probability near
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>π</mi><mo>=</mo><mn>0.5</mn></mrow><annotation encoding="application/x-tex">\pi = 0.5</annotation></semantics></math>
+than out in the tail.</p>
+<p>A <code>rope</code> is then read in the same units, which is often
+where the argument becomes concrete – “are more than two percentage
+points of this stratum’s risk attributable to its interaction?” is a
+question a reader can actually answer:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">model_int</span>, scale <span class="op">=</span> <span class="st">"response"</span>, rope <span class="op">=</span> <span class="fl">0.02</span><span class="op">)</span><span class="op">$</span><span class="va">decision</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; inconclusive     relevant </span></span>
+<span><span class="co">#&gt;           49            1</span></span></code></pre></div>
+<p><strong>If it is quantity 3 you want</strong>, neither scale will
+give it to you – <code>scale = "response"</code> re-expresses the
+multiplicative interaction, it does not replace it with the
+risk-difference one. Fit a linear probability model instead:
+<code>family = "gaussian"</code> on the 0/1 outcome, the option
+<code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> points at when it auto-detects a binary
+outcome. There the BLUP <em>is</em> the risk-difference interaction by
+construction, at the usual costs (predictions outside
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">[0, 1]</annotation></semantics></math>,
+heteroskedastic residuals).</p>
+</div>
+<div class="section level2">
 <h2 id="discriminatory-accuracy-auc-and-median-odds-ratio">Discriminatory accuracy (AUC and Median Odds Ratio)<a class="anchor" aria-label="anchor" href="#discriminatory-accuracy-auc-and-median-odds-ratio"></a>
 </h2>
 <p>The VPC summarises <em>variation</em>; discriminatory accuracy
@@ -330,7 +507,7 @@ model’s AUC is the discriminatory accuracy of the intersectional strata
 <em>themselves</em> – Merlo’s central quantity. Comparing it with the
 adjusted model shows whether individual information beyond stratum
 membership sharpens classification:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">da_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></span><span class="op">(</span><span class="va">model_null2</span><span class="op">)</span></span>
 <span><span class="va">da_adj</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></span><span class="op">(</span><span class="va">model_adj</span><span class="op">)</span></span>
 <span></span>
@@ -357,7 +534,7 @@ membership sharpens classification:</p>
 probabilities and 0/1 outcomes (it equals the Mann-Whitney U statistic,
 so it needs no extra package), and <code>maihda_mor(model)</code> for
 the Median Odds Ratio.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">prob_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_maihda.html">predict_maihda</a></span><span class="op">(</span><span class="va">model_null2</span>, type <span class="op">=</span> <span class="st">"individual"</span>, scale <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span>
 <span><span class="va">y_obs</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">lme4</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/lme4/man/getME.html" class="external-link">getME</a></span><span class="op">(</span><span class="va">model_null2</span><span class="op">$</span><span class="va">model</span>, <span class="st">"y"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
@@ -386,15 +563,15 @@ link-agnostic.</p>
 </h2>
 <p>The standard plots recognise the binomial family and switch to the
 probability scale and to deviance-based diagnostics automatically:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Predicted probabilities per stratum with intervals</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="binary_outcomes_files/figure-html/plot-predicted-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Latent-scale variance partition</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="binary_outcomes_files/figure-html/plot-vpc-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># For binomial fits the dashboard highlights the largest absolute</span></span>
 <span><span class="co"># deviance residuals rather than raw deviations from the mean.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"prediction_deviation"</span><span class="op">)</span></span></code></pre></div>
@@ -421,6 +598,10 @@ and discriminatory accuracy (MAIHDA) within an intersectional framework.
 S. V. (2018). A multilevel approach to modeling health inequalities at
 the intersection of multiple social identities. <em>Social Science &amp;
 Medicine</em>, 203, 64-73.</p></li>
+<li><p>Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., &amp;
+Merlo, J. (2024). A tutorial for conducting intersectional multilevel
+analysis of individual heterogeneity and discriminatory accuracy
+(MAIHDA). <em>SSM - Population Health</em>, 26, 101664. <a href="doi:10.1016/j.ssmph.2024.101664" class="uri">doi:10.1016/j.ssmph.2024.101664</a></p></li>
 <li><p>Merlo, J., Wagner, P., Ghith, N., &amp; Leckie, G. (2016). An
 original stepwise multilevel logistic regression analysis of
 discriminatory accuracy: the case of neighbourhoods and health. <em>PLOS

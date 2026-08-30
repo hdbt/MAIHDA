@@ -78,7 +78,14 @@ statement about the stratum's outcome, not a causal claim about identity.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">maihda_interactions</span><span class="op">(</span><span class="va">object</span>, conf_level <span class="op">=</span> <span class="fl">0.95</span>, adjust <span class="op">=</span> <span class="st">"BH"</span>, rope <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">maihda_interactions</span><span class="op">(</span></span>
+<span>  <span class="va">object</span>,</span>
+<span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
+<span>  adjust <span class="op">=</span> <span class="st">"BH"</span>,</span>
+<span>  rope <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  scale <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"link"</span>, <span class="st">"response"</span><span class="op">)</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -109,13 +116,31 @@ explicitly).</p></dd>
 <dt id="arg-rope">rope<a class="anchor" aria-label="anchor" href="#arg-rope"></a></dt>
 <dd><p>Optional equivalence region (a "smallest interaction of interest")
 for an "is the interaction <em>negligible</em>?" reading (Schuirmann 1987;
-Kruschke 2018), on the link (latent) scale. <code>NULL</code> (default) gives
+Kruschke 2018), read on the requested <code>scale</code> – log-odds under the
+default, probability points under <code>scale = "response"</code> for a logistic
+fit. <code>NULL</code> (default) gives
 only the usual zero-centred flag. A single positive number <code>d</code> means the
 symmetric region <code>c(-d, d)</code>; or supply <code>c(lower, upper)</code>. When set, the
 result gains a <code>decision</code> column classifying each stratum from its
 <code>conf_level</code> interval relative to the region: <code>"relevant"</code> (interval
 entirely outside it), <code>"negligible"</code> (entirely inside it), or
 <code>"inconclusive"</code> (straddling a bound).</p></dd>
+
+
+<dt id="arg-scale">scale<a class="anchor" aria-label="anchor" href="#arg-scale"></a></dt>
+<dd><p>Scale the interaction is reported on. <code>"link"</code> (default) gives
+the stratum BLUP \(u_j\) on the model's link scale – for a Gaussian fit the
+outcome's own units, for a logistic fit a log-odds departure.
+<code>"response"</code> instead gives Evans et al.'s (2024, sec. 2.5.1)
+\(\pi^B_j = \pi_j - \pi^A_j\): the stratum's total predicted outcome minus the
+outcome implied by its additive main effects alone, so a logistic fit reports a
+difference in <em>probability</em>, a count fit a difference in expected count, and
+a cumulative (ordinal) fit a difference in expected category score – the printed
+column is named for whichever it is.
+The two scales flag the same strata (see the section below); an identity-link
+fit returns the same numbers either way. For a
+<code>decomposition = "crossed-dimensions"</code> model the additive baseline is the
+dimension random effects, matching that decomposition.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -127,9 +152,15 @@ entirely outside it), <code>"negligible"</code> (entirely inside it), or
     <p>An object of class <code>maihda_interactions</code> (a data frame), one row
   per stratum, sorted flagged-first then by <code>abs(interaction)</code>. Columns
   common to every engine: <code>stratum</code>, <code>label</code>, <code>n</code> (stratum size),
-  <code>interaction</code> (the BLUP), <code>lower</code>/<code>upper</code> (the interval),
+  <code>interaction</code> (the BLUP, under the default <code>scale</code>),
+  <code>lower</code>/<code>upper</code> (the interval),
   <code>flagged</code> (logical), and <code>direction</code> (<code>"above"</code>/<code>"below"</code>
-  the additive expectation). Frequentist fits add <code>se</code> and <code>p_value</code>
+  the additive expectation). Under <code>scale = "response"</code> the
+  <code>interaction</code>/<code>lower</code>/<code>upper</code> columns hold \(\pi^B_j\) and its
+  interval, and <code>se</code> is dropped: the conditional standard error is a
+  link-scale quantity, and the response-scale interval is deliberately not
+  symmetric about the estimate, so no single SE would reproduce it. Frequentist
+  fits add <code>se</code> (link scale only) and <code>p_value</code>
   (and <code>p_adjusted</code> when <code>adjust != "none"</code>). <code>p_value</code> is a
   <em>conditional</em> screening statistic – a Wald tail on the
   shrunken BLUP's conditional SE, with the variance components treated as known
@@ -142,7 +173,17 @@ entirely outside it), <code>"negligible"</code> (entirely inside it), or
   <code>decision</code> column (<code>"relevant"</code>/<code>"negligible"</code>/<code>"inconclusive"</code>)
   is added. Attributes record <code>conf_level</code>, <code>adjust</code>, <code>rope</code>,
   <code>engine</code>, <code>model_type</code>, <code>n_strata</code>, <code>n_flagged</code>,
-  <code>scale</code> and <code>singular</code>.</p>
+  <code>scale</code>, <code>link</code> (the model's link name, so a caller can tell a
+  log-odds departure from one in the outcome's own units), <code>response_kind</code>
+  (what the model's response scale is – <code>"probability"</code>, <code>"count"</code>,
+  <code>"score"</code> or <code>"response"</code> – which the link alone does not settle,
+  since a cumulative fit is logit-linked but scores categories), <code>singular</code>,
+  and – on a non-identity link under the default <code>scale</code> –
+  <code>response_interaction</code>, the outcome-scale estimates keyed by stratum. That
+  last attribute exists so <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> can show the outcome-scale size beside
+  the link-scale one; the columns are the same either way, and
+  <code>scale = "response"</code> is how to obtain those numbers, with their interval,
+  as data.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -207,7 +248,76 @@ interaction of interest (an equivalence reading; Schuirmann 1987; Kruschke 2018)
 read from the interval.</p>
 <p>The interaction is reported on the model's link (latent) scale – a log-odds
 deviation for a logistic model, etc. – because the additive/interaction split
-is only exact there.</p>
+is only exact there. On a non-identity link that makes it a <em>multiplicative</em>
+departure, which is a different quantity from a shift in the outcome itself; see
+the section below before reporting it.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="what-the-interaction-means-on-a-non-identity-link">What the interaction means on a non-identity link<a class="anchor" aria-label="anchor" href="#what-the-interaction-means-on-a-non-identity-link"></a></h2>
+
+
+<p>For a Gaussian (identity-link) fit the stratum BLUP \(u_j\) <em>is</em> the part
+of the stratum's mean outcome attributable to interaction, in the outcome's own
+units. For a logistic fit it is not: \(u_j\) is a deviation in
+<strong>log-odds</strong>, so what this function reports is the <em>multiplicative</em>,
+odds-scale interaction. (What follows is written for the logistic case, the one
+the literature works in. The same logic holds on any non-identity link, in its own
+units: a Poisson fit's \(u_j\) is a log-rate departure and <code>scale =
+"response"</code> gives it as a difference in expected counts, and a cumulative
+(ordinal) fit's is a latent shift reported as a difference in expected category
+score. The printed column is named for whichever applies.) Evans et al. (2024, section 2.5.1)
+put it directly – in a logistic MAIHDA one can "no longer directly interpret
+\(u_j\) as the change in mean outcomes (i.e., shift in probabilities)
+attributable to interaction effects".</p>
+<p><strong>Three quantities, of which this function reports two.</strong> Keeping them apart
+is the whole of the difficulty:</p><ol><li><p><strong>The multiplicative interaction, \(u_j\)</strong> – the departure from
+    additivity <em>in log-odds</em>, i.e. whether a dimension multiplies the odds by
+    the same factor at every level of the others. This is what the default
+    <code>scale = "link"</code> reports and what <code>flagged</code> is about.</p></li>
+<li><p><strong>The same departure in outcome units, \(\pi^B_j\)</strong> – what
+    <code>scale = "response"</code> returns. Evans et al. (2024) define it as
+    $$\pi^B_j = \pi_j - \pi^A_j, \qquad
+          \pi_j = \mathrm{logit}^{-1}(x_j'\beta + u_j), \qquad
+          \pi^A_j = \mathrm{logit}^{-1}(x_j'\beta),$$
+    the gap between a stratum's total predicted probability and the probability
+    implied by the additive main effects alone, and rank-plot \(\pi^B_j\) where
+    the linear case plots \(u_j\). This is quantity 1 <em>re-expressed</em>, not a
+    second finding: it is zero exactly when \(u_j\) is zero and it flags the same
+    strata, so it changes the units you report, not what you may conclude.</p></li>
+<li><p><strong>The additive (risk-difference) interaction</strong> – whether a dimension
+    adds the same number of percentage points of risk at every level of the others.
+    <strong>Neither of the above reports this</strong>, and it is generally non-zero even
+    where \(u_j\) is exactly zero, because the logistic curve is steeper in the
+    middle than in the tails. With a \(-2\) baseline and \(+0.7\) for each of
+    two dimensions and no interaction at all (\(u_j = 0\) throughout), the second
+    dimension still adds 9.5 percentage points of risk at one level of the first
+    and 14.0 at the other. That excess is a property of the link, not a finding.</p></li>
+</ol><p>So "no strata flagged" supports "no credible <strong>multiplicative</strong> interaction",
+not "no interaction": additivity in log-odds does not carry over to probabilities,
+so quantity 3 is generally non-zero regardless, and it is often the one a policy
+audience cares about. (<em>Generally</em>, not always. The risk-difference
+interaction is positive below the curve's midpoint and negative above it, so it
+passes through zero: with two dimensions of effect \(a\) and \(b\) it vanishes
+exactly at an intercept of \(-(a + b)/2\), where the two comparisons straddle the
+midpoint symmetrically. That is a single configuration, not the general case, and
+the flags say nothing about which one you are in either way.)</p>
+<p><strong>Both scales flag the same strata.</strong> Writing \(g(u)\) for the map from a
+stratum's BLUP to its \(\pi^B_j\), \(g\) is strictly increasing with
+\(g(0) = 0\), so estimate, interval endpoints and zero all carry across
+together. <code>flagged</code>, <code>direction</code>, <code>p_value</code> / <code>p_adjusted</code> and
+<code>pd</code> are therefore identical under either <code>scale</code>, and the response-scale
+interval is the <em>exact</em> image of the link-scale one rather than a delta-method
+approximation – inheriting its conditionality (fixed effects and variance
+components held at their point estimates), which is why no simulation step is
+needed. What does change is the size and the ranking: the same log-odds departure
+is worth more probability near \(\pi = 0.5\) than in the tail, so strata are
+ordered by the quantity actually reported.</p>
+<p><strong>If quantity 3 is what you need</strong>, no argument here will give it to you –
+fit a linear probability model instead: <code>fit_maihda(..., family = "gaussian")</code>
+on a 0/1 outcome, which <code><a href="fit_maihda.html">fit_maihda</a></code> signposts when it auto-detects a
+binary outcome. There the BLUP <em>is</em> the risk-difference interaction by
+construction, at the usual costs (predictions outside <code>[0, 1]</code>,
+heteroskedastic residuals).</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
@@ -217,6 +327,10 @@ multiple social identities. <em>Social Science &amp; Medicine</em>, 203, 64-73.<
 <p>Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
 discriminatory accuracy (MAIHDA) within an intersectional framework.
 <em>Social Science &amp; Medicine</em>, 203, 74-80.</p>
+<p>Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., &amp; Merlo, J. (2024). A
+tutorial for conducting intersectional multilevel analysis of individual
+heterogeneity and discriminatory accuracy (MAIHDA).
+<em>SSM - Population Health</em>, 26, 101664. <a href="https://doi.org/10.1016/j.ssmph.2024.101664" class="external-link">doi:10.1016/j.ssmph.2024.101664</a></p>
 <p>Gelman, A., Hill, J., &amp; Yajima, M. (2012). Why we (usually) don't have to worry
 about multiple comparisons. <em>Journal of Research on Educational
 Effectiveness</em>, 5(2), 189-211.</p>
@@ -304,6 +418,25 @@ estimation. <em>Advances in Methods and Practices in Psychological Science</em>,
 <span class="r-out co"><span class="r-pr">#&gt;</span>     0.01496    TRUE     above relevant</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     0.01496    TRUE     below relevant</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     0.01496    TRUE     above relevant</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  exploratory. See ?maihda_interactions.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># On a logistic fit the BLUP is a log-odds departure; scale = "response" reports</span></span></span>
+<span class="r-in"><span><span class="co"># Evans et al.'s (2024) pi_j - pi^A_j, the same interaction in probability points.</span></span></span>
+<span class="r-in"><span><span class="va">b</span> <span class="op">&lt;-</span> <span class="fu"><a href="maihda.html">maihda</a></span><span class="op">(</span><span class="va">Obese</span> <span class="op">~</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>            data <span class="op">=</span> <span class="va">maihda_health_data</span>, family <span class="op">=</span> <span class="st">"binomial"</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.</span>
+<span class="r-in"><span><span class="fu">maihda_interactions</span><span class="op">(</span><span class="va">b</span>, scale <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">0</span> of 10 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted conservative p-values</span>).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Model: adjusted (two-model); interaction on the response (outcome) scale.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">A probability difference (pi_j - pi^A_j, Evans et al. 2024): the</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  interaction carried onto the outcome scale; flags match the</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  log-odds scale.</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">No strata show interaction credibly different from zero at this level.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  exploratory. See ?maihda_interactions.</span></span>

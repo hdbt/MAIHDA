@@ -160,6 +160,16 @@ A maihda_summary object containing:
   Fit-quality diagnostics (singular fit / convergence) carried over from
   the fitted model and reported by the print method
 
+- strata_autobin_info:
+
+  The auto-binning recipe carried over from the fitted model: for each
+  numeric stratum dimension
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  discretised, its `breaks` and `labels`. The cut-points are quantiles
+  of the analytic sample, so they define the strata (and hence the
+  estimand); the print method reports them. An empty list when nothing
+  was binned
+
 ## Note
 
 For `lme4` models a VPC/ICC interval is obtained from a parametric

@@ -199,6 +199,14 @@ families/engines.</p></dd>
 <dd><p>Fit-quality diagnostics (singular fit / convergence)
     carried over from the fitted model and reported by the print method</p></dd>
 
+  <dt>strata_autobin_info</dt>
+<dd><p>The auto-binning recipe carried over from the
+    fitted model: for each numeric stratum dimension <code><a href="make_strata.html">make_strata()</a></code>
+    discretised, its <code>breaks</code> and <code>labels</code>. The cut-points are
+    quantiles of the analytic sample, so they define the strata (and hence the
+    estimand); the print method reports them. An empty list when nothing was
+    binned</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>

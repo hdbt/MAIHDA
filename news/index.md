@@ -4,6 +4,14 @@
 
 ### New features
 
+- `plot(type = "upset")` now honours `order_by`, which it previously
+  accepted and silently ignored. `order_by = "predicted_desc"` gives the
+  ranked caterpillar of `type = "predicted"` with the UpSet category
+  matrix in place of the long text labels. The default is unchanged
+  (intersection size, largest first), and the panel caption now reports
+  the order actually drawn.
+- `order_by` gained `"size"` (largest stratum first) on both
+  `type = "predicted"` and `type = "upset"`.
 - [`summary()`](https://rdrr.io/r/base/summary.html) on a `maihda`
   analysis gained `which = "adjusted"`, matching
   [`tidy()`](https://generics.r-lib.org/reference/tidy.html). It returns
@@ -45,6 +53,29 @@
   occasions per stratum, or irregular measurement times routinely
   produce. The VPC still varies with time, through the person-level
   slope variance and the residual.
+- [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  gained `scale = "response"`, which reports Evans et al.’s (2024,
+  sec. 2.5.1) `pi^B_j = pi_j - pi^A_j` – a stratum’s total predicted
+  outcome minus the outcome implied by its additive main effects alone –
+  so a logistic fit’s interaction reads in percentage points of
+  probability rather than log-odds, and a `rope` set with it is a
+  smallest interaction of interest in those same units. The map from the
+  BLUP is strictly increasing through zero, so `flagged`, `direction`
+  and the p-values are identical on both scales and the interval is the
+  exact image of the link-scale one rather than a simulated or
+  delta-method approximation; `se` is dropped, the resulting interval
+  being asymmetric about the estimate. An identity-link fit returns the
+  same numbers either way, and a crossed-dimensions fit uses its
+  dimension random effects as the additive baseline.
+  [`print()`](https://rdrr.io/r/base/print.html) on a non-identity-link
+  fit now also shows that quantity beside the link-scale estimate, so
+  the log-odds figure is never the only number on screen; the column is
+  named `prob_diff`, `count_diff` or `score_diff` for what the model’s
+  response scale actually is, which the link alone does not settle (a
+  cumulative fit is logit-linked but scores categories rather than
+  returning probabilities). The returned columns are unchanged, and
+  `scale = "response"` remains how to obtain the quantity with its
+  interval as data.
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   models now carry likelihood-adequacy diagnostics that
   [`print()`](https://rdrr.io/r/base/print.html) and
@@ -54,6 +85,19 @@
   random-effect non-normality, longitudinal residual autocorrelation,
   and an approximate ordinal proportional-odds screen. A well-specified
   model stays silent.
+- [`print()`](https://rdrr.io/r/base/print.html) on a
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis and on a [`summary()`](https://rdrr.io/r/base/summary.html)
+  now reports the auto-binning recipe whenever
+  [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  discretised a numeric stratum dimension: the cut-points used and the
+  labels they carry. Those cut-points are quantiles of the analytic
+  sample, so they define the strata and therefore the estimand, yet they
+  were announced only by a
+  [`message()`](https://rdrr.io/r/base/message.html) at fit time – long
+  gone by the time a saved model is printed in a later session.
+  [`summary()`](https://rdrr.io/r/base/summary.html) objects now also
+  carry them as `strata_autobin_info`.
 
 ### API changes
 
@@ -132,6 +176,18 @@
   [`?maihda_interactions`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md):
   the flags are a conservative FDR screen that under-flags rather than
   over-flags, not an exact error-rate guarantee.
+- [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  now names what its numbers are on a non-identity link. The stratum
+  BLUP is a log-odds departure for a logistic fit, so a flag – or its
+  absence – is a claim about *multiplicative* interaction only: a model
+  additive in log-odds is not additive in probabilities, so the main
+  effects alone already generate probability-scale interaction.
+  [`print()`](https://rdrr.io/r/base/print.html) says so on such a fit,
+  the result carries a `link` attribute, and
+  [`?maihda_interactions`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  plus the binary-outcomes vignette set out both the new
+  `scale = "response"` reading and the linear-probability-model route to
+  an additive-scale model.
 - The design-weighted documentation no longer describes the fixed-effect
   standard errors as design-consistent for complex surveys.
   `sampling_weights` takes one person-level weight column and cannot

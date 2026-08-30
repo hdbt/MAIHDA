@@ -75,7 +75,7 @@ and predicted subgroup values with confidence intervals.</p>
 <span>  highlight_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"flag"</span>, <span class="st">"rope"</span><span class="op">)</span>,</span>
 <span>  rope <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  select <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"order"</span>, <span class="st">"deviation"</span><span class="op">)</span>,</span>
-<span>  order_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"predicted_desc"</span>, <span class="st">"stratum"</span>, <span class="st">"predicted_asc"</span>, <span class="st">"deviation"</span><span class="op">)</span>,</span>
+<span>  order_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"predicted_desc"</span>, <span class="st">"stratum"</span>, <span class="st">"predicted_asc"</span>, <span class="st">"deviation"</span>, <span class="st">"size"</span><span class="op">)</span>,</span>
 <span>  quantity <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"predicted"</span>, <span class="st">"interaction"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -105,7 +105,10 @@ and predicted subgroup values with confidence intervals.</p>
     every dimension, and the predicted-value panel, all sharing one column
     order. Replaces the long intersectional axis labels with the matrix.
     Binary 0/1 dimensions show as a single present/absent row; multi-level
-    factors get one row per level</p></li>
+    factors get one row per level. Columns are ordered by intersection size
+    (largest first) by default; <code>order_by = "predicted_desc"</code> gives the
+    ranked caterpillar of <code>"predicted"</code> with the matrix in place of the
+    text labels</p></li>
 <li><p>"effect_decomp": Visualizes additive vs intersectional deviation from global mean</p></li>
 <li><p>"prediction_deviation": Detailed deviation panels for individuals or strata</p></li>
 <li><p>"context_vpc": Stratum vs. context variance bars for a contextual
@@ -202,16 +205,25 @@ by <code>order_by</code>.</p></dd>
 
 
 <dt id="arg-order-by">order_by<a class="anchor" aria-label="anchor" href="#arg-order-by"></a></dt>
-<dd><p>For <code>type = "predicted"</code>, how to order the strata that are
-displayed (<strong>display-only</strong> – it does not change <em>which</em> strata are
-shown, that is <code>n_strata</code>/<code>select</code>, nor the predicted values,
-intervals, reference line, or highlighted set): <code>"predicted_desc"</code>
-(default) orders labels from the highest predicted value to the lowest,
-<code>"stratum"</code> keeps the native stratum order (the previous behaviour),
-<code>"predicted_asc"</code> orders from lowest to highest, and <code>"deviation"</code>
-orders by largest absolute deviation from the reference line
-(<code>|predicted - reference|</code>). Ignored by the other plot types
-(<code>"upset"</code> orders by intersection size).</p></dd>
+<dd><p>For <code>type = "predicted"</code> and <code>type = "upset"</code>, how to
+order the strata that are displayed (<strong>display-only</strong> – it does not
+change <em>which</em> strata are shown, that is <code>n_strata</code>/<code>select</code>,
+nor the predicted values, intervals, reference line, or highlighted set):
+<code>"predicted_desc"</code> orders from the highest predicted value to the lowest,
+<code>"stratum"</code> keeps the native stratum order, <code>"predicted_asc"</code> orders
+from lowest to highest, <code>"deviation"</code> orders by largest absolute deviation
+from the reference line (<code>|predicted - reference|</code>), and <code>"size"</code>
+orders by intersection (stratum) size, largest first. The default is
+<strong>per view</strong>: <code>"predicted_desc"</code> for <code>"predicted"</code> (labels run
+from the highest predicted value down) and <code>"size"</code> for <code>"upset"</code>
+(the UpSet convention, which also makes its intersection-size bar monotone).
+On the <code>"upset"</code> view the three value-based orders sort on the quantity
+the bottom panel actually shows, so they follow <code>quantity</code> – with
+<code>quantity = "interaction"</code> they order by the stratum random effect and
+<code>"deviation"</code> measures the distance from zero. Combining
+<code>order_by = "predicted_desc"</code> with <code>type = "upset"</code> gives the
+ranked caterpillar of the <code>"predicted"</code> view drawn against the UpSet
+category matrix instead of long text labels. Ignored by the other plot types.</p></dd>
 
 
 <dt id="arg-quantity">quantity<a class="anchor" aria-label="anchor" href="#arg-quantity"></a></dt>

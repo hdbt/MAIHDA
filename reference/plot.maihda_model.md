@@ -19,7 +19,7 @@ plot(
   highlight_by = c("flag", "rope"),
   rope = NULL,
   select = c("order", "deviation"),
-  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
+  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation", "size"),
   quantity = c("predicted", "interaction"),
   ...
 )
@@ -54,7 +54,10 @@ plot(
     level on every dimension, and the predicted-value panel, all sharing
     one column order. Replaces the long intersectional axis labels with
     the matrix. Binary 0/1 dimensions show as a single present/absent
-    row; multi-level factors get one row per level
+    row; multi-level factors get one row per level. Columns are ordered
+    by intersection size (largest first) by default;
+    `order_by = "predicted_desc"` gives the ranked caterpillar of
+    `"predicted"` with the matrix in place of the text labels
 
   - "effect_decomp": Visualizes additive vs intersectional deviation
     from global mean
@@ -165,16 +168,26 @@ plot(
 
 - order_by:
 
-  For `type = "predicted"`, how to order the strata that are displayed
-  (**display-only** – it does not change *which* strata are shown, that
-  is `n_strata`/`select`, nor the predicted values, intervals, reference
-  line, or highlighted set): `"predicted_desc"` (default) orders labels
-  from the highest predicted value to the lowest, `"stratum"` keeps the
-  native stratum order (the previous behaviour), `"predicted_asc"`
-  orders from lowest to highest, and `"deviation"` orders by largest
+  For `type = "predicted"` and `type = "upset"`, how to order the strata
+  that are displayed (**display-only** – it does not change *which*
+  strata are shown, that is `n_strata`/`select`, nor the predicted
+  values, intervals, reference line, or highlighted set):
+  `"predicted_desc"` orders from the highest predicted value to the
+  lowest, `"stratum"` keeps the native stratum order, `"predicted_asc"`
+  orders from lowest to highest, `"deviation"` orders by largest
   absolute deviation from the reference line
-  (`|predicted - reference|`). Ignored by the other plot types
-  (`"upset"` orders by intersection size).
+  (`|predicted - reference|`), and `"size"` orders by intersection
+  (stratum) size, largest first. The default is **per view**:
+  `"predicted_desc"` for `"predicted"` (labels run from the highest
+  predicted value down) and `"size"` for `"upset"` (the UpSet
+  convention, which also makes its intersection-size bar monotone). On
+  the `"upset"` view the three value-based orders sort on the quantity
+  the bottom panel actually shows, so they follow `quantity` – with
+  `quantity = "interaction"` they order by the stratum random effect and
+  `"deviation"` measures the distance from zero. Combining
+  `order_by = "predicted_desc"` with `type = "upset"` gives the ranked
+  caterpillar of the `"predicted"` view drawn against the UpSet category
+  matrix instead of long text labels. Ignored by the other plot types.
 
 - quantity:
 

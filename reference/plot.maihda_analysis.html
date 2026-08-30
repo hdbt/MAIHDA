@@ -102,7 +102,7 @@ the stratum random effect is the pure interaction; with fewer than two dimension
 <span>  highlight_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"flag"</span>, <span class="st">"rope"</span><span class="op">)</span>,</span>
 <span>  rope <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  select <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"order"</span>, <span class="st">"deviation"</span><span class="op">)</span>,</span>
-<span>  order_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"predicted_desc"</span>, <span class="st">"stratum"</span>, <span class="st">"predicted_asc"</span>, <span class="st">"deviation"</span><span class="op">)</span>,</span>
+<span>  order_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"predicted_desc"</span>, <span class="st">"stratum"</span>, <span class="st">"predicted_asc"</span>, <span class="st">"deviation"</span>, <span class="st">"size"</span><span class="op">)</span>,</span>
 <span>  model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"null"</span>, <span class="st">"adjusted"</span>, <span class="st">"both"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -178,12 +178,14 @@ keep: <code>"order"</code> (default, first n_strata in stratum order) or
 
 
 <dt id="arg-order-by">order_by<a class="anchor" aria-label="anchor" href="#arg-order-by"></a></dt>
-<dd><p>Display order of the strata on the <code>"predicted"</code> view
-(display-only; does not change which strata are shown, nor any value):
-<code>"predicted_desc"</code> (default) highest predicted first, <code>"stratum"</code>
-native order, <code>"predicted_asc"</code> lowest first, or <code>"deviation"</code>
-largest <code>|predicted - reference|</code> first. See
-<code><a href="plot.maihda_model.html">plot</a></code>.</p></dd>
+<dd><p>Display order of the strata on the <code>"predicted"</code> and
+<code>"upset"</code> views (display-only; does not change which strata are shown,
+nor any value): <code>"predicted_desc"</code> highest predicted first,
+<code>"stratum"</code> native order, <code>"predicted_asc"</code> lowest first,
+<code>"deviation"</code> largest <code>|predicted - reference|</code> first, or
+<code>"size"</code> largest stratum first. The default is per view –
+<code>"predicted_desc"</code> for <code>"predicted"</code>, <code>"size"</code> for
+<code>"upset"</code>. See <code><a href="plot.maihda_model.html">plot</a></code>.</p></dd>
 
 
 <dt id="arg-model">model<a class="anchor" aria-label="anchor" href="#arg-model"></a></dt>

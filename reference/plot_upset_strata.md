@@ -6,9 +6,13 @@ category matrix. Three panels share one column order: a top bar of
 intersection (stratum) sizes, a middle matrix encoding each stratum's
 category on every dimension, and a bottom panel of predicted values with
 conditional intervals. Columns are ordered by intersection size (largest
-first). Binary 0/1 (or logical) dimensions collapse to a single
-present/absent row; multi-level factors get one row per level, and each
-column lights exactly one dot per dimension.
+first) by default, or by any other `order_by` rule – `"predicted_desc"`
+turns the view into the ranked caterpillar of
+[`plot_predicted_strata()`](https://hdbt.github.io/MAIHDA/reference/plot_predicted_strata.md)
+drawn against the category matrix instead of long text labels. Binary
+0/1 (or logical) dimensions collapse to a single present/absent row;
+multi-level factors get one row per level, and each column lights
+exactly one dot per dimension.
 
 ## Usage
 
@@ -21,6 +25,7 @@ plot_upset_strata(
   highlight = NULL,
   only_flagged = FALSE,
   select = c("order", "deviation"),
+  order_by = c("size", "predicted_desc", "stratum", "predicted_asc", "deviation"),
   quantity = c("predicted", "interaction")
 )
 ```
@@ -65,6 +70,15 @@ plot_upset_strata(
   regardless; this governs the fill / the unflagged case. It controls
   *which* strata are shown, separately from how they are ordered for
   display.
+
+- order_by:
+
+  Left-to-right column order (**display-only**; does not change which
+  strata are shown, nor any value): `"size"` (default, largest
+  intersection first – the UpSet convention), `"stratum"` native stratum
+  order, or `"predicted_desc"` / `"predicted_asc"` / `"deviation"`,
+  which sort on the quantity the estimate panel actually shows and so
+  follow `quantity`. `NULL` takes this view's default.
 
 ## Value
 

@@ -27,7 +27,7 @@ plot(
   highlight_by = c("flag", "rope"),
   rope = NULL,
   select = c("order", "deviation"),
-  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation"),
+  order_by = c("predicted_desc", "stratum", "predicted_asc", "deviation", "size"),
   model = c("null", "adjusted", "both"),
   ...
 )
@@ -107,11 +107,13 @@ plot(
 
 - order_by:
 
-  Display order of the strata on the `"predicted"` view (display-only;
-  does not change which strata are shown, nor any value):
-  `"predicted_desc"` (default) highest predicted first, `"stratum"`
-  native order, `"predicted_asc"` lowest first, or `"deviation"` largest
-  `|predicted - reference|` first. See
+  Display order of the strata on the `"predicted"` and `"upset"` views
+  (display-only; does not change which strata are shown, nor any value):
+  `"predicted_desc"` highest predicted first, `"stratum"` native order,
+  `"predicted_asc"` lowest first, `"deviation"` largest
+  `|predicted - reference|` first, or `"size"` largest stratum first.
+  The default is per view – `"predicted_desc"` for `"predicted"`,
+  `"size"` for `"upset"`. See
   [`plot`](https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.md).
 
 - model:
