@@ -2,7 +2,7 @@
 #'
 #' Creates various plots for visualizing MAIHDA model results including
 #' variance partition coefficient comparisons, observed vs. shrunken estimates,
-#' and predicted subgroup values with confidence intervals.
+#' and predicted subgroup values with conditional intervals.
 #'
 #' @param x A maihda_model object from \code{fit_maihda()}.
 #' @param type Character string specifying plot type:
@@ -13,10 +13,22 @@
 #'       covariate-adjusted model the distance from the diagonal reflects both
 #'       shrinkage \emph{and} covariate adjustment, not shrinkage alone; it is a
 #'       pure shrinkage view only for an intercept-only (null) model
-#'     \item "predicted": Predicted values for each stratum with confidence
-#'       intervals. By default the strata are ordered highest-to-lowest predicted
-#'       value (a ranked caterpillar plot); see \code{order_by} to change or
-#'       disable the ordering
+#'     \item "predicted": Predicted values for each stratum with
+#'       \strong{conditional} (random-effect) intervals: the stratum random
+#'       effect's own interval -- a Wald interval on the conditional SD of the
+#'       BLUP for the likelihood engines, the posterior interval of \eqn{u_j}
+#'       for brms -- shifted onto the outcome scale by the fixed-effect
+#'       prediction, which is held at its point estimate. They answer
+#'       \dQuote{does this stratum depart from the dashed across-strata
+#'       reference?}, which is what a caterpillar plot is read for; they are
+#'       \emph{not} intervals for the predicted value itself. Holding the fixed
+#'       effects at a point estimate stops the fixed-effect uncertainty carried
+#'       inside the random-effect interval from cancelling against the random
+#'       effect it is correlated with, so these intervals are \emph{wider} than
+#'       a full interval for the stratum's predicted outcome, markedly so when
+#'       there are few strata. By default the strata are ordered
+#'       highest-to-lowest predicted value (a ranked caterpillar plot); see
+#'       \code{order_by} to change or disable the ordering
 #'     \item "upset": UpSet-style alternative to \code{"predicted"} -- an
 #'       intersection-size bar, a category matrix encoding each stratum's level on
 #'       every dimension, and the predicted-value panel, all sharing one column

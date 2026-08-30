@@ -195,15 +195,6 @@ fast it changes, lies between strata. Because \eqn{\sigma^2_e} is absent neither
 affected by how noisy the outcome measure is, which makes them comparable across
 studies using different instruments.
 
-Do not expect them to be uniformly \strong{larger} than the headline VPC. Only one
-comparison is guaranteed: at \eqn{t_0} the intercept VPC has the same numerator as
-the headline VPC and a denominator short of \eqn{\sigma^2_e}, so it is strictly
-larger there. That says nothing about later times -- when strata fan out
-\eqn{VPC_S(t)} rises and readily overtakes it. The slope VPC is not comparable to
-the headline VPC at all: its numerator is a between-stratum \emph{slope} variance,
-not \eqn{Var_S(t_0)}, so it can sit anywhere relative to it, and sits far below it
-whenever strata differ in level but barely in rate of change.
-
 For the slope the residual could not be included even in principle: a slope
 variance is in \eqn{(\mathrm{outcome}/\mathrm{time})^2} while \eqn{\sigma^2_e} is
 in \eqn{\mathrm{outcome}^2}, so the sum would be dimensionally meaningless. (The
