@@ -318,11 +318,11 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
   }
 
   # Likelihood-adequacy checks (overdispersion / zero inflation / random-effect
-  # normality / longitudinal autocorrelation / proportional odds). Wrapped so an
+  # normality / longitudinal autocorrelation / proportional-odds proxy). Wrapped so an
   # adequacy probe can never break a fit that otherwise succeeded; NULL for a
   # family/engine with no applicable check or when nothing is flagged. Warnings and
   # messages are suppressed because the internal refits (e.g. the ordinal clm() for
-  # the proportional-odds screen) can emit convergence chatter that is not the user's
+  # the proportional-odds proxy) can emit convergence chatter that is not the user's
   # to act on and must never leak into a fit the caller wrapped in expect_silent().
   diagnostics$adequacy <- tryCatch(
     suppressWarnings(suppressMessages(
@@ -337,12 +337,17 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
 # The diagnostics above check COMPUTATIONAL adequacy (a singular or non-converged
 # fit). The helpers below check whether the chosen LIKELIHOOD is adequate, because
 # the VPC/PCV and interaction estimates are all conditional on it: an overdispersed
-# or zero-inflated count, a non-normal stratum random effect, autocorrelated
-# longitudinal residuals, or a violated proportional-odds assumption each make the
-# reported variance partition misleading even when the optimiser converged cleanly.
-# Each check is a pure function of already-computed ingredients so it can be
-# unit-tested on synthetic inputs, and the orchestrator wraps every check in
-# tryCatch so a fragile probe degrades to "no signal" rather than an error.
+# or zero-inflated count, a non-normal stratum random effect and autocorrelated
+# longitudinal residuals each make the reported variance partition misleading even
+# when the optimiser converged cleanly. Each check is a pure function of
+# already-computed ingredients so it can be unit-tested on synthetic inputs, and the
+# orchestrator wraps every check in tryCatch so a fragile probe degrades to "no
+# signal" rather than an error. EVERY FLAGGING CHECK BELOW IS lme4-ONLY (gated on
+# merMod/glmerMod); the ordinal proportional-odds entry is the sole DESCRIPTIVE
+# member, computed and stored but never flagged because the fixed-only statistic
+# cannot separate non-proportional odds from stratum heterogeneity (see
+# maihda_ordinal_po_stat). A clmm fit therefore raises no adequacy caveat -- if a
+# genuinely clmm-applicable check is ever added, it must carry its own $flag.
 
 # Thresholds are deliberately conservative: these surface as automatic caveats on
 # every print()/summary(), so a well-specified model must stay silent.
@@ -361,8 +366,7 @@ maihda_adequacy_thresholds <- function() {
                                   # the estimate negative on a CORRECT model (to
                                   # about -0.5 at 3-4 waves), so a negative value is
                                   # never treated as evidence of misspecification
-    autocorr_min_pairs   = 30L,
-    ordinal_po_p         = 0.05
+    autocorr_min_pairs   = 30L
   )
 }
 
@@ -489,17 +493,53 @@ maihda_resid_autocorr_stat <- function(resid, id, time) {
   list(n_pairs = length(prev), acf1 = stats::cor(prev, cur), gap = g0)
 }
 
-# Approximate proportional-odds check for a cumulative (clmm) fit. There is no
-# standard PO test for a MIXED cumulative model, so approximate it on the FIXED-
-# effects part (dropping the stratum random effect): fit two ordinal::clm() models on
-# the fitted frame -- the all-proportional model and one where every covariate enters
-# as a threshold-specific (nominal) effect -- and take the omnibus likelihood-ratio
-# test between them. APPROXIMATE: ignoring the random effect makes this a screening
-# signal, not a definitive test. The two models are fit DIRECTLY (rather than via
-# ordinal::nominal_test(), whose internal update() re-resolves the data symbol in the
-# wrong environment and silently returns NA LRTs when called from inside a function).
-# Only meaningful with >= 1 fixed-effect covariate. Returns NULL on any failure so a
-# fragile refit never breaks a fit.
+# Omnibus nominal-effects likelihood-ratio statistic for a FIXED-ONLY cumulative
+# model. Pure in (data, response name, fixed terms): fits the all-proportional
+# ordinal::clm() and the model where every covariate enters as a threshold-specific
+# (nominal) effect, and returns the LRT and its df. The two models are fit DIRECTLY
+# (rather than via ordinal::nominal_test(), whose internal update() re-resolves the
+# data symbol in the wrong environment and silently returns NA LRTs when called from
+# inside a function). Returns NULL on any failure so a fragile refit never breaks a
+# fit. Shared by the descriptive proxy below and by the calibrated bootstrap test in
+# maihda_proportional_odds_test(), so both statistics are computed identically.
+maihda_po_lrt <- function(dat, resp, fixed_terms) {
+  tryCatch({
+    m_po <- ordinal::clm(stats::reformulate(fixed_terms, response = resp), data = dat)
+    m_nom <- ordinal::clm(stats::reformulate("1", response = resp),
+                          nominal = stats::reformulate(fixed_terms), data = dat)
+    ll_po <- stats::logLik(m_po)
+    ll_nom <- stats::logLik(m_nom)
+    df <- attr(ll_nom, "df") - attr(ll_po, "df")
+    lrt <- 2 * (as.numeric(ll_nom) - as.numeric(ll_po))
+    if (!is.finite(lrt) || !is.finite(df) || df <= 0 || lrt < 0) {
+      return(NULL)
+    }
+    list(lrt = lrt, df = df)
+  }, error = function(e) NULL)
+}
+
+# Descriptive fixed-only proportional-odds PROXY for a cumulative (clmm) fit: the
+# nominal-effects LRT computed after DROPPING the stratum random effect.
+#
+# This is deliberately NOT a test of the fitted clmm and carries no p-value. A
+# conditional cumulative model with a normal random intercept does not in general
+# stay an ordinary proportional-odds model once the random effect is marginalised
+# away: the implied marginal cumulative-logit slopes differ across thresholds for
+# any non-zero stratum variance. (The exception is an exactly symmetric threshold
+# configuration -- logit(E[plogis(eta - u)]) is odd for symmetric u, so its
+# derivative is even and thresholds placed symmetrically about the location share a
+# slope; three categories cut at -c and +c is the case that arises in practice.
+# Asymmetric thresholds are markedly WORSE, not better: at tau = 1 the slope spread
+# is 0.080 for cut-points (-0.2, 0.4, 3) against 0.027 for (-1.5, 0, 1.5).)
+# Referring the statistic below to a chi-squared distribution therefore tests a null
+# that is false under the correctly specified model, and its rejection rate grows
+# without bound in n -- at a stratum VPC of 7%, roughly a realistic MAIHDA value, a
+# correct model is "rejected" about a quarter of the time at n = 96,000. The statistic is retained because it still describes how far the
+# MARGINAL fit departs from proportional odds, but nothing is flagged from it; for
+# an actual test of the fitted model, use maihda_proportional_odds_test(), which
+# calibrates this same statistic by parametric bootstrap under the fitted clmm.
+#
+# Only meaningful with >= 1 fixed-effect covariate.
 maihda_ordinal_po_stat <- function(model) {
   if (!inherits(model, "clmm") || !requireNamespace("ordinal", quietly = TRUE)) {
     return(NULL)
@@ -516,18 +556,11 @@ maihda_ordinal_po_stat <- function(model) {
     if (is.null(dat)) {
       return(NULL)
     }
-    m_po <- ordinal::clm(stats::reformulate(fixed_terms, response = resp), data = dat)
-    m_nom <- ordinal::clm(stats::reformulate("1", response = resp),
-                          nominal = stats::reformulate(fixed_terms), data = dat)
-    ll_po <- stats::logLik(m_po)
-    ll_nom <- stats::logLik(m_nom)
-    df <- attr(ll_nom, "df") - attr(ll_po, "df")
-    lrt <- 2 * (as.numeric(ll_nom) - as.numeric(ll_po))
-    if (!is.finite(lrt) || !is.finite(df) || df <= 0 || lrt < 0) {
+    stat <- maihda_po_lrt(dat, resp, fixed_terms)
+    if (is.null(stat)) {
       return(NULL)
     }
-    list(min_p = stats::pchisq(lrt, df = df, lower.tail = FALSE),
-         lrt = lrt, df = df, n_terms = length(fixed_terms))
+    list(lrt = stat$lrt, df = stat$df, n_terms = length(fixed_terms))
   }, error = function(e) NULL)
 }
 
@@ -644,12 +677,18 @@ maihda_adequacy_checks <- function(model, longitudinal_info = NULL) {
     }
   }
 
-  # ---- ordinal proportional-odds, approximate (clmm) ----
+  # ---- ordinal proportional-odds proxy, DESCRIPTIVE ONLY (clmm) ----
+  # Stored under a name that says what it is, and carries no $flag: the fixed-only
+  # statistic is confounded with the stratum random effect (see
+  # maihda_ordinal_po_stat), so it must never raise an automatic caveat. The
+  # calibrated test lives in maihda_proportional_odds_test(). The key deliberately
+  # does NOT start with "proportional_odds": R's $ partial matching would otherwise
+  # let stale code reading $proportional_odds keep resolving to this object instead
+  # of returning NULL.
   if (inherits(model, "clmm")) {
     po <- maihda_ordinal_po_stat(model)
     if (!is.null(po)) {
-      po$flag <- isTRUE(is.finite(po$min_p) && po$min_p < th$ordinal_po_p)
-      out$proportional_odds <- po
+      out$marginal_po_proxy <- po
     }
   }
 
@@ -797,14 +836,6 @@ maihda_format_adequacy <- function(adequacy) {
       sprintf("Residual autocorrelation: lag-1 within-unit correlation %.2f over %d pairs%s.",
               ac$acf1, as.integer(ac$n_pairs), gap_txt),
       "  Longitudinal residuals are serially dependent; consider a richer growth or error structure.")
-  }
-
-  po <- adequacy$proportional_odds
-  if (isTRUE(po$flag)) {
-    out <- c(out,
-      sprintf("Proportional odds (approximate): nominal-effects LRT p %s over %d covariate(s).",
-              fp(po$min_p), as.integer(po$n_terms)),
-      "  Approximate check (ignores the stratum random effect); the proportional-odds assumption may be violated.")
   }
 
   out

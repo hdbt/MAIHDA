@@ -170,7 +170,8 @@ test_that("maihda_format_adequacy renders exactly the flagged checks", {
     re_normality = list(group = "stratum", term = "(Intercept)", skew = 1.1,
                         excess_kurtosis = 0.6, shapiro_p = 0.002, flag = TRUE),
     autocorrelation = list(acf1 = 0.51, n_pairs = 2100, gap = 1, flag = TRUE),
-    proportional_odds = list(min_p = 1e-9, lrt = 40, df = 1, n_terms = 1, flag = TRUE))
+    # descriptive only since 2026-09-01: stored, never rendered as a caveat
+    marginal_po_proxy = list(lrt = 40, df = 1, n_terms = 1))
   lines <- maihda_format_adequacy(full)
   expect_match(lines, "Overdispersion", all = FALSE)
   expect_match(lines, "negbinomial", all = FALSE)          # remedy for a poisson fit
@@ -179,7 +180,9 @@ test_that("maihda_format_adequacy renders exactly the flagged checks", {
   expect_match(lines, "standardized BLUPs", all = FALSE)
   expect_match(lines, "Residual autocorrelation", all = FALSE)
   expect_match(lines, "at time gap 1", all = FALSE)
-  expect_match(lines, "Proportional odds", all = FALSE)
+  # the fixed-only proportional-odds proxy is confounded with stratum
+  # heterogeneity and must NEVER surface as an automatic caveat
+  expect_false(any(grepl("Proportional odds", lines, fixed = TRUE)))
 
   # the negbinomial overdispersion message points beyond the NB, not back to it
   nb <- maihda_format_adequacy(list(
@@ -334,21 +337,32 @@ make_po_data <- function(seed, violate) {
   d
 }
 
-test_that("the approximate proportional-odds screen separates violated from proportional", {
+# REWRITTEN 2026-09-01: this test used to assert that the fixed-only screen
+# FLAGGED the violated fit via a raw chi-squared p-value. That screen was
+# confounded with stratum heterogeneity (see test-audit-2026-09-01.R), so the
+# flag was removed. What survives is the separation itself, now judged by the
+# calibrated bootstrap test rather than by an automatic caveat.
+test_that("the calibrated proportional-odds test separates violated from proportional", {
   skip_on_cran()
   skip_if_not_installed("ordinal")
 
   m_bad <- suppressMessages(suppressWarnings(
     fit_maihda(y ~ x + (1 | a:b), data = make_po_data(311, TRUE), family = "ordinal")))
-  po_bad <- m_bad$diagnostics$adequacy$proportional_odds
-  expect_false(is.null(po_bad))
-  expect_true(isTRUE(po_bad$flag))
-  expect_lt(po_bad$min_p, 0.05)
+  t_bad <- maihda_proportional_odds_test(m_bad, n_sim = 99, seed = 311)
+  expect_lt(t_bad$p_value, 0.05)
 
   m_ok <- suppressMessages(suppressWarnings(
     fit_maihda(y ~ x + (1 | a:b), data = make_po_data(312, FALSE), family = "ordinal")))
-  po_ok <- m_ok$diagnostics$adequacy$proportional_odds
-  expect_false(isTRUE(po_ok$flag))
+  t_ok <- maihda_proportional_odds_test(m_ok, n_sim = 99, seed = 312)
+  expect_gt(t_ok$p_value, 0.05)
+
+  # neither fit may raise an automatic proportional-odds caveat any more
+  for (m in list(m_bad, m_ok)) {
+    expect_null(m$diagnostics$adequacy$proportional_odds)
+    expect_false(any(grepl("Proportional odds",
+                           maihda_format_adequacy(m$diagnostics$adequacy),
+                           fixed = TRUE)))
+  }
 })
 
 test_that("a null ordinal model has no covariate slopes to test", {

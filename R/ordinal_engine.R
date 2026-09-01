@@ -548,3 +548,191 @@ maihda_stratum_predictions_ordinal <- function(object, summary_obj,
     pred_df, c("predicted_row", "lower_row", "upper_row", "fixed_row")
   )
 }
+
+# ---- calibrated proportional-odds test ---------------------------------------
+
+#' Parametric-bootstrap proportional-odds test for a cumulative MAIHDA fit
+#'
+#' Tests the proportional-odds (parallel-lines) assumption of a fitted
+#' cumulative \code{clmm} MAIHDA model by calibrating the omnibus
+#' nominal-effects likelihood-ratio statistic against its own null distribution
+#' under the fitted model.
+#'
+#' @details
+#' The statistic is the ordinary omnibus nominal-effects LRT: the fixed-effect
+#' part of the model is refitted twice with \code{ordinal::clm()} -- once with
+#' all covariates proportional, once with every covariate entering as a
+#' threshold-specific (nominal) effect -- and twice the log-likelihood
+#' difference is taken. Because \code{clm()} has no random effect, that statistic
+#' is computed on the \emph{marginal} fit.
+#'
+#' Referring it to a chi-squared distribution, as an ordinary
+#' \code{ordinal::nominal_test()} would, is not valid here. A conditional
+#' cumulative model with a normal random intercept does not in general remain an
+#' ordinary proportional-odds model after the random intercept is marginalised
+#' away: the implied marginal cumulative-logit slopes differ across thresholds
+#' for any non-zero stratum variance. The chi-squared null is therefore false
+#' under the correctly specified model, and its rejection rate grows without
+#' bound in the sample size -- at a stratum VPC near 7 percent, a plausible
+#' MAIHDA value, a correctly specified model is rejected about a quarter of the
+#' time at \code{n = 96,000}. Stratum heterogeneity and genuine non-proportional
+#' odds are not separable by the fixed-only statistic alone.
+#'
+#' The one exception is an exactly symmetric threshold configuration, where the
+#' marginal slopes coincide and the fixed-only statistic is valid: for symmetric
+#' \eqn{u} the map \eqn{\eta \mapsto} logit \eqn{E[\mathrm{plogis}(\eta - u)]}
+#' is odd, so its derivative is even and thresholds placed symmetrically about the
+#' location share a slope. Three categories cut at \eqn{-c} and \eqn{+c} is the
+#' case that arises in practice. Asymmetric thresholds are markedly worse rather
+#' than better, so this exception narrows the problem without softening it.
+#'
+#' This function removes that confounding by simulating the null distribution
+#' \emph{under the fitted \code{clmm} itself}: each replicate redraws the stratum
+#' random effects from \eqn{N(0, \tau^2)} at the fitted variance, forms the
+#' conditional category probabilities from the fitted thresholds and location
+#' predictor, redraws the ordinal response, and recomputes the same fixed-only
+#' statistic. The reported p-value is
+#' \eqn{(1 + \#\{T_b \ge T_{obs}\}) / (1 + B)}, so proportional-odds data
+#' generated from the fitted model rejects at the nominal rate by construction.
+#'
+#' \code{ordinal} supplies no \code{simulate()} method for \code{clmm}, so the
+#' simulation is built directly from the fitted thresholds, location
+#' coefficients and random-effect variance.
+#'
+#' The test is opt-in because it is expensive: every replicate refits two
+#' \code{clm()} models, so the cost is roughly \code{n_sim} times the cost of the
+#' fixed-only refit and grows with the sample size. It is not run automatically
+#' at fit time.
+#'
+#' @param object A \code{maihda_model} fitted with \code{engine = "ordinal"}.
+#' @param n_sim Number of parametric-bootstrap replicates (default 199).
+#' @param seed Optional integer seed, for a reproducible bootstrap.
+#' @return An object of class \code{maihda_po_test}: a list with \code{lrt},
+#'   \code{df}, \code{n_terms}, \code{p_value} (the bootstrap p-value),
+#'   \code{p_chisq}, \code{n_sim} (replicates that produced a usable statistic),
+#'   \code{n_failed}, and \code{null_lrt} (the simulated null statistics).
+#'   \code{p_value} is the only p-value the print method shows. \code{p_chisq}
+#'   is the uncalibrated chi-squared p-value that the removed automatic screen
+#'   used; it is retained on the object for comparison but deliberately not
+#'   printed, and it is not evidence against the fitted model.
+#' @seealso \code{\link{fit_maihda}}, \code{\link{maihda_cumulative}}
+#' @examples
+#' \donttest{
+#' strata <- make_strata(maihda_sim_data, vars = c("gender", "race"))
+#' d <- strata$data
+#' d$y <- factor(cut(d$health_outcome, 3), labels = 1:3, ordered = TRUE)
+#' m <- fit_maihda(y ~ age + (1 | stratum), data = d, family = "ordinal")
+#' maihda_proportional_odds_test(m, n_sim = 99, seed = 1)
+#' }
+#' @export
+maihda_proportional_odds_test <- function(object, n_sim = 199, seed = NULL) {
+  if (!inherits(object, "maihda_model") || !inherits(object$model, "clmm")) {
+    stop("maihda_proportional_odds_test() needs a maihda_model fitted with ",
+         "engine = 'ordinal' (a cumulative clmm fit).", call. = FALSE)
+  }
+  if (!requireNamespace("ordinal", quietly = TRUE)) {
+    stop("Package 'ordinal' is required for maihda_proportional_odds_test().",
+         call. = FALSE)
+  }
+  if (length(n_sim) != 1L || !is.numeric(n_sim) || !is.finite(n_sim) ||
+      n_sim < 1 || n_sim != round(n_sim)) {
+    stop("'n_sim' must be a single whole number of at least 1.", call. = FALSE)
+  }
+  n_sim <- as.integer(n_sim)
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+
+  obs <- maihda_ordinal_po_stat(object$model)
+  if (is.null(obs)) {
+    stop("The proportional-odds statistic could not be computed for this fit ",
+         "(a null, covariate-free model has no covariate slopes to test).",
+         call. = FALSE)
+  }
+
+  # Ingredients of the fitted conditional model. maihda_ordinal_check_formula()
+  # guarantees the clmm path is the canonical single (1 | stratum) structure, so
+  # one random-effect SD and one grouping factor are all that is needed.
+  alpha <- object$model$alpha
+  link <- object$family$link
+  tau <- sqrt(max(maihda_clmm_variances(object)$stratum, 0))
+  eta_fixed <- maihda_clmm_linpred(object, include_re = FALSE)
+
+  # The bootstrap statistic must be recomputed on the SAME frame the observed one
+  # used, with only the response redrawn, so reuse that frame verbatim.
+  f <- stats::formula(object$model)
+  rhs_terms <- attr(stats::terms(f), "term.labels")
+  fixed_terms <- rhs_terms[!grepl("\\|", rhs_terms)]
+  resp <- all.vars(f)[1]
+  dat <- tryCatch(stats::model.frame(object$model),
+                  error = function(e) object$model$model)
+
+  grp <- factor(as.character(object$data$stratum))
+  if (is.null(dat) || nrow(dat) != length(eta_fixed) ||
+      length(grp) != length(eta_fixed)) {
+    stop("Could not align the clmm model frame with the analytic data; the ",
+         "proportional-odds bootstrap cannot be run on this fit.", call. = FALSE)
+  }
+  gi <- as.integer(grp)
+  n_grp <- nlevels(grp)
+  K <- length(alpha) + 1L
+  y_levels <- levels(dat[[resp]])
+  if (length(y_levels) != K) {
+    y_levels <- as.character(seq_len(K))
+  }
+
+  null_lrt <- rep(NA_real_, n_sim)
+  for (b in seq_len(n_sim)) {
+    eta <- eta_fixed + stats::rnorm(n_grp, 0, tau)[gi]
+    probs <- maihda_ordinal_category_probs(eta, alpha, link = link)
+    # Inverse-CDF draw from each row's category distribution: the first category
+    # whose cumulative probability reaches the row's uniform draw. The final
+    # cumulative column is pinned to 1 because a floating-point cumsum can land a
+    # hair below it, which would leave a row all-FALSE and silently return
+    # category 1 -- the opposite end of the scale -- instead of category K.
+    cum <- t(apply(probs, 1, cumsum))
+    cum[, ncol(cum)] <- 1
+    yb <- max.col(stats::runif(nrow(cum)) <= cum, ties.method = "first")
+    dat[[resp]] <- factor(y_levels[yb], levels = y_levels, ordered = TRUE)
+    stat <- maihda_po_lrt(dat, resp, fixed_terms)
+    if (!is.null(stat)) {
+      null_lrt[b] <- stat$lrt
+    }
+  }
+
+  ok <- null_lrt[is.finite(null_lrt)]
+  if (length(ok) == 0) {
+    stop("Every parametric-bootstrap replicate failed to refit; the ",
+         "proportional-odds test cannot be calibrated for this model.",
+         call. = FALSE)
+  }
+
+  structure(
+    list(lrt = obs$lrt, df = obs$df, n_terms = obs$n_terms,
+         p_value = (1 + sum(ok >= obs$lrt)) / (1 + length(ok)),
+         p_chisq = stats::pchisq(obs$lrt, df = obs$df, lower.tail = FALSE),
+         n_sim = length(ok), n_failed = n_sim - length(ok), null_lrt = ok),
+    class = "maihda_po_test"
+  )
+}
+
+#' @export
+print.maihda_po_test <- function(x, ...) {
+  pal <- maihda_palette()
+  cat(pal$bold("Proportional-odds test (parametric bootstrap under the fitted clmm)"),
+      "\n\n", sep = "")
+  cat(sprintf("  Nominal-effects LRT : %.3f on %d df over %d covariate(s)\n",
+              x$lrt, as.integer(x$df), as.integer(x$n_terms)))
+  cat(sprintf("  Bootstrap p-value   : %.4f  (%d replicates)\n",
+              x$p_value, as.integer(x$n_sim)))
+  if (x$n_failed > 0) {
+    cat(sprintf("  Replicates dropped  : %d (refit failed)\n",
+                as.integer(x$n_failed)))
+  }
+  # The uncalibrated chi-squared p-value ($p_chisq) is deliberately NOT printed.
+  # It is an inference against a null that is false under the fitted conditional
+  # model (see the details of maihda_proportional_odds_test), so showing it beside
+  # the bootstrap p-value would give the reader two answers to one question and
+  # invite them to choose. It stays on the returned object for comparison.
+  invisible(x)
+}

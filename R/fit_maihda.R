@@ -253,12 +253,16 @@
 #'   \item{diagnostics}{Fit-quality diagnostics, surfaced by the print and
 #'     summary methods: singular fit / convergence for lme4 and WeMix, MCMC
 #'     convergence (maximum Rhat, divergent transitions) for brms, and the
-#'     optimizer convergence code for an ordinal (clmm) fit. For lme4 and clmm
-#'     fits it also carries likelihood-adequacy caveats -- count overdispersion
-#'     and zero inflation, stratum random-effect non-normality, longitudinal
-#'     residual autocorrelation, and an approximate ordinal proportional-odds
-#'     screen -- reported only when a conservative threshold is crossed, since the
-#'     VPC/PCV and interaction estimates are conditional on the likelihood holding}
+#'     optimizer convergence code for an ordinal (clmm) fit. An lme4 fit also
+#'     carries likelihood-adequacy caveats -- count overdispersion and zero
+#'     inflation, stratum random-effect non-normality and longitudinal residual
+#'     autocorrelation -- reported only when a conservative threshold is crossed,
+#'     since the VPC/PCV and interaction estimates are conditional on the
+#'     likelihood holding. Every one of those checks is lme4-only, so a cumulative
+#'     (clmm) fit raises no adequacy caveat at all: it stores a single descriptive
+#'     fixed-only proportional-odds proxy statistic, never flagged because it
+#'     cannot be separated from stratum heterogeneity; use
+#'     \code{\link{maihda_proportional_odds_test}} to test that assumption}
 #'
 #' @examples
 #' \donttest{
