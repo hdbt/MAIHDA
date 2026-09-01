@@ -199,15 +199,35 @@ test_that("tidy/glance work for the brms engine", {
           "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
   skip_if_not_installed("brms")
   d <- make_tidy_data()
+  # The old chains = 1, iter = 600 fit reached max Rhat 1.075 with a bulk ESS of
+  # 36, and passed no seed at all -- so the Stan seed came from the ambient RNG
+  # and the block was not reproducible either. brms warned out of the glance()
+  # and tidy() calls below while every assertion passed. Only 6 strata here, so
+  # the intercept/sd_stratum funnel needs adapt_delta above the default to clear
+  # the zero-divergence half of the package's convergence bar.
   m <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ age + (1 | gender:race), data = d, engine = "brms",
-               chains = 1, iter = 600, refresh = 0)))
+               chains = 4, iter = 2000, warmup = 1000, refresh = 0, seed = 101,
+               control = list(adapt_delta = 0.95))))
+  # Fixture guard -- see the note in test-ordinal-engine.R.
+  expect_true(isTRUE(m$diagnostics$converged))
 
   g <- glance(m)
   expect_identical(g$engine, "brms")
   expect_true(is.finite(g$vpc.conf.low) && is.finite(g$vpc.conf.high))  # posterior CI
+  # The band must actually cover the truth, not merely be finite. make_tidy_data
+  # draws 6 stratum effects at sd 0.7, realizing sd 0.6107 (var 0.3730) against a
+  # residual variance of 0.5^2, so the VPC is 0.3730 / (0.3730 + 0.25) = 0.599.
+  expect_true(g$vpc.conf.low < 0.599 && 0.599 < g$vpc.conf.high)
+  expect_true(g$vpc >= g$vpc.conf.low && g$vpc <= g$vpc.conf.high)
 
   fe <- tidy(m, component = "fixed")
   expect_true(all(c("conf.low", "conf.high") %in% names(fe)))
-  expect_true(any(is.finite(fe$conf.low)))
+  expect_true(all(is.finite(fe$conf.low)) && all(is.finite(fe$conf.high)))
+  # any(is.finite(.)) passed on a single finite cell. Assert the estimate the
+  # posterior is actually meant to recover: age enters at 0.3.
+  age <- fe[fe$term == "age", , drop = FALSE]
+  expect_equal(nrow(age), 1L)
+  expect_true(age$conf.low < 0.3 && 0.3 < age$conf.high)
+  expect_true(age$conf.low < age$estimate && age$estimate < age$conf.high)
 })

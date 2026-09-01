@@ -335,10 +335,29 @@ test_that("crossed-dimensions brms summary returns posterior shares with interva
   skip_if_not_installed("brms")
 
   d <- make_cc_data(seed = 7100, n = 900)
+  # At the old chains = 2, iter = 500 the chains had not mixed. Four variance
+  # components (three dimensions plus the interaction) need iter = 2000 and
+  # adapt_delta = 0.99 -- at 0.95 a single divergent transition survives, which
+  # the package's bar (max Rhat <= 1.01 AND zero divergences) rightly rejects.
+  # adapt_delta = 0.99 roughly doubles the per-iteration cost (838s here against
+  # 505s at 0.95); the block is gated behind MAIHDA_TEST_BRMS and skip_on_cran,
+  # so correctness wins over wall clock.
+  # set.seed() rather than seed =: maihda()'s 'seed' formal is the response-scale
+  # VPC simulation seed and never reaches brms::brm(), so it does not pin the
+  # sampler (maihda() now warns when the two are combined). brms draws its seed
+  # from R's RNG, so this does pin it.
+  set.seed(20260831)
   cc <- suppressWarnings(suppressMessages(
     maihda(y ~ x + (1 | a:b:cc), data = d, engine = "brms",
            decomposition = "crossed-dimensions",
-           chains = 2, iter = 500, refresh = 0, seed = 1)))
+           chains = 2, iter = 2000, warmup = 1000, refresh = 0,
+           control = list(adapt_delta = 0.99))))
+  # Fixture guard -- see the note in test-ordinal-engine.R. NOTE: the
+  # crossed-dimensions path returns a single fitted model; cc$model_adjusted is
+  # NULL here (unlike the longitudinal decomposition, which carries both), so
+  # cc$model is the only object with diagnostics to assert on.
+  expect_null(cc$model_adjusted)
+  expect_true(isTRUE(cc$model$diagnostics$converged))
 
   dcmp <- cc$decomposition
   expect_identical(dcmp$method, "posterior")
@@ -347,6 +366,12 @@ test_that("crossed-dimensions brms summary returns posterior shares with interva
   expect_true(all(is.finite(dcmp$additive_share_ci)))
   expect_identical(cc$summary$vpc$method, "posterior")
   expect_true(cc$summary$vpc$ci_lower < cc$summary$vpc$ci_upper)
+  # No recovery assertion on the shares. Each dimension's variance is estimated
+  # from THREE levels, so the design is near-unidentified: on this seed the "c"
+  # dimension is drawn at sd 0.5 but realizes var 0.0096, putting the realized
+  # additive share at 0.558 against a posterior mean of 0.816. The interval does
+  # cover it, but only because it spans [0.39, 0.97] -- pinning a target that
+  # loose would assert nothing while looking like it asserted something.
 })
 
 # ---- regression: the default two-model path is unchanged --------------------

@@ -443,7 +443,12 @@ maihda_mor_between_variance <- function(model) {
 #'   \code{\link[stats]{glm}}), or a brms \code{y | trials(n)} term. Note that an
 #'   aggregated fit whose every row is all-success or all-failure has a proportion
 #'   response of exactly 0/1 and so cannot be distinguished from a Bernoulli fit;
-#'   write \code{cbind(successes, failures)} for such data.
+#'   write \code{cbind(successes, failures)} for such data. When a proportion
+#'   response times its trial counts is \emph{not} a whole number of successes --
+#'   a malformed binomial, which \code{glmer} itself warns about as "non-integer
+#'   #successes" -- the fractional case/control mass is carried into the AUC as it
+#'   stands, with a warning, rather than rounded into whole observations that were
+#'   never collected; \code{n_case} / \code{n_control} are then fractional.
 #'   \strong{lme4 precision weights} (any non-unit \code{weights=} on a Bernoulli
 #'   fit, integer or not) scale likelihood/dispersion, not population frequency, so
 #'   they carry no population-AUC interpretation: the AUC ignores them and reports
@@ -691,7 +696,11 @@ print.maihda_da <- function(x, ...) {
     "NA"
   }
   cat(sprintf("  Median Odds Ratio: %s\n", mor_str))
-  cat(sprintf("  Cases / controls:  %d / %d\n", x$n_case, x$n_control))
+  # Not "%d": an aggregated-binomial fit whose proportion response does not resolve
+  # to whole successes reports FRACTIONAL case/control mass (see
+  # maihda_da_proportion_successes()), and sprintf("%d", 1.5) is an error.
+  cat(sprintf("  Cases / controls:  %s / %s\n",
+              maihda_format_mass(x$n_case), maihda_format_mass(x$n_control)))
   if (!isFALSE(x$apparent)) {
     cat(pal$muted(paste0(
       "  (AUC is apparent / in-sample: scored on the same rows used to fit the\n",
@@ -825,13 +834,63 @@ maihda_da_aggregated_counts <- function(model) {
   # malformed binomial fit (glmer warns "non-integer #successes"), and rounding its
   # proportions into 0/1 successes out of 1 trial would silently invent data. Such a
   # fit falls through to maihda_auc(), which rejects the non-0/1 response outright.
-  is_proportion <- !is.null(y) && all(is.finite(y)) && any(y > 0 & y < 1)
+  # `all(y >= 0 & y <= 1)` is defensive: glmer's binomial initialize already refuses
+  # a response outside [0, 1], but the fractional mass built below would otherwise be
+  # able to exceed the trials and trip maihda_auc_weighted()'s negative-mass guard.
+  is_proportion <- !is.null(y) && all(is.finite(y)) &&
+    all(y >= 0 & y <= 1) && any(y > 0 & y < 1)
   if (is_proportion && !is.null(w) && length(y) == length(w) &&
       all(is.finite(w)) && all(w > 0) && any(w > 1) &&
       all(abs(w - round(w)) < 1e-8)) {
-    return(list(successes = round(y * w), trials = round(w)))
+    return(list(successes = maihda_da_proportion_successes(y, w), trials = round(w)))
   }
   NULL
+}
+
+# Per-row success mass implied by a PROPORTION response y with trial counts w.
+#
+# For the documented idiom -- successes/trials ~ ... , weights = trials -- y * w IS
+# the success count, up to floating-point noise from the division: (k / n) * n lands
+# within a few ulp of k, so those rows are SNAPPED to the integer and the well-formed
+# fit is bit-identical to the cbind(successes, failures) spelling.
+#
+# A row whose y * w is genuinely fractional is a malformed binomial: no integer
+# success count out of w trials produces that proportion, and glmer has already
+# warned "non-integer #successes in a binomial glm!" at fit time. Rounding it into a
+# whole number INVENTS observations: 240 rows of 3.5 successes out of 7 reconstructed
+# to 960 cases where the data carry 840. That moves the AUC as well as the reported
+# totals -- on a 12-stratum fit with half-integral successes the totals went 1140/540
+# to 1160/520 and the AUC 0.698 to 0.662.
+#
+# The fractional mass is therefore kept as-is: maihda_auc_weighted() takes real-valued
+# case/control mass (the design-weighted branch already passes it some), so the
+# concordance is computed under exactly the binomial weighting the model was fitted
+# with, and nothing is fabricated. Warned rather than silent, because a fractional
+# success count may mean the response is not successes/trials at all -- a proportion
+# outcome fitted with integer PRECISION weights reaches this branch too, and its
+# "trials" are not trial counts. (It may equally be a genuine successes/trials table
+# whose proportions were rounded before they reached R; there the fractional mass
+# stays within ~1e-4 AUC of the exact counts, so the warning is the honest signal
+# either way.)
+maihda_da_proportion_successes <- function(y, w) {
+  successes <- y * w
+  # Relative tolerance: the representation error of (k / n) * n grows with k, so a
+  # fixed absolute epsilon would stop snapping large counts. It stays far below the
+  # 0.5 that a genuinely fractional count sits at.
+  whole <- abs(successes - round(successes)) <= 1e-8 * pmax(1, abs(successes))
+  successes[whole] <- round(successes[whole])
+  if (!all(whole)) {
+    warning("Aggregated-binomial AUC: the proportion response times the prior ",
+            "weights is not a whole number of successes in ", sum(!whole), " of ",
+            length(successes), " rows (e.g. ",
+            format(successes[!whole][1], digits = 6), " successes out of ",
+            format(w[!whole][1], digits = 6), " trials), so these are not ",
+            "successes/trials counts. The case/control mass is kept fractional ",
+            "rather than rounded -- rounding would invent observations. Supply ",
+            "cbind(successes, failures) if the outcome is an aggregated binomial.",
+            call. = FALSE)
+  }
+  successes
 }
 
 # Per-row success / trial counts for a brms `y | trials(n)` aggregated-binomial fit,
@@ -947,4 +1006,17 @@ maihda_auc_weighted <- function(prob, successes, trials) {
   controls_below <- cumsum(c(0, d_k[-length(d_k)]))
   concordant <- sum(c_k * controls_below) + 0.5 * sum(c_k * d_k)
   concordant / (n1 * n0)
+}
+
+# Render a case/control total. Whole numbers print as counts ("840"); the fractional
+# mass an ill-formed aggregated-binomial fit produces prints with enough digits to be
+# recognisable as fractional rather than being silently rounded back into a count.
+maihda_format_mass <- function(x) {
+  if (!is.finite(x)) {
+    return("NA")
+  }
+  if (abs(x - round(x)) <= 1e-8 * max(1, abs(x))) {
+    return(format(round(x), scientific = FALSE))
+  }
+  format(round(x, 2), nsmall = 2, scientific = FALSE)
 }

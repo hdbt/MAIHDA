@@ -576,21 +576,58 @@ test_that("brms longitudinal path gives a time-varying VPC with credible bands",
   skip_if_not_installed("brms")
 
   d <- subset(maihda_long_data, id %in% unique(maihda_long_data$id)[1:120])
+  # The most demanding fixture in the opt-in suite (1484s, ahead of
+  # cross-classified's 838s), and the only one still failing on MIXING after the
+  # retune the other blocks needed: at chains = 2, iter = 600 AND at iter = 2000
+  # max Rhat sat at 1.031, so neither more adapt_delta nor the standard bump
+  # would have fixed it. Random slopes over 120 ids make
+  # sampling (not compilation) the bottleneck here, so unlike the cross-sectional
+  # blocks the extra iterations are not free; 4 chains x 4000 is what clears the
+  # bar, and the seed keeps it reproducible.
   m <- suppressWarnings(suppressMessages(
     fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education), data = d,
                id = "id", time = "wave", engine = "brms",
-               chains = 2, iter = 600, refresh = 0, seed = 1)))
+               chains = 4, iter = 4000, warmup = 2000, refresh = 0, seed = 1,
+               control = list(adapt_delta = 0.95))))
+  # Fixture guard -- see the note in test-ordinal-engine.R.
+  expect_true(isTRUE(m$diagnostics$converged))
+
   s <- summary(m)
   expect_false(is.null(s$longitudinal))
   expect_identical(s$vpc$method, "posterior")
   expect_true(all(is.finite(s$longitudinal$vpc_t$estimate)))
   expect_true(any(is.finite(s$longitudinal$vpc_t$lower)))   # credible band
 
+  # The decomposition fits BOTH a null and an adjusted growth model, so a
+  # non-converged half would otherwise hide behind a PCV that is merely finite.
+  #
+  # Do NOT pass seed = here: maihda()'s 'seed' is a formal (the response-scale VPC
+  # simulation seed) and is never forwarded to brms::brm(), so it does not seed
+  # the sampler -- the fits came out differently run to run, which is how this was
+  # found. set.seed() does pin it, because brms draws its sampler seed from R's
+  # RNG when none is supplied.
+  set.seed(20260831)
   a <- suppressWarnings(suppressMessages(
     maihda(wellbeing ~ wave + (1 | gender:ethnicity:education), data = d,
            id = "id", time = "wave", engine = "brms",
-           decomposition = "longitudinal", chains = 2, iter = 600,
-           refresh = 0, seed = 1)))
+           decomposition = "longitudinal", chains = 4, iter = 4000,
+           warmup = 2000, refresh = 0,
+           control = list(adapt_delta = 0.95))))
+
+  # Assert the MIXING half of the bar explicitly rather than $diagnostics$converged.
+  # The adjusted growth model mixes well (max Rhat ~1.006) but leaves a handful of
+  # divergent transitions from the person-level intercept/slope funnel
+  # (cor_id__Intercept__wave), which 120 ids identify poorly -- the same term the
+  # 2026-08-25 pass found going rank-deficient in this model family. Zero
+  # divergences IS reachable, at adapt_delta = 0.999, but that costs 2180s against
+  # 800s here, and those divergences do not affect the VPC(t)/PCV asserted in this
+  # block. So demand convergence of the chains and say why the geometry half is
+  # not demanded, rather than either suppressing the question or paying 36 minutes
+  # for it.
+  max_rhat <- function(fit) max(suppressWarnings(brms::rhat(fit$model)), na.rm = TRUE)
+  expect_lt(max_rhat(a$model), 1.01)
+  expect_lt(max_rhat(a$model_adjusted), 1.01)
+
   expect_s3_class(a$pcv, "maihda_long_pcv")
   expect_true(is.finite(a$pcv$pcv_slope))
 })

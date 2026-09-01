@@ -296,13 +296,37 @@ test_that("brms negbinomial summary returns a draws-based VPC", {
   skip_if_not_installed("brms")
 
   d <- make_nb_data(n = 600)
+  # Same defect the 2026-08-31 audit found in the ordinal twin of this block: at
+  # chains = 2, iter = 500 the chains had not mixed, and "vpc in (0, 1)" plus
+  # "the interval is finite" pass on an unmixed posterior just as happily as on a
+  # converged one. iter = 2000 (1000 warmup) with adapt_delta above the default
+  # clears both halves of the package's bar; the seed keeps it reproducible.
   m <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ age + (1 | gender:race:edu), data = d,
                family = "negbinomial", engine = "brms",
-               chains = 2, iter = 500, refresh = 0, seed = 1)))
-  s <- summary(m)
+               chains = 2, iter = 2000, warmup = 1000, refresh = 0, seed = 1,
+               control = list(adapt_delta = 0.95))))
+  # Fixture guard -- see the note in test-ordinal-engine.R.
+  expect_true(isTRUE(m$diagnostics$converged))
+
+  # summary() DELIBERATELY warns on this fixture and always has: mean(y) is 3.3,
+  # but the effective count after the negative-binomial overdispersion is 1.15 --
+  # below the 2 above which Nakagawa, Johnson & Schielzeth's (2017) lognormal,
+  # delta and trigamma approximations agree. Here they give 0.626 / 0.870 / 1.347,
+  # a factor of two apart, so the low-count guard added by the 2026-08-30 pass is
+  # right to fire. It fires identically on the old chains = 2, iter = 500 fit, so
+  # it is not an artefact of this retune -- but the block used to let it escape
+  # unasserted, which is the same "a warning nobody owns" pattern this audit is
+  # about. Pin it instead: suppressing it would hide the guard regressing.
+  expect_warning(s <- summary(m), "approximations agree only above 2")
   expect_true(s$vpc$estimate > 0 && s$vpc$estimate < 1)
   expect_true(is.finite(s$vpc$ci_lower) && is.finite(s$vpc$ci_upper))
+  # Internal consistency the block was missing. No recovery assertion on the VPC
+  # itself: a count VPC's denominator is the level-1 approximation evaluated at
+  # the package's own marginal lambda convention, so pinning a hand-computed
+  # target here would test the package against its own formula rather than
+  # against the data-generating truth.
+  expect_true(s$vpc$estimate >= s$vpc$ci_lower && s$vpc$estimate <= s$vpc$ci_upper)
 })
 
 # ---- plots --------------------------------------------------------------------

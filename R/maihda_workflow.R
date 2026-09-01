@@ -161,7 +161,12 @@
 #'   It is estimated by simulation, so it is opt-in (default \code{FALSE}) and uses
 #'   \code{seed}. The discriminatory accuracy (AUC + MOR) is attached automatically
 #'   for a binomial/Bernoulli outcome regardless of this flag (see Details).
-#' @param seed Optional integer seed for the response-scale VPC simulation.
+#' @param seed Optional integer seed for the response-scale VPC simulation. It is
+#'   NOT forwarded to \code{brms::brm()}: an \code{engine = "brms"} fit's MCMC
+#'   sampler is unseeded by it (a warning says so). Call \code{set.seed()} before
+#'   \code{maihda()} to make a Bayesian fit reproducible, or use
+#'   \code{fit_maihda(seed = )}, which has no \code{seed} formal and so passes it
+#'   through to \code{brm()}.
 #' @param sampling_weights Optional name of a sampling-weight column for a
 #'   \strong{weighted MAIHDA} on survey data; see \code{\link{fit_maihda}} for the
 #'   full semantics (engine selection, the pseudo-likelihood weighting, and --
@@ -407,6 +412,20 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     dots_eval[["weights"]] <- maihda_normalize_precision_weights(
       dots_eval[["weights"]], nrow(data), engine, "maihda()")
   }
+  # 'seed' is a FORMAL of maihda() (the response-scale VPC simulation seed), so it
+  # never lands in `...` and is never forwarded to brms::brm(). fit_maihda() has
+  # no such formal, so ITS seed does reach brm() -- the same spelling therefore
+  # means different things in the two functions, and a user reasonably reading
+  # 'seed' as "make this Bayesian fit reproducible" silently gets a different
+  # posterior on every run. Say so rather than let it pass unremarked.
+  if (!is.null(seed) && identical(engine, "brms")) {
+    warning("maihda(): 'seed' seeds the response-scale VPC simulation only -- it ",
+            "is NOT forwarded to brms::brm(), so the MCMC sampler is unseeded and ",
+            "an engine = \"brms\" fit is not reproducible from it. Call set.seed() ",
+            "before maihda() (brms draws its sampler seed from R's RNG), or use ",
+            "fit_maihda(seed = ), whose 'seed' does reach brm().", call. = FALSE)
+  }
+
   fit_maihda_fwd <- function(...) do.call(fit_maihda, c(list(...), dots_eval))
 
   # Ordinal (cumulative) family <-> engine handshake, mirroring fit_maihda():
@@ -830,8 +849,12 @@ maihda_print_analysis_da <- function(summary_obj, summary_adjusted = NULL) {
   }
   pal <- maihda_palette()
   cat("\n", pal$bold("Discriminatory accuracy (null model):"), "\n", sep = "")
-  cat(sprintf("  AUC: %s | MOR: %s | cases/controls: %d/%d\n",
-              pal$accent(fmt(da$auc)), pal$accent(fmt(da$mor)), da$n_case, da$n_control))
+  # Not "%d": an aggregated-binomial fit whose proportion response does not resolve
+  # to whole successes reports FRACTIONAL case/control mass, and sprintf("%d", 1.5)
+  # is an error (see maihda_da_proportion_successes()).
+  cat(sprintf("  AUC: %s | MOR: %s | cases/controls: %s/%s\n",
+              pal$accent(fmt(da$auc)), pal$accent(fmt(da$mor)),
+              maihda_format_mass(da$n_case), maihda_format_mass(da$n_control)))
   da_adj <- if (!is.null(summary_adjusted)) summary_adjusted$discriminatory_accuracy else NULL
   if (!is.null(da_adj) && isTRUE(is.finite(da_adj$auc))) {
     cat(sprintf("  Adjusted-model AUC: %s\n", pal$accent(fmt(da_adj$auc))))

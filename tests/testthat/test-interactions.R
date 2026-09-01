@@ -466,9 +466,13 @@ test_that("brms uses the exact posterior tail and ignores adjust", {
   skip_if_not_installed("brms")
 
   d <- maihda_interaction_data(n_per = 40)
+  # seed = does not reach brms::brm() from maihda() (it is the response-scale VPC
+  # simulation seed, and maihda() now warns when combined with engine = "brms");
+  # set.seed() pins the sampler instead.
+  set.seed(20260831)
   a <- suppressMessages(suppressWarnings(
     maihda(y ~ A + B + (1 | A:B), data = d, engine = "brms",
-           chains = 1, iter = 500, refresh = 0, seed = 1)
+           chains = 1, iter = 500, refresh = 0)
   ))
 
   mi <- suppressWarnings(maihda_interactions(a))

@@ -653,15 +653,33 @@ test_that("contextual brms summary returns posterior shares with intervals", {
   skip_if_not_installed("brms")
 
   d <- make_context_data(seed = 8200, n = 900, n_sites = 20)
+  # At the old chains = 2, iter = 500 this fit had not mixed. Two variance
+  # components over 6 strata and 20 sites make the intercept/sd funnel tight
+  # enough that iter = 2000 (1000 warmup) is not sufficient on its own: at
+  # adapt_delta = 0.95 one divergent transition survives, so 0.99 it is.
   m <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ x + (1 | g1:g2), data = d, engine = "brms", context = "site",
-               chains = 2, iter = 500, refresh = 0, seed = 1)))
+               chains = 2, iter = 2000, warmup = 1000, refresh = 0, seed = 1,
+               control = list(adapt_delta = 0.99))))
+  # Fixture guard -- see the note in test-ordinal-engine.R.
+  expect_true(isTRUE(m$diagnostics$converged))
+
   s <- summary(m)
   expect_identical(s$vpc$method, "posterior")
   expect_true(s$vpc$ci_lower < s$vpc$ci_upper)
   expect_identical(s$context$method, "posterior")
   expect_length(s$context$vpc_context_total_ci, 2)
   expect_true(all(is.finite(s$context$vpc_context_total_ci)))
+  # Both bands must cover the truth, not merely be finite and ordered. On this
+  # seed make_context_data realizes var 0.4362 across the 6 strata and 0.8289
+  # across the 20 sites, against a residual variance of 1.2^2 = 1.44, so the
+  # stratum VPC is 0.161 and the site share 0.306. The strata are few, so the
+  # first band is wide -- but a partition that sent variance to the wrong level
+  # would still miss it.
+  expect_true(s$vpc$ci_lower < 0.161 && 0.161 < s$vpc$ci_upper)
+  expect_true(s$context$vpc_context_total_ci[1] < 0.306 &&
+              0.306 < s$context$vpc_context_total_ci[2])
+
   vc <- s$variance_components
   expect_true("Context: site" %in% vc$component)
   expect_equal(sum(vc$proportion[vc$component != "Total"]), 1, tolerance = 1e-6)

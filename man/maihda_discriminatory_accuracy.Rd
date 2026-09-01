@@ -37,7 +37,12 @@ An object of class \code{maihda_da}: a list with \code{auc},
   \code{\link[stats]{glm}}), or a brms \code{y | trials(n)} term. Note that an
   aggregated fit whose every row is all-success or all-failure has a proportion
   response of exactly 0/1 and so cannot be distinguished from a Bernoulli fit;
-  write \code{cbind(successes, failures)} for such data.
+  write \code{cbind(successes, failures)} for such data. When a proportion
+  response times its trial counts is \emph{not} a whole number of successes --
+  a malformed binomial, which \code{glmer} itself warns about as "non-integer
+  #successes" -- the fractional case/control mass is carried into the AUC as it
+  stands, with a warning, rather than rounded into whole observations that were
+  never collected; \code{n_case} / \code{n_control} are then fractional.
   \strong{lme4 precision weights} (any non-unit \code{weights=} on a Bernoulli
   fit, integer or not) scale likelihood/dispersion, not population frequency, so
   they carry no population-AUC interpretation: the AUC ignores them and reports

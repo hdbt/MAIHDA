@@ -144,7 +144,12 @@ It is estimated by simulation, so it is opt-in (default \code{FALSE}) and uses
 \code{seed}. The discriminatory accuracy (AUC + MOR) is attached automatically
 for a binomial/Bernoulli outcome regardless of this flag (see Details).}
 
-\item{seed}{Optional integer seed for the response-scale VPC simulation.}
+\item{seed}{Optional integer seed for the response-scale VPC simulation. It is
+NOT forwarded to \code{brms::brm()}: an \code{engine = "brms"} fit's MCMC
+sampler is unseeded by it (a warning says so). Call \code{set.seed()} before
+\code{maihda()} to make a Bayesian fit reproducible, or use
+\code{fit_maihda(seed = )}, which has no \code{seed} formal and so passes it
+through to \code{brm()}.}
 
 \item{sampling_weights}{Optional name of a sampling-weight column for a
 \strong{weighted MAIHDA} on survey data; see \code{\link{fit_maihda}} for the
