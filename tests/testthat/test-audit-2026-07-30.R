@@ -15,16 +15,17 @@
 #            both count families, the per-draw path, and the longitudinal VPC(t).
 #   2 [High] maihda_da_aggregated_counts() read ANY integer-valued prior weights
 #            with a value above 1 as aggregated binomial trial counts, on the
-#            premise that "a genuine Bernoulli fit has unit prior weights". But
-#            fit_maihda() documents `weights =` as lme4 PRECISION weights, so an
-#            integer precision-weight vector was silently converted into
-#            case/control frequency mass: a 600-row Bernoulli fit with weights 1:5
-#            reported 727 cases and 1069 controls against the observed 251 / 349,
-#            and an AUC of 0.6689 against the observation-level 0.6898 -- while the
-#            SAME weights plus 1e-6 took the ordinary path. Aggregation is now
-#            inferred structurally: a cbind() matrix response, or R's proportion
-#            response + trials-as-weights idiom, neither of which a Bernoulli fit
-#            can present.
+#            premise that "a genuine Bernoulli fit has unit prior weights", which
+#            was then judged to conflict with fit_maihda() documenting `weights =`
+#            as lme4 PRECISION weights. The response-based test that replaced it was
+#            itself wrong, and the 2026-09-01 audit reverted this half: for the
+#            binomial family a prior weight IS a trial count (the weighted
+#            log-likelihood of one 0/1 row equals that of w trials sharing its
+#            outcome -- a weighted fit and the row-expanded fit agree to 8e-14), and
+#            binomial has no dispersion parameter for a weight to rescale. The
+#            surviving half of this finding is the NON-INTEGRAL case, still pinned
+#            below: a weight that is not a whole number cannot be a trial count, so
+#            it keeps the observation-level AUC. See test-audit-2026-09-01.R.
 
 # ---- Finding 1: the count level-1 variance reduces on the counts -------------
 
@@ -230,9 +231,9 @@ test_that("the longitudinal count VPC(t) grid reduces on the counts at each time
   expect_true(all(old > got))
 })
 
-# ---- Finding 2: aggregation is a structural property, not a weight value -----
+# ---- Finding 2: a non-integral weight cannot be a trial count ----------------
 
-test_that("integer precision weights are not read as binomial trial counts", {
+test_that("non-integral binomial weights are not read as trial counts", {
   skip_on_cran()
   set.seed(11)
   n <- 600
@@ -245,16 +246,19 @@ test_that("integer precision weights are not read as binomial trial counts", {
   d$y <- stats::rbinom(n, 1, stats::plogis(-0.4 + u + 0.8 * d$x))
   d$stratum <- make_strata(d, vars = c("gender", "race"))$data$stratum
 
-  auc_for <- function(wvec) {
+  fit_for <- function(wvec) {
     dd <- d; dd$w <- wvec
-    m <- suppressWarnings(suppressMessages(
+    suppressWarnings(suppressMessages(
       fit_maihda(y ~ (1 | stratum), data = dd, family = "binomial", weights = w)))
+  }
+  # Non-integral weights: no integer success count out of w trials can produce them,
+  # so they stay on the observation-level path and are flagged.
+  obs_auc_for <- function(wvec) {
+    m <- fit_for(wvec)
     da <- maihda_discriminatory_accuracy(m)
     prob <- predict_maihda(m, type = "individual", scale = "response")
-    # Observed case/control counts, not weight mass.
     expect_equal(da$n_case, sum(d$y == 1))
     expect_equal(da$n_control, sum(d$y == 0))
-    # The ordinary observation-level concordance, flagged as ignoring the weights.
     expect_equal(da$auc, maihda_auc(prob, d$y))
     expect_true(isTRUE(da$precision_weights_ignored))
     expect_false(isTRUE(da$weighted))
@@ -264,14 +268,35 @@ test_that("integer precision weights are not read as binomial trial counts", {
 
   set.seed(11)
   w_int <- sample(1:5, n, replace = TRUE)
-  a_int <- auc_for(w_int)
-  # The discontinuity the finding turned on: an arbitrarily small perturbation of
-  # the weights used to switch the estimand. It no longer does.
-  a_eps <- auc_for(w_int + 1e-6)
-  expect_equal(a_int, a_eps, tolerance = 1e-5)
-  # A uniform integer weight used to double both reported totals.
-  auc_for(rep(2, n))
-  auc_for(w_int + 0.5)
+  obs_auc_for(w_int + 1e-6)
+  obs_auc_for(w_int + 0.5)
+
+  # INTEGER weights now take the trial-count path (2026-09-01 audit): the reported
+  # mass is the weight mass, and the AUC equals the AUC of the row-EXPANDED data,
+  # which is the model that glmer actually fitted.
+  m_int <- fit_for(w_int)
+  da_int <- maihda_discriminatory_accuracy(m_int)
+  expect_equal(da_int$n_case, sum(w_int * d$y))
+  expect_equal(da_int$n_control, sum(w_int * (1 - d$y)))
+  expect_false(isTRUE(da_int$precision_weights_ignored))
+  expect_false(isTRUE(da_int$weighted))
+  prob_int <- predict_maihda(m_int, type = "individual", scale = "response")
+  idx <- rep(seq_len(n), w_int)
+  expect_equal(da_int$auc, maihda_auc(prob_int[idx], d$y[idx]))
+  # The old observation-level answer is still reachable on request.
+  da_an <- maihda_discriminatory_accuracy(m_int, binomial_weights = "analytic")
+  expect_equal(da_an$n_case, sum(d$y == 1))
+  expect_equal(da_an$auc, maihda_auc(prob_int, d$y))
+  expect_true(isTRUE(da_an$precision_weights_ignored))
+
+  # A uniform integer weight scales both totals by exactly that weight, and leaves
+  # the AUC alone (a constant weight cannot reorder anything).
+  m2 <- fit_for(rep(2, n))
+  da2 <- maihda_discriminatory_accuracy(m2)
+  expect_equal(da2$n_case, 2 * sum(d$y == 1))
+  expect_equal(da2$n_control, 2 * sum(d$y == 0))
+  prob2 <- predict_maihda(m2, type = "individual", scale = "response")
+  expect_equal(da2$auc, maihda_auc(prob2, d$y))
 })
 
 test_that("genuine aggregated binomial fits are still detected structurally", {

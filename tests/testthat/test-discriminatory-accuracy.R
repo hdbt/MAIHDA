@@ -155,14 +155,12 @@ test_that("maihda_auc_weighted equals the rank AUC on the expanded 0/1 data", {
                "negative case/control mass")
 })
 
-test_that("lme4 precision weights are ignored for the AUC (ordinary observation-level)", {
-  # Audit finding 2: lme4 prior weights on a Bernoulli fit are PRECISION weights --
-  # they scale the observation's likelihood/dispersion, not its population frequency
-  # (a weight of 1.5 is not 1.5 population members). They must NOT be folded into
-  # case/control mass, which reports a weighted concordance with no population-AUC
-  # interpretation and silently changes the estimand based on a fitting control. The
-  # AUC is now the ordinary observation-level concordance; the fit is flagged
-  # precision_weights_ignored but reported as unweighted.
+test_that("non-integral binomial weights are ignored for the AUC (observation-level)", {
+  # A weight that is not a whole number cannot be a trial count -- no integer success
+  # count out of w trials produces it -- so it is not folded into case/control mass.
+  # The AUC is the ordinary observation-level concordance; the fit is flagged
+  # precision_weights_ignored but reported as unweighted. (INTEGRAL weights ARE trial
+  # counts and take the aggregated path -- see the 2026-09-01 audit and its tests.)
   skip_on_cran()
   set.seed(404)
   n <- 400
@@ -192,7 +190,7 @@ test_that("lme4 precision weights are ignored for the AUC (ordinary observation-
   expect_equal(da$n_case, sum(d$y == 1))
   expect_equal(da$n_control, sum(d$y == 0))
   expect_true(is.finite(da$auc) && da$auc >= 0 && da$auc <= 1)
-  expect_output(print(da), "precision weights")
+  expect_output(print(da), "not read as trial counts")
 
   # Uniform precision weights: unweighted and weighted concordances coincide, so the
   # AUC is unchanged; still flagged and reported as unweighted.
@@ -205,25 +203,28 @@ test_that("lme4 precision weights are ignored for the AUC (ordinary observation-
   expect_false(isTRUE(da1$weighted))
   expect_true(isTRUE(da1$precision_weights_ignored))
 
-  # INTEGER precision weights are precision weights too. They used to be read as
-  # aggregated binomial trial counts -- "a genuine Bernoulli fit has unit prior
-  # weights" -- which turned a fitting control into an estimand switch: weights of
-  # 1:3 reported sum(w) cases+controls instead of n, and a weight vector of 2
-  # doubled both totals. Integrality is not the signal (a proportion response is;
-  # see the aggregated tests below), so these now take the same observation-level
-  # path as the fractional weights above, and are flagged the same way.
+  # INTEGER weights are trial counts (R's documented binomial convention), so they
+  # take the aggregated path: the reported mass is the weight mass, the flag is off,
+  # and the AUC is the concordance of the row-EXPANDED data glmer actually fitted.
+  # binomial_weights = "analytic" restores the observation-level reading.
   d3 <- d
   d3$w <- sample(1:3, n, replace = TRUE)
   m3 <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ (1 | stratum), data = d3, family = "binomial", weights = w)))
   da3 <- maihda_discriminatory_accuracy(m3)
   prob3 <- predict_maihda(m3, type = "individual", scale = "response")
-  expect_equal(da3$auc, maihda_auc(prob3, d3$y))
-  expect_equal(da3$n_case, sum(d3$y == 1))
-  expect_equal(da3$n_control, sum(d3$y == 0))
+  idx3 <- rep(seq_len(n), d3$w)
+  expect_equal(da3$auc, maihda_auc(prob3[idx3], d3$y[idx3]))
+  expect_equal(da3$n_case, sum(d3$w * d3$y))
+  expect_equal(da3$n_control, sum(d3$w * (1 - d3$y)))
   expect_false(isTRUE(da3$weighted))
-  expect_true(isTRUE(da3$precision_weights_ignored))
+  expect_false(isTRUE(da3$precision_weights_ignored))
   expect_true(is.finite(da3$auc) && da3$auc >= 0 && da3$auc <= 1)
+
+  da3a <- maihda_discriminatory_accuracy(m3, binomial_weights = "analytic")
+  expect_equal(da3a$auc, maihda_auc(prob3, d3$y))
+  expect_equal(da3a$n_case, sum(d3$y == 1))
+  expect_true(isTRUE(da3a$precision_weights_ignored))
 })
 
 test_that("AUC and MOR share the intersectional scope with extra random effects", {

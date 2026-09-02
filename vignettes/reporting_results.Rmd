@@ -86,6 +86,11 @@ And the **fixed effects** (`component = "fixed"`). For a two-model analysis,
 tidy(a, component = "fixed", which = "adjusted")
 ```
 
+The `df` column holds containment (between-within) degrees of freedom: a term
+constant within a stratum is tested against the strata (here 40, the 50 strata
+minus the 10 columns constant within one), a covariate varying within against
+*n* (`Age` above). See `?summary.maihda_model`.
+
 Because the output is a plain tibble, you can build your *own* figure instead of
 using the built-in `plot()` -- here a caterpillar of the stratum estimates,
 ordered by size. The default (`which = "null"`) estimates plotted below are the

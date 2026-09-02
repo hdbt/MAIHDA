@@ -23,43 +23,59 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' Fixed-effect table with Wald statistics
 #'
 #' Internal helper that assembles the \code{fixed_effects} slot of a
-#' \code{maihda_summary} for the frequentist engines from point estimates and
-#' standard errors: the Wald statistic (\code{estimate / se}), its two-sided
-#' normal-approximation p-value, and the matching Wald interval at
-#' \code{conf_level}. The normal approximation is the same one
-#' \code{\link{maihda_interactions}} uses for the stratum BLUPs -- no
-#' denominator degrees of freedom are estimated, so for a Gaussian fit these are
-#' z-based, not Satterthwaite/Kenward-Roger. That is essentially exact for a
-#' covariate varying within stratum, but anticonservative for terms constant
-#' within a stratum (the intercept and an adjusted model's dimension main
-#' effects), whose effective sample size is the number of strata rather than
-#' \eqn{n}; see the \dQuote{Fixed-effect statistics} section of
-#' \code{\link{maihda_tidiers}}.
+#' \code{maihda_summary} for the frequentist engines: the Wald statistic
+#' (\code{estimate / se}), its two-sided p-value and the matching Wald interval
+#' at \code{conf_level}. With \code{df} the reference is a \eqn{t} on those
+#' degrees of freedom, otherwise the normal.
 #'
 #' @param term Character vector of coefficient names.
 #' @param estimate Numeric vector of point estimates.
 #' @param se Numeric vector of standard errors (\code{NULL} for none).
 #' @param conf_level Interval level.
+#' @param df Denominator degrees of freedom, named by \code{term} or in
+#'   \code{term} order; \code{NULL} (default) for the normal approximation.
 #' @return A data frame with \code{term}, \code{estimate}, \code{se},
-#'   \code{statistic}, \code{p_value}, \code{lower} and \code{upper}.
+#'   \code{statistic}, \code{df}, \code{p_value}, \code{lower} and \code{upper}.
+#'   \code{df} is \code{NA} on the normal path.
 #' @keywords internal
-maihda_fixed_effects_table <- function(term, estimate, se, conf_level = 0.95) {
+maihda_fixed_effects_table <- function(term, estimate, se, conf_level = 0.95,
+                                       df = NULL) {
+  term <- as.character(term)
   estimate <- as.numeric(estimate)
   se <- if (is.null(se)) rep(NA_real_, length(estimate)) else as.numeric(se)
   # A zero/NA SE (boundary or non-positive-definite Hessian) leaves the Wald
   # quantities undefined rather than infinite.
   se[!is.na(se) & se <= 0] <- NA_real_
   statistic <- estimate / se
-  z <- stats::qnorm((1 + conf_level) / 2)
+
+  # Degrees of freedom are matched by name where they carry one, so a df vector
+  # ordered differently from `term` (or missing a term) cannot silently shift.
+  if (is.null(df)) {
+    df <- rep(NA_real_, length(estimate))
+  } else {
+    df <- if (!is.null(names(df))) as.numeric(df)[match(term, names(df))]
+          else as.numeric(df)[seq_along(term)]
+    df[!is.na(df) & df <= 0] <- NA_real_
+  }
+
+  # A missing df falls back to the normal, which is the t's own limit, so the
+  # two paths stay consistent within one table. as.numeric() keeps the empty
+  # table numeric: ifelse() on a zero-length test returns logical(0).
+  safe_df <- ifelse(is.na(df), 1, df)
+  crit <- as.numeric(ifelse(is.na(df), stats::qnorm((1 + conf_level) / 2),
+                            stats::qt((1 + conf_level) / 2, df = safe_df)))
+  p_value <- as.numeric(ifelse(is.na(df), 2 * stats::pnorm(-abs(statistic)),
+                               2 * stats::pt(-abs(statistic), df = safe_df)))
 
   data.frame(
-    term      = as.character(term),
+    term      = term,
     estimate  = estimate,
     se        = se,
     statistic = statistic,
-    p_value   = 2 * stats::pnorm(-abs(statistic)),
-    lower     = estimate - z * se,
-    upper     = estimate + z * se,
+    df        = as.numeric(df),
+    p_value   = p_value,
+    lower     = estimate - crit * se,
+    upper     = estimate + crit * se,
     row.names = NULL,
     stringsAsFactors = FALSE
   )
@@ -148,6 +164,10 @@ maihda_tag_role <- function(s, role) {
 #'   families/engines.
 #' @param seed Optional integer seed for the response-scale VPC simulation when
 #'   \code{response_vpc = TRUE}.
+#' @param df_method Reference distribution for the fixed-effect p-values and
+#'   Wald intervals of a Gaussian \code{lme4} fit: \code{"between-within"}
+#'   (default) a \eqn{t} on containment degrees of freedom, \code{"normal"} a z.
+#'   Every other engine uses a z regardless.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return A maihda_summary object containing:
@@ -195,19 +215,17 @@ maihda_tag_role <- function(s, role) {
 #'   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
 #'   \item{fixed_effects}{Fixed-effect estimates. For the lme4, WeMix and ordinal
 #'     engines a data frame with \code{term}, \code{estimate}, \code{se},
-#'     \code{statistic} (the Wald z, \code{estimate / se}),
-#'     \code{p_value} (two-sided, normal approximation) and the Wald interval
-#'     \code{lower}/\code{upper} at \code{conf_level}. No denominator degrees of
-#'     freedom are estimated, so for a Gaussian fit these are z-based rather than
-#'     Satterthwaite/Kenward-Roger -- fine for a within-stratum covariate, but
-#'     anticonservative with few strata for terms constant within a stratum (see
-#'     \code{\link{maihda_tidiers}}); the
-#'     WeMix standard errors are its sandwich (robust) ones. For brms, the
-#'     \code{brms::fixef()} matrix (posterior mean, \code{Est.Error} and the
-#'     credible-interval quantiles at \code{conf_level}). Available in a tidy,
-#'     engine-independent shape from \code{tidy(x, component = "fixed")}}
+#'     \code{statistic}, \code{df}, \code{p_value} and the Wald interval
+#'     \code{lower}/\code{upper} at \code{conf_level}; \code{df} is \code{NA}
+#'     wherever the reference is a z. The WeMix standard errors are its sandwich
+#'     (robust) ones. For brms, the \code{brms::fixef()} matrix (posterior mean,
+#'     \code{Est.Error} and the credible-interval quantiles at
+#'     \code{conf_level}). Available in a tidy, engine-independent shape from
+#'     \code{tidy(x, component = "fixed")}}
 #'   \item{conf_level}{The interval level used for the fixed effects (and, when
 #'     bootstrapped or Bayesian, the VPC)}
+#'   \item{df_method}{The reference distribution the \code{fixed_effects} table
+#'     used, \code{"between-within"} or \code{"normal"}}
 #'   \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut
 #'     point) estimates with standard errors -- the cumulative model's
 #'     "intercepts"; NULL otherwise}
@@ -242,6 +260,19 @@ maihda_tag_role <- function(s, role) {
 #' random-effect design that fast path does not carry, instead holds the marginal
 #' expected counts at a posterior-mean plug-in (constant across draws) to avoid an
 #' expensive \eqn{ndraws \times nobs} computation.
+#'
+#' @section Fixed-effect degrees of freedom:
+#' A Gaussian \code{lme4} fit refers each Wald statistic to a \eqn{t} on
+#' \emph{containment} (between-within) degrees of freedom, reported in the
+#' \code{df} column: a term absorbed by a random-effect grouping is tested
+#' against that grouping's units minus the terms it absorbs, and a term absorbed
+#' by none against \eqn{n} minus the random-effect levels. A random slope counts
+#' as absorbing. Set \code{df_method = "normal"} for a z instead.
+#'
+#' A GLMM, a WeMix pseudo-ML fit and an \code{ordinal::clmm} fit have no
+#' finite-sample \eqn{t} and use the Wald z; a brms summary reports the
+#' posterior. For Kenward-Roger or Satterthwaite, apply \pkg{pbkrtest} or
+#' \pkg{lmerTest} to \code{x$model}.
 #'
 #' @section Two VPCs for a longitudinal fit:
 #' A longitudinal summary reports \strong{two different variance partitions}, and
@@ -302,10 +333,12 @@ maihda_tag_role <- function(s, role) {
 #' @export
 #' @importFrom lme4 VarCorr fixef ranef
 summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
-                          conf_level = 0.95, response_vpc = FALSE, seed = NULL, ...) {
+                          conf_level = 0.95, response_vpc = FALSE, seed = NULL,
+                          df_method = c("between-within", "normal"), ...) {
   if (!inherits(object, "maihda_model")) {
     stop("'object' must be a maihda_model object from fit_maihda()")
   }
+  df_method <- match.arg(df_method)
 
   if (!is.logical(bootstrap) || length(bootstrap) != 1 || is.na(bootstrap)) {
     stop("'bootstrap' must be TRUE or FALSE.", call. = FALSE)
@@ -409,15 +442,19 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     # Fixed effects with their standard errors, Wald statistics and intervals,
     # read off the model summary's coefficient matrix (Estimate / Std. Error --
     # identical to lme4::fixef() plus sqrt(diag(vcov()))). lme4 reports no
-    # p-value for a Gaussian fit by design; the one added here is the
-    # normal-approximation Wald p that matches the interval (see
-    # maihda_fixed_effects_table).
+    # p-value for a Gaussian fit by design; the one added here is the Wald p that
+    # matches the interval (see maihda_fixed_effects_table). A Gaussian fit gets
+    # containment (between-within) denominator degrees of freedom, so a dimension
+    # main effect is tested against the number of strata rather than n; a GLMM has
+    # no finite-sample t reference and stays on the normal.
     fe_coef <- stats::coef(model_summary)
+    fe_df <- if (df_method == "between-within") maihda_containment_df(model) else NULL
     fixed_effects <- maihda_fixed_effects_table(
       term = rownames(fe_coef),
       estimate = fe_coef[, "Estimate"],
       se = fe_coef[, "Std. Error"],
-      conf_level = conf_level
+      conf_level = conf_level,
+      df = fe_df
     )
 
     # Stratum (intersection) random-effect estimates -- the interaction residuals in
@@ -655,6 +692,13 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       stratum_estimates = stratum_estimates,
       fixed_effects = fixed_effects,
       conf_level = conf_level,
+      # Which reference distribution the fixed-effect table used. Only the
+      # Gaussian lme4 path can honour "between-within"; every other engine
+      # reports "normal" whatever was asked for, so the print method and any
+      # downstream reader can say what was actually done.
+      df_method = if (is.data.frame(fixed_effects) &&
+                      "df" %in% names(fixed_effects) &&
+                      any(!is.na(fixed_effects$df))) "between-within" else "normal",
       thresholds = thresholds,
       model_summary = model_summary,
       engine = engine,
@@ -1454,20 +1498,32 @@ print.maihda_summary <- function(x, ...) {
   # maihda_fixed_effects_table); brms carries the posterior summary matrix,
   # whose column names already label the quantiles.
   fe_level <- if (is.null(x$conf_level)) 95 else 100 * x$conf_level
-  fe_header <- if (is.data.frame(x$fixed_effects) &&
-                   "lower" %in% names(x$fixed_effects)) {
-    sprintf("Fixed Effects (Wald %s%% intervals):",
-            format(round(fe_level, 1), trim = TRUE))
+  fe_print <- x$fixed_effects
+  # A t reference is only ever used where finite-sample degrees of freedom were
+  # available (a Gaussian lme4 fit); everywhere else the df column is all-NA and
+  # is dropped rather than printed as a column of blanks.
+  fe_has_df <- is.data.frame(fe_print) && "df" %in% names(fe_print) &&
+    any(!is.na(fe_print$df))
+  fe_header <- if (is.data.frame(fe_print) && "lower" %in% names(fe_print)) {
+    sprintf("Fixed Effects (Wald %s, %s%% intervals):",
+            if (fe_has_df) "t" else "z", format(round(fe_level, 1), trim = TRUE))
   } else {
     "Fixed Effects:"
   }
   cat(pal$bold(fe_header), "\n", sep = "")
-  fe_print <- x$fixed_effects
   if (is.data.frame(fe_print) && "p_value" %in% names(fe_print)) {
     # Without this a p of 1e-200 prints as "0.00000" next to a p of 0.04.
     fe_print$p_value <- format.pval(fe_print$p_value, digits = 3, eps = 1e-16)
   }
+  if (is.data.frame(fe_print) && "df" %in% names(fe_print) && !fe_has_df) {
+    fe_print$df <- NULL
+  }
   print(fe_print, row.names = FALSE, digits = 4)
+  if (fe_has_df) {
+    # One line, not a lecture: without it the small df on a dimension main effect
+    # reads as a typo, but this prints on every Gaussian summary.
+    cat("  df: containment (between-within).\n")
+  }
   cat("\n")
 
   if (!is.null(x$thresholds) && nrow(x$thresholds) > 0) {

@@ -4,7 +4,7 @@
 \alias{maihda_fixed_effects_table}
 \title{Fixed-effect table with Wald statistics}
 \usage{
-maihda_fixed_effects_table(term, estimate, se, conf_level = 0.95)
+maihda_fixed_effects_table(term, estimate, se, conf_level = 0.95, df = NULL)
 }
 \arguments{
 \item{term}{Character vector of coefficient names.}
@@ -14,24 +14,20 @@ maihda_fixed_effects_table(term, estimate, se, conf_level = 0.95)
 \item{se}{Numeric vector of standard errors (\code{NULL} for none).}
 
 \item{conf_level}{Interval level.}
+
+\item{df}{Denominator degrees of freedom, named by \code{term} or in
+\code{term} order; \code{NULL} (default) for the normal approximation.}
 }
 \value{
 A data frame with \code{term}, \code{estimate}, \code{se},
-  \code{statistic}, \code{p_value}, \code{lower} and \code{upper}.
+  \code{statistic}, \code{df}, \code{p_value}, \code{lower} and \code{upper}.
+  \code{df} is \code{NA} on the normal path.
 }
 \description{
 Internal helper that assembles the \code{fixed_effects} slot of a
-\code{maihda_summary} for the frequentist engines from point estimates and
-standard errors: the Wald statistic (\code{estimate / se}), its two-sided
-normal-approximation p-value, and the matching Wald interval at
-\code{conf_level}. The normal approximation is the same one
-\code{\link{maihda_interactions}} uses for the stratum BLUPs -- no
-denominator degrees of freedom are estimated, so for a Gaussian fit these are
-z-based, not Satterthwaite/Kenward-Roger. That is essentially exact for a
-covariate varying within stratum, but anticonservative for terms constant
-within a stratum (the intercept and an adjusted model's dimension main
-effects), whose effective sample size is the number of strata rather than
-\eqn{n}; see the \dQuote{Fixed-effect statistics} section of
-\code{\link{maihda_tidiers}}.
+\code{maihda_summary} for the frequentist engines: the Wald statistic
+(\code{estimate / se}), its two-sided p-value and the matching Wald interval
+at \code{conf_level}. With \code{df} the reference is a \eqn{t} on those
+degrees of freedom, otherwise the normal.
 }
 \keyword{internal}

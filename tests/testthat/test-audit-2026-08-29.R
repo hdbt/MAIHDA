@@ -81,11 +81,19 @@ test_that("the fixed-cell-interaction guard sees through a transformed dimension
   expect_error(
     maihda_check_no_dimension_interaction(y ~ factor(a) * b, c("a", "b")),
     "interaction term(s) factor(a):b", fixed = TRUE)
-  # a dimension-by-COVARIATE interaction stays legitimate in either spelling
+  # A dimension-by-COVARIATE interaction is not a cell-means term, so the default
+  # "all" scope leaves it -- but scope = "any" must catch it in either spelling (it
+  # survives into the derived null model; see test-audit-2026-09-01c.R).
   expect_equal(maihda_dimension_interaction_terms(y ~ a * age, c("a", "b")),
                character(0))
   expect_equal(maihda_dimension_interaction_terms(y ~ factor(a) * age, c("a", "b")),
                character(0))
+  expect_equal(maihda_dimension_interaction_terms(y ~ a * age, c("a", "b"),
+                                                  scope = "any"),
+               "a:age")
+  expect_equal(maihda_dimension_interaction_terms(y ~ factor(a) * age, c("a", "b"),
+                                                  scope = "any"),
+               "factor(a):age")
 })
 
 test_that("maihda() rejects a transformed stratum dimension in every decomposition mode", {
@@ -124,13 +132,17 @@ test_that("maihda() still accepts bare dimensions and transformed covariates", {
   expect_false(any(c("a", "b") %in% null_terms))
   expect_true(is.finite(a_bare$pcv$pcv))
 
-  # a transformed COVARIATE, and a dimension-by-covariate interaction, are untouched
+  # a transformed COVARIATE is untouched
   expect_no_error(suppressWarnings(suppressMessages(
     maihda(y ~ scale(age) + a + b + (1 | a:b), data = d, autobin = FALSE,
            interactions = FALSE))))
-  expect_no_error(suppressWarnings(suppressMessages(
+  # a dimension-by-covariate interaction was accepted here until 2026-09-01c, when it
+  # turned out to survive into the derived null model exactly as a transformed
+  # dimension does -- it is now rejected too (see test-audit-2026-09-01c.R).
+  expect_error(suppressWarnings(suppressMessages(
     maihda(y ~ a + b + a:age + (1 | a:b), data = d, autobin = FALSE,
-           interactions = FALSE))))
+           interactions = FALSE))),
+    "between a covariate and the stratum-defining dimension")
   # and the documented remedy -- transform the COLUMN, write the bare name -- works
   d2 <- d
   d2$a <- factor(d2$a)

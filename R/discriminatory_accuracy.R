@@ -389,10 +389,15 @@ maihda_mor_between_variance <- function(model) {
 #' and \code{print()} says so. For genuine predictive accuracy, validate with an
 #' out-of-fold (group-aware) scheme or an optimism correction.
 #'
-#' Aggregated-binomial fits are supported on both engines that fit them -- an lme4
-#' \code{cbind(success, failure)} response and a brms \code{y | trials(n)} response:
-#' the AUC is the count-weighted C-statistic over the implied individual-level 0/1
-#' data, and \code{n_case} / \code{n_control} are the total successes / failures.
+#' Aggregated-binomial fits are supported in all three forms R accepts -- an lme4
+#' \code{cbind(success, failure)} response, an lme4 response in [0, 1] whose trial
+#' counts are supplied as \code{weights =} (see \code{\link[stats]{glm}}), and a brms
+#' \code{y | trials(n)} response: the AUC is the count-weighted C-statistic over the
+#' implied individual-level 0/1 data, and \code{n_case} / \code{n_control} are the
+#' total successes / failures. All three spellings of the same data give the same AUC.
+#' This includes individual 0/1 records collapsed to frequency cells (every row
+#' all-success or all-failure), whose weights are trial counts like any others; see
+#' \code{binomial_weights} to override that reading.
 #'
 #' \strong{Scope.} When the model carries random effects \emph{beyond} the
 #' intersectional partition -- a contextual \code{(1 | school)} from
@@ -419,6 +424,21 @@ maihda_mor_between_variance <- function(model) {
 #'   \code{cbind(success, failure)} or a brms \code{y | trials(n)}) -- or the
 #'   \code{bernoulli} family a binary 0/1 outcome is fit with under
 #'   \code{engine = "brms"}.
+#' @param binomial_weights How to read non-unit \code{weights =} on an \strong{lme4}
+#'   binomial fit when computing the AUC. \code{"auto"} (default) reads integral
+#'   weights as \strong{trial counts}, which is what R documents a binomial prior
+#'   weight to be (\code{\link[stats]{glm}}: "For a binomial GLM prior weights are used
+#'   to give the number of trials"), and leaves non-integral weights -- which cannot be
+#'   counts -- on the observation-level path, flagged
+#'   \code{precision_weights_ignored}. \code{"trials"} forces the trial-count reading
+#'   even for non-integral weights (the fractional case/control mass is carried as it
+#'   stands, with a warning). \code{"analytic"} forces the ordinary observation-level
+#'   concordance, ignoring the weights and setting
+#'   \code{precision_weights_ignored = TRUE}; it is an error for a response carrying
+#'   values strictly between 0 and 1, which has no observation-level case/control
+#'   reading. Has no effect on a \code{cbind(success, failure)} response (its
+#'   denominator is structural), on a brms \code{y | trials(n)} fit, or on a
+#'   design-weighted (\code{sampling_weights}) fit.
 #'
 #' @return An object of class \code{maihda_da}: a list with \code{auc},
 #'   \code{auc_scope}, \code{auc_full}, \code{mor},
@@ -437,23 +457,25 @@ maihda_mor_between_variance <- function(model) {
 #'   \code{weight_type = NULL}: its count-weighted AUC equals the ordinary
 #'   individual-level concordance over the implied 0/1 data (the trial counts are
 #'   real observations, not sampling weights), so it is not a design-weighted
-#'   population quantity. Aggregation is recognised \emph{structurally} -- an lme4
-#'   \code{cbind(success, failure)} matrix response, an lme4 proportion response
-#'   whose integer trial counts are supplied as \code{weights=} (see
-#'   \code{\link[stats]{glm}}), or a brms \code{y | trials(n)} term. Note that an
-#'   aggregated fit whose every row is all-success or all-failure has a proportion
-#'   response of exactly 0/1 and so cannot be distinguished from a Bernoulli fit;
-#'   write \code{cbind(successes, failures)} for such data. When a proportion
+#'   population quantity. Aggregation is recognised from an lme4
+#'   \code{cbind(success, failure)} matrix response, from non-unit integral lme4
+#'   \code{weights=} on a response in [0, 1] (the trial counts, see
+#'   \code{\link[stats]{glm}}), or from a brms \code{y | trials(n)} term. The
+#'   weights-based form covers a response of exactly 0/1 -- individual records
+#'   collapsed to frequency cells -- because for the binomial family a prior weight
+#'   \emph{is} a trial count: the weighted log-likelihood of one 0/1 row is exactly
+#'   that of \code{w} trials sharing its outcome, so the fit equals the row-expanded
+#'   one and its AUC should too. Pass \code{binomial_weights} to override. When a
 #'   response times its trial counts is \emph{not} a whole number of successes --
 #'   a malformed binomial, which \code{glmer} itself warns about as "non-integer
 #'   #successes" -- the fractional case/control mass is carried into the AUC as it
 #'   stands, with a warning, rather than rounded into whole observations that were
 #'   never collected; \code{n_case} / \code{n_control} are then fractional.
-#'   \strong{lme4 precision weights} (any non-unit \code{weights=} on a Bernoulli
-#'   fit, integer or not) scale likelihood/dispersion, not population frequency, so
-#'   they carry no population-AUC interpretation: the AUC ignores them and reports
-#'   the ordinary observation-level concordance (\code{weighted = FALSE}), with
-#'   \code{precision_weights_ignored = TRUE} flagging that such weights were present.
+#'   \strong{Weights not read as trial counts} -- non-integral \code{weights=}, or any
+#'   weights under \code{binomial_weights = "analytic"} -- are ignored by the AUC,
+#'   which is then the ordinary observation-level concordance
+#'   (\code{weighted = FALSE}), with \code{precision_weights_ignored = TRUE} flagging
+#'   that such weights were present.
 #'
 #' @references
 #' Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
@@ -473,10 +495,13 @@ maihda_mor_between_variance <- function(model) {
 #' }
 #'
 #' @export
-maihda_discriminatory_accuracy <- function(model) {
+maihda_discriminatory_accuracy <- function(model,
+                                           binomial_weights = c("auto", "trials",
+                                                                "analytic")) {
   if (!inherits(model, "maihda_model")) {
     stop("'model' must be a maihda_model object from fit_maihda().", call. = FALSE)
   }
+  binomial_weights <- match.arg(binomial_weights)
   fam <- maihda_model_family_name(model)
   # Accept both the lme4 "binomial" family and the brms "bernoulli" family a binary
   # 0/1 outcome is fit with (see fit_maihda(engine = "brms")); both are logistic
@@ -498,23 +523,31 @@ maihda_discriminatory_accuracy <- function(model) {
   # same path the prediction-weighting uses, maihda_brms_trial_counts(), which parses
   # the trials() addition term off the stored formula. Either way we then compute a
   # count-weighted AUC over the implied individual-level 0/1 data instead of passing a
-  # non-0/1 response to maihda_auc() (which errors). An earlier lme4 heuristic inferred
-  # aggregation from the response carrying values outside {0, 1}, which silently failed
-  # when every aggregated row was all-success or all-failure (proportions exactly 0/1):
-  # such a fit fell through to an unweighted row-level AUC with one pseudo-observation
-  # per stratum and wrong case/control totals. The matrix test above is immune to that
-  # (a cbind() response carries a `dim` whatever the proportions); it survives only as a
-  # documented limit of the proportion-response fallback, which no cbind() fit reaches.
-  # agg_counts is NULL for a true Bernoulli fit (which takes the ordinary rank-based
-  # path) and is aligned to prob's rows.
+  # non-0/1 response to maihda_auc() (which errors). An lme4 fit whose trial counts are
+  # supplied as `weights =` has a plain vector response, so it is recognised from the
+  # weights instead -- see maihda_da_aggregated_counts(), which also documents why a
+  # binomial prior weight IS a trial count. agg_counts is NULL for a Bernoulli fit with
+  # unit (or non-integral) weights, which takes the ordinary rank-based path, and is
+  # aligned to prob's rows.
   agg_counts <- if (identical(model$engine, "lme4")) {
-    maihda_da_aggregated_counts(model)
+    maihda_da_aggregated_counts(model, binomial_weights)
   } else if (identical(model$engine, "brms")) {
     maihda_da_brms_aggregated_counts(model)
   } else {
     NULL
   }
   aggregated <- !is.null(agg_counts) && length(agg_counts$successes) == length(prob)
+  # binomial_weights = "analytic" on a genuine PROPORTION response is incoherent: an
+  # observation-level concordance needs a 0/1 outcome, and a proportion row only has a
+  # case/control interpretation through its trial counts. Say that, rather than let
+  # maihda_auc() report a generic "must be a binary 0/1 outcome".
+  if (identical(binomial_weights, "analytic") && !aggregated &&
+      isTRUE(any(resp > 0 & resp < 1, na.rm = TRUE))) {
+    stop("binomial_weights = \"analytic\" is not available for a proportion ",
+         "response: the response carries values strictly between 0 and 1, which have ",
+         "a case/control interpretation only through their trial counts. Use ",
+         "binomial_weights = \"trials\" (or \"auto\").", call. = FALSE)
+  }
   # Design-weighted fit (sampling_weights supplied): compute the design-weighted
   # AUC, where each observation contributes its sampling weight as case (y = 1) or
   # control (y = 0) mass -- the weighted Mann-Whitney concordance, estimating the
@@ -523,18 +556,13 @@ maihda_discriminatory_accuracy <- function(model) {
   sw <- if (!is.null(model$sampling_weights)) maihda_prior_weights(model) else NULL
   design_weighted <- !is.null(sw) && length(sw) == length(prob) &&
     any(is.finite(sw)) && !isTRUE(all(abs(sw - 1) < sqrt(.Machine$double.eps)))
-  # lme4 precision-weighted Bernoulli fit (ANY non-unit prior weights, integer or
-  # not -- e.g. 2 or 1.5): NOT an aggregated binomial. A genuinely aggregated fit was
-  # already caught structurally by agg_counts above, from a cbind() matrix response or
-  # a proportion response. lme4 prior weights are PRECISION weights: they scale the
-  # observation's likelihood / dispersion, not its population frequency, so a
-  # weight of w does NOT mean w population members. Folding them into case/control
-  # mass (as a sampling weight or a genuine trial count legitimately would) would
-  # report a weighted concordance with no population-AUC interpretation, and would
-  # silently change the estimand based on a fitting control. The AUC below therefore
-  # IGNORES precision weights and is the ordinary observation-level concordance;
-  # `pw` is detected only to flag their presence (precision_weights_ignored) in the
-  # result and print output.
+  # lme4 non-unit prior weights that were NOT read as trial counts: either they are
+  # non-integral (so they cannot be counts) or the caller passed
+  # binomial_weights = "analytic". The AUC is then the ordinary observation-level
+  # concordance, which does not fold the weights into case/control mass, and `pw`
+  # flags that (precision_weights_ignored) in the result and print output so the
+  # number is not mistaken for the trial-count one. A fit whose weights WERE read as
+  # trial counts is `aggregated` and never reaches here.
   pw <- NULL
   if (!aggregated && !design_weighted && identical(model$engine, "lme4")) {
     pw_try <- tryCatch(as.numeric(stats::weights(model$model, type = "prior")),
@@ -579,11 +607,11 @@ maihda_discriminatory_accuracy <- function(model) {
     n_case <- sum(resp == 1, na.rm = TRUE)
     n_control <- sum(resp == 0, na.rm = TRUE)
   } else {
-    # Ordinary observation-level AUC. This covers both the unweighted case and the
-    # precision-weighted case (pw non-NULL): precision weights are deliberately not
-    # folded into case/control mass -- see the comment where `pw` is detected -- so a
-    # precision-weighted fit reports the same honest observation-level concordance as
-    # an unweighted one, and does not silently change the estimand.
+    # Ordinary observation-level AUC. This covers the unweighted case and the case
+    # where non-unit weights were NOT read as trial counts (pw non-NULL): non-integral
+    # weights, or binomial_weights = "analytic". Those weights are not folded into
+    # case/control mass, so the fit reports the same observation-level concordance as
+    # an unweighted one, flagged precision_weights_ignored.
     auc_for <- function(score) maihda_auc(score, resp)
     n_case <- sum(resp == 1, na.rm = TRUE)
     n_control <- sum(resp == 0, na.rm = TRUE)
@@ -714,9 +742,10 @@ print.maihda_da <- function(x, ...) {
   }
   if (isTRUE(x$precision_weights_ignored)) {
     cat(pal$muted(paste0(
-      "  (The fit carries lme4 precision weights; the AUC ignores them -- precision\n",
-      "  weights scale likelihood/dispersion, not population frequency -- so it is\n",
-      "  the ordinary observation-level concordance.)\n")))
+      "  (The fit carries non-unit lme4 weights that were not read as trial counts\n",
+      "  (they are not whole numbers, or binomial_weights = \"analytic\"); the AUC\n",
+      "  ignores them, so it is the ordinary observation-level concordance over the\n",
+      "  model's rows, not over the trials those weights would imply.)\n")))
   }
   invisible(x)
 }
@@ -792,30 +821,44 @@ maihda_da_observed_response <- function(model) {
 # successes"), i.e. successes/trials ~ ... , weights = trials. That response is a plain
 # vector, so the structural test above cannot see it.
 #
-# The fallback keys on the RESPONSE, not on the weights: a proportion response carries
-# at least one value strictly inside (0, 1), which a Bernoulli 0/1 response never does.
-# Keying it off the weights instead -- "integer prior weights > 1 must be trial counts",
-# on the premise that a genuine Bernoulli fit has unit prior weights -- silently
-# reinterpreted the PRECISION weights that fit_maihda() documents `weights =` to be as
-# case/control frequency mass: a Bernoulli fit carrying weights 1:5 reported 727 cases
-# and 1069 controls instead of the observed 251 / 349, and an AUC of 0.6689 instead of
-# 0.6898, while the SAME weights plus 1e-6 took the ordinary observation-level path. An
-# estimand must not turn on the integrality of a fitting control. Non-integer trial
-# counts are still rejected: rounding y * weight into pseudo-counts against fractional
-# trials produced negative implied failures (round(1.5) = 2 successes out of 1.5 trials)
-# and an AUC above 1.
+# The fallback keys on the WEIGHTS: non-unit, integral prior weights on a binomial
+# fit are trial counts, which is what R itself documents them to mean. This is not a
+# heuristic about the response -- for the binomial family a prior weight IS a trial
+# count, because the weighted log-likelihood w * [y log p + (1 - y) log(1 - p)] is
+# exactly the log-likelihood of w trials all sharing that outcome. Verified rather
+# than assumed: a 600-row Bernoulli fit with weights 1:5 and the row-EXPANDED fit of
+# the same data agree to 8e-14 in the fixed effects, to 13 digits in tau^2, and to
+# 3e-13 in the fitted probabilities. There is no separate "precision weight" model to
+# preserve -- unlike a Gaussian fit, a binomial GLM has no dispersion parameter for a
+# weight to rescale, so a weight of w on a 0/1 row is w observations or it is nothing.
 #
-# KNOWN LIMIT: an aggregated fit whose every row is all-success or all-failure has a
-# proportion response of exactly 0 / 1, so it is indistinguishable from a Bernoulli fit
-# carrying integer precision weights. It is treated as the latter -- the documented
-# meaning of `weights =`. Write cbind(successes, failures) for such data; that form is
-# detected structurally above and is exact.
+# An earlier revision keyed on the RESPONSE instead -- aggregated only if some value
+# lay strictly inside (0, 1), which a Bernoulli 0/1 response never does -- to stop an
+# estimand turning on the integrality of a fitting control. That test is wrong on the
+# single most common shape of frequency-weighted binary data: individual 0/1 records
+# collapsed to (covariate pattern x outcome) cells with a count, where EVERY row is
+# all-success or all-failure by construction. Such a fit took the observation-level
+# path, and because each cell contributes one case and one control at an identical
+# score, every pair tied and the AUC was EXACTLY 0.5 -- no information at all, printed
+# with a confident note explaining why it was right. Measured on 3000 individuals in
+# 12 strata: cbind(), the coarse proportion+weights spelling, and the individual 0/1
+# data all give AUC 0.786929 with 1427 / 1573 cases / controls, while the same
+# individuals collapsed one level finer gave 0.500000 with 24 / 24 -- from a fit whose
+# fixed effects match to 4e-10. So the response test made the AUC depend on collapse
+# granularity, which is not a property of the model at all.
+#
+# Integrality remains required under "auto" (below): a non-integral weight cannot be a
+# trial count, so those fits keep the observation-level path and are flagged
+# precision_weights_ignored. `binomial_weights` lets the caller override both ways.
 #
 # Skipped when sampling weights are in play (their prior weights are not trial counts
 # either). A non-aggregated fit returns NULL and takes the ordinary observation-level
-# AUC path in maihda_discriminatory_accuracy(), where precision weights are ignored
-# (they carry no population-frequency meaning) and flagged as such.
-maihda_da_aggregated_counts <- function(model) {
+# AUC path in maihda_discriminatory_accuracy(), where the weights are ignored and
+# flagged precision_weights_ignored.
+maihda_da_aggregated_counts <- function(model, binomial_weights = "auto") {
+  # The cbind(success, failure) matrix response is STRUCTURAL evidence of aggregation
+  # and carries its own denominator, so `binomial_weights` -- which only ever governs
+  # how PRIOR WEIGHTS are read -- does not apply to it.
   resp <- tryCatch(stats::model.response(model$data), error = function(e) NULL)
   if (!is.null(resp) && !is.null(dim(resp)) && ncol(resp) == 2L) {
     successes <- as.numeric(resp[, 1])
@@ -824,27 +867,41 @@ maihda_da_aggregated_counts <- function(model) {
       return(list(successes = successes, trials = trials))
     }
   }
+  if (identical(binomial_weights, "analytic")) {
+    return(NULL)
+  }
   if (!is.null(model$sampling_weights)) {
     return(NULL)
   }
   y <- tryCatch(as.numeric(lme4::getME(model$model, "y")), error = function(e) NULL)
   w <- tryCatch(as.numeric(stats::weights(model$model, type = "prior")),
                 error = function(e) NULL)
-  # `any(w > 1)` keeps a proportion response with UNIT weights out: that is a
-  # malformed binomial fit (glmer warns "non-integer #successes"), and rounding its
-  # proportions into 0/1 successes out of 1 trial would silently invent data. Such a
-  # fit falls through to maihda_auc(), which rejects the non-0/1 response outright.
-  # `all(y >= 0 & y <= 1)` is defensive: glmer's binomial initialize already refuses
-  # a response outside [0, 1], but the fractional mass built below would otherwise be
-  # able to exceed the trials and trip maihda_auc_weighted()'s negative-mass guard.
-  is_proportion <- !is.null(y) && all(is.finite(y)) &&
-    all(y >= 0 & y <= 1) && any(y > 0 & y < 1)
-  if (is_proportion && !is.null(w) && length(y) == length(w) &&
-      all(is.finite(w)) && all(w > 0) && any(w > 1) &&
-      all(abs(w - round(w)) < 1e-8)) {
-    return(list(successes = maihda_da_proportion_successes(y, w), trials = round(w)))
+  if (is.null(y) || is.null(w) || length(y) != length(w) ||
+      !all(is.finite(y)) || !all(is.finite(w)) || !all(w > 0)) {
+    return(NULL)
   }
-  NULL
+  # `all(y >= 0 & y <= 1)` is defensive: glmer's binomial initialize already refuses a
+  # response outside [0, 1], but fractional mass built from such a row could exceed the
+  # trials and trip maihda_auc_weighted()'s negative-mass guard.
+  if (!all(y >= 0 & y <= 1)) {
+    return(NULL)
+  }
+  forced <- identical(binomial_weights, "trials")
+  # `any(w > 1)` keeps an ALL-UNIT-weight fit out under "auto". For a 0/1 response
+  # that is an ordinary Bernoulli fit; for a proportion response it is a malformed
+  # binomial (glmer warns "non-integer #successes"), and reading its proportions as
+  # successes out of 1 trial would invent data -- it falls through to maihda_auc(),
+  # which rejects the non-0/1 response outright.
+  integral <- all(abs(w - round(w)) < 1e-8)
+  if (!forced && !(any(w > 1) && integral)) {
+    return(NULL)
+  }
+  # Under an explicit binomial_weights = "trials" the weights are taken at face value
+  # even when non-integral: maihda_da_proportion_successes() snaps float noise, keeps
+  # genuinely fractional mass as-is with a warning, and maihda_auc_weighted() accepts
+  # real-valued mass. Rounding fractional trials would imply negative failures.
+  trials <- if (integral) round(w) else w
+  list(successes = maihda_da_proportion_successes(y, trials), trials = trials)
 }
 
 # Per-row success mass implied by a PROPORTION response y with trial counts w.

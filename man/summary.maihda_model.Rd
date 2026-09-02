@@ -11,6 +11,7 @@
   conf_level = 0.95,
   response_vpc = FALSE,
   seed = NULL,
+  df_method = c("between-within", "normal"),
   ...
 )
 }
@@ -45,6 +46,11 @@ families/engines.}
 
 \item{seed}{Optional integer seed for the response-scale VPC simulation when
 \code{response_vpc = TRUE}.}
+
+\item{df_method}{Reference distribution for the fixed-effect p-values and
+Wald intervals of a Gaussian \code{lme4} fit: \code{"between-within"}
+(default) a \eqn{t} on containment degrees of freedom, \code{"normal"} a z.
+Every other engine uses a z regardless.}
 
 \item{...}{Additional arguments (not currently used).}
 }
@@ -94,19 +100,17 @@ A maihda_summary object containing:
   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
   \item{fixed_effects}{Fixed-effect estimates. For the lme4, WeMix and ordinal
     engines a data frame with \code{term}, \code{estimate}, \code{se},
-    \code{statistic} (the Wald z, \code{estimate / se}),
-    \code{p_value} (two-sided, normal approximation) and the Wald interval
-    \code{lower}/\code{upper} at \code{conf_level}. No denominator degrees of
-    freedom are estimated, so for a Gaussian fit these are z-based rather than
-    Satterthwaite/Kenward-Roger -- fine for a within-stratum covariate, but
-    anticonservative with few strata for terms constant within a stratum (see
-    \code{\link{maihda_tidiers}}); the
-    WeMix standard errors are its sandwich (robust) ones. For brms, the
-    \code{brms::fixef()} matrix (posterior mean, \code{Est.Error} and the
-    credible-interval quantiles at \code{conf_level}). Available in a tidy,
-    engine-independent shape from \code{tidy(x, component = "fixed")}}
+    \code{statistic}, \code{df}, \code{p_value} and the Wald interval
+    \code{lower}/\code{upper} at \code{conf_level}; \code{df} is \code{NA}
+    wherever the reference is a z. The WeMix standard errors are its sandwich
+    (robust) ones. For brms, the \code{brms::fixef()} matrix (posterior mean,
+    \code{Est.Error} and the credible-interval quantiles at
+    \code{conf_level}). Available in a tidy, engine-independent shape from
+    \code{tidy(x, component = "fixed")}}
   \item{conf_level}{The interval level used for the fixed effects (and, when
     bootstrapped or Bayesian, the VPC)}
+  \item{df_method}{The reference distribution the \code{fixed_effects} table
+    used, \code{"between-within"} or \code{"normal"}}
   \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut
     point) estimates with standard errors -- the cumulative model's
     "intercepts"; NULL otherwise}
@@ -180,6 +184,21 @@ expensive \eqn{ndraws \times nobs} computation.
   between-stratum deviation; they equal the \emph{pure} intersectional
   (interaction) component only when the additive main effects of the strata
   variables are included in the model.
+}
+
+\section{Fixed-effect degrees of freedom}{
+
+A Gaussian \code{lme4} fit refers each Wald statistic to a \eqn{t} on
+\emph{containment} (between-within) degrees of freedom, reported in the
+\code{df} column: a term absorbed by a random-effect grouping is tested
+against that grouping's units minus the terms it absorbs, and a term absorbed
+by none against \eqn{n} minus the random-effect levels. A random slope counts
+as absorbing. Set \code{df_method = "normal"} for a z instead.
+
+A GLMM, a WeMix pseudo-ML fit and an \code{ordinal::clmm} fit have no
+finite-sample \eqn{t} and use the Wald z; a brms summary reports the
+posterior. For Kenward-Roger or Satterthwaite, apply \pkg{pbkrtest} or
+\pkg{lmerTest} to \code{x$model}.
 }
 
 \section{Two VPCs for a longitudinal fit}{

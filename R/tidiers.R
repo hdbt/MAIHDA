@@ -57,6 +57,7 @@ maihda_tidy_fixed <- function(fe) {
       estimate  = if ("Estimate" %in% cn) fe[, "Estimate"] else fe[, 1],
       std.error = if ("Est.Error" %in% cn) fe[, "Est.Error"] else NA_real_,
       statistic = NA_real_,
+      df        = NA_real_,
       p.value   = NA_real_,
       conf.low  = if (has_q) fe[, qcol[which.min(qval)]] else NA_real_,
       conf.high = if (has_q) fe[, qcol[which.max(qval)]] else NA_real_
@@ -73,6 +74,10 @@ maihda_tidy_fixed <- function(fe) {
     estimate  = est,
     std.error = se,
     statistic = if ("statistic" %in% names(fe)) as.numeric(fe$statistic) else est / se,
+    # NA on every engine but the Gaussian lme4 one, which reports containment
+    # (between-within) denominator degrees of freedom; broom's lmerTest tidier
+    # carries the same column.
+    df        = if ("df" %in% names(fe)) as.numeric(fe$df) else NA_real_,
     p.value   = if ("p_value" %in% names(fe)) {
       as.numeric(fe$p_value)
     } else {
@@ -114,32 +119,21 @@ maihda_tidy_fixed <- function(fe) {
 #'   \code{stratum}, \code{label}, \code{estimate}, \code{std.error},
 #'   \code{conf.low}, \code{conf.high}. For \code{"variance"}: \code{component},
 #'   \code{variance}, \code{sd}, \code{proportion}. For \code{"fixed"}: \code{term},
-#'   \code{estimate}, \code{std.error}, \code{statistic}, \code{p.value},
+#'   \code{estimate}, \code{std.error}, \code{statistic}, \code{df}, \code{p.value},
 #'   \code{conf.low}, \code{conf.high}.
 #'
 #' @section Fixed-effect statistics: For the lme4, WeMix and ordinal engines
-#'   \code{statistic} is the Wald \eqn{z} (\code{estimate / std.error}),
-#'   \code{p.value} its two-sided normal-approximation p-value, and
-#'   \code{conf.low}/\code{conf.high} the matching Wald interval at the
-#'   \code{conf_level} the summary was computed at (95\% by default). No
-#'   denominator degrees of freedom are estimated, so these are z-based rather
-#'   than Satterthwaite or Kenward-Roger.
+#'   \code{statistic} is the Wald statistic (\code{estimate / std.error}),
+#'   \code{p.value} its two-sided p-value, \code{conf.low}/\code{conf.high} the
+#'   matching Wald interval at the summary's \code{conf_level}, and \code{df}
+#'   the denominator degrees of freedom they were built on.
 #'
-#'   Which terms that approximation is safe for depends on how they vary. A
-#'   covariate that varies \emph{within} a stratum has an effective sample size
-#'   of the number of observations, and z is essentially exact for it. The
-#'   intercept and the dimension main effects of an \emph{adjusted} MAIHDA model
-#'   are constant within a stratum by construction, so their effective sample
-#'   size is the \strong{number of strata}, however large \eqn{n} is: with few
-#'   strata their intervals are too narrow and their p-values anticonservative.
-#'   As a rough guide, a Kenward-Roger check gives those terms about 5\% wider
-#'   intervals at 50 strata but roughly 40\% wider at 10. When that matters,
-#'   apply \pkg{lmerTest} or \pkg{pbkrtest} to the underlying fit
-#'   (\code{x$model}, an \code{lmerMod}), or use the brms engine.
-#'
-#'   For brms the estimate is the posterior mean with its \code{Est.Error} and
-#'   credible interval, and \code{statistic}/\code{p.value} are \code{NA}.
-#'   Standard errors are \code{NA} where they are undefined (a boundary fit).
+#'   A Gaussian \pkg{lme4} fit reports containment (between-within) \code{df}
+#'   and a \eqn{t}; every other engine leaves \code{df} \code{NA} and uses a z.
+#'   See \code{\link{summary.maihda_model}}. For brms the estimate is the
+#'   posterior mean with its \code{Est.Error} and credible interval, and
+#'   \code{statistic}/\code{df}/\code{p.value} are \code{NA}. Standard errors
+#'   are \code{NA} where they are undefined (a boundary fit).
 #'
 #' @seealso \code{\link{glance.maihda_analysis}} for the one-row model summary.
 #'
