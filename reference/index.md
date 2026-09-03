@@ -38,6 +38,9 @@
   : Simulated Longitudinal Data for MAIHDA
 - [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
   : Median Odds Ratio (MOR) for a logistic MAIHDA model
+- [`maihda_proportional_odds_test()`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
+  : Parametric-bootstrap proportional-odds test for a cumulative MAIHDA
+  fit
 - [`maihda_sim_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.md)
   : Simulated Health Data for MAIHDA Use
 - [`maihda_sparse_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sparse_data.md)

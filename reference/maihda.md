@@ -57,7 +57,11 @@ maihda(
   `factor(edu)` is rejected, because only a bare name is recognised as a
   dimension's main effect and the transform would otherwise survive into
   the derived null model. Transform the column in `data` instead
-  (`data$edu <- factor(data$edu)`).
+  (`data$edu <- factor(data$edu)`). For the same reason a fixed
+  interaction involving a dimension is rejected, whether with another
+  dimension (`gender * race`) or with a covariate (`age * gender`): only
+  the bare main effect is removed, so the interaction survives into the
+  null model, which would then already adjust for that dimension.
 
 - data:
 
@@ -204,7 +208,14 @@ maihda(
 
 - seed:
 
-  Optional integer seed for the response-scale VPC simulation.
+  Optional integer seed for the response-scale VPC simulation. It is NOT
+  forwarded to
+  [`brms::brm()`](https://paulbuerkner.com/brms/reference/brm.html): an
+  `engine = "brms"` fit's MCMC sampler is unseeded by it (a warning says
+  so). Call [`set.seed()`](https://rdrr.io/r/base/Random.html) before
+  `maihda()` to make a Bayesian fit reproducible, or use
+  `fit_maihda(seed = )`, which has no `seed` formal and so passes it
+  through to `brm()`.
 
 - sampling_weights:
 
@@ -268,7 +279,9 @@ maihda(
 
   Additional arguments passed to
   [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  (and on to `lmer`/`glmer`).
+  (and on to `lmer`/`glmer`). Includes `count_approximation`, which
+  selects the log-link count level-1 variance approximation for the VPC
+  and is applied to every derived fit.
 
 ## Value
 
@@ -469,10 +482,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x5563fe55f570>
+#> <environment: 0x55ecce8add58>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x556403eae168>
+#> <environment: 0x55ecd190bfa0>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -527,7 +540,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x5563f9d77848>
+#> <environment: 0x55ecd0e57470>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

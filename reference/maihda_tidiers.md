@@ -72,33 +72,23 @@ tidy(
 A `tibble`. For `component = "strata"`: columns `stratum`, `label`,
 `estimate`, `std.error`, `conf.low`, `conf.high`. For `"variance"`:
 `component`, `variance`, `sd`, `proportion`. For `"fixed"`: `term`,
-`estimate`, `std.error`, `statistic`, `p.value`, `conf.low`,
+`estimate`, `std.error`, `statistic`, `df`, `p.value`, `conf.low`,
 `conf.high`.
 
 ## Fixed-effect statistics
 
-For the lme4, WeMix and ordinal engines `statistic` is the Wald \\z\\
-(`estimate / std.error`), `p.value` its two-sided normal-approximation
-p-value, and `conf.low`/`conf.high` the matching Wald interval at the
-`conf_level` the summary was computed at (95% by default). No
-denominator degrees of freedom are estimated, so these are z-based
-rather than Satterthwaite or Kenward-Roger.
+For the lme4, WeMix and ordinal engines `statistic` is the Wald
+statistic (`estimate / std.error`), `p.value` its two-sided p-value,
+`conf.low`/`conf.high` the matching Wald interval at the summary's
+`conf_level`, and `df` the denominator degrees of freedom they were
+built on.
 
-Which terms that approximation is safe for depends on how they vary. A
-covariate that varies *within* a stratum has an effective sample size of
-the number of observations, and z is essentially exact for it. The
-intercept and the dimension main effects of an *adjusted* MAIHDA model
-are constant within a stratum by construction, so their effective sample
-size is the **number of strata**, however large \\n\\ is: with few
-strata their intervals are too narrow and their p-values
-anticonservative. As a rough guide, a Kenward-Roger check gives those
-terms about 5% wider intervals at 50 strata but roughly 40% wider at 10.
-When that matters, apply lmerTest or pbkrtest to the underlying fit
-(`x$model`, an `lmerMod`), or use the brms engine.
-
+A Gaussian lme4 fit reports containment (between-within) `df` and a
+\\t\\; every other engine leaves `df` `NA` and uses a z. See
+[`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md).
 For brms the estimate is the posterior mean with its `Est.Error` and
-credible interval, and `statistic`/`p.value` are `NA`. Standard errors
-are `NA` where they are undefined (a boundary fit).
+credible interval, and `statistic`/`df`/`p.value` are `NA`. Standard
+errors are `NA` where they are undefined (a boundary fit).
 
 ## See also
 
@@ -133,9 +123,9 @@ tidy(m, component = "variance")
 #> 2 Within-stratum (residual)    43.4   6.59     0.937 
 #> 3 Total                        46.3   6.80     1     
 tidy(m, component = "fixed")
-#> # A tibble: 2 × 7
-#>   term        estimate std.error statistic p.value  conf.low conf.high
-#>   <chr>          <dbl>     <dbl>     <dbl>   <dbl>     <dbl>     <dbl>
-#> 1 (Intercept)  28.2      0.453       62.3   0      27.3        29.1   
-#> 2 Age           0.0150   0.00736      2.04  0.0410  0.000616    0.0295
+#> # A tibble: 2 × 8
+#>   term        estimate std.error statistic    df  p.value  conf.low conf.high
+#>   <chr>          <dbl>     <dbl>     <dbl> <dbl>    <dbl>     <dbl>     <dbl>
+#> 1 (Intercept)  28.2      0.453       62.3     49 2.56e-48 27.3        29.1   
+#> 2 Age           0.0150   0.00736      2.04  2949 4.11e- 2  0.000610    0.0295
 ```

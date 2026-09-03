@@ -10,8 +10,10 @@
   matrix in place of the long text labels. The default is unchanged
   (intersection size, largest first), and the panel caption now reports
   the order actually drawn.
+
 - `order_by` gained `"size"` (largest stratum first) on both
   `type = "predicted"` and `type = "upset"`.
+
 - [`summary()`](https://rdrr.io/r/base/summary.html) on a `maihda`
   analysis gained `which = "adjusted"`, matching
   [`tidy()`](https://generics.r-lib.org/reference/tidy.html). It returns
@@ -20,15 +22,15 @@
   grouping – easy to misread as the dimension main effects having gone
   missing. [`print()`](https://rdrr.io/r/base/print.html) now names
   which of the two models it is showing.
+
 - [`summary()`](https://rdrr.io/r/base/summary.html) now reports
   fixed-effect standard errors, Wald statistics, two-sided p-values and
   intervals for the lme4, WeMix and ordinal engines, so
   `tidy(component = "fixed")` returns the full broom shape –
-  `std.error`, `statistic`, `p.value`, `conf.low`, `conf.high` – instead
-  of estimates beside all-`NA` columns. The interval level follows
-  `summary(conf_level = )`; no denominator degrees of freedom are
-  estimated, so a Gaussian fit’s statistics are z-based rather than
-  Satterthwaite/Kenward-Roger.
+  `std.error`, `statistic`, `df`, `p.value`, `conf.low`, `conf.high` –
+  instead of estimates beside all-`NA` columns. The interval level
+  follows `summary(conf_level = )`.
+
 - A longitudinal [`summary()`](https://rdrr.io/r/base/summary.html) now
   also reports the intercept and slope VPCs of Bell et al. (2024, eq. 5)
   as `$longitudinal$vpc_intercept` and `$vpc_slope`. These exclude the
@@ -42,6 +44,7 @@
   headline VPC unless you mean the trajectory question –
   [`?summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
   and the longitudinal vignette set out the contrast.
+
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   and [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
   gained `stratum_slope` for longitudinal fits. `stratum_slope = FALSE`
@@ -53,6 +56,7 @@
   occasions per stratum, or irregular measurement times routinely
   produce. The VPC still varies with time, through the person-level
   slope variance and the residual.
+
 - [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
   gained `scale = "response"`, which reports Evans et al.’s (2024,
   sec. 2.5.1) `pi^B_j = pi_j - pi^A_j` – a stratum’s total predicted
@@ -76,15 +80,32 @@
   returning probabilities). The returned columns are unchanged, and
   `scale = "response"` remains how to obtain the quantity with its
   interval as data.
+
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   models now carry likelihood-adequacy diagnostics that
   [`print()`](https://rdrr.io/r/base/print.html) and
   [`summary()`](https://rdrr.io/r/base/summary.html) surface alongside
   the singular/convergence caveats: Poisson/negative-binomial
   overdispersion (Pearson ratio) and zero inflation, stratum
-  random-effect non-normality, longitudinal residual autocorrelation,
-  and an approximate ordinal proportional-odds screen. A well-specified
-  model stays silent.
+  random-effect non-normality, and longitudinal residual
+  autocorrelation. A well-specified model stays silent.
+
+- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  and [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  gained `count_approximation`, selecting the log-link count level-1
+  variance behind the VPC from Nakagawa, Johnson & Schielzeth (2017):
+  `"lognormal"` (default, unchanged), `"delta"` or `"trigamma"`. The
+  three agree above a marginal count of about 2 and diverge by a factor
+  of six below it. Recorded on the fit, so
+  [`summary()`](https://rdrr.io/r/base/summary.html), the bootstrap
+  intervals and the longitudinal VPC(t) all use the same one.
+
+- [`summary()`](https://rdrr.io/r/base/summary.html) on a count model
+  now reports which approximation produced the level-1 variance and the
+  marginal count it was evaluated at, as `count_vpc` and in the printed
+  output, and warns when that count (after any negative-binomial
+  overdispersion) is at or below 2.
+
 - [`print()`](https://rdrr.io/r/base/print.html) on a
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
   analysis and on a [`summary()`](https://rdrr.io/r/base/summary.html)
@@ -99,22 +120,63 @@
   [`summary()`](https://rdrr.io/r/base/summary.html) objects now also
   carry them as `strata_autobin_info`.
 
+- [`maihda_proportional_odds_test()`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
+  tests the proportional-odds assumption of a cumulative (`clmm`) fit by
+  parametric bootstrap under the fitted model, redrawing the stratum
+  random effects each replicate. Opt-in: every replicate refits two
+  `clm()` models.
+
 ### API changes
 
+- [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+  now reads non-unit integral lme4 `weights=` on a binomial fit as trial
+  counts, which is what [`?glm`](https://rdrr.io/r/stats/glm.html)
+  documents them to be, so all four spellings of the same data give the
+  same AUC and the same `n_case` / `n_control`. Previously aggregation
+  was inferred from the response carrying a value strictly inside (0,
+  1), so individual records collapsed to frequency cells – every row
+  all-success or all-failure – took the observation-level path: each
+  cell contributed one case and one control at the same score, and the
+  AUC was exactly 0.5. Non-integral weights cannot be counts and are
+  unchanged. New `binomial_weights` argument forces either reading.
+- The automatic ordinal proportional-odds caveat is gone. It compared
+  two fixed-only `clm()` models and referred the nominal-effects LRT to
+  a chi-squared distribution, but a conditional cumulative model with a
+  normal random intercept is not in general proportional-odds once that
+  intercept is marginalised away, so the null was false under the
+  correct model and the flag rate grew with n (about a quarter of
+  correct models at a 7% stratum VPC and n = 96,000). The statistic is
+  still computed, as `$diagnostics$adequacy$marginal_po_proxy` carrying
+  `lrt`/`df`/`n_terms` only – no p-value, no flag, previously
+  `$proportional_odds`. Use
+  [`maihda_proportional_odds_test()`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
+  to test the assumption.
+- [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+  no longer rounds an aggregated-binomial proportion response into whole
+  successes. When the response times its trial counts is not a whole
+  number – a malformed binomial `glmer` warns about as “non-integer
+  \#successes” – the fractional case/control mass now enters the
+  weighted AUC as it stands, with a warning; rounding invented
+  observations, moving both the AUC and the reported `n_case` /
+  `n_control`. Well-formed `successes/trials` and
+  `cbind(successes, failures)` fits are unchanged.
 - The
   [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
   intercept row now carries an interval (`*_lower`/`*_upper`, previously
   always `NA`): the summary’s Wald interval for the likelihood engines,
-  the credible interval for brms. Being a between-stratum quantity it is
-  too narrow when the strata are few, as the printed footnote now says.
-  The variance and SD rows remain point estimates.
+  the credible interval for brms. The variance and SD rows remain point
+  estimates.
 - The `fixed_effects` element of a
   [`summary()`](https://rdrr.io/r/base/summary.html) object gained
-  `statistic`, `p_value`, `lower` and `upper` columns (and `se` for
-  lme4), and `summary(conf_level = )` now sets the brms
+  `statistic`, `df`, `p_value`, `lower` and `upper` columns (and `se`
+  for lme4), and `summary(conf_level = )` now sets the brms
   credible-interval quantiles as well as the Wald ones. Code reading
   `term`/`estimate`/`se` is unaffected; code assuming the exact column
   set is not.
+- Gaussian lme4 fixed-effect p-values and Wald intervals now use a `t`
+  on containment (between-within) degrees of freedom, reported in a new
+  `df` column, instead of a `z`. `summary(df_method = "normal")` gives
+  the z. GLMM, WeMix, `clmm` and brms are unchanged.
 - Gaussian PCV calculations now use each model’s fitted (REML)
   between-stratum variance by default. Use `estimation = "ML"` in
   [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
@@ -137,6 +199,25 @@
   `decomposition = "crossed-dimensions"` the dimension entered as a
   fixed effect and a random intercept at once). Transform the column in
   `data` and write the bare name.
+- [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now also reject a fixed interaction between a covariate and a stratum
+  dimension – `y ~ age * gender + race + (1 | gender:race)` – in every
+  decomposition mode. Only the dimension’s bare main effect was removed
+  when the null model was derived, so `age:gender` survived into the
+  null, which then already adjusted for gender. With the main effect
+  gone that term is a gender contrast scaled by age, so the PCV depended
+  on age’s arbitrary origin (re-centring moved it 2.3 percentage points
+  on `maihda_health_data` while the adjusted fits were identical to
+  1e-9); for a categorical covariate the null’s fixed part spanned the
+  dimension’s main effect exactly, leaving the PCV 6.5 points off the
+  value a dimension-free null gives. In
+  `decomposition = "crossed-dimensions"` the dimension entered as a
+  fixed effect and a random intercept at once, competing for the same
+  contrast, so its additive variance was not identified as intended; in
+  `decomposition = "longitudinal"` a user-written `gender * wave` put
+  the `dim:time` term the adjusted growth model supplies into the null
+  as well. Write the additive form.
 - `pcv_importance(method = "sequential")` is soft-deprecated. Use
   [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   for an order-dependent path or `method = "shapley"` for
@@ -219,6 +300,45 @@
 
 ### Bug fixes
 
+- [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) now
+  warns that `seed` does not seed the `brms` sampler. It is the
+  response-scale VPC simulation seed and is a formal argument, so it
+  never reaches
+  [`brms::brm()`](https://paulbuerkner.com/brms/reference/brm.html)
+  through `...`: `maihda(engine = "brms", seed = 1)` gave a different
+  posterior on every run with nothing to say so. Call
+  [`set.seed()`](https://rdrr.io/r/base/Random.html) before
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md), or
+  use `fit_maihda(seed = )`, which has no such formal and does pass it
+  through.
+- [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+  and the observed-vs-shrunken plot now read the denominator of a brms
+  `success | trials(n)` outcome off the `trials()` term. Both took only
+  the success counts, so the denominator defaulted to 1: a four-row
+  26-of-62 sample was reported as “26 events / 4 trials (650.0%)”, and
+  the plot put mean success counts on the x-axis against predicted
+  probabilities on the y-axis. The `cbind(success, failure)` form was
+  always correct.
+- A constant brms trial count (`y | trials(20)`) is now recycled to one
+  value per row. The length-1 vector failed every caller’s length guard,
+  so such a fit got unit prediction weights,
+  `predict_maihda(scale = "response")` silently returned expected counts
+  (9.7 to 23.2 out of 40 trials) where it documents a per-trial
+  probability, and
+  [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+  errored on the aggregated response rather than computing the
+  count-weighted AUC. A trial count supplied as a data column was always
+  handled.
+- Parametric bootstrap intervals on a weighted Gaussian lme4 fit now
+  simulate the residual as `sigma / sqrt(w_i)`. `lme4::simulate()` draws
+  equal-variance noise for every row while `refit()` keeps the `1/w_i`
+  weights, which inflated the bootstrap residual variance by about
+  `mean(w)` and pushed VPC, PCV, context, crossed-dimensions,
+  longitudinal and
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  intervals off their own point estimates. Only all-unit weights were
+  unaffected; a constant weight `c != 1` was biased by `c`. Unweighted
+  fits and every GLMM are unchanged.
 - The fixed-cell-interaction guard now sees a transformed dimension.
   `y ~ factor(a) * b + (1 | a:b)` passed the guard because `factor(a)`
   did not match the dimension name, so the fixed `factor(a):b` cell

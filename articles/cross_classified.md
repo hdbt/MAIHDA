@@ -126,7 +126,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x55b0b4ab8490>
+#> <environment: 0x561ee0e1f188>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -188,10 +188,11 @@ summary(cc$model)
 #>   Note: the additive share is the crossed-dimensions analogue of the PCV but
 #>   a different estimator; interpret the interaction share cautiously.
 #> 
-#> Fixed Effects (Wald 95% intervals):
-#>         term estimate       se statistic p_value     lower    upper
-#>  (Intercept) 28.18811 0.779898    36.143  <1e-16 2.666e+01 29.71669
-#>          Age  0.01508 0.007389     2.041  0.0412 5.999e-04  0.02956
+#> Fixed Effects (Wald t, 95% intervals):
+#>         term estimate       se statistic   df p_value     lower    upper
+#>  (Intercept) 28.18811 0.779898    36.143    4 3.5e-06 26.022769 30.35346
+#>          Age  0.01508 0.007389     2.041 2937  0.0413  0.000594  0.02957
+#>   df: containment (between-within).
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id                           label random_effect     se
@@ -354,9 +355,10 @@ summary(ctx)
 #>   the context random effect(s). The context share is the between-context
 #>   component of the unexplained variance.
 #> 
-#> Fixed Effects (Wald 95% intervals):
-#>         term estimate    se statistic p_value lower upper
-#>  (Intercept)    492.3 18.55     26.54  <1e-16 455.9 528.6
+#> Fixed Effects (Wald t, 95% intervals):
+#>         term estimate    se statistic df  p_value lower upper
+#>  (Intercept)    492.3 18.55     26.54  5 1.42e-06 444.6 539.9
+#>   df: containment (between-within).
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id           label random_effect    se lower_95 upper_95

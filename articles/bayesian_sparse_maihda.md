@@ -83,11 +83,12 @@ see the note on precomputation below).
 
 ``` r
 
+set.seed(1)
 m_g_brms <- maihda(
   y ~ 1 + (1 | gender:ethnicity:education:age_group),
   data = d, decomposition = "crossed-dimensions", engine = "brms",
   prior = brms::set_prior("normal(0, 0.5)", class = "sd"),
-  chains = 4, iter = 2000, warmup = 1000, cores = 4, seed = 1,
+  chains = 4, iter = 2000, warmup = 1000, cores = 4,
   control = list(adapt_delta = 0.97)
 )
 m_g_brms$decomposition$interaction_share

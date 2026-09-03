@@ -179,11 +179,9 @@ statistics are rows, models are columns, and each estimate has accompanying
 <code>*_lower</code>/<code>*_upper</code> columns that hold the confidence/credible interval
 when one is available (the intercept's interval, the VPC bootstrap or posterior
 interval, and the bootstrap PCV interval) and <code>NA</code> otherwise. The intercept
-carries the same interval <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports for it – a Wald
-(normal-approximation) one for the likelihood engines, a credible interval for
-brms – which, being a between-stratum quantity, is too narrow when the strata
-are few (see <code><a href="maihda_tidiers.html">maihda_tidiers</a></code>). The variance and SD rows are point
-estimates. The <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> method renders the same table in the familiar
+carries the same interval <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports for it – a Wald interval
+for the likelihood engines, a credible interval for brms. The variance and SD
+rows are point estimates. The <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> method renders the same table in the familiar
 “estimate [low, high]” layout.</p>
 <p>For a <code>"crossed-dimensions"</code> analysis (one model, no null/adjusted pair) the
 results table has a single estimate column and gains “Additive share” /
@@ -223,7 +221,7 @@ table is returned in <code>$strata</code>; <code><a href="https://rdrr.io/r/base
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Model results:</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                 Statistic          Null (Model 1)      Adjusted (Model 2)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                 Intercept 28.034 [26.783, 29.285] 30.103 [28.053, 32.152]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                 Intercept 28.034 [26.590, 29.478] 30.103 [27.199, 33.006]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  Between-stratum variance                   2.738                   1.379</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>        Between-stratum SD                   1.655                   1.174</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                   VPC/ICC                   0.058                   0.030</span>
@@ -244,17 +242,17 @@ table is returned in <code>$strata</code>; <code><a href="https://rdrr.io/r/base
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Predicted intervals are conditional (random-effect) only; Stratum RE is the stratum BLUP.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Estimates are point values unless a [low, high] interval is shown. The</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> intercept interval is a Wald (normal-approximation) one -- with few strata</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> it is too narrow; the variance and SD rows carry no interval.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> intercept interval is the Wald one summary() reports; the variance and SD</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> rows carry no interval.</span>
 <span class="r-in"><span><span class="va">tab</span><span class="op">$</span><span class="va">models</span>          <span class="co"># the numeric, export-ready results table</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                  statistic        null null_lower null_upper    adjusted</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                Intercept 28.03406530   26.78309   29.28505 30.10251452</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                Intercept 28.03406530   26.59021   29.47793 30.10251452</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2 Between-stratum variance  2.73828213         NA         NA  1.37921627</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3       Between-stratum SD  1.65477555         NA         NA  1.17440039</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 4                  VPC/ICC  0.05845177         NA         NA  0.03032209</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 5   PCV (null -&gt; adjusted)          NA         NA         NA  0.49632061</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   adjusted_lower adjusted_upper</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1       28.05254       32.15249</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1       27.19856       33.00647</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2             NA             NA</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3             NA             NA</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 4             NA             NA</span>

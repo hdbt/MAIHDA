@@ -46,6 +46,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_clmm_thresholds.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_clmm_variances.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_compose_caption.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_containment_df.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_context_summary_brms.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_context_summary_lme4.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_country_data.html</loc></url>
@@ -76,6 +77,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_prepare_group_strata.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_print_cc_decomposition.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_print_context_partition.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_sim_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_sparse_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_stratum_predictions_ordinal.html</loc></url>

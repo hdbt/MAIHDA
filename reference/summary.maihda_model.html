@@ -68,6 +68,7 @@
 <span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
 <span>  response_vpc <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  df_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"between-within"</span>, <span class="st">"normal"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -91,7 +92,10 @@ its original estimate, so the interval is conditional on the estimated
 theta (theta's own sampling uncertainty is not propagated). The
 <code>ordinal</code> (clmm) engine has no simulate/refit machinery, so
 <code>bootstrap = TRUE</code> is rejected there (use <code>engine = "brms"</code> for
-interval estimates).</p></dd>
+interval estimates). For a Gaussian model carrying lme4 precision
+<code>weights</code>, the simulated responses draw each residual at
+\(\sigma / \sqrt{w_i}\), so the interval rests on the same
+\(\sigma^2 / w_i\) semantics as the point estimate above.</p></dd>
 
 
 <dt id="arg-n-boot">n_boot<a class="anchor" aria-label="anchor" href="#arg-n-boot"></a></dt>
@@ -114,6 +118,13 @@ families/engines.</p></dd>
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
 <dd><p>Optional integer seed for the response-scale VPC simulation when
 <code>response_vpc = TRUE</code>.</p></dd>
+
+
+<dt id="arg-df-method">df_method<a class="anchor" aria-label="anchor" href="#arg-df-method"></a></dt>
+<dd><p>Reference distribution for the fixed-effect p-values and
+Wald intervals of a Gaussian <code>lme4</code> fit: <code>"between-within"</code>
+(default) a \(t\) on containment degrees of freedom, <code>"normal"</code> a z.
+Every other engine uses a z regardless.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -159,6 +170,19 @@ families/engines.</p></dd>
     effect. <code>NULL</code> for a crossed-dimensions fit (whose headline here is the
     additive/interaction decomposition) and a longitudinal fit</p></dd>
 
+  <dt>count_vpc</dt>
+<dd><p>For a log-link count model, the <code>approximation</code> the
+    level-1 variance came from, the marginal count <code>lambda</code> (and
+    <code>theta</code> / <code>lambda_effective</code> for the negative binomial) it was
+    evaluated at, the <code>alternatives</code> all three approximations give at that
+    <code>lambda</code> (<code>level1_variance</code> is the one used), and
+    <code>low_count</code> – <code>TRUE</code> below the \(\lambda = 2\) threshold above
+    which Nakagawa et al. (2017) report the three agree. These are plug-in
+    values at a single <code>lambda</code>: on the likelihood engines that is exactly
+    the number in <code>variance_components</code>, but a <code>brms</code> summary works
+    draw by draw and reports \(E[\sigma^2_e]\) there, which differs slightly.
+    <code>NULL</code> for every other family.</p></dd>
+
   <dt>vpc_response</dt>
 <dd><p>The response-scale VPC (<code>maihda_vpc_response</code>) when
     <code>response_vpc = TRUE</code> for a binomial lme4 model, including a contextual
@@ -171,21 +195,21 @@ families/engines.</p></dd>
   <dt>fixed_effects</dt>
 <dd><p>Fixed-effect estimates. For the lme4, WeMix and ordinal
     engines a data frame with <code>term</code>, <code>estimate</code>, <code>se</code>,
-    <code>statistic</code> (the Wald z, <code>estimate / se</code>),
-    <code>p_value</code> (two-sided, normal approximation) and the Wald interval
-    <code>lower</code>/<code>upper</code> at <code>conf_level</code>. No denominator degrees of
-    freedom are estimated, so for a Gaussian fit these are z-based rather than
-    Satterthwaite/Kenward-Roger – fine for a within-stratum covariate, but
-    anticonservative with few strata for terms constant within a stratum (see
-    <code><a href="maihda_tidiers.html">maihda_tidiers</a></code>); the
-    WeMix standard errors are its sandwich (robust) ones. For brms, the
-    <code><a href="https://rdrr.io/pkg/nlme/man/fixed.effects.html" class="external-link">brms::fixef()</a></code> matrix (posterior mean, <code>Est.Error</code> and the
-    credible-interval quantiles at <code>conf_level</code>). Available in a tidy,
-    engine-independent shape from <code>tidy(x, component = "fixed")</code></p></dd>
+    <code>statistic</code>, <code>df</code>, <code>p_value</code> and the Wald interval
+    <code>lower</code>/<code>upper</code> at <code>conf_level</code>; <code>df</code> is <code>NA</code>
+    wherever the reference is a z. The WeMix standard errors are its sandwich
+    (robust) ones. For brms, the <code><a href="https://rdrr.io/pkg/nlme/man/fixed.effects.html" class="external-link">brms::fixef()</a></code> matrix (posterior mean,
+    <code>Est.Error</code> and the credible-interval quantiles at
+    <code>conf_level</code>). Available in a tidy, engine-independent shape from
+    <code>tidy(x, component = "fixed")</code></p></dd>
 
   <dt>conf_level</dt>
 <dd><p>The interval level used for the fixed effects (and, when
     bootstrapped or Bayesian, the VPC)</p></dd>
+
+  <dt>df_method</dt>
+<dd><p>The reference distribution the <code>fixed_effects</code> table
+    used, <code>"between-within"</code> or <code>"normal"</code></p></dd>
 
   <dt>thresholds</dt>
 <dd><p>For a cumulative (ordinal) clmm fit, the threshold (cut
@@ -247,7 +271,10 @@ expensive \(ndraws \times nobs\) computation.</p>
   latent/distributional approximation (\(\pi^2/3\) for logistic;
   \(\log(1 + 1/\lambda)\) for Poisson per Stryhn et al. 2006 and
   \(\log(1 + 1/\lambda + 1/\theta)\) for the negative binomial per Nakagawa,
-  Johnson &amp; Schielzeth 2017, each evaluated at a single <em>marginal</em>
+  Johnson &amp; Schielzeth 2017 – their <code>"delta"</code> and <code>"trigamma"</code>
+  alternatives are available via <code>fit_maihda(count_approximation = )</code>, and
+  the choice is reported in the printed summary and in <code>count_vpc</code> because
+  the three diverge materially below a marginal count of 2 – each evaluated at a single <em>marginal</em>
   expected count \(\lambda\): the mean over the analytic sample of the
   row-level \(\lambda_i = \exp(x_i'\beta + v_i/2)\) – the fixed-part
   prediction with the log-normal correction for the row's total random-effect
@@ -263,6 +290,21 @@ expensive \(ndraws \times nobs\) computation.</p>
   between-stratum deviation; they equal the <em>pure</em> intersectional
   (interaction) component only when the additive main effects of the strata
   variables are included in the model.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="fixed-effect-degrees-of-freedom">Fixed-effect degrees of freedom<a class="anchor" aria-label="anchor" href="#fixed-effect-degrees-of-freedom"></a></h2>
+
+
+<p>A Gaussian <code>lme4</code> fit refers each Wald statistic to a \(t\) on
+<em>containment</em> (between-within) degrees of freedom, reported in the
+<code>df</code> column: a term absorbed by a random-effect grouping is tested
+against that grouping's units minus the terms it absorbs, and a term absorbed
+by none against \(n\) minus the random-effect levels. A random slope counts
+as absorbing. Set <code>df_method = "normal"</code> for a z instead.</p>
+<p>A GLMM, a WeMix pseudo-ML fit and an <code><a href="https://rdrr.io/pkg/ordinal/man/clmm.html" class="external-link">ordinal::clmm</a></code> fit have no
+finite-sample \(t\) and use the Wald z; a brms summary reports the
+posterior. For Kenward-Roger or Satterthwaite, apply <span class="pkg">pbkrtest</span> or
+<span class="pkg">lmerTest</span> to <code>x$model</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="two-vpcs-for-a-longitudinal-fit">Two VPCs for a longitudinal fit<a class="anchor" aria-label="anchor" href="#two-vpcs-for-a-longitudinal-fit"></a></h2>
@@ -288,16 +330,11 @@ specifically mean the trajectory question.</p>
 (5):
 $$VPC_{intercept} = \frac{Var_S(t_0)}{Var_S(t_0) + Var_I(t_0)}, \qquad
       VPC_{slope} = \frac{SlopeVar_S(t_0)}{SlopeVar_S(t_0) + SlopeVar_I(t_0)}.$$
-These ask how intersectionally patterned people's <em>trajectories</em> are – what
+These ask how intersectionally patterned people's <em>trajectories</em> are i.e., what
 share of the between-individual variation in where a trajectory starts, and in how
 fast it changes, lies between strata. Because \(\sigma^2_e\) is absent neither is
 affected by how noisy the outcome measure is, which makes them comparable across
 studies using different instruments.</p>
-<p>For the slope the residual could not be included even in principle: a slope
-variance is in \((\mathrm{outcome}/\mathrm{time})^2\) while \(\sigma^2_e\) is
-in \(\mathrm{outcome}^2\), so the sum would be dimensionally meaningless. (The
-headline VPC is well formed because \(a(t)'\Sigma a(t)\) returns to
-\(\mathrm{outcome}^2\).) The intercept VPC drops it for symmetry with the slope.</p>
 <p>Both are evaluated at the baseline \(t_0\) (<code>ref_time</code>, the earliest
 observed time), pairing with <code>PCV_intercept</code> and <code>PCV_slope</code> from
 <code>maihda(decomposition = "longitudinal")</code>. The intercept VPC depends on where

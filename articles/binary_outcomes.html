@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-08-30</h4>
+            <h4 data-toc-skip class="date">2026-09-03</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/binary_outcomes.Rmd" class="external-link"><code>vignettes/binary_outcomes.Rmd</code></a></small>
       <div class="d-none name"><code>binary_outcomes.Rmd</code></div>
@@ -192,7 +192,7 @@ underlying latent scale, not on the probability scale.</p>
 <span><span class="co"><span style="color: #555555;">#&gt;   model, so it is optimistically biased -- more so with sparse strata. It</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   is a descriptive measure, not cross-validated out-of-sample discrimination.)</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
-<span><span class="co">#&gt; <span style="font-weight: bold;">Fixed Effects (Wald 95% intervals):</span></span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Fixed Effects (Wald z, 95% intervals):</span></span></span>
 <span><span class="co">#&gt;         term estimate      se statistic  p_value   lower   upper</span></span>
 <span><span class="co">#&gt;  (Intercept)   -0.616 0.09022    -6.828 8.61e-12 -0.7928 -0.4392</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -337,7 +337,7 @@ credibly non-zero:</p>
 <span><span class="co">#&gt;  stratum                       label   n interaction prob_diff     se  lower</span></span>
 <span><span class="co">#&gt;        8 male × White × Some College 328      0.3713    0.0896 0.0993 0.1766</span></span>
 <span><span class="co">#&gt;   upper  p_value p_adjusted flagged direction</span></span>
-<span><span class="co">#&gt;  0.5659 0.000185   0.009249    TRUE     above</span></span>
+<span><span class="co">#&gt;  0.5659 0.000185   0.009248    TRUE     above</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   exploratory. See ?maihda_interactions.</span></span></span>
@@ -441,7 +441,7 @@ Ask for it with <code>scale = "response"</code>:</p>
 <span><span class="co">#&gt;  stratum                       label   n interaction   lower  upper  p_value</span></span>
 <span><span class="co">#&gt;        8 male × White × Some College 328      0.0896 0.04188 0.1381 0.000185</span></span>
 <span><span class="co">#&gt;  p_adjusted flagged direction</span></span>
-<span><span class="co">#&gt;    0.009249    TRUE     above</span></span>
+<span><span class="co">#&gt;    0.009248    TRUE     above</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   exploratory. See ?maihda_interactions.</span></span></span>
@@ -586,6 +586,17 @@ vignette</a> for how to read each of these.</p>
 <code>family = "poisson"</code> to <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code>. The VPC
 then uses the log-link latent-scale residual variance, and the summary,
 PCV, and plotting helpers all behave as above.</p>
+<p>One thing to watch with counts: that latent-scale residual variance
+is an <em>approximation</em>, and which one you use matters when the
+outcome is rare. <code>fit_maihda(count_approximation = )</code> offers
+the three of Nakagawa, Johnson &amp; Schielzeth (2017) –
+<code>"lognormal"</code> (the default), <code>"delta"</code> and
+<code>"trigamma"</code>. They agree above a mean count of about 2 and
+diverge sharply below it: at a mean count of 0.34 they give level-1
+variances of 1.37, 2.94 and 9.76, so the same model reports a VPC six
+times larger under one than another. <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> therefore
+names the approximation and the mean count it was evaluated at, and
+warns when that count is at or below 2. Report which one you used.</p>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

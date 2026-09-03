@@ -111,10 +111,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x55cc014dd0b0>
+#> <environment: 0x560ae9d32500>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x55cbff8f3048>
+#> <environment: 0x560ae80f9520>
 ```
 
 The returned object carries everything: the full variance components,
@@ -137,9 +137,10 @@ summary(analysis)       # variance components, VPC/ICC, stratum estimates
 #>  Within-stratum (residual)   43.187 6.572    0.93643
 #>                      Total   46.118 6.791    1.00000
 #> 
-#> Fixed Effects (Wald 95% intervals):
-#>         term estimate     se statistic p_value lower upper
-#>  (Intercept)    29.01 0.3113     93.19  <1e-16  28.4 29.62
+#> Fixed Effects (Wald t, 95% intervals):
+#>         term estimate     se statistic df p_value lower upper
+#>  (Intercept)    29.01 0.3113     93.19 49  <1e-16 28.38 29.64
+#>   df: containment (between-within).
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id                           label random_effect     se
@@ -378,9 +379,10 @@ summary(model_null)
 #>  Within-stratum (residual)   43.187 6.572    0.93643
 #>                      Total   46.118 6.791    1.00000
 #> 
-#> Fixed Effects (Wald 95% intervals):
-#>         term estimate     se statistic p_value lower upper
-#>  (Intercept)    29.01 0.3113     93.19  <1e-16  28.4 29.62
+#> Fixed Effects (Wald t, 95% intervals):
+#>         term estimate     se statistic df p_value lower upper
+#>  (Intercept)    29.01 0.3113     93.19 49  <1e-16 28.38 29.64
+#>   df: containment (between-within).
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id                           label random_effect     se
@@ -436,7 +438,7 @@ calculate_pcv(model_null, model_cov)
 #> Between-stratum variance:
 #>   Model 1: 2.931928
 #>   Model 2: 2.687139
-#>   Change:  0.244789 (8.35%)
+#>   Change:  0.244790 (8.35%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
 #> variance between the models):

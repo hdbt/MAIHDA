@@ -245,8 +245,11 @@ already built). Default <code>TRUE</code>.</p></dd>
 outcome summary depends on the resolved family, and the applied summary type
 is recorded in <code>$outcome_summary</code> – a 0/1 outcome is never described
 with a Gaussian mean/SD as if continuous:</p><ul><li><p>gaussian (and other continuous families): mean, SD, median, min, max;</p></li>
-<li><p>binomial (including an aggregated <code>cbind(success, failure)</code>
-    outcome): event count, trials, and the observed proportion;</p></li>
+<li><p>binomial (including an aggregated outcome written either as
+    <code>cbind(success, failure)</code> or, for <code>brms</code>, as
+    <code>success | trials(n)</code>): event count, trials, and the observed
+    proportion. Trials are the binomial denominator, so a row with a missing
+    or non-positive trial count has no observed outcome;</p></li>
 <li><p>poisson / negative binomial: the same numeric summaries, read as the
     observed count mean (rate);</p></li>
 <li><p>cumulative (ordinal): the mean and (lower) median category score

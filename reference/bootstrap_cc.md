@@ -11,7 +11,14 @@ is returned too.
 ## Usage
 
 ``` r
-bootstrap_cc(model, cc, n_boot, conf_level, ctx_vars = character(0))
+bootstrap_cc(
+  model,
+  cc,
+  n_boot,
+  conf_level,
+  ctx_vars = character(0),
+  approximation = "lognormal"
+)
 ```
 
 ## Arguments
@@ -35,6 +42,11 @@ bootstrap_cc(model, cc, n_boot, conf_level, ctx_vars = character(0))
 - ctx_vars:
 
   Character vector of contextual grouping factors (may be empty).
+
+- approximation:
+
+  The count level-1 variance approximation of the fitted model
+  (`maihda_count_approximation()`); inert for every non-count family.
 
 ## Value
 

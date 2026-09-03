@@ -17,10 +17,15 @@ reported as the conventional descriptive MAIHDA discriminatory accuracy
 predictive discrimination; the returned object carries apparent = TRUE
 and print() says so. For genuine predictive accuracy, validate with an
 out-of-fold (group-aware) scheme or an optimism correction.
-Aggregated-binomial fits are supported on both engines that fit them – an lme4
-cbind(success, failure) response and a brms y | trials(n) response:
-the AUC is the count-weighted C-statistic over the implied individual-level 0/1
-data, and n_case / n_control are the total successes / failures.
+Aggregated-binomial fits are supported in all three forms R accepts – an lme4
+cbind(success, failure) response, an lme4 response in [0, 1] whose trial
+counts are supplied as weights = (see glm), and a brms
+y | trials(n) response: the AUC is the count-weighted C-statistic over the
+implied individual-level 0/1 data, and n_case / n_control are the
+total successes / failures. All three spellings of the same data give the same AUC.
+This includes individual 0/1 records collapsed to frequency cells (every row
+all-success or all-failure), whose weights are trial counts like any others; see
+binomial_weights to override that reading.
 Scope. When the model carries random effects beyond the
 intersectional partition – a contextual (1 | school) from
 fit_maihda(context = ) or an explicit extra grouping such as
@@ -57,10 +62,15 @@ reported as the conventional descriptive MAIHDA discriminatory accuracy
 predictive discrimination; the returned object carries apparent = TRUE
 and print() says so. For genuine predictive accuracy, validate with an
 out-of-fold (group-aware) scheme or an optimism correction.
-Aggregated-binomial fits are supported on both engines that fit them – an lme4
-cbind(success, failure) response and a brms y | trials(n) response:
-the AUC is the count-weighted C-statistic over the implied individual-level 0/1
-data, and n_case / n_control are the total successes / failures.
+Aggregated-binomial fits are supported in all three forms R accepts – an lme4
+cbind(success, failure) response, an lme4 response in [0, 1] whose trial
+counts are supplied as weights = (see glm), and a brms
+y | trials(n) response: the AUC is the count-weighted C-statistic over the
+implied individual-level 0/1 data, and n_case / n_control are the
+total successes / failures. All three spellings of the same data give the same AUC.
+This includes individual 0/1 records collapsed to frequency cells (every row
+all-success or all-failure), whose weights are trial counts like any others; see
+binomial_weights to override that reading.
 Scope. When the model carries random effects beyond the
 intersectional partition – a contextual (1 | school) from
 fit_maihda(context = ) or an explicit extra grouping such as
@@ -150,10 +160,15 @@ reported as the conventional descriptive MAIHDA discriminatory accuracy
 predictive discrimination; the returned object carries <code>apparent = TRUE</code>
 and <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> says so. For genuine predictive accuracy, validate with an
 out-of-fold (group-aware) scheme or an optimism correction.</p>
-<p>Aggregated-binomial fits are supported on both engines that fit them – an lme4
-<code>cbind(success, failure)</code> response and a brms <code>y | trials(n)</code> response:
-the AUC is the count-weighted C-statistic over the implied individual-level 0/1
-data, and <code>n_case</code> / <code>n_control</code> are the total successes / failures.</p>
+<p>Aggregated-binomial fits are supported in all three forms R accepts – an lme4
+<code>cbind(success, failure)</code> response, an lme4 response in [0, 1] whose trial
+counts are supplied as <code>weights =</code> (see <code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></code>), and a brms
+<code>y | trials(n)</code> response: the AUC is the count-weighted C-statistic over the
+implied individual-level 0/1 data, and <code>n_case</code> / <code>n_control</code> are the
+total successes / failures. All three spellings of the same data give the same AUC.
+This includes individual 0/1 records collapsed to frequency cells (every row
+all-success or all-failure), whose weights are trial counts like any others; see
+<code>binomial_weights</code> to override that reading.</p>
 <p><strong>Scope.</strong> When the model carries random effects <em>beyond</em> the
 intersectional partition – a contextual <code>(1 | school)</code> from
 <code>fit_maihda(context = )</code> or an explicit extra grouping such as
@@ -177,7 +192,10 @@ full and intersectional scopes coincide and only <code>auc</code> is reported
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">maihda_discriminatory_accuracy</span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">maihda_discriminatory_accuracy</span><span class="op">(</span></span>
+<span>  <span class="va">model</span>,</span>
+<span>  binomial_weights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"trials"</span>, <span class="st">"analytic"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -190,6 +208,24 @@ full and intersectional scopes coincide and only <code>auc</code> is reported
 <code>cbind(success, failure)</code> or a brms <code>y | trials(n)</code>) – or the
 <code>bernoulli</code> family a binary 0/1 outcome is fit with under
 <code>engine = "brms"</code>.</p></dd>
+
+
+<dt id="arg-binomial-weights">binomial_weights<a class="anchor" aria-label="anchor" href="#arg-binomial-weights"></a></dt>
+<dd><p>How to read non-unit <code>weights =</code> on an <strong>lme4</strong>
+binomial fit when computing the AUC. <code>"auto"</code> (default) reads integral
+weights as <strong>trial counts</strong>, which is what R documents a binomial prior
+weight to be (<code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></code>: "For a binomial GLM prior weights are used
+to give the number of trials"), and leaves non-integral weights – which cannot be
+counts – on the observation-level path, flagged
+<code>precision_weights_ignored</code>. <code>"trials"</code> forces the trial-count reading
+even for non-integral weights (the fractional case/control mass is carried as it
+stands, with a warning). <code>"analytic"</code> forces the ordinary observation-level
+concordance, ignoring the weights and setting
+<code>precision_weights_ignored = TRUE</code>; it is an error for a response carrying
+values strictly between 0 and 1, which has no observation-level case/control
+reading. Has no effect on a <code>cbind(success, failure)</code> response (its
+denominator is structural), on a brms <code>y | trials(n)</code> fit, or on a
+design-weighted (<code>sampling_weights</code>) fit.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -211,18 +247,25 @@ full and intersectional scopes coincide and only <code>auc</code> is reported
   <code>weight_type = NULL</code>: its count-weighted AUC equals the ordinary
   individual-level concordance over the implied 0/1 data (the trial counts are
   real observations, not sampling weights), so it is not a design-weighted
-  population quantity. Aggregation is recognised <em>structurally</em> – an lme4
-  <code>cbind(success, failure)</code> matrix response, an lme4 proportion response
-  whose integer trial counts are supplied as <code>weights=</code> (see
-  <code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></code>), or a brms <code>y | trials(n)</code> term. Note that an
-  aggregated fit whose every row is all-success or all-failure has a proportion
-  response of exactly 0/1 and so cannot be distinguished from a Bernoulli fit;
-  write <code>cbind(successes, failures)</code> for such data.
-  <strong>lme4 precision weights</strong> (any non-unit <code>weights=</code> on a Bernoulli
-  fit, integer or not) scale likelihood/dispersion, not population frequency, so
-  they carry no population-AUC interpretation: the AUC ignores them and reports
-  the ordinary observation-level concordance (<code>weighted = FALSE</code>), with
-  <code>precision_weights_ignored = TRUE</code> flagging that such weights were present.</p>
+  population quantity. Aggregation is recognised from an lme4
+  <code>cbind(success, failure)</code> matrix response, from non-unit integral lme4
+  <code>weights=</code> on a response in [0, 1] (the trial counts, see
+  <code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></code>), or from a brms <code>y | trials(n)</code> term. The
+  weights-based form covers a response of exactly 0/1 – individual records
+  collapsed to frequency cells – because for the binomial family a prior weight
+  <em>is</em> a trial count: the weighted log-likelihood of one 0/1 row is exactly
+  that of <code>w</code> trials sharing its outcome, so the fit equals the row-expanded
+  one and its AUC should too. Pass <code>binomial_weights</code> to override. When a
+  response times its trial counts is <em>not</em> a whole number of successes –
+  a malformed binomial, which <code>glmer</code> itself warns about as "non-integer
+  #successes" – the fractional case/control mass is carried into the AUC as it
+  stands, with a warning, rather than rounded into whole observations that were
+  never collected; <code>n_case</code> / <code>n_control</code> are then fractional.
+  <strong>Weights not read as trial counts</strong> – non-integral <code>weights=</code>, or any
+  weights under <code>binomial_weights = "analytic"</code> – are ignored by the AUC,
+  which is then the ordinary observation-level concordance
+  (<code>weighted = FALSE</code>), with <code>precision_weights_ignored = TRUE</code> flagging
+  that such weights were present.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

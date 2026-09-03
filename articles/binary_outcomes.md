@@ -111,7 +111,7 @@ print(summary_null)
 #>   model, so it is optimistically biased -- more so with sparse strata. It
 #>   is a descriptive measure, not cross-validated out-of-sample discrimination.)
 #> 
-#> Fixed Effects (Wald 95% intervals):
+#> Fixed Effects (Wald z, 95% intervals):
 #>         term estimate      se statistic  p_value   lower   upper
 #>  (Intercept)   -0.616 0.09022    -6.828 8.61e-12 -0.7928 -0.4392
 #> 
@@ -270,7 +270,7 @@ maihda_interactions(model_int)
 #>  stratum                       label   n interaction prob_diff     se  lower
 #>        8 male × White × Some College 328      0.3713    0.0896 0.0993 0.1766
 #>   upper  p_value p_adjusted flagged direction
-#>  0.5659 0.000185   0.009249    TRUE     above
+#>  0.5659 0.000185   0.009248    TRUE     above
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.
@@ -374,7 +374,7 @@ maihda_interactions(model_int, scale = "response")
 #>  stratum                       label   n interaction   lower  upper  p_value
 #>        8 male × White × Some College 328      0.0896 0.04188 0.1381 0.000185
 #>  p_adjusted flagged direction
-#>    0.009249    TRUE     above
+#>    0.009248    TRUE     above
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.
@@ -539,6 +539,18 @@ A Poisson (count) outcome follows the identical pattern – pass
 [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md).
 The VPC then uses the log-link latent-scale residual variance, and the
 summary, PCV, and plotting helpers all behave as above.
+
+One thing to watch with counts: that latent-scale residual variance is
+an *approximation*, and which one you use matters when the outcome is
+rare. `fit_maihda(count_approximation = )` offers the three of Nakagawa,
+Johnson & Schielzeth (2017) – `"lognormal"` (the default), `"delta"` and
+`"trigamma"`. They agree above a mean count of about 2 and diverge
+sharply below it: at a mean count of 0.34 they give level-1 variances of
+1.37, 2.94 and 9.76, so the same model reports a VPC six times larger
+under one than another.
+[`summary()`](https://rdrr.io/r/base/summary.html) therefore names the
+approximation and the mean count it was evaluated at, and warns when
+that count is at or below 2. Report which one you used.
 
 ## References
 

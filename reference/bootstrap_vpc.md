@@ -5,7 +5,14 @@ Internal function to compute bootstrap confidence intervals for VPC.
 ## Usage
 
 ``` r
-bootstrap_vpc(model, data, formula, n_boot, conf_level)
+bootstrap_vpc(
+  model,
+  data,
+  formula,
+  n_boot,
+  conf_level,
+  approximation = "lognormal"
+)
 ```
 
 ## Arguments
@@ -29,6 +36,11 @@ bootstrap_vpc(model, data, formula, n_boot, conf_level)
 - conf_level:
 
   Confidence level
+
+- approximation:
+
+  The count level-1 variance approximation of the fitted model
+  (`maihda_count_approximation()`); inert for every non-count family.
 
 ## Value
 

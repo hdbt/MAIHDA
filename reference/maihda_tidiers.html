@@ -127,32 +127,22 @@ a <code>maihda_model</code> (from <code><a href="fit_maihda.html">fit_maihda</a>
   <code>stratum</code>, <code>label</code>, <code>estimate</code>, <code>std.error</code>,
   <code>conf.low</code>, <code>conf.high</code>. For <code>"variance"</code>: <code>component</code>,
   <code>variance</code>, <code>sd</code>, <code>proportion</code>. For <code>"fixed"</code>: <code>term</code>,
-  <code>estimate</code>, <code>std.error</code>, <code>statistic</code>, <code>p.value</code>,
+  <code>estimate</code>, <code>std.error</code>, <code>statistic</code>, <code>df</code>, <code>p.value</code>,
   <code>conf.low</code>, <code>conf.high</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="fixed-effect-statistics">Fixed-effect statistics<a class="anchor" aria-label="anchor" href="#fixed-effect-statistics"></a></h2>
     <p>For the lme4, WeMix and ordinal engines
-  <code>statistic</code> is the Wald \(z\) (<code>estimate / std.error</code>),
-  <code>p.value</code> its two-sided normal-approximation p-value, and
-  <code>conf.low</code>/<code>conf.high</code> the matching Wald interval at the
-  <code>conf_level</code> the summary was computed at (95% by default). No
-  denominator degrees of freedom are estimated, so these are z-based rather
-  than Satterthwaite or Kenward-Roger.</p>
-<p>Which terms that approximation is safe for depends on how they vary. A
-  covariate that varies <em>within</em> a stratum has an effective sample size
-  of the number of observations, and z is essentially exact for it. The
-  intercept and the dimension main effects of an <em>adjusted</em> MAIHDA model
-  are constant within a stratum by construction, so their effective sample
-  size is the <strong>number of strata</strong>, however large \(n\) is: with few
-  strata their intervals are too narrow and their p-values anticonservative.
-  As a rough guide, a Kenward-Roger check gives those terms about 5% wider
-  intervals at 50 strata but roughly 40% wider at 10. When that matters,
-  apply <span class="pkg">lmerTest</span> or <span class="pkg">pbkrtest</span> to the underlying fit
-  (<code>x$model</code>, an <code>lmerMod</code>), or use the brms engine.</p>
-<p>For brms the estimate is the posterior mean with its <code>Est.Error</code> and
-  credible interval, and <code>statistic</code>/<code>p.value</code> are <code>NA</code>.
-  Standard errors are <code>NA</code> where they are undefined (a boundary fit).</p>
+  <code>statistic</code> is the Wald statistic (<code>estimate / std.error</code>),
+  <code>p.value</code> its two-sided p-value, <code>conf.low</code>/<code>conf.high</code> the
+  matching Wald interval at the summary's <code>conf_level</code>, and <code>df</code>
+  the denominator degrees of freedom they were built on.</p>
+<p>A Gaussian <span class="pkg">lme4</span> fit reports containment (between-within) <code>df</code>
+  and a \(t\); every other engine leaves <code>df</code> <code>NA</code> and uses a z.
+  See <code><a href="summary.maihda_model.html">summary.maihda_model</a></code>. For brms the estimate is the
+  posterior mean with its <code>Est.Error</code> and credible interval, and
+  <code>statistic</code>/<code>df</code>/<code>p.value</code> are <code>NA</code>. Standard errors
+  are <code>NA</code> where they are undefined (a boundary fit).</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -186,11 +176,11 @@ a <code>maihda_model</code> (from <code><a href="fit_maihda.html">fit_maihda</a>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">2</span> Within-stratum (residual)    43.4   6.59     0.937 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">3</span> Total                        46.3   6.80     1     </span>
 <span class="r-in"><span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">m</span>, component <span class="op">=</span> <span class="st">"fixed"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 2 × 7</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   term        estimate std.error statistic p.value  conf.low conf.high</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> (Intercept)  28.2      0.453       62.3   0      27.3        29.1   </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">2</span> Age           0.015<span style="text-decoration: underline;">0</span>   0.007<span style="text-decoration: underline;">36</span>      2.04  0.041<span style="text-decoration: underline;">0</span>  0.000<span style="text-decoration: underline;">616</span>    0.029<span style="text-decoration: underline;">5</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 2 × 8</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   term        estimate std.error statistic    df  p.value  conf.low conf.high</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> (Intercept)  28.2      0.453       62.3     49 2.56<span style="color: #949494;">e</span><span style="color: #BB0000;">-48</span> 27.3        29.1   </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">2</span> Age           0.015<span style="text-decoration: underline;">0</span>   0.007<span style="text-decoration: underline;">36</span>      2.04  <span style="text-decoration: underline;">2</span>949 4.11<span style="color: #949494;">e</span><span style="color: #BB0000;">- 2</span>  0.000<span style="text-decoration: underline;">610</span>    0.029<span style="text-decoration: underline;">5</span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

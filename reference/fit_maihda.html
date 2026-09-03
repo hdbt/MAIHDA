@@ -79,6 +79,7 @@ cumulative link mixed model via <code><a href="https://rdrr.io/pkg/ordinal/man/c
 <span>  time_degree <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  stratum_slope <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  interactions <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  count_approximation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"lognormal"</span>, <span class="st">"delta"</span>, <span class="st">"trigamma"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -305,6 +306,39 @@ dimensions' main effects in the fixed part); on a null model
 default-on <code>interactions</code> of <code><a href="maihda.html">maihda</a></code>.</p></dd>
 
 
+<dt id="arg-count-approximation">count_approximation<a class="anchor" aria-label="anchor" href="#arg-count-approximation"></a></dt>
+<dd><p>Which latent-scale level-1 (observation) variance
+  approximation the VPC/ICC of a <em>log-link count</em> model uses, from table 1
+  of Nakagawa, Johnson &amp; Schielzeth (2017): <code>"lognormal"</code> (default,
+  \(\ln(1 + 1/\lambda\ [+\ 1/\theta])\)), <code>"delta"</code>
+  (\(1/\lambda\ [+\ 1/\theta]\)), or <code>"trigamma"</code>
+  (\(\psi_1(\lambda)\) for Poisson,
+  \(\psi_1((1/\lambda + 1/\theta)^{-1})\) for the negative binomial).
+  Recorded on the fit, so <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, the bootstrap intervals and the
+  longitudinal VPC(t) all use the same one. Inert for every other family.</p>
+<p>The three agree above a marginal count of about \(\lambda = 2\) and diverge
+  sharply below it – at \(\lambda = 0.34\) they give level-1 variances of
+  1.37, 2.94 and 9.76, so the VPC moves by a factor of six – which is why
+  <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports the method and the \(\lambda\) it was evaluated at,
+  and warns below the threshold. The default is the same <em>approximation</em>
+  <code>insight::get_variance()</code> and <code>performance::icc()</code> use by default,
+  but the two are not numerically identical on an adjusted model: they evaluate
+  it at a different \(\lambda\). MAIHDA averages the row-wise marginal
+  expected counts \(\exp(x_i'\beta + v_i/2)\) over the analytic sample –
+  the global-\(\lambda\) form of Nakagawa et al. – while <code>insight</code>
+  plugs in a single \(\exp(\beta_0 + \sigma^2/2)\) taken from an
+  intercept-only null model. On a <em>null</em> model, the MAIHDA headline, the
+  two coincide exactly. On an adjusted model Jensen's inequality makes the
+  MAIHDA \(\lambda\) the larger, so its level-1 variance is the smaller and
+  its VPC slightly the larger; the gap grows with the spread of the fitted
+  means, from well under 1% of the level-1 variance for a weak covariate to
+  tens of per cent for a very strong one. Nakagawa et al. themselves
+  recommend the trigamma form; note that it is the least conservative at low
+  counts (it drives the VPC toward zero), because it is the variance of
+  \(\log X\) for \(X \sim \mathrm{Gamma}(\lambda, 1)\) and that
+  approximation is weakest exactly where most counts are zero.</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code>lmer</code>/<code>glmer</code> (lme4),
 <code>brm</code> (brms), or <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> (wemix; e.g. <code>nQuad</code>,
@@ -360,12 +394,16 @@ weights via <code>sampling_weights</code>). Prefilter <code>data</code> instead 
 <dd><p>Fit-quality diagnostics, surfaced by the print and
     summary methods: singular fit / convergence for lme4 and WeMix, MCMC
     convergence (maximum Rhat, divergent transitions) for brms, and the
-    optimizer convergence code for an ordinal (clmm) fit. For lme4 and clmm
-    fits it also carries likelihood-adequacy caveats – count overdispersion
-    and zero inflation, stratum random-effect non-normality, longitudinal
-    residual autocorrelation, and an approximate ordinal proportional-odds
-    screen – reported only when a conservative threshold is crossed, since the
-    VPC/PCV and interaction estimates are conditional on the likelihood holding</p></dd>
+    optimizer convergence code for an ordinal (clmm) fit. An lme4 fit also
+    carries likelihood-adequacy caveats – count overdispersion and zero
+    inflation, stratum random-effect non-normality and longitudinal residual
+    autocorrelation – reported only when a conservative threshold is crossed,
+    since the VPC/PCV and interaction estimates are conditional on the
+    likelihood holding. Every one of those checks is lme4-only, so a cumulative
+    (clmm) fit raises no adequacy caveat at all: it stores a single descriptive
+    fixed-only proportional-odds proxy statistic, never flagged because it
+    cannot be separated from stratum heterogeneity; use
+    <code><a href="maihda_proportional_odds_test.html">maihda_proportional_odds_test</a></code> to test that assumption</p></dd>
 
 </dl></div>
 
@@ -411,9 +449,10 @@ weights via <code>sampling_weights</code>). Prefilter <code>data</code> instead 
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  the context random effect(s). The context share is the between-context</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  component of the unexplained variance.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Fixed Effects (Wald 95% intervals):</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         term estimate    se statistic p_value lower upper</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  (Intercept)    492.3 18.55     26.54  &lt;1e-16 455.9 528.6</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Fixed Effects (Wald t, 95% intervals):</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         term estimate    se statistic df  p_value lower upper</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  (Intercept)    492.3 18.55     26.54  5 1.42e-06 444.6 539.9</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   df: containment (between-within).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Stratum Estimates (first 10):</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  stratum stratum_id           label random_effect    se lower_95 upper_95</span>

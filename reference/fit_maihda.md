@@ -22,6 +22,7 @@ fit_maihda(
   time_degree = 1,
   stratum_slope = TRUE,
   interactions = FALSE,
+  count_approximation = c("lognormal", "delta", "trigamma"),
   ...
 )
 ```
@@ -274,6 +275,43 @@ fit_maihda(
   parallel to the default-on `interactions` of
   [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md).
 
+- count_approximation:
+
+  Which latent-scale level-1 (observation) variance approximation the
+  VPC/ICC of a *log-link count* model uses, from table 1 of Nakagawa,
+  Johnson & Schielzeth (2017): `"lognormal"` (default, \\\ln(1 +
+  1/\lambda\\ \[+\\ 1/\theta\])\\), `"delta"` (\\1/\lambda\\ \[+\\
+  1/\theta\]\\), or `"trigamma"` (\\\psi_1(\lambda)\\ for Poisson,
+  \\\psi_1((1/\lambda + 1/\theta)^{-1})\\ for the negative binomial).
+  Recorded on the fit, so
+  [`summary()`](https://rdrr.io/r/base/summary.html), the bootstrap
+  intervals and the longitudinal VPC(t) all use the same one. Inert for
+  every other family.
+
+  The three agree above a marginal count of about \\\lambda = 2\\ and
+  diverge sharply below it – at \\\lambda = 0.34\\ they give level-1
+  variances of 1.37, 2.94 and 9.76, so the VPC moves by a factor of six
+  – which is why [`summary()`](https://rdrr.io/r/base/summary.html)
+  reports the method and the \\\lambda\\ it was evaluated at, and warns
+  below the threshold. The default is the same *approximation*
+  `insight::get_variance()` and `performance::icc()` use by default, but
+  the two are not numerically identical on an adjusted model: they
+  evaluate it at a different \\\lambda\\. MAIHDA averages the row-wise
+  marginal expected counts \\\exp(x_i'\beta + v_i/2)\\ over the analytic
+  sample – the global-\\\lambda\\ form of Nakagawa et al. – while
+  `insight` plugs in a single \\\exp(\beta_0 + \sigma^2/2)\\ taken from
+  an intercept-only null model. On a *null* model, the MAIHDA headline,
+  the two coincide exactly. On an adjusted model Jensen's inequality
+  makes the MAIHDA \\\lambda\\ the larger, so its level-1 variance is
+  the smaller and its VPC slightly the larger; the gap grows with the
+  spread of the fitted means, from well under 1% of the level-1 variance
+  for a weak covariate to tens of per cent for a very strong one.
+  Nakagawa et al. themselves recommend the trigamma form; note that it
+  is the least conservative at low counts (it drives the VPC toward
+  zero), because it is the variance of \\\log X\\ for \\X \sim
+  \mathrm{Gamma}(\lambda, 1)\\ and that approximation is weakest exactly
+  where most counts are zero.
+
 - ...:
 
   Additional arguments passed to `lmer`/`glmer` (lme4), `brm` (brms), or
@@ -340,13 +378,17 @@ A maihda_model object containing:
   Fit-quality diagnostics, surfaced by the print and summary methods:
   singular fit / convergence for lme4 and WeMix, MCMC convergence
   (maximum Rhat, divergent transitions) for brms, and the optimizer
-  convergence code for an ordinal (clmm) fit. For lme4 and clmm fits it
-  also carries likelihood-adequacy caveats – count overdispersion and
-  zero inflation, stratum random-effect non-normality, longitudinal
-  residual autocorrelation, and an approximate ordinal proportional-odds
-  screen – reported only when a conservative threshold is crossed, since
-  the VPC/PCV and interaction estimates are conditional on the
-  likelihood holding
+  convergence code for an ordinal (clmm) fit. An lme4 fit also carries
+  likelihood-adequacy caveats – count overdispersion and zero inflation,
+  stratum random-effect non-normality and longitudinal residual
+  autocorrelation – reported only when a conservative threshold is
+  crossed, since the VPC/PCV and interaction estimates are conditional
+  on the likelihood holding. Every one of those checks is lme4-only, so
+  a cumulative (clmm) fit raises no adequacy caveat at all: it stores a
+  single descriptive fixed-only proportional-odds proxy statistic, never
+  flagged because it cannot be separated from stratum heterogeneity; use
+  [`maihda_proportional_odds_test`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
+  to test that assumption
 
 ## Examples
 
@@ -391,9 +433,10 @@ summary(model3)  # between-stratum vs. between-country vs. residual
 #>   the context random effect(s). The context share is the between-context
 #>   component of the unexplained variance.
 #> 
-#> Fixed Effects (Wald 95% intervals):
-#>         term estimate    se statistic p_value lower upper
-#>  (Intercept)    492.3 18.55     26.54  <1e-16 455.9 528.6
+#> Fixed Effects (Wald t, 95% intervals):
+#>         term estimate    se statistic df  p_value lower upper
+#>  (Intercept)    492.3 18.55     26.54  5 1.42e-06 444.6 539.9
+#>   df: containment (between-within).
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id           label random_effect    se lower_95 upper_95

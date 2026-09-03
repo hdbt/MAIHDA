@@ -184,8 +184,11 @@ described with a Gaussian mean/SD as if continuous:
 
 - gaussian (and other continuous families): mean, SD, median, min, max;
 
-- binomial (including an aggregated `cbind(success, failure)` outcome):
-  event count, trials, and the observed proportion;
+- binomial (including an aggregated outcome written either as
+  `cbind(success, failure)` or, for `brms`, as `success | trials(n)`):
+  event count, trials, and the observed proportion. Trials are the
+  binomial denominator, so a row with a missing or non-positive trial
+  count has no observed outcome;
 
 - poisson / negative binomial: the same numeric summaries, read as the
   observed count mean (rate);

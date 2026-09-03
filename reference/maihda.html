@@ -122,7 +122,11 @@ Any dimension main effect listed must be written as its bare column name: a
 transformed term such as <code>factor(edu)</code> is rejected, because only a bare
 name is recognised as a dimension's main effect and the transform would
 otherwise survive into the derived null model. Transform the column in
-<code>data</code> instead (<code>data$edu &lt;- factor(data$edu)</code>).</p></dd>
+<code>data</code> instead (<code>data$edu &lt;- factor(data$edu)</code>). For the same reason a
+fixed interaction involving a dimension is rejected, whether with another
+dimension (<code>gender * race</code>) or with a covariate (<code>age * gender</code>): only
+the bare main effect is removed, so the interaction survives into the null model,
+which would then already adjust for that dimension.</p></dd>
 
 
 <dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
@@ -254,7 +258,12 @@ for a binomial/Bernoulli outcome regardless of this flag (see Details).</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>Optional integer seed for the response-scale VPC simulation.</p></dd>
+<dd><p>Optional integer seed for the response-scale VPC simulation. It is
+NOT forwarded to <code><a href="https://paulbuerkner.com/brms/reference/brm.html" class="external-link">brms::brm()</a></code>: an <code>engine = "brms"</code> fit's MCMC
+sampler is unseeded by it (a warning says so). Call <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> before
+<code>maihda()</code> to make a Bayesian fit reproducible, or use
+<code>fit_maihda(seed = )</code>, which has no <code>seed</code> formal and so passes it
+through to <code>brm()</code>.</p></dd>
 
 
 <dt id="arg-sampling-weights">sampling_weights<a class="anchor" aria-label="anchor" href="#arg-sampling-weights"></a></dt>
@@ -310,7 +319,9 @@ likelihood first. Affects Gaussian <code>lmer</code> fits only.</p></dd>
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code><a href="fit_maihda.html">fit_maihda</a></code> (and on to
-<code>lmer</code>/<code>glmer</code>).</p></dd>
+<code>lmer</code>/<code>glmer</code>). Includes <code>count_approximation</code>, which selects
+the log-link count level-1 variance approximation for the VPC and is applied
+to every derived fit.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -481,10 +492,10 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5563fe55f570&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55ecce8add58&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x556403eae168&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55ecd190bfa0&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -539,7 +550,7 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5563f9d77848&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55ecd0e57470&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>

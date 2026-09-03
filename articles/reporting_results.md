@@ -106,21 +106,27 @@ default null:
 ``` r
 
 tidy(a, component = "fixed", which = "adjusted")
-#> # A tibble: 11 × 7
-#>    term                estimate std.error statistic   p.value conf.low conf.high
-#>    <chr>                  <dbl>     <dbl>     <dbl>     <dbl>    <dbl>     <dbl>
-#>  1 (Intercept)          30.1      0.977      30.7   1.38e-207  2.81e+1   32.0   
-#>  2 Age                   0.0148   0.00745     1.99  4.68e-  2  2.10e-4    0.0294
-#>  3 Gendermale           -0.431    0.463      -0.933 3.51e-  1 -1.34e+0    0.475 
-#>  4 RaceHispanic         -1.62     0.820      -1.98  4.82e-  2 -3.23e+0   -0.0130
-#>  5 RaceMexican          -1.06     0.790      -1.34  1.79e-  1 -2.61e+0    0.487 
-#>  6 RaceWhite            -1.67     0.658      -2.53  1.13e-  2 -2.96e+0   -0.377 
-#>  7 RaceOther            -3.92     0.797      -4.92  8.62e-  7 -5.48e+0   -2.36  
-#>  8 Education9 - 11th …   0.129    0.834       0.154 8.78e-  1 -1.51e+0    1.76  
-#>  9 EducationHigh Scho…   1.08     0.813       1.32  1.85e-  1 -5.17e-1    2.67  
-#> 10 EducationSome Coll…  -0.177    0.795      -0.222 8.24e-  1 -1.73e+0    1.38  
-#> 11 EducationCollege G…  -0.960    0.825      -1.16  2.45e-  1 -2.58e+0    0.657
+#> # A tibble: 11 × 8
+#>    term           estimate std.error statistic    df  p.value conf.low conf.high
+#>    <chr>             <dbl>     <dbl>     <dbl> <dbl>    <dbl>    <dbl>     <dbl>
+#>  1 (Intercept)     30.1      0.977      30.7      40 1.89e-29  2.81e+1   32.0   
+#>  2 Age              0.0148   0.00745     1.99   2949 4.69e- 2  2.04e-4    0.0294
+#>  3 Gendermale      -0.431    0.463      -0.933    40 3.57e- 1 -1.37e+0    0.504 
+#>  4 RaceHispanic    -1.62     0.820      -1.98     40 5.51e- 2 -3.28e+0    0.0371
+#>  5 RaceMexican     -1.06     0.790      -1.34     40 1.87e- 1 -2.66e+0    0.535 
+#>  6 RaceWhite       -1.67     0.658      -2.53     40 1.53e- 2 -3.00e+0   -0.337 
+#>  7 RaceOther       -3.92     0.797      -4.92     40 1.52e- 5 -5.53e+0   -2.31  
+#>  8 Education9 - …   0.129    0.834       0.154    40 8.78e- 1 -1.56e+0    1.81  
+#>  9 EducationHigh…   1.08     0.813       1.32     40 1.93e- 1 -5.67e-1    2.72  
+#> 10 EducationSome…  -0.177    0.795      -0.222    40 8.25e- 1 -1.78e+0    1.43  
+#> 11 EducationColl…  -0.960    0.825      -1.16     40 2.52e- 1 -2.63e+0    0.708
 ```
+
+The `df` column holds containment (between-within) degrees of freedom: a
+term constant within a stratum is tested against the strata (here 40,
+the 50 strata minus the 10 columns constant within one), a covariate
+varying within against *n* (`Age` above). See
+[`?summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md).
 
 Because the output is a plain tibble, you can build your *own* figure
 instead of using the built-in
@@ -170,7 +176,7 @@ tab
 #> 
 #> Model results:
 #>                 Statistic          Null (Model 1)      Adjusted (Model 2)
-#>                 Intercept 28.208 [27.320, 29.096] 30.050 [28.135, 31.966]
+#>                 Intercept 28.208 [27.298, 29.118] 30.050 [28.075, 32.026]
 #>  Between-stratum variance                   2.900                   1.172
 #>        Between-stratum SD                   1.703                   1.083
 #>                   VPC/ICC                   0.063                   0.026
@@ -225,8 +231,8 @@ tab
 #>   Predicted intervals are conditional (random-effect) only; Stratum RE is the stratum BLUP.
 #> 
 #> Estimates are point values unless a [low, high] interval is shown. The
-#> intercept interval is a Wald (normal-approximation) one -- with few strata
-#> it is too narrow; the variance and SD rows carry no interval.
+#> intercept interval is the Wald one summary() reports; the variance and SD
+#> rows carry no interval.
 ```
 
 The `$models` element is a **numeric, export-ready** data frame
@@ -243,7 +249,7 @@ knitr::kable(tab$models, digits = 3,
 
 | statistic | null | null_lower | null_upper | adjusted | adjusted_lower | adjusted_upper |
 |:---|---:|---:|---:|---:|---:|---:|
-| Intercept | 28.208 | 27.32 | 29.096 | 30.050 | 28.135 | 31.966 |
+| Intercept | 28.208 | 27.298 | 29.118 | 30.050 | 28.075 | 32.026 |
 | Between-stratum variance | 2.900 | NA | NA | 1.172 | NA | NA |
 | Between-stratum SD | 1.703 | NA | NA | 1.083 | NA | NA |
 | VPC/ICC | 0.063 | NA | NA | 0.026 | NA | NA |

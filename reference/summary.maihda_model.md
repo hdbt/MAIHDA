@@ -14,6 +14,7 @@ summary(
   conf_level = 0.95,
   response_vpc = FALSE,
   seed = NULL,
+  df_method = c("between-within", "normal"),
   ...
 )
 ```
@@ -37,7 +38,10 @@ summary(
   so the interval is conditional on the estimated theta (theta's own
   sampling uncertainty is not propagated). The `ordinal` (clmm) engine
   has no simulate/refit machinery, so `bootstrap = TRUE` is rejected
-  there (use `engine = "brms"` for interval estimates).
+  there (use `engine = "brms"` for interval estimates). For a Gaussian
+  model carrying lme4 precision `weights`, the simulated responses draw
+  each residual at \\\sigma / \sqrt{w_i}\\, so the interval rests on the
+  same \\\sigma^2 / w_i\\ semantics as the point estimate above.
 
 - n_boot:
 
@@ -61,6 +65,13 @@ summary(
 
   Optional integer seed for the response-scale VPC simulation when
   `response_vpc = TRUE`.
+
+- df_method:
+
+  Reference distribution for the fixed-effect p-values and Wald
+  intervals of a Gaussian `lme4` fit: `"between-within"` (default) a
+  \\t\\ on containment degrees of freedom, `"normal"` a z. Every other
+  engine uses a z regardless.
 
 - ...:
 
@@ -111,6 +122,20 @@ A maihda_summary object containing:
   crossed-dimensions fit (whose headline here is the
   additive/interaction decomposition) and a longitudinal fit
 
+- count_vpc:
+
+  For a log-link count model, the `approximation` the level-1 variance
+  came from, the marginal count `lambda` (and `theta` /
+  `lambda_effective` for the negative binomial) it was evaluated at, the
+  `alternatives` all three approximations give at that `lambda`
+  (`level1_variance` is the one used), and `low_count` – `TRUE` below
+  the \\\lambda = 2\\ threshold above which Nakagawa et al. (2017)
+  report the three agree. These are plug-in values at a single `lambda`:
+  on the likelihood engines that is exactly the number in
+  `variance_components`, but a `brms` summary works draw by draw and
+  reports \\E\[\sigma^2_e\]\\ there, which differs slightly. `NULL` for
+  every other family.
+
 - vpc_response:
 
   The response-scale VPC (`maihda_vpc_response`) when
@@ -126,16 +151,11 @@ A maihda_summary object containing:
 - fixed_effects:
 
   Fixed-effect estimates. For the lme4, WeMix and ordinal engines a data
-  frame with `term`, `estimate`, `se`, `statistic` (the Wald z,
-  `estimate / se`), `p_value` (two-sided, normal approximation) and the
-  Wald interval `lower`/`upper` at `conf_level`. No denominator degrees
-  of freedom are estimated, so for a Gaussian fit these are z-based
-  rather than Satterthwaite/Kenward-Roger – fine for a within-stratum
-  covariate, but anticonservative with few strata for terms constant
-  within a stratum (see
-  [`maihda_tidiers`](https://hdbt.github.io/MAIHDA/reference/maihda_tidiers.md));
-  the WeMix standard errors are its sandwich (robust) ones. For brms,
-  the [`brms::fixef()`](https://rdrr.io/pkg/nlme/man/fixed.effects.html)
+  frame with `term`, `estimate`, `se`, `statistic`, `df`, `p_value` and
+  the Wald interval `lower`/`upper` at `conf_level`; `df` is `NA`
+  wherever the reference is a z. The WeMix standard errors are its
+  sandwich (robust) ones. For brms, the
+  [`brms::fixef()`](https://rdrr.io/pkg/nlme/man/fixed.effects.html)
   matrix (posterior mean, `Est.Error` and the credible-interval
   quantiles at `conf_level`). Available in a tidy, engine-independent
   shape from `tidy(x, component = "fixed")`
@@ -144,6 +164,11 @@ A maihda_summary object containing:
 
   The interval level used for the fixed effects (and, when bootstrapped
   or Bayesian, the VPC)
+
+- df_method:
+
+  The reference distribution the `fixed_effects` table used,
+  `"between-within"` or `"normal"`
 
 - thresholds:
 
@@ -210,22 +235,40 @@ share. For non-Gaussian families the level-1 (residual) variance uses a
 latent/distributional approximation (\\\pi^2/3\\ for logistic;
 \\\log(1 + 1/\lambda)\\ for Poisson per Stryhn et al. 2006 and
 \\\log(1 + 1/\lambda + 1/\theta)\\ for the negative binomial per
-Nakagawa, Johnson & Schielzeth 2017, each evaluated at a single
-*marginal* expected count \\\lambda\\: the mean over the analytic sample
-of the row-level \\\lambda_i = \exp(x_i'\beta + v_i/2)\\ – the
-fixed-part prediction with the log-normal correction for the row's total
-random-effect variance \\v_i\\. The counts are averaged *before* the
-transform, which is where the cited \\\lambda\\ is defined and which
-reduces to Nakagawa et al.'s \\\lambda = \exp(\beta_0 + \sigma^2/2)\\ in
-the null model; *not* at the conditional fitted means, whose BLUPs would
-tie the level-1 variance to the realized random effects), so the VPC is
-on that latent scale; for a *weighted* Gaussian model the level-1
-variance is the mean conditional residual variance, \\\bar{\sigma^2 /
-w_i}\\, since the per-observation residual variance is \\\sigma^2 /
-w_i\\. The stratum random effects represent the total between-stratum
-deviation; they equal the *pure* intersectional (interaction) component
-only when the additive main effects of the strata variables are included
-in the model.
+Nakagawa, Johnson & Schielzeth 2017 – their `"delta"` and `"trigamma"`
+alternatives are available via `fit_maihda(count_approximation = )`, and
+the choice is reported in the printed summary and in `count_vpc` because
+the three diverge materially below a marginal count of 2 – each
+evaluated at a single *marginal* expected count \\\lambda\\: the mean
+over the analytic sample of the row-level \\\lambda_i = \exp(x_i'\beta +
+v_i/2)\\ – the fixed-part prediction with the log-normal correction for
+the row's total random-effect variance \\v_i\\. The counts are averaged
+*before* the transform, which is where the cited \\\lambda\\ is defined
+and which reduces to Nakagawa et al.'s \\\lambda = \exp(\beta_0 +
+\sigma^2/2)\\ in the null model; *not* at the conditional fitted means,
+whose BLUPs would tie the level-1 variance to the realized random
+effects), so the VPC is on that latent scale; for a *weighted* Gaussian
+model the level-1 variance is the mean conditional residual variance,
+\\\bar{\sigma^2 / w_i}\\, since the per-observation residual variance is
+\\\sigma^2 / w_i\\. The stratum random effects represent the total
+between-stratum deviation; they equal the *pure* intersectional
+(interaction) component only when the additive main effects of the
+strata variables are included in the model.
+
+## Fixed-effect degrees of freedom
+
+A Gaussian `lme4` fit refers each Wald statistic to a \\t\\ on
+*containment* (between-within) degrees of freedom, reported in the `df`
+column: a term absorbed by a random-effect grouping is tested against
+that grouping's units minus the terms it absorbs, and a term absorbed by
+none against \\n\\ minus the random-effect levels. A random slope counts
+as absorbing. Set `df_method = "normal"` for a z instead.
+
+A GLMM, a WeMix pseudo-ML fit and an
+[`ordinal::clmm`](https://rdrr.io/pkg/ordinal/man/clmm.html) fit have no
+finite-sample \\t\\ and use the Wald z; a brms summary reports the
+posterior. For Kenward-Roger or Satterthwaite, apply pbkrtest or
+lmerTest to `x$model`.
 
 ## Two VPCs for a longitudinal fit
 
@@ -251,18 +294,11 @@ Report this one unless you specifically mean the trajectory question.
 equation (5): \$\$VPC\_{intercept} = \frac{Var_S(t_0)}{Var_S(t_0) +
 Var_I(t_0)}, \qquad VPC\_{slope} =
 \frac{SlopeVar_S(t_0)}{SlopeVar_S(t_0) + SlopeVar_I(t_0)}.\$\$ These ask
-how intersectionally patterned people's *trajectories* are – what share
-of the between-individual variation in where a trajectory starts, and in
-how fast it changes, lies between strata. Because \\\sigma^2_e\\ is
-absent neither is affected by how noisy the outcome measure is, which
+how intersectionally patterned people's *trajectories* are i.e., what
+share of the between-individual variation in where a trajectory starts,
+and in how fast it changes, lies between strata. Because \\\sigma^2_e\\
+is absent neither is affected by how noisy the outcome measure is, which
 makes them comparable across studies using different instruments.
-
-For the slope the residual could not be included even in principle: a
-slope variance is in \\(\mathrm{outcome}/\mathrm{time})^2\\ while
-\\\sigma^2_e\\ is in \\\mathrm{outcome}^2\\, so the sum would be
-dimensionally meaningless. (The headline VPC is well formed because
-\\a(t)'\Sigma a(t)\\ returns to \\\mathrm{outcome}^2\\.) The intercept
-VPC drops it for symmetry with the slope.
 
 Both are evaluated at the baseline \\t_0\\ (`ref_time`, the earliest
 observed time), pairing with `PCV_intercept` and `PCV_slope` from
