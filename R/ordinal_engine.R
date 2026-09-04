@@ -176,7 +176,11 @@ maihda_ordinal_assert_min_levels <- function(y, resp_name) {
 #' Internal engine call for \code{fit_maihda(engine = "ordinal")}. Builds the
 #' analytic sample (complete cases on the model variables) so the stored
 #' \code{data} matches the rows clmm fits, then calls \code{ordinal::clmm()}
-#' with \code{Hess = TRUE} (needed for the threshold standard errors).
+#' with \code{Hess = TRUE} (needed for the threshold standard errors). The
+#' analytic frame is passed by NAME (bound in a private environment) so the call
+#' clmm stores stays one line: ordinal's \code{print}/\code{summary} methods
+#' deparse \code{call$data}, and embedding the frame there made printing an
+#' ordinal fit dump the whole data set.
 #'
 #' @param formula The resolved model formula (with \code{(1 | stratum)}).
 #' @param data The data (after strata creation / response preparation).
@@ -218,13 +222,28 @@ maihda_fit_clmm <- function(formula, data, family, dot_vals) {
   data[[resp_name]] <- droplevels(data[[resp_name]])
   maihda_ordinal_assert_min_levels(data[[resp_name]], resp_name)
 
+  # Build the clmm call so it REFERENCES the analytic frame by name instead of
+  # embedding it. do.call(ordinal::clmm, list(data = data, ...)) substitutes the
+  # values it is handed into the call clmm records, so model$call$data became the
+  # whole data frame -- and ordinal's print.clmm/summary.clmm deparse exactly that
+  # element ("data:    ..."), turning a routine print() of an ordinal fit into
+  # thousands of lines of dumped data (the frame also reached the call head, so
+  # deparse(getCall(fit)) echoed clmm's entire source). Binding `data` in a private
+  # environment and passing the symbol is the same machinery fit_maihda() uses for
+  # the lme4/brms engines, and the reason those fits already print a one-line
+  # "Data: data". The formula's environment is pointed at the same env so clmm
+  # resolves the symbol however it chooses to evaluate the model frame.
+  fit_env <- new.env(parent = environment(formula))
+  fit_env$data <- data
+  environment(formula) <- fit_env
   args <- list(
     formula = formula,
-    data = data,
+    data = quote(data),
     link = family$link,
     Hess = TRUE
   )
-  model <- do.call(ordinal::clmm, c(args, dot_vals))
+  fit_call <- as.call(c(list(quote(ordinal::clmm)), args, dot_vals))
+  model <- eval(fit_call, fit_env)
 
   list(model = model, data = data)
 }

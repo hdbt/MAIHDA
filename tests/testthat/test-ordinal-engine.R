@@ -195,6 +195,38 @@ test_that("fit_maihda fits a cumulative model via clmm with auto-switch and cont
   )
 })
 
+test_that("print() of an ordinal fit stays compact and never echoes the data", {
+  skip_on_cran()
+  skip_if_not_installed("ordinal")
+
+  d <- make_ord_data()
+  m <- fit_ord(d)
+  out <- capture.output(print(m))
+
+  # Regression (2026-09-01): the clmm call embedded the analytic data FRAME itself,
+  # and ordinal's print.clmm/summary.clmm deparse call$data -- so printing an
+  # ordinal fit dumped every fitted row (~2,100 lines on a 3,000-row example).
+  # These 800 rows would blow the cap the same way on any relapse.
+  expect_lt(length(out), 60)
+  expect_false(any(grepl("structure(list(", out, fixed = TRUE)))
+
+  # The header, the fit-diagnostics block and the clmm summary all survive.
+  expect_true(any(grepl("^Engine: ordinal", out)))
+  expect_true(any(grepl("^Family: cumulative", out)))
+  expect_true(any(grepl("^Formula: y ~ x", out)))
+  expect_true(any(grepl("Underlying model:", out, fixed = TRUE)))
+  expect_true(any(grepl("^formula: y ~ x", out)))
+  expect_true(any(grepl("Random effects:", out, fixed = TRUE)))
+  expect_true(any(grepl("Thresholds:", out, fixed = TRUE)))
+  # The data line names the frame rather than printing it.
+  expect_true(any(grepl("^data:[[:space:]]+data[[:space:]]*$", out)))
+
+  # Same defect reached the fitted object users pull out directly.
+  expect_lt(length(capture.output(print(m$model))), 40)
+  expect_lt(length(capture.output(print(summary(m$model)))), 40)
+  expect_lt(length(deparse(m$model$call)), 5)
+})
+
 test_that("clmm prefilters on the evaluated frame, not raw complete.cases", {
   skip_on_cran()
   skip_if_not_installed("ordinal")
