@@ -1076,11 +1076,32 @@ print.maihda_analysis <- function(x, ...) {
 #' @param which Which model to summarize: \code{"null"} (default) or
 #'   \code{"adjusted"}. A crossed-dimensions analysis has a single model and
 #'   accepts only \code{"null"}.
-#' @param ... Additional arguments (not used).
+#' @param ... Additional arguments (not used). The summaries are computed by
+#'   \code{\link{maihda}}, so arguments that would change them are rejected
+#'   rather than ignored: set \code{bootstrap}, \code{n_boot}, \code{conf_level},
+#'   \code{response_vpc} and \code{seed} on \code{\link{maihda}} itself, and for a
+#'   different fixed-effect reference summarise the fitted model directly, as in
+#'   \code{summary(x$model_adjusted, df_method = "bootstrap")}.
 #' @return The \code{maihda_summary} for the requested model.
 #' @export
 summary.maihda_analysis <- function(object, which = c("null", "adjusted"), ...) {
   which <- match.arg(which)
+  # These summaries were computed once, inside maihda(). Anything that would
+  # change them cannot be honoured here, and silently dropping df_method would
+  # hand back an uncorrected Wald reference while looking as though the requested
+  # one had been applied.
+  ignored <- intersect(names(list(...)),
+                       c("df_method", "bootstrap", "n_boot", "conf_level",
+                         "response_vpc", "seed"))
+  if (length(ignored) > 0) {
+    stop("summary() on a maihda_analysis returns the summary maihda() already ",
+         "computed, so it cannot apply ",
+         paste(sprintf("'%s'", ignored), collapse = ", "),
+         ". Set bootstrap / n_boot / conf_level / response_vpc / seed on maihda() ",
+         "itself, and for a different fixed-effect reference summarise the fitted ",
+         "model directly, e.g. summary(x$model_adjusted, df_method = \"bootstrap\").",
+         call. = FALSE)
+  }
   out <- if (which == "adjusted") object$summary_adjusted else object$summary
   if (is.null(out)) {
     stop("No '", which, "' summary is available on this maihda_analysis (mode = '",

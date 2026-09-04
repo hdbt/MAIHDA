@@ -11,7 +11,7 @@
   conf_level = 0.95,
   response_vpc = FALSE,
   seed = NULL,
-  df_method = c("between-within", "normal"),
+  df_method = c("between-within", "normal", "bootstrap"),
   ...
 )
 }
@@ -48,9 +48,13 @@ families/engines.}
 \code{response_vpc = TRUE}.}
 
 \item{df_method}{Reference distribution for the fixed-effect p-values and
-Wald intervals of a Gaussian \code{lme4} fit: \code{"between-within"}
-(default) a \eqn{t} on containment degrees of freedom, \code{"normal"} a z.
-Every other engine uses a z regardless.}
+intervals of an \code{lme4} fit: \code{"between-within"} (default) a
+\eqn{t} on containment degrees of freedom for a Gaussian fit and a z
+elsewhere, \code{"normal"} a z, \code{"bootstrap"} a null-restricted
+parametric bootstrap costing \code{n_boot} refits \emph{per fixed-effect
+term}. \code{"bootstrap"} is the reference to use for a GLMM term that is
+constant within a stratum, such as an adjusted model's dimension main
+effects. Every other engine uses a z regardless.}
 
 \item{...}{Additional arguments (not currently used).}
 }
@@ -110,7 +114,7 @@ A maihda_summary object containing:
   \item{conf_level}{The interval level used for the fixed effects (and, when
     bootstrapped or Bayesian, the VPC)}
   \item{df_method}{The reference distribution the \code{fixed_effects} table
-    used, \code{"between-within"} or \code{"normal"}}
+    used, \code{"between-within"}, \code{"normal"} or \code{"bootstrap"}}
   \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut
     point) estimates with standard errors -- the cumulative model's
     "intercepts"; NULL otherwise}
@@ -186,7 +190,7 @@ expensive \eqn{ndraws \times nobs} computation.
   variables are included in the model.
 }
 
-\section{Fixed-effect degrees of freedom}{
+\section{Fixed-effect reference distribution}{
 
 A Gaussian \code{lme4} fit refers each Wald statistic to a \eqn{t} on
 \emph{containment} (between-within) degrees of freedom, reported in the
@@ -199,6 +203,33 @@ A GLMM, a WeMix pseudo-ML fit and an \code{ordinal::clmm} fit have no
 finite-sample \eqn{t} and use the Wald z; a brms summary reports the
 posterior. For Kenward-Roger or Satterthwaite, apply \pkg{pbkrtest} or
 \pkg{lmerTest} to \code{x$model}.
+
+\code{df_method = "bootstrap"} replaces that reference for an \code{lme4} fit
+with at least one fixed-effect term, Gaussian or not, and is the one to use
+for a GLMM -- whose z is anticonservative for a term constant within a
+stratum, most severely when the strata are few. For
+each fixed-effect term the model is refitted \emph{without} that term,
+\code{n_boot} responses are simulated from the reduced fit, the full model is
+refitted on each, and the observed Wald statistic is referred to the resulting
+distribution of \eqn{|t^*|} under a true null. The estimate and standard error
+are unchanged; the p-value and the interval both come from that distribution
+and agree exactly, zero falling outside the interval precisely when the
+p-value is significant. \code{df} is \code{NA}, and so are the intercept's
+p-value and interval: a MAIHDA intercept is a reference-category level rather
+than a term that can be dropped, so it has no null model to simulate from.
+
+It costs \code{n_boot} refits \emph{per term}, and is a separate bootstrap
+from the \code{bootstrap = TRUE} VPC interval, which is not reused. The
+smallest reportable p-value is \eqn{1 / (n\_boot + 1)}.
+
+Budget for it. A Gaussian refit takes milliseconds, but a binomial one takes
+about a second at \eqn{n = 1000} and tens of seconds at \eqn{n = 6000}, so the
+default \code{n_boot = 1000} on a three-dimension GLMM is roughly an hour at
+the smaller size and impractical at the larger. The p-value is exact at any
+\code{n_boot} for which \eqn{(n\_boot + 1)\alpha} is a whole number -- 199 and
+999 at the 5\% level -- while the interval endpoints, being order statistics,
+keep tightening with more draws; \code{n_boot = 199} is the usual compromise
+for a GLMM.
 }
 
 \section{Two VPCs for a longitudinal fit}{

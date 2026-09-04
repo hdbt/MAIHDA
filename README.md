@@ -282,7 +282,8 @@ glance(analysis)
 tidy(analysis)                          # stratum (intersection) effects, with labels
 tidy(analysis, component = "variance")  # variance components
 
-# Fixed effects add statistic/p.value (Wald z, normal approximation) to that shape:
+# Fixed effects add statistic/df/p.value to that shape (Gaussian: a t on
+# containment degrees of freedom; GLMM, WeMix and clmm: a Wald z, df NA):
 tidy(analysis, component = "fixed", which = "adjusted")
 
 # A caterpillar plot in two lines:

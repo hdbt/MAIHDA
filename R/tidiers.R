@@ -130,6 +130,8 @@ maihda_tidy_fixed <- function(fe) {
 #'
 #'   A Gaussian \pkg{lme4} fit reports containment (between-within) \code{df}
 #'   and a \eqn{t}; every other engine leaves \code{df} \code{NA} and uses a z.
+#'   Under \code{summary(df_method = "bootstrap")} \code{p.value} and the
+#'   interval come from the parametric bootstrap and \code{df} is \code{NA}.
 #'   See \code{\link{summary.maihda_model}}. For brms the estimate is the
 #'   posterior mean with its \code{Est.Error} and credible interval, and
 #'   \code{statistic}/\code{df}/\code{p.value} are \code{NA}. Standard errors

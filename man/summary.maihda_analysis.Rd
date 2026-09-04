@@ -13,7 +13,12 @@
 \code{"adjusted"}. A crossed-dimensions analysis has a single model and
 accepts only \code{"null"}.}
 
-\item{...}{Additional arguments (not used).}
+\item{...}{Additional arguments (not used). The summaries are computed by
+\code{\link{maihda}}, so arguments that would change them are rejected
+rather than ignored: set \code{bootstrap}, \code{n_boot}, \code{conf_level},
+\code{response_vpc} and \code{seed} on \code{\link{maihda}} itself, and for a
+different fixed-effect reference summarise the fitted model directly, as in
+\code{summary(x$model_adjusted, df_method = "bootstrap")}.}
 }
 \value{
 The \code{maihda_summary} for the requested model.
