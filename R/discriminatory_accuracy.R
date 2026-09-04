@@ -815,7 +815,11 @@ maihda_da_observed_response <- function(model) {
 # either). A non-aggregated fit returns NULL and takes the ordinary observation-level
 # AUC path in maihda_discriminatory_accuracy(), where precision weights are ignored
 # (they carry no population-frequency meaning) and flagged as such.
-maihda_da_aggregated_counts <- function(model) {
+# `context` labels the fractional-successes warning for the caller that asked; the
+# detection rule itself is identical for every caller, which is the point -- the AUC
+# and maihda_describe() must not disagree about whether a fit is aggregated.
+maihda_da_aggregated_counts <- function(model,
+                                        context = "Aggregated-binomial AUC") {
   resp <- tryCatch(stats::model.response(model$data), error = function(e) NULL)
   if (!is.null(resp) && !is.null(dim(resp)) && ncol(resp) == 2L) {
     successes <- as.numeric(resp[, 1])
@@ -837,12 +841,24 @@ maihda_da_aggregated_counts <- function(model) {
   # `all(y >= 0 & y <= 1)` is defensive: glmer's binomial initialize already refuses
   # a response outside [0, 1], but the fractional mass built below would otherwise be
   # able to exceed the trials and trip maihda_auc_weighted()'s negative-mass guard.
-  is_proportion <- !is.null(y) && all(is.finite(y)) &&
+  maihda_agg_counts_from_weights(y, w, context = context)
+}
+
+# The proportion-response rule itself, over a response `y` and prior weights `w`
+# ALREADY aligned to the same rows: the aggregated success / trial counts they imply,
+# or NULL when they are not an aggregated binomial. Factored out of the fitted-model
+# wrapper above so the pre-fit maihda_describe(weights = ) path applies the identical
+# rule -- describe, the AUC, and the fitted-model and formula spellings of describe
+# must all agree about whether a given (y, w) pair is an aggregated binomial.
+maihda_agg_counts_from_weights <- function(y, w,
+                                           context = "Aggregated-binomial AUC") {
+  is_proportion <- !is.null(y) && length(y) > 0L && all(is.finite(y)) &&
     all(y >= 0 & y <= 1) && any(y > 0 & y < 1)
   if (is_proportion && !is.null(w) && length(y) == length(w) &&
       all(is.finite(w)) && all(w > 0) && any(w > 1) &&
       all(abs(w - round(w)) < 1e-8)) {
-    return(list(successes = maihda_da_proportion_successes(y, w), trials = round(w)))
+    return(list(successes = maihda_da_proportion_successes(y, w, context = context),
+                trials = round(w)))
   }
   NULL
 }
@@ -872,7 +888,8 @@ maihda_da_aggregated_counts <- function(model) {
 # whose proportions were rounded before they reached R; there the fractional mass
 # stays within ~1e-4 AUC of the exact counts, so the warning is the honest signal
 # either way.)
-maihda_da_proportion_successes <- function(y, w) {
+maihda_da_proportion_successes <- function(y, w,
+                                           context = "Aggregated-binomial AUC") {
   successes <- y * w
   # Relative tolerance: the representation error of (k / n) * n grows with k, so a
   # fixed absolute epsilon would stop snapping large counts. It stays far below the
@@ -880,12 +897,12 @@ maihda_da_proportion_successes <- function(y, w) {
   whole <- abs(successes - round(successes)) <= 1e-8 * pmax(1, abs(successes))
   successes[whole] <- round(successes[whole])
   if (!all(whole)) {
-    warning("Aggregated-binomial AUC: the proportion response times the prior ",
+    warning(context, ": the proportion response times the prior ",
             "weights is not a whole number of successes in ", sum(!whole), " of ",
             length(successes), " rows (e.g. ",
             format(successes[!whole][1], digits = 6), " successes out of ",
             format(w[!whole][1], digits = 6), " trials), so these are not ",
-            "successes/trials counts. The case/control mass is kept fractional ",
+            "successes/trials counts. The fractional counts are kept as they are ",
             "rather than rounded -- rounding would invent observations. Supply ",
             "cbind(successes, failures) if the outcome is an aggregated binomial.",
             call. = FALSE)

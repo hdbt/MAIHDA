@@ -132,6 +132,22 @@
 #'   \code{autobin} setting. Ignored for a fitted-model input (the strata are
 #'   already built). Default \code{TRUE}.
 #' @param digits Decimal places used by the \code{print()} method. Default 3.
+#' @param weights Optional precision weights, given as a bare column name of
+#'   \code{data} exactly as in \code{\link{fit_maihda}}, so the same call
+#'   describes and fits the same sample. Rows whose weight is missing,
+#'   zero, negative or non-finite are excluded from the analytic sample, as the
+#'   engines exclude them. For a \strong{binomial} model they also supply the
+#'   denominator of R's second aggregated-binomial idiom (see \code{?glm}): a
+#'   proportion response with the trial counts passed as \code{weights}, which
+#'   is then summarised as events out of trials rather than as one trial per row.
+#'   That reading is taken only when the weights are non-unit whole numbers and
+#'   the response is a genuine proportion -- a 0/1 response carrying whole-number
+#'   weights stays an ordinary Bernoulli outcome, being indistinguishable from an
+#'   aggregation in which every row is all-success or all-failure. Mutually
+#'   exclusive with \code{sampling_weights}, which are design weights and mean
+#'   something different. Must be omitted for a fitted-model input (the fit
+#'   already carries its weights). Placed last in the argument list for backward
+#'   compatibility; supply it by name.
 #'
 #' @return An object of class \code{maihda_describe}: a list of export-ready
 #'   data frames (pass to \code{write.csv()} or \code{knitr::kable()}) plus
@@ -202,7 +218,15 @@
 maihda_describe <- function(x, data = NULL, context = NULL, family = NULL,
                             sampling_weights = NULL, flag_stratum_n = 20,
                             include_empty_strata = TRUE, autobin = TRUE,
-                            digits = 3) {
+                            digits = 3, weights = NULL) {
+  # `weights` is deliberately the LAST formal rather than sitting beside
+  # `sampling_weights` where it reads better: inserting it mid-signature would shift
+  # every positional argument after it in code written against 0.2.1.
+  # Non-standard evaluation, as in fit_maihda(weights = ), so the same call works for
+  # both; captured before any use because on the fitted-model branch there is no
+  # `data` to evaluate it against, only a request to reject it.
+  weights_quo <- rlang::enquo(weights)
+  weights_supplied <- !rlang::quo_is_null(weights_quo)
   if (!is.numeric(flag_stratum_n) || length(flag_stratum_n) != 1 ||
       !is.finite(flag_stratum_n) || flag_stratum_n < 0) {
     stop("'flag_stratum_n' must be a single non-negative number.", call. = FALSE)
@@ -215,10 +239,10 @@ maihda_describe <- function(x, data = NULL, context = NULL, family = NULL,
   # --- Fitted-model input: describe the exact sample the fit used -------------
   if (inherits(x, "maihda_analysis") || inherits(x, "maihda_model")) {
     if (!is.null(data) || !is.null(context) || !is.null(family) ||
-        !is.null(sampling_weights)) {
+        !is.null(sampling_weights) || weights_supplied) {
       stop("'x' is a fitted MAIHDA object and already carries its data, ",
-           "context, family, and sampling weights; do not also supply 'data', ",
-           "'context', 'family', or 'sampling_weights'.", call. = FALSE)
+           "context, family, and weights; do not also supply 'data', ",
+           "'context', 'family', 'sampling_weights', or 'weights'.", call. = FALSE)
     }
     source <- if (inherits(x, "maihda_analysis")) "maihda_analysis" else "maihda_model"
     model <- if (inherits(x, "maihda_analysis")) x$model else x
@@ -247,6 +271,29 @@ maihda_describe <- function(x, data = NULL, context = NULL, family = NULL,
   if (!is.null(sampling_weights)) {
     sampling_weights <- maihda_validate_sampling_weights(sampling_weights, data)
   }
+  # Precision weights, resolved against `data` exactly as fit_maihda() resolves its
+  # own: the same column name gives the same rows and the same binomial denominator
+  # in both calls. They are mutually exclusive with design weights there, so they are
+  # here -- the two mean different things and only one can be `weights =`.
+  weights_value <- NULL
+  if (weights_supplied) {
+    if (!is.null(sampling_weights)) {
+      stop("Supply either 'sampling_weights' (design weights) or 'weights' ",
+           "(precision weights), not both.", call. = FALSE)
+    }
+    weights_value <- tryCatch(
+      rlang::eval_tidy(weights_quo, data = data),
+      error = function(e) stop("maihda_describe(): could not evaluate 'weights' ",
+                               "in the data: ", conditionMessage(e), call. = FALSE))
+    if (!is.numeric(weights_value) || length(weights_value) != nrow(data)) {
+      stop("'weights' must be a numeric vector with one value per row of 'data'.",
+           call. = FALSE)
+    }
+    # Zero / negative / non-finite -> NA, the rows lme4 actually drops. Shared with
+    # the fitters, so the analytic sample described here is the one that would be fit.
+    weights_value <- maihda_normalize_precision_weights(
+      weights_value, nrow(data), "lme4", "maihda_describe()")
+  }
 
   # Resolve the strata exactly as fit_maihda() would: the shared helper parses
   # the shorthand, calls make_strata(), and rewrites the grouping to
@@ -266,7 +313,9 @@ maihda_describe <- function(x, data = NULL, context = NULL, family = NULL,
   detect_weights <- if (!is.null(sampling_weights)) {
     maihda_sampling_weight_mask(data[[sampling_weights]])
   } else {
-    NULL
+    # NULL when no `weights` was given; otherwise the NA-normalised precision
+    # weights, whose NA rows maihda_row_mask() drops as the engines drop them.
+    weights_value
   }
   family_detected <- FALSE
   if (is.null(family)) {
@@ -309,6 +358,8 @@ maihda_describe <- function(x, data = NULL, context = NULL, family = NULL,
 
   maihda_describe_build(
     formula = formula, data = data, analytic_data = data[keep, , drop = FALSE],
+    model_agg = maihda_describe_formula_agg(formula, data, keep, fam_obj,
+                                            weights_value),
     fam_obj = fam_obj, family_detected = family_detected,
     strata_info = strata_res$strata_info, strata_vars = strata_res$strata_vars,
     sep = strata_res$strata_sep, autobin_info = strata_res$autobin_info,
@@ -333,6 +384,7 @@ maihda_describe_from_model <- function(model, source, flag_stratum_n,
   }
   maihda_describe_build(
     formula = model$formula, data = data, analytic_data = model$data,
+    model_agg = maihda_describe_model_agg(model, data),
     fam_obj = model$family, family_detected = FALSE,
     strata_info = model$strata_info, strata_vars = model$strata_vars,
     sep = model$strata_sep, autobin_info = model$strata_autobin_info,
@@ -345,6 +397,126 @@ maihda_describe_from_model <- function(model, source, flag_stratum_n,
     response_recoding = model$response_recoding,
     digits = digits, call = call
   )
+}
+
+# Per-row aggregated-binomial success / trial counts implied by a PRE-FIT
+# `weights =` argument, aligned to all of `data`'s rows, or NULL when the response
+# and weights are not an aggregated binomial. The formula-path counterpart of
+# maihda_describe_model_agg(); both defer to maihda_agg_counts_from_weights(), so
+# maihda_describe(f, d, weights = n) and maihda_describe(fit_maihda(f, d, weights = n))
+# report the same events and trials.
+#
+# The rule is applied to the ANALYTIC rows (`keep`) rather than to all of `data`, for
+# the same reason the fitted-model path reads it off the analytic frame: those are the
+# rows an engine would see, and a single NA-weight or NA-covariate row would otherwise
+# decide for the whole sample whether the weights look like trial counts at all. Rows
+# outside the mask get NA trials and are counted as having no observed outcome, as on
+# the fitted-model path.
+maihda_describe_formula_agg <- function(formula, data, keep, fam_obj, weights_value) {
+  n_total <- nrow(data)
+  if (is.null(weights_value) || length(weights_value) != n_total ||
+      !is.logical(keep) || length(keep) != n_total || !any(keep)) {
+    return(NULL)
+  }
+  # Gate on the family before the detector runs, so a Gaussian proportion outcome
+  # with integral precision weights is never warned about as "successes".
+  fam_name <- tryCatch(maihda_normalize_family_name(fam_obj$family),
+                       error = function(e) NA_character_)
+  if (!isTRUE(fam_name %in% c("binomial", "quasibinomial"))) {
+    return(NULL)
+  }
+  y <- tryCatch(eval(maihda_describe_response_expr(formula), envir = data,
+                     enclos = environment(formula)),
+                error = function(e) NULL)
+  # A cbind() matrix response is numeric too, and carries its own denominator; it is
+  # summarised row-wise upstream and must not be routed through the weights rule.
+  if (!is.numeric(y) || !is.null(dim(y)) || length(y) != n_total) {
+    return(NULL)
+  }
+  agg <- maihda_agg_counts_from_weights(y[keep], weights_value[keep],
+                                        context = "Aggregated-binomial outcome")
+  if (is.null(agg)) {
+    return(NULL)
+  }
+  successes <- rep(NA_real_, n_total)
+  trials <- rep(NA_real_, n_total)
+  successes[keep] <- agg$successes
+  trials[keep] <- agg$trials
+  list(successes = successes, trials = trials)
+}
+
+# Per-row aggregated-binomial success / trial counts of a FITTED model, aligned to
+# its pre-fit `data` (model$original_data) rows, or NULL when the fit is not an
+# aggregated binomial that only the fitted object can reveal.
+#
+# R has two spellings of an aggregated binomial, and only one of them is visible in
+# the formula: cbind(successes, failures) (a matrix response, which
+# maihda_describe_build() already summarises row-wise) and -- per ?glm -- a
+# PROPORTION response whose trial counts are supplied as `weights =`. The second
+# leaves no trace on the formula, so maihda_trials_from_formula() cannot see it and
+# describe took the denominator to be 1 per ROW: a 12-row, 340-of-617 sample was
+# reported as "6.42 events / 12 trials (53.5%)" -- a fractional event count over a
+# row count -- while maihda_discriminatory_accuracy() read the same fit as 340 cases
+# / 277 controls. Two numbers for one model.
+#
+# The rule is not re-implemented here: maihda_da_aggregated_counts() IS the rule, so
+# describe and the AUC cannot drift apart. In particular a 0/1 response carrying
+# integer weights stays a PRECISION-weighted Bernoulli for both (it is
+# indistinguishable from an all-success/all-failure aggregation, and ?glm's
+# documented meaning of `weights =` is the tie-break) -- see the KNOWN LIMIT note on
+# that helper. Non-lme4 engines return NULL: brms trials come off the formula's
+# trials() term, and the wemix/ordinal engines carry no aggregated response.
+#
+# ROW ALIGNMENT: the counts live on the analytic frame (model$data, the rows the
+# engine kept), while describe evaluates the outcome on the pre-fit frame, so the two
+# differ in length whenever a row was dropped for a missing covariate. model$data is
+# a model frame and therefore carries the pre-fit row NAMES; map through them, and
+# return NULL rather than guess if that mapping is not exact -- reporting counts
+# against the wrong rows would be worse than the row-denominator this fixes.
+#
+# A pre-fit row that is NOT in the analytic frame gets NA trials, which the caller
+# then counts as a missing outcome. That is a real cost of this spelling and is
+# stated rather than hidden: the trial counts ARE the response's denominator here and
+# are only recoverable from the fit, so an excluded row has no summarisable outcome
+# left -- unlike cbind(successes, failures), whose denominator sits in the pre-fit
+# data and is summarised for every row. The alternative, totals that silently cover
+# fewer rows than the "non-missing" count beside them, would not reconcile.
+maihda_describe_model_agg <- function(model, data) {
+  if (!identical(model$engine, "lme4") || !is.data.frame(model$data)) {
+    return(NULL)
+  }
+  # Gate on the family BEFORE running the detector, not just on its result. The
+  # detector's rule -- a response inside [0, 1] with non-unit integral weights -- is
+  # a perfectly ordinary Gaussian fit too (a proportion outcome with precision
+  # weights), and while describe would discard the counts a few lines later under
+  # `outcome_kind != "binomial"`, the detector would already have warned about
+  # "successes" at a model that has no successes in it.
+  if (!isTRUE(maihda_model_family_name(model) %in%
+              c("binomial", "quasibinomial"))) {
+    return(NULL)
+  }
+  agg <- tryCatch(
+    maihda_da_aggregated_counts(model, context = "Aggregated-binomial outcome"),
+    error = function(e) NULL)
+  if (is.null(agg) || length(agg$trials) != nrow(model$data)) {
+    return(NULL)
+  }
+  n_total <- nrow(data)
+  idx <- if (nrow(model$data) == n_total) {
+    # No row was dropped, so the analytic frame IS the pre-fit frame, in order.
+    seq_len(n_total)
+  } else {
+    rn <- rownames(model$data)
+    dn <- rownames(data)
+    m <- if (is.null(rn) || is.null(dn)) NULL else match(rn, dn)
+    if (is.null(m) || anyNA(m) || anyDuplicated(m)) return(NULL)
+    m
+  }
+  successes <- rep(NA_real_, n_total)
+  trials <- rep(NA_real_, n_total)
+  successes[idx] <- as.numeric(agg$successes)
+  trials[idx] <- as.numeric(agg$trials)
+  list(successes = successes, trials = trials)
 }
 
 # The outcome expression of a resolved MAIHDA formula. brms addition terms
@@ -371,7 +543,7 @@ maihda_describe_build <- function(formula, data, analytic_data, fam_obj,
                                   sampling_weights, flag_stratum_n,
                                   include_empty_strata, source, engine,
                                   longitudinal_info, response_recoding,
-                                  digits, call) {
+                                  digits, call, model_agg = NULL) {
   if (is.null(sep)) sep <- " \u00d7 "
   n_total <- nrow(data)
 
@@ -392,6 +564,21 @@ maihda_describe_build <- function(formula, data, analytic_data, fam_obj,
   # counts. NULL for every other response, which then takes the branches below
   # unchanged.
   outcome_trials <- maihda_trials_from_formula(formula, data, n = n_total)
+  # The other aggregated-binomial spelling, which the formula cannot show: a
+  # proportion response with the trial counts passed as `weights =` (?glm). Only a
+  # fitted model can reveal it (maihda_describe_model_agg(), which defers to the same
+  # detector the AUC uses), and only when the formula carries no trials() term and the
+  # response is not already a cbind() matrix -- both of those are exact and take
+  # precedence. `outcome_for_extract` then holds SUCCESS COUNTS, which is what the
+  # extractor's trials branch expects; `outcome_vals` stays the raw response so the
+  # missingness and category-level reporting below are unchanged.
+  outcome_for_extract <- outcome_vals
+  if (is.null(outcome_trials) && !is.null(model_agg) &&
+      !is.matrix(outcome_vals) && !is.data.frame(outcome_vals) &&
+      length(model_agg$trials) == n_total) {
+    outcome_trials <- model_agg$trials
+    outcome_for_extract <- model_agg$successes
+  }
   if (is.matrix(outcome_vals) || is.data.frame(outcome_vals)) {
     if (nrow(outcome_vals) != n_total) {
       stop("The outcome '", outcome_name, "' does not have one row per data row.",
@@ -432,6 +619,7 @@ maihda_describe_build <- function(formula, data, analytic_data, fam_obj,
   # than allowed to redefine the outcome (or its missingness) there.
   if (outcome_kind != "binomial") {
     outcome_trials <- NULL
+    outcome_for_extract <- outcome_vals
   }
   # A row with no finite, positive trial count has no observed outcome -- the same
   # rule the matrix branch applies to a zero/NA row total.
@@ -440,7 +628,7 @@ maihda_describe_build <- function(formula, data, analytic_data, fam_obj,
       !is.finite(outcome_trials) | outcome_trials <= 0
   }
   od <- tryCatch(
-    maihda_observed_outcome_for_plot(outcome_vals, fam_for_extract,
+    maihda_observed_outcome_for_plot(outcome_for_extract, fam_for_extract,
                                      trials = outcome_trials),
     error = function(e) stop("maihda_describe(): cannot summarise the outcome '",
                              outcome_name, "' under family '", fam_name, "': ",

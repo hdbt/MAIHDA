@@ -13,7 +13,8 @@ maihda_describe(
   flag_stratum_n = 20,
   include_empty_strata = TRUE,
   autobin = TRUE,
-  digits = 3
+  digits = 3,
+  weights = NULL
 )
 }
 \arguments{
@@ -58,6 +59,23 @@ builds the strata, so the description matches a fit with the same
 already built). Default \code{TRUE}.}
 
 \item{digits}{Decimal places used by the \code{print()} method. Default 3.}
+
+\item{weights}{Optional precision weights, given as a bare column name of
+\code{data} exactly as in \code{\link{fit_maihda}}, so the same call
+describes and fits the same sample. Rows whose weight is missing,
+zero, negative or non-finite are excluded from the analytic sample, as the
+engines exclude them. For a \strong{binomial} model they also supply the
+denominator of R's second aggregated-binomial idiom (see \code{?glm}): a
+proportion response with the trial counts passed as \code{weights}, which
+is then summarised as events out of trials rather than as one trial per row.
+That reading is taken only when the weights are non-unit whole numbers and
+the response is a genuine proportion -- a 0/1 response carrying whole-number
+weights stays an ordinary Bernoulli outcome, being indistinguishable from an
+aggregation in which every row is all-success or all-failure. Mutually
+exclusive with \code{sampling_weights}, which are design weights and mean
+something different. Must be omitted for a fitted-model input (the fit
+already carries its weights). Placed last in the argument list for backward
+compatibility; supply it by name.}
 }
 \value{
 An object of class \code{maihda_describe}: a list of export-ready
