@@ -1012,6 +1012,48 @@ maihda_bootstrap_ci <- function(values, n_boot, conf_level, what = "VPC",
   ci
 }
 
+# Report retained non-converged bootstrap refits and rate the interval's
+# reliability. The parametric bootstrap RETAINS draws whose refit optimiser did not
+# converge (optinfo$conv$opt != 0) -- lme4's post-hoc relative-gradient flag is a
+# frequent false positive on simulated refits, and the optimiser's own return code
+# fires on well under 1% of refits even for deliberately hard fits -- but the count
+# is always surfaced so n_boot_ok is not read as implying convergence that was never
+# checked. `n_nonconv` of `n_contrib` contributing (finite) draws did not converge.
+# At or below `threshold` of the contributing draws the standard "retained; interpret
+# accordingly" note is emitted and the interval is rated reliable; ABOVE it the
+# interval is STILL returned (the retained draws still carry information, unlike an
+# undefined boundary draw) but flagged UNRELIABLE with an escalated warning. That
+# documented ceiling mirrors the boundary path's surface-and-condition idiom and
+# closes the gap whereby a mostly-non-converged bootstrap could clear
+# maihda_bootstrap_ci()'s failure-fraction gate unremarked (non-converged draws are
+# finite, so that gate counts them as successes). Returns the reliability logical for
+# the caller to attach to its result as `interval_reliable`.
+maihda_report_nonconvergence <- function(n_nonconv, n_contrib, label = "VPC",
+                                         threshold = 0.5) {
+  if (!is.numeric(n_nonconv) || length(n_nonconv) != 1L || is.na(n_nonconv) ||
+      n_nonconv <= 0L || !is.numeric(n_contrib) || length(n_contrib) != 1L ||
+      is.na(n_contrib) || n_contrib <= 0L) {
+    return(TRUE)
+  }
+  share <- n_nonconv / n_contrib
+  reliable <- share <= threshold
+  if (reliable) {
+    warning(sprintf(paste0(
+      "%d of %d contributing %s bootstrap draw(s) had an lme4 optimiser that did ",
+      "not converge; they are retained in the interval. n_boot_ok counts converged ",
+      "and non-converged refits alike -- interpret the interval accordingly."),
+      n_nonconv, n_contrib, label), call. = FALSE)
+  } else {
+    warning(sprintf(paste0(
+      "%d of %d contributing %s bootstrap draw(s) (%.0f%%) had an lme4 optimiser ",
+      "that did not converge -- above the %.0f%% reliability threshold. The interval ",
+      "is still returned but flagged unreliable (interval_reliable = FALSE); treat ",
+      "it as indicative only and check for singular or failing fits."),
+      n_nonconv, n_contrib, label, 100 * share, 100 * threshold), call. = FALSE)
+  }
+  reliable
+}
+
 maihda_validate_bootstrap_args <- function(n_boot, conf_level) {
   # Forming an interval needs at least maihda_bootstrap_ci()'s minimum number of
   # successful refits, so reject n_boot below that floor here -- failing fast with

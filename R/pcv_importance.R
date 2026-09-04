@@ -198,13 +198,15 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #'     the pairwise complete-dominance matrix.}
 #'   \item{method, approx, n_perm, n_fits, n_obs, engine, family, context,
 #'     bootstrap, conf_level, n_boot_ok, n_boot_boundary, n_boot_nonconverged,
-#'     estimation, estimation_used}{Metadata;
+#'     interval_reliable, estimation, estimation_used}{Metadata;
 #'     \code{n_fits} counts the distinct models fit (including the null),
 #'     \code{n_boot_ok} the number of successful bootstrap draws,
 #'     \code{n_boot_boundary} the draws excluded because the null between-stratum
 #'     variance hit the zero boundary (the intervals are then conditional on a
 #'     positive null variance), \code{n_boot_nonconverged} the retained draws whose
-#'     refit optimiser did not converge,
+#'     refit optimiser did not converge, \code{interval_reliable} is \code{FALSE}
+#'     when more than half the contributing draws did not converge (the intervals
+#'     are still returned but flagged unreliable),
 #'     \code{estimation} is the variance-estimation basis
 #'     (\code{"fitted"}/\code{"ML"}) requested for every subset model's
 #'     between-stratum variance, and \code{estimation_used} is the basis actually used
@@ -730,14 +732,10 @@ pcv_importance <- function(data, outcome, vars,
         "between-stratum variation -- interpret the attribution and its intervals ",
         "cautiously."), n_excluded_boot, n_boot), call. = FALSE)
     }
-    if (n_nonconv_boot > 0) {
-      warning(sprintf(paste0(
-        "%d of %d contributing PCV-attribution bootstrap draw(s) had an lme4 ",
-        "optimiser that did not converge; they are retained. n_boot_ok counts ",
-        "converged and non-converged refits alike -- interpret the intervals ",
-        "accordingly."), n_nonconv_boot, sum(is.finite(boot_phi[, 1]))),
-        call. = FALSE)
-    }
+    # Non-converged draws are retained but reported, and above a documented share the
+    # intervals are flagged unreliable (see maihda_report_nonconvergence()).
+    reliable_boot <- maihda_report_nonconvergence(
+      n_nonconv_boot, sum(is.finite(boot_phi[, 1])), "PCV attribution")
 
     # Draws fail as a whole, so the successful-draw count is shared across
     # variables; let the first column carry the low-success warning and
@@ -761,6 +759,7 @@ pcv_importance <- function(data, outcome, vars,
     result$n_boot_ok <- attr(ci_list[[1]], "n_ok")
     result$n_boot_boundary <- n_excluded_boot
     result$n_boot_nonconverged <- n_nonconv_boot
+    result$interval_reliable <- reliable_boot
   }
 
   class(result) <- "maihda_pcv_importance"

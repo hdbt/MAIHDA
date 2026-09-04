@@ -889,14 +889,10 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
         if (maihda_lme4_optimizer_failed(bm)) n_nonconv <- n_nonconv + 1L
       }, error = function(e) NULL)
     }
-    # Non-converged draws are retained but reported (see bootstrap_pcv()).
-    if (n_nonconv > 0) {
-      warning(sprintf(paste0(
-        "%d of %d contributing longitudinal VPC bootstrap draw(s) had an lme4 ",
-        "optimiser that did not converge; they are retained in the intervals. ",
-        "n_boot_ok counts converged and non-converged refits alike -- interpret the ",
-        "intervals accordingly."), n_nonconv, sum(is.finite(ref_boot))), call. = FALSE)
-    }
+    # Non-converged draws are retained but reported, and above a documented share the
+    # interval is flagged unreliable (see maihda_report_nonconvergence()).
+    reliable_lng <- maihda_report_nonconvergence(
+      n_nonconv, sum(is.finite(ref_boot)), "longitudinal VPC")
     for (j in seq_along(grid)) {
       band <- maihda_longitudinal_vpc_band(boot[, j], n_boot, conf_level)
       vpc_lower[j] <- band[1]
@@ -910,6 +906,7 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
          conf_level = conf_level, bootstrap = TRUE, method = "bootstrap",
          ref_time = ref_time, n_boot_ok = attr(ref_ci, "n_ok"),
          n_boot_nonconverged = n_nonconv,
+         interval_reliable = reliable_lng,
          mc_se = attr(ref_ci, "mc_se"))
   } else {
     list(estimate = ref_vpc, bootstrap = FALSE, ref_time = ref_time)

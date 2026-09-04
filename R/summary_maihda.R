@@ -426,6 +426,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
           method = "bootstrap",
           n_boot_ok = attr(vpc_ci, "n_ok"),
           n_boot_nonconverged = attr(vpc_ci, "n_nonconverged"),
+          interval_reliable = attr(vpc_ci, "interval_reliable"),
           mc_se = attr(vpc_ci, "mc_se")
         )
       } else {
@@ -791,6 +792,7 @@ maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level
       method = "bootstrap",
       n_boot_ok = attr(boot$vpc, "n_ok"),
       n_boot_nonconverged = attr(boot$vpc, "n_nonconverged"),
+      interval_reliable = attr(boot$vpc, "interval_reliable"),
       mc_se = attr(boot$vpc, "mc_se")
     )
     decomposition$bootstrap <- TRUE
@@ -981,14 +983,10 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0),
     }, error = function(e) NULL)
   }
 
-  # Non-converged draws are retained but reported (see bootstrap_pcv()).
-  if (n_nonconv > 0) {
-    warning(sprintf(paste0(
-      "%d of %d contributing crossed-dimensions decomposition bootstrap draw(s) had ",
-      "an lme4 optimiser that did not converge; they are retained in the intervals. ",
-      "n_boot_ok counts converged and non-converged refits alike -- interpret the ",
-      "intervals accordingly."), n_nonconv, sum(is.finite(vpc_boot))), call. = FALSE)
-  }
+  # Non-converged draws are retained but reported, and above a documented share the
+  # interval is flagged unreliable (see maihda_report_nonconvergence()).
+  reliable <- maihda_report_nonconvergence(
+    n_nonconv, sum(is.finite(vpc_boot)), "crossed-dimensions decomposition")
 
   out <- list(
     vpc = maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC"),
@@ -1002,6 +1000,7 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0),
                                            "context VPC")
   }
   attr(out$vpc, "n_nonconverged") <- n_nonconv
+  attr(out$vpc, "interval_reliable") <- reliable
   out
 }
 
@@ -1073,6 +1072,7 @@ maihda_context_summary_lme4 <- function(object, ctx, vc, bootstrap, n_boot,
       method = "bootstrap",
       n_boot_ok = attr(boot$vpc, "n_ok"),
       n_boot_nonconverged = attr(boot$vpc, "n_nonconverged"),
+      interval_reliable = attr(boot$vpc, "interval_reliable"),
       mc_se = attr(boot$vpc, "mc_se")
     )
     context_summary$bootstrap <- TRUE
@@ -1223,14 +1223,10 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level,
     }, error = function(e) NULL)
   }
 
-  # Non-converged draws are retained but reported (see bootstrap_pcv()).
-  if (n_nonconv > 0) {
-    warning(sprintf(paste0(
-      "%d of %d contributing contextual decomposition bootstrap draw(s) had an lme4 ",
-      "optimiser that did not converge; they are retained in the intervals. ",
-      "n_boot_ok counts converged and non-converged refits alike -- interpret the ",
-      "intervals accordingly."), n_nonconv, sum(is.finite(vpc_boot))), call. = FALSE)
-  }
+  # Non-converged draws are retained but reported, and above a documented share the
+  # interval is flagged unreliable (see maihda_report_nonconvergence()).
+  reliable <- maihda_report_nonconvergence(
+    n_nonconv, sum(is.finite(vpc_boot)), "contextual decomposition")
 
   out <- list(
     vpc = maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC"),
@@ -1238,6 +1234,7 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level,
                                       "context VPC")
   )
   attr(out$vpc, "n_nonconverged") <- n_nonconv
+  attr(out$vpc, "interval_reliable") <- reliable
   out
 }
 
@@ -1287,18 +1284,14 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level,
     }, error = function(e) NULL)
   }
 
-  # Non-converged draws are retained but reported (see bootstrap_pcv()).
-  if (n_nonconv > 0) {
-    warning(sprintf(paste0(
-      "%d of %d contributing VPC bootstrap draw(s) had an lme4 optimiser that did ",
-      "not converge; they are retained in the interval. n_boot_ok counts converged ",
-      "and non-converged refits alike -- interpret the interval accordingly."),
-      n_nonconv, sum(is.finite(vpc_boot))), call. = FALSE)
-  }
+  # Non-converged draws are retained but reported, and above a documented share the
+  # interval is flagged unreliable (see maihda_report_nonconvergence()).
+  reliable <- maihda_report_nonconvergence(n_nonconv, sum(is.finite(vpc_boot)), "VPC")
 
   # Reduce to an interval, requiring a minimum number of successful refits.
   ci <- maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC")
   attr(ci, "n_nonconverged") <- n_nonconv
+  attr(ci, "interval_reliable") <- reliable
 
   return(ci)
 }
@@ -1427,6 +1420,18 @@ print.maihda_summary <- function(x, ...) {
       cat(pal$muted(sprintf(
         "  (%d successful bootstrap draws; Monte Carlo SE of the bootstrap mean %.4f)\n",
         as.integer(x$vpc$n_boot_ok), x$vpc$mc_se)))
+    }
+    if (!is.null(x$vpc$n_boot_nonconverged) && is.finite(x$vpc$n_boot_nonconverged) &&
+        x$vpc$n_boot_nonconverged > 0) {
+      cat(pal$muted(sprintf(paste0(
+        "  (%d contributing draw(s) had an optimiser that did not converge and were\n",
+        "   retained; n_boot_ok counts them alongside converged refits.)\n"),
+        as.integer(x$vpc$n_boot_nonconverged))))
+    }
+    if (isFALSE(x$vpc$interval_reliable)) {
+      cat(pal$warn(paste0(
+        "  (Interval flagged UNRELIABLE: more than half the contributing draws did\n",
+        "   not converge. Treat it as indicative only and check for singular fits.)\n")))
     }
     cat("\n")
   } else {
