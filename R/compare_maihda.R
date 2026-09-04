@@ -910,10 +910,12 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     # catches this earlier; this guards a direct call.)
     maihda_check_no_transformed_dimension(fit_formula, decomp_vars, dim_terms,
                                           fn = "compare_maihda_groups")
-    # Reject a fixed interaction among the stratum dimensions (e.g. `gender * ses`).
-    # Stripping only the main effects below would leave the fixed gender:ses term in
-    # place, duplicating the (1 | stratum) random intercept and driving every group's
-    # PCV to NA. (maihda() catches this earlier; this guards a direct call.)
+    # Reject a fixed interaction involving a stratum dimension (`gender * ses`, or
+    # `age * gender` with a covariate). Stripping only the main effects below would
+    # leave the interaction in place: among dimensions it duplicates the (1 | stratum)
+    # random intercept and drives every group's PCV to NA; with a covariate it survives
+    # into every group's null model, which then already adjusts for that dimension.
+    # (maihda() catches this earlier; this guards a direct call.)
     maihda_check_no_dimension_interaction(fit_formula, decomp_vars, dim_terms,
                                           fn = "compare_maihda_groups")
     # Warn once about any numeric stratum dimension entering the per-group adjusted

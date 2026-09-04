@@ -68,10 +68,14 @@ engines exclude them. For a \strong{binomial} model they also supply the
 denominator of R's second aggregated-binomial idiom (see \code{?glm}): a
 proportion response with the trial counts passed as \code{weights}, which
 is then summarised as events out of trials rather than as one trial per row.
-That reading is taken only when the weights are non-unit whole numbers and
-the response is a genuine proportion -- a 0/1 response carrying whole-number
-weights stays an ordinary Bernoulli outcome, being indistinguishable from an
-aggregation in which every row is all-success or all-failure. Mutually
+That reading is taken only when the weights are non-unit whole numbers, the
+same rule \code{\link{maihda_discriminatory_accuracy}} applies, so the two
+never report different sample sizes for one model; it covers the frequency-cell
+spelling (a 0/1 response whose counts ride in \code{weights}) as well as a
+proportion response. Non-integral weights are not counts and are left alone.
+There is no \code{binomial_weights} override here as there is on the AUC:
+those select an estimand for the concordance, not a way to count a sample.
+Mutually
 exclusive with \code{sampling_weights}, which are design weights and mean
 something different. Must be omitted for a fitted-model input (the fit
 already carries its weights). Placed last in the argument list for backward

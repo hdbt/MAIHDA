@@ -428,7 +428,7 @@ test_that("maihda() rejects a fixed interaction among the stratum dimensions", {
   expect_true(is.finite(a$pcv$pcv))
 })
 
-test_that("maihda_dimension_interaction_terms() flags only dimension-only interactions", {
+test_that("maihda_dimension_interaction_terms() separates the two interaction scopes", {
   sv <- c("gender", "race")
   # A dimension-by-dimension interaction is flagged, in either variable order.
   expect_length(
@@ -437,14 +437,28 @@ test_that("maihda_dimension_interaction_terms() flags only dimension-only intera
   expect_length(
     maihda_dimension_interaction_terms(y ~ age + race:gender + (1 | gender:race), sv),
     1)
-  # A covariate-by-dimension interaction (age:gender) is a legitimate adjustment,
-  # not a stratum-cell interaction, so it is NOT flagged.
+  # A covariate-by-dimension interaction (age:gender) is not a stratum-cell term, so
+  # the default "all" scope leaves it -- but it survives the main-effect stripping into
+  # the derived NULL model just the same, so scope = "any" must see it.
   expect_length(
     maihda_dimension_interaction_terms(y ~ age * gender + race + (1 | gender:race), sv),
     0)
-  # The purely additive adjusted formula is clean.
+  expect_equal(
+    maihda_dimension_interaction_terms(y ~ age * gender + race + (1 | gender:race), sv,
+                                       scope = "any"),
+    "age:gender")
+  # The purely additive adjusted formula is clean under BOTH scopes.
   expect_length(
     maihda_dimension_interaction_terms(y ~ age + gender + race + (1 | gender:race), sv),
+    0)
+  expect_length(
+    maihda_dimension_interaction_terms(y ~ age + gender + race + (1 | gender:race), sv,
+                                       scope = "any"),
+    0)
+  # A covariate-by-covariate interaction involves no dimension: clean under both.
+  expect_length(
+    maihda_dimension_interaction_terms(y ~ age * income + gender + race, sv,
+                                       scope = "any"),
     0)
   # Non-syntactic dimension names are matched in their backtick-quoted form.
   expect_length(

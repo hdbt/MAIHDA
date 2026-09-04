@@ -23,43 +23,59 @@ add_stratum_labels <- function(stratum_estimates, strata_info) {
 #' Fixed-effect table with Wald statistics
 #'
 #' Internal helper that assembles the \code{fixed_effects} slot of a
-#' \code{maihda_summary} for the frequentist engines from point estimates and
-#' standard errors: the Wald statistic (\code{estimate / se}), its two-sided
-#' normal-approximation p-value, and the matching Wald interval at
-#' \code{conf_level}. The normal approximation is the same one
-#' \code{\link{maihda_interactions}} uses for the stratum BLUPs -- no
-#' denominator degrees of freedom are estimated, so for a Gaussian fit these are
-#' z-based, not Satterthwaite/Kenward-Roger. That is essentially exact for a
-#' covariate varying within stratum, but anticonservative for terms constant
-#' within a stratum (the intercept and an adjusted model's dimension main
-#' effects), whose effective sample size is the number of strata rather than
-#' \eqn{n}; see the \dQuote{Fixed-effect statistics} section of
-#' \code{\link{maihda_tidiers}}.
+#' \code{maihda_summary} for the frequentist engines: the Wald statistic
+#' (\code{estimate / se}), its two-sided p-value and the matching Wald interval
+#' at \code{conf_level}. With \code{df} the reference is a \eqn{t} on those
+#' degrees of freedom, otherwise the normal.
 #'
 #' @param term Character vector of coefficient names.
 #' @param estimate Numeric vector of point estimates.
 #' @param se Numeric vector of standard errors (\code{NULL} for none).
 #' @param conf_level Interval level.
+#' @param df Denominator degrees of freedom, named by \code{term} or in
+#'   \code{term} order; \code{NULL} (default) for the normal approximation.
 #' @return A data frame with \code{term}, \code{estimate}, \code{se},
-#'   \code{statistic}, \code{p_value}, \code{lower} and \code{upper}.
+#'   \code{statistic}, \code{df}, \code{p_value}, \code{lower} and \code{upper}.
+#'   \code{df} is \code{NA} on the normal path.
 #' @keywords internal
-maihda_fixed_effects_table <- function(term, estimate, se, conf_level = 0.95) {
+maihda_fixed_effects_table <- function(term, estimate, se, conf_level = 0.95,
+                                       df = NULL) {
+  term <- as.character(term)
   estimate <- as.numeric(estimate)
   se <- if (is.null(se)) rep(NA_real_, length(estimate)) else as.numeric(se)
   # A zero/NA SE (boundary or non-positive-definite Hessian) leaves the Wald
   # quantities undefined rather than infinite.
   se[!is.na(se) & se <= 0] <- NA_real_
   statistic <- estimate / se
-  z <- stats::qnorm((1 + conf_level) / 2)
+
+  # Degrees of freedom are matched by name where they carry one, so a df vector
+  # ordered differently from `term` (or missing a term) cannot silently shift.
+  if (is.null(df)) {
+    df <- rep(NA_real_, length(estimate))
+  } else {
+    df <- if (!is.null(names(df))) as.numeric(df)[match(term, names(df))]
+          else as.numeric(df)[seq_along(term)]
+    df[!is.na(df) & df <= 0] <- NA_real_
+  }
+
+  # A missing df falls back to the normal, which is the t's own limit, so the
+  # two paths stay consistent within one table. as.numeric() keeps the empty
+  # table numeric: ifelse() on a zero-length test returns logical(0).
+  safe_df <- ifelse(is.na(df), 1, df)
+  crit <- as.numeric(ifelse(is.na(df), stats::qnorm((1 + conf_level) / 2),
+                            stats::qt((1 + conf_level) / 2, df = safe_df)))
+  p_value <- as.numeric(ifelse(is.na(df), 2 * stats::pnorm(-abs(statistic)),
+                               2 * stats::pt(-abs(statistic), df = safe_df)))
 
   data.frame(
-    term      = as.character(term),
+    term      = term,
     estimate  = estimate,
     se        = se,
     statistic = statistic,
-    p_value   = 2 * stats::pnorm(-abs(statistic)),
-    lower     = estimate - z * se,
-    upper     = estimate + z * se,
+    df        = as.numeric(df),
+    p_value   = p_value,
+    lower     = estimate - crit * se,
+    upper     = estimate + crit * se,
     row.names = NULL,
     stringsAsFactors = FALSE
   )
@@ -148,6 +164,14 @@ maihda_tag_role <- function(s, role) {
 #'   families/engines.
 #' @param seed Optional integer seed for the response-scale VPC simulation when
 #'   \code{response_vpc = TRUE}.
+#' @param df_method Reference distribution for the fixed-effect p-values and
+#'   intervals of an \code{lme4} fit: \code{"between-within"} (default) a
+#'   \eqn{t} on containment degrees of freedom for a Gaussian fit and a z
+#'   elsewhere, \code{"normal"} a z, \code{"bootstrap"} a null-restricted
+#'   parametric bootstrap costing \code{n_boot} refits \emph{per fixed-effect
+#'   term}. \code{"bootstrap"} is the reference to use for a GLMM term that is
+#'   constant within a stratum, such as an adjusted model's dimension main
+#'   effects. Every other engine uses a z regardless.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return A maihda_summary object containing:
@@ -195,19 +219,17 @@ maihda_tag_role <- function(s, role) {
 #'   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
 #'   \item{fixed_effects}{Fixed-effect estimates. For the lme4, WeMix and ordinal
 #'     engines a data frame with \code{term}, \code{estimate}, \code{se},
-#'     \code{statistic} (the Wald z, \code{estimate / se}),
-#'     \code{p_value} (two-sided, normal approximation) and the Wald interval
-#'     \code{lower}/\code{upper} at \code{conf_level}. No denominator degrees of
-#'     freedom are estimated, so for a Gaussian fit these are z-based rather than
-#'     Satterthwaite/Kenward-Roger -- fine for a within-stratum covariate, but
-#'     anticonservative with few strata for terms constant within a stratum (see
-#'     \code{\link{maihda_tidiers}}); the
-#'     WeMix standard errors are its sandwich (robust) ones. For brms, the
-#'     \code{brms::fixef()} matrix (posterior mean, \code{Est.Error} and the
-#'     credible-interval quantiles at \code{conf_level}). Available in a tidy,
-#'     engine-independent shape from \code{tidy(x, component = "fixed")}}
+#'     \code{statistic}, \code{df}, \code{p_value} and the Wald interval
+#'     \code{lower}/\code{upper} at \code{conf_level}; \code{df} is \code{NA}
+#'     wherever the reference is a z. The WeMix standard errors are its sandwich
+#'     (robust) ones. For brms, the \code{brms::fixef()} matrix (posterior mean,
+#'     \code{Est.Error} and the credible-interval quantiles at
+#'     \code{conf_level}). Available in a tidy, engine-independent shape from
+#'     \code{tidy(x, component = "fixed")}}
 #'   \item{conf_level}{The interval level used for the fixed effects (and, when
 #'     bootstrapped or Bayesian, the VPC)}
+#'   \item{df_method}{The reference distribution the \code{fixed_effects} table
+#'     used, \code{"between-within"}, \code{"normal"} or \code{"bootstrap"}}
 #'   \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut
 #'     point) estimates with standard errors -- the cumulative model's
 #'     "intercepts"; NULL otherwise}
@@ -242,6 +264,46 @@ maihda_tag_role <- function(s, role) {
 #' random-effect design that fast path does not carry, instead holds the marginal
 #' expected counts at a posterior-mean plug-in (constant across draws) to avoid an
 #' expensive \eqn{ndraws \times nobs} computation.
+#'
+#' @section Fixed-effect reference distribution:
+#' A Gaussian \code{lme4} fit refers each Wald statistic to a \eqn{t} on
+#' \emph{containment} (between-within) degrees of freedom, reported in the
+#' \code{df} column: a term absorbed by a random-effect grouping is tested
+#' against that grouping's units minus the terms it absorbs, and a term absorbed
+#' by none against \eqn{n} minus the random-effect levels. A random slope counts
+#' as absorbing. Set \code{df_method = "normal"} for a z instead.
+#'
+#' A GLMM, a WeMix pseudo-ML fit and an \code{ordinal::clmm} fit have no
+#' finite-sample \eqn{t} and use the Wald z; a brms summary reports the
+#' posterior. For Kenward-Roger or Satterthwaite, apply \pkg{pbkrtest} or
+#' \pkg{lmerTest} to \code{x$model}.
+#'
+#' \code{df_method = "bootstrap"} replaces that reference for an \code{lme4} fit
+#' with at least one fixed-effect term, Gaussian or not, and is the one to use
+#' for a GLMM -- whose z is anticonservative for a term constant within a
+#' stratum, most severely when the strata are few. For
+#' each fixed-effect term the model is refitted \emph{without} that term,
+#' \code{n_boot} responses are simulated from the reduced fit, the full model is
+#' refitted on each, and the observed Wald statistic is referred to the resulting
+#' distribution of \eqn{|t^*|} under a true null. The estimate and standard error
+#' are unchanged; the p-value and the interval both come from that distribution
+#' and agree exactly, zero falling outside the interval precisely when the
+#' p-value is significant. \code{df} is \code{NA}, and so are the intercept's
+#' p-value and interval: a MAIHDA intercept is a reference-category level rather
+#' than a term that can be dropped, so it has no null model to simulate from.
+#'
+#' It costs \code{n_boot} refits \emph{per term}, and is a separate bootstrap
+#' from the \code{bootstrap = TRUE} VPC interval, which is not reused. The
+#' smallest reportable p-value is \eqn{1 / (n\_boot + 1)}.
+#'
+#' Budget for it. A Gaussian refit takes milliseconds, but a binomial one takes
+#' about a second at \eqn{n = 1000} and tens of seconds at \eqn{n = 6000}, so the
+#' default \code{n_boot = 1000} on a three-dimension GLMM is roughly an hour at
+#' the smaller size and impractical at the larger. The p-value is exact at any
+#' \code{n_boot} for which \eqn{(n\_boot + 1)\alpha} is a whole number -- 199 and
+#' 999 at the 5\% level -- while the interval endpoints, being order statistics,
+#' keep tightening with more draws; \code{n_boot = 199} is the usual compromise
+#' for a GLMM.
 #'
 #' @section Two VPCs for a longitudinal fit:
 #' A longitudinal summary reports \strong{two different variance partitions}, and
@@ -302,9 +364,21 @@ maihda_tag_role <- function(s, role) {
 #' @export
 #' @importFrom lme4 VarCorr fixef ranef
 summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
-                          conf_level = 0.95, response_vpc = FALSE, seed = NULL, ...) {
+                          conf_level = 0.95, response_vpc = FALSE, seed = NULL,
+                          df_method = c("between-within", "normal", "bootstrap"),
+                          ...) {
   if (!inherits(object, "maihda_model")) {
     stop("'object' must be a maihda_model object from fit_maihda()")
+  }
+  df_method <- match.arg(df_method)
+  # The parametric bootstrap rests on lme4's simulate()/refit(), exactly as the
+  # VPC bootstrap does, so it is available on the lme4 engine alone. Checked
+  # before n_boot is validated: an engine that cannot bootstrap at all should not
+  # first be warned about how many replicates it asked for.
+  if (identical(df_method, "bootstrap") && !identical(object$engine, "lme4")) {
+    stop("df_method = \"bootstrap\" is only available for the lme4 engine: the ",
+         "parametric bootstrap relies on lme4's simulate()/refit(). This model was ",
+         "fitted with engine = \"", object$engine, "\".", call. = FALSE)
   }
 
   if (!is.logical(bootstrap) || length(bootstrap) != 1 || is.na(bootstrap)) {
@@ -313,7 +387,9 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
   # Validated for every engine and both bootstrap settings: conf_level also sets
   # the fixed-effect interval below, not just the bootstrap VPC interval.
   conf_level <- maihda_validate_conf_level(conf_level)
-  if (bootstrap) {
+  # A fixed-effect bootstrap draws on n_boot and conf_level too, so validate them
+  # whenever EITHER bootstrap is requested -- not only when the VPC one is.
+  if (bootstrap || identical(df_method, "bootstrap")) {
     bootstrap_args <- maihda_validate_bootstrap_args(n_boot, conf_level)
     n_boot <- bootstrap_args$n_boot
     conf_level <- bootstrap_args$conf_level
@@ -321,6 +397,9 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
 
   engine <- object$engine
   model <- object$model
+  # Set by the lme4 branch when it replaces the Wald reference wholesale; NULL
+  # everywhere else, where the reported method is read off the df column.
+  fe_method <- NULL
   # A crossed-dimensions model (tagged by maihda(decomposition =
   # "crossed-dimensions")) has several crossed REs: each dimension carries its
   # additive main-effect variance and the intersection ("stratum") RE the
@@ -393,6 +472,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
           method = "bootstrap",
           n_boot_ok = attr(vpc_ci, "n_ok"),
           n_boot_nonconverged = attr(vpc_ci, "n_nonconverged"),
+          interval_reliable = attr(vpc_ci, "interval_reliable"),
           mc_se = attr(vpc_ci, "mc_se")
         )
       } else {
@@ -409,16 +489,32 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     # Fixed effects with their standard errors, Wald statistics and intervals,
     # read off the model summary's coefficient matrix (Estimate / Std. Error --
     # identical to lme4::fixef() plus sqrt(diag(vcov()))). lme4 reports no
-    # p-value for a Gaussian fit by design; the one added here is the
-    # normal-approximation Wald p that matches the interval (see
-    # maihda_fixed_effects_table).
-    fe_coef <- stats::coef(model_summary)
-    fixed_effects <- maihda_fixed_effects_table(
-      term = rownames(fe_coef),
-      estimate = fe_coef[, "Estimate"],
-      se = fe_coef[, "Std. Error"],
-      conf_level = conf_level
-    )
+    # p-value for a Gaussian fit by design; the one added here is the Wald p that
+    # matches the interval (see maihda_fixed_effects_table). A Gaussian fit gets
+    # containment (between-within) denominator degrees of freedom, so a dimension
+    # main effect is tested against the number of strata rather than n; a GLMM has
+    # no finite-sample t reference and stays on the normal.
+    # df_method = "bootstrap" replaces the whole Wald reference with the
+    # parametric-bootstrap one (maihda_bootstrap_fixef): the estimate and the
+    # model's own standard error are unchanged, the p-value and the interval come
+    # from the bootstrap distribution of the studentized statistic. It is the only
+    # option that repairs a GLMM's few-stratum standard error rather than only its
+    # reference distribution.
+    if (identical(df_method, "bootstrap")) {
+      fixed_effects <- maihda_bootstrap_fixef(model, n_boot, conf_level)
+      fe_method <- "bootstrap"
+    } else {
+      fe_coef <- stats::coef(model_summary)
+      fe_df <- if (df_method == "between-within") maihda_containment_df(model) else NULL
+      fixed_effects <- maihda_fixed_effects_table(
+        term = rownames(fe_coef),
+        estimate = fe_coef[, "Estimate"],
+        se = fe_coef[, "Std. Error"],
+        conf_level = conf_level,
+        df = fe_df
+      )
+      fe_method <- NULL
+    }
 
     # Stratum (intersection) random-effect estimates -- the interaction residuals in
     # the cross-classified model (the named interaction group), or the single stratum
@@ -655,6 +751,14 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       stratum_estimates = stratum_estimates,
       fixed_effects = fixed_effects,
       conf_level = conf_level,
+      # Which reference distribution the fixed-effect table used. Only the
+      # Gaussian lme4 path can honour "between-within"; every other engine
+      # reports "normal" whatever was asked for, so the print method and any
+      # downstream reader can say what was actually done.
+      df_method = if (!is.null(fe_method)) fe_method
+                  else if (is.data.frame(fixed_effects) &&
+                           "df" %in% names(fixed_effects) &&
+                           any(!is.na(fixed_effects$df))) "between-within" else "normal",
       thresholds = thresholds,
       model_summary = model_summary,
       engine = engine,
@@ -747,6 +851,7 @@ maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level
       method = "bootstrap",
       n_boot_ok = attr(boot$vpc, "n_ok"),
       n_boot_nonconverged = attr(boot$vpc, "n_nonconverged"),
+      interval_reliable = attr(boot$vpc, "interval_reliable"),
       mc_se = attr(boot$vpc, "mc_se")
     )
     decomposition$bootstrap <- TRUE
@@ -937,14 +1042,10 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0),
     }, error = function(e) NULL)
   }
 
-  # Non-converged draws are retained but reported (see bootstrap_pcv()).
-  if (n_nonconv > 0) {
-    warning(sprintf(paste0(
-      "%d of %d contributing crossed-dimensions decomposition bootstrap draw(s) had ",
-      "an lme4 optimiser that did not converge; they are retained in the intervals. ",
-      "n_boot_ok counts converged and non-converged refits alike -- interpret the ",
-      "intervals accordingly."), n_nonconv, sum(is.finite(vpc_boot))), call. = FALSE)
-  }
+  # Non-converged draws are retained but reported, and above a documented share the
+  # interval is flagged unreliable (see maihda_report_nonconvergence()).
+  reliable <- maihda_report_nonconvergence(
+    n_nonconv, sum(is.finite(vpc_boot)), "crossed-dimensions decomposition")
 
   out <- list(
     vpc = maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC"),
@@ -958,6 +1059,7 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0),
                                            "context VPC")
   }
   attr(out$vpc, "n_nonconverged") <- n_nonconv
+  attr(out$vpc, "interval_reliable") <- reliable
   out
 }
 
@@ -1029,6 +1131,7 @@ maihda_context_summary_lme4 <- function(object, ctx, vc, bootstrap, n_boot,
       method = "bootstrap",
       n_boot_ok = attr(boot$vpc, "n_ok"),
       n_boot_nonconverged = attr(boot$vpc, "n_nonconverged"),
+      interval_reliable = attr(boot$vpc, "interval_reliable"),
       mc_se = attr(boot$vpc, "mc_se")
     )
     context_summary$bootstrap <- TRUE
@@ -1179,14 +1282,10 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level,
     }, error = function(e) NULL)
   }
 
-  # Non-converged draws are retained but reported (see bootstrap_pcv()).
-  if (n_nonconv > 0) {
-    warning(sprintf(paste0(
-      "%d of %d contributing contextual decomposition bootstrap draw(s) had an lme4 ",
-      "optimiser that did not converge; they are retained in the intervals. ",
-      "n_boot_ok counts converged and non-converged refits alike -- interpret the ",
-      "intervals accordingly."), n_nonconv, sum(is.finite(vpc_boot))), call. = FALSE)
-  }
+  # Non-converged draws are retained but reported, and above a documented share the
+  # interval is flagged unreliable (see maihda_report_nonconvergence()).
+  reliable <- maihda_report_nonconvergence(
+    n_nonconv, sum(is.finite(vpc_boot)), "contextual decomposition")
 
   out <- list(
     vpc = maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC"),
@@ -1194,6 +1293,7 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level,
                                       "context VPC")
   )
   attr(out$vpc, "n_nonconverged") <- n_nonconv
+  attr(out$vpc, "interval_reliable") <- reliable
   out
 }
 
@@ -1243,20 +1343,267 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level,
     }, error = function(e) NULL)
   }
 
-  # Non-converged draws are retained but reported (see bootstrap_pcv()).
-  if (n_nonconv > 0) {
-    warning(sprintf(paste0(
-      "%d of %d contributing VPC bootstrap draw(s) had an lme4 optimiser that did ",
-      "not converge; they are retained in the interval. n_boot_ok counts converged ",
-      "and non-converged refits alike -- interpret the interval accordingly."),
-      n_nonconv, sum(is.finite(vpc_boot))), call. = FALSE)
-  }
+  # Non-converged draws are retained but reported, and above a documented share the
+  # interval is flagged unreliable (see maihda_report_nonconvergence()).
+  reliable <- maihda_report_nonconvergence(n_nonconv, sum(is.finite(vpc_boot)), "VPC")
 
   # Reduce to an interval, requiring a minimum number of successful refits.
   ci <- maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC")
   attr(ci, "n_nonconverged") <- n_nonconv
+  attr(ci, "interval_reliable") <- reliable
 
   return(ci)
+}
+
+# ---------------------------------------------------------------------------
+# Parametric-bootstrap fixed-effect inference
+# ---------------------------------------------------------------------------
+# A Wald z treats the variance components as known. The Gaussian path repairs
+# that with containment degrees of freedom, but a GLMM needs more: with few
+# strata its Wald STANDARD ERROR is itself too small, because glmer is ML-only
+# and an ML stratum variance estimated from a handful of units is biased down --
+# and lands exactly on the boundary in about a tenth of adjusted fits, where the
+# standard error of a stratum-level contrast collapses towards its
+# observation-level value. A t on any degrees of freedom rescales that standard
+# error without repairing it, which is why maihda_containment_df() still returns
+# NULL for a glmerMod.
+#
+# The bootstrap below is null-RESTRICTED, and that is what makes it work. For
+# each fixed-effect term it refits the model WITHOUT that term, simulates from
+# the reduced fit, refits the full model on each draw, and refers the observed
+# Wald statistic to the resulting distribution of |t*| = |beta*/se*| under a true
+# null. Simulating from the reduced fit is the point: the reduced model has not
+# spent its stratum degrees of freedom on the tested dimension, so it estimates
+# the stratum variance from more information and reaches the boundary less often.
+# An UNRESTRICTED bootstrap -- simulating from the fitted model itself -- inherits
+# the same downward-biased variance component and does not repair the level; that
+# was measured, and the numbers are in tests/testthat/test-audit-2026-09-02.R.
+
+# Is `red_form` safe to refit against a stored model FRAME? The frame holds
+# EVALUATED columns under their deparsed names, so a formula that transforms a
+# variable -- log(x), offset(logexp), cbind(a, b) -- would either apply the
+# transform a second time or fail to find its inputs. Refit from the frame only
+# when every name in the formula is an operator or a column already present.
+maihda_frame_refit_safe <- function(red_form, fr) {
+  ops <- c("~", "+", "-", "*", ":", "|", "||", "(")
+  nms <- setdiff(all.names(red_form), ops)
+  length(nms) > 0 && all(nms %in% names(fr))
+}
+
+# Refit `model` under a reduced fixed-effect formula. stats::update() is tried
+# first because it handles transformed terms correctly, and it reaches the data
+# through the formula environment even for a model fitted inside a function.
+#
+# But update() RE-EVALUATES the original call, so it silently refits on whatever
+# object the `data` argument now names. If that object has changed, the reduced
+# fit describes a different dataset and the null distribution simulated from it
+# would be for that other dataset -- and its response would be the wrong length
+# for refit(). The same mismatch arises legitimately when the dropped term had
+# missing values, since dropping it admits rows the full model excluded. Both are
+# caught by requiring the reduced fit to cover exactly the full model's rows and
+# response; otherwise fall through to the frame, which IS the full model's
+# complete-case data and so cannot disagree with it.
+maihda_refit_reduced <- function(model, red_form) {
+  fr <- tryCatch(model@frame, error = function(e) NULL)
+  same_data <- function(red) {
+    if (is.null(red)) return(FALSE)
+    ok <- tryCatch(isTRUE(stats::nobs(red) == stats::nobs(model)),
+                   error = function(e) FALSE)
+    if (!ok || !is.data.frame(fr)) return(ok)
+    tryCatch(isTRUE(all.equal(stats::model.response(red@frame),
+                              stats::model.response(fr))),
+             error = function(e) FALSE)
+  }
+  red <- tryCatch(suppressMessages(suppressWarnings(
+    stats::update(model, formula. = red_form))), error = function(e) NULL)
+  if (same_data(red)) return(red)
+
+  if (!is.data.frame(fr) || !maihda_frame_refit_safe(red_form, fr)) return(NULL)
+  # do.call, not a direct call: lme4 evaluates `weights` and `offset`
+  # non-standardly, in the formula's environment rather than here, so passing
+  # local variables by name fails with "object 'w' not found" for every weighted
+  # model. do.call() inlines the values into the call instead.
+  args <- list(formula = red_form, data = fr)
+  w <- stats::model.weights(fr)
+  off <- stats::model.offset(fr)
+  if (!is.null(w)) args$weights <- w
+  if (!is.null(off)) args$offset <- off
+  fun <- if (lme4::isLMM(model)) {
+    args$REML <- lme4::isREML(model)
+    lme4::lmer
+  } else {
+    args$family <- stats::family(model)
+    lme4::glmer
+  }
+  tryCatch(suppressMessages(suppressWarnings(do.call(fun, args))),
+           error = function(e) NULL)
+}
+
+#' Null-restricted parametric-bootstrap fixed effects for an lme4 fit
+#'
+#' Internal helper. For each fixed-effect term, refits the model without that
+#' term, simulates \code{n_boot} responses from the reduced fit, refits the full
+#' model on each, and refers the observed Wald statistic to the bootstrap
+#' distribution of \eqn{|t^*|} under a true null. Returns the shape
+#' \code{\link{maihda_fixed_effects_table}} produces, with \code{df} \code{NA}:
+#' the reference is an empirical distribution, not a \eqn{t}.
+#'
+#' The intercept has no reduced model to simulate from -- a MAIHDA intercept is a
+#' reference-category level rather than a term that can be dropped -- so its
+#' p-value and interval are \code{NA}, not a Wald z that is miscalibrated in
+#' exactly the regime this function exists for.
+#'
+#' @param model An lme4 model object (\code{lmerMod} or \code{glmerMod}).
+#' @param n_boot Number of bootstrap replicates \emph{per term}.
+#' @param conf_level Interval level.
+#' @return A data frame with \code{term}, \code{estimate}, \code{se},
+#'   \code{statistic}, \code{df}, \code{p_value}, \code{lower} and \code{upper},
+#'   carrying \code{n_boot_ok}, \code{n_boot_nonconverged} and
+#'   \code{interval_reliable} attributes -- the last \code{FALSE} when more than
+#'   half the contributing draws failed to converge, as for the VPC and PCV
+#'   bootstraps (\code{maihda_report_nonconvergence}).
+#' @keywords internal
+#' @importFrom lme4 refit fixef
+maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
+  est <- lme4::fixef(model)
+  nm <- names(est)
+  se <- sqrt(diag(as.matrix(stats::vcov(model))))
+  # A zero / non-finite standard error leaves the statistic undefined, exactly as
+  # in maihda_fixed_effects_table(); such a term cannot be studentized.
+  se[!is.finite(se) | se <= 0] <- NA_real_
+
+  X <- tryCatch(lme4::getME(model, "X"), error = function(e) NULL)
+  assign_term <- if (is.null(X)) NULL else attr(X, "assign")
+  term_labels <- tryCatch(
+    attr(stats::terms(stats::formula(model, fixed.only = TRUE)), "term.labels"),
+    error = function(e) NULL)
+  if (is.null(assign_term) || length(assign_term) != length(nm) ||
+      is.null(term_labels)) {
+    stop("The fixed-effect design of this model could not be split into terms, ",
+         "so a null-restricted bootstrap cannot be built. Use ",
+         "df_method = \"normal\".", call. = FALSE)
+  }
+  if (!length(term_labels)) {
+    stop("This model has no fixed-effect term to test: its fixed part is the ",
+         "intercept alone, which has no reduced model to simulate from. Use ",
+         "df_method = \"normal\".", call. = FALSE)
+  }
+
+  p_value <- lower <- upper <- rep(NA_real_, length(nm))
+  n_ok <- rep(NA_integer_, length(nm))
+  # Counted over every term's draws, so the share handed to
+  # maihda_report_nonconvergence() is non-converged refits out of the refits that
+  # actually contributed -- the same denominator the VPC and PCV bootstraps use.
+  n_nonconv <- 0L
+  n_contrib <- 0L
+
+  for (k in seq_along(term_labels)) {
+    cols <- which(assign_term == k)
+    if (!length(cols)) next
+    red_form <- stats::update(stats::formula(model),
+                              paste(". ~ . -", term_labels[k]))
+    red <- maihda_refit_reduced(model, red_form)
+    if (is.null(red)) {
+      stop("The model without '", term_labels[k], "' could not be refitted, so no ",
+           "null distribution can be simulated for that term. This happens when the ",
+           "data the model was fitted to is no longer in scope; keep it available, ",
+           "or use df_method = \"normal\".", call. = FALSE)
+    }
+
+    sim_data <- tryCatch(maihda_simulate_lme4(red, nsim = n_boot),
+                         error = function(e) NULL)
+    if (is.null(sim_data)) {
+      stop("Responses could not be simulated from the model without '",
+           term_labels[k], "', so its null distribution is unavailable. Use ",
+           "df_method = \"normal\".", call. = FALSE)
+    }
+
+    t_star <- matrix(NA_real_, n_boot, length(cols))
+    for (i in seq_len(n_boot)) {
+      tryCatch({
+        boot_model <- lme4::refit(model, newresp = sim_data[[i]])
+        bi <- lme4::fixef(boot_model)
+        si <- sqrt(diag(as.matrix(stats::vcov(boot_model))))
+        j <- match(nm[cols], names(bi))
+        t_star[i, ] <- bi[j] / si[j]
+        n_contrib <- n_contrib + 1L
+        if (maihda_lme4_optimizer_failed(boot_model)) n_nonconv <- n_nonconv + 1L
+      }, error = function(e) NULL)
+    }
+
+    for (c_i in seq_along(cols)) {
+      j <- cols[c_i]
+      ts <- abs(t_star[, c_i])
+      ts <- ts[is.finite(ts)]
+      n_ok[j] <- length(ts)
+      if (!is.finite(se[j]) || n_ok[j] < 10L) next
+      t_obs <- abs(est[j] / se[j])
+      # (1 + count) / (B + 1), so a p-value is never exactly zero and the test is
+      # exact under the bootstrap distribution rather than off by one draw. It
+      # also floors the reportable p at 1 / (B + 1): a small n_boot cannot
+      # resolve a small p-value.
+      p_value[j] <- min(1, (1 + sum(ts >= t_obs)) / (n_ok[j] + 1))
+      # The critical value is the exact INVERSION of that p-value, not a
+      # quantile() of the same draws: with r = ceiling(alpha * (B + 1)) - 1, the
+      # observed statistic beats the r-th largest |t*| precisely when at most
+      # r - 1 draws reach it, which is precisely when p < alpha. So zero falls
+      # outside the interval exactly when the p-value is significant -- the same
+      # duality the Wald table has, which a quantile would only approximate to
+      # one draw's resolution.
+      r <- ceiling((1 - conf_level) * (n_ok[j] + 1)) - 1
+      crit <- if (r < 1L) Inf else sort(ts, decreasing = TRUE)[r]
+      lower[j] <- est[j] - crit * se[j]
+      upper[j] <- est[j] + crit * se[j]
+    }
+  }
+
+  ok_tested <- n_ok[assign_term > 0L]
+  if (!any(is.finite(ok_tested))) {
+    stop("Every fixed-effect bootstrap refit failed; no reference distribution ",
+         "could be built.", call. = FALSE)
+  }
+  n_min <- min(ok_tested, na.rm = TRUE)
+  if (n_min < 10L) {
+    stop(sprintf(paste0("Only %d of %d fixed-effect bootstrap refits succeeded for at ",
+                        "least one term; at least 10 are required. Increase n_boot or ",
+                        "check for singular/failing fits."), n_min, n_boot),
+         call. = FALSE)
+  }
+  # Same majority-of-draws rule as maihda_bootstrap_ci(): the survivors of a
+  # mostly-failed bootstrap are the draws that happened to converge, a biased subset.
+  if (n_min < ceiling(0.5 * n_boot)) {
+    stop(sprintf(paste0("Only %d of %d fixed-effect bootstrap refits succeeded (%.0f%%) ",
+                        "for at least one term; at least 50%% must succeed to form a ",
+                        "dependable reference. Increase n_boot or check for ",
+                        "singular/failing fits."), n_min, n_boot,
+                 100 * n_min / n_boot), call. = FALSE)
+  }
+  if (n_boot - n_min > n_boot * 0.25) {
+    warning(sprintf(paste0("%d of %d fixed-effect bootstrap refits failed (%.0f%%) for ",
+                           "at least one term; the p-values and intervals may be ",
+                           "unreliable."), n_boot - n_min, n_boot,
+                    100 * (n_boot - n_min) / n_boot), call. = FALSE)
+  }
+  # Non-converged draws are retained but reported, and above a documented share the
+  # reference distribution is flagged unreliable (see maihda_report_nonconvergence()).
+  reliable <- maihda_report_nonconvergence(n_nonconv, n_contrib, "fixed-effect")
+
+  out <- data.frame(
+    term      = nm,
+    estimate  = as.numeric(est),
+    se        = as.numeric(se),
+    statistic = as.numeric(est / se),
+    df        = NA_real_,
+    p_value   = p_value,
+    lower     = lower,
+    upper     = upper,
+    row.names = NULL,
+    stringsAsFactors = FALSE
+  )
+  attr(out, "n_boot_ok") <- n_ok
+  attr(out, "n_boot_nonconverged") <- n_nonconv
+  attr(out, "interval_reliable") <- reliable
+  out
 }
 
 #' Print the additive vs. intersectional decomposition of a crossed-dimensions summary
@@ -1384,6 +1731,18 @@ print.maihda_summary <- function(x, ...) {
         "  (%d successful bootstrap draws; Monte Carlo SE of the bootstrap mean %.4f)\n",
         as.integer(x$vpc$n_boot_ok), x$vpc$mc_se)))
     }
+    if (!is.null(x$vpc$n_boot_nonconverged) && is.finite(x$vpc$n_boot_nonconverged) &&
+        x$vpc$n_boot_nonconverged > 0) {
+      cat(pal$muted(sprintf(paste0(
+        "  (%d contributing draw(s) had an optimiser that did not converge and were\n",
+        "   retained; n_boot_ok counts them alongside converged refits.)\n"),
+        as.integer(x$vpc$n_boot_nonconverged))))
+    }
+    if (isFALSE(x$vpc$interval_reliable)) {
+      cat(pal$warn(paste0(
+        "  (Interval flagged UNRELIABLE: more than half the contributing draws did\n",
+        "   not converge. Treat it as indicative only and check for singular fits.)\n")))
+    }
     cat("\n")
   } else {
     cat(sprintf("  Estimate: %s\n\n", pal$accent(sprintf("%.4f", x$vpc$estimate))))
@@ -1454,20 +1813,63 @@ print.maihda_summary <- function(x, ...) {
   # maihda_fixed_effects_table); brms carries the posterior summary matrix,
   # whose column names already label the quantiles.
   fe_level <- if (is.null(x$conf_level)) 95 else 100 * x$conf_level
-  fe_header <- if (is.data.frame(x$fixed_effects) &&
-                   "lower" %in% names(x$fixed_effects)) {
-    sprintf("Fixed Effects (Wald %s%% intervals):",
-            format(round(fe_level, 1), trim = TRUE))
+  fe_print <- x$fixed_effects
+  # A t reference is only ever used where finite-sample degrees of freedom were
+  # available (a Gaussian lme4 fit); everywhere else the df column is all-NA and
+  # is dropped rather than printed as a column of blanks.
+  fe_has_df <- is.data.frame(fe_print) && "df" %in% names(fe_print) &&
+    any(!is.na(fe_print$df))
+  fe_boot <- identical(x$df_method, "bootstrap")
+  fe_header <- if (is.data.frame(fe_print) && "lower" %in% names(fe_print)) {
+    if (fe_boot) {
+      sprintf("Fixed Effects (parametric bootstrap, %s%% intervals):",
+              format(round(fe_level, 1), trim = TRUE))
+    } else {
+      sprintf("Fixed Effects (Wald %s, %s%% intervals):",
+              if (fe_has_df) "t" else "z", format(round(fe_level, 1), trim = TRUE))
+    }
   } else {
     "Fixed Effects:"
   }
   cat(pal$bold(fe_header), "\n", sep = "")
-  fe_print <- x$fixed_effects
   if (is.data.frame(fe_print) && "p_value" %in% names(fe_print)) {
     # Without this a p of 1e-200 prints as "0.00000" next to a p of 0.04.
     fe_print$p_value <- format.pval(fe_print$p_value, digits = 3, eps = 1e-16)
   }
+  if (is.data.frame(fe_print) && "df" %in% names(fe_print) && !fe_has_df) {
+    fe_print$df <- NULL
+  }
   print(fe_print, row.names = FALSE, digits = 4)
+  if (fe_has_df) {
+    # One line, not a lecture: without it the small df on a dimension main effect
+    # reads as a typo, but this prints on every Gaussian summary.
+    cat("  df: containment (between-within).\n")
+  }
+  if (fe_boot && is.data.frame(fe_print) && "p_value" %in% names(fe_print) &&
+      any(fe_print$term == "(Intercept)" & is.na(x$fixed_effects$p_value))) {
+    # Otherwise the blank intercept row reads as a failure rather than a design
+    # decision: there is no model without an intercept to simulate a null from.
+    cat("  Intercept: no null model to bootstrap, so no p-value or interval.\n")
+  }
+  if (fe_boot) {
+    # Read from x$fixed_effects, not fe_print: formatting the p-value column above
+    # rebuilds the frame and does not carry the bootstrap attributes across.
+    # Same two-part report the VPC interval gets -- how many non-converged draws
+    # were retained, and whether that share makes the reference untrustworthy.
+    fe_nonconv <- attr(x$fixed_effects, "n_boot_nonconverged")
+    if (is.numeric(fe_nonconv) && length(fe_nonconv) == 1L &&
+        !is.na(fe_nonconv) && fe_nonconv > 0) {
+      cat(pal$muted(sprintf(paste0(
+        "  (%d contributing draw(s) had an optimiser that did not converge and were\n",
+        "   retained in the reference distribution.)\n"), as.integer(fe_nonconv))))
+    }
+    if (isFALSE(attr(x$fixed_effects, "interval_reliable"))) {
+      cat(pal$warn(paste0(
+        "  (Reference distribution flagged UNRELIABLE: more than half the contributing\n",
+        "   draws did not converge. Treat these p-values and intervals as indicative\n",
+        "   only and check for singular fits.)\n")))
+    }
+  }
   cat("\n")
 
   if (!is.null(x$thresholds) && nrow(x$thresholds) > 0) {

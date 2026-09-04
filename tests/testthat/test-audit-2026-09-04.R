@@ -1,4 +1,4 @@
-# Regression tests for the 2026-09-01c statistical audit pass.
+# Regression tests for the 2026-09-04 statistical audit pass.
 #
 # FINDING: maihda_describe() under-reported an aggregated-binomial outcome whenever
 # the trial counts were supplied the way ?glm documents them -- a PROPORTION response
@@ -18,28 +18,16 @@
 # The fix does not re-implement the detection rule: maihda_describe_model_agg() calls
 # maihda_da_aggregated_counts(), the rule the AUC already uses, so the two cannot
 # drift apart again. Deferring rather than duplicating is the whole design, and it is
-# what makes this pass compose with the FIFTY-FOURTH pass (uncommitted in the main
-# checkout when this was written), which rewrites that same rule to key on the
-# WEIGHTS rather than the response, so that a 0/1 response with integral weights
-# becomes trial counts too. describe follows the rule wherever it goes: these tests
-# therefore pin the AGREEMENT between describe and the AUC, and pin exact counts only
-# for the proportion-response spelling, whose reading both versions of the rule share.
-# Anything asserting the 0/1 spelling's specific totals would pin a decision the user
-# has already reversed.
+# what let this pass compose with the one that landed alongside it (which rewrote that
+# same rule to key on the WEIGHTS rather than the response): describe followed the rule
+# to its new reading with no change of its own, and every assertion below still held.
+# All three spellings of the fixture -- cbind(), a proportion response with
+# weights = trials, and the frequency-cell 0/1 response -- now report 340 events out
+# of 617 in describe AND in the AUC.
 #
-# MERGE NOTE (this pass and the 54th both edit R/discriminatory_accuracy.R):
-#   1. This pass adds a `context` argument to maihda_da_aggregated_counts() and
-#      maihda_da_proportion_successes(), so the shared fractional-successes warning is
-#      not worded "AUC" when maihda_describe() is what raised it. Keep it alongside
-#      the 54th's `binomial_weights`: maihda_da_aggregated_counts(model,
-#      binomial_weights = ..., context = ...).
-#   2. This pass also FACTORS the (y, w) rule out of that wrapper into
-#      maihda_agg_counts_from_weights(y, w, context), which the pre-fit describe path
-#      calls with no model in hand. The 54th's rule change -- dropping the
-#      any(y > 0 & y < 1) requirement so integral weights are trial counts whatever
-#      the response -- therefore belongs INSIDE that helper now, not in the wrapper it
-#      was originally written against. Applied there, both describe paths inherit it
-#      for free and these tests still pass.
+# These tests therefore pin two things: the exact counts, and the AGREEMENT between
+# describe and the AUC. The agreement is the durable one -- it must survive whatever
+# the shared rule decides next.
 #
 # PART 2 of the same finding: the pre-fit maihda_describe(formula, data) path had no
 # `weights` argument at all, so it could not see the trial counts even in principle.
@@ -111,12 +99,11 @@ test_that("describe and the AUC agree on the frequency-cell spelling too", {
   skip_on_cran()
   a <- agg_fixture()
   # The frequency-weighted spelling of the SAME table: a 0/1 response whose counts
-  # ride in `weights =`. Whether this reads as an aggregated binomial (340 of 617) or
-  # as a precision-weighted Bernoulli (12 of 24) is a decision of the SHARED rule, and
-  # the 54th pass moves it from the second reading to the first. This test therefore
-  # asserts only what the fix itself owns and what holds under both readings: describe
-  # and the AUC must give ONE answer for one model. Before the fix they could not --
-  # describe had no way to see the weights at all.
+  # ride in `weights =`. Whether this reads as an aggregated binomial or as a
+  # precision-weighted Bernoulli is a decision of the SHARED rule, which currently
+  # takes the first. What this pass owns is the agreement: describe and the AUC must
+  # give ONE answer for one model. Before the fix they could not -- describe had no
+  # way to see the weights at all.
   cell <- rbind(
     data.frame(stratum = a$stratum, x = a$x, y = 1, n = a$succ),
     data.frame(stratum = a$stratum, x = a$x, y = 0, n = a$fail))
@@ -128,13 +115,10 @@ test_that("describe and the AUC agree on the frequency-cell spelling too", {
   expect_equal(da$n_case, d$outcome_overall$outcome_events)
   expect_equal(da$n_case + da$n_control, d$outcome_overall$outcome_trials)
 
-  # And whichever reading is in force, it is one of exactly these two -- not a third
-  # number arrived at by describe and the AUC disagreeing about the rows.
-  expect_true(
-    isTRUE(all.equal(c(d$outcome_overall$outcome_events,
-                       d$outcome_overall$outcome_trials), c(340, 617))) ||
-    isTRUE(all.equal(c(d$outcome_overall$outcome_events,
-                       d$outcome_overall$outcome_trials), c(12, 24))))
+  # The counts themselves, now that the shared rule reads these weights as trials:
+  # the same 340 of 617 the cbind() spelling of this table reports.
+  expect_equal(d$outcome_overall$outcome_events, 340)
+  expect_equal(d$outcome_overall$outcome_trials, 617)
 
   # describe tracks the rule rather than carrying its own copy: whatever the shared
   # detector says about this fit, describe's trial counts say the same.
@@ -292,9 +276,9 @@ test_that("pre-fit `weights` does not turn other families into events/trials", {
   expect_true("outcome_mean" %in% names(dg$outcome_overall))
   expect_false("outcome_trials" %in% names(dg$outcome_overall))
 
-  # (b) a 0/1 binomial outcome. Which reading this gets belongs to the shared rule
-  # (the 54th pass moves it), so pin the property this pass owns: the pre-fit
-  # description and the description of the fit made by the SAME call agree.
+  # (b) a 0/1 binomial outcome. Which reading this gets belongs to the shared rule,
+  # so pin the property this pass owns: the pre-fit description and the description
+  # of the fit made by the SAME call agree.
   d$b <- stats::rbinom(60, 1, 0.5)
   db <- maihda_describe(b ~ (1 | a1:a2), data = d, family = "binomial", weights = w)
   m <- suppressWarnings(suppressMessages(fit_maihda(

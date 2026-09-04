@@ -4,7 +4,10 @@
 \alias{maihda_discriminatory_accuracy}
 \title{Discriminatory accuracy of a binary MAIHDA model}
 \usage{
-maihda_discriminatory_accuracy(model)
+maihda_discriminatory_accuracy(
+  model,
+  binomial_weights = c("auto", "trials", "analytic")
+)
 }
 \arguments{
 \item{model}{A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
@@ -12,6 +15,22 @@ maihda_discriminatory_accuracy(model)
 \code{cbind(success, failure)} or a brms \code{y | trials(n)}) -- or the
 \code{bernoulli} family a binary 0/1 outcome is fit with under
 \code{engine = "brms"}.}
+
+\item{binomial_weights}{How to read non-unit \code{weights =} on an \strong{lme4}
+binomial fit when computing the AUC. \code{"auto"} (default) reads integral
+weights as \strong{trial counts}, which is what R documents a binomial prior
+weight to be (\code{\link[stats]{glm}}: "For a binomial GLM prior weights are used
+to give the number of trials"), and leaves non-integral weights -- which cannot be
+counts -- on the observation-level path, flagged
+\code{precision_weights_ignored}. \code{"trials"} forces the trial-count reading
+even for non-integral weights (the fractional case/control mass is carried as it
+stands, with a warning). \code{"analytic"} forces the ordinary observation-level
+concordance, ignoring the weights and setting
+\code{precision_weights_ignored = TRUE}; it is an error for a response carrying
+values strictly between 0 and 1, which has no observation-level case/control
+reading. Has no effect on a \code{cbind(success, failure)} response (its
+denominator is structural), on a brms \code{y | trials(n)} fit, or on a
+design-weighted (\code{sampling_weights}) fit.}
 }
 \value{
 An object of class \code{maihda_da}: a list with \code{auc},
@@ -31,23 +50,25 @@ An object of class \code{maihda_da}: a list with \code{auc},
   \code{weight_type = NULL}: its count-weighted AUC equals the ordinary
   individual-level concordance over the implied 0/1 data (the trial counts are
   real observations, not sampling weights), so it is not a design-weighted
-  population quantity. Aggregation is recognised \emph{structurally} -- an lme4
-  \code{cbind(success, failure)} matrix response, an lme4 proportion response
-  whose integer trial counts are supplied as \code{weights=} (see
-  \code{\link[stats]{glm}}), or a brms \code{y | trials(n)} term. Note that an
-  aggregated fit whose every row is all-success or all-failure has a proportion
-  response of exactly 0/1 and so cannot be distinguished from a Bernoulli fit;
-  write \code{cbind(successes, failures)} for such data. When a proportion
+  population quantity. Aggregation is recognised from an lme4
+  \code{cbind(success, failure)} matrix response, from non-unit integral lme4
+  \code{weights=} on a response in [0, 1] (the trial counts, see
+  \code{\link[stats]{glm}}), or from a brms \code{y | trials(n)} term. The
+  weights-based form covers a response of exactly 0/1 -- individual records
+  collapsed to frequency cells -- because for the binomial family a prior weight
+  \emph{is} a trial count: the weighted log-likelihood of one 0/1 row is exactly
+  that of \code{w} trials sharing its outcome, so the fit equals the row-expanded
+  one and its AUC should too. Pass \code{binomial_weights} to override. When a
   response times its trial counts is \emph{not} a whole number of successes --
   a malformed binomial, which \code{glmer} itself warns about as "non-integer
   #successes" -- the fractional case/control mass is carried into the AUC as it
   stands, with a warning, rather than rounded into whole observations that were
   never collected; \code{n_case} / \code{n_control} are then fractional.
-  \strong{lme4 precision weights} (any non-unit \code{weights=} on a Bernoulli
-  fit, integer or not) scale likelihood/dispersion, not population frequency, so
-  they carry no population-AUC interpretation: the AUC ignores them and reports
-  the ordinary observation-level concordance (\code{weighted = FALSE}), with
-  \code{precision_weights_ignored = TRUE} flagging that such weights were present.
+  \strong{Weights not read as trial counts} -- non-integral \code{weights=}, or any
+  weights under \code{binomial_weights = "analytic"} -- are ignored by the AUC,
+  which is then the ordinary observation-level concordance
+  (\code{weighted = FALSE}), with \code{precision_weights_ignored = TRUE} flagging
+  that such weights were present.
 }
 \description{
 Bundles the individual-level discriminatory-accuracy summaries for a binomial
@@ -70,10 +91,15 @@ predictive discrimination; the returned object carries \code{apparent = TRUE}
 and \code{print()} says so. For genuine predictive accuracy, validate with an
 out-of-fold (group-aware) scheme or an optimism correction.
 
-Aggregated-binomial fits are supported on both engines that fit them -- an lme4
-\code{cbind(success, failure)} response and a brms \code{y | trials(n)} response:
-the AUC is the count-weighted C-statistic over the implied individual-level 0/1
-data, and \code{n_case} / \code{n_control} are the total successes / failures.
+Aggregated-binomial fits are supported in all three forms R accepts -- an lme4
+\code{cbind(success, failure)} response, an lme4 response in [0, 1] whose trial
+counts are supplied as \code{weights =} (see \code{\link[stats]{glm}}), and a brms
+\code{y | trials(n)} response: the AUC is the count-weighted C-statistic over the
+implied individual-level 0/1 data, and \code{n_case} / \code{n_control} are the
+total successes / failures. All three spellings of the same data give the same AUC.
+This includes individual 0/1 records collapsed to frequency cells (every row
+all-success or all-failure), whose weights are trial counts like any others; see
+\code{binomial_weights} to override that reading.
 
 \strong{Scope.} When the model carries random effects \emph{beyond} the
 intersectional partition -- a contextual \code{(1 | school)} from

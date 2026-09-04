@@ -40,7 +40,11 @@ Any dimension main effect listed must be written as its bare column name: a
 transformed term such as \code{factor(edu)} is rejected, because only a bare
 name is recognised as a dimension's main effect and the transform would
 otherwise survive into the derived null model. Transform the column in
-\code{data} instead (\code{data$edu <- factor(data$edu)}).}
+\code{data} instead (\code{data$edu <- factor(data$edu)}). For the same reason a
+fixed interaction involving a dimension is rejected, whether with another
+dimension (\code{gender * race}) or with a covariate (\code{age * gender}): only
+the bare main effect is removed, so the interaction survives into the null model,
+which would then already adjust for that dimension.}
 
 \item{data}{A data frame with the model variables (and the \code{group}
 variable, if used).}

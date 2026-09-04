@@ -140,10 +140,14 @@
 #'   denominator of R's second aggregated-binomial idiom (see \code{?glm}): a
 #'   proportion response with the trial counts passed as \code{weights}, which
 #'   is then summarised as events out of trials rather than as one trial per row.
-#'   That reading is taken only when the weights are non-unit whole numbers and
-#'   the response is a genuine proportion -- a 0/1 response carrying whole-number
-#'   weights stays an ordinary Bernoulli outcome, being indistinguishable from an
-#'   aggregation in which every row is all-success or all-failure. Mutually
+#'   That reading is taken only when the weights are non-unit whole numbers, the
+#'   same rule \code{\link{maihda_discriminatory_accuracy}} applies, so the two
+#'   never report different sample sizes for one model; it covers the frequency-cell
+#'   spelling (a 0/1 response whose counts ride in \code{weights}) as well as a
+#'   proportion response. Non-integral weights are not counts and are left alone.
+#'   There is no \code{binomial_weights} override here as there is on the AUC:
+#'   those select an estimand for the concordance, not a way to count a sample.
+#'   Mutually
 #'   exclusive with \code{sampling_weights}, which are design weights and mean
 #'   something different. Must be omitted for a fitted-model input (the fit
 #'   already carries its weights). Placed last in the argument list for backward
@@ -460,12 +464,15 @@ maihda_describe_formula_agg <- function(formula, data, keep, fam_obj, weights_va
 # / 277 controls. Two numbers for one model.
 #
 # The rule is not re-implemented here: maihda_da_aggregated_counts() IS the rule, so
-# describe and the AUC cannot drift apart. In particular a 0/1 response carrying
-# integer weights stays a PRECISION-weighted Bernoulli for both (it is
-# indistinguishable from an all-success/all-failure aggregation, and ?glm's
-# documented meaning of `weights =` is the tie-break) -- see the KNOWN LIMIT note on
-# that helper. Non-lme4 engines return NULL: brms trials come off the formula's
-# trials() term, and the wemix/ordinal engines carry no aggregated response.
+# describe and the AUC cannot drift apart -- including through changes to the rule.
+# It currently reads any non-unit integral prior weights as trial counts whatever the
+# response, so the frequency-cell spelling (a 0/1 response whose counts ride in
+# `weights =`) reports the same events and trials here as cbind(successes, failures)
+# does. describe always takes that "auto" reading; the AUC's binomial_weights =
+# "trials" / "analytic" overrides are estimand choices for the concordance and have no
+# counterpart in a sample description. Non-lme4 engines return NULL: brms trials come
+# off the formula's trials() term, and the wemix/ordinal engines carry no aggregated
+# response.
 #
 # ROW ALIGNMENT: the counts live on the analytic frame (model$data, the rows the
 # engine kept), while describe evaluates the outcome on the pre-fit frame, so the two

@@ -1012,6 +1012,48 @@ maihda_bootstrap_ci <- function(values, n_boot, conf_level, what = "VPC",
   ci
 }
 
+# Report retained non-converged bootstrap refits and rate the interval's
+# reliability. The parametric bootstrap RETAINS draws whose refit optimiser did not
+# converge (optinfo$conv$opt != 0) -- lme4's post-hoc relative-gradient flag is a
+# frequent false positive on simulated refits, and the optimiser's own return code
+# fires on well under 1% of refits even for deliberately hard fits -- but the count
+# is always surfaced so n_boot_ok is not read as implying convergence that was never
+# checked. `n_nonconv` of `n_contrib` contributing (finite) draws did not converge.
+# At or below `threshold` of the contributing draws the standard "retained; interpret
+# accordingly" note is emitted and the interval is rated reliable; ABOVE it the
+# interval is STILL returned (the retained draws still carry information, unlike an
+# undefined boundary draw) but flagged UNRELIABLE with an escalated warning. That
+# documented ceiling mirrors the boundary path's surface-and-condition idiom and
+# closes the gap whereby a mostly-non-converged bootstrap could clear
+# maihda_bootstrap_ci()'s failure-fraction gate unremarked (non-converged draws are
+# finite, so that gate counts them as successes). Returns the reliability logical for
+# the caller to attach to its result as `interval_reliable`.
+maihda_report_nonconvergence <- function(n_nonconv, n_contrib, label = "VPC",
+                                         threshold = 0.5) {
+  if (!is.numeric(n_nonconv) || length(n_nonconv) != 1L || is.na(n_nonconv) ||
+      n_nonconv <= 0L || !is.numeric(n_contrib) || length(n_contrib) != 1L ||
+      is.na(n_contrib) || n_contrib <= 0L) {
+    return(TRUE)
+  }
+  share <- n_nonconv / n_contrib
+  reliable <- share <= threshold
+  if (reliable) {
+    warning(sprintf(paste0(
+      "%d of %d contributing %s bootstrap draw(s) had an lme4 optimiser that did ",
+      "not converge; they are retained in the interval. n_boot_ok counts converged ",
+      "and non-converged refits alike -- interpret the interval accordingly."),
+      n_nonconv, n_contrib, label), call. = FALSE)
+  } else {
+    warning(sprintf(paste0(
+      "%d of %d contributing %s bootstrap draw(s) (%.0f%%) had an lme4 optimiser ",
+      "that did not converge -- above the %.0f%% reliability threshold. The interval ",
+      "is still returned but flagged unreliable (interval_reliable = FALSE); treat ",
+      "it as indicative only and check for singular or failing fits."),
+      n_nonconv, n_contrib, label, 100 * share, 100 * threshold), call. = FALSE)
+  }
+  reliable
+}
+
 maihda_validate_bootstrap_args <- function(n_boot, conf_level) {
   # Forming an interval needs at least maihda_bootstrap_ci()'s minimum number of
   # successful refits, so reject n_boot below that floor here -- failing fast with
@@ -1186,18 +1228,33 @@ maihda_check_no_transformed_dimension <- function(formula, strata_vars,
 # absorbs the between-stratum variance into fixed effects, pinning the stratum RE at a
 # singular boundary and collapsing the PCV (and the pure-interaction BLUP diagnostic).
 #
+# A dimension-by-COVARIATE interaction (e.g. age:gender) is a different but equally
+# fatal case, and `scope` selects which one is wanted. The main-effect stripping
+# removes only the bare `gender` term, so `age:gender` survives into the derived NULL
+# model -- which therefore ALREADY adjusts for gender. The null's between-stratum
+# variance is deflated and the PCV is computed against the wrong baseline, exactly as
+# for a transformed dimension (see maihda_check_no_transformed_dimension()). Worse, the
+# surviving term is not even a fixed feature of the data: with `gender` absent
+# marginally, `age:gender` is a gender contrast SCALED BY age, so how much gender the
+# null absorbs depends on the arbitrary origin of age, and re-centering the covariate
+# moves the PCV by percentage points. For a CATEGORICAL covariate R gives the dimension
+# full dummy coding inside the term, and the null's column space then spans the
+# dimension's main effect exactly -- the null adjusts for a whole stratum dimension.
+#
 # Returns the offending fixed-effect term labels (character(0) when there are none).
 # Detection uses the terms() factors matrix (rows = variables, columns = terms) rather
 # than string-splitting the ":"-joined labels, so it is robust to non-syntactic names
 # (e.g. `gender var`) and to variable order within the interaction. A term is flagged
-# when its interaction order is >= 2 and EVERY variable it involves is a stratum
-# dimension; a dimension-by-covariate interaction (e.g. age:gender, a legitimate
-# covariate adjustment) is left alone. `strata_vars` are the raw dimension names and
-# `dim_terms` (optional) the adjusted-model main-effect terms -- the reconstructed
-# `.maihda_dim_*` factor for an auto-binned numeric dimension -- both matched in raw
-# and backtick-quoted form (terms() quotes non-syntactic variable labels).
+# when its interaction order is >= 2 and, for `scope = "all"` (the default), EVERY
+# variable it involves is a stratum dimension, or, for `scope = "any"`, AT LEAST ONE
+# is. `strata_vars` are the raw dimension names and `dim_terms` (optional) the
+# adjusted-model main-effect terms -- the reconstructed `.maihda_dim_*` factor for an
+# auto-binned numeric dimension -- both matched in raw and backtick-quoted form
+# (terms() quotes non-syntactic variable labels).
 maihda_dimension_interaction_terms <- function(formula, strata_vars,
-                                               dim_terms = character(0)) {
+                                               dim_terms = character(0),
+                                               scope = c("all", "any")) {
+  scope <- match.arg(scope)
   if (is.null(strata_vars) || length(strata_vars) < 2) {
     return(character(0))
   }
@@ -1220,11 +1277,12 @@ maihda_dimension_interaction_terms <- function(formula, strata_vars,
   is_dim_var <- var_labels %in% dim_names | var_labels %in% dim_quoted |
     vapply(var_labels, maihda_is_transformed_dim, logical(1), dim_names = dim_names)
 
+  hit <- if (identical(scope, "any")) any else all
   flagged <- character(0)
   for (j in seq_along(term_labels)) {
     if (ord[j] < 2L) next
     involved <- factors[, j] != 0
-    if (any(involved) && all(is_dim_var[involved])) {
+    if (any(involved) && hit(is_dim_var[involved])) {
       flagged <- c(flagged, term_labels[j])
     }
   }
@@ -1232,18 +1290,68 @@ maihda_dimension_interaction_terms <- function(formula, strata_vars,
 }
 
 # Stop with a single, actionable message when a formula carries a fixed interaction
-# among the stratum dimensions (see maihda_dimension_interaction_terms()). Called by
-# the workflow entry points (maihda(), compare_maihda_groups()) before they derive
-# the null/adjusted formulas, so the user is rejected up front rather than handed a
-# silently corrupt (NA/NULL) PCV. Rejection -- not silent stripping -- is the safe
-# choice: the MAIHDA adjusted model is defined to carry only the dimensions' ADDITIVE
-# main effects, with the intersection estimated by the stratum random effect.
+# involving a stratum dimension -- either among the dimensions (gender * race) or
+# between a dimension and a covariate (age * gender); see
+# maihda_dimension_interaction_terms(). Called by the workflow entry points (maihda(),
+# compare_maihda_groups()) before they derive the null/adjusted formulas, so the user
+# is rejected up front rather than handed a silently corrupt PCV. Rejection -- not
+# silent stripping -- is the safe choice: the MAIHDA adjusted model is defined to carry
+# only the dimensions' ADDITIVE main effects, with the intersection estimated by the
+# stratum random effect, and stripping the covariate interaction would redefine the
+# PCV's estimand without telling the user.
+# `time` (optional) is the longitudinal time variable. A dimension-by-TIME interaction
+# is the one case where the offending term belongs in the adjusted model -- but
+# maihda(decomposition = "longitudinal") builds `dim:time` itself, and a user-written
+# copy survives the stripping into the NULL growth model, where it corrupts the very
+# slope PCV it was meant to inform. Naming `time` only changes the remedy sentence.
 maihda_check_no_dimension_interaction <- function(formula, strata_vars,
                                                   dim_terms = character(0),
-                                                  fn = "maihda") {
+                                                  fn = "maihda", time = NULL) {
   flagged <- maihda_dimension_interaction_terms(formula, strata_vars, dim_terms)
   if (length(flagged) == 0) {
-    return(invisible(NULL))
+    # No all-dimension cell-means term, but a dimension-by-COVARIATE interaction
+    # (age:gender) breaks the decomposition too: only the bare main effects are
+    # stripped, so the term survives into the derived NULL model and the null already
+    # adjusts for that dimension. Reported second because the all-dimension case above
+    # is the more specific diagnosis for a formula that has both.
+    mixed <- maihda_dimension_interaction_terms(formula, strata_vars, dim_terms,
+                                                scope = "any")
+    if (length(mixed) == 0) {
+      return(invisible(NULL))
+    }
+    involved_dims <- maihda_transformed_dimension_vars(mixed, strata_vars, dim_terms)
+    # The covariate half of the flagged term(s), so the message can spell out the
+    # additive form to write instead. all.vars() on each parsed label sees through a
+    # transform (factor(a):age -> a, age) and through backtick-quoted names.
+    involved_vars <- unique(unlist(lapply(mixed, function(v) {
+      expr <- tryCatch(str2lang(v), error = function(e) NULL)
+      if (is.null(expr)) character(0) else all.vars(expr)
+    })))
+    covars <- setdiff(involved_vars, c(strata_vars, dim_terms))
+    stop(fn, "(): the formula's fixed part contains the interaction term(s) ",
+         paste(mixed, collapse = ", "), " between a covariate and the ",
+         "stratum-defining dimension(s) ", paste(involved_dims, collapse = ", "),
+         ". Only a dimension's bare main effect is removed when the null model is ",
+         "derived, so this term survives into the null: the null would already adjust ",
+         "for that dimension, its between-stratum variance would be deflated and the ",
+         "PCV computed against the wrong baseline. The null model is not even ",
+         "well-defined -- with the main effect gone the surviving term is a dimension ",
+         "contrast scaled by the covariate, so the PCV depends on the covariate's ",
+         "arbitrary origin (re-centring it moves the PCV by percentage points), and ",
+         "for a categorical covariate the null's fixed part spans the dimension's ",
+         "main effect exactly. Write the additive form (`",
+         paste(c(covars, involved_dims), collapse = " + "), "`; a `*` also expands ",
+         "to this interaction)",
+         if (is.character(time) && length(time) == 1L && time %in% covars) {
+           paste0(" -- ", fn, "() adds the dimension-by-time interactions to the ",
+                  "ADJUSTED growth model itself, so writing `", involved_dims[1], ":",
+                  time, "` yourself puts it in the null model too and corrupts the ",
+                  "slope PCV.")
+         } else {
+           paste0(", or estimate the covariate-varying slopes in a separate model ",
+                  "outside the decomposition.")
+         },
+         call. = FALSE)
   }
   stop(fn, "(): the formula's fixed part contains the interaction term(s) ",
        paste(flagged, collapse = ", "), " between the stratum-defining dimensions (",
@@ -4642,4 +4750,210 @@ maihda_add_strata_columns <- function(data, strata_info) {
     }
   }
   data
+}
+
+# ---------------------------------------------------------------------------
+# Finite-sample denominator degrees of freedom for Gaussian fixed effects
+# ---------------------------------------------------------------------------
+# A Wald z treats the variance components as known. For a term whose whole
+# information sits at a random-effect level with few units -- the intercept and
+# the dimension main effects of an adjusted MAIHDA, whose effective sample size
+# is the number of STRATA however large n is -- that is anticonservative: with
+# 12 strata a nominal 5% test rejects at ~10%, with 8 strata at ~15%.
+#
+# The correction below is the containment (between-within) rule: a fixed-effect
+# column absorbed by a random-effect term is tested against the units of that
+# term, not against n. It needs nothing beyond lme4, and it reproduces
+# Kenward-Roger for a BALANCED adjusted MAIHDA (and to ~1% under mild imbalance);
+# under severe imbalance it reports one design-level value inside the span of
+# Kenward-Roger's per-term ones. See tests/testthat/test-fixed-effect-df.R, which
+# pins all three regimes. Relative to the z it replaces it is never
+# anticonservative: a t interval is never narrower.
+
+# Is each column of `X` absorbed by one random-effect term? A column is
+# contained in a term when, within every level of the grouping factor, it is a
+# linear combination of that term's random-effect covariates: constant within
+# the group for a random intercept, and any group-specific linear function of
+# time for a random slope on time. `re` is the term's per-observation
+# random-effect covariate matrix (a column of 1s for an intercept-only term).
+maihda_contained_in_re <- function(X, group, re, tol = 1e-8) {
+  g <- droplevels(as.factor(group))
+  scale_j <- pmax(apply(abs(X), 2L, max), 1)
+
+  # Intercept-only terms are the common case: containment reduces to "constant
+  # within group", which a range check answers without any least squares.
+  if (ncol(re) == 1L && all(abs(re[, 1L] - 1) < tol)) {
+    return(vapply(seq_len(ncol(X)), function(j) {
+      rng <- tapply(X[, j], g, function(v) diff(range(v)))
+      all(is.finite(rng)) && max(rng) <= tol * scale_j[j]
+    }, logical(1)))
+  }
+
+  rows_by_group <- split(seq_len(nrow(X)), g)
+  qr_by_group <- lapply(rows_by_group, function(rows) qr(re[rows, , drop = FALSE]))
+  vapply(seq_len(ncol(X)), function(j) {
+    xj <- X[, j]
+    for (k in seq_along(rows_by_group)) {
+      rows <- rows_by_group[[k]]
+      fitted_j <- tryCatch(qr.fitted(qr_by_group[[k]], xj[rows]),
+                           error = function(e) NULL)
+      if (is.null(fitted_j)) return(FALSE)
+      if (max(abs(xj[rows] - fitted_j)) > tol * scale_j[j]) return(FALSE)
+    }
+    TRUE
+  }, logical(1))
+}
+
+
+# Per-source shares of Var(beta_j). Var(beta) is homogeneous of degree 1 in the
+# variance components, so by Euler's theorem it is the sum over sources of
+# (component x d Var / d component) -- an exact, non-negative decomposition of
+# each fixed effect's variance into how much of it comes from the stratum level,
+# the context level, ..., and the residual. Scaling a random-effect term's whole
+# Cholesky block by sqrt(1 + h) scales that term's covariance by (1 + h), so a
+# central difference in that scale gives the derivative without refitting.
+# Returns a terms x sources matrix (last column the residual), or NULL if lme4's
+# predictor object will not replay.
+maihda_variance_shares <- function(model) {
+  pp <- tryCatch(model@pp$copy(), error = function(e) NULL)
+  if (is.null(pp)) return(NULL)
+
+  theta <- tryCatch(lme4::getME(model, "theta"), error = function(e) NULL)
+  cnms <- tryCatch(lme4::getME(model, "cnms"), error = function(e) NULL)
+  s2 <- tryCatch(stats::sigma(model)^2, error = function(e) NA_real_)
+  if (is.null(theta) || is.null(cnms) || !length(theta) || !is.finite(s2)) {
+    return(NULL)
+  }
+  # theta holds one lower-triangular block per random-effect term, in term order.
+  n_theta <- vapply(cnms, function(cn) length(cn) * (length(cn) + 1) / 2, 1)
+  if (sum(n_theta) != length(theta)) return(NULL)
+  term_of_theta <- rep(seq_along(n_theta), n_theta)
+
+  unsc_at <- function(th) {
+    pp$setTheta(th)
+    pp$updateDecomp()
+    diag(as.matrix(pp$unsc()))
+  }
+  ok <- TRUE
+  var_j <- tryCatch(s2 * unsc_at(theta), error = function(e) { ok <<- FALSE; NULL })
+  if (!ok || is.null(var_j) || anyNA(var_j)) return(NULL)
+
+  h <- 1e-4
+  shares <- vapply(seq_along(n_theta), function(k) {
+    idx <- which(term_of_theta == k)
+    up <- theta; up[idx] <- theta[idx] * sqrt(1 + h)
+    dn <- theta; dn[idx] <- theta[idx] * sqrt(1 - h)
+    d <- tryCatch((unsc_at(up) - unsc_at(dn)) / (2 * h),
+                  error = function(e) { ok <<- FALSE; rep(NA_real_, length(var_j)) })
+    # Rounding can push a zero derivative (a singular term) slightly negative.
+    pmax(s2 * d, 0)
+  }, numeric(length(var_j)))
+  if (!ok || anyNA(shares)) return(NULL)
+  if (!is.matrix(shares)) shares <- matrix(shares, nrow = length(var_j))
+
+  # Euler closes the decomposition: whatever the random-effect terms do not
+  # account for is the residual's share.
+  residual <- pmax(var_j - rowSums(shares), 0)
+  cbind(shares, residual)
+}
+
+#' Containment degrees of freedom for a Gaussian mixed-model fixed effect
+#'
+#' Internal helper. Returns between-within (containment) denominator degrees of
+#' freedom for each fixed-effect column of a Gaussian \code{lmerMod}: a column
+#' absorbed by a random-effect term is tested against that term's units minus the
+#' columns it absorbs, a column absorbed by none against \eqn{n} minus the
+#' random-effect levels. A column counts as absorbed when, within every level of
+#' the grouping factor, it is a linear combination of that term's random-effect
+#' covariates -- constant within the group for a random intercept, any
+#' group-specific linear function of time for a random slope on time.
+#'
+#' Where several terms absorb a column the smallest applies, taken over the terms
+#' that materially contribute to that coefficient's variance
+#' (\code{maihda_variance_shares}); a term whose variance component is estimated
+#' at essentially zero cannot limit precision. That filter can narrow the set but
+#' never empty it, so a singular fit keeps its stratum degrees of freedom.
+#'
+#' The per-source degrees of freedom are deliberately not Satterthwaite-combined:
+#' in the balanced one-way case the stratum and residual shares of a
+#' stratum-level contrast come from the same mean square, so combining them as
+#' independent chi-squares inflates the result several-fold. Cross-checked
+#' against \pkg{pbkrtest} in \code{tests/testthat/test-fixed-effect-df.R};
+#' \pkg{pbkrtest} is declared nowhere and those checks skip without it.
+#'
+#' @param model A fitted model. \code{NULL} for anything that is not a Gaussian
+#'   \code{lmerMod}.
+#' @return A named numeric vector of degrees of freedom, or \code{NULL}.
+#' @keywords internal
+maihda_containment_df <- function(model) {
+  if (!inherits(model, "lmerMod") || inherits(model, "glmerMod") ||
+      inherits(model, "nlmerMod")) {
+    return(NULL)
+  }
+
+  X <- tryCatch(lme4::getME(model, "X"), error = function(e) NULL)
+  fl <- tryCatch(lme4::getME(model, "flist"), error = function(e) NULL)
+  re_list <- tryCatch(lme4::getME(model, "mmList"), error = function(e) NULL)
+  if (is.null(X) || is.null(fl) || is.null(re_list) ||
+      !ncol(X) || !length(fl) || !length(re_list)) {
+    return(NULL)
+  }
+  # mmList has one entry per random-effect TERM; flist's "assign" attribute maps
+  # each term to its grouping factor (several terms may share one factor).
+  assign_g <- attr(fl, "assign")
+  if (is.null(assign_g) || length(assign_g) != length(re_list)) return(NULL)
+
+  n <- nrow(X)
+  p <- ncol(X)
+  if (n <= p) return(NULL)
+
+  n_levels <- vapply(fl, function(g) nlevels(droplevels(as.factor(g))), 1L)
+  # Terms sharing a grouping factor (e.g. an uncorrelated (1 | s) + (0 + t | s)
+  # pair) are pooled, so the factor's units are not counted twice.
+  absorbed <- lapply(seq_along(fl), function(i) rep(FALSE, p))
+  for (k in seq_along(re_list)) {
+    i <- assign_g[k]
+    re_k <- as.matrix(re_list[[k]])
+    if (!nrow(re_k) || !ncol(re_k)) next
+    absorbed[[i]] <- absorbed[[i]] | maihda_contained_in_re(X, fl[[i]], re_k)
+  }
+
+  any_absorbed <- Reduce(`|`, absorbed)
+  df_group <- pmax(n_levels - vapply(absorbed, sum, 1L), 1)
+  df_residual <- max(n - sum(n_levels) - sum(!any_absorbed), 1)
+
+  # A grouping factor is only allowed to cap a column's degrees of freedom when
+  # it actually contributes to that column's variance. Below this share of the
+  # coefficient's total variance a source moves its standard error by less than
+  # 0.05%, so it cannot be what limits the estimate's precision.
+  share_tol <- 1e-3
+  shares <- maihda_variance_shares(model)
+  material <- if (is.null(shares) || nrow(shares) != p ||
+                  ncol(shares) != length(re_list) + 1L) {
+    lapply(seq_along(fl), function(i) rep(TRUE, p))
+  } else {
+    total <- rowSums(shares)
+    lapply(seq_along(fl), function(i) {
+      cols <- which(assign_g == i)
+      g_share <- rowSums(shares[, cols, drop = FALSE])
+      !is.finite(total) | total <= 0 | g_share > share_tol * total
+    })
+  }
+
+  df <- vapply(seq_len(p), function(j) {
+    absorbs <- vapply(absorbed, function(a) a[j], logical(1))
+    if (!any(absorbs)) return(df_residual)
+    keep <- absorbs & vapply(material, function(m) m[j], logical(1))
+    # Narrowing the capping set must never empty it. When every grouping that
+    # absorbs the term is immaterial -- a singular canonical fit, whose stratum
+    # variance is estimated at exactly zero -- falling through to the residual
+    # would hand a stratum-level term all of n on the strength of a boundary
+    # estimate. Keep the structural minimum in that case.
+    if (!any(keep)) keep <- absorbs
+    min(df_group[keep])
+  }, numeric(1))
+
+  df <- pmax(df, 1)
+  names(df) <- colnames(X)
+  df
 }

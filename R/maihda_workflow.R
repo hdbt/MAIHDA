@@ -60,7 +60,11 @@
 #'   transformed term such as \code{factor(edu)} is rejected, because only a bare
 #'   name is recognised as a dimension's main effect and the transform would
 #'   otherwise survive into the derived null model. Transform the column in
-#'   \code{data} instead (\code{data$edu <- factor(data$edu)}).
+#'   \code{data} instead (\code{data$edu <- factor(data$edu)}). For the same reason a
+#'   fixed interaction involving a dimension is rejected, whether with another
+#'   dimension (\code{gender * race}) or with a covariate (\code{age * gender}): only
+#'   the bare main effect is removed, so the interaction survives into the null model,
+#'   which would then already adjust for that dimension.
 #' @param data A data frame with the model variables (and the \code{group}
 #'   variable, if used).
 #' @param group Optional character string naming a higher-level grouping variable
@@ -559,14 +563,18 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # `factor(Gender) * Race` gets this more specific message.
   maihda_check_no_transformed_dimension(model$formula, strata_vars, dim_terms,
                                         fn = "maihda")
-  # Reject a fixed interaction among the stratum dimensions (e.g. `Gender * Race`,
-  # which R expands to Gender + Race + Gender:Race). The main-effect stripping below
-  # would remove only Gender and Race, leaving the fixed Gender:Race in BOTH the
-  # derived null and adjusted formulas -- duplicating the intersectional stratum
-  # random intercept and corrupting the PCV. Guard every decomposition mode here,
-  # before the two-model / crossed-dimensions / longitudinal branches split.
+  # Reject a fixed interaction involving a stratum dimension. Among the dimensions
+  # (`Gender * Race`, which R expands to Gender + Race + Gender:Race) the main-effect
+  # stripping below would remove only Gender and Race, leaving the fixed Gender:Race in
+  # BOTH derived formulas -- duplicating the intersectional stratum random intercept
+  # and corrupting the PCV. With a covariate (`Age * Gender`) the stripping leaves
+  # Age:Gender in the derived NULL model, which then already adjusts for Gender: the
+  # null's between-stratum variance is deflated by an amount that depends on the
+  # arbitrary origin of Age (and, for a categorical covariate, the null's fixed part
+  # spans Gender's main effect exactly). Guard every decomposition mode here, before
+  # the two-model / crossed-dimensions / longitudinal branches split.
   maihda_check_no_dimension_interaction(model$formula, strata_vars, dim_terms,
-                                        fn = "maihda")
+                                        fn = "maihda", time = time)
   # Warn if a numeric stratum dimension will enter the adjusted model as a raw linear
   # term (a category code, or a many-valued numeric with autobin = FALSE) rather than
   # categorical main effects -- once here, before the mode branches, on the overall
@@ -1068,11 +1076,32 @@ print.maihda_analysis <- function(x, ...) {
 #' @param which Which model to summarize: \code{"null"} (default) or
 #'   \code{"adjusted"}. A crossed-dimensions analysis has a single model and
 #'   accepts only \code{"null"}.
-#' @param ... Additional arguments (not used).
+#' @param ... Additional arguments (not used). The summaries are computed by
+#'   \code{\link{maihda}}, so arguments that would change them are rejected
+#'   rather than ignored: set \code{bootstrap}, \code{n_boot}, \code{conf_level},
+#'   \code{response_vpc} and \code{seed} on \code{\link{maihda}} itself, and for a
+#'   different fixed-effect reference summarise the fitted model directly, as in
+#'   \code{summary(x$model_adjusted, df_method = "bootstrap")}.
 #' @return The \code{maihda_summary} for the requested model.
 #' @export
 summary.maihda_analysis <- function(object, which = c("null", "adjusted"), ...) {
   which <- match.arg(which)
+  # These summaries were computed once, inside maihda(). Anything that would
+  # change them cannot be honoured here, and silently dropping df_method would
+  # hand back an uncorrected Wald reference while looking as though the requested
+  # one had been applied.
+  ignored <- intersect(names(list(...)),
+                       c("df_method", "bootstrap", "n_boot", "conf_level",
+                         "response_vpc", "seed"))
+  if (length(ignored) > 0) {
+    stop("summary() on a maihda_analysis returns the summary maihda() already ",
+         "computed, so it cannot apply ",
+         paste(sprintf("'%s'", ignored), collapse = ", "),
+         ". Set bootstrap / n_boot / conf_level / response_vpc / seed on maihda() ",
+         "itself, and for a different fixed-effect reference summarise the fitted ",
+         "model directly, e.g. summary(x$model_adjusted, df_method = \"bootstrap\").",
+         call. = FALSE)
+  }
   out <- if (which == "adjusted") object$summary_adjusted else object$summary
   if (is.null(out)) {
     stop("No '", which, "' summary is available on this maihda_analysis (mode = '",

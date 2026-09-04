@@ -58,6 +58,12 @@
 #'   \item{ci_lower}{Lower bound of confidence interval (if bootstrap = TRUE)}
 #'   \item{ci_upper}{Upper bound of confidence interval (if bootstrap = TRUE)}
 #'   \item{bootstrap}{Logical indicating if bootstrap was used}
+#'   \item{n_boot_nonconverged}{Number of contributing bootstrap draws whose refit
+#'     optimiser did not converge (\code{optinfo$conv$opt != 0}); these are retained
+#'     in the interval and counted, so \code{n_boot_ok} does not imply convergence}
+#'   \item{interval_reliable}{Logical (bootstrap only); \code{FALSE} when more than
+#'     half the contributing draws did not converge, in which case the interval is
+#'     still returned but flagged unreliable (see Details)}
 #'
 #' @details
 #' The PCV is the proportional change in between-stratum variance when moving from
@@ -131,6 +137,17 @@
 #' warns, reports the count as \code{n_boot_boundary} on the result, and
 #' \code{print()} repeats the caveat -- a sizeable boundary share signals weak
 #' between-stratum variation, and the PCV itself is then fragile.
+#'
+#' Bootstrap draws whose refit optimiser reports non-convergence
+#' (\code{optinfo$conv$opt != 0}) are \emph{retained} in the interval -- lme4's
+#' post-hoc relative-gradient flag is a frequent false positive on simulated refits,
+#' and the optimiser's own return code fires on well under 1\% of refits in practice
+#' -- but the count is reported as \code{n_boot_nonconverged} and \code{print()}
+#' discloses it. As a documented ceiling, when more than half the contributing draws
+#' fail to converge the interval is still returned but flagged
+#' \code{interval_reliable = FALSE} with an escalated warning; treat such an interval
+#' as indicative only and check for singular or failing fits. This is distinct from
+#' the boundary exclusion above: non-converged draws still carry a defined PCV.
 #'
 #' The bootstrap is available for the \code{lme4} engine only. For the other
 #' engines the PCV is a \emph{point estimate}: a brms fit's posterior credible
@@ -288,6 +305,7 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
     result$mc_se <- attr(pcv_ci, "mc_se")
     result$n_boot_boundary <- attr(pcv_ci, "n_boundary")
     result$n_boot_nonconverged <- attr(pcv_ci, "n_nonconverged")
+    result$interval_reliable <- attr(pcv_ci, "interval_reliable")
   }
 
   class(result) <- c("pcv_result", "pvc_result")
@@ -880,15 +898,9 @@ bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
   }
 
   # Non-converged draws are retained (an lme4 relative-gradient flag is often a
-  # false positive), but the count is reported so n_boot_ok is not read as implying
-  # convergence that was never checked.
-  if (n_nonconv > 0) {
-    warning(sprintf(paste0(
-      "%d of %d contributing PCV bootstrap draw(s) had an lme4 optimiser that did ",
-      "not converge; they are retained in the interval. n_boot_ok counts converged ",
-      "and non-converged refits alike -- interpret the interval accordingly."),
-      n_nonconv, sum(is.finite(pcv_boot))), call. = FALSE)
-  }
+  # false positive), but the count is reported and, above a documented share of the
+  # contributing draws, the interval is flagged unreliable (interval_reliable).
+  reliable <- maihda_report_nonconvergence(n_nonconv, sum(is.finite(pcv_boot)), "PCV")
 
   # Reduce to an interval, requiring a minimum number of successful refits and
   # warning on a high failure rate. Boundary draws are a legitimate exclusion (the
@@ -898,6 +910,7 @@ bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
                             n_excluded = n_boundary)
   attr(ci, "n_boundary") <- n_boundary
   attr(ci, "n_nonconverged") <- n_nonconv
+  attr(ci, "interval_reliable") <- reliable
 
   return(ci)
 }
@@ -931,6 +944,18 @@ print.pcv_result <- function(x, ...) {
         "(%d draw(s) hit the zero null-variance boundary and were excluded;\n",
         " the interval is conditional on a positive null variance.)\n"),
         as.integer(x$n_boot_boundary))))
+    }
+    if (!is.null(x$n_boot_nonconverged) && is.finite(x$n_boot_nonconverged) &&
+        x$n_boot_nonconverged > 0) {
+      cat(pal$muted(sprintf(paste0(
+        "(%d contributing draw(s) had an optimiser that did not converge and were\n",
+        " retained; n_boot_ok counts them alongside converged refits.)\n"),
+        as.integer(x$n_boot_nonconverged))))
+    }
+    if (isFALSE(x$interval_reliable)) {
+      cat(pal$warn(paste0(
+        "(Interval flagged UNRELIABLE: more than half the contributing draws did not\n",
+        " converge. Treat it as indicative only and check for singular/failing fits.)\n")))
     }
     cat("\n")
   } else {

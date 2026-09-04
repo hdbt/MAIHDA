@@ -11,6 +11,7 @@
   conf_level = 0.95,
   response_vpc = FALSE,
   seed = NULL,
+  df_method = c("between-within", "normal", "bootstrap"),
   ...
 )
 }
@@ -45,6 +46,15 @@ families/engines.}
 
 \item{seed}{Optional integer seed for the response-scale VPC simulation when
 \code{response_vpc = TRUE}.}
+
+\item{df_method}{Reference distribution for the fixed-effect p-values and
+intervals of an \code{lme4} fit: \code{"between-within"} (default) a
+\eqn{t} on containment degrees of freedom for a Gaussian fit and a z
+elsewhere, \code{"normal"} a z, \code{"bootstrap"} a null-restricted
+parametric bootstrap costing \code{n_boot} refits \emph{per fixed-effect
+term}. \code{"bootstrap"} is the reference to use for a GLMM term that is
+constant within a stratum, such as an adjusted model's dimension main
+effects. Every other engine uses a z regardless.}
 
 \item{...}{Additional arguments (not currently used).}
 }
@@ -94,19 +104,17 @@ A maihda_summary object containing:
   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
   \item{fixed_effects}{Fixed-effect estimates. For the lme4, WeMix and ordinal
     engines a data frame with \code{term}, \code{estimate}, \code{se},
-    \code{statistic} (the Wald z, \code{estimate / se}),
-    \code{p_value} (two-sided, normal approximation) and the Wald interval
-    \code{lower}/\code{upper} at \code{conf_level}. No denominator degrees of
-    freedom are estimated, so for a Gaussian fit these are z-based rather than
-    Satterthwaite/Kenward-Roger -- fine for a within-stratum covariate, but
-    anticonservative with few strata for terms constant within a stratum (see
-    \code{\link{maihda_tidiers}}); the
-    WeMix standard errors are its sandwich (robust) ones. For brms, the
-    \code{brms::fixef()} matrix (posterior mean, \code{Est.Error} and the
-    credible-interval quantiles at \code{conf_level}). Available in a tidy,
-    engine-independent shape from \code{tidy(x, component = "fixed")}}
+    \code{statistic}, \code{df}, \code{p_value} and the Wald interval
+    \code{lower}/\code{upper} at \code{conf_level}; \code{df} is \code{NA}
+    wherever the reference is a z. The WeMix standard errors are its sandwich
+    (robust) ones. For brms, the \code{brms::fixef()} matrix (posterior mean,
+    \code{Est.Error} and the credible-interval quantiles at
+    \code{conf_level}). Available in a tidy, engine-independent shape from
+    \code{tidy(x, component = "fixed")}}
   \item{conf_level}{The interval level used for the fixed effects (and, when
     bootstrapped or Bayesian, the VPC)}
+  \item{df_method}{The reference distribution the \code{fixed_effects} table
+    used, \code{"between-within"}, \code{"normal"} or \code{"bootstrap"}}
   \item{thresholds}{For a cumulative (ordinal) clmm fit, the threshold (cut
     point) estimates with standard errors -- the cumulative model's
     "intercepts"; NULL otherwise}
@@ -180,6 +188,48 @@ expensive \eqn{ndraws \times nobs} computation.
   between-stratum deviation; they equal the \emph{pure} intersectional
   (interaction) component only when the additive main effects of the strata
   variables are included in the model.
+}
+
+\section{Fixed-effect reference distribution}{
+
+A Gaussian \code{lme4} fit refers each Wald statistic to a \eqn{t} on
+\emph{containment} (between-within) degrees of freedom, reported in the
+\code{df} column: a term absorbed by a random-effect grouping is tested
+against that grouping's units minus the terms it absorbs, and a term absorbed
+by none against \eqn{n} minus the random-effect levels. A random slope counts
+as absorbing. Set \code{df_method = "normal"} for a z instead.
+
+A GLMM, a WeMix pseudo-ML fit and an \code{ordinal::clmm} fit have no
+finite-sample \eqn{t} and use the Wald z; a brms summary reports the
+posterior. For Kenward-Roger or Satterthwaite, apply \pkg{pbkrtest} or
+\pkg{lmerTest} to \code{x$model}.
+
+\code{df_method = "bootstrap"} replaces that reference for an \code{lme4} fit
+with at least one fixed-effect term, Gaussian or not, and is the one to use
+for a GLMM -- whose z is anticonservative for a term constant within a
+stratum, most severely when the strata are few. For
+each fixed-effect term the model is refitted \emph{without} that term,
+\code{n_boot} responses are simulated from the reduced fit, the full model is
+refitted on each, and the observed Wald statistic is referred to the resulting
+distribution of \eqn{|t^*|} under a true null. The estimate and standard error
+are unchanged; the p-value and the interval both come from that distribution
+and agree exactly, zero falling outside the interval precisely when the
+p-value is significant. \code{df} is \code{NA}, and so are the intercept's
+p-value and interval: a MAIHDA intercept is a reference-category level rather
+than a term that can be dropped, so it has no null model to simulate from.
+
+It costs \code{n_boot} refits \emph{per term}, and is a separate bootstrap
+from the \code{bootstrap = TRUE} VPC interval, which is not reused. The
+smallest reportable p-value is \eqn{1 / (n\_boot + 1)}.
+
+Budget for it. A Gaussian refit takes milliseconds, but a binomial one takes
+about a second at \eqn{n = 1000} and tens of seconds at \eqn{n = 6000}, so the
+default \code{n_boot = 1000} on a three-dimension GLMM is roughly an hour at
+the smaller size and impractical at the larger. The p-value is exact at any
+\code{n_boot} for which \eqn{(n\_boot + 1)\alpha} is a whole number -- 199 and
+999 at the 5\% level -- while the interval endpoints, being order statistics,
+keep tightening with more draws; \code{n_boot = 199} is the usual compromise
+for a GLMM.
 }
 
 \section{Two VPCs for a longitudinal fit}{

@@ -41,7 +41,7 @@ test_that("tidy.maihda_model returns broom-shaped strata / variance / fixed tibb
 
   fe <- tidy(m, component = "fixed")
   expect_identical(names(fe),
-                   c("term", "estimate", "std.error", "statistic", "p.value",
+                   c("term", "estimate", "std.error", "statistic", "df", "p.value",
                      "conf.low", "conf.high"))
   expect_true(all(c("(Intercept)", "age") %in% fe$term))
 })
@@ -58,13 +58,23 @@ test_that("tidy(component = 'fixed') carries lme4 SEs, statistics and Wald inter
   expect_equal(fe$std.error, unname(cf[, "Std. Error"]), tolerance = 1e-10)
   expect_true(all(is.finite(fe$std.error)) && all(fe$std.error > 0))
 
-  # Wald z, its two-sided normal p, and the matching 95% interval.
+  # Wald statistic, its two-sided t p-value on the containment degrees of freedom,
+  # and the matching 95% interval (2026-09-01: a Gaussian lme4 fit is referred to
+  # a t, not a z -- the intercept here is constant within a stratum).
   expect_equal(fe$statistic, fe$estimate / fe$std.error, tolerance = 1e-10)
-  expect_equal(fe$p.value, 2 * stats::pnorm(-abs(fe$statistic)), tolerance = 1e-10)
+  expect_true(all(is.finite(fe$df)))
+  expect_equal(fe$p.value, 2 * stats::pt(-abs(fe$statistic), df = fe$df),
+               tolerance = 1e-10)
   expect_equal(fe$conf.low,
-               fe$estimate - stats::qnorm(0.975) * fe$std.error, tolerance = 1e-10)
+               fe$estimate - stats::qt(0.975, fe$df) * fe$std.error, tolerance = 1e-10)
   expect_equal(fe$conf.high,
-               fe$estimate + stats::qnorm(0.975) * fe$std.error, tolerance = 1e-10)
+               fe$estimate + stats::qt(0.975, fe$df) * fe$std.error, tolerance = 1e-10)
+  # age varies within a stratum, so its t is z to three decimal places.
+  fe_z <- tidy(summary(m, df_method = "normal"), component = "fixed")
+  expect_true(all(is.na(fe_z$df)))
+  expect_equal(fe_z$p.value, 2 * stats::pnorm(-abs(fe_z$statistic)), tolerance = 1e-10)
+  expect_equal(fe$p.value[fe$term == "age"], fe_z$p.value[fe_z$term == "age"],
+               tolerance = 1e-3)
   # age has a real effect (0.3) at n = 600 -> interval excludes zero.
   expect_true(fe$conf.low[fe$term == "age"] > 0)
   expect_lt(fe$p.value[fe$term == "age"], 0.001)
@@ -77,7 +87,7 @@ test_that("summary(conf_level =) sets the fixed-effect interval level", {
   fe99 <- tidy(summary(m, conf_level = 0.99), component = "fixed")
   fe95 <- tidy(m, component = "fixed")
   expect_equal(fe99$conf.low,
-               fe99$estimate - stats::qnorm(0.995) * fe99$std.error,
+               fe99$estimate - stats::qt(0.995, fe99$df) * fe99$std.error,
                tolerance = 1e-10)
   expect_true(all(fe99$conf.low < fe95$conf.low))
   expect_true(all(fe99$conf.high > fe95$conf.high))

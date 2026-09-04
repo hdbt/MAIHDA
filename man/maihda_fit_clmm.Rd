@@ -24,6 +24,10 @@ A list with \code{model} (the \code{clmm} fit) and \code{data} (the
 Internal engine call for \code{fit_maihda(engine = "ordinal")}. Builds the
 analytic sample (complete cases on the model variables) so the stored
 \code{data} matches the rows clmm fits, then calls \code{ordinal::clmm()}
-with \code{Hess = TRUE} (needed for the threshold standard errors).
+with \code{Hess = TRUE} (needed for the threshold standard errors). The
+analytic frame is passed by NAME (bound in a private environment) so the call
+clmm stores stays one line: ordinal's \code{print}/\code{summary} methods
+deparse \code{call$data}, and embedding the frame there made printing an
+ordinal fit dump the whole data set.
 }
 \keyword{internal}

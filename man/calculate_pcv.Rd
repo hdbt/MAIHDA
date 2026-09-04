@@ -73,6 +73,12 @@ A list containing:
   \item{ci_lower}{Lower bound of confidence interval (if bootstrap = TRUE)}
   \item{ci_upper}{Upper bound of confidence interval (if bootstrap = TRUE)}
   \item{bootstrap}{Logical indicating if bootstrap was used}
+  \item{n_boot_nonconverged}{Number of contributing bootstrap draws whose refit
+    optimiser did not converge (\code{optinfo$conv$opt != 0}); these are retained
+    in the interval and counted, so \code{n_boot_ok} does not imply convergence}
+  \item{interval_reliable}{Logical (bootstrap only); \code{FALSE} when more than
+    half the contributing draws did not converge, in which case the interval is
+    still returned but flagged unreliable (see Details)}
 }
 \description{
 Calculates the proportional change in between-stratum variance (PCV) between
@@ -152,6 +158,17 @@ a positive null variance}. Whenever any draws hit the boundary the function
 warns, reports the count as \code{n_boot_boundary} on the result, and
 \code{print()} repeats the caveat -- a sizeable boundary share signals weak
 between-stratum variation, and the PCV itself is then fragile.
+
+Bootstrap draws whose refit optimiser reports non-convergence
+(\code{optinfo$conv$opt != 0}) are \emph{retained} in the interval -- lme4's
+post-hoc relative-gradient flag is a frequent false positive on simulated refits,
+and the optimiser's own return code fires on well under 1\% of refits in practice
+-- but the count is reported as \code{n_boot_nonconverged} and \code{print()}
+discloses it. As a documented ceiling, when more than half the contributing draws
+fail to converge the interval is still returned but flagged
+\code{interval_reliable = FALSE} with an escalated warning; treat such an interval
+as indicative only and check for singular or failing fits. This is distinct from
+the boundary exclusion above: non-converged draws still carry a defined PCV.
 
 The bootstrap is available for the \code{lme4} engine only. For the other
 engines the PCV is a \emph{point estimate}: a brms fit's posterior credible
