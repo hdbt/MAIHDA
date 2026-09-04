@@ -1458,7 +1458,10 @@ maihda_refit_reduced <- function(model, red_form) {
 #' @param conf_level Interval level.
 #' @return A data frame with \code{term}, \code{estimate}, \code{se},
 #'   \code{statistic}, \code{df}, \code{p_value}, \code{lower} and \code{upper},
-#'   carrying \code{n_boot_ok} / \code{n_boot_nonconverged} attributes.
+#'   carrying \code{n_boot_ok}, \code{n_boot_nonconverged} and
+#'   \code{interval_reliable} attributes -- the last \code{FALSE} when more than
+#'   half the contributing draws failed to converge, as for the VPC and PCV
+#'   bootstraps (\code{maihda_report_nonconvergence}).
 #' @keywords internal
 #' @importFrom lme4 refit fixef
 maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
@@ -1488,7 +1491,11 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
 
   p_value <- lower <- upper <- rep(NA_real_, length(nm))
   n_ok <- rep(NA_integer_, length(nm))
+  # Counted over every term's draws, so the share handed to
+  # maihda_report_nonconvergence() is non-converged refits out of the refits that
+  # actually contributed -- the same denominator the VPC and PCV bootstraps use.
   n_nonconv <- 0L
+  n_contrib <- 0L
 
   for (k in seq_along(term_labels)) {
     cols <- which(assign_term == k)
@@ -1519,6 +1526,7 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
         si <- sqrt(diag(as.matrix(stats::vcov(boot_model))))
         j <- match(nm[cols], names(bi))
         t_star[i, ] <- bi[j] / si[j]
+        n_contrib <- n_contrib + 1L
         if (maihda_lme4_optimizer_failed(boot_model)) n_nonconv <- n_nonconv + 1L
       }, error = function(e) NULL)
     }
@@ -1576,12 +1584,9 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
                            "unreliable."), n_boot - n_min, n_boot,
                     100 * (n_boot - n_min) / n_boot), call. = FALSE)
   }
-  if (n_nonconv > 0) {
-    warning(sprintf(paste0(
-      "%d contributing fixed-effect bootstrap draw(s) had an lme4 optimiser that did ",
-      "not converge; they are retained in the reference distribution. Interpret the ",
-      "p-values and intervals accordingly."), n_nonconv), call. = FALSE)
-  }
+  # Non-converged draws are retained but reported, and above a documented share the
+  # reference distribution is flagged unreliable (see maihda_report_nonconvergence()).
+  reliable <- maihda_report_nonconvergence(n_nonconv, n_contrib, "fixed-effect")
 
   out <- data.frame(
     term      = nm,
@@ -1597,6 +1602,7 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
   )
   attr(out, "n_boot_ok") <- n_ok
   attr(out, "n_boot_nonconverged") <- n_nonconv
+  attr(out, "interval_reliable") <- reliable
   out
 }
 
@@ -1844,6 +1850,25 @@ print.maihda_summary <- function(x, ...) {
     # Otherwise the blank intercept row reads as a failure rather than a design
     # decision: there is no model without an intercept to simulate a null from.
     cat("  Intercept: no null model to bootstrap, so no p-value or interval.\n")
+  }
+  if (fe_boot) {
+    # Read from x$fixed_effects, not fe_print: formatting the p-value column above
+    # rebuilds the frame and does not carry the bootstrap attributes across.
+    # Same two-part report the VPC interval gets -- how many non-converged draws
+    # were retained, and whether that share makes the reference untrustworthy.
+    fe_nonconv <- attr(x$fixed_effects, "n_boot_nonconverged")
+    if (is.numeric(fe_nonconv) && length(fe_nonconv) == 1L &&
+        !is.na(fe_nonconv) && fe_nonconv > 0) {
+      cat(pal$muted(sprintf(paste0(
+        "  (%d contributing draw(s) had an optimiser that did not converge and were\n",
+        "   retained in the reference distribution.)\n"), as.integer(fe_nonconv))))
+    }
+    if (isFALSE(attr(x$fixed_effects, "interval_reliable"))) {
+      cat(pal$warn(paste0(
+        "  (Reference distribution flagged UNRELIABLE: more than half the contributing\n",
+        "   draws did not converge. Treat these p-values and intervals as indicative\n",
+        "   only and check for singular fits.)\n")))
+    }
   }
   cat("\n")
 

@@ -307,6 +307,89 @@ test_that("df_method = 'bootstrap' is refused where it cannot be built", {
   expect_error(summary(fit, df_method = "bootstrap", n_boot = 20), "lme4 engine")
 })
 
+test_that("non-convergence is reported through the shared helper", {
+  skip_on_cran()
+  # The fixed-effect bootstrap must use maihda_report_nonconvergence(), the same
+  # helper the VPC and PCV bootstraps use, rather than wording its own warning --
+  # otherwise the two drift apart and only one carries interval_reliable.
+  #
+  # Injecting the DETECTOR is the way to exercise this: lme4::refit() re-optimises
+  # with DEFAULT control, so crippling maxfun in the fitted model never reaches
+  # the refits.
+  d <- maihda_boot_fe_data()
+  m <- lme4::lmer(y ~ d1 + d2 + d3 + (1 | stratum), data = d)
+
+  patch <- function(f) {
+    for (e in list(asNamespace("MAIHDA"), as.environment("package:MAIHDA"))) {
+      if (exists("maihda_lme4_optimizer_failed", envir = e, inherits = FALSE)) {
+        unlockBinding("maihda_lme4_optimizer_failed", e)
+        assign("maihda_lme4_optimizer_failed", f, envir = e)
+      }
+    }
+  }
+  orig <- MAIHDA:::maihda_lme4_optimizer_failed
+  on.exit(patch(orig), add = TRUE)
+  catch <- function(expr) {
+    w <- character()
+    val <- withCallingHandlers(expr, warning = function(cnd) {
+      w <<- c(w, conditionMessage(cnd)); invokeRestart("muffleWarning") })
+    list(value = val, warnings = w)
+  }
+
+  patch(function(model) FALSE)
+  set.seed(5)
+  ok <- catch(maihda_bootstrap_fixef(m, n_boot = 25, conf_level = 0.95))
+  expect_identical(attr(ok$value, "n_boot_nonconverged"), 0L)
+  expect_true(attr(ok$value, "interval_reliable"))
+  expect_false(any(grepl("did not converge", ok$warnings)))
+
+  patch(function(model) TRUE)
+  set.seed(5)
+  bad <- catch(maihda_bootstrap_fixef(m, n_boot = 25, conf_level = 0.95))
+  expect_gt(attr(bad$value, "n_boot_nonconverged"), 0L)
+  expect_false(attr(bad$value, "interval_reliable"))
+  # Wording only maihda_report_nonconvergence() produces, so a bespoke warning
+  # would fail here even if it said something similar.
+  expect_true(any(grepl("reliability threshold", bad$warnings)))
+  expect_true(any(grepl("interval_reliable = FALSE", bad$warnings)))
+})
+
+test_that("print() surfaces an unreliable fixed-effect reference", {
+  skip_on_cran()
+  # The flag is worthless if it only lives on an attribute: a saved summary
+  # printed in a later session must still say the reference is untrustworthy,
+  # exactly as the VPC interval does. Compute-time warnings are long gone by then.
+  d <- maihda_boot_fe_data()
+  fit <- fit_maihda(ev ~ d1 + d2 + d3 + (1 | stratum), data = d,
+                    family = stats::binomial())
+  patch <- function(f) {
+    for (e in list(asNamespace("MAIHDA"), as.environment("package:MAIHDA"))) {
+      if (exists("maihda_lme4_optimizer_failed", envir = e, inherits = FALSE)) {
+        unlockBinding("maihda_lme4_optimizer_failed", e)
+        assign("maihda_lme4_optimizer_failed", f, envir = e)
+      }
+    }
+  }
+  orig <- MAIHDA:::maihda_lme4_optimizer_failed
+  on.exit(patch(orig), add = TRUE)
+
+  patch(function(model) TRUE)
+  set.seed(6)
+  bad <- suppressWarnings(summary(fit, df_method = "bootstrap", n_boot = 25))
+  expect_false(attr(bad$fixed_effects, "interval_reliable"))
+  out <- capture.output(print(bad))
+  expect_true(any(grepl("UNRELIABLE", out)))
+  expect_true(any(grepl("did not converge", out)))
+
+  patch(function(model) FALSE)
+  set.seed(6)
+  ok <- suppressWarnings(summary(fit, df_method = "bootstrap", n_boot = 25))
+  expect_true(attr(ok$fixed_effects, "interval_reliable"))
+  out_ok <- capture.output(print(ok))
+  expect_false(any(grepl("UNRELIABLE", out_ok)))
+  expect_false(any(grepl("did not converge", out_ok)))
+})
+
 test_that("the fixed-effect bootstrap leaves the fitted model untouched", {
   d <- maihda_boot_fe_data()
   m <- lme4::lmer(y ~ d1 + d2 + d3 + (1 | stratum), data = d)

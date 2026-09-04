@@ -16,7 +16,10 @@ maihda_bootstrap_fixef(model, n_boot, conf_level)
 \value{
 A data frame with \code{term}, \code{estimate}, \code{se},
   \code{statistic}, \code{df}, \code{p_value}, \code{lower} and \code{upper},
-  carrying \code{n_boot_ok} / \code{n_boot_nonconverged} attributes.
+  carrying \code{n_boot_ok}, \code{n_boot_nonconverged} and
+  \code{interval_reliable} attributes -- the last \code{FALSE} when more than
+  half the contributing draws failed to converge, as for the VPC and PCV
+  bootstraps (\code{maihda_report_nonconvergence}).
 }
 \description{
 Internal helper. For each fixed-effect term, refits the model without that
