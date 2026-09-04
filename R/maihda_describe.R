@@ -134,24 +134,24 @@
 #' @param digits Decimal places used by the \code{print()} method. Default 3.
 #' @param weights Optional precision weights, given as a bare column name of
 #'   \code{data} exactly as in \code{\link{fit_maihda}}, so the same call
-#'   describes and fits the same sample. Rows whose weight is missing,
-#'   zero, negative or non-finite are excluded from the analytic sample, as the
-#'   engines exclude them. For a \strong{binomial} model they also supply the
-#'   denominator of R's second aggregated-binomial idiom (see \code{?glm}): a
-#'   proportion response with the trial counts passed as \code{weights}, which
-#'   is then summarised as events out of trials rather than as one trial per row.
-#'   That reading is taken only when the weights are non-unit whole numbers, the
-#'   same rule \code{\link{maihda_discriminatory_accuracy}} applies, so the two
-#'   never report different sample sizes for one model; it covers the frequency-cell
-#'   spelling (a 0/1 response whose counts ride in \code{weights}) as well as a
-#'   proportion response. Non-integral weights are not counts and are left alone.
-#'   There is no \code{binomial_weights} override here as there is on the AUC:
-#'   those select an estimand for the concordance, not a way to count a sample.
-#'   Mutually
-#'   exclusive with \code{sampling_weights}, which are design weights and mean
-#'   something different. Must be omitted for a fitted-model input (the fit
-#'   already carries its weights). Placed last in the argument list for backward
-#'   compatibility; supply it by name.
+#'   describes and fits the same sample. Rows whose weight is missing, zero,
+#'   negative or non-finite are excluded from the analytic sample, as the engines
+#'   exclude them. For a \strong{binomial} model the weights also supply the
+#'   denominator of R's second aggregated-binomial idiom (see \code{?glm}), in
+#'   which the trial counts ride in \code{weights} rather than in a
+#'   \code{cbind(successes, failures)} response; the outcome is then summarised
+#'   as events out of trials instead of one trial per row. That reading applies
+#'   when the weights are non-unit whole numbers -- the same rule
+#'   \code{\link{maihda_discriminatory_accuracy}} uses, so the two never report
+#'   different sample sizes for one model -- and it covers a proportion response
+#'   and a 0/1 frequency-cell response alike. Non-integral weights are not trial
+#'   counts and are left alone. The \code{binomial_weights} overrides available
+#'   on the AUC have no counterpart here: they select an estimand for the
+#'   concordance, not a way to count a sample. Mutually exclusive with
+#'   \code{sampling_weights}, which are design weights and mean something
+#'   different. Must be omitted for a fitted-model input (the fit already carries
+#'   its weights). Placed last in the argument list for backward compatibility;
+#'   supply it by name.
 #'
 #' @return An object of class \code{maihda_describe}: a list of export-ready
 #'   data frames (pass to \code{write.csv()} or \code{knitr::kable()}) plus
