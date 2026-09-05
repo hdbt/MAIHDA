@@ -111,7 +111,8 @@ formula and data exactly.</p>
 <span>  flag_stratum_n <span class="op">=</span> <span class="fl">20</span>,</span>
 <span>  include_empty_strata <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  autobin <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  digits <span class="op">=</span> <span class="fl">3</span></span>
+<span>  digits <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>  weights <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -177,6 +178,29 @@ already built). Default <code>TRUE</code>.</p></dd>
 
 <dt id="arg-digits">digits<a class="anchor" aria-label="anchor" href="#arg-digits"></a></dt>
 <dd><p>Decimal places used by the <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> method. Default 3.</p></dd>
+
+
+<dt id="arg-weights">weights<a class="anchor" aria-label="anchor" href="#arg-weights"></a></dt>
+<dd><p>Optional precision weights, given as a bare column name of
+<code>data</code> exactly as in <code><a href="fit_maihda.html">fit_maihda</a></code>, so the same call
+describes and fits the same sample. Rows whose weight is missing, zero,
+negative or non-finite are excluded from the analytic sample, as the engines
+exclude them. For a <strong>binomial</strong> model the weights also supply the
+denominator of R's second aggregated-binomial idiom (see <code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">?glm</a></code>), in
+which the trial counts ride in <code>weights</code> rather than in a
+<code>cbind(successes, failures)</code> response; the outcome is then summarised
+as events out of trials instead of one trial per row. That reading applies
+when the weights are non-unit whole numbers – the same rule
+<code><a href="maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></code> uses, so the two never report
+different sample sizes for one model – and it covers a proportion response
+and a 0/1 frequency-cell response alike. Non-integral weights are not trial
+counts and are left alone. The <code>binomial_weights</code> overrides available
+on the AUC have no counterpart here: they select an estimand for the
+concordance, not a way to count a sample. Mutually exclusive with
+<code>sampling_weights</code>, which are design weights and mean something
+different. Must be omitted for a fitted-model input (the fit already carries
+its weights). Placed last in the argument list for backward compatibility;
+supply it by name.</p></dd>
 
 </dl></div>
     <div class="section level2">

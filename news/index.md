@@ -120,14 +120,46 @@
   [`summary()`](https://rdrr.io/r/base/summary.html) objects now also
   carry them as `strata_autobin_info`.
 
+- `summary(df_method = "bootstrap")` refers lme4 fixed-effect p-values
+  and intervals to a null-restricted parametric bootstrap, the reference
+  to use for a GLMM, whose Wald z is anticonservative for terms constant
+  within a stratum. It costs `n_boot` refits per fixed-effect term, and
+  the intercept, having no null model to simulate from, is `NA`.
+  `tidy(component = "fixed")` carries it through.
+
 - [`maihda_proportional_odds_test()`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
   tests the proportional-odds assumption of a cumulative (`clmm`) fit by
   parametric bootstrap under the fitted model, redrawing the stratum
   random effects each replicate. Opt-in: every replicate refits two
   `clm()` models.
 
+- [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+  gained `weights`, the precision weights of
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+  written the same way (a bare column name) so one call describes and
+  fits the same sample. Rows with a missing, zero, negative or
+  non-finite weight leave the analytic sample as the engines drop them,
+  and on a binomial model the weights also supply the denominator of a
+  proportion response. It is the last argument, so positional calls
+  written against 0.2.1 are unaffected.
+
+- `summary(bootstrap = TRUE)` on a longitudinal lme4 fit now returns
+  intervals for the two trajectory VPCs, as
+  `$longitudinal$vpc_intercept_ci` and `$vpc_slope_ci`, reusing the
+  refits the VPC(t) band already pays for.
+  [`print()`](https://rdrr.io/r/base/print.html) shows them and
+  `trajectory_vpc_method` records the basis.
+
 ### API changes
 
+- [`summary()`](https://rdrr.io/r/base/summary.html) on a
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis now errors when passed `df_method`, `bootstrap`, `n_boot`,
+  `conf_level`, `response_vpc` or `seed` instead of silently ignoring
+  them. Those summaries are computed by
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md); set
+  them there, or summarise the fitted model directly with
+  `summary(x$model_adjusted, df_method = "bootstrap")`.
 - [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
   now reads non-unit integral lme4 `weights=` on a binomial fit as trial
   counts, which is what [`?glm`](https://rdrr.io/r/stats/glm.html)
@@ -235,6 +267,16 @@
   it, instead of averaging `log(1 + 1/lambda_i)` over rows. Null-model
   count VPCs are unchanged; adjusted, offset, weighted, and longitudinal
   count VPCs rise.
+- A brms longitudinal fit’s trajectory VPCs
+  (`$longitudinal$vpc_intercept` and `$vpc_slope`) are now the posterior
+  median of the per-draw ratio, with a credible interval in
+  `vpc_intercept_ci` / `vpc_slope_ci`, instead of a ratio of
+  posterior-mean variance components reported without uncertainty. The
+  between-stratum variance posterior is right-skewed whenever the strata
+  are few, so the plug-in ran high – by 6.6% on the twelve strata of
+  `maihda_long_data` (0.6145 against a posterior median of 0.5765), and
+  by more as the strata get fewer. The interval it never reported spans
+  \[0.34, 0.82\] on that same fit. lme4 point estimates are unchanged.
 
 ### Documentation
 
@@ -300,6 +342,28 @@
 
 ### Bug fixes
 
+- [`print()`](https://rdrr.io/r/base/print.html) on an
+  `engine = "ordinal"` fit no longer dumps the whole analytic data set.
+  The `clmm` call embedded the data frame itself, and `ordinal`’s
+  `print`/`summary` methods deparse it, so printing a 3,000-row fit ran
+  to about 2,100 lines; `deparse(getCall())` on the same fit echoed
+  `clmm`’s source. The call now names the frame, as the lme4 and brms
+  engines already did.
+- A bootstrap PCV/VPC interval whose refit optimiser did not converge on
+  more than half the contributing draws is now flagged
+  `interval_reliable = FALSE` with an escalated warning, and
+  [`print()`](https://rdrr.io/r/base/print.html) discloses the retained
+  non-converged count it already tracked. Such draws are still retained
+  – the count is the optimiser’s own return code, not lme4’s
+  false-positive gradient flag, and it fires on well under 1% of refits
+  in practice – but the interval could previously clear the
+  success-fraction gate unremarked at any non-convergence share, since
+  those draws are finite and counted as successes. The flag and count
+  reach
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
+  [`summary()`](https://rdrr.io/r/base/summary.html), the
+  crossed-dimensions, contextual and longitudinal decompositions, and
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md).
 - [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) now
   warns that `seed` does not seed the `brms` sampler. It is the
   response-scale VPC simulation seed and is a formal argument, so it
@@ -329,6 +393,17 @@
   errored on the aggregated response rather than computing the
   count-weighted AUC. A trial count supplied as a data column was always
   handled.
+- [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+  now reads the trial counts of an aggregated binomial supplied as
+  `weights =` rather than as `cbind(successes, failures)`, which it
+  previously took to be 1 per row: a 12-row, 340-of-617 sample was
+  reported as “6.420795 events / 12 trials (53.5%)” – a fractional event
+  count over a row count – where the
+  [`cbind()`](https://rdrr.io/r/base/cbind.html) spelling of the same
+  data gave “340 events / 617 trials (55.1%)”. It applies the same rule
+  [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+  does, so the two can no longer report different sample sizes for one
+  model.
 - Parametric bootstrap intervals on a weighted Gaussian lme4 fit now
   simulate the residual as `sigma / sqrt(w_i)`. `lme4::simulate()` draws
   equal-variance noise for every row while `refit()` keeps the `1/w_i`

@@ -139,6 +139,8 @@ a <code>maihda_model</code> (from <code><a href="fit_maihda.html">fit_maihda</a>
   the denominator degrees of freedom they were built on.</p>
 <p>A Gaussian <span class="pkg">lme4</span> fit reports containment (between-within) <code>df</code>
   and a \(t\); every other engine leaves <code>df</code> <code>NA</code> and uses a z.
+  Under <code>summary(df_method = "bootstrap")</code> <code>p.value</code> and the
+  interval come from the parametric bootstrap and <code>df</code> is <code>NA</code>.
   See <code><a href="summary.maihda_model.html">summary.maihda_model</a></code>. For brms the estimate is the
   posterior mean with its <code>Est.Error</code> and credible interval, and
   <code>statistic</code>/<code>df</code>/<code>p.value</code> are <code>NA</code>. Standard errors

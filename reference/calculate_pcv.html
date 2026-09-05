@@ -174,6 +174,16 @@ indistinguishable from genuinely additive strata (a common, legitimate result).<
   <dt>bootstrap</dt>
 <dd><p>Logical indicating if bootstrap was used</p></dd>
 
+  <dt>n_boot_nonconverged</dt>
+<dd><p>Number of contributing bootstrap draws whose refit
+    optimiser did not converge (<code>optinfo$conv$opt != 0</code>); these are retained
+    in the interval and counted, so <code>n_boot_ok</code> does not imply convergence</p></dd>
+
+  <dt>interval_reliable</dt>
+<dd><p>Logical (bootstrap only); <code>FALSE</code> when more than
+    half the contributing draws did not converge, in which case the interval is
+    still returned but flagged unreliable (see Details)</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -246,6 +256,16 @@ a positive null variance</em>. Whenever any draws hit the boundary the function
 warns, reports the count as <code>n_boot_boundary</code> on the result, and
 <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> repeats the caveat – a sizeable boundary share signals weak
 between-stratum variation, and the PCV itself is then fragile.</p>
+<p>Bootstrap draws whose refit optimiser reports non-convergence
+(<code>optinfo$conv$opt != 0</code>) are <em>retained</em> in the interval – lme4's
+post-hoc relative-gradient flag is a frequent false positive on simulated refits,
+and the optimiser's own return code fires on well under 1% of refits in practice
+– but the count is reported as <code>n_boot_nonconverged</code> and <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>
+discloses it. As a documented ceiling, when more than half the contributing draws
+fail to converge the interval is still returned but flagged
+<code>interval_reliable = FALSE</code> with an escalated warning; treat such an interval
+as indicative only and check for singular or failing fits. This is distinct from
+the boundary exclusion above: non-converged draws still carry a defined PCV.</p>
 <p>The bootstrap is available for the <code>lme4</code> engine only. For the other
 engines the PCV is a <em>point estimate</em>: a brms fit's posterior credible
 interval (reported by <code><a href="summary.maihda_model.html">summary.maihda_model</a></code>) covers a single

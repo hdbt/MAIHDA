@@ -186,6 +186,33 @@ $`\sigma^2_e`$ is absent, neither shrinks when the outcome is measured
 noisily, which makes them comparable across studies using different
 instruments where the headline VPC is not.
 
+Both are shares of a *between-stratum* variance, which a MAIHDA
+estimates from few strata by construction, so report them with their
+interval – `vpc_intercept_ci` and `vpc_slope_ci`, filled in by
+`summary(bootstrap = TRUE)` here (not run in the vignette, because it
+refits the model many times) and by the posterior for a `brms` fit,
+which needs no refitting:
+
+``` r
+
+s_ci <- summary(m, bootstrap = TRUE, n_boot = 500)
+s_ci$longitudinal$vpc_intercept_ci
+s_ci$longitudinal$vpc_slope_ci
+```
+
+The point estimates differ in kind between the two engines, and the
+difference is not cosmetic. For `lme4` they are the plug-in from the
+fitted covariance blocks – the two numbers printed above. For `brms`
+they are the posterior **median of the per-draw ratio**, not the ratio
+of the posterior-mean variance components: the between-stratum variance
+has a right-skewed posterior whenever the strata are few, so a plug-in
+built from its posterior mean runs high. Refitting these same twelve
+strata with `brms`, over 150 of the individuals, the plug-in gives
+0.6145 where the posterior median is 0.5765 – a 6.6% overstatement, and
+one that widens as the strata get fewer. The interval matters more than
+the shift: on that fit it runs from 0.34 to 0.82, half the unit
+interval, and it was previously not reported at all.
+
 **Report the headline VPC unless you specifically mean the trajectory
 question.** It is the quantity comparable to published cross-sectional
 MAIHDA VPCs, and it is the one that speaks to discriminatory accuracy.

@@ -14,7 +14,7 @@ summary(
   conf_level = 0.95,
   response_vpc = FALSE,
   seed = NULL,
-  df_method = c("between-within", "normal"),
+  df_method = c("between-within", "normal", "bootstrap"),
   ...
 )
 ```
@@ -68,10 +68,14 @@ summary(
 
 - df_method:
 
-  Reference distribution for the fixed-effect p-values and Wald
-  intervals of a Gaussian `lme4` fit: `"between-within"` (default) a
-  \\t\\ on containment degrees of freedom, `"normal"` a z. Every other
-  engine uses a z regardless.
+  Reference distribution for the fixed-effect p-values and intervals of
+  an `lme4` fit: `"between-within"` (default) a \\t\\ on containment
+  degrees of freedom for a Gaussian fit and a z elsewhere, `"normal"` a
+  z, `"bootstrap"` a null-restricted parametric bootstrap costing
+  `n_boot` refits *per fixed-effect term*. `"bootstrap"` is the
+  reference to use for a GLMM term that is constant within a stratum,
+  such as an adjusted model's dimension main effects. Every other engine
+  uses a z regardless.
 
 - ...:
 
@@ -101,7 +105,10 @@ A maihda_summary object containing:
   `vpc_t` (the VPC over a reporting grid, with bootstrap or posterior
   bands), the per-level variances over that grid, the stratum and
   individual covariance blocks, and the two *trajectory VPCs*
-  `vpc_intercept` and `vpc_slope` described below. `NULL` for a
+  `vpc_intercept` and `vpc_slope` described below, each with an interval
+  in `vpc_intercept_ci` / `vpc_slope_ci` (a posterior credible interval
+  for brms, a bootstrap interval for a bootstrapped lme4 fit, `NA`
+  otherwise) and the basis in `trajectory_vpc_method`. `NULL` for a
   cross-sectional fit
 
 - context:
@@ -168,7 +175,7 @@ A maihda_summary object containing:
 - df_method:
 
   The reference distribution the `fixed_effects` table used,
-  `"between-within"` or `"normal"`
+  `"between-within"`, `"normal"` or `"bootstrap"`
 
 - thresholds:
 
@@ -255,7 +262,7 @@ between-stratum deviation; they equal the *pure* intersectional
 (interaction) component only when the additive main effects of the
 strata variables are included in the model.
 
-## Fixed-effect degrees of freedom
+## Fixed-effect reference distribution
 
 A Gaussian `lme4` fit refers each Wald statistic to a \\t\\ on
 *containment* (between-within) degrees of freedom, reported in the `df`
@@ -269,6 +276,34 @@ A GLMM, a WeMix pseudo-ML fit and an
 finite-sample \\t\\ and use the Wald z; a brms summary reports the
 posterior. For Kenward-Roger or Satterthwaite, apply pbkrtest or
 lmerTest to `x$model`.
+
+`df_method = "bootstrap"` replaces that reference for an `lme4` fit with
+at least one fixed-effect term, Gaussian or not, and is the one to use
+for a GLMM – whose z is anticonservative for a term constant within a
+stratum, most severely when the strata are few. For each fixed-effect
+term the model is refitted *without* that term, `n_boot` responses are
+simulated from the reduced fit, the full model is refitted on each, and
+the observed Wald statistic is referred to the resulting distribution of
+\\\|t^\*\|\\ under a true null. The estimate and standard error are
+unchanged; the p-value and the interval both come from that distribution
+and agree exactly, zero falling outside the interval precisely when the
+p-value is significant. `df` is `NA`, and so are the intercept's p-value
+and interval: a MAIHDA intercept is a reference-category level rather
+than a term that can be dropped, so it has no null model to simulate
+from.
+
+It costs `n_boot` refits *per term*, and is a separate bootstrap from
+the `bootstrap = TRUE` VPC interval, which is not reused. The smallest
+reportable p-value is \\1 / (n\\boot + 1)\\.
+
+Budget for it. A Gaussian refit takes milliseconds, but a binomial one
+takes about a second at \\n = 1000\\ and tens of seconds at \\n =
+6000\\, so the default `n_boot = 1000` on a three-dimension GLMM is
+roughly an hour at the smaller size and impractical at the larger. The
+p-value is exact at any `n_boot` for which \\(n\\boot + 1)\alpha\\ is a
+whole number – 199 and 999 at the 5% level – while the interval
+endpoints, being order statistics, keep tightening with more draws;
+`n_boot = 199` is the usual compromise for a GLMM.
 
 ## Two VPCs for a longitudinal fit
 
@@ -309,6 +344,19 @@ intercept VPC replicated from the paper will differ from the one
 reported here unless the reference points are aligned. `vpc_slope` is
 `NA` when the model was fit with `stratum_slope = FALSE` (no
 between-stratum slope variance exists to take a share of).
+
+Both come with an interval in `vpc_intercept_ci` / `vpc_slope_ci`, and
+`trajectory_vpc_method` records its basis. For a `brms` fit the two
+shares are computed *per posterior draw* and reported as the posterior
+median with a credible interval, matching `vpc_t` and the headline VPC
+on the same fit; for an `lme4` fit the point estimates are the plug-in
+from the fitted covariance blocks and `summary(bootstrap = TRUE)` adds a
+parametric-bootstrap interval (`NA` without one). Report the interval:
+these shares are poorly determined when the strata are few, and one
+spanning half the unit interval is an ordinary result rather than an
+unusual one – the twelve strata of `maihda_long_data`, fitted with
+`brms` over 150 individuals, give an intercept VPC of 0.58 running from
+0.34 to 0.82.
 
 ## References
 

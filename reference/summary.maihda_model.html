@@ -68,7 +68,7 @@
 <span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
 <span>  response_vpc <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  df_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"between-within"</span>, <span class="st">"normal"</span><span class="op">)</span>,</span>
+<span>  df_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"between-within"</span>, <span class="st">"normal"</span>, <span class="st">"bootstrap"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -122,9 +122,13 @@ families/engines.</p></dd>
 
 <dt id="arg-df-method">df_method<a class="anchor" aria-label="anchor" href="#arg-df-method"></a></dt>
 <dd><p>Reference distribution for the fixed-effect p-values and
-Wald intervals of a Gaussian <code>lme4</code> fit: <code>"between-within"</code>
-(default) a \(t\) on containment degrees of freedom, <code>"normal"</code> a z.
-Every other engine uses a z regardless.</p></dd>
+intervals of an <code>lme4</code> fit: <code>"between-within"</code> (default) a
+\(t\) on containment degrees of freedom for a Gaussian fit and a z
+elsewhere, <code>"normal"</code> a z, <code>"bootstrap"</code> a null-restricted
+parametric bootstrap costing <code>n_boot</code> refits <em>per fixed-effect
+term</em>. <code>"bootstrap"</code> is the reference to use for a GLMM term that is
+constant within a stratum, such as an adjusted model's dimension main
+effects. Every other engine uses a z regardless.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -151,8 +155,11 @@ Every other engine uses a z regardless.</p></dd>
     summary: <code>vpc_t</code> (the VPC over a reporting grid, with bootstrap or
     posterior bands), the per-level variances over that grid, the stratum and
     individual covariance blocks, and the two <em>trajectory VPCs</em>
-    <code>vpc_intercept</code> and <code>vpc_slope</code> described below. <code>NULL</code> for a
-    cross-sectional fit</p></dd>
+    <code>vpc_intercept</code> and <code>vpc_slope</code> described below, each with an
+    interval in <code>vpc_intercept_ci</code> / <code>vpc_slope_ci</code> (a posterior
+    credible interval for brms, a bootstrap interval for a bootstrapped lme4
+    fit, <code>NA</code> otherwise) and the basis in
+    <code>trajectory_vpc_method</code>. <code>NULL</code> for a cross-sectional fit</p></dd>
 
   <dt>context</dt>
 <dd><p>For a contextual cross-classified fit, the stratum vs.
@@ -209,7 +216,7 @@ Every other engine uses a z regardless.</p></dd>
 
   <dt>df_method</dt>
 <dd><p>The reference distribution the <code>fixed_effects</code> table
-    used, <code>"between-within"</code> or <code>"normal"</code></p></dd>
+    used, <code>"between-within"</code>, <code>"normal"</code> or <code>"bootstrap"</code></p></dd>
 
   <dt>thresholds</dt>
 <dd><p>For a cumulative (ordinal) clmm fit, the threshold (cut
@@ -292,7 +299,7 @@ expensive \(ndraws \times nobs\) computation.</p>
   variables are included in the model.</p>
     </div>
     <div class="section level2">
-    <h2 id="fixed-effect-degrees-of-freedom">Fixed-effect degrees of freedom<a class="anchor" aria-label="anchor" href="#fixed-effect-degrees-of-freedom"></a></h2>
+    <h2 id="fixed-effect-reference-distribution">Fixed-effect reference distribution<a class="anchor" aria-label="anchor" href="#fixed-effect-reference-distribution"></a></h2>
 
 
 <p>A Gaussian <code>lme4</code> fit refers each Wald statistic to a \(t\) on
@@ -305,6 +312,30 @@ as absorbing. Set <code>df_method = "normal"</code> for a z instead.</p>
 finite-sample \(t\) and use the Wald z; a brms summary reports the
 posterior. For Kenward-Roger or Satterthwaite, apply <span class="pkg">pbkrtest</span> or
 <span class="pkg">lmerTest</span> to <code>x$model</code>.</p>
+<p><code>df_method = "bootstrap"</code> replaces that reference for an <code>lme4</code> fit
+with at least one fixed-effect term, Gaussian or not, and is the one to use
+for a GLMM – whose z is anticonservative for a term constant within a
+stratum, most severely when the strata are few. For
+each fixed-effect term the model is refitted <em>without</em> that term,
+<code>n_boot</code> responses are simulated from the reduced fit, the full model is
+refitted on each, and the observed Wald statistic is referred to the resulting
+distribution of \(|t^*|\) under a true null. The estimate and standard error
+are unchanged; the p-value and the interval both come from that distribution
+and agree exactly, zero falling outside the interval precisely when the
+p-value is significant. <code>df</code> is <code>NA</code>, and so are the intercept's
+p-value and interval: a MAIHDA intercept is a reference-category level rather
+than a term that can be dropped, so it has no null model to simulate from.</p>
+<p>It costs <code>n_boot</code> refits <em>per term</em>, and is a separate bootstrap
+from the <code>bootstrap = TRUE</code> VPC interval, which is not reused. The
+smallest reportable p-value is \(1 / (n\_boot + 1)\).</p>
+<p>Budget for it. A Gaussian refit takes milliseconds, but a binomial one takes
+about a second at \(n = 1000\) and tens of seconds at \(n = 6000\), so the
+default <code>n_boot = 1000</code> on a three-dimension GLMM is roughly an hour at
+the smaller size and impractical at the larger. The p-value is exact at any
+<code>n_boot</code> for which \((n\_boot + 1)\alpha\) is a whole number – 199 and
+999 at the 5% level – while the interval endpoints, being order statistics,
+keep tightening with more draws; <code>n_boot = 199</code> is the usual compromise
+for a GLMM.</p>
     </div>
     <div class="section level2">
     <h2 id="two-vpcs-for-a-longitudinal-fit">Two VPCs for a longitudinal fit<a class="anchor" aria-label="anchor" href="#two-vpcs-for-a-longitudinal-fit"></a></h2>
@@ -344,6 +375,17 @@ the paper will differ from the one reported here unless the reference points are
 aligned. <code>vpc_slope</code> is <code>NA</code> when the model was fit with
 <code>stratum_slope = FALSE</code> (no between-stratum slope variance exists to take a
 share of).</p>
+<p>Both come with an interval in <code>vpc_intercept_ci</code> / <code>vpc_slope_ci</code>,
+and <code>trajectory_vpc_method</code> records its basis. For a <code>brms</code> fit the
+two shares are computed <em>per posterior draw</em> and reported as the posterior
+median with a credible interval, matching <code>vpc_t</code> and the headline VPC on
+the same fit; for an <code>lme4</code> fit the point estimates are the plug-in from
+the fitted covariance blocks and <code>summary(bootstrap = TRUE)</code> adds a
+parametric-bootstrap interval (<code>NA</code> without one). Report the interval:
+these shares are poorly determined when the strata are few, and one spanning
+half the unit interval is an ordinary result rather than an unusual one –
+the twelve strata of <code>maihda_long_data</code>, fitted with <code>brms</code> over 150
+individuals, give an intercept VPC of 0.58 running from 0.34 to 0.82.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

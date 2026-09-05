@@ -84,7 +84,9 @@ statistic (`estimate / std.error`), `p.value` its two-sided p-value,
 built on.
 
 A Gaussian lme4 fit reports containment (between-within) `df` and a
-\\t\\; every other engine leaves `df` `NA` and uses a z. See
+\\t\\; every other engine leaves `df` `NA` and uses a z. Under
+`summary(df_method = "bootstrap")` `p.value` and the interval come from
+the parametric bootstrap and `df` is `NA`. See
 [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md).
 For brms the estimate is the posterior mean with its `Est.Error` and
 credible interval, and `statistic`/`df`/`p.value` are `NA`. Standard

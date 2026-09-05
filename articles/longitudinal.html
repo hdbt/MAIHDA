@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-09-03</h4>
+            <h4 data-toc-skip class="date">2026-09-05</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/longitudinal.Rmd" class="external-link"><code>vignettes/longitudinal.Rmd</code></a></small>
       <div class="d-none name"><code>longitudinal.Rmd</code></div>
@@ -251,6 +251,30 @@ between strata. Because
 is absent, neither shrinks when the outcome is measured noisily, which
 makes them comparable across studies using different instruments where
 the headline VPC is not.</p>
+<p>Both are shares of a <em>between-stratum</em> variance, which a
+MAIHDA estimates from few strata by construction, so report them with
+their interval – <code>vpc_intercept_ci</code> and
+<code>vpc_slope_ci</code>, filled in by
+<code>summary(bootstrap = TRUE)</code> here (not run in the vignette,
+because it refits the model many times) and by the posterior for a
+<code>brms</code> fit, which needs no refitting:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">s_ci</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">m</span>, bootstrap <span class="op">=</span> <span class="cn">TRUE</span>, n_boot <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span>
+<span><span class="va">s_ci</span><span class="op">$</span><span class="va">longitudinal</span><span class="op">$</span><span class="va">vpc_intercept_ci</span></span>
+<span><span class="va">s_ci</span><span class="op">$</span><span class="va">longitudinal</span><span class="op">$</span><span class="va">vpc_slope_ci</span></span></code></pre></div>
+<p>The point estimates differ in kind between the two engines, and the
+difference is not cosmetic. For <code>lme4</code> they are the plug-in
+from the fitted covariance blocks – the two numbers printed above. For
+<code>brms</code> they are the posterior <strong>median of the per-draw
+ratio</strong>, not the ratio of the posterior-mean variance components:
+the between-stratum variance has a right-skewed posterior whenever the
+strata are few, so a plug-in built from its posterior mean runs high.
+Refitting these same twelve strata with <code>brms</code>, over 150 of
+the individuals, the plug-in gives 0.6145 where the posterior median is
+0.5765 – a 6.6% overstatement, and one that widens as the strata get
+fewer. The interval matters more than the shift: on that fit it runs
+from 0.34 to 0.82, half the unit interval, and it was previously not
+reported at all.</p>
 <p><strong>Report the headline VPC unless you specifically mean the
 trajectory question.</strong> It is the quantity comparable to published
 cross-sectional MAIHDA VPCs, and it is the one that speaks to
@@ -289,7 +313,7 @@ a null growth model and an adjusted growth model. The adjusted model
 adds the dimensions’ main effects and their interactions with time
 (<code>dim:time</code>), so the stratum-level variance it leaves behind
 is the interaction beyond additive.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">wave</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ethnicity</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
 <span>            data <span class="op">=</span> <span class="va">maihda_long_data</span>, id <span class="op">=</span> <span class="st">"id"</span>, time <span class="op">=</span> <span class="st">"wave"</span>,</span>
 <span>            decomposition <span class="op">=</span> <span class="st">"longitudinal"</span><span class="op">)</span></span>
@@ -321,7 +345,7 @@ additively. A high <code>PCV_slope</code> means the “trajectories are
 mostly additive” finding; the remainder is the
 multiplicative/interaction part.</li>
 </ul>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"pcv_trajectory"</span><span class="op">)</span>   <span class="co"># the additive share over time</span></span></code></pre></div>
 <p><img src="longitudinal_files/figure-html/pcv-traj-1.png" class="r-plt" alt="" width="672"></p>
 </div>
@@ -363,7 +387,7 @@ near zero. A rank-deficient block is usually evidence that the strata do
 not diverge over time.</p>
 <p>Both structures share the same fixed effects, so their fits can be
 compared with <code>AIC</code>:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m_slope</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">wave</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ethnicity</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
 <span>                      data <span class="op">=</span> <span class="va">maihda_long_data</span>, id <span class="op">=</span> <span class="st">"id"</span>, time <span class="op">=</span> <span class="st">"wave"</span><span class="op">)</span></span>
 <span><span class="va">m_level</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">wave</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">ethnicity</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>

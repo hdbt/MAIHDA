@@ -26,7 +26,13 @@ summary(object, which = c("null", "adjusted"), ...)
 
 - ...:
 
-  Additional arguments (not used).
+  Additional arguments (not used). The summaries are computed by
+  [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md), so
+  arguments that would change them are rejected rather than ignored: set
+  `bootstrap`, `n_boot`, `conf_level`, `response_vpc` and `seed` on
+  [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) itself,
+  and for a different fixed-effect reference summarise the fitted model
+  directly, as in `summary(x$model_adjusted, df_method = "bootstrap")`.
 
 ## Value
 

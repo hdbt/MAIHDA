@@ -4,7 +4,11 @@ Internal engine call for `fit_maihda(engine = "ordinal")`. Builds the
 analytic sample (complete cases on the model variables) so the stored
 `data` matches the rows clmm fits, then calls
 [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html) with
-`Hess = TRUE` (needed for the threshold standard errors).
+`Hess = TRUE` (needed for the threshold standard errors). The analytic
+frame is passed by NAME (bound in a private environment) so the call
+clmm stores stays one line: ordinal's `print`/`summary` methods deparse
+`call$data`, and embedding the frame there made printing an ordinal fit
+dump the whole data set.
 
 ## Usage
 

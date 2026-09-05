@@ -37,7 +37,8 @@ maihda_describe(
   flag_stratum_n = 20,
   include_empty_strata = TRUE,
   autobin = TRUE,
-  digits = 3
+  digits = 3,
+  weights = NULL
 )
 ```
 
@@ -107,6 +108,33 @@ maihda_describe(
 
   Decimal places used by the
   [`print()`](https://rdrr.io/r/base/print.html) method. Default 3.
+
+- weights:
+
+  Optional precision weights, given as a bare column name of `data`
+  exactly as in
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+  so the same call describes and fits the same sample. Rows whose weight
+  is missing, zero, negative or non-finite are excluded from the
+  analytic sample, as the engines exclude them. For a **binomial** model
+  the weights also supply the denominator of R's second
+  aggregated-binomial idiom (see
+  [`?glm`](https://rdrr.io/r/stats/glm.html)), in which the trial counts
+  ride in `weights` rather than in a `cbind(successes, failures)`
+  response; the outcome is then summarised as events out of trials
+  instead of one trial per row. That reading applies when the weights
+  are non-unit whole numbers – the same rule
+  [`maihda_discriminatory_accuracy`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+  uses, so the two never report different sample sizes for one model –
+  and it covers a proportion response and a 0/1 frequency-cell response
+  alike. Non-integral weights are not trial counts and are left alone.
+  The `binomial_weights` overrides available on the AUC have no
+  counterpart here: they select an estimand for the concordance, not a
+  way to count a sample. Mutually exclusive with `sampling_weights`,
+  which are design weights and mean something different. Must be omitted
+  for a fitted-model input (the fit already carries its weights). Placed
+  last in the argument list for backward compatibility; supply it by
+  name.
 
 ## Value
 

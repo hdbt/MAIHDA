@@ -137,6 +137,18 @@ A list containing:
 
   Logical indicating if bootstrap was used
 
+- n_boot_nonconverged:
+
+  Number of contributing bootstrap draws whose refit optimiser did not
+  converge (`optinfo$conv$opt != 0`); these are retained in the interval
+  and counted, so `n_boot_ok` does not imply convergence
+
+- interval_reliable:
+
+  Logical (bootstrap only); `FALSE` when more than half the contributing
+  draws did not converge, in which case the interval is still returned
+  but flagged unreliable (see Details)
+
 ## Details
 
 The PCV is the proportional change in between-stratum variance when
@@ -224,6 +236,19 @@ boundary the function warns, reports the count as `n_boot_boundary` on
 the result, and [`print()`](https://rdrr.io/r/base/print.html) repeats
 the caveat – a sizeable boundary share signals weak between-stratum
 variation, and the PCV itself is then fragile.
+
+Bootstrap draws whose refit optimiser reports non-convergence
+(`optinfo$conv$opt != 0`) are *retained* in the interval – lme4's
+post-hoc relative-gradient flag is a frequent false positive on
+simulated refits, and the optimiser's own return code fires on well
+under 1% of refits in practice – but the count is reported as
+`n_boot_nonconverged` and [`print()`](https://rdrr.io/r/base/print.html)
+discloses it. As a documented ceiling, when more than half the
+contributing draws fail to converge the interval is still returned but
+flagged `interval_reliable = FALSE` with an escalated warning; treat
+such an interval as indicative only and check for singular or failing
+fits. This is distinct from the boundary exclusion above: non-converged
+draws still carry a defined PCV.
 
 The bootstrap is available for the `lme4` engine only. For the other
 engines the PCV is a *point estimate*: a brms fit's posterior credible
