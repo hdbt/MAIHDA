@@ -72,8 +72,11 @@ A maihda_summary object containing:
     summary: \code{vpc_t} (the VPC over a reporting grid, with bootstrap or
     posterior bands), the per-level variances over that grid, the stratum and
     individual covariance blocks, and the two \emph{trajectory VPCs}
-    \code{vpc_intercept} and \code{vpc_slope} described below. \code{NULL} for a
-    cross-sectional fit}
+    \code{vpc_intercept} and \code{vpc_slope} described below, each with an
+    interval in \code{vpc_intercept_ci} / \code{vpc_slope_ci} (a posterior
+    credible interval for brms, a bootstrap interval for a bootstrapped lme4
+    fit, \code{NA} otherwise) and the basis in
+    \code{trajectory_vpc_method}. \code{NULL} for a cross-sectional fit}
   \item{context}{For a contextual cross-classified fit, the stratum vs.
     context partition: per-context variances and shares, the contexts' total
     share (\code{vpc_context_total}, with an interval when bootstrapped or for
@@ -271,6 +274,18 @@ the paper will differ from the one reported here unless the reference points are
 aligned. \code{vpc_slope} is \code{NA} when the model was fit with
 \code{stratum_slope = FALSE} (no between-stratum slope variance exists to take a
 share of).
+
+Both come with an interval in \code{vpc_intercept_ci} / \code{vpc_slope_ci},
+and \code{trajectory_vpc_method} records its basis. For a \code{brms} fit the
+two shares are computed \emph{per posterior draw} and reported as the posterior
+median with a credible interval, matching \code{vpc_t} and the headline VPC on
+the same fit; for an \code{lme4} fit the point estimates are the plug-in from
+the fitted covariance blocks and \code{summary(bootstrap = TRUE)} adds a
+parametric-bootstrap interval (\code{NA} without one). Report the interval:
+these shares are poorly determined when the strata are few, and one spanning
+half the unit interval is an ordinary result rather than an unusual one --
+the twelve strata of \code{maihda_long_data}, fitted with \code{brms} over 150
+individuals, give an intercept VPC of 0.58 running from 0.34 to 0.82.
 }
 
 \examples{

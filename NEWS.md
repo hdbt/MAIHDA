@@ -18,6 +18,7 @@
 
 * `maihda_proportional_odds_test()` tests the proportional-odds assumption of a cumulative (`clmm`) fit by parametric bootstrap under the fitted model, redrawing the stratum random effects each replicate. Opt-in: every replicate refits two `clm()` models.
 * `maihda_describe()` gained `weights`, the precision weights of `fit_maihda()`, written the same way (a bare column name) so one call describes and fits the same sample. Rows with a missing, zero, negative or non-finite weight leave the analytic sample as the engines drop them, and on a binomial model the weights also supply the denominator of a proportion response. It is the last argument, so positional calls written against 0.2.1 are unaffected.
+* `summary(bootstrap = TRUE)` on a longitudinal lme4 fit now returns intervals for the two trajectory VPCs, as `$longitudinal$vpc_intercept_ci` and `$vpc_slope_ci`, reusing the refits the VPC(t) band already pays for. `print()` shows them and `trajectory_vpc_method` records the basis.
 
 ## API changes
 
@@ -35,6 +36,7 @@
 * `maihda_mor()` on a crossed-dimensions fit now returns the mixture MOR over pairs of distinct strata instead of applying the independent-strata closed form to the summed variance. Reported values fall, most where the variance sits in the additive dimensions.
 * `fit_maihda(engine = "wemix")` now rejects a `max_iteration` that is not a single whole number of at least 1.
 * The Poisson and negative-binomial level-1 variance behind the VPC is now evaluated at a single mean count, `log(1 + 1/mean(lambda))`, as Stryhn et al. (2006) and Nakagawa, Johnson & Schielzeth (2017) define it, instead of averaging `log(1 + 1/lambda_i)` over rows. Null-model count VPCs are unchanged; adjusted, offset, weighted, and longitudinal count VPCs rise.
+* A brms longitudinal fit's trajectory VPCs (`$longitudinal$vpc_intercept` and `$vpc_slope`) are now the posterior median of the per-draw ratio, with a credible interval in `vpc_intercept_ci` / `vpc_slope_ci`, instead of a ratio of posterior-mean variance components reported without uncertainty. The between-stratum variance posterior is right-skewed whenever the strata are few, so the plug-in ran high -- by 6.6% on the twelve strata of `maihda_long_data` (0.6145 against a posterior median of 0.5765), and by more as the strata get fewer. The interval it never reported spans [0.34, 0.82] on that same fit. lme4 point estimates are unchanged.
 
 ## Documentation
 

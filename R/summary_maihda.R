@@ -187,8 +187,11 @@ maihda_tag_role <- function(s, role) {
 #'     summary: \code{vpc_t} (the VPC over a reporting grid, with bootstrap or
 #'     posterior bands), the per-level variances over that grid, the stratum and
 #'     individual covariance blocks, and the two \emph{trajectory VPCs}
-#'     \code{vpc_intercept} and \code{vpc_slope} described below. \code{NULL} for a
-#'     cross-sectional fit}
+#'     \code{vpc_intercept} and \code{vpc_slope} described below, each with an
+#'     interval in \code{vpc_intercept_ci} / \code{vpc_slope_ci} (a posterior
+#'     credible interval for brms, a bootstrap interval for a bootstrapped lme4
+#'     fit, \code{NA} otherwise) and the basis in
+#'     \code{trajectory_vpc_method}. \code{NULL} for a cross-sectional fit}
 #'   \item{context}{For a contextual cross-classified fit, the stratum vs.
 #'     context partition: per-context variances and shares, the contexts' total
 #'     share (\code{vpc_context_total}, with an interval when bootstrapped or for
@@ -343,6 +346,18 @@ maihda_tag_role <- function(s, role) {
 #' aligned. \code{vpc_slope} is \code{NA} when the model was fit with
 #' \code{stratum_slope = FALSE} (no between-stratum slope variance exists to take a
 #' share of).
+#'
+#' Both come with an interval in \code{vpc_intercept_ci} / \code{vpc_slope_ci},
+#' and \code{trajectory_vpc_method} records its basis. For a \code{brms} fit the
+#' two shares are computed \emph{per posterior draw} and reported as the posterior
+#' median with a credible interval, matching \code{vpc_t} and the headline VPC on
+#' the same fit; for an \code{lme4} fit the point estimates are the plug-in from
+#' the fitted covariance blocks and \code{summary(bootstrap = TRUE)} adds a
+#' parametric-bootstrap interval (\code{NA} without one). Report the interval:
+#' these shares are poorly determined when the strata are few, and one spanning
+#' half the unit interval is an ordinary result rather than an unusual one --
+#' the twelve strata of \code{maihda_long_data}, fitted with \code{brms} over 150
+#' individuals, give an intercept VPC of 0.58 running from 0.34 to 0.82.
 #'
 #' @references
 #' Bell, A., Evans, C., Holman, D., & Leckie, G. (2024). Extending intersectional
@@ -1772,11 +1787,31 @@ print.maihda_summary <- function(x, ...) {
     tv_i <- x$longitudinal$vpc_intercept
     tv_s <- x$longitudinal$vpc_slope
     if (!is.null(tv_i) || !is.null(tv_s)) {
+      # Interval when one is available: a posterior credible interval for brms (the
+      # trajectory VPCs are summarised per draw there, like vpc_t) and a bootstrap
+      # band for a bootstrapped lme4 fit. These shares are badly determined when the
+      # strata are few -- 0.58 carrying a [0.34, 0.82] credible interval is a routine
+      # brms result -- so a bare point estimate reads as far more precise than it is.
+      tv_ci <- function(ci) {
+        if (!is.null(ci) && length(ci) == 2L && all(is.finite(ci))) {
+          sprintf(" [%.4f, %.4f]", ci[1], ci[2])
+        } else {
+          ""
+        }
+      }
       fmt_tv <- function(v) if (isTRUE(is.finite(v))) sprintf("%.4f", v) else "NA"
+      ci_i <- tv_ci(x$longitudinal$vpc_intercept_ci)
+      ci_s <- tv_ci(x$longitudinal$vpc_slope_ci)
       cat("Trajectory VPCs (Bell et al. 2024, eq. 5; occasion-level variance excluded):\n")
-      cat(sprintf("  Intercept (%s = %g): %s    Slope: %s\n",
+      cat(sprintf("  Intercept (%s = %g): %s%s    Slope: %s%s\n",
                   x$longitudinal$time, x$longitudinal$ref_time,
-                  pal$accent(fmt_tv(tv_i)), pal$accent(fmt_tv(tv_s))))
+                  pal$accent(fmt_tv(tv_i)), ci_i,
+                  pal$accent(fmt_tv(tv_s)), ci_s))
+      if (nzchar(ci_i) || nzchar(ci_s)) {
+        cat("  ", pal$muted(maihda_vpc_interval_label(
+          list(method = x$longitudinal$trajectory_vpc_method,
+               conf_level = x$longitudinal$conf_level))), "\n", sep = "")
+      }
       # One sentence on WHICH QUESTION each answers -- the part a reader cannot infer
       # from the header, and the one that stops the larger number being reported as
       # "the VPC". The ordering claim is deliberately split: "at the reference time"

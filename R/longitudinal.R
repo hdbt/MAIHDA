@@ -661,6 +661,53 @@ maihda_longitudinal_trajectory_vpc <- function(Sigma_s, Sigma_i, ref_c) {
   )
 }
 
+# The same two trajectory VPCs computed PER POSTERIOR DRAW rather than from the
+# posterior-mean covariance blocks. A ratio of posterior means is a different
+# estimator from the posterior median of the ratio: the between-stratum variance
+# posterior is right-skewed whenever the strata are few (the usual MAIHDA case),
+# so its mean sits above its median while the much better identified
+# between-individual variance is near-symmetric, and the plug-in ratio runs high.
+# Measured on maihda_long_data (150 ids, 12 strata, 2000 draws, max Rhat 1.007):
+# the plug-in gives 0.6145 where the posterior median of the ratio is 0.5765, a
+# 6.6% overstatement -- and the honest 95% credible interval on it runs
+# [0.336, 0.823], half the unit interval, which was not reported at all. The gap
+# tracks the skew of the stratum variance posterior (mean/median 1.20, against
+# 1.02 for the far better identified individual variance) and so widens as the
+# strata get fewer. Reporting the median of the ratio also keeps these two
+# consistent with vpc_t and with the contextual brms partition, which are already
+# summarised per draw.
+#
+# `sig_s` / `sig_i` are the per-draw growth blocks from maihda_re_cov_draws_brms()
+# (v0 = intercept variance, v1 = slope variance, cov = their covariance). The brms
+# longitudinal engine is restricted to linear growth, so the instantaneous-slope
+# variance b(t)'Sigma b(t) is Sigma[2, 2] = v1 at every t -- the draw-wise
+# counterpart of maihda_slope_var_at_time() on a 2x2 block.
+maihda_longitudinal_trajectory_vpc_draws <- function(sig_s, sig_i, ref_c,
+                                                     has_slope,
+                                                     conf_level = 0.95) {
+  a <- 1 - conf_level
+  none <- list(estimate = NA_real_, ci = c(NA_real_, NA_real_))
+  summ <- function(vs, vi) {
+    tot <- vs + vi
+    # Draw-wise version of share()'s guard: a draw with no total variance has no
+    # defined share, so it is dropped rather than counted as 0.
+    r <- ifelse(is.finite(tot) & tot > 0, vs / tot, NA_real_)
+    r <- r[is.finite(r)]
+    if (!length(r)) return(none)
+    list(estimate = stats::median(r),
+         ci = stats::quantile(r, c(a / 2, 1 - a / 2), names = FALSE))
+  }
+  var_at <- function(b, t) b$v0 + 2 * t * b$cov + t^2 * b$v1
+  int <- summ(var_at(sig_s, ref_c), var_at(sig_i, ref_c))
+  # As in the point-estimate sibling: with no stratum slope block there is no
+  # between-stratum slope variance to take a share OF. maihda_re_cov_draws_brms()
+  # reports that level as a DEGENERATE block with v1 = 0 rather than a shorter one,
+  # so the arithmetic would silently return 0 -- has_slope must be passed in.
+  slp <- if (isTRUE(has_slope)) summ(sig_s$v1, sig_i$v1) else none
+  list(vpc_intercept = int$estimate, vpc_intercept_ci = int$ci,
+       vpc_slope = slp$estimate, vpc_slope_ci = slp$ci)
+}
+
 # A time grid for reporting VPC(t): the observed unique times when few, else a
 # 25-point grid spanning their range.
 maihda_longitudinal_time_grid <- function(time_values) {
@@ -867,6 +914,11 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   # Count contributing bootstrap draws whose refit optimiser did not converge, so the
   # reported n_boot_ok does not silently imply convergence (see bootstrap_vpc()).
   n_nonconv <- 0L
+  # Bootstrap replicates of the two trajectory VPCs. They come free with the refits
+  # the VPC(t) band already pays for -- no extra simulate()/refit() -- so the
+  # trajectory VPCs are not left as the only bare numbers in a bootstrapped summary.
+  traj_int_boot <- rep(NA_real_, n_boot)
+  traj_slope_boot <- rep(NA_real_, n_boot)
   if (bootstrap) {
     boot <- matrix(NA_real_, nrow = n_boot, ncol = length(grid))
     ref_boot <- rep(NA_real_, n_boot)
@@ -886,6 +938,12 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
                                                       orig_time = lng$time, center = center,
                                                       approximation = count_approx)
         ref_boot[i] <- rs / (rs + ri + vr_ref)
+        # Same helper as the point estimate below, so the replicates cannot drift
+        # from the quantity the interval is meant to cover (and the 1x1 stratum
+        # block keeps returning NA for the slope rather than 0).
+        tv_b <- maihda_longitudinal_trajectory_vpc(Ss, Si, ref_c)
+        traj_int_boot[i] <- tv_b$vpc_intercept
+        traj_slope_boot[i] <- tv_b$vpc_slope
         if (maihda_lme4_optimizer_failed(bm)) n_nonconv <- n_nonconv + 1L
       }, error = function(e) NULL)
     }
@@ -914,13 +972,33 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
 
   # Bell et al. (2024) eq. (5) intercept/slope VPCs -- a different denominator from
   # vpc_t above (no occasion-level residual); see maihda_longitudinal_trajectory_vpc.
+  # The POINT estimates stay the plug-in from the fitted (REML) blocks, as for every
+  # other lme4 quantity; the bootstrap adds only intervals. On the brms path the
+  # point estimates are instead posterior medians of the per-draw ratios, because
+  # there a ratio of posterior means is a different estimator (see
+  # maihda_longitudinal_trajectory_vpc_draws).
   traj_vpc <- maihda_longitudinal_trajectory_vpc(Sigma_s, Sigma_i, ref_c)
+  traj_int_ci <- if (bootstrap) {
+    maihda_longitudinal_vpc_band(traj_int_boot, n_boot, conf_level)
+  } else {
+    c(NA_real_, NA_real_)
+  }
+  # A model with no stratum slope has an all-NA slope replicate vector, which the
+  # band helper turns into NA rather than a spurious degenerate interval.
+  traj_slope_ci <- if (bootstrap) {
+    maihda_longitudinal_vpc_band(traj_slope_boot, n_boot, conf_level)
+  } else {
+    c(NA_real_, NA_real_)
+  }
 
   longitudinal <- list(
     vpc_t = data.frame(time = grid, estimate = vpc_t_est,
                        lower = vpc_lower, upper = vpc_upper),
     vpc_intercept = traj_vpc$vpc_intercept,
+    vpc_intercept_ci = traj_int_ci,
     vpc_slope = traj_vpc$vpc_slope,
+    vpc_slope_ci = traj_slope_ci,
+    trajectory_vpc_method = if (bootstrap) "bootstrap" else NA_character_,
     var_stratum_t = var_s_grid,
     var_id_t = var_i_grid,
     var_resid = var_resid,
@@ -1076,14 +1154,24 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
   var_resid <- mean(resid_ref_draws)
   resid_grid <- vapply(resid_grid_draws, mean, numeric(1))
 
-  # As on the lme4 path: Bell et al. (2024) eq. (5), from the posterior-mean blocks.
-  traj_vpc <- maihda_longitudinal_trajectory_vpc(Sigma_s, Sigma_i, ref_c)
+  # Bell et al. (2024) eq. (5), summarised PER DRAW from the same sig_s / sig_i
+  # blocks that produced the VPC(t) band above -- NOT a ratio of the posterior-mean
+  # blocks, which is a different estimator and runs high (see
+  # maihda_longitudinal_trajectory_vpc_draws). has_slope mirrors the point-estimate
+  # sibling's nrow(Sigma) >= 2 test on the degrees the draws were built at.
+  traj_vpc <- maihda_longitudinal_trajectory_vpc_draws(
+    sig_s, sig_i, ref_c,
+    has_slope = stratum_deg >= 1L && lng$time_degree >= 1L,
+    conf_level = conf_level)
 
   longitudinal <- list(
     vpc_t = data.frame(time = grid, estimate = mat[1, ],
                        lower = mat[2, ], upper = mat[3, ]),
     vpc_intercept = traj_vpc$vpc_intercept,
+    vpc_intercept_ci = traj_vpc$vpc_intercept_ci,
     vpc_slope = traj_vpc$vpc_slope,
+    vpc_slope_ci = traj_vpc$vpc_slope_ci,
+    trajectory_vpc_method = "posterior",
     var_stratum_t = maihda_var_at_time(Sigma_s, grid_c),
     var_id_t = maihda_var_at_time(Sigma_i, grid_c),
     var_resid = var_resid,
