@@ -35,6 +35,6 @@ in the balanced one-way case the stratum and residual shares of a
 stratum-level contrast come from the same mean square, so combining them as
 independent chi-squares inflates the result several-fold. Cross-checked
 against \pkg{pbkrtest} in \code{tests/testthat/test-fixed-effect-df.R};
-\pkg{pbkrtest} is declared nowhere and those checks skip without it.
+\pkg{pbkrtest} is a suggested package and those checks skip without it.
 }
 \keyword{internal}

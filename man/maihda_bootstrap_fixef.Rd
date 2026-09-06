@@ -22,14 +22,23 @@ A data frame with \code{term}, \code{estimate}, \code{se},
   bootstraps (\code{maihda_report_nonconvergence}).
 }
 \description{
-Internal helper. For each fixed-effect term, refits the model without that
-term, simulates \code{n_boot} responses from the reduced fit, refits the full
-model on each, and refers the observed Wald statistic to the bootstrap
-distribution of \eqn{|t^*|} under a true null. Returns the shape
-\code{\link{maihda_fixed_effects_table}} produces, with \code{df} \code{NA}:
-the reference is an empirical distribution, not a \eqn{t}.
+Internal helper. For each fixed-effect term, refits the model with that term's
+coefficients constrained to zero, simulates \code{n_boot} responses from the
+restricted fit, refits the full model on each, and refers the observed Wald
+statistic to the bootstrap distribution of \eqn{|t^*|} under a true null.
+Returns the shape \code{\link{maihda_fixed_effects_table}} produces, with
+\code{df} \code{NA}: the reference is an empirical distribution, not a \eqn{t}.
 }
 \details{
+The restriction is imposed by dropping the term from the formula and then
+\emph{verifying} that the refitted design no longer spans the full model's
+column space. It usually does not, but R's marginality rules recode a
+surviving higher-order term to absorb a removed marginal one -- \code{. ~ . -
+x} applied to \code{y ~ x * f} gives \code{f + x:f}, whose full dummy
+expansion spans exactly the original space -- and such a "reduction"
+constrains nothing. Where the spans agree the constraint is instead imposed on
+the fitted design columns directly (\code{maihda_restrict_fixef}).
+
 The intercept has no reduced model to simulate from -- a MAIHDA intercept is a
 reference-category level rather than a term that can be dropped -- so its
 p-value and interval are \code{NA}, not a Wald z that is miscalibrated in

@@ -855,8 +855,8 @@ bootstrap_pcv <- function(model1, model2, n_boot, conf_level) {
       # to each model's own row order.
       resp2 <- sim_data[[i]]
       resp1 <- if (is.null(perm1)) resp2 else maihda_reorder_response(resp2, perm1)
-      boot_model1 <- lme4::refit(model1$model, newresp = resp1)
-      boot_model2 <- lme4::refit(model2$model, newresp = resp2)
+      boot_model1 <- maihda_refit_draw(model1$model, resp1)
+      boot_model2 <- maihda_refit_draw(model2$model, resp2)
 
       # Extract variances
       var1 <- maihda_stratum_variance_lme4(boot_model1)

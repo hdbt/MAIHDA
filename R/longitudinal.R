@@ -925,7 +925,7 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
     sim <- maihda_simulate_lme4(model, nsim = n_boot)
     for (i in seq_len(n_boot)) {
       tryCatch({
-        bm <- lme4::refit(model, newresp = sim[[i]])
+        bm <- maihda_refit_draw(model, sim[[i]])
         Ss <- maihda_re_block_lme4(bm, "stratum", time_term, stratum_deg)
         Si <- maihda_re_block_lme4(bm, lng$id, time_term, lng$time_degree)
         vs <- maihda_var_at_time(Ss, grid_c); vi <- maihda_var_at_time(Si, grid_c)

@@ -411,7 +411,9 @@ maihda_wemix_variances <- function(object) {
 #' WeMix's own \code{predict()} method needs the grouping structure re-resolved
 #' and offers no fixed-only form, so predictions are built directly from the
 #' coefficient vector and the stored stratum effects: the fixed design matrix is
-#' constructed with the training data's factor levels and multiplied by
+#' constructed with the training data's factor levels AND transformation basis (so a
+#' data-dependent term such as \code{scale(x)} uses the fit's centre and scale rather
+#' than recomputing them from \code{newdata}) and multiplied by
 #' \code{coef}, any formula offset term is evaluated on \code{newdata} and added,
 #' and \code{include_re} adds each row's stratum effect (conditional
 #' mode; an unseen stratum contributes 0 -- the population-average fallback that
@@ -428,9 +430,13 @@ maihda_wemix_linpred <- function(object, newdata = NULL, include_re = TRUE) {
   if (is.null(newdata)) {
     newdata <- object$data
   }
-  tt <- stats::delete.response(stats::terms(maihda_nobars(object$formula)))
-  xlev <- stats::.getXlevels(tt, stats::model.frame(tt, object$data))
-  mf <- stats::model.frame(tt, newdata, xlev = xlev, na.action = stats::na.pass)
+  # Terms rebuilt from the FITTED data, so a data-dependent transformation such as
+  # scale(x) / poly(x, 2) / ns(x, 3) evaluates on the fit's basis instead of being
+  # recomputed from the prediction batch (see maihda_fitted_predict_terms()).
+  basis <- maihda_fitted_predict_terms(object$formula, object$data)
+  tt <- basis$terms
+  mf <- stats::model.frame(tt, newdata, xlev = basis$xlev,
+                           na.action = stats::na.pass)
   X <- stats::model.matrix(tt, mf)
   beta <- object$model$coef
   missing_cols <- setdiff(names(beta), colnames(X))

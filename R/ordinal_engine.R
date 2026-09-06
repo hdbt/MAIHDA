@@ -357,7 +357,9 @@ maihda_clmm_stratum_ranef <- function(object) {
 #'
 #' \code{predict.clmm} does not exist, so the location part
 #' \eqn{\eta = x'\beta (+ u)} is built directly: the fixed design matrix is
-#' constructed with the training data's factor levels and multiplied by the
+#' constructed with the training data's factor levels AND transformation basis (so a
+#' data-dependent term such as \code{scale(x)} uses the fit's centre and scale rather
+#' than recomputing them from \code{newdata}) and multiplied by the
 #' location coefficients \code{beta} (a clmm has \emph{no} intercept column --
 #' it is absorbed by the thresholds -- so \code{beta}'s names select the right
 #' columns), any formula offset term is evaluated on \code{newdata} and added
@@ -383,9 +385,13 @@ maihda_clmm_linpred <- function(object, newdata = NULL, include_re = TRUE) {
   # Build the fixed-effect model frame once. It supplies both the design matrix
   # (when there are location coefficients) and any formula offset term, so it is
   # needed even for a null (thresholds-only) model that carries only an offset.
-  tt <- stats::delete.response(stats::terms(maihda_nobars(object$formula)))
-  xlev <- stats::.getXlevels(tt, stats::model.frame(tt, object$data))
-  mf <- stats::model.frame(tt, newdata, xlev = xlev, na.action = stats::na.pass)
+  # Terms rebuilt from the FITTED data, so a data-dependent transformation such as
+  # scale(x) / poly(x, 2) / ns(x, 3) evaluates on the fit's basis instead of being
+  # recomputed from the prediction batch (see maihda_fitted_predict_terms()).
+  basis <- maihda_fitted_predict_terms(object$formula, object$data)
+  tt <- basis$terms
+  mf <- stats::model.frame(tt, newdata, xlev = basis$xlev,
+                           na.action = stats::na.pass)
 
   if (is.null(beta) || length(beta) == 0) {
     # Null (thresholds-only) model: the location fixed part is identically 0

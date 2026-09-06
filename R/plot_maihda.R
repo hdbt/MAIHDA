@@ -2117,7 +2117,12 @@ maihda_longitudinal_fixed_trajectory <- function(object, grid) {
       fo <- maihda_lme4_formula_offset_at(object$model, nd, fallback = "mean")
       off <- if (is.null(off)) fo else off + fo
     }
-    as.numeric(maihda_lme4_fixed_link(object$model, nd, offset = off))
+    # fallback = "mean", matching the offset above and the mean/modal covariate profile
+    # this grid already holds: a fixed term whose raw variable is absent from nd (stored
+    # only as the derived "scale(z)" / "poly(z, 2)" column, and necessarily
+    # time-invariant) is held at a single representative value down the trajectory.
+    as.numeric(maihda_lme4_fixed_link(object$model, nd, offset = off,
+                                      fallback = "mean"))
   } else if (identical(object$engine, "brms")) {
     maihda_brms_linpred_mean(object$model, newdata = nd, re_formula = NA)
   } else {

@@ -1799,6 +1799,28 @@ maihda_model_frame <- function(model, fallback = NULL) {
   out
 }
 
+# Response-deleted fixed-effect terms for prediction, carrying the FITTED
+# transformation basis, together with the fitted factor levels. terms() rebuilt from a
+# bare formula has NO "predvars" attribute, so a data-dependent term -- scale(x),
+# poly(x, 2), splines::ns(x, 3) -- is RE-EVALUATED on whatever rows are handed to
+# model.frame(): the centre, scale, knots or orthogonal basis then come from the
+# PREDICTION batch instead of the fit. Predictions would depend on how rows are batched
+# (predicting all rows and subsetting would disagree with predicting the subset), and a
+# grid holding the transformed variable constant -- a single row, or the VPC(t) grid
+# that fixes every row to one time -- has zero spread, so scale() divides by 0 and the
+# whole prediction is NaN. Building the model frame on the FITTED data recomputes
+# exactly the basis the fit used and records it in "predvars" (R's safe-prediction
+# mechanism, ?makepredictcall), which model.frame() then reuses for newdata. `data` must
+# be the analytic rows the engine fitted; the ordinal and WeMix engines both store
+# exactly those in `object$data` (both subset to complete cases before fitting). An lme4
+# fit needs none of this -- terms(model, fixed.only = TRUE) already carries predvars.
+maihda_fitted_predict_terms <- function(formula, data) {
+  tt <- stats::delete.response(stats::terms(maihda_nobars(formula)))
+  mf <- stats::model.frame(tt, data)
+  tt <- stats::terms(mf)
+  list(terms = tt, xlev = stats::.getXlevels(tt, mf))
+}
+
 maihda_nobs <- function(model) {
   tryCatch(stats::nobs(model), error = function(e) {
     frame <- maihda_model_frame(model)
@@ -2736,6 +2758,38 @@ maihda_simulate_lme4 <- function(model, nsim) {
     sim[[i]] <- sim[[i]] + stats::rnorm(length(w), mean = 0, sd = sd_i)
   }
   sim
+}
+
+# Refit `model` on one bootstrap draw. Every MAIHDA bootstrap refit goes through
+# here so that the draw is first tagged as ALREADY being on the model frame's rows.
+#
+# lme4::refit() treats a `newresp` carrying no "na.action" attribute as being on
+# the ORIGINAL data scale, and drops the rows the fit's own na.action removed:
+#
+#   if (!is.null(na.act <- attr(object@frame, "na.action")) &&
+#       is.null(attr(newresp, "na.action"))) newresp <- newresp[-na.act]
+#
+# But a draw simulated from a fit has one value per row of the MODEL FRAME --
+# those rows are already gone -- so it was truncated a second time and the refit
+# failed outright with "replacement has <n - k> rows, data has <n>". That
+# disabled the VPC bootstrap, the PCV bootstrap, the fixed-effect bootstrap and
+# the longitudinal VPC band outright on any fit whose data carried an NA.
+# pcv_importance() routes through here too, but is NOT affected: its shared
+# preamble (maihda_pcv_attribution_setup) reduces to ONE complete-case analytic
+# sample before fitting, so its subset models never carry an na.action and the
+# tag below is a no-op for them.
+#
+# The tag has to name the model being refitted INTO, not the one simulated FROM:
+# a null-restricted draw comes from a fit built on the complete-case design
+# matrix, which carries no na.action of its own. lme4 only ever tests is.null()
+# on the attribute and never reads its value. A fit that dropped no rows is
+# untouched, so those refits stay bit-identical.
+maihda_refit_draw <- function(model, newresp) {
+  if (is.null(attr(newresp, "na.action"))) {
+    na_act <- attr(tryCatch(model@frame, error = function(e) NULL), "na.action")
+    if (!is.null(na_act)) attr(newresp, "na.action") <- na_act
+  }
+  lme4::refit(model, newresp = newresp)
 }
 
 # Prior (precision/frequency) weights of a RAW fitted model object (glmerMod /
@@ -4075,6 +4129,59 @@ maihda_lme4_formula_offset_at <- function(model, newdata,
   Reduce(`+`, vals)
 }
 
+# The name model.frame() gives a variable's column: the deparsed expression, at the
+# same width cutoff model.frame() itself uses.
+maihda_frame_label <- function(expr) {
+  paste(deparse(expr, width.cutoff = 500L), collapse = " ")
+}
+
+# One fixed-effect term's values on a prediction grid, taken from the values the FIT
+# stored for it, for a term that cannot be re-evaluated because `newdata` does not carry
+# its raw variable(s). `stored` is the fit's model-frame column (numeric, factor, or the
+# matrix a scale() / poly() / ns() basis produces), `n` the number of grid rows.
+#   fallback = "rows" -- `newdata` aligns row-for-row with the fitted rows, so the
+#     stored values ARE the grid's values (the marginalizing VPC(t) grid, which is the
+#     model frame with only the time column moved, hence the same rows in the same
+#     order). The caller checks that alignment on ROW NAMES, not just row count: the
+#     values are placed POSITIONALLY, so a grid holding the same number of DIFFERENT
+#     rows would otherwise be silently mismatched rather than refused.
+#   fallback = "mean" -- a representative-profile grid, so the term is held at a single
+#     representative value down the grid: the column mean for a numeric or basis column
+#     and the modal level for a factor. This is the analogue of holding every other
+#     covariate at its mean, which is what such a grid already does for the variables it
+#     CAN see; it is exact for a linear transformation such as scale() and an
+#     approximation for a curved basis, where the mean of the basis is not the basis at
+#     the mean.
+maihda_stored_term_value <- function(stored, n, fallback, label) {
+  if (identical(fallback, "rows")) {
+    if (NROW(stored) != n) {
+      stop("Cannot place the fitted values of '", label, "' on the prediction grid: ",
+           "the fit has ", NROW(stored), " row(s) and the grid has ", n,
+           ". A grid that does not align with the fitted rows must hold the term at a ",
+           "representative value (fallback = \"mean\").", call. = FALSE)
+    }
+    return(stored)
+  }
+  if (is.matrix(stored)) {
+    out <- matrix(rep(colMeans(stored, na.rm = TRUE), each = n), nrow = n,
+                  dimnames = list(NULL, colnames(stored)))
+    # Carry the basis attributes (scaled:center, poly's coefs, ns's knots, class) so the
+    # column is indistinguishable from a re-evaluated one.
+    for (a in setdiff(names(attributes(stored)), c("dim", "dimnames"))) {
+      attr(out, a) <- attr(stored, a)
+    }
+    return(out)
+  }
+  if (is.factor(stored)) {
+    tb <- sort(table(stored), decreasing = TRUE)
+    return(factor(rep(names(tb)[1], n), levels = levels(stored)))
+  }
+  if (is.numeric(stored)) {
+    return(rep(mean(stored, na.rm = TRUE), n))
+  }
+  rep(stored[1], n)
+}
+
 # Fixed-effects (re.form = NA) link-scale linear predictor of an lme4 fit on arbitrary
 # newdata, WITH the supplied offset added. predict.merMod(newdata = ) drops an external
 # offset (the offset= fitting argument) and ERRORS on a formula offset() term whose raw
@@ -4088,20 +4195,86 @@ maihda_lme4_formula_offset_at <- function(model, newdata,
 # harmless dummy where absent (it never enters the model matrix). Matches
 # predict(., re.form = NA, type = "link") exactly for a no-offset fit. `offset` is a
 # per-row vector (recycled if scalar) or NULL.
-maihda_lme4_fixed_link <- function(model, newdata, offset = NULL) {
+#
+# A MODEL-MATRIX term can be un-evaluable for the same reason an offset term can: those
+# grids are built FROM the model frame, which stores a transformed term only under its
+# derived name -- "scale(z)", "poly(z, 2)", "ns(z, 3)" -- and never as the raw z, so a
+# covariate appearing only inside a transformation has no column to evaluate against and
+# model.frame() would stop with "object 'z' not found". Such a term is necessarily
+# time-invariant on these grids (a time-referencing term finds its time column, which
+# maihda_longitudinal_set_time() writes), so the fit's own stored values are the right
+# ones; `fallback` says how to place them -- see maihda_stored_term_value(). A grid that
+# carries every raw variable never reaches this path and is unaffected.
+maihda_lme4_fixed_link <- function(model, newdata, offset = NULL,
+                                   fallback = c("rows", "mean")) {
+  fallback <- match.arg(fallback)
   beta <- lme4::fixef(model)
-  tt <- stats::delete.response(stats::terms(maihda_nobars(stats::formula(model))))
+  # The FIT's own terms, NOT terms() of the bare formula: only the former carries the
+  # "predvars" attribute holding the fitted transformation basis (see
+  # maihda_fitted_predict_terms()). fixed.only = TRUE already drops the random-effect
+  # bars, so maihda_nobars() is not needed.
+  tt <- stats::delete.response(stats::terms(model, fixed.only = TRUE))
+  varlist <- attr(tt, "variables")
   off_idx <- attr(tt, "offset")
-  if (!is.null(off_idx) && length(off_idx) > 0) {
-    varlist <- attr(tt, "variables")
+  if (is.null(off_idx)) off_idx <- integer(0)
+  # The variables `newdata` GENUINELY carries, recorded before any dummy is written.
+  # Both tests below must use this rather than names(newdata): the offset fill runs
+  # first, so a variable shared between an offset() and a model-matrix term -- as in
+  # cnt ~ scale(z) + offset(log(z)) -- would otherwise be dummy-filled and then make
+  # scale(z) look present, silently evaluating it on the dummy instead of falling back
+  # to the fitted values.
+  have <- names(newdata)
+  if (length(off_idx) > 0) {
     off_vars <- unlist(lapply(off_idx, function(i) all.vars(varlist[[i + 1L]])))
-    for (v in setdiff(off_vars, names(newdata))) newdata[[v]] <- 1
+    for (v in setdiff(off_vars, have)) newdata[[v]] <- 1
   }
   mfr <- maihda_model_frame(model)
+
+  # Model-matrix terms whose raw variable(s) `newdata` does not carry.
+  stale <- Filter(
+    function(i) !all(all.vars(varlist[[i + 1L]]) %in% have),
+    setdiff(seq_len(length(varlist) - 1L), off_idx))
+  stale_labels <- character(0)
+  if (length(stale) > 0) {
+    stale_labels <- vapply(stale, function(i) maihda_frame_label(varlist[[i + 1L]]),
+                           character(1))
+    absent <- setdiff(stale_labels, names(mfr))
+    if (length(absent) > 0 || is.null(mfr)) {
+      stop("Cannot evaluate the fixed-effect term(s) '",
+           paste(absent, collapse = "', '"), "' on the prediction grid: their raw ",
+           "variable(s) are absent from the data and the fit stored no column for ",
+           "them.", call. = FALSE)
+    }
+    # A dummy lets model.frame() evaluate the term; the value is overwritten below and
+    # never reaches the model matrix. Safe for a data-dependent basis precisely because
+    # predvars fixes its centre / knots / coefficients, so a constant column is fine.
+    for (v in setdiff(unlist(lapply(stale, function(i) all.vars(varlist[[i + 1L]]))),
+                      have)) {
+      newdata[[v]] <- 1
+    }
+  }
+
   term_vars <- all.vars(tt)
   fac <- names(mfr)[vapply(mfr, is.factor, logical(1))]
   xlev <- lapply(mfr[intersect(fac, term_vars)], levels)
   mf <- stats::model.frame(tt, newdata, na.action = stats::na.pass, xlev = xlev)
+  if (length(stale_labels) > 0) {
+    # The stored values are placed POSITIONALLY, so "rows" needs the grid to be the
+    # fitted rows in the fitted order -- which the VPC(t) grid is, being the model frame
+    # with a column overwritten (maihda_longitudinal_set_time() preserves row names).
+    # Matching on row count alone would silently mis-pair a permuted or differently
+    # subset grid of the same size.
+    if (identical(fallback, "rows") &&
+        !identical(rownames(mf), rownames(mfr))) {
+      stop("Cannot place the fitted values of '", stale_labels[1],
+           "' on the prediction grid: the grid's rows are not the fitted rows in the ",
+           "fitted order. A grid built from other rows must hold such a term at a ",
+           "representative value (fallback = \"mean\").", call. = FALSE)
+    }
+    for (lbl in stale_labels) {
+      mf[[lbl]] <- maihda_stored_term_value(mfr[[lbl]], nrow(mf), fallback, lbl)
+    }
+  }
   contr <- attr(lme4::getME(model, "X"), "contrasts")
   X <- stats::model.matrix(tt, mf, contrasts.arg = contr)
   missing_cols <- setdiff(names(beta), colnames(X))
@@ -4879,7 +5052,7 @@ maihda_variance_shares <- function(model) {
 #' stratum-level contrast come from the same mean square, so combining them as
 #' independent chi-squares inflates the result several-fold. Cross-checked
 #' against \pkg{pbkrtest} in \code{tests/testthat/test-fixed-effect-df.R};
-#' \pkg{pbkrtest} is declared nowhere and those checks skip without it.
+#' \pkg{pbkrtest} is a suggested package and those checks skip without it.
 #'
 #' @param model A fitted model. \code{NULL} for anything that is not a Gaussian
 #'   \code{lmerMod}.

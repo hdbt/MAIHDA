@@ -57,12 +57,13 @@ test_that("the t reference widens intervals and p-values relative to the z", {
   expect_identical(summary(fit)$df_method, "between-within")
 })
 
-# pbkrtest is NOT declared in DESCRIPTION -- not in Imports, not in Suggests --
-# so the package takes on no dependency for it and R CMD check stays clean
-# ("checking for unstated dependencies in 'tests'" scans tests/*.R, not
-# tests/testthat/, verified both ways). These cross-checks are the only external
-# validation that the containment rule is statistically right rather than merely
-# self-consistent, so they run wherever a developer has pbkrtest and skip
+# pbkrtest sits in Suggests, not Imports, so the package takes on no hard
+# dependency for it. It has to be declared: "checking for unstated dependencies
+# in 'tests'" walks tests/ recursively, tests/testthat/ included, and an
+# undeclared '::' here is a WARNING that fails R-CMD-check under
+# error-on: warning. These cross-checks are the only external validation that
+# the containment rule is statistically right rather than merely
+# self-consistent, so they run wherever pbkrtest is installed and skip
 # elsewhere.
 maihda_kr_df <- function(m) {
   est <- lme4::fixef(m)

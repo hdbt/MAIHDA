@@ -688,7 +688,7 @@ pcv_importance <- function(data, outcome, vars,
       # the null draw's boundary can be tested before it enters a denominator.
       refits_b <- tryCatch(
         lapply(boot_keys, function(key)
-          lme4::refit(boot_models[[key]], newresp = sim_data[[b]])),
+          maihda_refit_draw(boot_models[[key]], sim_data[[b]])),
         error = function(e) NULL)
       if (is.null(refits_b)) next
       names(refits_b) <- boot_keys
