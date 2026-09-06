@@ -342,6 +342,58 @@
 
 ### Bug fixes
 
+- A longitudinal fit whose fixed part contains a transformed covariate –
+  `scale(z)`, `log(z)`, `poly(z, 2)` – no longer fails with “object ‘z’
+  not found”. The count VPC(t) grid and the fixed trajectory are built
+  from the stored model frame, which holds such a term only under its
+  derived name and never as the raw `z`, so the term could not be
+  re-evaluated there; it now falls back to the values the fit stored for
+  it, per fitted row for the VPC(t) grid and at a representative value
+  for the trajectory, as a formula
+  [`offset()`](https://rdrr.io/r/stats/offset.html) term already did. A
+  grid carrying every raw variable is unchanged.
+- Predictions from a fit whose fixed part contains a data-dependent
+  transformation – `scale(x)`, `poly(x, 2)`, `splines::ns(x, 3)` – now
+  evaluate it on the basis the model was fitted with. The lme4
+  fixed-effect, WeMix and ordinal prediction helpers rebuilt
+  [`terms()`](https://rdrr.io/r/stats/terms.html) from the bare formula,
+  which carries no `predvars`, so the centre, scale or knots were
+  recomputed from whatever rows were being predicted: predicting every
+  row then subsetting disagreed with predicting the subset (by up to 1.1
+  on the ordinal link scale and 1.2 for a Gaussian WeMix fit here), and
+  a one-row or otherwise constant grid divided by a zero standard
+  deviation. A longitudinal count VPC(t) fixes every row to a single
+  time, so a fit containing `scale(<time>)` reported `VPC = NaN` at
+  every time. Untransformed fixed parts, and transformations that do not
+  depend on the data such as `log(x)`, `I(x^2)` and
+  `poly(x, 2, raw = TRUE)`, are bit-identical.
+- `summary(bootstrap = TRUE)`, `summary(df_method = "bootstrap")`,
+  `calculate_pcv(bootstrap = TRUE)` and the longitudinal VPC band now
+  run on an lme4 fit whose data carried missing values.
+  [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html) treats a
+  simulated response with no `na.action` attribute as being on the
+  pre-`na.omit` data and drops those rows a second time, so every draw
+  failed and the call errored with “All … refits failed”; the bundled
+  `maihda_health_data` has 208 such rows. A fit with no dropped rows is
+  unchanged.
+- `summary(df_method = "bootstrap")` now imposes the null it advertises
+  for a term that is marginal to a higher-order term still in the model.
+  The reference distribution was simulated from
+  `update(formula, . ~ . - <term>)`, but R’s marginality rules recode
+  the surviving term to absorb the dropped one – for `y ~ x * f` the
+  result is `f + x:f`, whose full dummy expansion spans exactly the
+  original column space – so the coefficient under test was never
+  restricted and the p-value was pinned near 0.5 whatever the effect
+  size: it rejected at 0.0000 against a nominal 5% over 300 replicates,
+  and had power 0.0000 against an effect the repaired test detects 97.5%
+  of the time; the repaired reference rejects at 0.065 (200 replicates,
+  Monte Carlo SE 0.017). The reduction is now verified against the
+  fitted design and, where it restricts nothing, the term’s design
+  columns are constrained directly. Affects the main effects of `x * f`
+  and `f * g`, every main effect and two-way term under a three-way
+  interaction, a nested `f / g`, and transformed terms such as
+  `poly(x, 2)` under an interaction. An additive fixed part is
+  unchanged.
 - [`print()`](https://rdrr.io/r/base/print.html) on an
   `engine = "ordinal"` fit no longer dumps the whole analytic data set.
   The `clmm` call embedded the data frame itself, and `ordinal`’s
@@ -408,12 +460,13 @@
   simulate the residual as `sigma / sqrt(w_i)`. `lme4::simulate()` draws
   equal-variance noise for every row while `refit()` keeps the `1/w_i`
   weights, which inflated the bootstrap residual variance by about
-  `mean(w)` and pushed VPC, PCV, context, crossed-dimensions,
-  longitudinal and
-  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
-  intervals off their own point estimates. Only all-unit weights were
-  unaffected; a constant weight `c != 1` was biased by `c`. Unweighted
-  fits and every GLMM are unchanged.
+  `mean(w)` and pushed VPC, PCV, context, crossed-dimensions and
+  longitudinal intervals off their own point estimates. Only all-unit
+  weights were unaffected; a constant weight `c != 1` was biased by `c`.
+  Unweighted fits and every GLMM are unchanged, as is
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md),
+  which takes no lme4 `weights` argument and so never fitted a weighted
+  Gaussian model.
 - The fixed-cell-interaction guard now sees a transformed dimension.
   `y ~ factor(a) * b + (1 | a:b)` passed the guard because `factor(a)`
   did not match the dimension name, so the fixed `factor(a):b` cell

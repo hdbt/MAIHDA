@@ -4,10 +4,12 @@ WeMix's own [`predict()`](https://rdrr.io/r/stats/predict.html) method
 needs the grouping structure re-resolved and offers no fixed-only form,
 so predictions are built directly from the coefficient vector and the
 stored stratum effects: the fixed design matrix is constructed with the
-training data's factor levels and multiplied by `coef`, any formula
-offset term is evaluated on `newdata` and added, and `include_re` adds
-each row's stratum effect (conditional mode; an unseen stratum
-contributes 0 – the population-average fallback that
+training data's factor levels AND transformation basis (so a
+data-dependent term such as `scale(x)` uses the fit's centre and scale
+rather than recomputing them from `newdata`) and multiplied by `coef`,
+any formula offset term is evaluated on `newdata` and added, and
+`include_re` adds each row's stratum effect (conditional mode; an unseen
+stratum contributes 0 – the population-average fallback that
 [`predict_maihda`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
 only reaches when `allow_new_levels = TRUE`, having otherwise rejected
 unseen strata upstream). Everything is on the link scale.

@@ -281,16 +281,28 @@ lmerTest to `x$model`.
 at least one fixed-effect term, Gaussian or not, and is the one to use
 for a GLMM – whose z is anticonservative for a term constant within a
 stratum, most severely when the strata are few. For each fixed-effect
-term the model is refitted *without* that term, `n_boot` responses are
-simulated from the reduced fit, the full model is refitted on each, and
-the observed Wald statistic is referred to the resulting distribution of
-\\\|t^\*\|\\ under a true null. The estimate and standard error are
-unchanged; the p-value and the interval both come from that distribution
-and agree exactly, zero falling outside the interval precisely when the
-p-value is significant. `df` is `NA`, and so are the intercept's p-value
-and interval: a MAIHDA intercept is a reference-category level rather
-than a term that can be dropped, so it has no null model to simulate
-from.
+term the model is refitted with that term's coefficients *constrained to
+zero*, `n_boot` responses are simulated from the restricted fit, the
+full model is refitted on each, and the observed Wald statistic is
+referred to the resulting distribution of \\\|t^\*\|\\ under a true
+null. The estimate and standard error are unchanged; the p-value and the
+interval both come from that distribution and agree exactly, zero
+falling outside the interval precisely when the p-value is significant.
+`df` is `NA`, and so are the intercept's p-value and interval: a MAIHDA
+intercept is a reference-category level rather than a term that can be
+dropped, so it has no null model to simulate from.
+
+The constraint is imposed on the fitted design and verified, not assumed
+from the formula. Removing a term from a formula does not always remove
+it from the model: R's marginality rules recode a surviving higher-order
+term to absorb a dropped marginal one, so for `y ~ x * f` the formula
+`. ~ . - x` still spans the original column space and leaves the
+coefficient under test entirely unrestricted. The same holds for either
+main effect of `f * g`, for every main effect and two-way term under a
+three-way interaction, and for a nested `f / g`. Where that happens the
+term's design columns are constrained directly instead. A model whose
+fixed part is additive is unaffected: there, dropping the term from the
+formula already is the null.
 
 It costs `n_boot` refits *per term*, and is a separate bootstrap from
 the `bootstrap = TRUE` VPC interval, which is not reused. The smallest

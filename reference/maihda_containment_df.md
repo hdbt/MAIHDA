@@ -40,5 +40,5 @@ Satterthwaite-combined: in the balanced one-way case the stratum and
 residual shares of a stratum-level contrast come from the same mean
 square, so combining them as independent chi-squares inflates the result
 several-fold. Cross-checked against pbkrtest in
-`tests/testthat/test-fixed-effect-df.R`; pbkrtest is declared nowhere
+`tests/testthat/test-fixed-effect-df.R`; pbkrtest is a suggested package
 and those checks skip without it.
