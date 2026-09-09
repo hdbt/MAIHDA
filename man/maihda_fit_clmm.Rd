@@ -28,6 +28,8 @@ with \code{Hess = TRUE} (needed for the threshold standard errors). The
 analytic frame is passed by NAME (bound in a private environment) so the call
 clmm stores stays one line: ordinal's \code{print}/\code{summary} methods
 deparse \code{call$data}, and embedding the frame there made printing an
-ordinal fit dump the whole data set.
+ordinal fit dump the whole data set. Any formula \code{offset()} term is moved
+ahead of the \code{(1 | stratum)} term first, because clmm reads the offset by
+position in the bar-free variables list (see \code{maihda_offset_before_bars}).
 }
 \keyword{internal}

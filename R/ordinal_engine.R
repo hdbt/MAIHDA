@@ -175,6 +175,135 @@ maihda_ordinal_assert_min_levels <- function(y, resp_name) {
   invisible(TRUE)
 }
 
+# ---- clmm formula normalization: offset() must precede the random-effect terms ----
+
+# Split a formula right-hand side into its top-level `+` operands, in order.
+# Only `+` is split: a `-` subtree (y ~ a - b) stays one operand, so nothing is
+# silently promoted out of a subtraction.
+maihda_rhs_plus_terms <- function(expr) {
+  if (is.call(expr) && identical(expr[[1L]], as.name("+")) && length(expr) == 3L) {
+    return(c(maihda_rhs_plus_terms(expr[[2L]]), list(expr[[3L]])))
+  }
+  list(expr)
+}
+
+# Rebuild a right-hand side from an ordered list of `+` operands.
+maihda_rhs_from_plus_terms <- function(terms_list) {
+  Reduce(function(a, b) call("+", a, b), terms_list)
+}
+
+# TRUE for a random-effect operand -- (1 | g), (1 || g), or any parenthesized
+# expression whose top-level operator is a bar.
+maihda_is_bar_term <- function(expr) {
+  while (is.call(expr) && identical(expr[[1L]], as.name("(")) && length(expr) == 2L) {
+    expr <- expr[[2L]]
+  }
+  is.call(expr) &&
+    (identical(expr[[1L]], as.name("|")) || identical(expr[[1L]], as.name("||")))
+}
+
+# TRUE for an operand that CARRIES a formula offset: offset(<expr>) itself, a
+# redundantly parenthesized one, or a `+` group containing one. stats::terms()
+# finds an offset through `(` and `+` (and through `-`, `*`, `:`), but NOT through
+# an ordinary call -- I(offset(x)) and log(offset(x)) are plain variables, not
+# offsets -- so this mirrors the `(`/`+` part of that traversal, which is every
+# spelling the package or a user realistically writes. A `-`, `*` or `:` subtree is
+# deliberately NOT rewritten (moving it would change the fixed design); the
+# alignment check below catches such a formula and errors instead of mis-fitting.
+maihda_is_offset_term <- function(expr) {
+  while (is.call(expr) && identical(expr[[1L]], as.name("(")) && length(expr) == 2L) {
+    expr <- expr[[2L]]
+  }
+  if (!is.call(expr)) {
+    return(FALSE)
+  }
+  if (identical(expr[[1L]], as.name("offset"))) {
+    return(TRUE)
+  }
+  if (identical(expr[[1L]], as.name("+")) && length(expr) == 3L) {
+    return(any(vapply(maihda_rhs_plus_terms(expr), maihda_is_offset_term,
+                      logical(1))))
+  }
+  FALSE
+}
+
+# Verify the invariant ordinal::clmm() depends on: every offset position read off
+# the BAR-FREE terms must point at the SAME expression in the variables list of the
+# BARRED (subbars) formula, because clmm takes the index from the former and the
+# frame from the latter. maihda_offset_before_bars() establishes this for every
+# spelling it can rewrite; this is the backstop for the ones it cannot (an offset
+# buried in a `-`, `*` or `:` subtree after the random effect), so those ERROR with
+# an actionable message instead of being fitted against the wrong column. Returns
+# TRUE when the question cannot be decided (a formula terms() cannot process):
+# conservative, never block a fit that is not provably broken.
+maihda_clmm_offset_aligned <- function(formula) {
+  ok <- tryCatch({
+    tf <- stats::terms(maihda_nobars(formula))
+    oi <- attr(tf, "offset")
+    if (is.null(oi) || length(oi) == 0L) {
+      TRUE
+    } else {
+      vf <- as.list(attr(tf, "variables"))[-1L]
+      vfull <- as.list(attr(stats::terms(reformulas::subbars(formula)),
+                            "variables"))[-1L]
+      max(oi) <= length(vfull) &&
+        all(vapply(oi, function(i) identical(vf[[i]], vfull[[i]]), logical(1)))
+    }
+  }, error = function(e) TRUE)
+  isTRUE(ok)
+}
+
+# Move every formula offset() term ahead of the random-effect terms.
+#
+# ordinal::clmm() builds its model frame from subbars(formula) -- the bars turned
+# into `+` -- but then OVERWRITES that frame's terms attribute with the terms of
+# nobars(formula), and reads the offset with model.offset(), i.e. by POSITION in
+# the bar-free variables list. The two variable lists only line up while every
+# random-effect term follows every offset term. With the offset written last --
+# which is exactly what stats::update(fixed ~ ., . ~ . + (1 | stratum)) produces,
+# and what a user writing y ~ x + (1 | stratum) + offset(off) supplies -- the
+# index lands on the grouping variable instead, so clmm silently fits the STRATUM
+# COLUMN as the offset (integer stratum ids => wrong thresholds, wrong slopes and
+# a between-stratum variance inflated to var(stratum id)); when the mis-indexed
+# column is a factor or character it errors instead ("'offset' must be numeric",
+# "non-numeric argument to binary operator"). Relocating the offset restores the
+# prefix alignment: no bar term then precedes it, so its position in the bar-free
+# variables list is the position it occupies in the full one.
+#
+# Nothing else moves -- the relative order of every other term, the response, the
+# intercept and the formula environment are preserved -- and a formula with no
+# offset, no random effect, or its offsets already ahead of the bars is returned
+# UNCHANGED, so a no-offset fit is bit-identical. clmm-only: lme4, brms and WeMix
+# read the offset from their own frame and are indifferent to the term order.
+maihda_offset_before_bars <- function(formula) {
+  if (!inherits(formula, "formula") || length(formula) < 2L) {
+    return(formula)
+  }
+  rhs <- formula[[length(formula)]]
+  parts <- maihda_rhs_plus_terms(rhs)
+  if (length(parts) < 2L) {
+    return(formula)
+  }
+  is_off <- vapply(parts, maihda_is_offset_term, logical(1))
+  is_bar <- vapply(parts, maihda_is_bar_term, logical(1))
+  if (!any(is_off) || !any(is_bar)) {
+    return(formula)
+  }
+  first_bar <- which(is_bar)[1L]
+  if (!any(is_off & seq_along(parts) > first_bar)) {
+    return(formula)
+  }
+  # Stable relocation: the offsets keep their relative order and land immediately
+  # before the first random-effect term; everything else keeps its order too.
+  idx <- seq_along(parts)
+  reordered <- c(idx[!is_off & idx < first_bar], idx[is_off],
+                 idx[!is_off & idx >= first_bar])
+  out <- formula
+  out[[length(out)]] <- maihda_rhs_from_plus_terms(parts[reordered])
+  environment(out) <- environment(formula)
+  out
+}
+
 #' Fit a cumulative MAIHDA model via ordinal::clmm
 #'
 #' Internal engine call for \code{fit_maihda(engine = "ordinal")}. Builds the
@@ -184,7 +313,9 @@ maihda_ordinal_assert_min_levels <- function(y, resp_name) {
 #' analytic frame is passed by NAME (bound in a private environment) so the call
 #' clmm stores stays one line: ordinal's \code{print}/\code{summary} methods
 #' deparse \code{call$data}, and embedding the frame there made printing an
-#' ordinal fit dump the whole data set.
+#' ordinal fit dump the whole data set. Any formula \code{offset()} term is moved
+#' ahead of the \code{(1 | stratum)} term first, because clmm reads the offset by
+#' position in the bar-free variables list (see \code{maihda_offset_before_bars}).
 #'
 #' @param formula The resolved model formula (with \code{(1 | stratum)}).
 #' @param data The data (after strata creation / response preparation).
@@ -225,6 +356,23 @@ maihda_fit_clmm <- function(formula, data, family, dot_vals) {
   resp_name <- all.vars(formula[[2]])[1]
   data[[resp_name]] <- droplevels(data[[resp_name]])
   maihda_ordinal_assert_min_levels(data[[resp_name]], resp_name)
+
+  # Put any formula offset() term ahead of the (1 | stratum) term before handing
+  # the formula to clmm: clmm reads the offset by POSITION in the bar-free
+  # variables list while indexing the frame it built from the barred one, so a
+  # trailing offset makes it fit the grouping column as the offset (see
+  # maihda_offset_before_bars). A no-offset formula is returned unchanged.
+  formula <- maihda_offset_before_bars(formula)
+  # Backstop: a spelling the relocation could not rewrite (an offset buried in a
+  # `-`, `*` or `:` subtree after the random effect) would still be read off the
+  # wrong column, silently. Refuse it with an actionable message instead.
+  if (!maihda_clmm_offset_aligned(formula)) {
+    stop("The offset() term in this formula cannot be moved ahead of the ",
+         "random-effect term automatically, and ordinal::clmm() would read the ",
+         "wrong column as the offset. Write the offset as its own term BEFORE ",
+         "the random effect, e.g. y ~ x + offset(log(n)) + (1 | stratum).",
+         call. = FALSE)
+  }
 
   # Build the clmm call so it REFERENCES the analytic frame by name instead of
   # embedding it. do.call(ordinal::clmm, list(data = data, ...)) substitutes the
