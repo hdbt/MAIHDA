@@ -14,8 +14,14 @@ A data frame with \code{term}, \code{estimate}, \code{se}.
 }
 \description{
 The thresholds \eqn{\alpha_k} take the place of the intercept in a cumulative
-model: \eqn{P(Y \le k) = g^{-1}(\alpha_k - \eta)}. Standard errors come from
-the Hessian-based \code{vcov()} (hence \code{Hess = TRUE} at fit time) and
-degrade to \code{NA} when unavailable.
+model: \eqn{P(Y \le k) = g^{-1}(\alpha_k - \eta)}. Reported as the \eqn{K-1}
+expanded cut points (\code{\link{maihda_clmm_cutpoints}}), so the table means
+the same thing under every threshold structure rather than echoing the free
+parameters of a constrained fit. Standard errors come from the Hessian-based
+\code{vcov()} (hence \code{Hess = TRUE} at fit time) and degrade to \code{NA}
+when unavailable; under a structured threshold they are the delta-method SEs of
+the cut points, \eqn{J V J'} for the fit's threshold Jacobian \code{$tJac}.
+That Jacobian is the identity under the default \code{threshold = "flexible"},
+where the transform reproduces the direct \code{vcov()} SEs exactly.
 }
 \keyword{internal}

@@ -176,7 +176,8 @@ predict_maihda <- function(object, newdata = NULL,
       # order), the package's response-scale summary of a cumulative model.
       eta <- maihda_clmm_linpred(object, newdata = newdata, include_re = TRUE)
       if (scale == "response") {
-        return(maihda_ordinal_eta_to_score(eta, object$model$alpha,
+        return(maihda_ordinal_eta_to_score(eta,
+                                           maihda_clmm_cutpoints(object$model),
                                            object$family$link))
       }
       return(eta)

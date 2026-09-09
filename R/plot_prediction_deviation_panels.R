@@ -211,7 +211,8 @@ maihda_prediction_panel_ordinal_probs <- function(model, data) {
         eta <- eta + unname(u)
       }
     }
-    probs <- maihda_ordinal_category_probs(eta, model$alpha, model$link)
+    probs <- maihda_ordinal_category_probs(eta, maihda_clmm_cutpoints(model),
+                                           model$link)
     return(as.data.frame(probs))
   }
 

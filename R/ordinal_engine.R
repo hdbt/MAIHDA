@@ -12,7 +12,11 @@
 # VPC = sigma^2_u / (sigma^2_u + pi^2/3).
 #
 # Empirical notes on the clmm object (ordinal 2025.12.29), which the accessors
-# below rely on: $alpha (named thresholds "1|2", ...), $beta (named location
+# below rely on: $alpha (the FREE threshold parameters -- named "1|2", ... and
+# equal to the cut points only under the default threshold = "flexible"; a
+# structured threshold request stores a shorter reparameterisation such as
+# threshold.1/spacing, so the cut points come from $Theta / $tJac via
+# maihda_clmm_cutpoints()), $beta (named location
 # coefficients, NO intercept -- it is absorbed by the thresholds), $model (the
 # model frame), $link, $xlevels, $terms (fixed-effects-only terms), and
 # $optRes$convergence (0 = converged). ordinal exports VarCorr(), ranef() and
@@ -271,29 +275,130 @@ maihda_clmm_variances <- function(object) {
   list(stratum = var_stratum, residual = var_residual)
 }
 
+#' Expanded cut points of a cumulative (clmm) fit
+#'
+#' The \eqn{K-1} cut points of a \eqn{K}-category cumulative model, whatever
+#' threshold structure was fitted.
+#'
+#' \code{clmm}'s \code{$alpha} holds the \emph{free} threshold parameters, which
+#' equal the cut points only under the default \code{threshold = "flexible"}. A
+#' structured threshold request (\code{"equidistant"}, \code{"symmetric"},
+#' \code{"symmetric2"}, all part of \code{clmm}'s documented API and reachable
+#' through \code{fit_maihda}'s \code{...}) leaves \code{$alpha} holding a shorter,
+#' differently-parameterised vector -- \code{threshold.1} and \code{spacing} for
+#' the equidistant case -- so reading it as the cut points understates the number
+#' of categories and mislocates every one of them. The expanded cut points are
+#' stored on the fit as \code{$Theta} (a \eqn{1 \times (K-1)} matrix), equivalently
+#' \code{$tJac \%*\% $alpha}; \code{$tJac} is the identity under
+#' \code{"flexible"}, so this returns \code{$alpha} unchanged there.
+#'
+#' @param model A fitted \code{clmm}.
+#' @return A numeric vector of \eqn{K-1} increasing cut points, named
+#'   \code{"1|2"}, \code{"2|3"}, ... when the fit supplies those labels.
+#' @keywords internal
+maihda_clmm_cutpoints <- function(model) {
+  theta <- model$Theta
+  if (!is.null(theta) && length(theta) > 0) {
+    # A 1 x (K-1) matrix whose column names are the "1|2", "2|3", ... labels.
+    out <- as.numeric(theta)
+    nms <- if (is.matrix(theta)) colnames(theta) else names(theta)
+  } else {
+    # Older/leaner fits may carry only the free parameters and the Jacobian that
+    # expands them; fall back to alpha itself when neither is present.
+    alpha <- model$alpha
+    if (is.null(alpha) || length(alpha) == 0) {
+      stop("No thresholds found on the clmm fit.", call. = FALSE)
+    }
+    tJac <- model$tJac
+    if (!is.null(tJac) && is.matrix(tJac) && ncol(tJac) == length(alpha)) {
+      out <- as.numeric(tJac %*% as.numeric(alpha))
+      nms <- rownames(tJac)
+    } else {
+      out <- as.numeric(alpha)
+      nms <- names(alpha)
+    }
+  }
+  # NA-safe: a label vector carrying NA would make all(nms == "") return NA and
+  # turn the guard itself into an error.
+  if (!is.null(nms) && length(nms) == length(out) &&
+      any(!is.na(nms) & nzchar(nms))) {
+    names(out) <- nms
+  }
+
+  # Invariant: K - 1 cut points for the K categories actually fitted, so every
+  # downstream probability matrix has exactly one column per fitted category. This
+  # is the guard that would have caught the free-parameter/cut-point confusion --
+  # an equidistant 5-category fit stores 2 free parameters, and reading those as
+  # cut points silently produced a 3-column probability matrix.
+  y_levels <- model$y.levels
+  if (!is.null(y_levels) && length(y_levels) > 0 &&
+      length(out) != length(y_levels) - 1L) {
+    stop(sprintf(paste0("Cumulative fit inconsistency: %d cut point(s) recovered ",
+                        "for %d fitted response categories (expected %d)."),
+                 length(out), length(y_levels), length(y_levels) - 1L),
+         call. = FALSE)
+  }
+  out
+}
+
 #' Threshold (cut-point) estimates of a cumulative (clmm) MAIHDA fit
 #'
 #' The thresholds \eqn{\alpha_k} take the place of the intercept in a cumulative
-#' model: \eqn{P(Y \le k) = g^{-1}(\alpha_k - \eta)}. Standard errors come from
-#' the Hessian-based \code{vcov()} (hence \code{Hess = TRUE} at fit time) and
-#' degrade to \code{NA} when unavailable.
+#' model: \eqn{P(Y \le k) = g^{-1}(\alpha_k - \eta)}. Reported as the \eqn{K-1}
+#' expanded cut points (\code{\link{maihda_clmm_cutpoints}}), so the table means
+#' the same thing under every threshold structure rather than echoing the free
+#' parameters of a constrained fit. Standard errors come from the Hessian-based
+#' \code{vcov()} (hence \code{Hess = TRUE} at fit time) and degrade to \code{NA}
+#' when unavailable; under a structured threshold they are the delta-method SEs of
+#' the cut points, \eqn{J V J'} for the fit's threshold Jacobian \code{$tJac}.
+#' That Jacobian is the identity under the default \code{threshold = "flexible"},
+#' where the transform reproduces the direct \code{vcov()} SEs exactly.
 #'
 #' @param object A \code{maihda_model} with engine \code{"ordinal"}.
 #' @return A data frame with \code{term}, \code{estimate}, \code{se}.
 #' @keywords internal
 maihda_clmm_thresholds <- function(object) {
-  alpha <- object$model$alpha
-  if (is.null(alpha) || length(alpha) == 0) {
-    stop("No thresholds found on the clmm fit.", call. = FALSE)
+  model <- object$model
+  theta <- maihda_clmm_cutpoints(model)
+  alpha <- model$alpha
+  V <- tryCatch(stats::vcov(model), error = function(e) NULL)
+
+  se <- rep(NA_real_, length(theta))
+  # length(names(alpha)) == length(alpha) is load-bearing, not belt-and-braces:
+  # names(alpha) is character(0) on an unnamed vector, %in% then gives logical(0),
+  # and all(logical(0)) is TRUE -- so the row selection below would pass the guard
+  # and silently produce a 0 x 0 covariance block. Every clmm fit does name alpha
+  # (all four threshold structures), so this only ever fires on a malformed fit;
+  # it degrades to NA standard errors instead of a non-conformable error that the
+  # caller's tryCatch would swallow, dropping the whole table without a word.
+  if (!is.null(V) && !is.null(alpha) && length(alpha) > 0 &&
+      length(names(alpha)) == length(alpha) &&
+      all(names(alpha) %in% rownames(V))) {
+    V_alpha <- V[names(alpha), names(alpha), drop = FALSE]
+    tJac <- model$tJac
+    if (!is.null(tJac) && is.matrix(tJac) &&
+        nrow(tJac) == length(theta) && ncol(tJac) == length(alpha)) {
+      # Delta method for the cut points, which are an exact linear function of the
+      # free parameters (Theta = tJac %*% alpha). Under "flexible" tJac is the
+      # identity and this returns the untransformed vcov() diagonal unchanged.
+      se <- sqrt(pmax(diag(tJac %*% V_alpha %*% t(tJac)), 0))
+    } else if (identical(as.numeric(alpha), as.numeric(theta))) {
+      # No reparameterisation happened (flexible, or a fit carrying only alpha),
+      # so the free-parameter SEs ARE the cut-point SEs. Equal LENGTH is not
+      # enough: a 3-category equidistant fit has 2 free parameters and 2 cut
+      # points, and pairing those SEs with these estimates would be silently
+      # wrong. Without a usable Jacobian the SEs stay NA rather than misreport.
+      se <- sqrt(pmax(diag(V_alpha), 0))
+    }
   }
-  V <- tryCatch(stats::vcov(object$model), error = function(e) NULL)
-  se <- rep(NA_real_, length(alpha))
-  if (!is.null(V) && all(names(alpha) %in% rownames(V))) {
-    se <- sqrt(pmax(diag(V)[names(alpha)], 0))
+
+  labels <- names(theta)
+  if (is.null(labels) || length(labels) != length(theta)) {
+    labels <- paste0(seq_len(length(theta)), "|", seq_len(length(theta)) + 1L)
   }
   data.frame(
-    term = names(alpha),
-    estimate = as.numeric(alpha),
+    term = labels,
+    estimate = as.numeric(theta),
     se = as.numeric(se),
     row.names = NULL,
     stringsAsFactors = FALSE
@@ -491,6 +596,51 @@ maihda_ordinal_eta_to_score <- function(eta, thresholds, link = "logit") {
   )
 }
 
+#' Cumulative brmsfamily for the brms ordinal engine
+#'
+#' Turns whatever the caller supplied for an ordinal \code{engine = "brms"} fit
+#' into a proper \code{brms::cumulative()} family, preserving the
+#' cumulative-specific options a user set.
+#'
+#' A rebuild is needed because \code{family} may still be the plain
+#' \code{list(family = "cumulative", link = )} marker that the family-string path
+#' and \code{\link{maihda_cumulative}} produce, which \code{brm()} cannot use. It
+#' must be a rebuild rather than a pass-through for the same reason. Rebuilding
+#' from the link ALONE, however, silently reset every other option to brms's
+#' defaults: \code{brms::cumulative(threshold = "equidistant")} fitted the
+#' flexible model, with no warning that a different model had been fitted from
+#' the one asked for. \code{threshold} and \code{link_disc} are therefore carried
+#' across when the supplied family actually has them; the marker lists carry
+#' neither, so those paths still get brms's defaults.
+#'
+#' Note the contrast with the \code{clmm} engine, where a structured threshold
+#' also has to be handled on the way OUT
+#' (\code{\link{maihda_clmm_cutpoints}}). brms needs no such treatment: its
+#' generated quantities expand the constrained thresholds into the full
+#' \code{b_Intercept[1..K-1]} vector, so \code{brms::fixef()} reports all
+#' \eqn{K-1} cut points under every threshold structure and
+#' \code{\link{maihda_brms_ordinal_thresholds}} reads them unchanged.
+#'
+#' @param family The family carried into the brms branch of \code{fit_maihda()}:
+#'   a \code{brmsfamily}, or the plain cumulative marker list.
+#' @return A \code{brms::cumulative()} family object.
+#' @keywords internal
+maihda_brms_cumulative_family <- function(family) {
+  args <- list(link = family$link)
+  for (nm in c("threshold", "link_disc")) {
+    val <- family[[nm]]
+    # Absent or explicitly unset: leave it to brms's default.
+    if (is.null(val) || length(val) == 0L) next
+    if (length(val) == 1L && (is.na(val) || !nzchar(as.character(val)))) next
+    # Anything else is a setting the caller made, so hand it to brms and let brms
+    # judge it. A malformed value must ERROR rather than quietly fall back to the
+    # default -- silently substituting a different model is the defect this
+    # function exists to fix, and that argument applies to bad input too.
+    args[[nm]] <- as.character(val)
+  }
+  do.call(brms::cumulative, args)
+}
+
 #' Posterior-mean cumulative thresholds of a brms cumulative fit
 #'
 #' The brms analogue of \code{clmm}'s \code{object$model$alpha}: the ordered cut
@@ -502,6 +652,16 @@ maihda_ordinal_eta_to_score <- function(eta, thresholds, link = "logit") {
 #' thresholds, exactly the latent \eqn{\eta} that
 #' \code{\link{maihda_ordinal_category_probs}} expects (\eqn{P(Y \le k) =
 #' g^{-1}(\alpha_k - \eta)}).
+#'
+#' Unlike \code{clmm}'s \code{$alpha}, this needs no expansion under a structured
+#' \code{threshold}. brms keeps the constrained parameterisation in the model
+#' block only -- an equidistant fit samples \code{first_Intercept} and
+#' \code{delta} -- and its generated quantities write the full
+#' \code{b_Intercept[1..K-1]} vector, which is what \code{fixef()} reports. Verified
+#' on a fitted equidistant model: \code{fixef()} carries all \eqn{K-1}
+#' \code{Intercept[k]} rows (the raw \code{delta} is not among them) and the cut
+#' points come back equally spaced. Contrast
+#' \code{\link{maihda_clmm_cutpoints}}, which must do that expansion itself.
 #'
 #' @param model A fitted \code{brmsfit} from \code{brms::cumulative()}.
 #' @return A numeric vector of thresholds (length \eqn{K-1} for \eqn{K} categories).
@@ -543,7 +703,7 @@ maihda_stratum_predictions_ordinal <- function(object, summary_obj,
     stop("'stratum' variable not found in fitted model data.")
   }
 
-  alpha <- object$model$alpha
+  cutpoints <- maihda_clmm_cutpoints(object$model)
   link <- object$family$link
   prior_w <- maihda_prediction_weights(object)
   eta_fixed <- maihda_clmm_linpred(object, include_re = FALSE)
@@ -556,7 +716,7 @@ maihda_stratum_predictions_ordinal <- function(object, summary_obj,
   key <- as.character(data$stratum)
   idx <- match(key, as.character(stratum_est$stratum))
   transform_eta <- function(eta) {
-    if (scale == "response") maihda_ordinal_eta_to_score(eta, alpha, link) else eta
+    if (scale == "response") maihda_ordinal_eta_to_score(eta, cutpoints, link) else eta
   }
 
   pred_df <- data.frame(
@@ -678,7 +838,7 @@ maihda_proportional_odds_test <- function(object, n_sim = 199, seed = NULL) {
   # Ingredients of the fitted conditional model. maihda_ordinal_check_formula()
   # guarantees the clmm path is the canonical single (1 | stratum) structure, so
   # one random-effect SD and one grouping factor are all that is needed.
-  alpha <- object$model$alpha
+  cutpoints <- maihda_clmm_cutpoints(object$model)
   link <- object$family$link
   tau <- sqrt(max(maihda_clmm_variances(object)$stratum, 0))
   eta_fixed <- maihda_clmm_linpred(object, include_re = FALSE)
@@ -700,7 +860,7 @@ maihda_proportional_odds_test <- function(object, n_sim = 199, seed = NULL) {
   }
   gi <- as.integer(grp)
   n_grp <- nlevels(grp)
-  K <- length(alpha) + 1L
+  K <- length(cutpoints) + 1L
   y_levels <- levels(dat[[resp]])
   if (length(y_levels) != K) {
     y_levels <- as.character(seq_len(K))
@@ -709,7 +869,7 @@ maihda_proportional_odds_test <- function(object, n_sim = 199, seed = NULL) {
   null_lrt <- rep(NA_real_, n_sim)
   for (b in seq_len(n_sim)) {
     eta <- eta_fixed + stats::rnorm(n_grp, 0, tau)[gi]
-    probs <- maihda_ordinal_category_probs(eta, alpha, link = link)
+    probs <- maihda_ordinal_category_probs(eta, cutpoints, link = link)
     # Inverse-CDF draw from each row's category distribution: the first category
     # whose cumulative probability reaches the row's uniform draw. The final
     # cumulative column is pinned to 1 because a floating-point cumsum can land a

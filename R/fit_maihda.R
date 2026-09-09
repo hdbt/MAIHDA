@@ -957,7 +957,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       ord_y <- if (is.null(ord_keep)) data[[resp_name]] else data[[resp_name]][ord_keep]
       maihda_ordinal_assert_min_levels(droplevels(ord_y), resp_name)
       fit_env$data <- data
-      family <- brms::cumulative(link = family$link)
+      family <- maihda_brms_cumulative_family(family)
     }
 
     fit_fun <- quote(brms::brm)

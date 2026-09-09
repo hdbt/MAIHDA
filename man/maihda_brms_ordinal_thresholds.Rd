@@ -23,4 +23,15 @@ thresholds, exactly the latent \eqn{\eta} that
 \code{\link{maihda_ordinal_category_probs}} expects (\eqn{P(Y \le k) =
 g^{-1}(\alpha_k - \eta)}).
 }
+\details{
+Unlike \code{clmm}'s \code{$alpha}, this needs no expansion under a structured
+\code{threshold}. brms keeps the constrained parameterisation in the model
+block only -- an equidistant fit samples \code{first_Intercept} and
+\code{delta} -- and its generated quantities write the full
+\code{b_Intercept[1..K-1]} vector, which is what \code{fixef()} reports. Verified
+on a fitted equidistant model: \code{fixef()} carries all \eqn{K-1}
+\code{Intercept[k]} rows (the raw \code{delta} is not among them) and the cut
+points come back equally spaced. Contrast
+\code{\link{maihda_clmm_cutpoints}}, which must do that expansion itself.
+}
 \keyword{internal}
