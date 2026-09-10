@@ -6,14 +6,18 @@ with Hess = TRUE (needed for the threshold standard errors). The
 analytic frame is passed by NAME (bound in a private environment) so the call
 clmm stores stays one line: ordinal's print/summary methods
 deparse call$data, and embedding the frame there made printing an
-ordinal fit dump the whole data set."><meta property="og:description" content="Internal engine call for fit_maihda(engine = &quot;ordinal&quot;). Builds the
+ordinal fit dump the whole data set. Any formula offset() term is moved
+ahead of the (1 | stratum) term first, because clmm reads the offset by
+position in the bar-free variables list (see maihda_offset_before_bars)."><meta property="og:description" content="Internal engine call for fit_maihda(engine = &quot;ordinal&quot;). Builds the
 analytic sample (complete cases on the model variables) so the stored
 data matches the rows clmm fits, then calls ordinal::clmm()
 with Hess = TRUE (needed for the threshold standard errors). The
 analytic frame is passed by NAME (bound in a private environment) so the call
 clmm stores stays one line: ordinal's print/summary methods
 deparse call$data, and embedding the frame there made printing an
-ordinal fit dump the whole data set."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
+ordinal fit dump the whole data set. Any formula offset() term is moved
+ahead of the (1 | stratum) term first, because clmm reads the offset by
+position in the bar-free variables list (see maihda_offset_before_bars)."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -21,7 +25,7 @@ ordinal fit dump the whole data set."><meta property="og:image" content="https:/
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -73,7 +77,9 @@ with <code>Hess = TRUE</code> (needed for the threshold standard errors). The
 analytic frame is passed by NAME (bound in a private environment) so the call
 clmm stores stays one line: ordinal's <code>print</code>/<code>summary</code> methods
 deparse <code>call$data</code>, and embedding the frame there made printing an
-ordinal fit dump the whole data set.</p>
+ordinal fit dump the whole data set. Any formula <code><a href="https://rdrr.io/r/stats/offset.html" class="external-link">offset()</a></code> term is moved
+ahead of the <code>(1 | stratum)</code> term first, because clmm reads the offset by
+position in the bar-free variables list (see <code>maihda_offset_before_bars</code>).</p>
     </div>
 
     <div class="section level2">

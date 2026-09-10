@@ -29,3 +29,16 @@ maihda_brms_ordinal_thresholds(model)
 ## Value
 
 A numeric vector of thresholds (length \\K-1\\ for \\K\\ categories).
+
+## Details
+
+Unlike `clmm`'s `$alpha`, this needs no expansion under a structured
+`threshold`. brms keeps the constrained parameterisation in the model
+block only – an equidistant fit samples `first_Intercept` and `delta` –
+and its generated quantities write the full `b_Intercept[1..K-1]`
+vector, which is what `fixef()` reports. Verified on a fitted
+equidistant model: `fixef()` carries all \\K-1\\ `Intercept[k]` rows
+(the raw `delta` is not among them) and the cut points come back equally
+spaced. Contrast
+[`maihda_clmm_cutpoints`](https://hdbt.github.io/MAIHDA/reference/maihda_clmm_cutpoints.md),
+which must do that expansion itself.

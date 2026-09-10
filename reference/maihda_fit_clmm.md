@@ -8,7 +8,11 @@ analytic sample (complete cases on the model variables) so the stored
 frame is passed by NAME (bound in a private environment) so the call
 clmm stores stays one line: ordinal's `print`/`summary` methods deparse
 `call$data`, and embedding the frame there made printing an ordinal fit
-dump the whole data set.
+dump the whole data set. Any formula
+[`offset()`](https://rdrr.io/r/stats/offset.html) term is moved ahead of
+the `(1 | stratum)` term first, because clmm reads the offset by
+position in the bar-free variables list (see
+`maihda_offset_before_bars`).
 
 ## Usage
 

@@ -23,7 +23,7 @@ g^{-1}(\alpha_k - \eta)\))."><meta property="og:image" content="https://hdbt.git
 
     <a class="navbar-brand me-2" href="../index.html">MAIHDA</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -95,6 +95,18 @@ g^{-1}(\alpha_k - \eta)\)).</p>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A numeric vector of thresholds (length \(K-1\) for \(K\) categories).</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Unlike <code>clmm</code>'s <code>$alpha</code>, this needs no expansion under a structured
+<code>threshold</code>. brms keeps the constrained parameterisation in the model
+block only – an equidistant fit samples <code>first_Intercept</code> and
+<code>delta</code> – and its generated quantities write the full
+<code>b_Intercept[1..K-1]</code> vector, which is what <code>fixef()</code> reports. Verified
+on a fitted equidistant model: <code>fixef()</code> carries all \(K-1\)
+<code>Intercept[k]</code> rows (the raw <code>delta</code> is not among them) and the cut
+points come back equally spaced. Contrast
+<code><a href="maihda_clmm_cutpoints.html">maihda_clmm_cutpoints</a></code>, which must do that expansion itself.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
