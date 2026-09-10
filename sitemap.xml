@@ -57,9 +57,11 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_cumulative.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_describe.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_drop_fixed_terms.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_fit_clmm.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_fit_wemix.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_fixed_effects_table.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_fixed_spans_intercept.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_glance.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_health_data.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_ic.html</loc></url>
@@ -94,6 +96,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_validate_sampling_weights.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_warn_linear_strata_dims.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_warn_no_grand_mean.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_wemix_linpred.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_wemix_stratum_ranef.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/maihda_wemix_variances.html</loc></url>

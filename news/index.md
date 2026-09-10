@@ -342,6 +342,70 @@
 
 ### Bug fixes
 
+- An `engine = "ordinal"` formula whose right-hand side ends in a
+  subtraction no longer refuses to fit.
+  [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html) reads a
+  formula offset by position in the bar-free variables list, so the
+  offset is moved ahead of the random-effect terms before the fit, but
+  the relocation split the right-hand side on top-level `+` only –
+  deliberately, so that nothing is promoted out of a subtraction. A
+  right-hand side whose outermost operator is `-` therefore presented
+  itself as one operand and was never rewritten, and the alignment
+  backstop refused it. `- 1` is what
+  [`update()`](https://rdrr.io/r/stats/update.html) leaves behind for
+  every no-intercept formula, so
+  `maihda(ord ~ 0 + x + a + b + offset(log(expo)) + (1 | a:b))` reached
+  the engine as `... + (1 | stratum) + offset(log(expo)) - 1` and could
+  not be fitted at all, though it is perfectly relocatable; it now fits,
+  and to the same log-likelihood as the intercept-coded spelling. The
+  refusal was never gratuitous – handed that formula as written,
+  `clmm()` fits the stratum id as its offset, dropping the
+  log-likelihood from -596.76 to -619.83 and inflating the
+  between-stratum variance from 0.154 to 3.341 – so the relocation still
+  declines to lift an offset out of a subtraction, where moving it would
+  change the fixed design, and the alignment guard still refuses any
+  formula it cannot align. That guard is a backstop rather than a
+  spelling users meet: the strata resolution rewrites such a formula
+  into its canonical `+` form before the engine sees it.
+
+- An adjusted model written without an intercept no longer changes the
+  derived null model. `y ~ x + a + b + (1 | a:b)` and
+  `y ~ 0 + x + a + b + (1 | a:b)` are the same fit – with no intercept R
+  codes the first factor as cell means, so the two designs span one
+  column space and the two adjusted fits agreed to 3.5e-12 – but the
+  null was derived with `update(. ~ . - a - b)`, which in the second
+  spelling took the grand mean out along with the dimensions. The null’s
+  stratum random intercept then absorbed the outcome mean: on a 900-row
+  Gaussian example the null between-stratum variance rose from 3.01 to
+  1941.78, the null VPC from 0.402 to 0.998 and the PCV from 0.600 to
+  0.999, silently. The same reduction feeds every mode, so the
+  crossed-dimensions partition (dimension `a`’s additive variance 1.94
+  against 1940.64, additive share 0.650 against 0.999), the longitudinal
+  `PCV_slope` (0.202 against 0.993), a binomial PCV (0.676 against
+  0.954) and every group’s PCV in
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  moved with it. The grand mean is now restored whenever the reduction
+  loses it and the source model carried it, reported once. A reduction
+  that still spans the intercept another way – a surviving factor
+  covariate coded as cell means, or a fixed part that collapses to `1`
+  once the bars are stripped – keeps its parameterization, and a model
+  that genuinely has no intercept in its span (numeric dimensions fitted
+  through the origin) is left alone, because a grand mean added there
+  would put a column in the null that the adjusted model does not have.
+
+- A MAIHDA fit whose fixed part cannot represent the outcome’s mean now
+  warns. With a `0 +` or `- 1` formula whose remaining terms are all
+  numeric there is no column to carry the mean, so the stratum random
+  intercept absorbs it and the between-stratum variance, VPC, MOR and
+  PCV describe where the outcome sits rather than how it varies across
+  strata: `maihda(y ~ 0 + x + (1 | a:b))` reported a null VPC of 0.998
+  and a PCV of 0.999 in silence. The check reads the fitted design
+  rather than the formula, so a `- 1` spelling whose first factor is
+  coded as cell means stays silent, and a cumulative model is exempt:
+  its free thresholds are the intercepts, so it has no intercept column
+  to miss and `0 +` changes nothing there – `clmm()` returns the same
+  log-likelihood and the same between-stratum variance either way.
+
 - The longitudinal `plot(type = "trajectories")` now draws each
   stratum’s own fixed-part trajectory instead of one shared curve. The
   fixed part was evaluated once at the mean/modal covariate profile and
