@@ -49,21 +49,36 @@ maihda_guard_reserved_dim_col <- function(v, data) {
 #'   \code{data} (the input augmented with any \code{.maihda_dim_*} binned columns).
 #' @keywords internal
 maihda_adjusted_terms <- function(strata_vars, autobin_info, data) {
-  terms <- character(0)
+  terms <- maihda_adjusted_term_names(strata_vars, autobin_info)
   for (v in strata_vars) {
     if (!is.null(autobin_info) && v %in% names(autobin_info)) {
       # The dimension was auto-binned for the strata; the additive main effect must
       # be the SAME tertile factor (make_strata left the original column numeric).
       info <- autobin_info[[v]]
-      new_col <- maihda_dim_col(v)
-      data[[new_col]] <- cut(data[[v]], breaks = info$breaks,
-                             include.lowest = TRUE, labels = info$labels)
-      terms <- c(terms, new_col)
-    } else {
-      terms <- c(terms, v)
+      data[[maihda_dim_col(v)]] <- cut(data[[v]], breaks = info$breaks,
+                                       include.lowest = TRUE, labels = info$labels)
     }
   }
   list(terms = terms, data = data)
+}
+
+# The adjusted model's main-effect term name for each stratum dimension, WITHOUT
+# building the binned columns: the reserved '.maihda_dim_<v>' factor for an
+# auto-binned numeric dimension, the variable itself otherwise. Split out of
+# maihda_adjusted_terms() so callers that only need the naming rule -- e.g. deciding
+# which prediction-grid columns are stratum-defining rather than covariates -- do not
+# have to supply (or re-cut) the data.
+maihda_adjusted_term_names <- function(strata_vars, autobin_info) {
+  if (length(strata_vars) == 0) {
+    return(character(0))
+  }
+  vapply(strata_vars, function(v) {
+    if (!is.null(autobin_info) && v %in% names(autobin_info)) {
+      maihda_dim_col(v)
+    } else {
+      v
+    }
+  }, character(1), USE.NAMES = FALSE)
 }
 
 #' Warn when a numeric stratum dimension enters the adjusted model as a linear term

@@ -1931,10 +1931,18 @@ plot_vpc_trajectory <- function(summary_obj) {
 
 #' Stratum mean-trajectory plot (longitudinal MAIHDA)
 #'
-#' One predicted line per stratum over time -- the fixed-part trajectory plus each
-#' stratum's random intercept and slope (BLUPs) -- the longitudinal analogue of the
+#' One predicted line per stratum over time -- that stratum's fixed-part trajectory
+#' plus its own random intercept and slope (BLUPs) -- the longitudinal analogue of the
 #' predicted-strata caterpillar. Shows how the intersectional groups fan out (or
 #' converge) over time.
+#'
+#' The fixed part varies with the stratum drawn: the stratum-defining dimensions take
+#' that stratum's values, so an adjusted growth model's dimension main effects and
+#' \code{dim:time} interactions are included, while every \emph{other} covariate is
+#' held at a shared reference profile (mean for a numeric, modal level for a factor).
+#' The lines are therefore predicted stratum trajectories net of covariate composition,
+#' excluding the individual-level random effects. For a null growth model the fixed
+#' part carries no dimension terms and every line shares the one population trajectory.
 #'
 #' @param object A longitudinal \code{maihda_model}.
 #' @param summary_obj Its \code{maihda_summary}.
@@ -1942,8 +1950,10 @@ plot_vpc_trajectory <- function(summary_obj) {
 #'   caption.
 #' @param select When the cap drops strata, which to keep: \code{"order"}
 #'   (default) the first n_strata in stratum order, or \code{"deviation"} the
-#'   n_strata whose trajectory swings furthest from the population curve (largest
-#'   peak \code{|random deviation|} over the time grid, either direction).
+#'   n_strata with the largest peak \code{|random deviation|} over the time grid,
+#'   either direction. For a null model that is the departure from the population
+#'   curve; for an adjusted model it is the departure from the stratum's own additive
+#'   prediction, i.e. the strongest intersectional interactions.
 #' @return A ggplot2 object.
 #' @keywords internal
 #' @import ggplot2
@@ -1966,7 +1976,7 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50, select
     omitted <- length(strata) - n_strata
     keep_rows <- if (identical(select, "deviation")) {
       # Peak absolute random deviation over the grid -- max_t |sum_j coef_j t^j|,
-      # the stratum's own departure from the fixed trajectory -- so the strata whose
+      # the stratum's own departure from ITS fixed trajectory -- so the strata whose
       # trajectories diverge most (either direction) survive the cap, not the first
       # by stratum id. A scalar BLUP would miss a small-intercept/large-slope fan-out.
       mag <- vapply(seq_len(nrow(re)), function(i) {
@@ -1982,16 +1992,19 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50, select
     strata <- re$stratum
   }
 
-  # Fixed-part trajectory at the population mean covariate profile: predict on a
-  # one-row-per-grid-time frame holding covariates at the data means, RE excluded.
-  eta_fixed <- maihda_longitudinal_fixed_trajectory(object, grid)
+  # Fixed-part trajectory PER STRATUM (RE excluded), one column per drawn stratum:
+  # the stratum's own dimension values -- whose main effects and dim:time interactions
+  # belong to its prediction in an adjusted growth model -- with every other covariate
+  # held at the shared mean/modal reference profile. For a null growth model the fixed
+  # part carries no dimension terms, so all columns are the one population trajectory.
+  eta_fixed <- maihda_longitudinal_fixed_trajectory(object, grid, strata = re$stratum)
 
   rows <- do.call(rbind, lapply(seq_len(nrow(re)), function(i) {
     a <- vapply(grid_c, function(t) sum(re$coef[[i]] * t^(0:(length(re$coef[[i]]) - 1))),
                 numeric(1))
     data.frame(stratum = re$stratum[i],
                label = if (!is.null(re$label)) re$label[i] else re$stratum[i],
-               time = grid, value = eta_fixed + a, stringsAsFactors = FALSE)
+               time = grid, value = eta_fixed[, i] + a, stringsAsFactors = FALSE)
   }))
 
   cap <- if (omitted > 0) {
@@ -2006,7 +2019,8 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50, select
     geom_line(alpha = 0.8, linewidth = 0.7) +
     labs(
       title = "Predicted stratum trajectories",
-      subtitle = "Fixed-part trajectory + each stratum's random intercept & slope",
+      subtitle = paste("Each stratum's own fixed-part trajectory + its random",
+                       "intercept & slope; other covariates at the reference profile"),
       x = lng$time, y = "Predicted outcome (link scale)", color = "Stratum",
       caption = cap
     ) +
@@ -2072,33 +2086,70 @@ maihda_longitudinal_stratum_re <- function(object) {
   out
 }
 
-# Fixed-part trajectory (NO random effects, re.form = NA) at the mean covariate
-# profile, over a time grid. Builds a prediction frame holding every non-time
-# covariate at its mean (numeric) or modal (factor) value and varying only time.
-maihda_longitudinal_fixed_trajectory <- function(object, grid) {
+# Fixed-part trajectory (NO random effects, re.form = NA) over a time grid, holding
+# every non-time covariate at its mean (numeric) or modal (factor) value.
+#
+# `strata = NULL` gives the single population trajectory at that reference profile.
+# Passing stratum ids instead returns one trajectory PER STRATUM as a
+# length(grid) x length(strata) matrix, in which the stratum-defining DIMENSIONS take
+# each stratum's own values while every other covariate stays at the shared reference
+# profile. That distinction matters for an adjusted growth model, whose fixed part
+# carries the dimension main effects and their dim:time interactions: those are part
+# of the plotted stratum's own prediction, so freezing them at the modal profile draws
+# every stratum on one common fixed trajectory and suppresses exactly the additive
+# between-stratum differences the view reports. A null model (no dimension fixed
+# effects) and a purely covariate-adjusted model are unaffected -- their dimension
+# column set is empty, so both branches coincide.
+maihda_longitudinal_fixed_trajectory <- function(object, grid, strata = NULL) {
   lng <- object$longitudinal_info
   time_term <- maihda_lng_time_term(lng)
   data <- object$data
   # RHS vars only: an addition-term response (y | trials(n)) would leave its
   # trials/weights variable in an all.vars(formula)[-1] extraction.
   fixed_vars <- all.vars(maihda_nobars(object$formula)[[3]])
-  nd <- data[rep(1L, length(grid)), , drop = FALSE]
-  for (v in intersect(fixed_vars, names(nd))) {
-    if (v %in% c(lng$time, time_term)) next
+  # Which fixed-effect columns are stratum-defining rather than covariates. Empty for
+  # the population branch, which keeps the dimensions at the reference profile like any
+  # other covariate.
+  dim_cols <- if (is.null(strata)) {
+    character(0)
+  } else {
+    maihda_longitudinal_dimension_columns(object, fixed_vars, names(data),
+                                          exclude = c(lng$time, time_term))
+  }
+  # One block of grid rows per stratum, each seeded from one of that stratum's own
+  # fitted rows so its dimension columns (constant within a stratum by construction)
+  # come along with the right type and factor levels.
+  seed <- if (is.null(strata)) 1L else maihda_stratum_seed_rows(data, strata)
+  nd <- data[rep(seed, each = length(grid)), , drop = FALSE]
+  hold <- setdiff(intersect(fixed_vars, names(nd)),
+                  c(lng$time, time_term, dim_cols))
+  for (v in hold) {
     col <- data[[v]]
     nd[[v]] <- if (is.numeric(col)) mean(col, na.rm = TRUE) else {
       tb <- sort(table(col), decreasing = TRUE)
-      rep(names(tb)[1], length(grid))
+      rep(names(tb)[1], nrow(nd))
     }
   }
-  nd[[lng$time]] <- grid
+  # A NUMERIC dimension column is held at the stratum's OWN mean rather than the seed
+  # row's value: it is constant within a stratum when the dimension is used directly
+  # (mean = that constant), and when it is the raw column of an auto-binned dimension
+  # -- which a hand-written adjusted formula may enter as a linear term -- the stratum
+  # mean is the representative value, where a single seed row would be arbitrary.
+  for (v in dim_cols) {
+    col <- data[[v]]
+    if (is.numeric(col)) {
+      mj <- tapply(col, as.character(data$stratum), mean, na.rm = TRUE)
+      nd[[v]] <- rep(as.numeric(mj[as.character(strata)]), each = length(grid))
+    }
+  }
+  nd[[lng$time]] <- rep(grid, times = length(seed))
   # A centered fit's formula references the derived centered column, not the
   # original time; keep it aligned with the (original-scale) grid.
   if (!identical(time_term, lng$time)) {
-    nd[[time_term]] <- grid - maihda_lng_time_center(lng)
+    nd[[time_term]] <- nd[[lng$time]] - maihda_lng_time_center(lng)
   }
 
-  if (identical(object$engine, "lme4")) {
+  eta <- if (identical(object$engine, "lme4")) {
     # predict.merMod(newdata = nd) drops an external offset= and errors on a formula
     # offset() term, so build the fixed trajectory directly. A FORMULA offset such as
     # offset(0.5 * time) is RE-EVALUATED on the trajectory grid (nd carries the grid
@@ -2128,4 +2179,73 @@ maihda_longitudinal_fixed_trajectory <- function(object, grid) {
   } else {
     stop("Longitudinal trajectories are available for lme4/brms only.", call. = FALSE)
   }
+
+  if (is.null(strata)) {
+    return(eta)
+  }
+  # matrix() would RECYCLE a short/long return into a plausible-looking but silently
+  # mis-paired grid, so require one linear predictor per row of nd before reshaping.
+  if (length(eta) != nrow(nd)) {
+    stop("The fixed-part predictor returned ", length(eta), " value(s) for a ",
+         nrow(nd), "-row per-stratum grid; cannot align them with the strata.",
+         call. = FALSE)
+  }
+  # nd was stacked stratum-major (each = length(grid)), so a column-major fill puts one
+  # stratum's trajectory in each column.
+  matrix(eta, nrow = length(grid), ncol = length(strata),
+         dimnames = list(NULL, as.character(strata)))
+}
+
+# The fixed-effect columns of a longitudinal fit that are stratum-DEFINING, i.e. take a
+# stratum's own value on a per-stratum prediction grid instead of a shared reference
+# value. Both spellings a dimension can reach the fixed part under are recognised: the
+# adjusted model's canonical term (the reserved '.maihda_dim_*' factor for an
+# auto-binned numeric dimension, the variable itself otherwise) and the raw column,
+# which a hand-written adjusted formula may use instead. Empty when the fit records no
+# stratum variables or none of them enters the fixed part -- a null growth model.
+#
+# A dimension a hand-written formula wraps in a function -- factor(gender), not gender --
+# is the one case this cannot make stratum-specific: the fit stores only the derived
+# "factor(gender)" column, so the prediction grid (built from that frame) carries no raw
+# variable to set, and maihda_lme4_fixed_link() falls back to holding the stored column
+# at a representative value. That is a pre-existing property of the model-frame-based
+# grid, not of the per-stratum split, but it leaves that dimension's contribution common
+# to every line, so say so rather than draw it silently.
+maihda_longitudinal_dimension_columns <- function(object, fixed_vars, available,
+                                                  exclude = character(0)) {
+  sv <- object$strata_vars
+  if (is.null(sv) || length(sv) == 0) {
+    return(character(0))
+  }
+  cols <- setdiff(
+    union(sv, maihda_adjusted_term_names(sv, object$strata_autobin_info)), exclude)
+  wanted <- intersect(cols, fixed_vars)
+  frozen <- setdiff(wanted, available)
+  if (length(frozen) > 0) {
+    warning("Stratum dimension(s) ", paste0("'", frozen, "'", collapse = ", "),
+            " enter the fixed part only through a transformed term, whose raw ",
+            "variable the fitted model frame does not store. Their contribution is ",
+            "held at a representative value and is therefore the SAME on every ",
+            "stratum's trajectory. Add the dimension as a bare term (e.g. 'gender' ",
+            "alongside 'factor(gender)') for per-stratum trajectories.",
+            call. = FALSE)
+  }
+  intersect(wanted, available)
+}
+
+# The row index of one fitted row per requested stratum (the first), used to seed a
+# per-stratum prediction grid. Errors rather than silently falling back to a shared
+# reference profile for a stratum with no fitted row, which would reinstate the very
+# suppression the per-stratum grid exists to remove.
+maihda_stratum_seed_rows <- function(data, strata) {
+  if (!"stratum" %in% names(data)) {
+    stop("No 'stratum' column in the fitted data; cannot build a per-stratum ",
+         "prediction grid.", call. = FALSE)
+  }
+  idx <- match(as.character(strata), as.character(data$stratum))
+  if (anyNA(idx)) {
+    stop("No fitted rows for stratum/strata: ",
+         paste(as.character(strata)[is.na(idx)], collapse = ", "), ".", call. = FALSE)
+  }
+  idx
 }
