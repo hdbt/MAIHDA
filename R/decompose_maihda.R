@@ -167,6 +167,159 @@ maihda_adjusted_formula <- function(null_formula, strata_vars, autobin_info, dat
   list(formula = adjusted_formula, data = adj$data)
 }
 
+#' Does a formula's fixed part carry the grand mean?
+#'
+#' \code{TRUE} when the fixed-effect design the formula implies -- built on \code{data}
+#' the way the engines build it, \code{model.matrix()} on the bar-free formula -- carries
+#' the all-ones (intercept) vector in its COLUMN SPACE, whether or not the formula writes
+#' \code{1}. Writing \code{0 +} does not settle it: with no intercept R codes the FIRST
+#' factor term as cell means, so \code{y ~ 0 + f + x} still spans the grand mean, while
+#' \code{y ~ 0 + x} with a numeric \code{x} does not. Membership is tested by QR rank --
+#' the all-ones vector lies in colspace(X) exactly when rank([X, 1]) == rank(X) --
+#' mirroring \code{maihda_re_lhs_spans_intercept()} for the random part -- but only for
+#' the \code{0 +} / \code{- 1} spellings: a formula that writes an intercept returns
+#' \code{TRUE} without building a design, because \code{model.matrix()} always emits the
+#' all-ones column for one. Returns
+#' \code{NA} -- never a guess -- when the design cannot be built or ranked (an absent or
+#' all-NA column, a parse error), so neither caller rewrites a formula or warns about one
+#' on the strength of the written \code{0 +} alone.
+#'
+#' @param formula A model formula, with or without random-effect bars.
+#' @param data Data frame the fixed design is built on.
+#' @return \code{TRUE} if the fixed design spans the intercept, \code{FALSE} if it
+#'   provably does not, \code{NA} if the design could not be built.
+#' @keywords internal
+#' @importFrom stats model.matrix model.frame na.omit terms
+maihda_fixed_spans_intercept <- function(formula, data) {
+  fixed <- tryCatch(maihda_nobars(formula), error = function(e) NULL)
+  if (is.null(fixed)) {
+    return(NA)
+  }
+  # A written intercept settles it without building anything: model.matrix() emits the
+  # all-ones "(Intercept)" column whenever the terms object carries intercept == 1, so
+  # the rank test could only agree. This short-circuit is what keeps the check free on
+  # every ordinary formula -- the QR below runs only for `0 +` / `- 1` spellings.
+  int <- tryCatch(attr(stats::terms(fixed), "intercept"), error = function(e) NA_integer_)
+  if (isTRUE(int == 1L)) {
+    return(TRUE)
+  }
+  if (is.data.frame(data) && nrow(data) > 0L) {
+    x <- tryCatch(
+      stats::model.matrix(fixed, stats::model.frame(fixed, data = data,
+                                                    na.action = stats::na.omit)),
+      error = function(e) NULL)
+    if (!is.null(x) && nrow(x) > 0L && ncol(x) > 0L) {
+      r_x <- tryCatch(qr(x)$rank, error = function(e) NA_integer_)
+      r_aug <- tryCatch(qr(cbind(x, 1))$rank, error = function(e) NA_integer_)
+      if (!is.na(r_x) && !is.na(r_aug)) {
+        return(isTRUE(r_aug == r_x))
+      }
+    }
+  }
+  NA
+}
+
+#' Drop fixed terms from a formula without dropping the grand mean
+#'
+#' The single place a MAIHDA derives a reduced model by removing the stratum dimensions'
+#' fixed main effects: the two-model null, the crossed-dimensions base formula, the
+#' longitudinal null and the per-group formulas all come through here.
+#'
+#' \code{update(f, . ~ . - a - b)} removes the named terms, but on a no-intercept formula
+#' it removes the grand mean with them. \code{y ~ x + a + b + (1 | a:b)} and
+#' \code{y ~ 0 + x + a + b + (1 | a:b)} are the SAME adjusted model -- with no intercept R
+#' codes \code{a} as cell means, so the two designs span one space and fit identical
+#' values -- yet the plain reduction turns the first into \code{y ~ x + (1 | stratum)} and
+#' the second into \code{y ~ x + (1 | stratum) - 1}. The second null has no way to
+#' represent the outcome's mean, so the stratum random intercept absorbs it: the
+#' between-stratum variance, and with it the VPC, MOR and PCV, become functions of the
+#' arbitrary origin of the response rather than of the strata.
+#'
+#' The grand mean is therefore restored whenever the reduction loses it AND the source
+#' model carried it. Conditioning on the source keeps the reduced model nested: a fit that
+#' genuinely has no intercept in its span (\code{y ~ 0 + x + a + b} with numeric
+#' dimensions -- a regression through the origin, not an equivalent recoding) keeps its
+#' parameterization, because adding a grand mean there would put a column in the null that
+#' the adjusted model does not have. A reduction that still spans the intercept some other
+#' way -- a surviving factor covariate coded as cell means, or a fixed part that collapses
+#' to \code{1} once the bars are stripped -- is left exactly as it was.
+#'
+#' @param formula The source formula (the adjusted / supplied model).
+#' @param terms Character vector of fixed terms to remove (raw, unquoted names).
+#' @param data Data frame the fixed designs are built on.
+#' @param notify Logical; message once when the grand mean is actually restored.
+#'   \code{FALSE} at the per-group call sites, which repeat a reduction the overall
+#'   decomposition has already reported.
+#' @param fn Name of the calling function, used in the message prefix.
+#' @return The reduced formula, in the same environment as \code{formula}.
+#' @keywords internal
+#' @importFrom stats update as.formula
+maihda_drop_fixed_terms <- function(formula, terms, data, notify = FALSE,
+                                    fn = "maihda") {
+  if (length(terms) == 0L) {
+    return(formula)
+  }
+  # maihda_quote_name() safely backtick-quotes each term, including the rare legal
+  # name containing a backtick that a manual sprintf("`%s`") would break.
+  quoted <- vapply(terms, maihda_quote_name, character(1))
+  reduced <- stats::update(formula, stats::as.formula(
+    paste(". ~ . -", paste(quoted, collapse = " - "))))
+  # isFALSE/isTRUE, not `!` and `&&`: an NA from either span test (a design that could
+  # not be built) leaves the reduction exactly as update() wrote it, so the grand mean
+  # is never added or withheld on a guess.
+  if (isFALSE(maihda_fixed_spans_intercept(reduced, data)) &&
+      isTRUE(maihda_fixed_spans_intercept(formula, data))) {
+    reduced <- stats::update(reduced, . ~ . + 1)
+    if (isTRUE(notify)) {
+      message(fn, "(): the supplied formula has no intercept term, but its fixed ",
+              "design still carries the grand mean (with `0 +` R codes the first ",
+              "factor as cell means). The derived null model keeps the grand mean, so ",
+              "the decomposition matches the one an intercept-coded spelling of the ",
+              "same model gives; without it the stratum random intercept would absorb ",
+              "the outcome's mean.")
+    }
+  }
+  reduced
+}
+
+#' Warn when a MAIHDA fit's fixed part cannot represent the outcome's mean
+#'
+#' A MAIHDA reads the stratum random intercept's variance as between-stratum
+#' inequality. When the fixed design does not span the intercept -- a \code{0 +} or
+#' \code{- 1} formula whose surviving terms are all numeric, so no factor is coded as
+#' cell means -- there is nothing in the fixed part to carry the outcome's mean and the
+#' random intercept absorbs it instead. The between-stratum variance, and with it the
+#' VPC, the MOR and any PCV computed from the fit, then measure the location of the
+#' outcome rather than the strata.
+#'
+#' Silent unless the span test can be run and provably fails, so a formula whose design
+#' could not be built is never warned about on the strength of a written \code{0 +}.
+#'
+#' @param formula The fitted (resolved) model formula.
+#' @param data_list List of candidate data frames; the first on which the fixed design
+#'   can be built decides. The analytic model frame may name only derived columns
+#'   (\code{scale(x)}), the pre-fit frame only raw ones, so both are offered.
+#' @return Invisibly, \code{TRUE} if a warning was emitted.
+#' @keywords internal
+maihda_warn_no_grand_mean <- function(formula, data_list) {
+  spans <- NA
+  for (dd in data_list) {
+    spans <- maihda_fixed_spans_intercept(formula, dd)
+    if (!is.na(spans)) break
+  }
+  if (!isFALSE(spans)) {
+    return(invisible(FALSE))
+  }
+  warning("The fixed part of this MAIHDA model cannot represent the outcome's mean: ",
+          "its design does not span the intercept (a `0 +` / `- 1` formula whose ",
+          "remaining terms are all numeric). The stratum random intercept absorbs the ",
+          "mean instead, so the between-stratum variance, VPC, MOR and any PCV from ",
+          "this fit describe where the outcome sits rather than how it varies across ",
+          "strata. Add an intercept (drop the `0 +`) unless a regression through the ",
+          "origin is genuinely intended.", call. = FALSE)
+  invisible(TRUE)
+}
+
 #' Build the crossed-dimensions-model formula and data for a MAIHDA decomposition
 #'
 #' The crossed-dimensions alternative to the two-model (fixed-effects PCV)

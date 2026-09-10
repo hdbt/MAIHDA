@@ -930,15 +930,15 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                            "term.labels")
     present_terms <- dim_terms[
       vapply(dim_terms, maihda_quote_name, character(1)) %in% supplied_fixed]
-    if (length(present_terms) > 0) {
-      # Quote through maihda_quote_name() (the same path used to DETECT the terms
-      # against supplied_fixed) rather than a manual sprintf("`%s`", .): a bare
-      # backtick wrap mis-parses a name that itself contains a backtick, so the two
-      # paths would disagree for that rare-but-legal case.
-      quoted_terms <- vapply(present_terms, maihda_quote_name, character(1))
-      fit_formula <- stats::update(fit_formula, stats::as.formula(
-        paste(". ~ . -", paste(quoted_terms, collapse = " - "))))
-    }
+    # maihda_drop_fixed_terms() quotes each term through maihda_quote_name() -- the
+    # same path used to DETECT them against supplied_fixed, so a name containing a
+    # backtick cannot make the two disagree -- and keeps the grand mean that a
+    # no-intercept spelling of the same model would otherwise lose with the
+    # dimensions. (maihda() does this before delegating here; this guards a direct
+    # call, where every group's var_between would otherwise absorb the outcome mean.)
+    fit_formula <- maihda_drop_fixed_terms(fit_formula, present_terms, data,
+                                           notify = TRUE,
+                                           fn = "compare_maihda_groups")
   }
 
   group_values <- as.character(data[[group]])

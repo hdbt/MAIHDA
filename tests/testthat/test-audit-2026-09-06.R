@@ -231,7 +231,11 @@ test_that("maihda_restrict_fixef() handles a model with nothing left to keep", {
   expect_false(maihda_same_column_space(
     lme4::getME(old, "X"), lme4::getME(m, "X")[, 0, drop = FALSE]))
 
-  fit <- fit_maihda(y ~ 0 + x + (1 | st), data = d)
+  # This fit is deliberately through the origin, so the grand-mean guard added on
+  # 2026-09-10 fires here and is expected: with only a numeric `x` left, the fixed
+  # design cannot carry the outcome mean.
+  fit <- expect_warning(fit_maihda(y ~ 0 + x + (1 | st), data = d),
+                        "cannot represent the outcome's mean")
   set.seed(2)
   fe <- suppressWarnings(summary(fit, df_method = "bootstrap", n_boot = 24))$fixed_effects
   expect_gt(abs(fe$statistic[fe$term == "x"]), 5)

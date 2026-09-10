@@ -275,31 +275,58 @@ maihda_clmm_offset_aligned <- function(formula) {
 # offset, no random effect, or its offsets already ahead of the bars is returned
 # UNCHANGED, so a no-offset fit is bit-identical. clmm-only: lme4, brms and WeMix
 # read the offset from their own frame and are indifferent to the term order.
-maihda_offset_before_bars <- function(formula) {
-  if (!inherits(formula, "formula") || length(formula) < 2L) {
-    return(formula)
+#
+# A trailing subtraction is walked through rather than given up on. `- 1` is what
+# stats::update() leaves behind for every no-intercept formula, so a user writing
+# y ~ 0 + x + a + offset(off) + (1 | g) reaches the engine as
+# y ~ x + a + (1 | g) + offset(off) - 1, whose OUTERMOST operator is `-`: the
+# plus-splitter sees one operand, no relocation happens, and the backstop below
+# refuses a fit that is perfectly relocatable. Only the MINUEND is reordered and
+# only when no subtracted operand carries an offset -- an offset inside the
+# subtraction (y ~ x + (1 | g) - offset(off)) must not be lifted out, because that
+# would change the fixed design, and it stays for the backstop to refuse.
+maihda_offset_before_bars_rhs <- function(expr) {
+  if (is.call(expr) && identical(expr[[1L]], as.name("-")) && length(expr) == 3L) {
+    if (maihda_is_offset_term(expr[[3L]])) {
+      return(expr)
+    }
+    return(call("-", maihda_offset_before_bars_rhs(expr[[2L]]), expr[[3L]]))
   }
-  rhs <- formula[[length(formula)]]
-  parts <- maihda_rhs_plus_terms(rhs)
+  parts <- maihda_rhs_plus_terms(expr)
   if (length(parts) < 2L) {
-    return(formula)
+    return(expr)
   }
   is_off <- vapply(parts, maihda_is_offset_term, logical(1))
   is_bar <- vapply(parts, maihda_is_bar_term, logical(1))
   if (!any(is_off) || !any(is_bar)) {
-    return(formula)
+    return(expr)
   }
   first_bar <- which(is_bar)[1L]
   if (!any(is_off & seq_along(parts) > first_bar)) {
-    return(formula)
+    return(expr)
   }
   # Stable relocation: the offsets keep their relative order and land immediately
   # before the first random-effect term; everything else keeps its order too.
   idx <- seq_along(parts)
   reordered <- c(idx[!is_off & idx < first_bar], idx[is_off],
                  idx[!is_off & idx >= first_bar])
+  maihda_rhs_from_plus_terms(parts[reordered])
+}
+
+maihda_offset_before_bars <- function(formula) {
+  if (!inherits(formula, "formula") || length(formula) < 2L) {
+    return(formula)
+  }
+  rhs <- formula[[length(formula)]]
+  new_rhs <- maihda_offset_before_bars_rhs(rhs)
+  # identical() on the language objects, so a formula nothing moved in is returned
+  # as it came -- the bit-identical guarantee the no-offset and already-ordered
+  # paths rely on.
+  if (identical(new_rhs, rhs)) {
+    return(formula)
+  }
   out <- formula
-  out[[length(out)]] <- maihda_rhs_from_plus_terms(parts[reordered])
+  out[[length(out)]] <- new_rhs
   environment(out) <- environment(formula)
   out
 }

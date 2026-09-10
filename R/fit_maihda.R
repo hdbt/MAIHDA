@@ -1024,6 +1024,21 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # sample (totals == analytic, as documented).
   if (is.null(original_data)) original_data <- data
 
+  # A MAIHDA reads the stratum random intercept's variance as between-stratum
+  # inequality, so a fixed part that cannot represent the outcome's mean hands that
+  # mean to the random intercept and the VPC/MOR/PCV stop describing the strata.
+  # Checked on the RESOLVED formula and the frames actually available, once per fit,
+  # so it also covers a null the caller supplied that way rather than derived.
+  #
+  # NOT for a cumulative model: its free THRESHOLDS are the intercepts, so the fixed
+  # design never carries an intercept column and `0 +` is a no-op there. Verified
+  # against clmm() directly -- ord ~ 0 + x + (1 | st) and ord ~ x + (1 | st) return
+  # the same logLik (-609.885347) and the same stratum variance (0.314094) -- so the
+  # warning would be a false alarm on every ordinal and brms-cumulative fit.
+  if (!isTRUE(is_ordinal)) {
+    maihda_warn_no_grand_mean(formula, list(original_data, model_data))
+  }
+
   result <- structure(
     list(
       model = model,

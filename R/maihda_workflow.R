@@ -594,12 +594,15 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   present_terms <- dim_terms[dim_present]
   missing_vars <- strata_vars[!dim_present]
 
-  remove_terms <- function(f, terms) {
-    # maihda_quote_name() safely backtick-quotes each term, including the rare
-    # legal name containing a backtick that a manual sprintf("`%s`") would break.
-    quoted <- vapply(terms, maihda_quote_name, character(1))
-    stats::update(f, stats::as.formula(
-      paste(". ~ . -", paste(quoted, collapse = " - "))))
+  # Every derived formula below -- the two-model null, the crossed-dimensions base,
+  # the longitudinal null, the per-group formulas -- is built here, so the grand mean
+  # is preserved for all of them at one choke point. maihda_drop_fixed_terms() removes
+  # the dimension main effects and restores the intercept when a no-intercept spelling
+  # of the SAME adjusted model (`y ~ 0 + x + a + b`, where R codes `a` as cell means)
+  # would otherwise take the grand mean out with them, leaving the stratum random
+  # intercept to absorb the outcome's mean.
+  remove_terms <- function(f, terms, data = model$original_data, notify = TRUE) {
+    maihda_drop_fixed_terms(f, terms, data, notify = notify, fn = "maihda")
   }
 
   # --- Crossed-dimensions decomposition -----------------------------------------
@@ -634,7 +637,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     groups <- NULL
     if (!is.null(group)) {
       group_formula <- if (length(present_terms) > 0) {
-        remove_terms(formula, present_terms)
+        remove_terms(formula, present_terms, data, notify = FALSE)
       } else {
         formula
       }
@@ -812,7 +815,11 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     # Strip any dimension main effects the user wrote so the per-group decomposition
     # matches the overall one: each group's null excludes them and its adjusted adds
     # them. (compare_maihda_groups() builds the per-group strata and adjusted itself.)
-    group_formula <- if (length(present_terms) > 0) remove_terms(formula, present_terms) else formula
+    group_formula <- if (length(present_terms) > 0) {
+      remove_terms(formula, present_terms, data, notify = FALSE)
+    } else {
+      formula
+    }
     groups <- compare_maihda_groups(
       group_formula, data, group = group, engine = engine, family = family_used,
       shared_strata = shared_strata, min_group_n = min_group_n,
