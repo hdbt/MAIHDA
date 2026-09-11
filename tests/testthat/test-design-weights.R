@@ -918,7 +918,7 @@ test_that("wemix unseen stratum: helper maps to zero, public path gates it", {
   nd <- data.frame(x = c(0, 0), stratum = c("s1", "unseen"))
 
   # The internal linpred primitive maps an unseen stratum to a zero random effect
-  # (eta = fixed part). This is the population-average fallback, NOT the public
+  # (eta = fixed part). This is the zero-effect fallback, NOT the public
   # default: the seen stratum keeps its 0.5 effect, the unseen one drops to 0.
   eta <- maihda_wemix_linpred(m, newdata = nd, include_re = TRUE)
   expect_equal(unname(eta), c(2.5, 2))
@@ -930,17 +930,17 @@ test_that("wemix unseen stratum: helper maps to zero, public path gates it", {
     "not present in the fitted model"
   )
 
-  # allow_new_levels = TRUE opts into the population average. The gaussian identity
+  # allow_new_levels = TRUE opts into the zero-effect fallback. The gaussian identity
   # link makes the response scale equal the latent eta computed above.
   pa <- predict_maihda(m, newdata = nd, type = "individual",
                        allow_new_levels = TRUE)
   expect_equal(unname(pa), c(2.5, 2))
 })
 
-test_that("brms unseen stratum honours the zero-effect population-average fallback", {
-  # Regression for the audit finding: allow_new_levels = TRUE promises a population-
-  # average (fixed-effects-only) prediction for an unseen stratum -- the stratum
-  # random effect treated as zero. Forwarding allow_new_levels to brms is NOT enough:
+test_that("brms unseen stratum honours the zero-effect fallback", {
+  # Regression for the audit finding: allow_new_levels = TRUE promises a
+  # fixed-effects-only prediction for an unseen stratum, at a zero random
+  # effect. Forwarding allow_new_levels to brms is NOT enough:
   # its default sample_new_levels = "uncertainty" DRAWS a new-level effect from the
   # random-effects distribution instead of zeroing it. The fix predicts unseen rows
   # with re_formula = NA, so the unseen prediction must match a manual re_formula = NA
@@ -984,18 +984,18 @@ test_that("brms unseen stratum honours the zero-effect population-average fallba
   pa <- predict_maihda(m, newdata = nd, type = "individual", scale = "response",
                        allow_new_levels = TRUE)
 
-  # Unseen row == the population-average (re_formula = NA) prediction: fixed effects
+  # Unseen row == the zero-effect (re_formula = NA) prediction: fixed effects
   # only, stratum random effect zero (NOT a sampled new-level effect).
-  popavg <- stats::fitted(m$model, newdata = nd, re_formula = NA,
-                         summary = TRUE)[, "Estimate"]
-  expect_equal(unname(pa[2]), unname(popavg[2]))
+  fixed_only <- stats::fitted(m$model, newdata = nd, re_formula = NA,
+                              summary = TRUE)[, "Estimate"]
+  expect_equal(unname(pa[2]), unname(fixed_only[2]))
 
   # Seen row keeps its estimated stratum effect, so it differs from the fixed-only
   # prediction and matches the full-random-effects prediction.
   seen_full <- stats::fitted(m$model, newdata = nd[1, , drop = FALSE],
                             summary = TRUE)[, "Estimate"]
   expect_equal(unname(pa[1]), unname(seen_full))
-  expect_false(isTRUE(all.equal(unname(pa[1]), unname(popavg[1]))))
+  expect_false(isTRUE(all.equal(unname(pa[1]), unname(fixed_only[1]))))
 })
 
 test_that("brms unseen stratum keeps a seen context random effect (lme4 parity)", {

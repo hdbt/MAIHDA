@@ -1045,7 +1045,7 @@ test_that("maihda_brms_unseen_re_formula drops only the stratum term (Stan-free)
   }
 
   # Single-stratum model: stratum is the only random effect, so the excluding
-  # re_formula is NA (drop all group terms -> fixed-effects-only population average).
+  # re_formula is NA (drop all group terms -> fixed-effects-only prediction).
   expect_true(is.na(MAIHDA:::maihda_brms_unseen_re_formula(
     mk(y ~ x + (1 | stratum)))))
 

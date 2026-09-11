@@ -38,8 +38,20 @@
 #'   \code{fit_maihda(context = )}, or a longitudinal growth term) -- the same
 #'   behaviour as \pkg{lme4}'s \code{allow.new.levels}, which zeroes only the unseen
 #'   level's effect and keeps seen ones. For the usual single-stratum model the
-#'   stratum is the only random effect, so this is the \emph{population-average}
-#'   (fixed-effects-only) prediction. This affects \code{type = "individual"} only:
+#'   stratum is the only random effect, so the result is the fixed-effects-only
+#'   prediction, evaluated \emph{at a zero random effect}. That is a
+#'   \emph{conditional} (stratum-specific) prediction for a stratum whose effect
+#'   happens to be zero; it is \strong{not} a response-scale population average
+#'   (marginal mean), which requires integrating over the random-effect
+#'   distribution. The two coincide on the link scale, and on the response scale
+#'   only under the Gaussian identity link. Under a log link with stratum variance
+#'   \eqn{\tau^2} the marginal mean is larger by a factor \eqn{\exp(\tau^2/2)},
+#'   and under a logit link the marginal probability is attenuated towards 0.5
+#'   (Nakagawa, Johnson & Schielzeth 2017). Because the inverse link is monotone
+#'   and the random effect symmetric about zero, the response-scale value returned
+#'   here is the \emph{median} of the stratum-specific means across the
+#'   random-effect distribution, not their average.
+#'   This affects \code{type = "individual"} only:
 #'   a stratum-level prediction (\code{type = "strata"}) has no random effect to
 #'   report for an unseen stratum, so unseen strata remain an error there
 #'   regardless.
@@ -115,7 +127,9 @@ predict_maihda <- function(object, newdata = NULL,
       # Individual-level predictions including random effects. Unseen strata are
       # already rejected upstream unless allow_new_levels = TRUE, in which case
       # lme4 must be told to permit them (it then sets their random effect to 0,
-      # the same population-average fallback the other engines use).
+      # the same zero-effect fallback the other engines use -- a CONDITIONAL
+      # prediction at u = 0, not a response-scale marginal mean; see the
+      # allow_new_levels documentation above).
       dots <- maihda_dots_default(list(...), "allow.new.levels",
                                   isTRUE(allow_new_levels))
       # Training-data predictions (no newdata supplied) call predict() WITHOUT
@@ -292,8 +306,8 @@ maihda_lme4_has_external_offset <- function(object) {
 # predicted with an re_formula that drops exactly the grouping terms whose level
 # that row never saw, and keeps the rest; rows sharing a kept-term signature are
 # predicted together. A row that keeps every term is the ordinary full-random-
-# effects prediction; one that keeps none is the fixed-effects-only population
-# average (re_formula = NA). Unseen levels are only possible when
+# effects prediction; one that keeps none is the fixed-effects-only prediction,
+# at a zero random effect (re_formula = NA). Unseen levels are only possible when
 # allow_new_levels = TRUE (otherwise upstream validation / brms rejects them), so
 # without it every row takes the full path unchanged. Previously only the STRATUM
 # term was zeroed for unseen strata; an unseen context/longitudinal level was left
@@ -328,7 +342,7 @@ maihda_brms_individual_prediction <- function(object, newdata, scale,
   # The caller's own random-effect scope, if they set one. Zeroing an unseen level
   # may only NARROW that scope -- never widen or replace it. Overwriting the scope
   # outright reintroduced grouping terms the caller had explicitly excluded (most
-  # visibly re_formula = NA, the fixed-effects-only population average, which came
+  # visibly re_formula = NA, the fixed-effects-only prediction, which came
   # back as "~ (1 | <other group>)"), and for a partial re_formula it substituted a
   # different term for the requested one.
   scope <- maihda_brms_requested_re(dots)
@@ -420,7 +434,7 @@ maihda_brms_re_bars <- function(object) {
 
 # Build a brms re_formula "~ (bar1) + (bar2) + ..." from a set of random-effect
 # bars. Returns NA -- brms's re_formula that drops ALL group terms (the fixed-
-# effects-only population average) -- when the set is empty.
+# effects-only prediction, at a zero random effect) -- when the set is empty.
 maihda_brms_re_formula_from_bars <- function(bars) {
   if (length(bars) == 0) {
     return(NA)

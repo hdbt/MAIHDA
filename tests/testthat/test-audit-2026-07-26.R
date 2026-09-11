@@ -126,7 +126,7 @@ test_that("prediction rejects a known stratum supplied for an unseen combination
   bad <- unseen
   bad$stratum <- as.character(m$strata_info$stratum[1])
 
-  # Rejected with AND without the population-average opt-in: allow_new_levels
+  # Rejected with AND without the zero-effect opt-in: allow_new_levels
   # chooses how an unseen stratum is handled, it does not license pairing one
   # intersection's fixed effects with another intersection's random effect.
   expect_error(predict_maihda(m, newdata = bad, type = "link"),

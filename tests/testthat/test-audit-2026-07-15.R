@@ -6,7 +6,7 @@
 #   P2 #3  zero/negative Gaussian precision weights produced a degenerate lmer
 #          fit (logLik -Inf) yet a finite VPC
 #   P2 #4  WeMix/ordinal individual predictions silently mapped a missing
-#          stratum to a zero random effect (population-average prediction)
+#          stratum to a zero random effect (zero-random-effect prediction)
 #
 # The brms cases are exercised WITHOUT a Stan compile: #1 is rejected during
 # argument handling (before any brms call), and #2 drives the package's pure
@@ -113,7 +113,7 @@ test_that("zero/negative precision weights are dropped before the lmer fit (audi
 test_that("maihda_check_known_strata rejects NA strata only for individual predictions (audit P2 #4)", {
   known <- c("a", "b", "c")
   # Individual: an NA stratum has no random effect and must be rejected (it would
-  # otherwise become a silent zero-RE, population-average prediction).
+  # otherwise become a silent zero-RE prediction).
   expect_error(
     MAIHDA:::maihda_check_known_strata(c("a", NA), known, type = "individual"),
     "missing", ignore.case = TRUE)
@@ -143,7 +143,7 @@ test_that("missing strata are rejected for lme4 individual predictions (audit P2
   expect_error(predict_maihda(m, newdata = nd_na, type = "individual"),
                "missing", ignore.case = TRUE)
 
-  # allow_new_levels = TRUE opts into the population-average (fixed-only) value
+  # allow_new_levels = TRUE opts into the zero-random-effect (fixed-only) value
   # for an unseen (non-NA) stratum -- the opt-in path stays functional. (An
   # all-NA grouping column is a separate lme4 predict limitation, out of scope
   # for this finding, which concerns the silent DEFAULT.)

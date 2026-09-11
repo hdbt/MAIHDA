@@ -416,7 +416,7 @@ maihda_wemix_variances <- function(object) {
 #' than recomputing them from \code{newdata}) and multiplied by
 #' \code{coef}, any formula offset term is evaluated on \code{newdata} and added,
 #' and \code{include_re} adds each row's stratum effect (conditional
-#' mode; an unseen stratum contributes 0 -- the population-average fallback that
+#' mode; an unseen stratum contributes 0 -- the zero-effect fallback that
 #' \code{\link{predict_maihda}} only reaches when \code{allow_new_levels = TRUE},
 #' having otherwise rejected unseen strata upstream). Everything is on the link
 #' scale.

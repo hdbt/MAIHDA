@@ -104,7 +104,7 @@ test_that("a supplied stratum does not bypass the numeric auto-bin bounds", {
     "outside the training auto-bin ranges", fixed = TRUE)
 
   # Not relaxed by allow_new_levels, and reported for stratum-level predictions
-  # too: a row in no bin is not a "new level" the population average stands in for.
+  # too: a row in no bin is not a "new level" the zero-effect fallback stands in for.
   expect_warning(
     predict_maihda(model, newdata = supplied, allow_new_levels = TRUE),
     "outside the training auto-bin ranges", fixed = TRUE)

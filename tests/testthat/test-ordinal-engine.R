@@ -339,7 +339,7 @@ test_that("clmm predictions work on both scales and respect newdata strata", {
     "not present in the fitted model"
   )
 
-  # allow_new_levels = TRUE opts into the population average: the latent location
+  # allow_new_levels = TRUE opts into the zero-effect fallback: the latent location
   # equals the fixed part with the stratum random effect dropped (mapped to 0).
   pa_link <- predict_maihda(m, newdata = nd_unseen, type = "individual",
                             scale = "link", allow_new_levels = TRUE)

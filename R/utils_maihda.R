@@ -4465,7 +4465,7 @@ maihda_autobin_out_of_range <- function(data, autobin_info) {
 #
 # Either way the check sits ahead of the supplied-'stratum' early return, so no
 # path can skip it, and neither branch is relaxed by allow_new_levels: a row in no
-# bin is not a "new level" the population average can stand in for.
+# bin is not a "new level" the zero-effect fallback can stand in for.
 maihda_check_autobin_in_range <- function(newdata, autobin_info,
                                           has_stratum = FALSE) {
   out_of_range <- maihda_autobin_out_of_range(newdata, autobin_info)
@@ -4559,24 +4559,36 @@ maihda_known_strata <- function(object) {
   s[!is.na(s)]
 }
 
+# The hint appended to an unseen- or missing-stratum error, shared by every site
+# that offers the allow_new_levels escape so the three cannot drift apart. It
+# deliberately does NOT call the result a population average: setting the unseen
+# stratum's random effect to zero gives the CONDITIONAL prediction at u = 0, which
+# equals the response-scale marginal mean only under an identity link -- under a
+# log link the marginal mean is exp(tau^2/2) times larger (see ?predict_maihda).
+maihda_new_levels_hint <- function() {
+  paste0(" Pass allow_new_levels = TRUE to predict those rows with the stratum ",
+         "random effect set to zero (fixed effects only -- not a response-scale ",
+         "population average; see ?predict_maihda).")
+}
+
 # Error if `stratum` names any level the model never saw. `type` only tailors the
-# hint: an individual-level prediction can fall back to the population average via
-# allow_new_levels = TRUE, but a stratum-level prediction has no random effect to
-# report for an unseen stratum, so no such fallback is offered there.
+# hint: an individual-level prediction can fall back to a ZERO stratum random
+# effect via allow_new_levels = TRUE, but a stratum-level prediction has no random
+# effect to report for an unseen stratum, so no such fallback is offered there.
 maihda_check_known_strata <- function(stratum, known, type = "individual") {
   if (is.null(known)) {
     return(invisible(NULL))
   }
   hint <- if (identical(type, "individual")) {
-    " Pass allow_new_levels = TRUE for a population-average (fixed-effects-only) prediction."
+    maihda_new_levels_hint()
   } else {
     ""
   }
   # A missing (NA) stratum has no estimated random effect. For an INDIVIDUAL
   # prediction the WeMix/ordinal linpred helpers would silently map it to zero (a
-  # population-average prediction), whereas lme4 rejects an NA grouping level
+  # conditional prediction at u = 0), whereas lme4 rejects an NA grouping level
   # outright -- so reject it here to keep every engine consistent, unless the
-  # caller opted into the population-average fallback (that path skips this check
+  # caller opted into the zero-effect fallback (that path skips this check
   # entirely; see maihda_prepare_prediction_data()). A STRATUM-level prediction
   # instead simply yields no row for an NA stratum (an empty result, matching
   # lme4), so it is left to fall through.
@@ -4700,8 +4712,9 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
     }
   }
 
-  # allow_new_levels only relaxes individual-level predictions (which fall back to
-  # the population average); stratum-level predictions always require known strata.
+  # allow_new_levels only relaxes individual-level predictions (which fall back to a
+  # zero stratum random effect); stratum-level predictions always require known
+  # strata.
   permit_new <- isTRUE(allow_new_levels) && identical(type, "individual")
 
   has_stratum <- "stratum" %in% names(newdata)
@@ -4723,7 +4736,7 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
     # so a misspelled or genuinely new stratum silently flowed through to a
     # fixed-only prediction (the WeMix/ordinal helpers map an unseen stratum's
     # random effect to 0). Validate it here unless the caller opted into
-    # population-average predictions.
+    # zero-random-effect predictions.
     if (!permit_new) {
       maihda_check_known_strata(newdata$stratum, maihda_known_strata(object), type)
     }
@@ -4776,7 +4789,7 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
   # A row missing a stratum-defining dimension yields no stratum label at all
   # (labels[i] is NA), so it is neither a known nor a "new" stratum -- its stratum
   # stays NA. For an INDIVIDUAL prediction the WeMix/ordinal helpers would map that
-  # (absent) random effect to zero, silently returning a population-average
+  # (absent) random effect to zero, silently returning a zero-random-effect
   # prediction where lme4 rejects an NA grouping level; reject it here unless the
   # caller opted into the fallback (permit_new keeps the NA stratum, which the
   # engines then treat as fixed-effects-only). A stratum-level prediction yields no
@@ -4785,20 +4798,19 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
     stop(sprintf(paste0("newdata has %d row(s) whose stratum-defining variable(s) ",
                         "are missing (NA), so their stratum cannot be determined."),
                  sum(is.na(labels))),
-         " Pass allow_new_levels = TRUE for a population-average ",
-         "(fixed-effects-only) prediction.", call. = FALSE)
+         maihda_new_levels_hint(), call. = FALSE)
   }
   unknown <- !is.na(labels) & is.na(newdata$stratum)
   if (any(unknown)) {
     if (permit_new) {
       # Keep each new combination as its own stratum label so the engine maps it
-      # to a zero random effect (a population-average prediction) rather than
+      # to a zero random effect (a conditional prediction at u = 0) rather than
       # erroring; mirrors the supplied-'stratum' branch above.
       newdata$stratum[unknown] <- labels[unknown]
     } else {
       unknown_labels <- unique(labels[unknown])
       hint <- if (identical(type, "individual")) {
-        " Pass allow_new_levels = TRUE for a population-average (fixed-effects-only) prediction."
+        maihda_new_levels_hint()
       } else {
         ""
       }

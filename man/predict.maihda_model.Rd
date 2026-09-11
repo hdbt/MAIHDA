@@ -53,8 +53,20 @@ zero), while keeping any \emph{other} random effect the row participates in
 \code{fit_maihda(context = )}, or a longitudinal growth term) -- the same
 behaviour as \pkg{lme4}'s \code{allow.new.levels}, which zeroes only the unseen
 level's effect and keeps seen ones. For the usual single-stratum model the
-stratum is the only random effect, so this is the \emph{population-average}
-(fixed-effects-only) prediction. This affects \code{type = "individual"} only:
+stratum is the only random effect, so the result is the fixed-effects-only
+prediction, evaluated \emph{at a zero random effect}. That is a
+\emph{conditional} (stratum-specific) prediction for a stratum whose effect
+happens to be zero; it is \strong{not} a response-scale population average
+(marginal mean), which requires integrating over the random-effect
+distribution. The two coincide on the link scale, and on the response scale
+only under the Gaussian identity link. Under a log link with stratum variance
+\eqn{\tau^2} the marginal mean is larger by a factor \eqn{\exp(\tau^2/2)},
+and under a logit link the marginal probability is attenuated towards 0.5
+(Nakagawa, Johnson & Schielzeth 2017). Because the inverse link is monotone
+and the random effect symmetric about zero, the response-scale value returned
+here is the \emph{median} of the stratum-specific means across the
+random-effect distribution, not their average.
+This affects \code{type = "individual"} only:
 a stratum-level prediction (\code{type = "strata"}) has no random effect to
 report for an unseen stratum, so unseen strata remain an error there
 regardless.}
