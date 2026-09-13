@@ -172,8 +172,9 @@ test_that("the bootstrap help pages call both tests approximations, not exact", 
   expect_true(grepl("parametric-bootstrap approximation, not an exact test", po,
                     fixed = TRUE))
   expect_true(grepl("Monte Carlo resolution", po, fixed = TRUE))
-  expect_true(no_exact_left(po, c("approximation, not an exact test",
-                                  "an exactly symmetric threshold")))
+  # (The symmetric-threshold sentence this list also allowed was removed as false
+  # by the third 2026-09-13 pass; see test-audit-2026-09-13c.R.)
+  expect_true(no_exact_left(po, "approximation, not an exact test"))
   expect_false(grepl("by construction", po, fixed = TRUE))
   expect_false(grepl("nominal rate", po, fixed = TRUE))
   expect_false(grepl("removes that confounding", po, fixed = TRUE))

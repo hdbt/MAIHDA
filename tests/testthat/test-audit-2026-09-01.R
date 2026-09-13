@@ -8,18 +8,27 @@
 #
 # A conditional cumulative model with a normal random intercept does NOT in general
 # remain an ordinary proportional-odds model once the random intercept is
-# marginalised away: the implied marginal cumulative-logit slopes differ across
-# thresholds for any non-zero stratum variance. The chi-squared null was therefore
-# false under the correctly specified model, and the flag's rejection rate grew
-# without bound in n (measured: 5% at tau = 0, but 24% at a realistic 7% stratum
-# VPC with n = 96,000, and 58% at tau = 3 with n = 4,800).
+# marginalised away: the implied marginal cumulative-logit slopes generally differ
+# across thresholds once the stratum variance is non-zero. The chi-squared null was
+# therefore false in general under the correctly specified model, and the flag's
+# rejection rate grew with n (measured: 5% at tau = 0, but 24% at a realistic 7%
+# stratum VPC with n = 96,000, and 58% at tau = 3 with n = 4,800; re-measured on
+# make_po_audit_data() on 2026-09-13 at 5.5% (n = 4,800), 23.5% and 57.6%).
 #
-# CAVEAT worth knowing when reading these fixtures: an EXACTLY SYMMETRIC threshold
-# configuration is the exception -- the marginal slopes then coincide and the
-# fixed-only statistic is valid. Three categories cut at -c and +c is that case,
-# and it is what make_po_data() in test-audit-2026-08-03.R uses, which is why the
-# old screen behaved there. The fixtures below deliberately use four categories at
-# (-1.5, 0, 1.5) so the confounding is present.
+# CAVEAT worth knowing when reading these fixtures (corrected by the 2026-09-13
+# audit, see test-audit-2026-09-13c.R): there is NO symmetric-threshold exception.
+# This note used to say that symmetric cut points make the marginal slopes coincide
+# and the fixed-only statistic valid, and that this is why the old screen behaved
+# on make_po_data() in test-audit-2026-08-03.R (three categories cut at -1 and +1).
+# Symmetry equates the slopes at -c and +c only where the location is 0. The null
+# fixtures below are symmetric too -- cut points (-1.5, 0, 1.5) and a covariate
+# drawn symmetric about 0 -- but with four categories the reflection ties only the
+# outer two slopes together, so the population gap between the best nominal and
+# proportional fits stays positive; make_po_data()'s THREE categories are what zero
+# it. At that fixture's size the difference barely mattered anyway: at tau = 0.5
+# and n = 1,440 even the four-category design's gap is negligible (non-centrality
+# about 0.03). And its twelve strata break the symmetry: the same three-category
+# design rejected 4.9% of 2,000 datasets at n = 1,440 but 10% of 600 at n = 96,000.
 #
 # FIX: the automatic flag and the chi-squared p-value are gone. The statistic is
 # still computed and stored, under a name that says what it is

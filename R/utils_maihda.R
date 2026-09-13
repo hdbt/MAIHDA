@@ -524,20 +524,41 @@ maihda_po_lrt <- function(dat, resp, fixed_terms) {
 # This is deliberately NOT a test of the fitted clmm and carries no p-value. A
 # conditional cumulative model with a normal random intercept does not in general
 # stay an ordinary proportional-odds model once the random effect is marginalised
-# away: the implied marginal cumulative-logit slopes differ across thresholds for
-# any non-zero stratum variance. (The exception is an exactly symmetric threshold
-# configuration -- logit(E[plogis(eta - u)]) is odd for symmetric u, so its
-# derivative is even and thresholds placed symmetrically about the location share a
-# slope; three categories cut at -c and +c is the case that arises in practice.
-# Asymmetric thresholds are markedly WORSE, not better: at tau = 1 the slope spread
-# is 0.080 for cut-points (-0.2, 0.4, 3) against 0.027 for (-1.5, 0, 1.5).)
-# Referring the statistic below to a chi-squared distribution therefore tests a null
-# that is false under the correctly specified model, and its rejection rate grows
-# without bound in n -- at a stratum VPC of 7%, roughly a realistic MAIHDA value, a
-# correct model is "rejected" about a quarter of the time at n = 96,000. The statistic is retained because it still describes how far the
-# MARGINAL fit departs from proportional odds, but nothing is flagged from it; for
-# an actual test of the fitted model, use maihda_proportional_odds_test(), which
-# calibrates this same statistic by parametric bootstrap under the fitted clmm.
+# away: the implied marginal cumulative-logit slopes generally differ across
+# thresholds once the stratum variance is non-zero. Referring the statistic below to
+# a chi-squared distribution therefore tests a null that is false in general under
+# the correctly specified model, and its rejection rate grows with n -- at a stratum
+# VPC of 7%, roughly a realistic MAIHDA value, a correct model is "rejected" about a
+# quarter of the time at n = 96,000 (four categories cut at -1.5, 0 and 1.5 -- a
+# symmetric configuration -- with 12 strata; 23.5% of 600 datasets when re-measured
+# on 2026-09-13). That reference also treats the observations as independent, and
+# observations sharing a stratum share its random effect.
+#
+# There is NO symmetric-threshold exception; one was claimed here until the
+# 2026-09-13 audit. logit(E[plogis(eta - u)]) is odd for symmetric u, so its
+# derivative is even, but that equates the slopes at cut points -c and +c only where
+# the location x'beta is 0: with c = 1, a unit coefficient and tau = 1 they are
+# -0.8817 and -0.8265 at x = 1. Symmetric-looking cut points are also an artefact
+# of coding -- adding s to a covariate adds beta * s to every cut point and leaves
+# the fit and this statistic unchanged. Symmetry gives something narrower: if
+# reversing the categories and reflecting the covariates through a point whose
+# location is the cut points' midpoint leaves the whole design unchanged --
+# symmetric cut points, a covariate distribution that reflection maps onto itself,
+# and the random effect integrated over its normal law rather than realised in
+# finitely many strata -- then the best-fitting nominal slopes at MIRRORED
+# thresholds coincide, which ties all of them together only with three categories
+# (at (-1.5, 0, 1.5) the middle slope stays apart). Symmetric LOCATIONS are not
+# enough once there are two covariates: with cut points -1/+1 and tau = 1,
+# locations -1/0/1 at 25/50/25%, built from covariate values the reflection does
+# not map onto themselves, leave a gap of 3.4e-05 per observation. Real strata are
+# finite: with 12 of them, cut points -1/+1, a standard normal covariate with
+# coefficient 0.8 and tau = 0.5, data simulated from the correctly specified model
+# were still rejected 10% of the time at a nominal 5% with n = 96,000.
+#
+# The statistic is retained because it still describes how far the MARGINAL fit
+# departs from proportional odds, but nothing is flagged from it; for an actual test
+# of the fitted model, use maihda_proportional_odds_test(), which calibrates this
+# same statistic by parametric bootstrap under the fitted clmm.
 #
 # Only meaningful with >= 1 fixed-effect covariate.
 maihda_ordinal_po_stat <- function(model) {

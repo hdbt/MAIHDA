@@ -41,21 +41,31 @@ Referring it to a chi-squared distribution, as an ordinary
 \code{ordinal::nominal_test()} would, is not valid here. A conditional
 cumulative model with a normal random intercept does not in general remain an
 ordinary proportional-odds model after the random intercept is marginalised
-away: the implied marginal cumulative-logit slopes differ across thresholds
-for any non-zero stratum variance. The chi-squared null is therefore false
-under the correctly specified model, and its rejection rate grows without
-bound in the sample size -- at a stratum VPC near 7 percent, a plausible
-MAIHDA value, a correctly specified model is rejected about a quarter of the
-time at \code{n = 96,000}. Stratum heterogeneity and genuine non-proportional
-odds are not separable by the fixed-only statistic alone.
+away: the implied marginal cumulative-logit slopes generally differ across
+thresholds once the stratum variance is non-zero. The chi-squared null is
+therefore false in general under the correctly specified model, and its
+rejection rate grows with the sample size -- at a stratum VPC near 7 percent,
+a plausible MAIHDA value, a correctly specified model is rejected about a
+quarter of the time at \code{n = 96,000}. The chi-squared reference also
+treats the observations as independent, whereas observations that share a
+stratum share its random effect. Stratum heterogeneity and genuine
+non-proportional odds are not separable by the fixed-only statistic alone.
 
-The one exception is an exactly symmetric threshold configuration, where the
-marginal slopes coincide and the fixed-only statistic is valid: for symmetric
-\eqn{u} the map \eqn{\eta \mapsto} logit \eqn{E[\mathrm{plogis}(\eta - u)]}
-is odd, so its derivative is even and thresholds placed symmetrically about the
-location share a slope. Three categories cut at \eqn{-c} and \eqn{+c} is the
-case that arises in practice. Asymmetric thresholds are markedly worse rather
-than better, so this exception narrows the problem without softening it.
+Symmetric thresholds do not rescue the chi-squared reference. For symmetric
+\eqn{u} the map \eqn{\eta \mapsto}{eta ->} logit
+\eqn{E[\mathrm{plogis}(\eta - u)]}{E[plogis(eta - u)]}
+is odd, which equates the marginal slopes at thresholds \eqn{-c} and \eqn{+c}
+where the location \eqn{x'\beta}{x'beta} is zero, but not over the range of
+the covariates. Whether fitted thresholds look symmetric depends on how the
+covariates are coded: adding a constant \eqn{s} to a covariate with
+coefficient \eqn{\beta}{beta} adds \eqn{\beta s}{beta * s} to every threshold
+without changing the fit or the statistic. And no threshold configuration
+makes observations that share a stratum independent. Even when both the
+thresholds and the covariate are symmetric about zero -- three categories cut
+at -1 and +1, a standard normal covariate with coefficient 0.8, and 12 equal
+strata at a stratum VPC near 7 percent -- the chi-squared reference rejected
+10 percent of 600 datasets simulated from the correctly specified model at a
+nominal 5 percent with \code{n = 96,000}.
 
 This function accounts for that confounding by simulating the null
 distribution \emph{under the fitted \code{clmm} itself}: each replicate redraws
