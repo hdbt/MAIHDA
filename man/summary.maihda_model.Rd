@@ -214,13 +214,20 @@ stratum, most severely when the strata are few. For
 each fixed-effect term the model is refitted with that term's coefficients
 \emph{constrained to zero}, \code{n_boot} responses are simulated from the
 restricted fit, the full model is refitted on each, and the observed Wald
-statistic is referred to the resulting
-distribution of \eqn{|t^*|} under a true null. The estimate and standard error
-are unchanged; the p-value and the interval both come from that distribution
-and agree exactly, zero falling outside the interval precisely when the
-p-value is significant. \code{df} is \code{NA}, and so are the intercept's
-p-value and interval: a MAIHDA intercept is a reference-category level rather
-than a term that can be dropped, so it has no null model to simulate from.
+statistic is referred to the resulting distribution of \eqn{|t^*|}. The
+estimate and standard error are unchanged. The p-value is
+\eqn{(1 + \#\{|t^*| \ge |t|\}) / (B + 1)}{(1 + #{|t*| >= |t|}) / (B + 1)}
+over the \eqn{B} refits that
+succeeded, and the interval is the estimate plus or minus a critical value
+read from the same draws, times the standard error. The two agree by
+construction: zero falls outside the interval exactly when the p-value is at
+most \code{1 - conf_level}. That agreement is algebraic, not a coverage
+guarantee -- the draws are simulated with the coefficient at zero, so how
+often the interval covers a coefficient that is not zero rests on the same
+approximation as the p-value (below). \code{df} is \code{NA}, and so are the
+intercept's p-value and interval: a MAIHDA intercept is a reference-category
+level rather than a term that can be dropped, so it has no null model to
+simulate from.
 
 The constraint is imposed on the fitted design and verified, not assumed from
 the formula. Removing a term from a formula does not always remove it from the
@@ -233,18 +240,47 @@ a nested \code{f / g}. Where that happens the term's design columns are
 constrained directly instead. A model whose fixed part is additive is
 unaffected: there, dropping the term from the formula already is the null.
 
+The bootstrap is an approximation, not an exact test. Its null is the
+restricted fit, whose other coefficients and variance components were
+estimated from the same data, so the p-value is only as well calibrated as
+that fit stands in for the truth, and the usual large-sample argument for it
+needs many strata and a stratum variance away from zero. It is poorest with
+few strata, where the stratum variance rests on a handful of units and is
+often estimated at exactly zero. In simulations of a binomial MAIHDA (120 per
+stratum, stratum SD 0.5, every dimension effect zero) it rejected at about
+14\% for a nominal 5\% with 4 strata and about 7\% with 8, where the Wald z
+rejected at about 40\% and 19\%. The excess sits in the fits whose stratum
+variance is singular -- more than half of them at 4 strata, rejecting at about
+23\% against 3\% on the rest. So it removes most of the z's error but not all
+of it, and a p-value near the threshold from a singular fit on few strata
+deserves little weight.
+
+\code{n_boot} sets the Monte Carlo resolution, not that approximation. The
+p-value lies on a grid of step \eqn{1 / (B + 1)}, the smallest attainable
+value being \eqn{1 / (B + 1)} -- the added one keeps it off zero -- and more
+draws shrink the Monte Carlo error of the p-value and of the interval
+endpoints, which are order statistics of the draws. Both converge on what an
+unlimited bootstrap would give: the interval settles at a fixed, non-zero
+width rather than narrowing without end, and at a given seed a larger
+\code{n_boot} can widen it. No \code{n_boot} makes the test exact -- on the
+4-stratum design above, 19 draws and 99 draws both rejected at about 14\%.
+
 It costs \code{n_boot} refits \emph{per term}, and is a separate bootstrap
-from the \code{bootstrap = TRUE} VPC interval, which is not reused. The
-smallest reportable p-value is \eqn{1 / (n\_boot + 1)}.
+from the \code{bootstrap = TRUE} VPC interval, which is not reused.
 
 Budget for it. A Gaussian refit takes milliseconds, but a binomial one takes
 about a second at \eqn{n = 1000} and tens of seconds at \eqn{n = 6000}, so the
 default \code{n_boot = 1000} on a three-dimension GLMM is roughly an hour at
-the smaller size and impractical at the larger. The p-value is exact at any
-\code{n_boot} for which \eqn{(n\_boot + 1)\alpha} is a whole number -- 199 and
-999 at the 5\% level -- while the interval endpoints, being order statistics,
-keep tightening with more draws; \code{n_boot = 199} is the usual compromise
-for a GLMM.
+the smaller size and impractical at the larger. \code{n_boot = 199} is the
+usual compromise for a GLMM; 199 and 999 are conventional because
+\code{(n_boot + 1) * 0.05} is then a whole number, which puts the 5\% level
+itself on the p-value grid. Give it fewer draws than the level needs and
+\code{summary()} warns: what makes the critical value unsteady is how few of
+them lie at or beyond it rather than \code{n_boot} on its own, so the check is
+level-aware. 99, 199 and 999 are the smallest counts that put ten draws beyond
+the cut-off at the 10\%, 5\% and 1\% levels; 199 draws leave only two beyond a
+99\% one, and fewer than 19 cannot reach the 5\% level at all, which leaves the
+interval unbounded.
 }
 
 \section{Two VPCs for a longitudinal fit}{

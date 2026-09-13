@@ -25,9 +25,12 @@ A data frame with \code{term}, \code{estimate}, \code{se},
 Internal helper. For each fixed-effect term, refits the model with that term's
 coefficients constrained to zero, simulates \code{n_boot} responses from the
 restricted fit, refits the full model on each, and refers the observed Wald
-statistic to the bootstrap distribution of \eqn{|t^*|} under a true null.
-Returns the shape \code{\link{maihda_fixed_effects_table}} produces, with
-\code{df} \code{NA}: the reference is an empirical distribution, not a \eqn{t}.
+statistic to the distribution of \eqn{|t^*|} across those refits. The null is
+the restricted fit itself, its remaining parameters estimated from the same
+data, so the reference is a parametric-bootstrap approximation rather than
+the exact null distribution. Returns the shape
+\code{\link{maihda_fixed_effects_table}} produces, with \code{df} \code{NA}:
+the reference is an empirical distribution, not a \eqn{t}.
 }
 \details{
 The restriction is imposed by dropping the term from the formula and then

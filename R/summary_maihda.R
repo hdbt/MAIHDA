@@ -288,13 +288,20 @@ maihda_tag_role <- function(s, role) {
 #' each fixed-effect term the model is refitted with that term's coefficients
 #' \emph{constrained to zero}, \code{n_boot} responses are simulated from the
 #' restricted fit, the full model is refitted on each, and the observed Wald
-#' statistic is referred to the resulting
-#' distribution of \eqn{|t^*|} under a true null. The estimate and standard error
-#' are unchanged; the p-value and the interval both come from that distribution
-#' and agree exactly, zero falling outside the interval precisely when the
-#' p-value is significant. \code{df} is \code{NA}, and so are the intercept's
-#' p-value and interval: a MAIHDA intercept is a reference-category level rather
-#' than a term that can be dropped, so it has no null model to simulate from.
+#' statistic is referred to the resulting distribution of \eqn{|t^*|}. The
+#' estimate and standard error are unchanged. The p-value is
+#' \eqn{(1 + \#\{|t^*| \ge |t|\}) / (B + 1)}{(1 + #{|t*| >= |t|}) / (B + 1)}
+#' over the \eqn{B} refits that
+#' succeeded, and the interval is the estimate plus or minus a critical value
+#' read from the same draws, times the standard error. The two agree by
+#' construction: zero falls outside the interval exactly when the p-value is at
+#' most \code{1 - conf_level}. That agreement is algebraic, not a coverage
+#' guarantee -- the draws are simulated with the coefficient at zero, so how
+#' often the interval covers a coefficient that is not zero rests on the same
+#' approximation as the p-value (below). \code{df} is \code{NA}, and so are the
+#' intercept's p-value and interval: a MAIHDA intercept is a reference-category
+#' level rather than a term that can be dropped, so it has no null model to
+#' simulate from.
 #'
 #' The constraint is imposed on the fitted design and verified, not assumed from
 #' the formula. Removing a term from a formula does not always remove it from the
@@ -307,18 +314,47 @@ maihda_tag_role <- function(s, role) {
 #' constrained directly instead. A model whose fixed part is additive is
 #' unaffected: there, dropping the term from the formula already is the null.
 #'
+#' The bootstrap is an approximation, not an exact test. Its null is the
+#' restricted fit, whose other coefficients and variance components were
+#' estimated from the same data, so the p-value is only as well calibrated as
+#' that fit stands in for the truth, and the usual large-sample argument for it
+#' needs many strata and a stratum variance away from zero. It is poorest with
+#' few strata, where the stratum variance rests on a handful of units and is
+#' often estimated at exactly zero. In simulations of a binomial MAIHDA (120 per
+#' stratum, stratum SD 0.5, every dimension effect zero) it rejected at about
+#' 14\% for a nominal 5\% with 4 strata and about 7\% with 8, where the Wald z
+#' rejected at about 40\% and 19\%. The excess sits in the fits whose stratum
+#' variance is singular -- more than half of them at 4 strata, rejecting at about
+#' 23\% against 3\% on the rest. So it removes most of the z's error but not all
+#' of it, and a p-value near the threshold from a singular fit on few strata
+#' deserves little weight.
+#'
+#' \code{n_boot} sets the Monte Carlo resolution, not that approximation. The
+#' p-value lies on a grid of step \eqn{1 / (B + 1)}, the smallest attainable
+#' value being \eqn{1 / (B + 1)} -- the added one keeps it off zero -- and more
+#' draws shrink the Monte Carlo error of the p-value and of the interval
+#' endpoints, which are order statistics of the draws. Both converge on what an
+#' unlimited bootstrap would give: the interval settles at a fixed, non-zero
+#' width rather than narrowing without end, and at a given seed a larger
+#' \code{n_boot} can widen it. No \code{n_boot} makes the test exact -- on the
+#' 4-stratum design above, 19 draws and 99 draws both rejected at about 14\%.
+#'
 #' It costs \code{n_boot} refits \emph{per term}, and is a separate bootstrap
-#' from the \code{bootstrap = TRUE} VPC interval, which is not reused. The
-#' smallest reportable p-value is \eqn{1 / (n\_boot + 1)}.
+#' from the \code{bootstrap = TRUE} VPC interval, which is not reused.
 #'
 #' Budget for it. A Gaussian refit takes milliseconds, but a binomial one takes
 #' about a second at \eqn{n = 1000} and tens of seconds at \eqn{n = 6000}, so the
 #' default \code{n_boot = 1000} on a three-dimension GLMM is roughly an hour at
-#' the smaller size and impractical at the larger. The p-value is exact at any
-#' \code{n_boot} for which \eqn{(n\_boot + 1)\alpha} is a whole number -- 199 and
-#' 999 at the 5\% level -- while the interval endpoints, being order statistics,
-#' keep tightening with more draws; \code{n_boot = 199} is the usual compromise
-#' for a GLMM.
+#' the smaller size and impractical at the larger. \code{n_boot = 199} is the
+#' usual compromise for a GLMM; 199 and 999 are conventional because
+#' \code{(n_boot + 1) * 0.05} is then a whole number, which puts the 5\% level
+#' itself on the p-value grid. Give it fewer draws than the level needs and
+#' \code{summary()} warns: what makes the critical value unsteady is how few of
+#' them lie at or beyond it rather than \code{n_boot} on its own, so the check is
+#' level-aware. 99, 199 and 999 are the smallest counts that put ten draws beyond
+#' the cut-off at the 10\%, 5\% and 1\% levels; 199 draws leave only two beyond a
+#' 99\% one, and fewer than 19 cannot reach the 5\% level at all, which leaves the
+#' interval unbounded.
 #'
 #' @section Two VPCs for a longitudinal fit:
 #' A longitudinal summary reports \strong{two different variance partitions}, and
@@ -415,9 +451,15 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
   # the fixed-effect interval below, not just the bootstrap VPC interval.
   conf_level <- maihda_validate_conf_level(conf_level)
   # A fixed-effect bootstrap draws on n_boot and conf_level too, so validate them
-  # whenever EITHER bootstrap is requested -- not only when the VPC one is.
+  # whenever EITHER bootstrap is requested -- not only when the VPC one is. The
+  # two form different intervals, and a replicate count that is ample for one can
+  # be thin for the other, so name the kinds actually being formed rather than
+  # letting the VPC's percentile rule speak for both.
   if (bootstrap || identical(df_method, "bootstrap")) {
-    bootstrap_args <- maihda_validate_bootstrap_args(n_boot, conf_level)
+    bootstrap_args <- maihda_validate_bootstrap_args(
+      n_boot, conf_level,
+      interval = c(if (bootstrap) "percentile",
+                   if (identical(df_method, "bootstrap")) "studentized"))
     n_boot <- bootstrap_args$n_boot
     conf_level <- bootstrap_args$conf_level
   }
@@ -1557,9 +1599,12 @@ maihda_restrict_fixef <- function(model, drop_cols) {
 #' Internal helper. For each fixed-effect term, refits the model with that term's
 #' coefficients constrained to zero, simulates \code{n_boot} responses from the
 #' restricted fit, refits the full model on each, and refers the observed Wald
-#' statistic to the bootstrap distribution of \eqn{|t^*|} under a true null.
-#' Returns the shape \code{\link{maihda_fixed_effects_table}} produces, with
-#' \code{df} \code{NA}: the reference is an empirical distribution, not a \eqn{t}.
+#' statistic to the distribution of \eqn{|t^*|} across those refits. The null is
+#' the restricted fit itself, its remaining parameters estimated from the same
+#' data, so the reference is a parametric-bootstrap approximation rather than
+#' the exact null distribution. Returns the shape
+#' \code{\link{maihda_fixed_effects_table}} produces, with \code{df} \code{NA}:
+#' the reference is an empirical distribution, not a \eqn{t}.
 #'
 #' The restriction is imposed by dropping the term from the formula and then
 #' \emph{verifying} that the refitted design no longer spans the full model's
@@ -1674,19 +1719,20 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
       n_ok[j] <- length(ts)
       if (!is.finite(se[j]) || n_ok[j] < 10L) next
       t_obs <- abs(est[j] / se[j])
-      # (1 + count) / (B + 1), so a p-value is never exactly zero and the test is
-      # exact under the bootstrap distribution rather than off by one draw. It
-      # also floors the reportable p at 1 / (B + 1): a small n_boot cannot
-      # resolve a small p-value.
+      # (1 + count) / (B + 1), the Monte Carlo p-value: never exactly zero, and on
+      # a grid of step 1 / (B + 1), so a small n_boot cannot resolve a small p.
+      # B sets only that resolution. The draws come from a fit whose parameters
+      # were estimated from these same data, so at any B this is a
+      # parametric-bootstrap approximation, not an exact test.
       p_value[j] <- min(1, (1 + sum(ts >= t_obs)) / (n_ok[j] + 1))
-      # The critical value is the exact INVERSION of that p-value, not a
-      # quantile() of the same draws: with r = ceiling(alpha * (B + 1)) - 1, the
-      # observed statistic beats the r-th largest |t*| precisely when at most
-      # r - 1 draws reach it, which is precisely when p < alpha. So zero falls
-      # outside the interval exactly when the p-value is significant -- the same
-      # duality the Wald table has, which a quantile would only approximate to
-      # one draw's resolution.
-      r <- ceiling((1 - conf_level) * (n_ok[j] + 1)) - 1
+      # The critical value INVERTS that p-value rather than being a quantile() of
+      # the same draws: the observed statistic beats the r-th largest |t*| exactly
+      # when at most r - 1 draws reach it, i.e. exactly when p <= 1 - conf_level
+      # (see maihda_boot_critical_rank). So zero falls outside the interval
+      # exactly when the p-value is at or below that level, which a quantile
+      # would only approximate to one draw's resolution. The agreement is a
+      # property of the construction, not a coverage guarantee.
+      r <- maihda_boot_critical_rank(n_ok[j], conf_level)
       crit <- if (r < 1L) Inf else sort(ts, decreasing = TRUE)[r]
       lower[j] <- est[j] - crit * se[j]
       upper[j] <- est[j] + crit * se[j]
@@ -1740,6 +1786,30 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
   attr(out, "n_boot_nonconverged") <- n_nonconv
   attr(out, "interval_reliable") <- reliable
   out
+}
+
+# Rank, counted from the largest, of the fixed-effect bootstrap's critical value
+# among n |t*| draws: the number of attainable p-values (1 + c) / (n + 1),
+# c = 0..n, at or below alpha = 1 - conf_level. The observed statistic beats the
+# r-th largest draw exactly when at most r - 1 draws reach it, i.e. exactly when
+# its p-value is one of those r, so zero falls outside the interval exactly when
+# p <= alpha -- the usual Monte Carlo test rule, under which a whole-number
+# (n + 1) * alpha (199 or 999 draws at 5%) puts alpha itself on the grid.
+#
+# The count is floor(alpha * (n + 1)), but that product cannot be taken at face
+# value. 1 - 0.95 is stored as 0.05000000000000004 and 1 - 0.90 as
+# 0.09999999999999998, so a product that is a whole number in exact arithmetic
+# lands just above it at one level and just below it at the other. The former
+# ceiling(alpha * (n + 1)) - 1 therefore applied p <= alpha where the complement
+# is stored above its decimal value (0.95, 0.99, and also 0.70, 0.85, 0.975) but
+# p < alpha where it is stored at or below it (0.90, 0.80, 0.75, 0.50), and the
+# interval disagreed with the p-value whenever p fell exactly on alpha. Which
+# level got which rule was an accident of storage, not a design. The tolerance is
+# about 6000 times the representation error of the product, which is at most
+# (n + 1) * 1.7e-16; it can only misread a conf_level given to 12 or more
+# decimal places.
+maihda_boot_critical_rank <- function(n, conf_level) {
+  as.integer(floor((1 - conf_level) * (n + 1) + 1e-12 * (n + 1)))
 }
 
 #' Print the additive vs. intersectional decomposition of a crossed-dimensions summary

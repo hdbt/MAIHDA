@@ -1054,7 +1054,17 @@ maihda_report_nonconvergence <- function(n_nonconv, n_contrib, label = "VPC",
   reliable
 }
 
-maihda_validate_bootstrap_args <- function(n_boot, conf_level) {
+# `interval` names the kind(s) of interval the caller is about to form, because
+# the two the package builds are unstable for different reasons and at different
+# replicate counts. A percentile interval (the VPC, PCV and importance
+# bootstraps) reads two tail quantiles; a studentized one (the fixed-effect
+# bootstrap behind summary(df_method = "bootstrap")) is symmetric about the
+# estimate at a critical value taken from a single |t*| order statistic. Callers
+# forming both pass both.
+maihda_validate_bootstrap_args <- function(n_boot, conf_level,
+                                           interval = "percentile") {
+  interval <- match.arg(interval, c("percentile", "studentized"),
+                        several.ok = TRUE)
   # Forming an interval needs at least maihda_bootstrap_ci()'s minimum number of
   # successful refits, so reject n_boot below that floor here -- failing fast with
   # a clear message rather than only erroring later, after the bootstrap has run.
@@ -1074,15 +1084,54 @@ maihda_validate_bootstrap_args <- function(n_boot, conf_level) {
   # order statistics estimated from very few draws, so they are unstable -- warn
   # (without blocking) when n_boot is well below the count needed for a dependable
   # 2.5/97.5% interval. Published guidance uses hundreds to ~1000+ replications.
-  rec_boot <- 200L
-  if (n_boot < rec_boot) {
-    warning(sprintf(paste0("n_boot = %d is low for a %g%% percentile interval: the ",
-                           "tail endpoints are order statistics from few draws and are ",
-                           "unstable below ~%d replications. Increase n_boot (the ",
-                           "default, 1000, is dependable) or read the interval as ",
-                           "indicative only."),
-                    as.integer(n_boot), 100 * conf_level, rec_boot),
-            call. = FALSE)
+  if ("percentile" %in% interval) {
+    rec_boot <- 200L
+    if (n_boot < rec_boot) {
+      warning(sprintf(paste0("n_boot = %d is low for a %g%% percentile interval: the ",
+                             "tail endpoints are order statistics from few draws and are ",
+                             "unstable below ~%d replications. Increase n_boot (the ",
+                             "default, 1000, is dependable) or read the interval as ",
+                             "indicative only."),
+                      as.integer(n_boot), 100 * conf_level, rec_boot),
+              call. = FALSE)
+    }
+  }
+
+  # A studentized interval has no tail quantile to estimate: its critical value is
+  # one order statistic of |t*|, at the rank maihda_boot_critical_rank() returns.
+  # What makes that cut-off unsteady is therefore not n_boot on its own but how
+  # few draws lie at or beyond it, which depends on the level -- 199 draws put ten
+  # of them beyond the 95% cut-off but only two beyond the 99% one. Ten is the
+  # threshold here, and the conventional 99, 199 and 999 are exactly the smallest
+  # counts that reach it at the 10%, 5% and 1% levels.
+  if ("studentized" %in% interval) {
+    min_rank <- 10L
+    alpha <- 1 - conf_level
+    r <- maihda_boot_critical_rank(n_boot, conf_level)
+    if (r < min_rank) {
+      # Smallest n_boot whose rank reaches min_rank: floor(alpha * (n + 1)) >= 10
+      # means n + 1 >= 10 / alpha. The tolerance mirrors the rank helper's own, so
+      # that a whole-number quotient is not pushed one draw higher by the way
+      # alpha is stored. Left as a double and printed with %.0f: a conf_level
+      # within about 5e-9 of 1 needs more draws than an integer can hold, and
+      # as.integer() would then warn on its own and advise "NA draws".
+      need <- ceiling(min_rank / alpha - 1 - 1e-9)
+      if (r < 1L) {
+        warning(sprintf(paste0("n_boot = %d cannot resolve a %g%% fixed-effect interval ",
+                               "at all: no attainable p-value reaches %g, so the interval ",
+                               "is unbounded. Use at least %.0f draws at this level."),
+                        as.integer(n_boot), 100 * conf_level, alpha, need),
+                call. = FALSE)
+      } else {
+        warning(sprintf(paste0("n_boot = %d puts the %g%% fixed-effect interval's critical ",
+                               "value at rank %d of the %d |t*| draws, counted from the ",
+                               "largest: too few beyond it for a dependable cut-off. Use at ",
+                               "least %.0f draws at this level, or read the interval as ",
+                               "indicative only."),
+                        as.integer(n_boot), 100 * conf_level, r, as.integer(n_boot), need),
+                call. = FALSE)
+      }
+    }
   }
 
   list(n_boot = as.integer(n_boot), conf_level = conf_level)

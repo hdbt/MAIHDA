@@ -57,14 +57,32 @@ location share a slope. Three categories cut at \eqn{-c} and \eqn{+c} is the
 case that arises in practice. Asymmetric thresholds are markedly worse rather
 than better, so this exception narrows the problem without softening it.
 
-This function removes that confounding by simulating the null distribution
-\emph{under the fitted \code{clmm} itself}: each replicate redraws the stratum
-random effects from \eqn{N(0, \tau^2)} at the fitted variance, forms the
-conditional category probabilities from the fitted thresholds and location
-predictor, redraws the ordinal response, and recomputes the same fixed-only
-statistic. The reported p-value is
-\eqn{(1 + \#\{T_b \ge T_{obs}\}) / (1 + B)}, so proportional-odds data
-generated from the fitted model rejects at the nominal rate by construction.
+This function accounts for that confounding by simulating the null
+distribution \emph{under the fitted \code{clmm} itself}: each replicate redraws
+the stratum random effects from \eqn{N(0, \tau^2)} at the fitted variance,
+forms the conditional category probabilities from the fitted thresholds and
+location predictor, redraws the ordinal response, and recomputes the same
+fixed-only statistic. The reported p-value is
+\eqn{(1 + \#\{T_b \ge T_{obs}\}) / (1 + B)}{(1 + #{T_b >= T_obs}) / (1 + B)}
+over the \eqn{B} replicates that refitted. The added one keeps it off zero,
+and \code{n_sim} sets only its Monte Carlo resolution: attainable values are
+\eqn{1 / (B + 1)} apart, so that is also the smallest one.
+
+It is a parametric-bootstrap approximation, not an exact test. The replicates
+are drawn at the fitted thresholds, coefficients and stratum variance rather
+than the true ones, and the null distribution of the statistic depends on the
+stratum variance -- that dependence is the confounding described above -- so
+an error in the fitted variance passes into the p-value whatever \code{n_sim}
+is. That variance is estimated from as many units as there are strata, and
+more observations per stratum sharpen the thresholds and the coefficients but
+not it, so the approximation is poorest where the strata are few. Over 600
+simulated 4-stratum fits with 1,000 observations per stratum (stratum SD 1.5,
+four categories cut at -0.2, 0.4 and 3) the fitted stratum variance ran low --
+a median 1.42 against the true 2.25 -- and correctly specified models were
+rejected 6.7\% of the time at a nominal 5\% and 15.5\% at a nominal 10\%,
+their p-values departing measurably from the uniform distribution a calibrated
+test would produce. That is still far better than the chi-squared reference it
+replaces, which rejected 41\% of the same fits at the 5\% level.
 
 \code{ordinal} supplies no \code{simulate()} method for \code{clmm}, so the
 simulation is built directly from the fitted thresholds, location
