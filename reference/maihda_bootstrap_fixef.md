@@ -3,8 +3,10 @@
 Internal helper. For each fixed-effect term, refits the model with that
 term's coefficients constrained to zero, simulates `n_boot` responses
 from the restricted fit, refits the full model on each, and refers the
-observed Wald statistic to the bootstrap distribution of \\\|t^\*\|\\
-under a true null. Returns the shape
+observed Wald statistic to the distribution of \\\|t^\*\|\\ across those
+refits. The null is the restricted fit itself, its remaining parameters
+estimated from the same data, so the reference is a parametric-bootstrap
+approximation rather than the exact null distribution. Returns the shape
 [`maihda_fixed_effects_table`](https://hdbt.github.io/MAIHDA/reference/maihda_fixed_effects_table.md)
 produces, with `df` `NA`: the reference is an empirical distribution,
 not a \\t\\.

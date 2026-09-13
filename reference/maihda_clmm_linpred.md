@@ -10,7 +10,7 @@ absorbed by the thresholds – so `beta`'s names select the right
 columns), any formula offset term is evaluated on `newdata` and added
 (so an offset-only null model still predicts its offset), and
 `include_re` adds each row's stratum conditional mode (an unseen stratum
-contributes 0 – the population-average fallback that
+contributes 0 – the zero-effect fallback that
 [`predict_maihda`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
 only reaches when `allow_new_levels = TRUE`, having otherwise rejected
 unseen strata upstream). Everything is on the latent (link) scale; map

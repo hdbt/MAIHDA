@@ -332,6 +332,30 @@
   correlated with. The plot titles and the
   [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
   footnote already said “conditional”.
+- [`?predict_maihda`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  no longer calls the `allow_new_levels = TRUE` prediction a “population
+  average”. Setting an unseen stratum’s random effect to zero gives the
+  conditional prediction at `u = 0`, which equals the response-scale
+  marginal mean only under an identity link: under a log link with
+  stratum variance `tau^2` the marginal mean is `exp(tau^2/2)` times
+  larger – 38.6% on a fit with `tau^2 = 0.65` – and a logit fit is
+  attenuated towards 0.5. All four unseen- or missing-stratum error
+  messages that offer the escape now say the same. Predictions
+  themselves are unchanged.
+- [`?summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
+  and
+  [`?maihda_proportional_odds_test`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
+  no longer call their parametric-bootstrap p-values exact. The first
+  said the `df_method = "bootstrap"` p-value is exact whenever
+  `(n_boot + 1) * alpha` is a whole number, the second that correctly
+  specified data are rejected at the nominal rate by construction. Both
+  simulate from a fit estimated on the same data, so each is an
+  approximation that no replicate count makes exact – a binomial fit
+  with 4 strata rejected a true null about 14% of the time at a nominal
+  5% – and `n_boot` or `n_sim` sets only the Monte Carlo resolution. The
+  interval’s agreement with the p-value is now described as algebraic
+  rather than as a coverage guarantee, and more draws as converging on a
+  fixed interval width rather than tightening it.
 
 ### Performance
 
@@ -341,6 +365,33 @@
   roughly halves the fitting cost (most noticeable for `brms`).
 
 ### Bug fixes
+
+- `summary(df_method = "bootstrap")` no longer warns that the
+  `n_boot = 199` its own help page recommends is too low. The
+  low-replicate warning is written for a percentile interval, which the
+  fixed-effect one is not: that interval is symmetric about the estimate
+  at a critical value taken from a single `|t*|` order statistic, so
+  what matters is how many draws lie beyond the cut-off, and that
+  depends on the level rather than on `n_boot` alone. The check is now
+  level-aware and separately worded, naming the rank: 99, 199 and 999
+  pass at the 10%, 5% and 1% levels, being the smallest counts that put
+  ten draws beyond the cut-off, while 199 draws at `conf_level = 0.99`
+  (two beyond it), and any count too small to reach the level at all (an
+  unbounded interval), still warn. The VPC, PCV, group-comparison and
+  importance bootstraps keep the percentile warning unchanged.
+
+- A `summary(df_method = "bootstrap")` interval now excludes zero
+  exactly when its p-value is at most `1 - conf_level`, at every level.
+  The critical value’s rank was
+  `ceiling((1 - conf_level) * (n_boot + 1)) - 1`, and `1 - 0.95` is
+  stored just above 0.05 while `1 - 0.90` is stored just below 0.1, so
+  wherever that product is a whole number the rule was `p <= alpha` at
+  levels whose complement is stored above its decimal value (0.95, 0.99,
+  0.70, 0.85) but `p < alpha` at those stored at or below it (0.90,
+  0.80, 0.75, 0.50): with `n_boot = 199`, a p-value of exactly 0.05
+  excluded zero at 0.95 while one of exactly 0.10 did not at 0.90.
+  Intervals at 0.95 and 0.99 are unchanged; the levels that took the
+  strict rule move by one order statistic where the product is whole.
 
 - An `engine = "ordinal"` formula whose right-hand side ends in a
   subtraction no longer refuses to fit.

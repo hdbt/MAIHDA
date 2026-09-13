@@ -78,11 +78,23 @@ predict(
   longitudinal growth term) – the same behaviour as lme4's
   `allow.new.levels`, which zeroes only the unseen level's effect and
   keeps seen ones. For the usual single-stratum model the stratum is the
-  only random effect, so this is the *population-average*
-  (fixed-effects-only) prediction. This affects `type = "individual"`
-  only: a stratum-level prediction (`type = "strata"`) has no random
-  effect to report for an unseen stratum, so unseen strata remain an
-  error there regardless.
+  only random effect, so the result is the fixed-effects-only
+  prediction, evaluated *at a zero random effect*. That is a
+  *conditional* (stratum-specific) prediction for a stratum whose effect
+  happens to be zero; it is **not** a response-scale population average
+  (marginal mean), which requires integrating over the random-effect
+  distribution. The two coincide on the link scale, and on the response
+  scale only under the Gaussian identity link. Under a log link with
+  stratum variance \\\tau^2\\ the marginal mean is larger by a factor
+  \\\exp(\tau^2/2)\\, and under a logit link the marginal probability is
+  attenuated towards 0.5 (Nakagawa, Johnson & Schielzeth 2017). Because
+  the inverse link is monotone and the random effect symmetric about
+  zero, the response-scale value returned here is the *median* of the
+  stratum-specific means across the random-effect distribution, not
+  their average. This affects `type = "individual"` only: a
+  stratum-level prediction (`type = "strata"`) has no random effect to
+  report for an unseen stratum, so unseen strata remain an error there
+  regardless.
 
 - ...:
 
