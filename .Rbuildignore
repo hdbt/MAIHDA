@@ -23,3 +23,4 @@
 ^check$
 ^.*\.tar\.gz$
 ^tests/testthat/_problems$
+^audit-2026-09-14$

@@ -19,7 +19,9 @@ A numeric vector of latent-scale location predictions.
 \description{
 \code{predict.clmm} does not exist, so the location part
 \eqn{\eta = x'\beta (+ u)} is built directly: the fixed design matrix is
-constructed with the training data's factor levels AND transformation basis (so a
+constructed with the fit's factor coding -- the levels it fitted and the contrast
+matrix it applied to each factor, whatever \code{options(contrasts = )} says now
+-- AND its transformation basis (so a
 data-dependent term such as \code{scale(x)} uses the fit's centre and scale rather
 than recomputing them from \code{newdata}) and multiplied by the
 location coefficients \code{beta} (a clmm has \emph{no} intercept column --

@@ -225,7 +225,11 @@
 #'   approximation is weakest exactly where most counts are zero.
 #' @param ... Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
 #'   \code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},
-#'   \code{fast}). The lme4-style \code{weights} (precision weights),
+#'   \code{fast}). The wemix engine rejects \code{mix()}'s \code{center_grand} and
+#'   \code{center_group}, under any partial spelling: WeMix centres the covariates
+#'   internally without keeping the centring constants, so predictions could not
+#'   reproduce the fit. Centre covariates in \code{data} before fitting instead.
+#'   The lme4-style \code{weights} (precision weights),
 #'   \code{subset}, and \code{offset} arguments are honoured only by the
 #'   \code{lme4} engine, which applies them directly. The \code{wemix},
 #'   \code{ordinal}, and \code{brms} engines reject them: none takes them as a
@@ -373,6 +377,10 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     rlang::eval_tidy(dot_quos[[".metadata_only"]]), error = function(e) FALSE))
   dot_quos[[".metadata_only"]] <- NULL
   dot_vals <- lapply(dot_quos, function(q) rlang::eval_tidy(q, data = data))
+  # A partial spelling (subs = keep, weig = w) reaches the engine as subset / weights;
+  # rename it before anything below reads or refuses those by exact name (see
+  # maihda_resolve_engine_dots()).
+  dot_vals <- maihda_resolve_engine_dots(dot_vals, engine, family)
   subset_value <- dot_vals[["subset"]]
   # Resolve a character (row-name) subset to a positional logical mask against this
   # data's own row names, up front, so the engine receives a logical vector rather
@@ -812,6 +820,12 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     }
   }
 
+  # The factor levels and contrast matrices of the fitted design, kept for the engines
+  # whose predictions rebuild that design by hand (wemix, ordinal; see
+  # maihda_engine_fixed_coding()). lme4's prediction path reads the same record off
+  # lme4's own design matrix, and brms predicts through its own machinery.
+  fixed_coding <- NULL
+
   # Build the engine call from the already-evaluated `...` values. Each value is
   # bound in a private environment and referenced by name so the model's stored
   # call stays small and readable (e.g. weights = .maihda_arg_weights) rather than
@@ -830,6 +844,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     wemix_fit <- maihda_fit_wemix(formula, data, family, sampling_weights, dot_vals)
     model <- wemix_fit$model
     data <- wemix_fit$data
+    fixed_coding <- wemix_fit$coding
   } else if (engine == "ordinal") {
     # Cumulative link mixed model via ordinal::clmm(). Like the wemix branch,
     # the guard above bans data-masked engine arguments (weights/subset/offset),
@@ -842,6 +857,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     ord_fit <- maihda_fit_clmm(formula, data, family, dot_vals)
     model <- ord_fit$model
     data <- ord_fit$data
+    fixed_coding <- ord_fit$coding
   } else {
 
   fit_env <- new.env(parent = environment(formula))
@@ -1057,7 +1073,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       sampling_weights = sampling_weights,
       longitudinal_info = longitudinal_info,
       response_recoding = response_recoding,
-      diagnostics = diagnostics
+      diagnostics = diagnostics,
+      fixed_coding = fixed_coding
     ),
     class = "maihda_model"
   )

@@ -17,8 +17,10 @@ maihda_fit_clmm(formula, data, family, dot_vals)
 \code{ordinal::clmm()} (e.g. \code{nAGQ}, \code{control}).}
 }
 \value{
-A list with \code{model} (the \code{clmm} fit) and \code{data} (the
-  analytic data frame actually fitted).
+A list with \code{model} (the \code{clmm} fit), \code{data} (the
+  analytic data frame actually fitted) and \code{coding} (the fit's factor levels
+  and contrast matrices, taken while the options that shaped the design are in
+  force; \code{NULL} if they could not be read).
 }
 \description{
 Internal engine call for \code{fit_maihda(engine = "ordinal")}. Builds the

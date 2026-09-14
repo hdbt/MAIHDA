@@ -193,6 +193,7 @@ tidy.maihda_analysis <- function(x, component = c("strata", "variance", "fixed")
     stop("No '", which, "' summary is available on this maihda_analysis (mode = '",
          maihda_chr(x$mode), "').", call. = FALSE)
   }
+  maihda_warn_centred_analysis(x)
   tidy(s, component = component, ...)
 }
 
@@ -260,6 +261,7 @@ glance.maihda_model <- function(x, ...) {
 #' @method glance maihda_analysis
 #' @export
 glance.maihda_analysis <- function(x, ...) {
+  maihda_warn_centred_analysis(x)
   g <- glance(x$summary)
 
   pcv <- x$pcv

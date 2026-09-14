@@ -1548,6 +1548,112 @@ maihda_sampling_weight_mask <- function(w) {
   w
 }
 
+# `...` values about to reach `fun`, renamed to the formals `fun` binds them to. R binds
+# a supplied argument by exact name, then by unique PARTIAL name (to a formal before
+# any `...`), then by position, so an argument the package reads or refuses by its
+# exact name reaches the engine under a shorter spelling -- subs = keep becomes
+# clmm()'s subset, max_iter = 0 WeMix::mix()'s max_iteration -- past every such check.
+# match.call() applies R's own binding to a call carrying the same argument names with
+# placeholder values, so nothing is evaluated; `supplied` are the names the caller
+# passes to `fun` itself. When one name binds to nothing (a `fun` without `...`) or to
+# several formals, the whole match fails, so the others are then resolved one at a
+# time and cannot be hidden by it; such a name is left as given for R to refuse at the
+# real call. `watch`, if given, limits renaming to those formals, for callers whose
+# arguments still pass through another function (fit_maihda()) before the engine.
+maihda_resolve_dot_names <- function(dot_vals, fun, supplied, watch = NULL) {
+  if (length(dot_vals) == 0L) {
+    return(dot_vals)
+  }
+  tags <- names(dot_vals)
+  if (is.null(tags)) {
+    tags <- rep("", length(dot_vals))
+  }
+  bind <- function(these) {
+    probe <- as.call(c(list(quote(f)),
+                       stats::setNames(as.list(seq_len(length(supplied) + length(these))),
+                                       c(supplied, these))))
+    matched <- tryCatch(match.call(fun, probe), error = function(e) NULL)
+    if (is.null(matched)) {
+      return(NULL)
+    }
+    bound <- as.list(matched)[-1L]
+    position <- vapply(bound, as.integer, integer(1))
+    names(bound)[match(length(supplied) + seq_along(these), position)]
+  }
+  resolved <- bind(tags)
+  if (is.null(resolved)) {
+    resolved <- vapply(seq_along(tags), function(i) {
+      one <- if (nzchar(tags[i])) bind(tags[i])
+      if (is.null(one)) tags[i] else one
+    }, character(1))
+  }
+  if (!is.null(watch)) {
+    resolved <- ifelse(resolved %in% watch, resolved, tags)
+  }
+  names(dot_vals) <- resolved
+  dot_vals
+}
+
+# Rename forwarded `...` values that the engine would bind to subset, weights or offset
+# -- the arguments fit_maihda(), maihda() and compare_maihda_groups() read by exact name
+# for family detection, strata binning, the analytic row mask and the per-engine
+# refusals -- so those reads and refusals see a partial spelling too. Resolved against
+# the engine function the values will reach, with the argument names the package
+# passes it; the engine may still change afterwards (an ordered outcome switches to
+# "ordinal", a binary one to glmer()), which is harmless because lmer(), glmer() and
+# clmm() bind those three names alike. Every other name is left for R to bind at the
+# engine call, where maihda_fit_clmm() and maihda_fit_wemix() resolve them in full.
+# One of the three supplied more than once, under any spellings, is an error. A no-op
+# for an engine whose package is not installed; its own check reports that.
+maihda_resolve_engine_dots <- function(dot_vals, engine, family) {
+  if (length(dot_vals) == 0L || !is.character(engine) || length(engine) != 1L) {
+    return(dot_vals)
+  }
+  binomial <- (is.character(family) && identical(family[1], "binomial")) ||
+    (inherits(family, "family") && identical(family$family, "binomial"))
+  target <- switch(
+    engine,
+    lme4 = {
+      gaussian_identity <- (is.character(family) && identical(family[1], "gaussian")) ||
+        (inherits(family, "family") && identical(family$family, "gaussian") &&
+           identical(family$link, "identity"))
+      if (gaussian_identity) {
+        list(fun = lme4::lmer, supplied = c("formula", "data"))
+      } else {
+        list(fun = lme4::glmer, supplied = c("formula", "data", "family"))
+      }
+    },
+    ordinal = if (requireNamespace("ordinal", quietly = TRUE)) {
+      list(fun = ordinal::clmm, supplied = c("formula", "data", "link", "Hess"))
+    },
+    wemix = if (requireNamespace("WeMix", quietly = TRUE)) {
+      list(fun = WeMix::mix,
+           supplied = c("formula", "data", "weights", if (binomial) "family"))
+    },
+    brms = if (requireNamespace("brms", quietly = TRUE)) {
+      list(fun = brms::brm, supplied = c("formula", "data", "family"))
+    },
+    NULL)
+  if (is.null(target)) {
+    return(dot_vals)
+  }
+  watch <- c("subset", "weights", "offset")
+  tags <- names(dot_vals)
+  dot_vals <- maihda_resolve_dot_names(dot_vals, target$fun, target$supplied, watch = watch)
+  # Two spellings of one argument met R's own "matched by multiple actual arguments"
+  # error at the engine call; renamed alike, fit_maihda() would build that call with
+  # only the first, silently -- as it already did for a name given twice. Refuse both.
+  for (arg in watch) {
+    hits <- which(names(dot_vals) == arg)
+    if (length(hits) > 1L) {
+      stop("'", arg, "' is supplied more than once (as ",
+           paste0("'", tags[hits], "'", collapse = " and "), "). Supply it once.",
+           call. = FALSE)
+    }
+  }
+  dot_vals
+}
+
 # lme4 PRECISION weights (weights=) that are zero -- or negative / non-finite --
 # carry no information, but lmer does NOT drop such a row: it returns a degenerate
 # fit (logLik -Inf, NA gradient) while the residual-variance helper silently
@@ -1870,10 +1976,10 @@ maihda_model_frame <- function(model, fallback = NULL) {
 }
 
 # Response-deleted fixed-effect terms for prediction, carrying the FITTED
-# transformation basis, together with the fitted factor levels. terms() rebuilt from a
-# bare formula has NO "predvars" attribute, so a data-dependent term -- scale(x),
-# poly(x, 2), splines::ns(x, 3) -- is RE-EVALUATED on whatever rows are handed to
-# model.frame(): the centre, scale, knots or orthogonal basis then come from the
+# transformation basis. terms() rebuilt from a bare formula has NO "predvars" attribute,
+# so a data-dependent term -- scale(x), poly(x, 2), splines::ns(x, 3) -- is
+# RE-EVALUATED on whatever rows are handed to model.frame(): the centre, scale, knots or
+# orthogonal basis then come from the
 # PREDICTION batch instead of the fit. Predictions would depend on how rows are batched
 # (predicting all rows and subsetting would disagree with predicting the subset), and a
 # grid holding the transformed variable constant -- a single row, or the VPC(t) grid
@@ -1884,11 +1990,127 @@ maihda_model_frame <- function(model, fallback = NULL) {
 # be the analytic rows the engine fitted; the ordinal and WeMix engines both store
 # exactly those in `object$data` (both subset to complete cases before fitting). An lme4
 # fit needs none of this -- terms(model, fixed.only = TRUE) already carries predvars.
+# The factor levels are deliberately NOT read off this frame: it keeps every level
+# declared on the stored data, whereas the engines fit with unused levels dropped, and a
+# factor's contrasts are set by whatever options were in force at fit time. Both come
+# from the coding recorded with the fit (maihda_object_fixed_coding()).
 maihda_fitted_predict_terms <- function(formula, data) {
   tt <- stats::delete.response(stats::terms(maihda_nobars(formula)))
   mf <- stats::model.frame(tt, data)
-  tt <- stats::terms(mf)
-  list(terms = tt, xlev = stats::.getXlevels(tt, mf))
+  list(terms = stats::terms(mf))
+}
+
+# The factor CODING of a fitted fixed-effect design -- the levels each factor was fitted
+# with and the contrast matrix applied to it -- for the engines whose predictions rebuild
+# the design by hand (clmm has no predict() method; WeMix's needs the grouping
+# re-resolved). A design rebuilt without both is a different design under the same
+# coefficients:
+#   * levels: clmm and lme4 (which WeMix::mix() fits internally) build their frame with
+#     drop.unused.levels = TRUE, so a level declared on the data but absent from the
+#     fitted rows is not part of the fit. Keeping it re-derives every contr.poly /
+#     contr.sum / contr.helmert column for one level more -- wrong under the DEFAULT
+#     options for an ordered factor -- and admits a newdata row at a level the fit
+#     cannot predict (under treatment coding, with the reference level's prediction).
+#   * contrasts: model.matrix() codes a factor from the contrasts= argument, else the
+#     factor's own "contrasts" attribute, else getOption("contrasts"), none of which need
+#     still be in force when the design is rebuilt. A different scheme loses columns (a
+#     loud "missing column(s)" error), but a custom matrix whose column names coincide
+#     with the default coding's passes that name check with the wrong values.
+# Returns list(xlev, contrasts): `xlev` as stats::.getXlevels() gives it, and every
+# contrast as its NUMERIC matrix at the fitted levels. One named by a string (the default
+# "contr.treatment", an options(contrasts = ) value, a name passed as contrasts =) is
+# evaluated exactly as model.matrix() evaluates it, so the record holds whatever the
+# options, or a contrast function's definition, are later. clmm's own $xlevels and
+# $contrasts are used where present; clmm loses $contrasts when it drops an aliased
+# column (ordinal's drop.coef() subsets the design matrix, taking the attribute with it)
+# and WeMix returns neither, so those are rebuilt from the analytic rows the way the
+# engines build the design. That rebuild reads the options and the contrasts argument in
+# force, so a record must be taken at FIT time (maihda_fit_clmm(), maihda_fit_wemix()).
+# `fixed` is the bar-free formula or a terms object; `data` the analytic rows.
+maihda_engine_fixed_coding <- function(model, fixed, data, contrasts = NULL) {
+  rebuilt <- tryCatch({
+    # Response-free, so a record can be rebuilt from rows that lack it: the response
+    # never enters the design's coding, and the analytic rows hold no missing one.
+    tt <- stats::delete.response(stats::terms(fixed))
+    # The engine has just raised whatever these calls warn about on the same frame
+    # ("contrasts dropped ... due to missing levels", an absent contrasts= variable).
+    mf <- suppressWarnings(stats::model.frame(tt, data, drop.unused.levels = TRUE))
+    X <- suppressWarnings(stats::model.matrix(tt, mf, contrasts.arg = contrasts))
+    list(xlev = stats::.getXlevels(tt, mf), contrasts = attr(X, "contrasts"))
+  }, error = function(e) NULL)
+  xlev <- rebuilt$xlev
+  contr <- rebuilt$contrasts
+  if (inherits(model, "clmm")) {
+    if (!is.null(model$xlevels)) xlev <- model$xlevels
+    if (!is.null(model$contrasts)) contr <- model$contrasts
+  }
+  for (v in names(contr)) {
+    if (is.character(contr[[v]])) {
+      # A logical variable has no xlevels entry: model.matrix() codes it as
+      # factor(x, levels = c(FALSE, TRUE)).
+      lev <- if (is.null(xlev[[v]])) c("FALSE", "TRUE") else xlev[[v]]
+      fac <- factor(lev, levels = lev)
+      stats::contrasts(fac) <- contr[[v]]
+      # Resolve the name where model.matrix() resolves it, from a frame enclosed by the
+      # stats namespace: stats' own contr.* then win over a same-named object in the
+      # global environment, as they did in the fit, while a contrast defined only
+      # there is still found.
+      m <- eval(quote(contrasts(fac)),
+                list2env(list(fac = fac), parent = asNamespace("stats")))
+      # contr.poly() names no rows; label every matrix by the level it codes, as
+      # contrasts<- labels a matrix supplied directly.
+      rownames(m) <- lev
+      contr[[v]] <- m
+    }
+  }
+  list(xlev = xlev, contrasts = contr)
+}
+
+# The coding a maihda_model's prediction design is rebuilt with: the record taken when it
+# was fitted, or -- for a model fitted before that record was kept (every 0.2.1 fit), or
+# whose capture failed -- the best reconstruction left: clmm's own record, else the stored
+# analytic rows coded with the contrasts argument clmm was called with (fit_maihda() puts
+# the evaluated value in the call) and the options in force NOW. What such a model cannot
+# recover is a coding set by options(contrasts = ) at fit time on an aliased clmm design
+# or on WeMix: that errors if the column names differ from the current coding's, and is
+# silently wrong if they coincide, so refit such a model.
+maihda_object_fixed_coding <- function(object) {
+  if (!is.null(object$fixed_coding)) {
+    return(object$fixed_coding)
+  }
+  contrasts <- NULL
+  if (inherits(object$model, "clmm") && is.list(object$model$call[["contrasts"]])) {
+    contrasts <- object$model$call[["contrasts"]]
+  }
+  maihda_engine_fixed_coding(object$model, maihda_nobars(object$formula), object$data,
+                             contrasts = contrasts)
+}
+
+# Fixed-effect model frame and design matrix of `newdata` under a fit's coding (see
+# maihda_engine_fixed_coding()): factors re-levelled to the fitted levels -- a level the
+# fit never saw is model.frame()'s "has new level" error, as in predict.lm() (lme4's
+# predict() refuses such a row too, with a different message) -- and coded with the
+# fitted contrast matrices, whatever options(contrasts = ) or a
+# factor's own "contrasts" attribute says now. model.frame() warns "contrasts dropped from
+# factor <v>" when it re-levels a factor carrying such an attribute (a column set with
+# contrasts<-, a C() term); the fitted matrix is applied in its place, so that warning is
+# muffled for the variables the record codes, and only that one. Its text is matched as
+# model.frame.default() builds it -- gettextf() in the stats message domain -- because
+# several locales translate it (it, pt_BR, ru), which an English literal would miss.
+maihda_fixed_design <- function(tt, newdata, coding) {
+  contr <- coding$contrasts
+  if (length(contr) == 0) {
+    # model.matrix() rejects an empty -- hence unnamed -- contrasts.arg list.
+    contr <- NULL
+  }
+  superseded <- gettextf("contrasts dropped from factor %s", names(contr),
+                         domain = "R-stats")
+  mf <- withCallingHandlers(
+    stats::model.frame(tt, newdata, xlev = coding$xlev, na.action = stats::na.pass),
+    warning = function(w) {
+      if (conditionMessage(w) %in% superseded) invokeRestart("muffleWarning")
+    })
+  list(frame = mf, X = stats::model.matrix(tt, mf, contrasts.arg = contr))
 }
 
 maihda_nobs <- function(model) {

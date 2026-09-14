@@ -170,18 +170,23 @@ maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALS
   preds
 }
 
-maihda_prediction_panel_ordinal_probs <- function(model, data) {
+maihda_prediction_panel_ordinal_probs <- function(model, data, coding = NULL) {
   if (inherits(model, "clmm")) {
     # predict.clmm does not exist: rebuild the location eta = x'beta + u from
-    # the stored components (fixed-effects-only $terms, $xlevels, $beta, and the
-    # stratum conditional modes) and difference the cumulative probabilities.
-    # Including the random effect matches the other branches of this panel,
-    # whose predict() calls include random effects by default.
+    # the stored components (fixed-effects-only $terms, $beta, the fit's factor
+    # coding, and the stratum conditional modes) and difference the cumulative
+    # probabilities. Including the random effect matches the other branches of this
+    # panel, whose predict() calls include random effects by default. `coding` is
+    # the record a maihda_model carries; for a bare clmm it is read off the fit's
+    # own $xlevels / $contrasts (see maihda_engine_fixed_coding()).
     maihda_require_ordinal()
     tt <- stats::delete.response(model$terms)
-    mf <- stats::model.frame(tt, data, xlev = model$xlevels,
-                             na.action = stats::na.pass)
-    X <- stats::model.matrix(tt, mf)
+    if (is.null(coding)) {
+      coding <- maihda_engine_fixed_coding(model, model$terms, data)
+    }
+    design <- maihda_fixed_design(tt, data, coding)
+    mf <- design$frame
+    X <- design$X
     beta <- model$beta
     eta <- if (is.null(beta) || length(beta) == 0) {
       rep(0, nrow(data))
@@ -672,7 +677,11 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
 
   } else if (type == "ordinal") {
     # ORDINAL LOGIC
-    probs <- maihda_prediction_panel_ordinal_probs(model, data)
+    probs <- maihda_prediction_panel_ordinal_probs(
+      model, data,
+      coding = if (!is.null(maihda_obj) && inherits(model, "clmm")) {
+        maihda_object_fixed_coding(maihda_obj)
+      })
     prob_mat <- as.matrix(probs)
     prob_cols <- colnames(probs)
 

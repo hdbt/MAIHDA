@@ -167,12 +167,37 @@ maihda_wemix_check_family <- function(family) {
 #' @param family The resolved family object (gaussian-identity or binomial-logit).
 #' @param sampling_weights Name of the level-1 sampling-weight column.
 #' @param dot_vals Named list of evaluated \code{...} arguments forwarded to
-#'   \code{WeMix::mix()} (e.g. \code{nQuad}, \code{verbose}, \code{fast}).
-#' @return A list with \code{model} (the \code{WeMixResults}) and \code{data}
-#'   (the analytic data frame actually fitted, including the weight columns).
+#'   \code{WeMix::mix()} (e.g. \code{nQuad}, \code{verbose}, \code{fast}). They are
+#'   checked under the formal names \code{mix()} binds them to, so a partial name is
+#'   checked too; \code{center_grand} and \code{center_group} are rejected.
+#' @return A list with \code{model} (the \code{WeMixResults}), \code{data}
+#'   (the analytic data frame actually fitted, including the weight columns) and
+#'   \code{coding} (the fit's factor levels and contrast matrices, taken while the
+#'   options that shaped the design are in force; \code{NULL} if they could not be
+#'   read).
 #' @keywords internal
 maihda_fit_wemix <- function(formula, data, family, sampling_weights, dot_vals) {
   maihda_guard_reserved_weight_col(.maihda_wemix_l2_col, data, formula, "wemix")
+
+  # Check the forwarded arguments under the formal names mix() will bind them to --
+  # alongside the formula, data, weights (and a binomial family) passed below -- and
+  # forward them under those names, so what mix() receives is what was checked (see
+  # maihda_resolve_dot_names()).
+  dot_vals <- maihda_resolve_dot_names(
+    dot_vals, WeMix::mix,
+    supplied = c("formula", "data", "weights",
+                 if (family$family == "binomial") "family"))
+  dot_vals <- maihda_validate_wemix_centring(dot_vals, sampling_weights)
+  # WeMix silently returns whatever it has when the Newton loop hits
+  # 'max_iteration' (its own source carries an EMPTY `if (iteration >=
+  # max_iteration) {}` block where a non-convergence warning belongs), and its
+  # loop guard `iteration < max_iteration` accepts anything comparable: 0 and
+  # negative values skip the optimisation entirely and return the starting
+  # values, while a string is compared ALPHABETICALLY. Since the returned object
+  # records no iteration count, a nonsense limit is unrecoverable after the fact
+  # -- so reject it here, where the user can still act on it.
+  dot_vals <- maihda_validate_wemix_max_iteration(dot_vals)
+
   w <- as.numeric(data[[sampling_weights]])
   # Keep exactly the rows WeMix::mix() will fit: the evaluated analytic frame (fixed-
   # effect transformations applied, rows missing AFTER them dropped) intersected with
@@ -202,16 +227,6 @@ maihda_fit_wemix <- function(formula, data, family, sampling_weights, dot_vals) 
   }
   data[[.maihda_wemix_l2_col]] <- 1
 
-  # WeMix silently returns whatever it has when the Newton loop hits
-  # 'max_iteration' (its own source carries an EMPTY `if (iteration >=
-  # max_iteration) {}` block where a non-convergence warning belongs), and its
-  # loop guard `iteration < max_iteration` accepts anything comparable: 0 and
-  # negative values skip the optimisation entirely and return the starting
-  # values, while a string is compared ALPHABETICALLY. Since the returned object
-  # records no iteration count, a nonsense limit is unrecoverable after the fact
-  # -- so reject it here, where the user can still act on it.
-  dot_vals <- maihda_validate_wemix_max_iteration(dot_vals)
-
   args <- list(
     formula = formula,
     data = data,
@@ -226,7 +241,15 @@ maihda_fit_wemix <- function(formula, data, family, sampling_weights, dot_vals) 
   }
   model <- do.call(WeMix::mix, c(args, dot_vals))
 
-  list(model = model, data = data)
+  # WeMix returns no record of how its (internal lme4) design coded the factors, and
+  # that coding depends on the options in force NOW, so take it here for the
+  # prediction design to reuse (see maihda_engine_fixed_coding()). A failure here
+  # must not break a fit WeMix accepted.
+  coding <- tryCatch(
+    maihda_engine_fixed_coding(model, maihda_nobars(formula), data),
+    error = function(e) NULL)
+
+  list(model = model, data = data, coding = coding)
 }
 
 # Reject a 'max_iteration' forwarded to WeMix::mix() that would abandon (or never
@@ -250,6 +273,94 @@ maihda_validate_wemix_max_iteration <- function(dot_vals) {
   }
   dot_vals$max_iteration <- as.integer(mi)
   dot_vals
+}
+
+# Reject WeMix::mix()'s center_grand / center_group. mix() centres the named covariates
+# inside the fit (by their level-1-weighted grand or within-group means) and returns
+# no centring constants, so every prediction rebuilt from the fit
+# (maihda_wemix_linpred()) multiplied the centred-scale coefficients by the UNCENTRED
+# covariates: off by slope * mean, or slope * the stratum's own mean, with no error.
+# Centring in `data` gives the identical fit and consistent predictions, so point
+# there. A NULL value is mix()'s own default -- no centring -- and passes. Expects
+# names resolved by maihda_resolve_dot_names().
+maihda_validate_wemix_centring <- function(dot_vals, sampling_weights) {
+  used <- intersect(c("center_grand", "center_group"), names(dot_vals))
+  used <- used[!vapply(dot_vals[used], is.null, logical(1))]
+  if (length(used) == 0L) {
+    return(dot_vals)
+  }
+  weight_col <- if (identical(make.names(sampling_weights), sampling_weights)) {
+    paste0("data$", sampling_weights)
+  } else {
+    paste0("data[[\"", sampling_weights, "\"]]")
+  }
+  stop("engine = \"wemix\" does not accept ", paste0("'", used, "'", collapse = " or "),
+       " (forwarded to WeMix::mix()). WeMix centres covariates internally and keeps ",
+       "no centring constants, so predictions, stratum tables, plots and binomial ",
+       "standard errors built from the fit would use the uncentred values. Centre ",
+       "the covariate in 'data' before fitting:\n",
+       "  grand: data$x_c <- data$x - weighted.mean(data$x, ", weight_col, ")\n",
+       "  group: subtract the sampling-weighted mean of x within each stratum\n",
+       "Computed on the rows you fit, this reproduces WeMix's centred fit exactly, ",
+       "and every prediction then stays consistent.", call. = FALSE)
+}
+
+# The centring arguments recorded in a wemix maihda_model's mix() call; character(0)
+# for any other fit. A fit made before fit_maihda() rejected WeMix's centring still
+# carries them there -- under the full argument name even when a partial one was typed,
+# since that call comes from match.call(). fit_maihda() passes evaluated values, so an
+# explicit NULL is recorded as NULL and does not count; a symbol recorded by a call
+# made through another function's `...` (..1) cannot be told apart from centring and
+# counts.
+maihda_wemix_centring_args <- function(object) {
+  fit_call <- if (identical(object$engine, "wemix")) object$model$call
+  if (!is.call(fit_call)) {
+    return(character(0))
+  }
+  used <- intersect(c("center_grand", "center_group"), names(fit_call))
+  used[!vapply(used, function(arg) is.null(fit_call[[arg]]), logical(1))]
+}
+
+# A centred fit's coefficients are on the centred scale and no constants were kept, so
+# refuse to rebuild its predictions rather than return values off by slope * mean.
+maihda_wemix_refuse_centred <- function(object) {
+  used <- maihda_wemix_centring_args(object)
+  if (length(used) > 0L) {
+    stop("This wemix fit was made with WeMix's internal centring (",
+         paste0("'", used, "'", collapse = " and "), "), which keeps no centring ",
+         "constants, so its predictions cannot be rebuilt: they would use the ",
+         "uncentred covariates. Refit with the covariate centred in 'data' before ",
+         "fitting.", call. = FALSE)
+  }
+  invisible(NULL)
+}
+
+# A saved maihda() analysis keeps the summaries computed when it was fitted, and those
+# of a binomial fit that used WeMix's centring came from the uncentred predictions:
+# its stratum standard errors and intervals and the interaction tests built on them
+# (and, under group centring, the AUC -- a grand constant leaves the ranks alone). A
+# Gaussian fit's stored summaries never use those predictions and stay correct, as do
+# a binomial fit's VPC and PCV. So the methods that show a saved analysis warn, while
+# recomputations refuse through maihda_wemix_refuse_centred().
+maihda_warn_centred_analysis <- function(object) {
+  used <- unique(unlist(lapply(list(object$model, object$model_adjusted), function(m) {
+    if (inherits(m, "maihda_model") && identical(m$family$family, "binomial")) {
+      maihda_wemix_centring_args(m)
+    }
+  })))
+  if (length(used) > 0L) {
+    stored <- if ("center_group" %in% used) {
+      "stratum standard errors, intervals, interaction tests and AUC"
+    } else {
+      "stratum standard errors, intervals and interaction tests"
+    }
+    warning("This analysis was fitted with WeMix's internal centring (",
+            paste0("'", used, "'", collapse = " and "), "), whose constants WeMix ",
+            "does not keep: its stored ", stored, " were computed from the uncentred ",
+            "covariates and are wrong. Refit with the covariate centred in 'data'.",
+            call. = FALSE)
+  }
+  invisible(NULL)
 }
 
 # Convergence criterion of a fitted WeMixResults, or NA when it cannot be judged.
@@ -411,7 +522,9 @@ maihda_wemix_variances <- function(object) {
 #' WeMix's own \code{predict()} method needs the grouping structure re-resolved
 #' and offers no fixed-only form, so predictions are built directly from the
 #' coefficient vector and the stored stratum effects: the fixed design matrix is
-#' constructed with the training data's factor levels AND transformation basis (so a
+#' constructed with the fit's factor coding -- the levels it fitted and the contrast
+#' matrix it applied to each factor, whatever \code{options(contrasts = )} says now
+#' -- AND its transformation basis (so a
 #' data-dependent term such as \code{scale(x)} uses the fit's centre and scale rather
 #' than recomputing them from \code{newdata}) and multiplied by
 #' \code{coef}, any formula offset term is evaluated on \code{newdata} and added,
@@ -419,7 +532,9 @@ maihda_wemix_variances <- function(object) {
 #' mode; an unseen stratum contributes 0 -- the zero-effect fallback that
 #' \code{\link{predict_maihda}} only reaches when \code{allow_new_levels = TRUE},
 #' having otherwise rejected unseen strata upstream). Everything is on the link
-#' scale.
+#' scale. A fit made with WeMix's internal centring (\code{center_grand} or
+#' \code{center_group}, which \code{fit_maihda()} now rejects) is refused: its
+#' coefficients are on a centred scale whose constants WeMix does not keep.
 #'
 #' @param object A \code{maihda_model} with engine \code{"wemix"}.
 #' @param newdata Data to predict for; defaults to the analytic data.
@@ -427,17 +542,20 @@ maihda_wemix_variances <- function(object) {
 #' @return A numeric vector of link-scale predictions.
 #' @keywords internal
 maihda_wemix_linpred <- function(object, newdata = NULL, include_re = TRUE) {
+  maihda_wemix_refuse_centred(object)
   if (is.null(newdata)) {
     newdata <- object$data
   }
   # Terms rebuilt from the FITTED data, so a data-dependent transformation such as
   # scale(x) / poly(x, 2) / ns(x, 3) evaluates on the fit's basis instead of being
-  # recomputed from the prediction batch (see maihda_fitted_predict_terms()).
-  basis <- maihda_fitted_predict_terms(object$formula, object$data)
-  tt <- basis$terms
-  mf <- stats::model.frame(tt, newdata, xlev = basis$xlev,
-                           na.action = stats::na.pass)
-  X <- stats::model.matrix(tt, mf)
+  # recomputed from the prediction batch (see maihda_fitted_predict_terms()), and the
+  # factors coded exactly as the fit coded them -- its levels and contrast matrices --
+  # so an option-set or attribute-set contrast is not silently re-coded by default
+  # treatment coding (see maihda_engine_fixed_coding()).
+  tt <- maihda_fitted_predict_terms(object$formula, object$data)$terms
+  design <- maihda_fixed_design(tt, newdata, maihda_object_fixed_coding(object))
+  mf <- design$frame
+  X <- design$X
   beta <- object$model$coef
   missing_cols <- setdiff(names(beta), colnames(X))
   if (length(missing_cols) > 0) {

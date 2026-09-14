@@ -25,7 +25,10 @@ test_that("maihda_fitted_predict_terms recovers the fitted scale() basis", {
   # The centre and scale are the FITTED data's, not any prediction batch's.
   expect_equal(as.numeric(pv[[2]]$center), mean(d$x), tolerance = 1e-12)
   expect_equal(as.numeric(pv[[2]]$scale), stats::sd(d$x), tolerance = 1e-12)
-  expect_equal(basis$xlev, list(g = c("a", "b")))
+  # Factor levels are no longer read off this frame, which keeps levels the fit
+  # dropped: they come with the contrasts from the fit's recorded coding
+  # (maihda_engine_fixed_coding(); audit 2026-09-13d).
+  expect_null(basis$xlev)
   # Response removed, so the terms apply to newdata that lacks the response.
   expect_equal(as.integer(attr(basis$terms, "response")), 0L)
 
@@ -37,7 +40,7 @@ test_that("maihda_fitted_predict_terms recovers the fitted scale() basis", {
   old_sub <- stats::model.matrix(bare, stats::model.frame(bare, sub))
   new_sub <- stats::model.matrix(basis$terms,
                                  stats::model.frame(basis$terms, sub,
-                                                    xlev = basis$xlev))
+                                                    xlev = list(g = c("a", "b"))))
   expect_gt(max(abs(old_sub[, "scale(x)"] - new_sub[, "scale(x)"])), 0.5)
 })
 

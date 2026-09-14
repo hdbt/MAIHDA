@@ -649,6 +649,9 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # engine handshake, so the ordinal pre-check detects the cumulative outcome on
   # the same analytic sample the per-group family resolution uses.
   dot_vals <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
+  # A partial spelling (subse = keep) reaches the engine as subset: rename it before
+  # the reads below (see maihda_resolve_engine_dots()).
+  dot_vals <- maihda_resolve_engine_dots(dot_vals, engine, family)
   n_full <- nrow(data)
   # A numeric `subset` (e.g. subset = c(1:10, 31:40)) holds GLOBAL row indices into
   # `data`, a recycled logical mask is likewise positional over the full data, and a

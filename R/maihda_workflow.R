@@ -402,6 +402,9 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # including a character (row-name) subset, resolved against rownames(data) here so
   # it too is a positional logical, not a raw character vector re-matched downstream.
   dots_eval <- lapply(rlang::enquos(...), function(q) rlang::eval_tidy(q, data = data))
+  # A partial spelling (subse = keep) reaches the engine as subset: rename it before
+  # the reads below (see maihda_resolve_engine_dots()).
+  dots_eval <- maihda_resolve_engine_dots(dots_eval, engine, family)
   if (!is.null(dots_eval[["subset"]])) {
     dots_eval[["subset"]] <- maihda_normalize_subset(dots_eval[["subset"]], nrow(data),
                                                      rownames(data))
@@ -888,6 +891,7 @@ maihda_print_analysis_da <- function(summary_obj, summary_adjusted = NULL) {
 #' @return No return value, called for side effects.
 #' @export
 print.maihda_analysis <- function(x, ...) {
+  maihda_warn_centred_analysis(x)
   pal <- maihda_palette()
   cat(pal$bold("MAIHDA Analysis"), "\n", sep = "")
   cat("===============\n\n")
@@ -1114,6 +1118,7 @@ summary.maihda_analysis <- function(object, which = c("null", "adjusted"), ...) 
     stop("No '", which, "' summary is available on this maihda_analysis (mode = '",
          maihda_chr(object$mode), "').", call. = FALSE)
   }
+  maihda_warn_centred_analysis(object)
   attr(out, "groups") <- object$groups
   attr(out, "pcv") <- object$pcv
   attr(out, "adjusted") <- object$summary_adjusted
@@ -1239,6 +1244,7 @@ plot.maihda_analysis <- function(x, type = "all", highlight_interactions = FALSE
   # "no order requested, let the view choose" -- when the caller did not supply
   # one, rather than silently imposing this formal's first choice on both.
   order_by <- if (missing(order_by) || is.null(order_by)) NULL else match.arg(order_by)
+  maihda_warn_centred_analysis(x)
   # Which model's VPC the "vpc" view shows: the null model (default, backward
   # compatible), the adjusted model, or "both" as a single change plot. It selects
   # the VPC view only -- pairing a non-default `model` with any other `type` is a

@@ -349,8 +349,10 @@ maihda_offset_before_bars <- function(formula) {
 #' @param family The cumulative family marker (link "logit" or "probit").
 #' @param dot_vals Named list of evaluated \code{...} arguments forwarded to
 #'   \code{ordinal::clmm()} (e.g. \code{nAGQ}, \code{control}).
-#' @return A list with \code{model} (the \code{clmm} fit) and \code{data} (the
-#'   analytic data frame actually fitted).
+#' @return A list with \code{model} (the \code{clmm} fit), \code{data} (the
+#'   analytic data frame actually fitted) and \code{coding} (the fit's factor levels
+#'   and contrast matrices, taken while the options that shaped the design are in
+#'   force; \code{NULL} if they could not be read).
 #' @keywords internal
 maihda_fit_clmm <- function(formula, data, family, dot_vals) {
   # Keep exactly the rows clmm will fit: the evaluated analytic frame (response and
@@ -421,10 +423,23 @@ maihda_fit_clmm <- function(formula, data, family, dot_vals) {
     link = family$link,
     Hess = TRUE
   )
+  # Forward the extra arguments under the formals clmm() binds them to, so the coding
+  # record below reads the contrasts argument clmm() used even when it was spelled
+  # partially (see maihda_resolve_dot_names()).
+  dot_vals <- maihda_resolve_dot_names(dot_vals, ordinal::clmm, names(args))
   fit_call <- as.call(c(list(quote(ordinal::clmm)), args, dot_vals))
   model <- eval(fit_call, fit_env)
 
-  list(model = model, data = data)
+  # Record the factor coding of the fitted design NOW, while the options and the
+  # contrasts argument that shaped it are still in force: predictions rebuild the
+  # design by hand and must reuse exactly this coding (see
+  # maihda_engine_fixed_coding()). A failure here must not break a fit clmm accepted.
+  coding <- tryCatch(
+    maihda_engine_fixed_coding(model, maihda_nobars(formula), data,
+                               contrasts = dot_vals[["contrasts"]]),
+    error = function(e) NULL)
+
+  list(model = model, data = data, coding = coding)
 }
 
 #' Variance components of a cumulative (clmm) MAIHDA fit
@@ -637,7 +652,9 @@ maihda_clmm_stratum_ranef <- function(object) {
 #'
 #' \code{predict.clmm} does not exist, so the location part
 #' \eqn{\eta = x'\beta (+ u)} is built directly: the fixed design matrix is
-#' constructed with the training data's factor levels AND transformation basis (so a
+#' constructed with the fit's factor coding -- the levels it fitted and the contrast
+#' matrix it applied to each factor, whatever \code{options(contrasts = )} says now
+#' -- AND its transformation basis (so a
 #' data-dependent term such as \code{scale(x)} uses the fit's centre and scale rather
 #' than recomputing them from \code{newdata}) and multiplied by the
 #' location coefficients \code{beta} (a clmm has \emph{no} intercept column --
@@ -667,18 +684,20 @@ maihda_clmm_linpred <- function(object, newdata = NULL, include_re = TRUE) {
   # needed even for a null (thresholds-only) model that carries only an offset.
   # Terms rebuilt from the FITTED data, so a data-dependent transformation such as
   # scale(x) / poly(x, 2) / ns(x, 3) evaluates on the fit's basis instead of being
-  # recomputed from the prediction batch (see maihda_fitted_predict_terms()).
-  basis <- maihda_fitted_predict_terms(object$formula, object$data)
-  tt <- basis$terms
-  mf <- stats::model.frame(tt, newdata, xlev = basis$xlev,
-                           na.action = stats::na.pass)
+  # recomputed from the prediction batch (see maihda_fitted_predict_terms()), and the
+  # factors coded exactly as the fit coded them -- its levels and contrast matrices --
+  # so a sum, custom or option-set contrast is not silently re-coded by default
+  # treatment coding (see maihda_engine_fixed_coding()).
+  tt <- maihda_fitted_predict_terms(object$formula, object$data)$terms
+  design <- maihda_fixed_design(tt, newdata, maihda_object_fixed_coding(object))
+  mf <- design$frame
 
   if (is.null(beta) || length(beta) == 0) {
     # Null (thresholds-only) model: the location fixed part is identically 0
     # (the offset, if any, is added below).
     eta <- rep(0, nrow(newdata))
   } else {
-    X <- stats::model.matrix(tt, mf)
+    X <- design$X
     missing_cols <- setdiff(names(beta), colnames(X))
     if (length(missing_cols) > 0) {
       stop("Could not rebuild the clmm design matrix; missing column(s): ",

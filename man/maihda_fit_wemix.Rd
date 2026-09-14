@@ -16,11 +16,16 @@ maihda_fit_wemix(formula, data, family, sampling_weights, dot_vals)
 \item{sampling_weights}{Name of the level-1 sampling-weight column.}
 
 \item{dot_vals}{Named list of evaluated \code{...} arguments forwarded to
-\code{WeMix::mix()} (e.g. \code{nQuad}, \code{verbose}, \code{fast}).}
+\code{WeMix::mix()} (e.g. \code{nQuad}, \code{verbose}, \code{fast}). They are
+checked under the formal names \code{mix()} binds them to, so a partial name is
+checked too; \code{center_grand} and \code{center_group} are rejected.}
 }
 \value{
-A list with \code{model} (the \code{WeMixResults}) and \code{data}
-  (the analytic data frame actually fitted, including the weight columns).
+A list with \code{model} (the \code{WeMixResults}), \code{data}
+  (the analytic data frame actually fitted, including the weight columns) and
+  \code{coding} (the fit's factor levels and contrast matrices, taken while the
+  options that shaped the design are in force; \code{NULL} if they could not be
+  read).
 }
 \description{
 Internal engine call for \code{fit_maihda(engine = "wemix")}. Builds the

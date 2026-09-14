@@ -1705,6 +1705,8 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
     preds_total <- tryCatch(maihda_brms_linpred_mean(object$model), error = function(e) rep(NA, nrow(data)))
     preds_fixed <- tryCatch(maihda_brms_linpred_mean(object$model, re_formula = NA), error = function(e) rep(NA, nrow(data)))
   } else if (object$engine == "wemix") {
+    # Refused before the tryCatch below, which would turn it into NA points.
+    maihda_wemix_refuse_centred(object)
     preds_total <- tryCatch(maihda_wemix_linpred(object, include_re = TRUE), error = function(e) rep(NA, nrow(data)))
     preds_fixed <- tryCatch(maihda_wemix_linpred(object, include_re = FALSE), error = function(e) rep(NA, nrow(data)))
   } else if (object$engine == "ordinal") {

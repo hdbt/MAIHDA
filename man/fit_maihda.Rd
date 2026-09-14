@@ -255,7 +255,11 @@ default-on \code{interactions} of \code{\link{maihda}}.}
 
 \item{...}{Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
 \code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},
-\code{fast}). The lme4-style \code{weights} (precision weights),
+\code{fast}). The wemix engine rejects \code{mix()}'s \code{center_grand} and
+\code{center_group}, under any partial spelling: WeMix centres the covariates
+internally without keeping the centring constants, so predictions could not
+reproduce the fit. Centre covariates in \code{data} before fitting instead.
+The lme4-style \code{weights} (precision weights),
 \code{subset}, and \code{offset} arguments are honoured only by the
 \code{lme4} engine, which applies them directly. The \code{wemix},
 \code{ordinal}, and \code{brms} engines reject them: none takes them as a
