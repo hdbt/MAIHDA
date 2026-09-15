@@ -73,6 +73,35 @@ maihda_prediction_panel_auto_type <- function(model) {
   "gaussian"
 }
 
+# The name of the observed-response column the panels look up in `data`. formula()
+# of a brmsfit is a brmsformula -- a list, whose as.character() deparses its
+# elements, so element 2 is "list()" and never named a column: the brms ordinal
+# surprise was undefined for every row and the brms binomial deviance residuals all
+# 0. Unwrap it and follow brms addition terms (y | weights(w), y | thres(K)) to the
+# response on their left. A trials() addition makes the response an aggregated
+# count, not an observation-level 0/1 outcome, so NULL is returned for it and the
+# panels treat the response as unobserved, as before. Every other model keeps the
+# as.character(formula)[2] lookup.
+maihda_prediction_panel_response_name <- function(model) {
+  form <- tryCatch(formula(model), error = function(e) NULL)
+  if (is.null(form)) {
+    return(NULL)
+  }
+  if (inherits(form, "brmsformula")) {
+    f <- form$formula
+    if (!inherits(f, "formula") || length(f) != 3L) {
+      return(NULL)
+    }
+    lhs <- f[[2]]
+    if (is.call(lhs) && identical(lhs[[1]], as.name("|")) &&
+        !is.null(maihda_find_trials_expr(lhs[[3]]))) {
+      return(NULL)
+    }
+    return(paste(deparse(maihda_describe_response_expr(f)), collapse = " "))
+  }
+  as.character(form)[2]
+}
+
 maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALSE) {
   if (inherits(model, "brmsfit")) {
     if (!requireNamespace("brms", quietly = TRUE)) {
@@ -221,10 +250,35 @@ maihda_prediction_panel_ordinal_probs <- function(model, data, coding = NULL) {
     return(as.data.frame(probs))
   }
 
-  probs <- tryCatch(
-    predict(model, newdata = data, type = "probs"),
-    error = function(e) NULL
-  )
+  probs <- NULL
+  if (inherits(model, "brmsfit")) {
+    # The posterior MEAN of each category probability, from fitted(). predict()
+    # only estimates it by tabulating simulated responses, so the panel changed
+    # between calls (by 0.14 in probability on a 300-draw fit) and a category no
+    # draw produced got probability 0, which would be an infinite surprise. These are
+    # also the probabilities predict_maihda() turns into expected category scores.
+    if (!requireNamespace("brms", quietly = TRUE)) {
+      stop("Package 'brms' is required to plot prediction deviations from brms models.",
+           call. = FALSE)
+    }
+    fit <- stats::fitted(model, newdata = data, summary = TRUE)
+    dims <- dim(fit)
+    if (length(dims) != 3L || !"Estimate" %in% dimnames(fit)[[2]]) {
+      stop("Could not extract category probabilities from the brms ordinal model.",
+           call. = FALSE)
+    }
+    # An explicit nobs x ncat matrix: fit[, "Estimate", ] drops the unit row margin
+    # of a one-row `data` (see maihda_brms_fitted_array_scores()).
+    probs <- matrix(fit[, "Estimate", ], nrow = dims[1], ncol = dims[3],
+                    dimnames = list(NULL, dimnames(fit)[[3]]))
+  }
+
+  if (is.null(probs)) {
+    probs <- tryCatch(
+      predict(model, newdata = data, type = "probs"),
+      error = function(e) NULL
+    )
+  }
   if (is.null(probs)) {
     probs <- tryCatch(
       predict(model, newdata = data, type = "p"),
@@ -259,6 +313,92 @@ maihda_prediction_panel_ordinal_probs <- function(model, data, coding = NULL) {
 
   probs[] <- lapply(probs, as.numeric)
   probs
+}
+
+# The fitted response categories of an ordinal model, one per column of its
+# probability matrix `probs` and in column order: a clmm fit's y.levels; the levels
+# of a brms fit's stored response (brms numbers an ordered factor by its position in
+# those levels, and an integer response is its own category number); otherwise the
+# column names the model's predict() method gave, which polr sets to its levels.
+# Read from the FIT, never from the prediction `data`, whose response may lack a
+# category or declare its levels in another order. A clmm or brms fit whose
+# categories cannot be read is an error, not a fall-back to its column names: those
+# are positions (clmm's 1..K), and a label match against them is the defect this
+# replaced.
+maihda_prediction_panel_ordinal_categories <- function(model, probs) {
+  k <- ncol(probs)
+  cats <- if (inherits(model, "clmm")) {
+    model$y.levels
+  } else if (inherits(model, "brmsfit")) {
+    resp <- maihda_prediction_panel_response_name(model)
+    y <- if (!is.null(resp) && is.data.frame(model$data) &&
+             resp %in% names(model$data)) {
+      model$data[[resp]]
+    }
+    if (is.factor(y)) {
+      levels(y)
+    } else if (is.numeric(y)) {
+      seq_len(k)
+    }
+  } else {
+    colnames(probs)
+  }
+  cats <- as.character(cats)
+  if (length(cats) != k || anyNA(cats) || anyDuplicated(cats) > 0L) {
+    stop(sprintf(paste0("Could not match the ordinal model's %d category ",
+                        "probabilities to its fitted response categories."), k),
+         call. = FALSE)
+  }
+  cats
+}
+
+# Probability of each row's observed category. The category is found by its
+# POSITION among `categories` -- the fitted categories, in the column order of
+# `prob_mat` -- never by matching its label to a column name: the engines name those
+# columns 1..K (the rebuilt clmm matrix), "P(Y = <category>)" (brms) or by level
+# (polr), so on a clmm fit a label match scored no row of a low/mid/high outcome, lost
+# category 0 of a 0/1/2 one and read its other rows one category off, and swapped the
+# end categories of a 3/2/1 one. `obs_cat` is the observed response (NA
+# where missing, which stays NA); `resp_name` / `resp_found` name its column and say
+# whether `data` has it. A row whose category is not a fitted one cannot be scored
+# and is warned about, as is a `data` in which no row can be scored, so the
+# surprise panel is never silently empty.
+maihda_prediction_panel_observed_prob <- function(prob_mat, obs_cat, categories,
+                                                  resp_name = NULL,
+                                                  resp_found = TRUE) {
+  obs_cat <- as.character(obs_cat)
+  pos <- match(obs_cat, categories)
+  hit <- which(!is.na(pos))
+  out <- rep(NA_real_, length(obs_cat))
+  out[hit] <- prob_mat[cbind(hit, pos[hit])]
+
+  unmatched <- !is.na(obs_cat) & is.na(pos)
+  fitted_txt <- paste(categories, collapse = ", ")
+  if (length(hit) == 0L && length(obs_cat) > 0L) {
+    reason <- if (!resp_found) {
+      if (is.null(resp_name)) {
+        "the model's response could not be identified"
+      } else {
+        sprintf("`data` has no column '%s' with the observed response", resp_name)
+      }
+    } else if (!any(unmatched)) {
+      "every observed response in `data` is missing"
+    } else {
+      sprintf("no observed category in `data` is one of the model's fitted categories (%s)",
+              fitted_txt)
+    }
+    warning("plot_prediction_deviation_panels(): no row can be scored, so the ordinal ",
+            "surprise panel is empty: ", reason, ". Use ordinal_mode = ",
+            "\"expected_score\" to rank by the predictions alone.", call. = FALSE)
+  } else if (any(unmatched)) {
+    warning(sprintf(paste0("plot_prediction_deviation_panels(): %d row(s) of `data` have ",
+                           "an observed category that is not one of the model's fitted ",
+                           "categories (%s), e.g. '%s'; their surprise is undefined and ",
+                           "they are left out of the surprise panel."),
+                    sum(unmatched), fitted_txt, obs_cat[unmatched][1]),
+            call. = FALSE)
+  }
+  out
 }
 
 maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_outcome_01) {
@@ -394,7 +534,10 @@ maihda_prediction_panel_attach_ci <- function(df, aggregated, strat_ci,
 #'     probability (worst-fit points), ranked by \eqn{|deviance residual|}.
 #'   \item Ordinal \code{"surprise"} mode: the cases/strata with the highest
 #'     surprise \eqn{-\log P(\text{observed category})}, i.e. the least probable
-#'     observations under the model.
+#'     observations under the model. It needs the observed response in
+#'     \code{data}: a row whose response is missing is left out, and one whose
+#'     category is not among the model's fitted categories is left out with a
+#'     warning.
 #' }
 #'
 #' @param model A fitted model object (e.g., from `lm()`, `glm()`, `MASS::polr()`, or `lme4::glmer()`).
@@ -557,16 +700,13 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
                                             fitted_data = !data_supplied)
 
     # Try to extract response variable
-    form <- tryCatch(formula(model), error = function(e) NULL)
+    resp_name <- maihda_prediction_panel_response_name(model)
     obs_outcome <- NULL
     obs_outcome_01 <- rep(NA_integer_, nrow(data))
-    if (!is.null(form)) {
-      resp_name <- as.character(form)[2]
-      if (resp_name %in% names(data)) {
-        raw_outcome <- data[[resp_name]]
-        obs_outcome <- as.factor(raw_outcome)
-        obs_outcome_01 <- maihda_binomial_observed_01(raw_outcome, nrow(data))
-      }
+    if (!is.null(resp_name) && resp_name %in% names(data)) {
+      raw_outcome <- data[[resp_name]]
+      obs_outcome <- as.factor(raw_outcome)
+      obs_outcome_01 <- maihda_binomial_observed_01(raw_outcome, nrow(data))
     }
     if (is.null(obs_outcome)) {
       obs_outcome <- factor(rep(NA, nrow(data)))
@@ -683,17 +823,23 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
         maihda_object_fixed_coding(maihda_obj)
       })
     prob_mat <- as.matrix(probs)
-    prob_cols <- colnames(probs)
-
-    form <- tryCatch(formula(model), error = function(e) NULL)
-    obs_cat <- rep(NA, nrow(data))
-    if (!is.null(form)) {
-      resp_name <- as.character(form)[2]
-      if (resp_name %in% names(data)) obs_cat <- as.character(data[[resp_name]])
-    }
 
     if (ordinal_mode == "surprise") {
-      df <- as.data.frame(probs) |>
+      # The fitted categories label the probability columns for display and locate
+      # each row's observed category by position. The columns themselves are keyed
+      # prob_1..prob_K: category labels are arbitrary strings, and as column names a
+      # category called "n", "weight" or "id" was overwritten by this panel's own
+      # columns (a polr category "n" was drawn as each stratum's row count).
+      categories <- maihda_prediction_panel_ordinal_categories(model, probs)
+      prob_cols <- paste0("prob_", seq_len(ncol(prob_mat)))
+      colnames(prob_mat) <- prob_cols
+
+      resp_name <- maihda_prediction_panel_response_name(model)
+      resp_found <- !is.null(resp_name) && resp_name %in% names(data)
+      obs_cat <- rep(NA, nrow(data))
+      if (resp_found) obs_cat <- as.character(data[[resp_name]])
+
+      df <- as.data.frame(prob_mat) |>
         dplyr::mutate(
           id = dplyr::row_number(),
           obs_cat = obs_cat
@@ -702,14 +848,11 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       k_seq <- seq_len(ncol(prob_mat))
       df$expected_score <- rowSums(prob_mat * matrix(k_seq, nrow = nrow(prob_mat), ncol = ncol(prob_mat), byrow = TRUE))
 
-      # Probability of observed category
-      df$observed_prob <- NA
-      for (i in seq_len(nrow(df))) {
-        col_idx <- match(df$obs_cat[i], prob_cols)
-        if (!is.na(col_idx)) {
-          df$observed_prob[i] <- prob_mat[i, col_idx]
-        }
-      }
+      # Probability of the observed category, located by its position among the
+      # fitted categories (see maihda_prediction_panel_observed_prob()).
+      df$observed_prob <- maihda_prediction_panel_observed_prob(
+        prob_mat, obs_cat, categories, resp_name = resp_name, resp_found = resp_found
+      )
 
       # Per-observation surprise (negative log-likelihood of the observed
       # category). The stratum-level value is the MEAN of this -- average surprise
@@ -749,7 +892,8 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
 
       df_long <- df |>
         tidyr::pivot_longer(cols = tidyselect::all_of(prob_cols), names_to = "Category", values_to = "Probability") |>
-        dplyr::mutate(Category = factor(.data$Category, levels = prob_cols))
+        dplyr::mutate(Category = factor(.data$Category, levels = prob_cols,
+                                        labels = categories))
 
       label_df <- df |> dplyr::arrange(dplyr::desc(.data$surprise)) |> utils::head(top_n_labels)
 
