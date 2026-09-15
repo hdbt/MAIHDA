@@ -56,6 +56,10 @@
 
 ## Bug fixes
 
+* `plot(type = "context_vpc")` now draws a crossed-dimensions fit that carries a context, showing the between-stratum variance as its additive dimension and interaction bars. It stopped with a message asking for the `context =` that had been given, and `plot(type = "all")` warned and left the panel out.
+
+* `plot(type = "effect_decomp")` now leaves a contextual (`context =`) random effect, or any other grouping besides the stratum and dimension random effects, out of the decomposition, as `plot(type = "predicted")` already did. In crossed-dimensions mode each stratum's context composition was drawn as part of the additive dimension component, and in both modes the global mean the deviations are measured from carried the row-weighted mean of the context effects.
+
 * `fit_maihda()`, `maihda()` and `compare_maihda_groups()` now treat a partial spelling that the engine binds to `subset`, `weights` or `offset` (e.g. `subs = keep`, `weig = w`) like the full name. The engine bound the partial spelling while the package's checks read the exact name, so `engine = "ordinal"` fitted a subset or weights it refuses, lme4 fits could detect the wrong family, strata or longitudinal time centring, and a partial `contrasts` name escaped the ordinal coding record. Supplying one of the three more than once, under any spellings, is now an error.
 
 * `engine = "wemix"` now rejects `WeMix::mix()`'s `center_grand` and `center_group`. WeMix centred the covariates inside the fit while predictions, stratum tables, plots and binomial standard errors used the uncentred values; centre covariates in `data` instead. A saved fit that used them now refuses to predict, and a saved binomial `maihda()` analysis warns that its stored stratum standard errors and interaction tests are wrong.

@@ -38,10 +38,16 @@
 #'       (largest first) by default; \code{order_by = "predicted_desc"} gives the
 #'       ranked caterpillar of \code{"predicted"} with the matrix in place of the
 #'       text labels
-#'     \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
+#'     \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean.
+#'       Only the stratum random effect and, for a crossed-dimensions fit, the dimension
+#'       random effects enter; a contextual random effect, or any other grouping, belongs to
+#'       neither component and is left out of the deviations and the global mean, as it is
+#'       from the \code{"predicted"} values
 #'     \item "prediction_deviation": Detailed deviation panels for individuals or strata
 #'     \item "context_vpc": Stratum vs. context variance bars for a contextual
-#'       cross-classified fit (\code{fit_maihda(context = )}); errors otherwise
+#'       cross-classified fit (\code{fit_maihda(context = )}); errors otherwise. For a
+#'       crossed-dimensions fit with a context the between-stratum variance is drawn
+#'       as its additive dimension and interaction bars
 #'     \item "vpc_trajectory": Time-varying VPC/ICC curve for a \strong{longitudinal}
 #'       fit (\code{fit_maihda(id =, time =)}); errors otherwise. For a longitudinal
 #'       model \code{"vpc"} and \code{"all"} also route here
@@ -519,27 +525,9 @@ plot_vpc <- function(summary_obj) {
 
   if (is_cc) {
     # Crossed-dimensions split: one slice per dimension (additive), one for the
-    # interaction, any contextual random intercepts, then the residual. Colour the
-    # additive dimensions from a qualitative palette, the interaction in orange (it
-    # is the "new between"), contexts in green, the residual in blue. The component
+    # interaction, any contextual random intercepts, then the residual. The component
     # order in the table drives the stack.
-    add_comps <- vpc_data$component[grepl("^Additive: ", vpc_data$component)]
-    ctx_comps <- vpc_data$component[grepl("^Context: ", vpc_data$component)]
-    dim_palette <- c("#CC79A7", "#009E73", "#0072B2", "#D55E00", "#117733",
-                     "#882255", "#44AA99", "#332288")
-    component_colors <- stats::setNames(rep("#999999", nrow(vpc_data)),
-                                        vpc_data$component)
-    if (length(add_comps) > 0) {
-      component_colors[add_comps] <-
-        dim_palette[((seq_along(add_comps) - 1) %% length(dim_palette)) + 1]
-    }
-    if (length(ctx_comps) > 0) {
-      ctx_palette <- c("#117733", "#44AA99", "#999933", "#DDCC77")
-      component_colors[ctx_comps] <-
-        ctx_palette[((seq_along(ctx_comps) - 1) %% length(ctx_palette)) + 1]
-    }
-    component_colors["Intersectional interaction"] <- "#E69F00"
-    component_colors["Within-stratum (residual)"] <- "#56B4E9"
+    component_colors <- maihda_cc_component_colors(vpc_data$component)
     plot_title <- sprintf("Variance Partition (crossed-dimensions), VPC/ICC = %.3f",
                           summary_obj$vpc$estimate)
     # Keep the table's component ordering (additive dims, interaction, residual).
@@ -582,6 +570,32 @@ plot_vpc <- function(summary_obj) {
               color = "white", fontface = "bold", size = 5)
 
   return(p)
+}
+
+# Fill colours for a crossed-dimensions variance table, shared by the stacked VPC bar
+# (plot_vpc) and the stratum-vs-context bars (plot_context_vpc) so the two views
+# never drift: the additive dimensions from a qualitative palette, the interaction in
+# orange (it is the "new between"), any contexts in green, the residual in blue, and
+# anything else grey.
+maihda_cc_component_colors <- function(components) {
+  components <- as.character(components)
+  add_comps <- components[grepl("^Additive: ", components)]
+  ctx_comps <- components[grepl("^Context: ", components)]
+  dim_palette <- c("#CC79A7", "#009E73", "#0072B2", "#D55E00", "#117733",
+                   "#882255", "#44AA99", "#332288")
+  component_colors <- stats::setNames(rep("#999999", length(components)), components)
+  if (length(add_comps) > 0) {
+    component_colors[add_comps] <-
+      dim_palette[((seq_along(add_comps) - 1) %% length(dim_palette)) + 1]
+  }
+  if (length(ctx_comps) > 0) {
+    ctx_palette <- c("#117733", "#44AA99", "#999933", "#DDCC77")
+    component_colors[ctx_comps] <-
+      ctx_palette[((seq_along(ctx_comps) - 1) %% length(ctx_palette)) + 1]
+  }
+  component_colors["Intersectional interaction"] <- "#E69F00"
+  component_colors["Within-stratum (residual)"] <- "#56B4E9"
+  component_colors
 }
 
 # Map a set of variance-partition component names to fill colours, shared by the
@@ -729,16 +743,26 @@ plot_vpc_trajectory_change <- function(null_summary, adjusted_summary) {
 #' variance, each context's variance, any other random effects, and the residual
 #' -- on the variance scale, with each component's share of the total printed
 #' above its bar. Complements \code{plot_vpc()}'s stacked proportion bar by
-#' showing the \emph{magnitudes} the shares are computed from.
+#' showing the \emph{magnitudes} the shares are computed from. For a
+#' crossed-dimensions fit with a context the between-stratum variance is drawn as
+#' its additive dimension and interaction components.
 #'
 #' @param summary_obj A \code{maihda_summary} from a contextual
-#'   cross-classified fit (\code{fit_maihda(context = )}).
+#'   cross-classified fit (\code{fit_maihda(context = )}), including a
+#'   crossed-dimensions one.
 #' @return A ggplot2 object.
 #' @keywords internal
 #' @import ggplot2
 plot_context_vpc <- function(summary_obj) {
   vc <- summary_obj$variance_components
-  if (!identical(attr(vc, "kind"), "contextual") || is.null(summary_obj$context)) {
+  # A crossed-dimensions fit with a context is contextual too: its table splits the
+  # between-stratum variance into the additive dimension rows and the interaction,
+  # beside the same "Context: <var>" rows, and its summary carries the same $context
+  # partition. Without a context row it has nothing to set the strata against.
+  is_cc <- identical(attr(vc, "kind"), "cross_classified") &&
+    any(grepl("^Context: ", vc$component))
+  if (!(identical(attr(vc, "kind"), "contextual") || is_cc) ||
+      is.null(summary_obj$context)) {
     stop("No contextual partition is available. Fit the model with ",
          "fit_maihda(context = ) (or maihda(context = )) to plot the stratum ",
          "vs. context variances.", call. = FALSE)
@@ -747,24 +771,34 @@ plot_context_vpc <- function(summary_obj) {
   bar_data <- vc[vc$component != "Total", , drop = FALSE]
   bar_data$component <- factor(bar_data$component, levels = bar_data$component)
 
-  ctx_comps <- levels(bar_data$component)[grepl("^Context: ", levels(bar_data$component))]
-  component_colors <- stats::setNames(rep("#999999", nrow(bar_data)),
-                                      levels(bar_data$component))
-  component_colors["Between-stratum (random)"] <- "#E69F00"
-  if (length(ctx_comps) > 0) {
-    ctx_palette <- c("#117733", "#44AA99", "#999933", "#DDCC77")
-    component_colors[ctx_comps] <-
-      ctx_palette[((seq_along(ctx_comps) - 1) %% length(ctx_palette)) + 1]
-  }
-  component_colors["Other random effects"] <- "#009E73"
-  component_colors["Within-stratum (residual)"] <- "#56B4E9"
+  if (is_cc) {
+    component_colors <- maihda_cc_component_colors(levels(bar_data$component))
+    caption <- paste(
+      "Crossed-dimensions contextual MAIHDA: the between-stratum variance is split into",
+      "the additive dimension variances and the intersectional interaction, both",
+      "conditional on the context random effect(s); the context variance is the",
+      "between-context component of unexplained variance.",
+      sep = "\n")
+  } else {
+    ctx_comps <- levels(bar_data$component)[grepl("^Context: ", levels(bar_data$component))]
+    component_colors <- stats::setNames(rep("#999999", nrow(bar_data)),
+                                        levels(bar_data$component))
+    component_colors["Between-stratum (random)"] <- "#E69F00"
+    if (length(ctx_comps) > 0) {
+      ctx_palette <- c("#117733", "#44AA99", "#999933", "#DDCC77")
+      component_colors[ctx_comps] <-
+        ctx_palette[((seq_along(ctx_comps) - 1) %% length(ctx_palette)) + 1]
+    }
+    component_colors["Other random effects"] <- "#009E73"
+    component_colors["Within-stratum (residual)"] <- "#56B4E9"
 
-  caption <- paste(
-    "Contextual cross-classified MAIHDA: individuals are cross-classified by their",
-    "intersectional stratum and the higher-level context(s).",
-    "The between-stratum variance is conditional on the context random effect(s);",
-    "the context variance is the between-context component of unexplained variance.",
-    sep = "\n")
+    caption <- paste(
+      "Contextual cross-classified MAIHDA: individuals are cross-classified by their",
+      "intersectional stratum and the higher-level context(s).",
+      "The between-stratum variance is conditional on the context random effect(s);",
+      "the context variance is the between-context component of unexplained variance.",
+      sep = "\n")
+  }
 
   ggplot(bar_data, aes(x = .data$component, y = .data$variance,
                        fill = .data$component)) +
@@ -1668,6 +1702,10 @@ maihda_upset_size <- function(object, n_strata = 50) {
 #' Decomposes the total deviation from the overall mean into the additive (fixed) component
 #' and the intersectional (random) component for each stratum.
 #'
+#' Only the intersectional random effects enter the deviations and the overall mean: the
+#' stratum effect and, for a crossed-dimensions fit, the dimension effects. A contextual
+#' random effect, or any other grouping, is part of neither component and is excluded.
+#'
 #' @param object A maihda_model object
 #' @param summary_obj A maihda_summary object
 #' @param top_n_labels Number of most extreme strata to label
@@ -1693,16 +1731,36 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
   # the fixed-only prediction.
   cc_mode <- !is.null(object$cc_info)
 
-  # Compute full and fixed-only predictions on the LINK scale. The additive
-  # decomposition (total = additive + intersectional) is only exact on the model
-  # scale: eta = X*beta + u_stratum. On the response scale, for non-identity links
-  # (logit/log) the split is not additive. For Gaussian/identity the link scale
-  # equals the response scale, so this is unchanged there.
+  # The decomposition covers the INTERSECTIONAL random effects only: the stratum
+  # interaction plus, in crossed-dimensions mode, the additive dimension REs. Any
+  # other grouping -- a contextual (1 | school) from context =, or an explicit
+  # (1 | site) -- belongs to neither component. Left in the total prediction it
+  # would enter the crossed-dimensions additive component as each stratum's context
+  # composition, and, in both modes, the global mean as the row-weighted mean of the
+  # context effects, shifting every bar by that amount. So the total prediction (and
+  # the global mean taken from it) is scoped to the intersectional groups, as the
+  # stratum predictions (maihda_stratum_predictions_lme4()) and the
+  # intersectional-scope AUC already are.
+  # Without another grouping re_scope stays NULL -- every random effect, the
+  # engines' default -- so those fits are unchanged; the wemix and ordinal engines
+  # fit the canonical single (1 | stratum) structure only and never carry one.
+  scopes <- maihda_da_re_scopes(object)
+  re_scope <- if (length(scopes$other) > 0) {
+    maihda_re_form_for_groups(object$formula, scopes$intersectional)
+  } else {
+    NULL
+  }
+
+  # Compute total (intersectional-scope) and fixed-only predictions on the LINK
+  # scale. The additive decomposition (total = additive + intersectional) is only
+  # exact on the model scale: eta = X*beta + u_stratum. On the response scale, for
+  # non-identity links (logit/log) the split is not additive. For Gaussian/identity
+  # the link scale equals the response scale, so this is unchanged there.
   if (object$engine == "lme4") {
-    preds_total <- tryCatch(predict(object$model, type = "link"), error = function(e) rep(NA, nrow(data)))
+    preds_total <- tryCatch(predict(object$model, type = "link", re.form = re_scope), error = function(e) rep(NA, nrow(data)))
     preds_fixed <- tryCatch(predict(object$model, type = "link", re.form = NA), error = function(e) rep(NA, nrow(data)))
   } else if (object$engine == "brms") {
-    preds_total <- tryCatch(maihda_brms_linpred_mean(object$model), error = function(e) rep(NA, nrow(data)))
+    preds_total <- tryCatch(maihda_brms_linpred_mean(object$model, re_formula = re_scope), error = function(e) rep(NA, nrow(data)))
     preds_fixed <- tryCatch(maihda_brms_linpred_mean(object$model, re_formula = NA), error = function(e) rep(NA, nrow(data)))
   } else if (object$engine == "wemix") {
     # Refused before the tryCatch below, which would turn it into NA points.
@@ -1767,8 +1825,9 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
   # Two-model: the additive part is the fixed-effect deviation (mean_fixed - global).
   # Cross-classified: the dimension main effects are random, so the additive part is
   # the total stratum deviation (mean_total - global) net of the interaction RE; this
-  # absorbs the dimension REs (plus any covariate deviation), keeping
-  # total = additive + interaction in both modes.
+  # absorbs the dimension REs (plus any covariate deviation) -- and no context RE,
+  # which the scoped total above excludes -- keeping total = additive + interaction
+  # in both modes.
   stratum_means <- stratum_means |>
     dplyr::mutate(
       additive_dev = if (cc_mode) {

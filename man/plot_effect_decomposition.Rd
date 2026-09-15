@@ -29,4 +29,9 @@ A ggplot2 object
 Decomposes the total deviation from the overall mean into the additive (fixed) component
 and the intersectional (random) component for each stratum.
 }
+\details{
+Only the intersectional random effects enter the deviations and the overall mean: the
+stratum effect and, for a crossed-dimensions fit, the dimension effects. A contextual
+random effect, or any other grouping, is part of neither component and is excluded.
+}
 \keyword{internal}

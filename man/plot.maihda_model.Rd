@@ -56,10 +56,16 @@
     (largest first) by default; \code{order_by = "predicted_desc"} gives the
     ranked caterpillar of \code{"predicted"} with the matrix in place of the
     text labels
-  \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean
+  \item "effect_decomp": Visualizes additive vs intersectional deviation from global mean.
+    Only the stratum random effect and, for a crossed-dimensions fit, the dimension
+    random effects enter; a contextual random effect, or any other grouping, belongs to
+    neither component and is left out of the deviations and the global mean, as it is
+    from the \code{"predicted"} values
   \item "prediction_deviation": Detailed deviation panels for individuals or strata
   \item "context_vpc": Stratum vs. context variance bars for a contextual
-    cross-classified fit (\code{fit_maihda(context = )}); errors otherwise
+    cross-classified fit (\code{fit_maihda(context = )}); errors otherwise. For a
+    crossed-dimensions fit with a context the between-stratum variance is drawn
+    as its additive dimension and interaction bars
   \item "vpc_trajectory": Time-varying VPC/ICC curve for a \strong{longitudinal}
     fit (\code{fit_maihda(id =, time =)}); errors otherwise. For a longitudinal
     model \code{"vpc"} and \code{"all"} also route here

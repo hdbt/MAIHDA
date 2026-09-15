@@ -8,7 +8,8 @@ plot_context_vpc(summary_obj)
 }
 \arguments{
 \item{summary_obj}{A \code{maihda_summary} from a contextual
-cross-classified fit (\code{fit_maihda(context = )}).}
+cross-classified fit (\code{fit_maihda(context = )}), including a
+crossed-dimensions one.}
 }
 \value{
 A ggplot2 object.
@@ -18,6 +19,8 @@ One bar per variance component -- the between-stratum (intersectional)
 variance, each context's variance, any other random effects, and the residual
 -- on the variance scale, with each component's share of the total printed
 above its bar. Complements \code{plot_vpc()}'s stacked proportion bar by
-showing the \emph{magnitudes} the shares are computed from.
+showing the \emph{magnitudes} the shares are computed from. For a
+crossed-dimensions fit with a context the between-stratum variance is drawn as
+its additive dimension and interaction components.
 }
 \keyword{internal}
