@@ -145,7 +145,9 @@ predict_maihda <- function(object, newdata = NULL,
       # For genuine newdata, predict.merMod re-evaluates a formula offset() term
       # but cannot recover an external offset (only its fitted values were stored,
       # not the generating expression), so those predictions would be silently
-      # wrong. Reject them with a directed error rather than return them.
+      # wrong -- also when the formula carries an offset() beside the external one,
+      # since predict.merMod then adds the formula offset alone. Reject them with a
+      # directed error rather than return them.
       if (maihda_lme4_has_external_offset(object)) {
         stop("This model was fit with an external offset (offset = ... passed to ",
              "fit_maihda()), which cannot be reconstructed for new data. Refit with ",
@@ -274,25 +276,21 @@ maihda_dots_default <- function(dots, name, value) {
 }
 
 # TRUE when an lme4 fit carries an EXTERNAL offset (offset = ... passed to
-# fit_maihda()) rather than a formula offset() term. The distinction matters for
-# newdata predictions: predict.merMod re-evaluates a formula offset() from newdata
-# but silently ignores an external one (it lives only as the fitted (offset)
-# column). The model frame names that column "(offset)" for either kind of offset,
-# so a formula offset() term -- identifiable from the fixed-part terms -- is what
-# separates the two.
+# fit_maihda()), whether or not its formula also has an offset() term. The
+# distinction matters for newdata predictions: predict.merMod re-evaluates a formula
+# offset() from newdata but silently ignores an external one, which lives only as the
+# fitted "(offset)" column of the model frame (object$data). lme4 builds that frame
+# with stats::model.frame(), which names the offset= argument's column "(offset)" and
+# keeps a formula offset() under its own "offset(...)" column, so the presence of
+# "(offset)" is the whole test -- the rule maihda_mermod_has_external_offset() applies
+# to a raw merMod. A formula offset() beside the external one must not clear the
+# guard: predict.merMod would re-evaluate the formula part and still drop the external
+# part.
 maihda_lme4_has_external_offset <- function(object) {
   if (!identical(object$engine, "lme4")) {
     return(FALSE)
   }
-  mf <- object$data
-  if (is.null(mf) || !"(offset)" %in% names(mf)) {
-    return(FALSE)
-  }
-  fixed <- tryCatch(maihda_nobars(object$formula),
-                    error = function(e) object$formula)
-  offset_terms <- tryCatch(attr(stats::terms(fixed), "offset"),
-                           error = function(e) NULL)
-  is.null(offset_terms) || length(offset_terms) == 0
+  "(offset)" %in% names(object$data)
 }
 
 # Individual-level brms predictions, honouring the documented unseen-stratum

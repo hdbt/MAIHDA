@@ -4350,9 +4350,11 @@ maihda_fitted_offset <- function(model) {
 # rather than a formula offset() term: lme4 names the external-offset model-frame
 # column "(offset)", whereas a formula offset() is stored under "offset(...)". The
 # distinction matters for newdata predictions -- predict.merMod re-evaluates a formula
-# offset() from newdata but cannot recover an external one. (predict_maihda.R has the
-# maihda_model-wrapper analogue maihda_lme4_has_external_offset(), which reads the same
-# "(offset)" column off object$data.)
+# offset() from newdata but cannot recover an external one, and a fit carrying both
+# kinds has both columns, so a formula offset() beside "(offset)" does not clear this.
+# (predict_maihda.R has the maihda_model-wrapper analogue
+# maihda_lme4_has_external_offset(), which reads the same "(offset)" column off
+# object$data.)
 maihda_mermod_has_external_offset <- function(model) {
   mf <- tryCatch(maihda_model_frame(model), error = function(e) NULL)
   !is.null(mf) && "(offset)" %in% names(mf)

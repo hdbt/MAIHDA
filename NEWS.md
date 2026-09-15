@@ -57,6 +57,8 @@
 
 ## Bug fixes
 
+* `predict_maihda()` and `predict()` now refuse `newdata` for an lme4 fit that has both a formula `offset()` and an external `offset =`, as they already did for an external offset alone. The formula offset turned the check off, so predictions on new data silently left the external offset out.
+
 * The ordinal surprise panel of `plot(type = "prediction_deviation")` and `plot_prediction_deviation_panels()` now finds each row's observed category by its position among the model's fitted categories, whatever their labels. It matched the label against probability columns named `1`, `2`, `3`, so an `engine = "ordinal"` outcome coded `low < mid < high` was never scored and the panel was empty, while one coded `0 < 1 < 2` dropped its first category and scored the rest one category off, and one coded `3 < 2 < 1` had its end categories swapped. An `engine = "brms"` fit never found its response at all, which also gave every stratum of a brms binary-outcome panel a deviance residual of 0. A category named like one of the panel's own columns (`n`, `weight`) is no longer overwritten by it, and a row whose category is not a fitted one is left out with a warning.
 
 * `plot(type = "context_vpc")` now draws a crossed-dimensions fit that carries a context, showing the between-stratum variance as its additive dimension and interaction bars. It stopped with a message asking for the `context =` that had been given, and `plot(type = "all")` warned and left the panel out.
