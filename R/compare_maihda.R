@@ -32,8 +32,12 @@
 #' (e.g. null vs covariate-adjusted) on the \emph{same} data and strata, to show
 #' how the VPC attenuates. If the supplied models differ in any of these,
 #' \code{compare_maihda()} still returns the table but issues a single warning,
-#' because the VPCs are then not directly comparable. The same comparability caveat
-#' applies to the appended information criteria (see \code{\link{maihda_ic}}). In
+#' because the VPCs are then not directly comparable. The appended information
+#' criteria follow the rules of \code{\link{maihda_ic}} instead: they need the same
+#' outcome, analytic sample and weights but not the same strata, and Poisson and
+#' negative-binomial fits of the same counts, or binomial or cumulative fits
+#' differing in their link, have comparable criteria although their VPCs are not
+#' comparable. In
 #' addition, when the appended criteria mix scales -- likelihood \code{AIC}/\code{BIC}
 #' (lme4/ordinal) shown alongside Bayesian \code{WAIC}/\code{LOOIC} (brms), which can
 #' happen for a same-family lme4-vs-brms comparison that the family/link check does

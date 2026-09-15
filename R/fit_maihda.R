@@ -30,7 +30,9 @@
 #'   only; not supported by the wemix engine). A fixed-theta
 #'   \code{MASS::negative.binomial(theta)} family object is also accepted with
 #'   \code{engine = "lme4"} and is fitted with \code{glmer()}, honouring the
-#'   supplied theta.
+#'   supplied theta. With lme4 an estimated theta needs \code{nAGQ} of 0 or 1:
+#'   \code{glmer.nb()} mis-estimates theta under adaptive quadrature, so
+#'   \code{nAGQ > 1} is an error there (a fixed theta is not affected).
 #'   \code{family = "ordinal"} (alias \code{"cumulative"}; or
 #'   \code{\link{maihda_cumulative}("probit")} / \code{brms::cumulative()} for a
 #'   non-logit link) fits a cumulative (proportional-odds) model for an
@@ -745,6 +747,21 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     stop("The negative-binomial family is only supported with the log link ",
          "(the latent-scale level-1 variance behind the VPC/ICC is defined for ",
          "it); this model uses link = '", family$link, "'.", call. = FALSE)
+  }
+  # lme4::glmer.nb() chooses theta by maximising glmer's logLik(), which under adaptive
+  # quadrature (nAGQ > 1) leaves out the saturated log-likelihood -- a term that
+  # depends on theta. theta and the variance components then come out wrong without
+  # a warning: theta 0.087 against 1.62 at nAGQ = 1, and a stratum SD of 0, on a fit
+  # whose integrated log-likelihood was 480 lower. A fixed theta is not estimated.
+  nagq_value <- dot_vals[["nAGQ"]]
+  if (is_negbin && identical(engine, "lme4") && identical(family$family, "negbinomial") &&
+      is.numeric(nagq_value) && length(nagq_value) == 1L && isTRUE(nagq_value > 1)) {
+    stop("engine = \"lme4\" cannot estimate the negative-binomial theta with ",
+         "nAGQ > 1: lme4::glmer.nb() then chooses theta on a quadrature ",
+         "log-likelihood that leaves out a theta-dependent term, so theta and the ",
+         "variance components come out wrong. Use nAGQ = 1 (the Laplace ",
+         "approximation), or fix theta with family = MASS::negative.binomial(theta).",
+         call. = FALSE)
   }
 
   # Recode a two-level (Bernoulli) response to 0/1 (glmer and brms bernoulli both

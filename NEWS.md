@@ -22,6 +22,10 @@
 
 ## API changes
 
+* `maihda_ic()` reports `NA` criteria, with estimator `"ML (glmer scale family: no likelihood)"`, for a glmer fit of a family with a scale parameter: a Gaussian with a non-identity link, Gamma, inverse Gaussian. lme4's `logLik()` for those fits is not the marginal likelihood -- it exceeded the achievable maximum by up to 15.4 on test fits -- and nested AIC differences were off by 4 to 45.
+* `maihda_ic()` adds back the saturated log-likelihood that lme4 leaves out of `logLik()` for a glmer fit with `nAGQ > 1`, so a quadrature fit's criteria are the complete likelihood and compare with a Laplace fit's. The two differed by 1351.6 AIC units on a 720-row Poisson fit; Bernoulli outcomes, whose term is zero, are unchanged.
+* `fit_maihda()` now refuses `family = "negbinomial"` with `nAGQ > 1` on the lme4 engine. `lme4::glmer.nb()` estimates theta on that incomplete likelihood and silently returned theta 0.087 instead of 1.62 and a stratum SD of 0; use `nAGQ = 1`, or fix theta with `family = MASS::negative.binomial(theta)`.
+* `maihda_ic()`, and the criteria `compare_maihda()` appends, now count only the estimated parameters of an lme4 negative-binomial fit with a fixed theta (`family = MASS::negative.binomial(theta)`): `df` is one lower, and AIC 2 and BIC `log(n)` lower, than `AIC()` and `BIC()` on the fitted model, which count theta for every negative-binomial family. `glm()` counts that family the same way; `family = "negbinomial"` fits estimate theta and are unchanged.
 * `plot_prediction_deviation_panels()` on an `engine = "brms"` ordinal fit now draws the posterior-mean category probabilities from `fitted()`, the ones `predict_maihda()` uses, instead of tabulating responses simulated by `predict()`. The expected-score panel no longer changes between calls, and a category that no draw happened to produce no longer gets probability 0.
 * `summary()` on a `maihda()` analysis now errors when passed `df_method`, `bootstrap`, `n_boot`, `conf_level`, `response_vpc` or `seed` instead of silently ignoring them. Those summaries are computed by `maihda()`; set them there, or summarise the fitted model directly with `summary(x$model_adjusted, df_method = "bootstrap")`.
 * `maihda_discriminatory_accuracy()` now reads non-unit integral lme4 `weights=` on a binomial fit as trial counts, which is what `?glm` documents them to be, so all four spellings of the same data give the same AUC and the same `n_case` / `n_control`. Previously aggregation was inferred from the response carrying a value strictly inside (0, 1), so individual records collapsed to frequency cells -- every row all-success or all-failure -- took the observation-level path: each cell contributed one case and one control at the same score, and the AUC was exactly 0.5. Non-integral weights cannot be counts and are unchanged. New `binomial_weights` argument forces either reading.
@@ -56,6 +60,8 @@
 * `maihda(decomposition = "crossed-dimensions")` now fits the model once instead of twice. The preliminary pass that resolves the strata and family no longer refits the supplied formula only to discard it, which roughly halves the fitting cost (most noticeable for `brms`).
 
 ## Bug fixes
+
+* `maihda_ic()` now reports a delta between Poisson and negative-binomial fits of the same counts, and between binomial or cumulative fits that differ only in their link. It withheld the delta whenever the family or link differed, as the VPC and PCV must, although these likelihoods are on a common scale. A continuous family still needs the same family and link, and the printed comparability note now says so.
 
 * `predict_maihda()` and `predict()` now refuse `newdata` for an lme4 fit that has both a formula `offset()` and an external `offset =`, as they already did for an external offset alone. The formula offset turned the check off, so predictions on new data silently left the external offset out.
 

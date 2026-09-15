@@ -89,8 +89,8 @@ test_that("maihda_ic withholds the delta (with a warning) across incomparable mo
   expect_true("delta" %in% names(ic_ok))
   expect_equal(min(ic_ok$delta), 0)
 
-  # Different family (Gaussian AIC vs Poisson AIC): a delta across families is
-  # meaningless, so it is withheld with a warning naming the difference.
+  # Different outcome and family (a Gaussian density vs a Poisson probability):
+  # a delta is meaningless, so it is withheld with a warning naming the difference.
   d$count <- rpois(nrow(d), lambda = exp(0.2 + 0.3 * d$x))
   pois_model <- suppressWarnings(suppressMessages(
     fit_maihda(count ~ x + (1 | g1:g2), data = d, family = "poisson")))

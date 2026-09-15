@@ -50,7 +50,9 @@ dispersion parameter theta \emph{estimated} from the data: lme4 via
 only; not supported by the wemix engine). A fixed-theta
 \code{MASS::negative.binomial(theta)} family object is also accepted with
 \code{engine = "lme4"} and is fitted with \code{glmer()}, honouring the
-supplied theta.
+supplied theta. With lme4 an estimated theta needs \code{nAGQ} of 0 or 1:
+\code{glmer.nb()} mis-estimates theta under adaptive quadrature, so
+\code{nAGQ > 1} is an error there (a fixed theta is not affected).
 \code{family = "ordinal"} (alias \code{"cumulative"}; or
 \code{\link{maihda_cumulative}("probit")} / \code{brms::cumulative()} for a
 non-logit link) fits a cumulative (proportional-odds) model for an

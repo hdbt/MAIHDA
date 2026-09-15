@@ -51,13 +51,36 @@ across models fitted to the \emph{same} analytic sample (same rows and outcome)
 with the \emph{same} weights -- prior (precision) weights and sampling
 (design) weights each change which likelihood, or pseudo-likelihood, is being
 maximised, so the criteria of a weighted and an unweighted fit of the identical
-model are not on a common scale. AIC/BIC additionally require the same response
-distribution -- they are not comparable across families (e.g. a Gaussian vs a
-Poisson fit), nor between the likelihood engines and \code{brms} (AIC/BIC vs
+model are not on a common scale. Unlike the VPC and PCV, they do not always need
+the same family: a criterion compares log-likelihoods of the same observations,
+so Poisson and negative-binomial fits of the same counts are comparable, as are
+binomial or cumulative (ordinal) fits that differ in their link, and a delta is
+reported for them. Any other change of family or link withholds it -- a Gaussian
+vs a Poisson fit compares a density with a probability, and the continuous
+families are compared only within the same family and link. Criteria are never
+comparable between the likelihood engines and \code{brms} (AIC/BIC vs
 WAIC/LOOIC are different scales). When the supplied models differ in any of
 these respects \code{maihda_ic()} warns and omits the \code{delta} column,
-still reporting each model's own criteria; \code{\link{compare_maihda}} warns
-on the same grounds.
+still reporting each model's own criteria.
+
+\strong{Parameter count.} \code{df} counts the estimated parameters. A
+negative-binomial \code{lme4} fit with a fixed \code{theta}
+(\code{family = MASS::negative.binomial(theta)}) therefore has one fewer than
+\code{lme4}'s own count, which includes theta for every negative-binomial
+family, so its \code{AIC} is 2 and its \code{BIC} \code{log(n)} below
+\code{AIC()} and \code{BIC()} on the fitted model; \code{glm()} counts that
+family the same way. A \code{family = "negbinomial"} fit estimates theta and
+counts it.
+
+\strong{lme4 GLMM likelihoods.} With \code{nAGQ > 1}, \code{lme4}'s
+\code{logLik()} leaves out the saturated log-likelihood (\code{?merMod}: it is
+\dQuote{only proportional} to the likelihood); \code{maihda_ic()} adds it back, so
+a quadrature fit's criteria are the complete likelihood and compare with a
+Laplace fit's. A \code{glmer} fit of a family with a scale parameter -- a Gaussian
+with a non-identity link, Gamma, inverse Gaussian -- reports \code{NA} criteria
+(estimator \code{"ML (glmer scale family: no likelihood)"}): \code{lme4}'s
+\code{logLik()} for those families is not the marginal likelihood, and on test
+fits it exceeded the largest value that likelihood attains.
 
 \strong{Predictive target of the Bayesian criteria.} \code{brms::waic()} and
 \code{brms::loo()} are computed from pointwise log-likelihoods

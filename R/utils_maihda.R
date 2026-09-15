@@ -51,19 +51,10 @@ maihda_negbin_theta_is_fixed <- function(model) {
   grepl("^Negative Binomial\\(", fam$family)
 }
 
-# "family(link)" key for a maihda_model, used to decide whether two models are
-# comparable (same family and link). Prefers the fitted object's family and
-# falls back to the family the wrapper recorded at fit time -- stats::family()
-# is undefined for engines like wemix (WeMixResults). Names are canonical via
-# maihda_family()/maihda_normalize_family_name(), so e.g. two glmer.nb() fits
-# with different ESTIMATED thetas still compare equal.
-#
-# The negative binomial needs special care: a FIXED, user-specified theta
-# (MASS::negative.binomial(theta)) is part of the model SPECIFICATION -- two such
-# fits with different thetas assume different dispersion and are NOT comparable --
-# so theta is kept in the key. An estimated theta differs between fits only by
-# estimation noise and is normalized away (to plain "negbinomial").
-maihda_model_family_key <- function(model) {
+# The family of a maihda_model with a canonical name: the fitted object's own,
+# else the family the wrapper recorded at fit time -- stats::family() is
+# undefined for engines like wemix (WeMixResults). NULL when neither exists.
+maihda_model_family <- function(model) {
   fam <- maihda_family(model$model)
   if (is.null(fam) && is.list(model$family)) {
     fam <- model$family
@@ -71,6 +62,25 @@ maihda_model_family_key <- function(model) {
       fam$family <- maihda_normalize_family_name(fam$family)
     }
   }
+  fam
+}
+
+# "family(link)" key for a maihda_model, used to decide whether two models are
+# comparable (same family and link), as the VPC and PCV require; maihda_ic()
+# relaxes it within a response class (maihda_ic_response_class). Prefers the
+# fitted object's family and falls back to the family the wrapper recorded at
+# fit time -- stats::family() is undefined for engines like wemix
+# (WeMixResults). Names are canonical via
+# maihda_family()/maihda_normalize_family_name(), so e.g. two glmer.nb() fits
+# with different ESTIMATED thetas still compare equal.
+#
+# The negative binomial needs special care: a FIXED, user-specified theta
+# (MASS::negative.binomial(theta)) is part of the model SPECIFICATION -- two such
+# fits with different thetas assume different dispersion, so their VPCs are NOT
+# comparable -- and theta is kept in the key. An estimated theta differs between
+# fits only by estimation noise and is normalized away (to plain "negbinomial").
+maihda_model_family_key <- function(model) {
+  fam <- maihda_model_family(model)
   fam_name <- if (!is.null(fam$family)) fam$family else NA_character_
   link <- if (!is.null(fam$link)) fam$link else NA_character_
   if (identical(fam_name, "negbinomial") && maihda_negbin_theta_is_fixed(model)) {
@@ -1594,17 +1604,20 @@ maihda_resolve_dot_names <- function(dot_vals, fun, supplied, watch = NULL) {
   dot_vals
 }
 
-# Rename forwarded `...` values that the engine would bind to subset, weights or offset
-# -- the arguments fit_maihda(), maihda() and compare_maihda_groups() read by exact name
-# for family detection, strata binning, the analytic row mask and the per-engine
+# Rename forwarded `...` values that the engine would bind to subset, weights, offset or
+# nAGQ -- the arguments fit_maihda(), maihda() and compare_maihda_groups() read by exact
+# name for family detection, strata binning, the analytic row mask and the per-engine
 # refusals -- so those reads and refusals see a partial spelling too. Resolved against
 # the engine function the values will reach, with the argument names the package
 # passes it; the engine may still change afterwards (an ordered outcome switches to
 # "ordinal", a binary one to glmer()), which is harmless because lmer(), glmer() and
-# clmm() bind those three names alike. Every other name is left for R to bind at the
-# engine call, where maihda_fit_clmm() and maihda_fit_wemix() resolve them in full.
-# One of the three supplied more than once, under any spellings, is an error. A no-op
-# for an engine whose package is not installed; its own check reports that.
+# clmm() bind subset, weights and offset alike. nAGQ is a formal of glmer() and clmm()
+# but not lmer(), so a partial spelling on a Gaussian target is left as given; the
+# only refusal that reads it, the estimated-theta negative binomial, always targets
+# glmer(). Every other name is left for R to bind at the engine call, where
+# maihda_fit_clmm() and maihda_fit_wemix() resolve them in full. One of the watched
+# names supplied more than once, under any spellings, is an error. A no-op for an
+# engine whose package is not installed; its own check reports that.
 maihda_resolve_engine_dots <- function(dot_vals, engine, family) {
   if (length(dot_vals) == 0L || !is.character(engine) || length(engine) != 1L) {
     return(dot_vals)
@@ -1637,7 +1650,7 @@ maihda_resolve_engine_dots <- function(dot_vals, engine, family) {
   if (is.null(target)) {
     return(dot_vals)
   }
-  watch <- c("subset", "weights", "offset")
+  watch <- c("subset", "weights", "offset", "nAGQ")
   tags <- names(dot_vals)
   dot_vals <- maihda_resolve_dot_names(dot_vals, target$fun, target$supplied, watch = watch)
   # Two spellings of one argument met R's own "matched by multiple actual arguments"
