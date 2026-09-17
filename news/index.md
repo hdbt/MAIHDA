@@ -422,6 +422,17 @@
 
 ### Bug fixes
 
+- The binomial panel of `plot(type = "prediction_deviation")` and
+  [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
+  now draws an `engine = "brms"` `y | trials(n)` fit as per-trial
+  probabilities. It drew brms’s expected success counts on its
+  probability axis, with the stratum intervals clamped at 1, and it now
+  ranks the strata by the deviance residual of their successes out of
+  trials, which was 0 for every stratum. An lme4
+  `cbind(successes, failures)` fit no longer stops the panel with
+  “`obs_outcome` must be size”, and `plot(type = "all")` no longer drops
+  it.
+
 - [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
   now reports a delta between Poisson and negative-binomial fits of the
   same counts, and between binomial or cumulative fits that differ only

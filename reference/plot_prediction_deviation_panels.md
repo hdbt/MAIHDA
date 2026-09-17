@@ -11,9 +11,12 @@ sense:
   (largest deviation), ranked by absolute deviation.
 
 - Binomial: the cases/strata with the largest absolute deviance
-  residual, i.e. where the observed 0/1 outcome is least consistent with
+  residual, i.e. where the observed 0/1 outcome – for an aggregated
+  binomial (`cbind(successes, failures)`, or a brms `y | trials(n)`
+  fit), the observed successes out of trials – is least consistent with
   the fitted probability (worst-fit points), ranked by \\\|deviance
-  residual\|\\.
+  residual\|\\. Predictions are per-trial probabilities for every
+  binomial fit.
 
 - Ordinal `"surprise"` mode: the cases/strata with the highest surprise
   \\-\log P(\text{observed category})\\, i.e. the least probable

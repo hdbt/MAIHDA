@@ -7,8 +7,11 @@ Gaussian and Poisson (and the ordinal &quot;expected_score&quot; mode):
     the cases/strata whose prediction sits furthest from the mean prediction
     (largest deviation), ranked by absolute deviation.
 Binomial: the cases/strata with the largest absolute deviance residual,
-    i.e. where the observed 0/1 outcome is least consistent with the fitted
+    i.e. where the observed 0/1 outcome – for an aggregated binomial
+    (cbind(successes, failures), or a brms y | trials(n) fit),
+    the observed successes out of trials – is least consistent with the fitted
     probability (worst-fit points), ranked by \(|deviance residual|\).
+    Predictions are per-trial probabilities for every binomial fit.
 Ordinal &quot;surprise&quot; mode: the cases/strata with the highest
     surprise \(-\log P(\text{observed category})\), i.e. the least probable
     observations under the model. It needs the observed response in
@@ -24,8 +27,11 @@ Gaussian and Poisson (and the ordinal &quot;expected_score&quot; mode):
     the cases/strata whose prediction sits furthest from the mean prediction
     (largest deviation), ranked by absolute deviation.
 Binomial: the cases/strata with the largest absolute deviance residual,
-    i.e. where the observed 0/1 outcome is least consistent with the fitted
+    i.e. where the observed 0/1 outcome – for an aggregated binomial
+    (cbind(successes, failures), or a brms y | trials(n) fit),
+    the observed successes out of trials – is least consistent with the fitted
     probability (worst-fit points), ranked by \(|deviance residual|\).
+    Predictions are per-trial probabilities for every binomial fit.
 Ordinal &quot;surprise&quot; mode: the cases/strata with the highest
     surprise \(-\log P(\text{observed category})\), i.e. the least probable
     observations under the model. It needs the observed response in
@@ -93,8 +99,11 @@ What "notable" means depends on the model type, and the labelled points are
     the cases/strata whose prediction sits furthest from the mean prediction
     (largest deviation), ranked by absolute deviation.</p></li>
 <li><p>Binomial: the cases/strata with the largest absolute deviance residual,
-    i.e. where the observed 0/1 outcome is least consistent with the fitted
-    probability (worst-fit points), ranked by \(|deviance residual|\).</p></li>
+    i.e. where the observed 0/1 outcome – for an aggregated binomial
+    (<code>cbind(successes, failures)</code>, or a brms <code>y | trials(n)</code> fit),
+    the observed successes out of trials – is least consistent with the fitted
+    probability (worst-fit points), ranked by \(|deviance residual|\).
+    Predictions are per-trial probabilities for every binomial fit.</p></li>
 <li><p>Ordinal <code>"surprise"</code> mode: the cases/strata with the highest
     surprise \(-\log P(\text{observed category})\), i.e. the least probable
     observations under the model. It needs the observed response in
