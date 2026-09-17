@@ -122,13 +122,34 @@ across models fitted to the <em>same</em> analytic sample (same rows and outcome
 with the <em>same</em> weights – prior (precision) weights and sampling
 (design) weights each change which likelihood, or pseudo-likelihood, is being
 maximised, so the criteria of a weighted and an unweighted fit of the identical
-model are not on a common scale. AIC/BIC additionally require the same response
-distribution – they are not comparable across families (e.g. a Gaussian vs a
-Poisson fit), nor between the likelihood engines and <code>brms</code> (AIC/BIC vs
+model are not on a common scale. Unlike the VPC and PCV, they do not always need
+the same family: a criterion compares log-likelihoods of the same observations,
+so Poisson and negative-binomial fits of the same counts are comparable, as are
+binomial or cumulative (ordinal) fits that differ in their link, and a delta is
+reported for them. Any other change of family or link withholds it – a Gaussian
+vs a Poisson fit compares a density with a probability, and the continuous
+families are compared only within the same family and link. Criteria are never
+comparable between the likelihood engines and <code>brms</code> (AIC/BIC vs
 WAIC/LOOIC are different scales). When the supplied models differ in any of
 these respects <code>maihda_ic()</code> warns and omits the <code>delta</code> column,
-still reporting each model's own criteria; <code><a href="compare_maihda.html">compare_maihda</a></code> warns
-on the same grounds.</p>
+still reporting each model's own criteria.</p>
+<p><strong>Parameter count.</strong> <code>df</code> counts the estimated parameters. A
+negative-binomial <code>lme4</code> fit with a fixed <code>theta</code>
+(<code>family = MASS::negative.binomial(theta)</code>) therefore has one fewer than
+<code>lme4</code>'s own count, which includes theta for every negative-binomial
+family, so its <code>AIC</code> is 2 and its <code>BIC</code> <code>log(n)</code> below
+<code><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">AIC()</a></code> and <code><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">BIC()</a></code> on the fitted model; <code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm()</a></code> counts that
+family the same way. A <code>family = "negbinomial"</code> fit estimates theta and
+counts it.</p>
+<p><strong>lme4 GLMM likelihoods.</strong> With <code>nAGQ &gt; 1</code>, <code>lme4</code>'s
+<code><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik()</a></code> leaves out the saturated log-likelihood (<code>?merMod</code>: it is
+“only proportional” to the likelihood); <code>maihda_ic()</code> adds it back, so
+a quadrature fit's criteria are the complete likelihood and compare with a
+Laplace fit's. A <code>glmer</code> fit of a family with a scale parameter – a Gaussian
+with a non-identity link, Gamma, inverse Gaussian – reports <code>NA</code> criteria
+(estimator <code>"ML (glmer scale family: no likelihood)"</code>): <code>lme4</code>'s
+<code><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik()</a></code> for those families is not the marginal likelihood, and on test
+fits it exceeded the largest value that likelihood attains.</p>
 <p><strong>Predictive target of the Bayesian criteria.</strong> <code><a href="https://mc-stan.org/loo/reference/waic.html" class="external-link">brms::waic()</a></code> and
 <code><a href="https://mc-stan.org/loo/reference/loo.html" class="external-link">brms::loo()</a></code> are computed from pointwise log-likelihoods
 <em>conditional on the fitted random effects</em>, so WAIC/LOOIC assess
@@ -174,7 +195,8 @@ densities, so WAIC/LOOIC are likewise reported as <code>NA</code> (the
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">delta = difference from the best model on AIC (lower is better).</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Information criteria are only comparable across models fitted to the same analytic sample with the same weights (and, for AIC/BIC, the same family).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Information criteria are only comparable across models fitted to the same analytic sample with the same weights,</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">and the same family and link unless all are count (Poisson / negative binomial), all binomial or all cumulative fits.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Or straight from a one-call maihda() analysis (null + adjusted rows)</span></span></span>
@@ -190,7 +212,8 @@ densities, so WAIC/LOOIC are likewise reported as <code>NA</code> (the
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">delta = difference from the best model on AIC (lower is better).</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Information criteria are only comparable across models fitted to the same analytic sample with the same weights (and, for AIC/BIC, the same family).</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">Information criteria are only comparable across models fitted to the same analytic sample with the same weights,</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">and the same family and link unless all are count (Poisson / negative binomial), all binomial or all cumulative fits.</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>

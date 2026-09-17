@@ -42,5 +42,7 @@ maihda_fit_clmm(formula, data, family, dot_vals)
 
 ## Value
 
-A list with `model` (the `clmm` fit) and `data` (the analytic data frame
-actually fitted).
+A list with `model` (the `clmm` fit), `data` (the analytic data frame
+actually fitted) and `coding` (the fit's factor levels and contrast
+matrices, taken while the options that shaped the design are in force;
+`NULL` if they could not be read).

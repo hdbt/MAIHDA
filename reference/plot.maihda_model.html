@@ -121,10 +121,16 @@ and predicted subgroup values with conditional intervals.</p>
     (largest first) by default; <code>order_by = "predicted_desc"</code> gives the
     ranked caterpillar of <code>"predicted"</code> with the matrix in place of the
     text labels</p></li>
-<li><p>"effect_decomp": Visualizes additive vs intersectional deviation from global mean</p></li>
+<li><p>"effect_decomp": Visualizes additive vs intersectional deviation from global mean.
+    Only the stratum random effect and, for a crossed-dimensions fit, the dimension
+    random effects enter; a contextual random effect, or any other grouping, belongs to
+    neither component and is left out of the deviations and the global mean, as it is
+    from the <code>"predicted"</code> values</p></li>
 <li><p>"prediction_deviation": Detailed deviation panels for individuals or strata</p></li>
 <li><p>"context_vpc": Stratum vs. context variance bars for a contextual
-    cross-classified fit (<code>fit_maihda(context = )</code>); errors otherwise</p></li>
+    cross-classified fit (<code>fit_maihda(context = )</code>); errors otherwise. For a
+    crossed-dimensions fit with a context the between-stratum variance is drawn
+    as its additive dimension and interaction bars</p></li>
 <li><p>"vpc_trajectory": Time-varying VPC/ICC curve for a <strong>longitudinal</strong>
     fit (<code>fit_maihda(id =, time =)</code>); errors otherwise. For a longitudinal
     model <code>"vpc"</code> and <code>"all"</code> also route here</p></li>

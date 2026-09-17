@@ -36,9 +36,13 @@ maihda_fit_wemix(formula, data, family, sampling_weights, dot_vals)
 
   Named list of evaluated `...` arguments forwarded to
   [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
-  (e.g. `nQuad`, `verbose`, `fast`).
+  (e.g. `nQuad`, `verbose`, `fast`). They are checked under the formal
+  names `mix()` binds them to, so a partial name is checked too;
+  `center_grand` and `center_group` are rejected.
 
 ## Value
 
-A list with `model` (the `WeMixResults`) and `data` (the analytic data
-frame actually fitted, including the weight columns).
+A list with `model` (the `WeMixResults`), `data` (the analytic data
+frame actually fitted, including the weight columns) and `coding` (the
+fit's factor levels and contrast matrices, taken while the options that
+shaped the design are in force; `NULL` if they could not be read).

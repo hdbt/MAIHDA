@@ -97,13 +97,18 @@ unconditional weights <code>c(level1, level2)</code>.</p>
 
 <dt id="arg-dot-vals">dot_vals<a class="anchor" aria-label="anchor" href="#arg-dot-vals"></a></dt>
 <dd><p>Named list of evaluated <code>...</code> arguments forwarded to
-<code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> (e.g. <code>nQuad</code>, <code>verbose</code>, <code>fast</code>).</p></dd>
+<code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> (e.g. <code>nQuad</code>, <code>verbose</code>, <code>fast</code>). They are
+checked under the formal names <code>mix()</code> binds them to, so a partial name is
+checked too; <code>center_grand</code> and <code>center_group</code> are rejected.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with <code>model</code> (the <code>WeMixResults</code>) and <code>data</code>
-  (the analytic data frame actually fitted, including the weight columns).</p>
+    <p>A list with <code>model</code> (the <code>WeMixResults</code>), <code>data</code>
+  (the analytic data frame actually fitted, including the weight columns) and
+  <code>coding</code> (the fit's factor levels and contrast matrices, taken while the
+  options that shaped the design are in force; <code>NULL</code> if they could not be
+  read).</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

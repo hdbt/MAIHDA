@@ -62,14 +62,39 @@ and outcome) with the *same* weights – prior (precision) weights and
 sampling (design) weights each change which likelihood, or
 pseudo-likelihood, is being maximised, so the criteria of a weighted and
 an unweighted fit of the identical model are not on a common scale.
-AIC/BIC additionally require the same response distribution – they are
-not comparable across families (e.g. a Gaussian vs a Poisson fit), nor
-between the likelihood engines and `brms` (AIC/BIC vs WAIC/LOOIC are
-different scales). When the supplied models differ in any of these
-respects `maihda_ic()` warns and omits the `delta` column, still
-reporting each model's own criteria;
-[`compare_maihda`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
-warns on the same grounds.
+Unlike the VPC and PCV, they do not always need the same family: a
+criterion compares log-likelihoods of the same observations, so Poisson
+and negative-binomial fits of the same counts are comparable, as are
+binomial or cumulative (ordinal) fits that differ in their link, and a
+delta is reported for them. Any other change of family or link withholds
+it – a Gaussian vs a Poisson fit compares a density with a probability,
+and the continuous families are compared only within the same family and
+link. Criteria are never comparable between the likelihood engines and
+`brms` (AIC/BIC vs WAIC/LOOIC are different scales). When the supplied
+models differ in any of these respects `maihda_ic()` warns and omits the
+`delta` column, still reporting each model's own criteria.
+
+**Parameter count.** `df` counts the estimated parameters. A
+negative-binomial `lme4` fit with a fixed `theta`
+(`family = MASS::negative.binomial(theta)`) therefore has one fewer than
+`lme4`'s own count, which includes theta for every negative-binomial
+family, so its `AIC` is 2 and its `BIC` `log(n)` below
+[`AIC()`](https://rdrr.io/r/stats/AIC.html) and
+[`BIC()`](https://rdrr.io/r/stats/AIC.html) on the fitted model;
+[`glm()`](https://rdrr.io/r/stats/glm.html) counts that family the same
+way. A `family = "negbinomial"` fit estimates theta and counts it.
+
+**lme4 GLMM likelihoods.** With `nAGQ > 1`, `lme4`'s
+[`logLik()`](https://rdrr.io/r/stats/logLik.html) leaves out the
+saturated log-likelihood (`?merMod`: it is “only proportional” to the
+likelihood); `maihda_ic()` adds it back, so a quadrature fit's criteria
+are the complete likelihood and compare with a Laplace fit's. A `glmer`
+fit of a family with a scale parameter – a Gaussian with a non-identity
+link, Gamma, inverse Gaussian – reports `NA` criteria (estimator
+`"ML (glmer scale family: no likelihood)"`): `lme4`'s
+[`logLik()`](https://rdrr.io/r/stats/logLik.html) for those families is
+not the marginal likelihood, and on test fits it exceeded the largest
+value that likelihood attains.
 
 **Predictive target of the Bayesian criteria.**
 [`brms::waic()`](https://mc-stan.org/loo/reference/waic.html) and
@@ -122,7 +147,8 @@ maihda_ic(null_model, adj_model, model_names = c("Null", "Adjusted"))
 #> 
 #> delta = difference from the best model on AIC (lower is better).
 #> REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.
-#> Information criteria are only comparable across models fitted to the same analytic sample with the same weights (and, for AIC/BIC, the same family).
+#> Information criteria are only comparable across models fitted to the same analytic sample with the same weights,
+#> and the same family and link unless all are count (Poisson / negative binomial), all binomial or all cumulative fits.
 #> 
 
 # Or straight from a one-call maihda() analysis (null + adjusted rows)
@@ -138,7 +164,8 @@ maihda_ic(a)
 #> 
 #> delta = difference from the best model on AIC (lower is better).
 #> REML lmer fit(s) were refitted with ML so AIC/BIC are comparable across different fixed effects.
-#> Information criteria are only comparable across models fitted to the same analytic sample with the same weights (and, for AIC/BIC, the same family).
+#> Information criteria are only comparable across models fitted to the same analytic sample with the same weights,
+#> and the same family and link unless all are count (Poisson / negative binomial), all binomial or all cumulative fits.
 #> 
 # }
 ```

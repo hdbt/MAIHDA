@@ -69,8 +69,10 @@ fit_maihda(
   brms via its `shape` parameter (log link only; not supported by the
   wemix engine). A fixed-theta `MASS::negative.binomial(theta)` family
   object is also accepted with `engine = "lme4"` and is fitted with
-  `glmer()`, honouring the supplied theta. `family = "ordinal"` (alias
-  `"cumulative"`; or
+  `glmer()`, honouring the supplied theta. With lme4 an estimated theta
+  needs `nAGQ` of 0 or 1: `glmer.nb()` mis-estimates theta under
+  adaptive quadrature, so `nAGQ > 1` is an error there (a fixed theta is
+  not affected). `family = "ordinal"` (alias `"cumulative"`; or
   [`maihda_cumulative`](https://hdbt.github.io/MAIHDA/reference/maihda_cumulative.md)`("probit")`
   /
   [`brms::cumulative()`](https://paulbuerkner.com/brms/reference/brmsfamily.html)
@@ -316,14 +318,18 @@ fit_maihda(
 
   Additional arguments passed to `lmer`/`glmer` (lme4), `brm` (brms), or
   [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
-  (wemix; e.g. `nQuad`, `fast`). The lme4-style `weights` (precision
-  weights), `subset`, and `offset` arguments are honoured only by the
-  `lme4` engine, which applies them directly. The `wemix`, `ordinal`,
-  and `brms` engines reject them: none takes them as a top-level fitting
-  argument (brms in particular expects weighting/offset as formula
-  addition terms, `weights(.)` / `offset(.)`, and design weights via
-  `sampling_weights`). Prefilter `data` instead of using `subset` on
-  those engines.
+  (wemix; e.g. `nQuad`, `fast`). The wemix engine rejects `mix()`'s
+  `center_grand` and `center_group`, under any partial spelling: WeMix
+  centres the covariates internally without keeping the centring
+  constants, so predictions could not reproduce the fit. Centre
+  covariates in `data` before fitting instead. The lme4-style `weights`
+  (precision weights), `subset`, and `offset` arguments are honoured
+  only by the `lme4` engine, which applies them directly. The `wemix`,
+  `ordinal`, and `brms` engines reject them: none takes them as a
+  top-level fitting argument (brms in particular expects
+  weighting/offset as formula addition terms, `weights(.)` /
+  `offset(.)`, and design weights via `sampling_weights`). Prefilter
+  `data` instead of using `subset` on those engines.
 
 ## Value
 

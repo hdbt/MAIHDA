@@ -17,7 +17,10 @@ sense:
 
 - Ordinal `"surprise"` mode: the cases/strata with the highest surprise
   \\-\log P(\text{observed category})\\, i.e. the least probable
-  observations under the model.
+  observations under the model. It needs the observed response in
+  `data`: a row whose response is missing is left out, and one whose
+  category is not among the model's fitted categories is left out with a
+  warning.
 
 ## Usage
 

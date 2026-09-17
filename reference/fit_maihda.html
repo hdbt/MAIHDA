@@ -123,7 +123,9 @@ dispersion parameter theta <em>estimated</em> from the data: lme4 via
 only; not supported by the wemix engine). A fixed-theta
 <code>MASS::negative.binomial(theta)</code> family object is also accepted with
 <code>engine = "lme4"</code> and is fitted with <code>glmer()</code>, honouring the
-supplied theta.
+supplied theta. With lme4 an estimated theta needs <code>nAGQ</code> of 0 or 1:
+<code>glmer.nb()</code> mis-estimates theta under adaptive quadrature, so
+<code>nAGQ &gt; 1</code> is an error there (a fixed theta is not affected).
 <code>family = "ordinal"</code> (alias <code>"cumulative"</code>; or
 <code><a href="maihda_cumulative.html">maihda_cumulative</a>("probit")</code> / <code><a href="https://paulbuerkner.com/brms/reference/brmsfamily.html" class="external-link">brms::cumulative()</a></code> for a
 non-logit link) fits a cumulative (proportional-odds) model for an
@@ -342,7 +344,11 @@ default-on <code>interactions</code> of <code><a href="maihda.html">maihda</a></
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments passed to <code>lmer</code>/<code>glmer</code> (lme4),
 <code>brm</code> (brms), or <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> (wemix; e.g. <code>nQuad</code>,
-<code>fast</code>). The lme4-style <code>weights</code> (precision weights),
+<code>fast</code>). The wemix engine rejects <code>mix()</code>'s <code>center_grand</code> and
+<code>center_group</code>, under any partial spelling: WeMix centres the covariates
+internally without keeping the centring constants, so predictions could not
+reproduce the fit. Centre covariates in <code>data</code> before fitting instead.
+The lme4-style <code>weights</code> (precision weights),
 <code>subset</code>, and <code>offset</code> arguments are honoured only by the
 <code>lme4</code> engine, which applies them directly. The <code>wemix</code>,
 <code>ordinal</code>, and <code>brms</code> engines reject them: none takes them as a

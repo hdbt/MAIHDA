@@ -152,6 +152,50 @@
 
 ### API changes
 
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  reports `NA` criteria, with estimator
+  `"ML (glmer scale family: no likelihood)"`, for a glmer fit of a
+  family with a scale parameter: a Gaussian with a non-identity link,
+  Gamma, inverse Gaussian. lme4’s
+  [`logLik()`](https://rdrr.io/r/stats/logLik.html) for those fits is
+  not the marginal likelihood – it exceeded the achievable maximum by up
+  to 15.4 on test fits – and nested AIC differences were off by 4 to 45.
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  adds back the saturated log-likelihood that lme4 leaves out of
+  [`logLik()`](https://rdrr.io/r/stats/logLik.html) for a glmer fit with
+  `nAGQ > 1`, so a quadrature fit’s criteria are the complete likelihood
+  and compare with a Laplace fit’s. The two differed by 1351.6 AIC units
+  on a 720-row Poisson fit; Bernoulli outcomes, whose term is zero, are
+  unchanged.
+- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  now refuses `family = "negbinomial"` with `nAGQ > 1` on the lme4
+  engine.
+  [`lme4::glmer.nb()`](https://rdrr.io/pkg/lme4/man/glmer.nb.html)
+  estimates theta on that incomplete likelihood and silently returned
+  theta 0.087 instead of 1.62 and a stratum SD of 0; use `nAGQ = 1`, or
+  fix theta with `family = MASS::negative.binomial(theta)`.
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md),
+  and the criteria
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  appends, now count only the estimated parameters of an lme4
+  negative-binomial fit with a fixed theta
+  (`family = MASS::negative.binomial(theta)`): `df` is one lower, and
+  AIC 2 and BIC `log(n)` lower, than
+  [`AIC()`](https://rdrr.io/r/stats/AIC.html) and
+  [`BIC()`](https://rdrr.io/r/stats/AIC.html) on the fitted model, which
+  count theta for every negative-binomial family.
+  [`glm()`](https://rdrr.io/r/stats/glm.html) counts that family the
+  same way; `family = "negbinomial"` fits estimate theta and are
+  unchanged.
+- [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
+  on an `engine = "brms"` ordinal fit now draws the posterior-mean
+  category probabilities from
+  [`fitted()`](https://rdrr.io/r/stats/fitted.values.html), the ones
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  uses, instead of tabulating responses simulated by
+  [`predict()`](https://rdrr.io/r/stats/predict.html). The
+  expected-score panel no longer changes between calls, and a category
+  that no draw happened to produce no longer gets probability 0.
 - [`summary()`](https://rdrr.io/r/base/summary.html) on a
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
   analysis now errors when passed `df_method`, `bootstrap`, `n_boot`,
@@ -356,6 +400,18 @@
   interval’s agreement with the p-value is now described as algebraic
   rather than as a coverage guarantee, and more draws as converging on a
   fixed interval width rather than tightening it.
+- [`?maihda_proportional_odds_test`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
+  no longer says that symmetric thresholds make the marginal slopes
+  coincide and the fixed-only chi-squared statistic valid. Symmetry
+  equates the marginal slopes at thresholds `-c` and `+c` where the
+  location is zero but not elsewhere – -0.882 against -0.826 one unit
+  away, at `c = 1`, a unit coefficient and stratum SD 1 – whether fitted
+  thresholds look symmetric depends on how the covariates are coded, and
+  observations that share a stratum stay dependent. With three
+  categories cut at -1 and +1, a covariate symmetric about zero, 12
+  strata and a stratum VPC near 7%, the chi-squared reference still
+  rejected 10% of datasets simulated from the correctly specified model
+  at a nominal 5% with n = 96,000.
 
 ### Performance
 
@@ -365,6 +421,103 @@
   roughly halves the fitting cost (most noticeable for `brms`).
 
 ### Bug fixes
+
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  now reports a delta between Poisson and negative-binomial fits of the
+  same counts, and between binomial or cumulative fits that differ only
+  in their link. It withheld the delta whenever the family or link
+  differed, as the VPC and PCV must, although these likelihoods are on a
+  common scale. A continuous family still needs the same family and
+  link, and the printed comparability note now says so.
+
+- [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  and [`predict()`](https://rdrr.io/r/stats/predict.html) now refuse
+  `newdata` for an lme4 fit that has both a formula
+  [`offset()`](https://rdrr.io/r/stats/offset.html) and an external
+  `offset =`, as they already did for an external offset alone. The
+  formula offset turned the check off, so predictions on new data
+  silently left the external offset out.
+
+- The ordinal surprise panel of `plot(type = "prediction_deviation")`
+  and
+  [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
+  now finds each row’s observed category by its position among the
+  model’s fitted categories, whatever their labels. It matched the label
+  against probability columns named `1`, `2`, `3`, so an
+  `engine = "ordinal"` outcome coded `low < mid < high` was never scored
+  and the panel was empty, while one coded `0 < 1 < 2` dropped its first
+  category and scored the rest one category off, and one coded
+  `3 < 2 < 1` had its end categories swapped. An `engine = "brms"` fit
+  never found its response at all, which also gave every stratum of a
+  brms binary-outcome panel a deviance residual of 0. A category named
+  like one of the panel’s own columns (`n`, `weight`) is no longer
+  overwritten by it, and a row whose category is not a fitted one is
+  left out with a warning.
+
+- `plot(type = "context_vpc")` now draws a crossed-dimensions fit that
+  carries a context, showing the between-stratum variance as its
+  additive dimension and interaction bars. It stopped with a message
+  asking for the `context =` that had been given, and
+  `plot(type = "all")` warned and left the panel out.
+
+- `plot(type = "effect_decomp")` now leaves a contextual (`context =`)
+  random effect, or any other grouping besides the stratum and dimension
+  random effects, out of the decomposition, as
+  `plot(type = "predicted")` already did. In crossed-dimensions mode
+  each stratum’s context composition was drawn as part of the additive
+  dimension component, and in both modes the global mean the deviations
+  are measured from carried the row-weighted mean of the context
+  effects.
+
+- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now treat a partial spelling that the engine binds to `subset`,
+  `weights` or `offset` (e.g. `subs = keep`, `weig = w`) like the full
+  name. The engine bound the partial spelling while the package’s checks
+  read the exact name, so `engine = "ordinal"` fitted a subset or
+  weights it refuses, lme4 fits could detect the wrong family, strata or
+  longitudinal time centring, and a partial `contrasts` name escaped the
+  ordinal coding record. Supplying one of the three more than once,
+  under any spellings, is now an error.
+
+- `engine = "wemix"` now rejects
+  [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)’s
+  `center_grand` and `center_group`. WeMix centred the covariates inside
+  the fit while predictions, stratum tables, plots and binomial standard
+  errors used the uncentred values; centre covariates in `data` instead.
+  A saved fit that used them now refuses to predict, and a saved
+  binomial
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis warns that its stored stratum standard errors and interaction
+  tests are wrong.
+
+- A partially named `max_iteration` passed to `engine = "wemix"`
+  (e.g. `max_iter = 0`) is now validated like the full name instead of
+  reaching WeMix unchecked.
+
+- `engine = "ordinal"` and `engine = "wemix"` predictions now rebuild
+  the fixed-effect design with the factor levels and contrast matrices
+  the fit used. The rebuild took the contrasts in force at prediction
+  time and every level declared on the stored data, so a fit coded by
+  `contrasts =` (ordinal), by `options(contrasts = )` at fit time or by
+  a factor’s `contrasts` attribute failed with “missing column(s)”, or
+  returned wrong values silently when a custom matrix’s columns were
+  named like treatment coding’s; an ordered covariate with a declared
+  but unobserved level was mis-coded even under the default options.
+  This reached
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md),
+  the stratum tables and plots,
+  [`maihda_proportional_odds_test()`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md),
+  and for a binomial WeMix fit
+  [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+  (with the AUC that [`summary()`](https://rdrr.io/r/base/summary.html)
+  and
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  report) and the [`summary()`](https://rdrr.io/r/base/summary.html)
+  stratum standard errors. A newdata level declared on the data but
+  absent from the fitted rows is now refused like any other unseen
+  level, as lme4 refuses it.
 
 - `summary(df_method = "bootstrap")` no longer warns that the
   `n_boot = 199` its own help page recommends is too low. The

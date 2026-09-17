@@ -72,13 +72,19 @@ plot(
     `"predicted"` with the matrix in place of the text labels
 
   - "effect_decomp": Visualizes additive vs intersectional deviation
-    from global mean
+    from global mean. Only the stratum random effect and, for a
+    crossed-dimensions fit, the dimension random effects enter; a
+    contextual random effect, or any other grouping, belongs to neither
+    component and is left out of the deviations and the global mean, as
+    it is from the `"predicted"` values
 
   - "prediction_deviation": Detailed deviation panels for individuals or
     strata
 
   - "context_vpc": Stratum vs. context variance bars for a contextual
-    cross-classified fit (`fit_maihda(context = )`); errors otherwise
+    cross-classified fit (`fit_maihda(context = )`); errors otherwise.
+    For a crossed-dimensions fit with a context the between-stratum
+    variance is drawn as its additive dimension and interaction bars
 
   - "vpc_trajectory": Time-varying VPC/ICC curve for a **longitudinal**
     fit (`fit_maihda(id =, time =)`); errors otherwise. For a

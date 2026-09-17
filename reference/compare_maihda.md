@@ -68,10 +68,14 @@ family/link, analytic sample, and strata – the canonical use is nested
 models (e.g. null vs covariate-adjusted) on the *same* data and strata,
 to show how the VPC attenuates. If the supplied models differ in any of
 these, `compare_maihda()` still returns the table but issues a single
-warning, because the VPCs are then not directly comparable. The same
-comparability caveat applies to the appended information criteria (see
-[`maihda_ic`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)). In
-addition, when the appended criteria mix scales – likelihood `AIC`/`BIC`
+warning, because the VPCs are then not directly comparable. The appended
+information criteria follow the rules of
+[`maihda_ic`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+instead: they need the same outcome, analytic sample and weights but not
+the same strata, and Poisson and negative-binomial fits of the same
+counts, or binomial or cumulative fits differing in their link, have
+comparable criteria although their VPCs are not comparable. In addition,
+when the appended criteria mix scales – likelihood `AIC`/`BIC`
 (lme4/ordinal) shown alongside Bayesian `WAIC`/`LOOIC` (brms), which can
 happen for a same-family lme4-vs-brms comparison that the family/link
 check does not flag – `compare_maihda()` warns, because those criteria

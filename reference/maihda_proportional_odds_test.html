@@ -108,20 +108,30 @@ is computed on the <em>marginal</em> fit.</p>
 <code><a href="https://rdrr.io/pkg/ordinal/man/nominal.test.html" class="external-link">ordinal::nominal_test()</a></code> would, is not valid here. A conditional
 cumulative model with a normal random intercept does not in general remain an
 ordinary proportional-odds model after the random intercept is marginalised
-away: the implied marginal cumulative-logit slopes differ across thresholds
-for any non-zero stratum variance. The chi-squared null is therefore false
-under the correctly specified model, and its rejection rate grows without
-bound in the sample size – at a stratum VPC near 7 percent, a plausible
-MAIHDA value, a correctly specified model is rejected about a quarter of the
-time at <code>n = 96,000</code>. Stratum heterogeneity and genuine non-proportional
-odds are not separable by the fixed-only statistic alone.</p>
-<p>The one exception is an exactly symmetric threshold configuration, where the
-marginal slopes coincide and the fixed-only statistic is valid: for symmetric
-\(u\) the map \(\eta \mapsto\) logit \(E[\mathrm{plogis}(\eta - u)]\)
-is odd, so its derivative is even and thresholds placed symmetrically about the
-location share a slope. Three categories cut at \(-c\) and \(+c\) is the
-case that arises in practice. Asymmetric thresholds are markedly worse rather
-than better, so this exception narrows the problem without softening it.</p>
+away: the implied marginal cumulative-logit slopes generally differ across
+thresholds once the stratum variance is non-zero. The chi-squared null is
+therefore false in general under the correctly specified model, and its
+rejection rate grows with the sample size – at a stratum VPC near 7 percent,
+a plausible MAIHDA value, a correctly specified model is rejected about a
+quarter of the time at <code>n = 96,000</code>. The chi-squared reference also
+treats the observations as independent, whereas observations that share a
+stratum share its random effect. Stratum heterogeneity and genuine
+non-proportional odds are not separable by the fixed-only statistic alone.</p>
+<p>Symmetric thresholds do not rescue the chi-squared reference. For symmetric
+\(u\) the map \(\eta \mapsto\) logit
+\(E[\mathrm{plogis}(\eta - u)]\)
+is odd, which equates the marginal slopes at thresholds \(-c\) and \(+c\)
+where the location \(x'\beta\) is zero, but not over the range of
+the covariates. Whether fitted thresholds look symmetric depends on how the
+covariates are coded: adding a constant \(s\) to a covariate with
+coefficient \(\beta\) adds \(\beta s\) to every threshold
+without changing the fit or the statistic. And no threshold configuration
+makes observations that share a stratum independent. Even when both the
+thresholds and the covariate are symmetric about zero – three categories cut
+at -1 and +1, a standard normal covariate with coefficient 0.8, and 12 equal
+strata at a stratum VPC near 7 percent – the chi-squared reference rejected
+10 percent of 600 datasets simulated from the correctly specified model at a
+nominal 5 percent with <code>n = 96,000</code>.</p>
 <p>This function accounts for that confounding by simulating the null
 distribution <em>under the fitted <code>clmm</code> itself</em>: each replicate redraws
 the stratum random effects from \(N(0, \tau^2)\) at the fitted variance,

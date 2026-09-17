@@ -38,3 +38,10 @@ plot_effect_decomposition(
 ## Value
 
 A ggplot2 object
+
+## Details
+
+Only the intersectional random effects enter the deviations and the
+overall mean: the stratum effect and, for a crossed-dimensions fit, the
+dimension effects. A contextual random effect, or any other grouping, is
+part of neither component and is excluded.
