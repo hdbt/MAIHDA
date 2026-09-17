@@ -23,6 +23,30 @@ maihda_binomial_abs_deviance_residual <- function(obs_outcome_01, fitted) {
   out
 }
 
+# |Binomial deviance residual| of `successes` out of `trials` at probability `p`:
+# sqrt(2 * [s log(s / (n p)) + (n - s) log((n - s) / (n (1 - p)))]), a 0 * log(0)
+# term counting as 0. This is lme4's residuals(type = "deviance") for a
+# cbind(successes, failures) fit with the sign dropped, and at one trial it is the
+# 0/1 residual above. NA where a row cannot be scored (missing counts, no trials,
+# successes outside 0..trials, a non-finite probability), so stratum means leave it
+# out.
+maihda_binomial_abs_deviance_residual_agg <- function(successes, trials, p) {
+  out <- rep(NA_real_, length(p))
+  ok <- is.finite(successes) & is.finite(trials) & is.finite(p) & trials > 0 &
+    successes >= 0 & successes <= trials
+  if (!any(ok)) {
+    return(out)
+  }
+  s <- successes[ok]
+  n <- trials[ok]
+  f <- n - s
+  pp <- pmin(pmax(p[ok], .Machine$double.eps), 1 - .Machine$double.eps)
+  term_s <- ifelse(s > 0, s * log(s / (n * pp)), 0)
+  term_f <- ifelse(f > 0, f * log(f / (n * (1 - pp))), 0)
+  out[ok] <- sqrt(pmax(2 * (term_s + term_f), 0))
+  out
+}
+
 # Prediction weights aligned to `data`'s rows, used to make the per-stratum
 # aggregation a weighted mean for weighted fits (consistent with the weighted VPC
 # and the other stratum-level plots); for an aggregated-binomial fit each row is
@@ -30,8 +54,12 @@ maihda_binomial_abs_deviance_residual <- function(obs_outcome_01, fitted) {
 # fallback below already applies via weights(type = "prior"). Falls back to unit
 # weights -- so the weighted means reduce EXACTLY to plain means -- when the model
 # is unweighted, the weights cannot be recovered, or they do not align with `data`
-# (e.g. user-supplied prediction data). These are prior/precision (and trial)
-# weights, not a complex survey design (no design-based variance is computed).
+# (e.g. user-supplied prediction data) -- except that a brms `y | trials(n)` fit then
+# weights the plotted rows by their own trial counts (brms has no weights() method),
+# so a bare fit and other prediction data are still trial-weighted; sampling weights,
+# where the fit had them, cannot be carried to other rows. These are prior/precision
+# (and trial) weights, not a complex survey design (no design-based variance is
+# computed).
 maihda_prediction_panel_prior_weights <- function(maihda_obj, model, data) {
   n <- nrow(data)
   w <- NULL
@@ -42,7 +70,11 @@ maihda_prediction_panel_prior_weights <- function(maihda_obj, model, data) {
     w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
   }
   if (is.null(w) || !is.numeric(w) || length(w) != n) {
-    return(rep(1, n))
+    w <- tryCatch(maihda_prediction_panel_brms_trials(model, data),
+                  error = function(e) NULL)
+    if (is.null(w)) {
+      return(rep(1, n))
+    }
   }
   w <- as.numeric(w)
   w[!is.finite(w)] <- NA_real_
@@ -102,7 +134,72 @@ maihda_prediction_panel_response_name <- function(model) {
   as.character(form)[2]
 }
 
-maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALSE) {
+# The formula of a brms fit, unwrapped from its brmsformula; NULL for any other model.
+maihda_prediction_panel_brms_formula <- function(model) {
+  if (!inherits(model, "brmsfit")) {
+    return(NULL)
+  }
+  f <- tryCatch(formula(model), error = function(e) NULL)
+  if (inherits(f, "brmsformula")) {
+    f <- f$formula
+  }
+  if (!inherits(f, "formula") || length(f) != 3L) {
+    return(NULL)
+  }
+  f
+}
+
+# Trial counts of a brms `y | trials(n)` fit, one per row of `data`; NULL when the
+# model is not a brms fit with a trials() term. brms's fitted() and posterior_epred()
+# return the expected success COUNT (trials * p) for such a fit, so the binomial
+# panel divides by these to plot probabilities, as predict_maihda() does. The term is
+# evaluated on `data`, the rows the panel predicts; one that cannot be evaluated there
+# is an error rather than a silent return of counts.
+maihda_prediction_panel_brms_trials <- function(model, data) {
+  f <- maihda_prediction_panel_brms_formula(model)
+  if (is.null(f)) {
+    return(NULL)
+  }
+  lhs <- f[[2]]
+  if (!is.call(lhs) || !identical(lhs[[1]], as.name("|")) ||
+      is.null(maihda_find_trials_expr(lhs[[3]]))) {
+    return(NULL)
+  }
+  trials <- maihda_trials_from_formula(f, data)
+  if (is.null(trials)) {
+    stop("Could not evaluate the trials() term of this brms binomial fit on `data`, ",
+         "so its expected success counts cannot be put on the probability scale.",
+         call. = FALSE)
+  }
+  trials
+}
+
+# Success counts of a brms `y | trials(n)` fit -- its response, left of the addition
+# terms -- evaluated on `data`; NULL when `data` cannot supply them.
+maihda_prediction_panel_brms_successes <- function(model, data) {
+  f <- maihda_prediction_panel_brms_formula(model)
+  if (is.null(f)) {
+    return(NULL)
+  }
+  s <- tryCatch(eval(maihda_describe_response_expr(f), envir = data, enclos = baseenv()),
+                error = function(e) NULL)
+  if (!is.numeric(s) || !is.null(dim(s)) || length(s) != nrow(data)) {
+    return(NULL)
+  }
+  as.numeric(s)
+}
+
+# Response-scale values divided by their rows' trial counts. A row without a positive
+# trial count has no per-trial probability and becomes NA.
+maihda_prediction_panel_per_trial <- function(x, trials) {
+  ok <- is.finite(trials) & trials > 0
+  out <- rep(NA_real_, length(x))
+  out[ok] <- x[ok] / trials[ok]
+  out
+}
+
+maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALSE,
+                                           trials = NULL) {
   if (inherits(model, "brmsfit")) {
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("Package 'brms' is required to plot prediction deviations from brms models.",
@@ -125,7 +222,14 @@ maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALS
       # NA (not 0) so downstream CI bars are omitted rather than collapsed.
       rep(NA_real_, nrow(data))
     }
-    return(list(fit = as.numeric(fit[, "Estimate"]), se.fit = as.numeric(se)))
+    est <- as.numeric(fit[, "Estimate"])
+    se <- as.numeric(se)
+    if (!is.null(trials)) {
+      # A `y | trials(n)` fit: the estimate and its interval are success counts.
+      est <- maihda_prediction_panel_per_trial(est, trials)
+      se <- maihda_prediction_panel_per_trial(se, trials)
+    }
+    return(list(fit = est, se.fit = se))
   }
 
   # lme4: when predicting the model's OWN fitted rows (no external newdata), reuse the
@@ -401,7 +505,17 @@ maihda_prediction_panel_observed_prob <- function(prob_mat, obs_cat, categories,
   out
 }
 
-maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_outcome_01) {
+maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_outcome_01,
+                                                       trials = NULL) {
+  # A brms `y | trials(n)` fit: each row's successes out of its trials, the residual
+  # lme4's residuals() gives a cbind() fit. `fitted` is already per trial.
+  if (!is.null(trials)) {
+    successes <- maihda_prediction_panel_brms_successes(model, data)
+    if (!is.null(successes)) {
+      return(maihda_binomial_abs_deviance_residual_agg(successes, trials, fitted))
+    }
+  }
+
   aligned_obs <- length(obs_outcome_01) == length(fitted)
   aligned_resids <- if (aligned_obs) {
     maihda_binomial_abs_deviance_residual(obs_outcome_01, fitted)
@@ -477,7 +591,7 @@ maihda_stratum_interval_from_epred <- function(ep, strat, w = NULL, level = 0.95
 # family), so the caller falls back to no stratum error bars rather than a
 # statistically invalid averaged SE.
 maihda_prediction_stratum_interval_brms <- function(model, data, weight = NULL,
-                                                    level = 0.95) {
+                                                    level = 0.95, trials = NULL) {
   if (!inherits(model, "brmsfit") || !requireNamespace("brms", quietly = TRUE)) {
     return(NULL)
   }
@@ -488,6 +602,18 @@ maihda_prediction_stratum_interval_brms <- function(model, data, weight = NULL,
                  error = function(e) NULL)
   if (is.null(ep) || length(dim(ep)) != 2L || ncol(ep) != nrow(data)) {
     return(NULL)
+  }
+  if (!is.null(trials)) {
+    # A `y | trials(n)` fit draws success counts: divide each row's draws by its
+    # trials. A row without a positive trial count is zeroed and given no weight, so
+    # it cannot turn its stratum's per-draw mean into NA.
+    ok <- is.finite(trials) & trials > 0
+    ep <- sweep(ep, 2L, ifelse(ok, trials, 1), "/")
+    ep[, !ok] <- 0
+    if (is.null(weight) || length(weight) != length(ok)) {
+      weight <- rep(1, length(ok))
+    }
+    weight <- ifelse(ok, weight, 0)
   }
   maihda_stratum_interval_from_epred(ep, data$stratum, weight, level = level)
 }
@@ -530,8 +656,11 @@ maihda_prediction_panel_attach_ci <- function(df, aggregated, strat_ci,
 #'     the cases/strata whose prediction sits furthest from the mean prediction
 #'     (largest deviation), ranked by absolute deviation.
 #'   \item Binomial: the cases/strata with the largest absolute deviance residual,
-#'     i.e. where the observed 0/1 outcome is least consistent with the fitted
+#'     i.e. where the observed 0/1 outcome -- for an aggregated binomial
+#'     (\code{cbind(successes, failures)}, or a brms \code{y | trials(n)} fit),
+#'     the observed successes out of trials -- is least consistent with the fitted
 #'     probability (worst-fit points), ranked by \eqn{|deviance residual|}.
+#'     Predictions are per-trial probabilities for every binomial fit.
 #'   \item Ordinal \code{"surprise"} mode: the cases/strata with the highest
 #'     surprise \eqn{-\log P(\text{observed category})}, i.e. the least probable
 #'     observations under the model. It needs the observed response in
@@ -696,15 +825,24 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
 
   } else if (type == "binomial") {
     # BINOMIAL / LOGISTIC LOGIC
+    # A brms `y | trials(n)` fit predicts expected success COUNTS; its trial counts
+    # put them, and their posterior draws, on the probability scale.
+    trials <- maihda_prediction_panel_brms_trials(model, data)
     preds <- maihda_prediction_panel_fitted(model, data, "binomial",
-                                            fitted_data = !data_supplied)
+                                            fitted_data = !data_supplied,
+                                            trials = trials)
 
-    # Try to extract response variable
+    # Try to extract response variable. A cbind(successes, failures) response sits in
+    # the model's data as a two-column matrix under its deparsed name: an aggregated
+    # count, not one 0/1 outcome per row (as.factor() of it has two entries per row),
+    # so it counts as unobserved and the deviance residuals come from the model.
     resp_name <- maihda_prediction_panel_response_name(model)
     obs_outcome <- NULL
     obs_outcome_01 <- rep(NA_integer_, nrow(data))
-    if (!is.null(resp_name) && resp_name %in% names(data)) {
-      raw_outcome <- data[[resp_name]]
+    raw_outcome <- if (!is.null(resp_name) && resp_name %in% names(data)) {
+      data[[resp_name]]
+    }
+    if (!is.null(raw_outcome) && is.null(dim(raw_outcome))) {
       obs_outcome <- as.factor(raw_outcome)
       obs_outcome_01 <- maihda_binomial_observed_01(raw_outcome, nrow(data))
     }
@@ -713,7 +851,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
     }
 
     resids <- maihda_prediction_panel_binomial_residuals(
-      model, data, preds$fit, obs_outcome_01
+      model, data, preds$fit, obs_outcome_01, trials = trials
     )
 
     df <- data |>
@@ -735,7 +873,8 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       # per-stratum mean diagnostic). Row-level SEs are NOT averaged into a stratum
       # SE; the stratum probability interval is computed correctly from the
       # posterior draws for brms and omitted otherwise.
-      strat_ci <- maihda_prediction_stratum_interval_brms(model, data, prior_w)
+      strat_ci <- maihda_prediction_stratum_interval_brms(model, data, prior_w,
+                                                          trials = trials)
       df <- maihda_weighted_stratum_aggregate(
         df, c("fitted", "abs_res_dev")
       )

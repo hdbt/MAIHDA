@@ -43,8 +43,11 @@ What "notable" means depends on the model type, and the labelled points are
     the cases/strata whose prediction sits furthest from the mean prediction
     (largest deviation), ranked by absolute deviation.
   \item Binomial: the cases/strata with the largest absolute deviance residual,
-    i.e. where the observed 0/1 outcome is least consistent with the fitted
+    i.e. where the observed 0/1 outcome -- for an aggregated binomial
+    (\code{cbind(successes, failures)}, or a brms \code{y | trials(n)} fit),
+    the observed successes out of trials -- is least consistent with the fitted
     probability (worst-fit points), ranked by \eqn{|deviance residual|}.
+    Predictions are per-trial probabilities for every binomial fit.
   \item Ordinal \code{"surprise"} mode: the cases/strata with the highest
     surprise \eqn{-\log P(\text{observed category})}, i.e. the least probable
     observations under the model. It needs the observed response in

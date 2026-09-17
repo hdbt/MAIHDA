@@ -61,6 +61,8 @@
 
 ## Bug fixes
 
+* The binomial panel of `plot(type = "prediction_deviation")` and `plot_prediction_deviation_panels()` now draws an `engine = "brms"` `y | trials(n)` fit as per-trial probabilities. It drew brms's expected success counts on its probability axis, with the stratum intervals clamped at 1, and it now ranks the strata by the deviance residual of their successes out of trials, which was 0 for every stratum. An lme4 `cbind(successes, failures)` fit no longer stops the panel with "`obs_outcome` must be size", and `plot(type = "all")` no longer drops it.
+
 * `maihda_ic()` now reports a delta between Poisson and negative-binomial fits of the same counts, and between binomial or cumulative fits that differ only in their link. It withheld the delta whenever the family or link differed, as the VPC and PCV must, although these likelihoods are on a common scale. A continuous family still needs the same family and link, and the printed comparability note now says so.
 
 * `predict_maihda()` and `predict()` now refuse `newdata` for an lme4 fit that has both a formula `offset()` and an external `offset =`, as they already did for an external offset alone. The formula offset turned the check off, so predictions on new data silently left the external offset out.
