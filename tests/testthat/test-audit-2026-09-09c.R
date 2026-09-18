@@ -27,8 +27,9 @@
 # maihda_offset_before_bars() relocates the offset terms ahead of the bars for
 # the clmm call only. It is a no-op -- returning the formula UNCHANGED -- when
 # there is no offset, no random effect, or the offsets already lead, so no-offset
-# fits stay bit-identical; lme4/brms/WeMix read their offset from their own frame
-# and keep the formula they always had.
+# fits stay bit-identical; lme4 and brms read their offset from their own frame
+# and keep the formula they always had (the wemix engine refuses offsets: WeMix
+# does not fit them -- see test-audit-2026-09-17b.R).
 
 make_offord_data <- function(seed = 11, n = 900) {
   set.seed(seed)

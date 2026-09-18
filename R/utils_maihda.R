@@ -1653,6 +1653,9 @@ maihda_resolve_engine_dots <- function(dot_vals, engine, family) {
   watch <- c("subset", "weights", "offset", "nAGQ")
   tags <- names(dot_vals)
   dot_vals <- maihda_resolve_dot_names(dot_vals, target$fun, target$supplied, watch = watch)
+  # A partial spelling the ENGINE cannot bind at all still means the lme4-only
+  # argument it abbreviates; rename it so the refusals below see it too.
+  dot_vals <- maihda_resolve_unbound_lme4_dots(dot_vals, engine, target)
   # Two spellings of one argument met R's own "matched by multiple actual arguments"
   # error at the engine call; renamed alike, fit_maihda() would build that call with
   # only the first, silently -- as it already did for a name given twice. Refuse both.
@@ -1665,6 +1668,82 @@ maihda_resolve_engine_dots <- function(dot_vals, engine, family) {
     }
   }
   dot_vals
+}
+
+# The lme4-only fitting arguments: honoured by lmer()/glmer(), refused by every
+# other engine (see maihda_refuse_engine_dots()).
+.maihda_lme4_only_dots <- c("weights", "subset", "offset")
+
+# Rename a forwarded name that the NON-lme4 engine's fitting function cannot bind
+# but that abbreviates one of the lme4-only arguments, so the refusals read it under
+# that name. Resolving against the engine alone leaves such a name untouched --
+# WeMix::mix() and brms::brm() have no subset/offset argument (and mix()'s weights is
+# already supplied by the package), and clmm() has no offset -- and the engines then
+# treat it very differently: mix() stops with "unused argument" and the whole vector
+# deparsed into the message, brm() passes it to the sampler, which stops only after
+# compiling ("passing unknown arguments: subs."), and clmm() FITS, silently without
+# the offset, warning only that it ignored an "unknown control element". A name the
+# engine DOES bind keeps its binding (brms `w = 500` is warmup, not weights), and an
+# exact formal name is left alone. lmer() is the reference because it takes all three
+# and has no `...`, so only a genuine abbreviation of them resolves.
+maihda_resolve_unbound_lme4_dots <- function(dot_vals, engine, target) {
+  tags <- names(dot_vals)
+  if (identical(engine, "lme4") || is.null(tags)) {
+    return(dot_vals)
+  }
+  engine_formals <- names(formals(target$fun))
+  resolves_to <- function(tag, fun, supplied, watch = NULL) {
+    names(maihda_resolve_dot_names(stats::setNames(list(NULL), tag), fun, supplied,
+                                   watch = watch))
+  }
+  for (i in seq_along(tags)) {
+    tag <- tags[i]
+    if (!nzchar(tag) || tag %in% .maihda_lme4_only_dots || tag %in% engine_formals) {
+      next
+    }
+    if (!identical(resolves_to(tag, target$fun, target$supplied), tag)) {
+      next                                  # the engine binds it: leave it alone
+    }
+    as_lme4 <- resolves_to(tag, lme4::lmer, c("formula", "data"),
+                           watch = .maihda_lme4_only_dots)
+    if (as_lme4 %in% .maihda_lme4_only_dots) {
+      names(dot_vals)[i] <- as_lme4
+    }
+  }
+  dot_vals
+}
+
+# Refuse the lme4-only fitting arguments on an engine that does not take them, with
+# the engine's own guidance. Shared by fit_maihda() -- which refuses them before the
+# fit -- and compare_maihda_groups(), which would otherwise turn one refusal into a
+# failed fit, and a warning, for every group. A no-op for lme4 and for dots carrying
+# none of them.
+maihda_refuse_engine_dots <- function(engine, dot_vals) {
+  unsupported <- intersect(.maihda_lme4_only_dots, names(dot_vals))
+  if (length(unsupported) == 0L || !engine %in% c("wemix", "brms", "ordinal")) {
+    return(invisible(TRUE))
+  }
+  advice <- if (identical(engine, "brms")) {
+    paste0("brms takes weighting and offset information as formula addition ",
+           "terms -- put offset(.) or weights(.) in the model formula, pass ",
+           "design weights via 'sampling_weights', and prefilter 'data' instead ",
+           "of using 'subset'.")
+  } else {
+    "Subset or transform the data before fitting."
+  }
+  stop("Argument(s) not supported by engine = \"", engine, "\": ",
+       paste(unsupported, collapse = ", "), ". ", advice, call. = FALSE)
+}
+
+# Design weights and lme4 PRECISION weights are different things and may not be
+# combined. Shared by fit_maihda() and compare_maihda_groups() (whose per-group fits
+# would otherwise each report this).
+maihda_check_weights_conflict <- function(sampling_weights, dot_vals) {
+  if (!is.null(sampling_weights) && "weights" %in% names(dot_vals)) {
+    stop("Supply either 'sampling_weights' (design weights) or 'weights' ",
+         "(precision weights), not both.", call. = FALSE)
+  }
+  invisible(TRUE)
 }
 
 # lme4 PRECISION weights (weights=) that are zero -- or negative / non-finite --

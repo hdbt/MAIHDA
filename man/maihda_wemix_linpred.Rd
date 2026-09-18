@@ -25,7 +25,9 @@ matrix it applied to each factor, whatever \code{options(contrasts = )} says now
 -- AND its transformation basis (so a
 data-dependent term such as \code{scale(x)} uses the fit's centre and scale rather
 than recomputing them from \code{newdata}) and multiplied by
-\code{coef}, any formula offset term is evaluated on \code{newdata} and added,
+\code{coef}, any formula offset term is evaluated on \code{newdata} and added
+(only a fit saved before \code{fit_maihda()} refused offsets for this engine
+carries one; WeMix fitted it without the offset),
 and \code{include_re} adds each row's stratum effect (conditional
 mode; an unseen stratum contributes 0 -- the zero-effect fallback that
 \code{\link{predict_maihda}} only reaches when \code{allow_new_levels = TRUE},

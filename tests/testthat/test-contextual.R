@@ -370,10 +370,19 @@ test_that("group + context is rejected up front for wemix / ordinal", {
     maihda(y ~ x + (1 | g1:g2), data = d, group = "region", context = "site",
            engine = "ordinal"),
     "does not support 'context'")
+  # An otherwise-valid wemix call: the context is refused before any group is fitted.
+  d$w <- 1
+  expect_error(
+    compare_maihda_groups(y ~ x + (1 | g1:g2), data = d, group = "region",
+                          context = "site", engine = "wemix", sampling_weights = "w"),
+    "does not support 'context'")
+  # Without the design weights, the engine's own requirement comes first, as it does
+  # in fit_maihda() (audit 2026-09-17c: compare_maihda_groups() used to report neither,
+  # failing every group in turn instead).
   expect_error(
     compare_maihda_groups(y ~ x + (1 | g1:g2), data = d, group = "region",
                           context = "site", engine = "wemix"),
-    "does not support 'context'")
+    "requires 'sampling_weights'")
 })
 
 test_that("context may not name the group variable", {

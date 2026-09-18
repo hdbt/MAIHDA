@@ -129,7 +129,10 @@ attribute on the returned comparison; the basis actually used is recorded as
 the boundary, leaving it on REML). Both are shown by \code{print()}.}
 
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
-\code{lmer}/\code{glmer}).}
+\code{lmer}/\code{glmer}). An argument the engine rejects -- \code{weights},
+\code{subset} or \code{offset} on \code{wemix}/\code{brms}/\code{ordinal} --
+is refused once here, before any group is fitted, rather than failing each
+group in turn.}
 }
 \value{
 A \code{data.frame} of class \code{maihda_group_comparison} with one

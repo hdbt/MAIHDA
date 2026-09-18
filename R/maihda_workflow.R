@@ -387,6 +387,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
            "random effects). Use engine = \"lme4\" or \"brms\" for a contextual ",
            "cross-classified model.", call. = FALSE)
     }
+    maihda_wemix_check_offset(formula)
   }
 
   # Resolve the forwarded engine arguments (subset/weights/offset/control/...) once,

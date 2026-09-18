@@ -487,7 +487,10 @@ plot_comparison <- function(comparison_df) {
 #'   \code{"estimation_used"} (\code{"mixed"} when a group's ML refit was skipped at
 #'   the boundary, leaving it on REML). Both are shown by \code{print()}.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
-#'   \code{lmer}/\code{glmer}).
+#'   \code{lmer}/\code{glmer}). An argument the engine rejects -- \code{weights},
+#'   \code{subset} or \code{offset} on \code{wemix}/\code{brms}/\code{ordinal} --
+#'   is refused once here, before any group is fitted, rather than failing each
+#'   group in turn.
 #'
 #' @return A \code{data.frame} of class \code{maihda_group_comparison} with one
 #'   row per group and columns \code{group}, \code{n}, \code{n_strata},
@@ -675,6 +678,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                                           rownames(data))
   dot_vals[["subset"]] <- subset_value
   weights_value <- dot_vals[["weights"]]
+  # Design weights beside precision weights: refused here, before the normalization
+  # below, exactly where fit_maihda() refuses it -- otherwise a zero precision weight
+  # would first warn about a sample this call is never going to fit.
+  maihda_check_weights_conflict(sampling_weights, dot_vals)
   # Normalize invalid lme4 precision weights (zero / negative / non-finite -> NA,
   # the rows lme4 drops) BEFORE family/engine detection, the shared-strata binning,
   # the per-group analytic-size guard (min_group_n), and the per-group fits -- so all
@@ -687,6 +694,15 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     weights_value <- maihda_normalize_precision_weights(
       weights_value, n_full, engine, "compare_maihda_groups()")
     dot_vals[["weights"]] <- weights_value
+  }
+  # The rest of the refusals fit_maihda() makes before it fits, made ONCE here
+  # instead: per-group, each becomes a "fit failed" status row and a warning, so a
+  # call that cannot work at all returned a table of failures rather than saying so.
+  # The engine is already final for wemix/brms (the sampling_weights switch above);
+  # the ordinal engine can still be selected by the handshake below, so its dots are
+  # refused there.
+  if (engine %in% c("wemix", "brms")) {
+    maihda_refuse_engine_dots(engine, dot_vals)
   }
   # The external offset= (lme4 only) is dropped by na.omit for offset-NA rows, so it
   # must inform family detection and the analytic row count exactly as it does in
@@ -744,6 +760,11 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     stop("'engine' should be one of: lme4, brms, wemix, ordinal", call. = FALSE)
   }
   if (identical(engine, "wemix")) {
+    if (is.null(sampling_weights)) {
+      stop("engine = \"wemix\" is the design-weighted MAIHDA fit and requires ",
+           "'sampling_weights' (the sampling-weight column). For an unweighted ",
+           "fit use engine = \"lme4\" or \"brms\".", call. = FALSE)
+    }
     if (decomposition == "crossed-dimensions") {
       stop("decomposition = \"crossed-dimensions\" needs crossed random effects, ",
            "which WeMix does not fit. Use the default two-model decomposition with ",
@@ -755,8 +776,15 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
            "random effects). Use engine = \"lme4\" or \"brms\" for a contextual ",
            "cross-classified model.", call. = FALSE)
     }
+    # Refused once, here, rather than as a failed fit in every group.
+    maihda_wemix_check_offset(formula)
   }
   if (identical(engine, "ordinal")) {
+    if (!is.null(sampling_weights)) {
+      stop("engine = \"ordinal\" does not support 'sampling_weights'. Use ",
+           "engine = \"brms\" for a sampling-weighted cumulative model ",
+           "(pseudo-posterior).", call. = FALSE)
+    }
     if (decomposition == "crossed-dimensions") {
       stop("decomposition = \"crossed-dimensions\" needs crossed random effects, ",
            "which the ordinal (clmm) engine does not fit. Use the default ",
@@ -775,6 +803,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
            "\"brms\" for a contextual cross-classified cumulative model.",
            call. = FALSE)
     }
+    maihda_refuse_engine_dots(engine, dot_vals)
   }
   if (!is.logical(shared_strata) || length(shared_strata) != 1 || is.na(shared_strata)) {
     stop("'shared_strata' must be TRUE or FALSE.", call. = FALSE)
@@ -845,6 +874,19 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # family object, rather than erroring on the closure.
   if (is.function(family)) {
     family <- family()
+  }
+
+  # The remaining family <-> engine refusals fit_maihda() makes, applied once on the
+  # resolved family rather than per group (see the block above). `family` itself is
+  # left as given, so the per-group fits resolve it exactly as they did before.
+  fam_obj <- maihda_resolve_family_spec(family)
+  if (identical(engine, "ordinal") && !maihda_family_is_ordinal(fam_obj)) {
+    stop("engine = \"ordinal\" fits cumulative (ordinal) models; supply ",
+         "family = \"ordinal\" / maihda_cumulative() (or let an ordered-factor ",
+         "outcome select it automatically).", call. = FALSE)
+  }
+  if (identical(engine, "wemix")) {
+    maihda_wemix_check_family(fam_obj)
   }
 
   # ---- build shared strata (or defer to per-group) and the fitting formula ----

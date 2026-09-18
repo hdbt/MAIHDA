@@ -273,8 +273,9 @@ maihda_clmm_offset_aligned <- function(formula) {
 # Nothing else moves -- the relative order of every other term, the response, the
 # intercept and the formula environment are preserved -- and a formula with no
 # offset, no random effect, or its offsets already ahead of the bars is returned
-# UNCHANGED, so a no-offset fit is bit-identical. clmm-only: lme4, brms and WeMix
-# read the offset from their own frame and are indifferent to the term order.
+# UNCHANGED, so a no-offset fit is bit-identical. clmm-only: lme4 and brms read the
+# offset from their own frame and are indifferent to the term order, and the wemix
+# engine refuses offsets, which WeMix::mix() does not fit.
 #
 # A trailing subtraction is walked through rather than given up on. `- 1` is what
 # stats::update() leaves behind for every no-intercept formula, so a user writing

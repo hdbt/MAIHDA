@@ -249,9 +249,14 @@ test_that("forwarded names resolve to what the engine binds, and nothing else", 
   expect_identical(names(maihda_resolve_engine_dots(list(subs = 1), "no-such-engine",
                                                     "gaussian")), "subs")
   if (requireNamespace("brms", quietly = TRUE)) {
-    # brm() has no subset formal: the spelling falls into its `...`, which rstan refuses.
+    # brm() has no subset formal, so the spelling used to fall into its `...`, where
+    # rstan refused it only after compiling; since audit 2026-09-17c a name the engine
+    # cannot bind is renamed to the lme4-only argument it abbreviates and refused here.
     expect_identical(names(maihda_resolve_engine_dots(list(subs = 1), "brms", "gaussian")),
-                     "subs")
+                     "subset")
+    # A name brm() DOES bind keeps its own binding.
+    expect_identical(names(maihda_resolve_engine_dots(list(w = 500), "brms", "gaussian")),
+                     "w")
   }
 })
 

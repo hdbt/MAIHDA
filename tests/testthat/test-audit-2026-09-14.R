@@ -132,10 +132,16 @@ test_that("centring in data reproduces WeMix's centred fit, as the error advises
     stats::ave(d$w, d$stratum, FUN = sum)
   pre_grand <- a14_wemix(y ~ x_grand + (1 | stratum), d)
   pre_group <- a14_wemix(y ~ x_group + (1 | stratum), d)
-  expect_equal(unname(pre_grand$model$coef), unname(grand$coef), tolerance = 1e-10)
-  expect_equal(unname(pre_grand$model$vars), unname(grand$vars), tolerance = 1e-10)
-  expect_equal(unname(pre_group$model$coef), unname(group$coef), tolerance = 1e-10)
-  expect_equal(unname(pre_group$model$vars), unname(group$vars), tolerance = 1e-10)
+  # Two SEPARATE WeMix optimisations of the same model, so how many digits they share
+  # is the platform's business, not the package's: CI's macOS build lands 4.2e-7 apart
+  # in a variance component (7.6e-08 on 0.181) where Windows and Linux agree to 1e-10.
+  # 1e-5 covers that and still convicts the alternative this documents -- internal
+  # centring differing from centring in data would move a coefficient by slope * mean,
+  # 1.706 here against an estimate of 2.409, some 70%.
+  expect_equal(unname(pre_grand$model$coef), unname(grand$coef), tolerance = 1e-5)
+  expect_equal(unname(pre_grand$model$vars), unname(grand$vars), tolerance = 1e-5)
+  expect_equal(unname(pre_group$model$coef), unname(group$coef), tolerance = 1e-5)
+  expect_equal(unname(pre_group$model$vars), unname(group$vars), tolerance = 1e-5)
   expect_lt(max(abs(predict_maihda(pre_grand, scale = "link") - a14_oracle(pre_grand))),
             1e-10)
   expect_lt(max(abs(predict_maihda(pre_group, scale = "link") - a14_oracle(pre_group))),

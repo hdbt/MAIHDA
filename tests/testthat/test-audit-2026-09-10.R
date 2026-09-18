@@ -101,24 +101,31 @@ test_that("a null growth model's trajectories are unchanged by the per-stratum s
              data = maihda_long_data, id = "id", time = "wave")
   s <- suppressMessages(summary(m))
   # No dimension reaches the fixed part, so the per-stratum grid must reproduce the
-  # single population trajectory + random deviation EXACTLY.
+  # single population trajectory + random deviation. The two sides reach it by
+  # different routes -- the grid seeds one block per stratum, the prefix predicts
+  # once -- so their sums associate differently and the last bit is the platform's
+  # to choose (CI's Linux release build differs by 1 ULP, 8.9e-16 on values of 4-7).
+  # 1e-10 absorbs that and still stops the defect this pins, which moved the
+  # plotted curves by up to 2.32.
   expect_equal(MAIHDA:::maihda_longitudinal_dimension_columns(
     m, all.vars(MAIHDA:::maihda_nobars(m$formula)[[3]]), names(m$data)),
     character(0))
   expect_equal(plot_stratum_trajectories(m, s)$data$value, prefix_values(m, s),
-               tolerance = 0)
+               tolerance = 1e-10)
 })
 
 test_that("a covariate-only adjustment keeps its reference profile", {
   skip_on_cran()
   data(maihda_long_data, package = "MAIHDA")
   # `age` is a covariate, not a stratum dimension: it stays at the shared mean, so
-  # this fit is also bit-identical to the pre-fix construction.
+  # this fit also reproduces the pre-fix construction (to the last-bit noise of the
+  # two routes -- see the null-growth test above; this is the assertion that failed
+  # on CI's Linux release build).
   m <- fit_q(wellbeing ~ wave + age + (1 | gender:ethnicity:education),
              data = maihda_long_data, id = "id", time = "wave")
   s <- suppressMessages(summary(m))
   expect_equal(plot_stratum_trajectories(m, s)$data$value, prefix_values(m, s),
-               tolerance = 0)
+               tolerance = 1e-10)
 })
 
 test_that("strata = NULL still returns the population reference trajectory", {

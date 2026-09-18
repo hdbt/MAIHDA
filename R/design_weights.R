@@ -138,6 +138,55 @@ maihda_wemix_check_formula <- function(formula) {
   invisible(TRUE)
 }
 
+# WeMix::mix() fits no offset. It takes the response from its model frame and the
+# fixed design from lme4's X, and neither its linear nor its adaptive (binomial)
+# likelihood has an offset term -- only the unweighted lmer()/glmer() fit it draws
+# its starting values from sees one. A formula offset() was therefore dropped from
+# the fit without a warning (WeMix 4.0.3: the coefficients and variance components of
+# the model without it) while maihda_wemix_linpred() added it to every prediction.
+# Reject it. The test is the terms() offset attribute model.offset() reads, so it
+# catches exactly the terms the prediction path would add; a formula terms() cannot
+# process passes here and the fit then stops on the same terms() error.
+# `allowDotAsName` keeps a `.` from erroring here, where there is no data.
+maihda_wemix_check_offset <- function(formula) {
+  if (!inherits(formula, "formula")) {
+    return(invisible(TRUE))
+  }
+  tt <- tryCatch(stats::terms(maihda_nobars(formula), allowDotAsName = TRUE),
+                 error = function(e) NULL)
+  idx <- if (!is.null(tt)) attr(tt, "offset")
+  if (length(idx) == 0L) {
+    return(invisible(TRUE))
+  }
+  vars <- as.list(attr(tt, "variables"))[-1L]
+  # backtick = TRUE: a bare non-syntactic name deparses without backticks otherwise.
+  one_line <- function(e) {
+    paste(deparse(e, width.cutoff = 500L, backtick = TRUE), collapse = " ")
+  }
+  terms_txt <- vapply(vars[idx], one_line, character(1))
+  # A malformed offset() without an argument still gets the refusal, not an index error.
+  inner <- lapply(vars[idx], function(v) if (length(v) >= 2L) v[[2L]] else v)
+  off_txt <- paste(vapply(inner, one_line, character(1)), collapse = " + ")
+  # Bracket a sum so `y - (a + b)` subtracts all of it.
+  if (length(inner) > 1L ||
+      (is.call(inner[[1L]]) && (identical(inner[[1L]][[1L]], as.name("+")) ||
+                                identical(inner[[1L]][[1L]], as.name("-"))))) {
+    off_txt <- paste0("(", off_txt, ")")
+  }
+  resp <- if (length(formula) == 3L) formula[[2L]] else as.name("y")
+  adj <- if (is.name(resp)) make.names(paste0(as.character(resp), "_adj")) else "y_adj"
+  stop("engine = \"wemix\" does not support offset() terms (",
+       paste(terms_txt, collapse = ", "), "): WeMix::mix() leaves the offset out of ",
+       "the model it fits, so the coefficients, variance components and VPC would be ",
+       "those of the model without it.\n",
+       "  Gaussian outcome: fit the response minus the offset, which is the same model,\n",
+       "    data$", adj, " <- with(data, ", one_line(resp), " - ", off_txt, ")\n",
+       "  and write ", adj, " ~ ... without the offset() term; add the offset back to ",
+       "its predictions.\n",
+       "  Binary outcome: use engine = \"brms\" with 'sampling_weights', which keeps ",
+       "offset() terms.", call. = FALSE)
+}
+
 # WeMix::mix() supports linear and binomial-logit models; the MAIHDA variance
 # summaries additionally need a defined level-1 variance, so restrict to exactly
 # those two families up front rather than failing inside WeMix.
@@ -527,7 +576,9 @@ maihda_wemix_variances <- function(object) {
 #' -- AND its transformation basis (so a
 #' data-dependent term such as \code{scale(x)} uses the fit's centre and scale rather
 #' than recomputing them from \code{newdata}) and multiplied by
-#' \code{coef}, any formula offset term is evaluated on \code{newdata} and added,
+#' \code{coef}, any formula offset term is evaluated on \code{newdata} and added
+#' (only a fit saved before \code{fit_maihda()} refused offsets for this engine
+#' carries one; WeMix fitted it without the offset),
 #' and \code{include_re} adds each row's stratum effect (conditional
 #' mode; an unseen stratum contributes 0 -- the zero-effect fallback that
 #' \code{\link{predict_maihda}} only reaches when \code{allow_new_levels = TRUE},
@@ -564,10 +615,10 @@ maihda_wemix_linpred <- function(object, newdata = NULL, include_re = TRUE) {
   }
   eta <- drop(X[, names(beta), drop = FALSE] %*% beta)
 
-  # A formula offset term (offset(.) in the model formula) is part of the linear
-  # predictor WeMix::mix() fits but is NOT a column of X, so model.matrix() never
-  # rebuilds it -- add it back explicitly from the model frame, evaluated on
-  # newdata, or response-scale predictions would be off by the offset.
+  # A formula offset() term is not a column of X, so add it from the model frame.
+  # fit_maihda() now refuses offsets for this engine because WeMix::mix() never fitted
+  # them (maihda_wemix_check_offset()); only a fit saved before that carries one, and
+  # its coefficients belong to the model without it. Such fits are left as they were.
   off <- stats::model.offset(mf)
   if (!is.null(off)) {
     eta <- eta + off

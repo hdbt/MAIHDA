@@ -119,7 +119,11 @@
 #'       included with certainty -- so this is a \emph{single-stage} weighted
 #'       model, and it is that assumption the inference rests on. Supports
 #'       \code{gaussian(identity)} and \code{binomial(logit)} models with the
-#'       canonical single \code{(1 | stratum)} random intercept. Fixed-effect
+#'       canonical single \code{(1 | stratum)} random intercept and no
+#'       \code{offset()} term: \code{WeMix::mix()} leaves an offset out of the
+#'       model it fits, so a formula with one is an error. For a Gaussian outcome,
+#'       fit the response minus the offset instead (the same model) and add the
+#'       offset back to its predictions. Fixed-effect
 #'       standard errors are the sandwich (robust) errors WeMix reports, which
 #'       account for the weighting and for dependence within the model's own
 #'       grouping (the intersectional strata) -- but not for clustering or
@@ -231,6 +235,8 @@
 #'   \code{center_group}, under any partial spelling: WeMix centres the covariates
 #'   internally without keeping the centring constants, so predictions could not
 #'   reproduce the fit. Centre covariates in \code{data} before fitting instead.
+#'   It likewise rejects an \code{offset()} term in the formula (see
+#'   \code{sampling_weights}).
 #'   The lme4-style \code{weights} (precision weights),
 #'   \code{subset}, and \code{offset} arguments are honoured only by the
 #'   \code{lme4} engine, which applies them directly. The \code{wemix},
@@ -407,10 +413,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # NULL on every other path.
   offset_value <- dot_vals[["offset"]]
 
-  if (!is.null(sampling_weights) && "weights" %in% names(dot_vals)) {
-    stop("Supply either 'sampling_weights' (design weights) or 'weights' ",
-         "(precision weights), not both.", call. = FALSE)
-  }
+  maihda_check_weights_conflict(sampling_weights, dot_vals)
 
   # Normalize invalid lme4 PRECISION weights (zero / negative / non-finite -> NA,
   # the case lme4 actually drops) up front, so binary/ordinal detection, strata
@@ -424,33 +427,18 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     dot_vals[["weights"]] <- weights_value
   }
 
-  if (identical(engine, "wemix")) {
-    unsupported_dots <- intersect(c("weights", "subset", "offset"), names(dot_vals))
-    if (length(unsupported_dots) > 0) {
-      stop("Argument(s) not supported by engine = \"wemix\": ",
-           paste(unsupported_dots, collapse = ", "),
-           ". Subset or transform the data before fitting.", call. = FALSE)
-    }
-  }
-  if (identical(engine, "brms")) {
-    # brms does not take lme4's data-masked fitting arguments as top-level
-    # arguments: it has no `subset`, and expects weighting / offset information as
-    # formula ADDITION terms (weights(), offset()), not as `weights=` / `offset=`.
-    # brms::brm() would silently absorb them into `...` and ignore them -- while
-    # family detection and strata auto-binning above DID honour them -- so
-    # preprocessing would describe one analytic sample and brms fit another
-    # (silently changing coefficients, variance components, VPC, and PCV). Reject
-    # them with guidance rather than fit the wrong model. (Design weights come
-    # through 'sampling_weights', which brms supports as likelihood weights.)
-    unsupported_dots <- intersect(c("weights", "subset", "offset"), names(dot_vals))
-    if (length(unsupported_dots) > 0) {
-      stop("Argument(s) not supported by engine = \"brms\": ",
-           paste(unsupported_dots, collapse = ", "),
-           ". brms takes weighting and offset information as formula addition ",
-           "terms -- put offset(.) or weights(.) in the model formula, pass ",
-           "design weights via 'sampling_weights', and prefilter 'data' instead ",
-           "of using 'subset'.", call. = FALSE)
-    }
+  # Neither engine takes lme4's data-masked fitting arguments: WeMix::mix() has no
+  # subset/offset, and brms expects weighting / offset information as formula
+  # ADDITION terms (weights(), offset()), absorbing a top-level one into `...`
+  # where it is ignored -- while family detection and strata auto-binning above DID
+  # honour it, so preprocessing would describe one analytic sample and the engine fit
+  # another. Reject them with guidance rather than fit the wrong model. (Design
+  # weights come through 'sampling_weights', which brms supports as likelihood
+  # weights.) compare_maihda_groups() refuses them the same way, once. The ordinal
+  # engine refuses them in its own block below, after the family handshake, so an
+  # explicit engine = "ordinal" keeps reporting a family contradiction first.
+  if (engine %in% c("wemix", "brms")) {
+    maihda_refuse_engine_dots(engine, dot_vals)
   }
 
   # The weighted engines drop rows whose sampling weight is non-finite or <= 0
@@ -529,12 +517,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
            "\"brms\" for a contextual cross-classified cumulative model.",
            call. = FALSE)
     }
-    unsupported_dots <- intersect(c("weights", "subset", "offset"), names(dot_vals))
-    if (length(unsupported_dots) > 0) {
-      stop("Argument(s) not supported by engine = \"ordinal\": ",
-           paste(unsupported_dots, collapse = ", "),
-           ". Subset or transform the data before fitting.", call. = FALSE)
-    }
+    maihda_refuse_engine_dots(engine, dot_vals)
   }
 
   # Longitudinal (3-level growth) MAIHDA: when 'time' is supplied, validate the
@@ -835,6 +818,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
            "aggregated binomial responses (cbind(success, failure) or trials) ",
            "are not supported. Use engine = \"lme4\" or \"brms\".", call. = FALSE)
     }
+    # mix() leaves a formula offset() out of the fit (see maihda_wemix_check_offset()).
+    maihda_wemix_check_offset(formula)
   }
 
   # The factor levels and contrast matrices of the fitted design, kept for the engines
