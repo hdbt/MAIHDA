@@ -7,7 +7,9 @@ matrix it applied to each factor, whatever options(contrasts = ) says now
 – AND its transformation basis (so a
 data-dependent term such as scale(x) uses the fit's centre and scale rather
 than recomputing them from newdata) and multiplied by
-coef, any formula offset term is evaluated on newdata and added,
+coef, any formula offset term is evaluated on newdata and added
+(only a fit saved before fit_maihda() refused offsets for this engine
+carries one; WeMix fitted it without the offset),
 and include_re adds each row's stratum effect (conditional
 mode; an unseen stratum contributes 0 – the zero-effect fallback that
 predict_maihda only reaches when allow_new_levels = TRUE,
@@ -22,7 +24,9 @@ matrix it applied to each factor, whatever options(contrasts = ) says now
 – AND its transformation basis (so a
 data-dependent term such as scale(x) uses the fit's centre and scale rather
 than recomputing them from newdata) and multiplied by
-coef, any formula offset term is evaluated on newdata and added,
+coef, any formula offset term is evaluated on newdata and added
+(only a fit saved before fit_maihda() refused offsets for this engine
+carries one; WeMix fitted it without the offset),
 and include_re adds each row's stratum effect (conditional
 mode; an unseen stratum contributes 0 – the zero-effect fallback that
 predict_maihda only reaches when allow_new_levels = TRUE,
@@ -90,7 +94,9 @@ matrix it applied to each factor, whatever <code>options(contrasts = )</code> sa
 – AND its transformation basis (so a
 data-dependent term such as <code>scale(x)</code> uses the fit's centre and scale rather
 than recomputing them from <code>newdata</code>) and multiplied by
-<code>coef</code>, any formula offset term is evaluated on <code>newdata</code> and added,
+<code>coef</code>, any formula offset term is evaluated on <code>newdata</code> and added
+(only a fit saved before <code><a href="fit_maihda.html">fit_maihda()</a></code> refused offsets for this engine
+carries one; WeMix fitted it without the offset),
 and <code>include_re</code> adds each row's stratum effect (conditional
 mode; an unseen stratum contributes 0 – the zero-effect fallback that
 <code><a href="predict_maihda.html">predict_maihda</a></code> only reaches when <code>allow_new_levels = TRUE</code>,

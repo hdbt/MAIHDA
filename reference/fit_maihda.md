@@ -181,12 +181,18 @@ fit_maihda(
     this is a *single-stage* weighted model, and it is that assumption
     the inference rests on. Supports `gaussian(identity)` and
     `binomial(logit)` models with the canonical single `(1 | stratum)`
-    random intercept. Fixed-effect standard errors are the sandwich
-    (robust) errors WeMix reports, which account for the weighting and
-    for dependence within the model's own grouping (the intersectional
-    strata) – but not for clustering or stratification induced by the
-    sample design, which the strata do not represent. The VPC/PCV are
-    reported as point estimates (no bootstrap – see
+    random intercept and no
+    [`offset()`](https://rdrr.io/r/stats/offset.html) term:
+    [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
+    leaves an offset out of the model it fits, so a formula with one is
+    an error. For a Gaussian outcome, fit the response minus the offset
+    instead (the same model) and add the offset back to its predictions.
+    Fixed-effect standard errors are the sandwich (robust) errors WeMix
+    reports, which account for the weighting and for dependence within
+    the model's own grouping (the intersectional strata) – but not for
+    clustering or stratification induced by the sample design, which the
+    strata do not represent. The VPC/PCV are reported as point estimates
+    (no bootstrap – see
     [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)).
 
   - `engine = "brms"`: the weights enter the model as likelihood weights
@@ -322,14 +328,16 @@ fit_maihda(
   `center_grand` and `center_group`, under any partial spelling: WeMix
   centres the covariates internally without keeping the centring
   constants, so predictions could not reproduce the fit. Centre
-  covariates in `data` before fitting instead. The lme4-style `weights`
-  (precision weights), `subset`, and `offset` arguments are honoured
-  only by the `lme4` engine, which applies them directly. The `wemix`,
-  `ordinal`, and `brms` engines reject them: none takes them as a
-  top-level fitting argument (brms in particular expects
-  weighting/offset as formula addition terms, `weights(.)` /
-  `offset(.)`, and design weights via `sampling_weights`). Prefilter
-  `data` instead of using `subset` on those engines.
+  covariates in `data` before fitting instead. It likewise rejects an
+  [`offset()`](https://rdrr.io/r/stats/offset.html) term in the formula
+  (see `sampling_weights`). The lme4-style `weights` (precision
+  weights), `subset`, and `offset` arguments are honoured only by the
+  `lme4` engine, which applies them directly. The `wemix`, `ordinal`,
+  and `brms` engines reject them: none takes them as a top-level fitting
+  argument (brms in particular expects weighting/offset as formula
+  addition terms, `weights(.)` / `offset(.)`, and design weights via
+  `sampling_weights`). Prefilter `data` instead of using `subset` on
+  those engines.
 
 ## Value
 

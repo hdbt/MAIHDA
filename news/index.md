@@ -422,6 +422,42 @@
 
 ### Bug fixes
 
+- [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now refuses an argument the engine does not take – `weights`, `subset`
+  or `offset` on `wemix`, `brms` or `ordinal`, or `sampling_weights`
+  together with `weights` – once, before any group is fitted. It
+  returned a comparison table in which every group carried a “fit
+  failed” status and a warning, repeating the refusal
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  makes up front. Five engine incompatibilities are refused the same
+  way: `wemix` without `sampling_weights`, `ordinal` with
+  `sampling_weights`, `engine = "ordinal"` on a non-ordinal outcome, an
+  unsupported `wemix` family, and a family name no engine can resolve.
+
+- A partial spelling of `weights`, `subset` or `offset` that the
+  engine’s own fitting function cannot bind is now refused like the full
+  name. `offs = o` on `engine = "ordinal"` fitted every row *without*
+  the offset, warning only that an unknown control element was ignored;
+  WeMix reported “unused argument” with the whole vector in the message,
+  and brms only after compiling its Stan model. A spelling the engine
+  does bind is untouched (`w = 500` is brms’s `warmup`), as is the lme4
+  path.
+
+- `engine = "wemix"` now rejects an
+  [`offset()`](https://rdrr.io/r/stats/offset.html) term in the formula,
+  in
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md).
+  [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
+  leaves the offset out of the model it fits, so Gaussian and binomial
+  fits returned the coefficients, variance components and VPC of the
+  model without it (a VPC of 0.80 instead of 0.23 on one Gaussian fit),
+  while predictions added the offset back. For a Gaussian outcome, fit
+  the response minus the offset, which is the same model; for a binary
+  outcome, use `engine = "brms"` with `sampling_weights`. Fits saved
+  with an offset are not flagged; refit them.
+
 - The binomial panel of `plot(type = "prediction_deviation")` and
   [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   now draws an `engine = "brms"` `y | trials(n)` fit as per-trial
@@ -665,8 +701,8 @@
   cannot be moved without changing the fixed design (an offset inside a
   `-`, `*` or `:` subtree after the random effect) is now refused with a
   message rather than fitted against the wrong column. An offset-free
-  ordinal fit is bit-identical, and the lme4, brms and WeMix engines,
-  which read the offset from their own model frame, are untouched.
+  ordinal fit is bit-identical, and the lme4 and brms engines, which
+  read the offset from their own model frame, are untouched.
 
 - An `engine = "brms"` cumulative fit now honours the `threshold` (and
   `link_disc`) set on a

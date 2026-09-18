@@ -217,7 +217,11 @@ Not supported by the <code>wemix</code> engine.</p></dd>
       included with certainty – so this is a <em>single-stage</em> weighted
       model, and it is that assumption the inference rests on. Supports
       <code>gaussian(identity)</code> and <code>binomial(logit)</code> models with the
-      canonical single <code>(1 | stratum)</code> random intercept. Fixed-effect
+      canonical single <code>(1 | stratum)</code> random intercept and no
+      <code><a href="https://rdrr.io/r/stats/offset.html" class="external-link">offset()</a></code> term: <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> leaves an offset out of the
+      model it fits, so a formula with one is an error. For a Gaussian outcome,
+      fit the response minus the offset instead (the same model) and add the
+      offset back to its predictions. Fixed-effect
       standard errors are the sandwich (robust) errors WeMix reports, which
       account for the weighting and for dependence within the model's own
       grouping (the intersectional strata) – but not for clustering or
@@ -348,6 +352,8 @@ default-on <code>interactions</code> of <code><a href="maihda.html">maihda</a></
 <code>center_group</code>, under any partial spelling: WeMix centres the covariates
 internally without keeping the centring constants, so predictions could not
 reproduce the fit. Centre covariates in <code>data</code> before fitting instead.
+It likewise rejects an <code><a href="https://rdrr.io/r/stats/offset.html" class="external-link">offset()</a></code> term in the formula (see
+<code>sampling_weights</code>).
 The lme4-style <code>weights</code> (precision weights),
 <code>subset</code>, and <code>offset</code> arguments are honoured only by the
 <code>lme4</code> engine, which applies them directly. The <code>wemix</code>,

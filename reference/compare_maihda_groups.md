@@ -188,7 +188,10 @@ compare_maihda_groups(
 
   Additional arguments passed to
   [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  (and on to `lmer`/`glmer`).
+  (and on to `lmer`/`glmer`). An argument the engine rejects –
+  `weights`, `subset` or `offset` on `wemix`/`brms`/`ordinal` – is
+  refused once here, before any group is fitted, rather than failing
+  each group in turn.
 
 ## Value
 
