@@ -168,10 +168,10 @@ maihda_tag_role <- function(s, role) {
 #'   intervals of an \code{lme4} fit: \code{"between-within"} (default) a
 #'   \eqn{t} on containment degrees of freedom for a Gaussian fit and a z
 #'   elsewhere, \code{"normal"} a z, \code{"bootstrap"} a null-restricted
-#'   parametric bootstrap costing \code{n_boot} refits \emph{per fixed-effect
-#'   term}. \code{"bootstrap"} is the reference to use for a GLMM term that is
-#'   constant within a stratum, such as an adjusted model's dimension main
-#'   effects. Every other engine uses a z regardless.
+#'   parametric bootstrap costing \code{n_boot} refits \emph{per tested
+#'   fixed-effect coefficient}. \code{"bootstrap"} is the reference to use for a
+#'   GLMM term that is constant within a stratum, such as an adjusted model's
+#'   dimension main effects. Every other engine uses a z regardless.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return A maihda_summary object containing:
@@ -285,7 +285,7 @@ maihda_tag_role <- function(s, role) {
 #' with at least one fixed-effect term, Gaussian or not, and is the one to use
 #' for a GLMM -- whose z is anticonservative for a term constant within a
 #' stratum, most severely when the strata are few. For
-#' each fixed-effect term the model is refitted with that term's coefficients
+#' each fixed-effect coefficient the model is refitted with that coefficient
 #' \emph{constrained to zero}, \code{n_boot} responses are simulated from the
 #' restricted fit, the full model is refitted on each, and the observed Wald
 #' statistic is referred to the resulting distribution of \eqn{|t^*|}. The
@@ -303,6 +303,19 @@ maihda_tag_role <- function(s, role) {
 #' level rather than a term that can be dropped, so it has no null model to
 #' simulate from.
 #'
+#' The restriction is on the coefficient, not on its term. A term spanning
+#' several design columns -- a factor with three or more levels, a polynomial, an
+#' interaction between factors -- carries one row per column, and each is tested
+#' against its own null: that column zeroed, the siblings kept and re-estimated
+#' as the nuisance parameters they are. Zeroing the siblings too would test a
+#' stronger hypothesis than the row states, and would push their effect into the
+#' variance components, so the draws would come from a model the data do not
+#' describe. It would also make the answer depend on spelling, since \code{y ~ f}
+#' and \code{y ~ fb + fc} fit the identical model. The restriction is the one the
+#' coefficient names under the fitted contrasts: treatment coding merges that
+#' level into the reference, sum coding sets its deviation from the unweighted
+#' mean of the level means to zero.
+#'
 #' The constraint is imposed on the fitted design and verified, not assumed from
 #' the formula. Removing a term from a formula does not always remove it from the
 #' model: R's marginality rules recode a surviving higher-order term to absorb a
@@ -310,9 +323,10 @@ maihda_tag_role <- function(s, role) {
 #' still spans the original column space and leaves the coefficient under test
 #' entirely unrestricted. The same holds for either main effect of \code{f * g},
 #' for every main effect and two-way term under a three-way interaction, and for
-#' a nested \code{f / g}. Where that happens the term's design columns are
-#' constrained directly instead. A model whose fixed part is additive is
-#' unaffected: there, dropping the term from the formula already is the null.
+#' a nested \code{f / g}. Where that happens, and for every coefficient of a
+#' multi-column term, the design columns are constrained directly instead. A
+#' model whose fixed part is additive in one-column terms is unaffected: there,
+#' dropping the term from the formula already is the null.
 #'
 #' The bootstrap is an approximation, not an exact test. Its null is the
 #' restricted fit, whose other coefficients and variance components were
@@ -339,8 +353,10 @@ maihda_tag_role <- function(s, role) {
 #' \code{n_boot} can widen it. No \code{n_boot} makes the test exact -- on the
 #' 4-stratum design above, 19 draws and 99 draws both rejected at about 14\%.
 #'
-#' It costs \code{n_boot} refits \emph{per term}, and is a separate bootstrap
-#' from the \code{bootstrap = TRUE} VPC interval, which is not reused.
+#' It costs \code{n_boot} refits \emph{per tested coefficient} -- one block per
+#' row of the table except the intercept, so a \eqn{k}-level factor costs
+#' \eqn{k - 1} of them -- and is a separate bootstrap from the
+#' \code{bootstrap = TRUE} VPC interval, which is not reused.
 #'
 #' Budget for it. A Gaussian refit takes milliseconds, but a binomial one takes
 #' about a second at \eqn{n = 1000} and tens of seconds at \eqn{n = 6000}, so the
@@ -1438,12 +1454,16 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level,
 # NULL for a glmerMod.
 #
 # The bootstrap below is null-RESTRICTED, and that is what makes it work. For
-# each fixed-effect term it refits the model WITHOUT that term, simulates from
-# the reduced fit, refits the full model on each draw, and refers the observed
-# Wald statistic to the resulting distribution of |t*| = |beta*/se*| under a true
-# null. Simulating from the reduced fit is the point: the reduced model has not
-# spent its stratum degrees of freedom on the tested dimension, so it estimates
-# the stratum variance from more information and reaches the boundary less often.
+# each fixed-effect COEFFICIENT it refits the model without that coefficient,
+# simulates from the reduced fit, refits the full model on each draw, and refers
+# the observed Wald statistic to the resulting distribution of |t*| =
+# |beta*/se*| under a true null. Simulating from the reduced fit is the point:
+# the reduced model has not spent its stratum degrees of freedom on the tested
+# coefficient, so it estimates the stratum variance from more information and
+# reaches the boundary less often. Only the ONE coefficient is dropped -- the
+# other columns of its own term are nuisance parameters, kept and re-estimated,
+# because dropping them would restrict more than the row claims and would push
+# their effect into that same stratum variance.
 # An UNRESTRICTED bootstrap -- simulating from the fitted model itself -- inherits
 # the same downward-biased variance component and does not repair the level; that
 # was measured, and the numbers are in tests/testthat/test-audit-2026-09-02.R.
@@ -1524,17 +1544,22 @@ maihda_same_column_space <- function(A, B) {
 # Refit `model` with the fixed-effect COLUMNS `drop_cols` constrained to zero, in
 # the model's OWN fitted design basis, keeping every other column as it stands.
 #
-# This is the constraint the bootstrap advertises, and dropping the term from the
-# FORMULA does not always impose it. R's marginality rules recode a surviving
-# higher-order term to absorb the removed one: for `y ~ x * f`, `. ~ . - x`
-# yields `f + x:f`, which R codes with a full dummy expansion (`fa:x`, `fb:x`)
-# rather than a contrast, so the "reduced" design spans exactly the same space as
-# the full one and the coefficient under test is not restricted at all. The same
-# holds for either main effect of `f * g`, for every main effect and two-way term
-# of a three-way interaction, and for a nested `f / g`. Simulating from such a
-# fit draws data that still carry the estimated effect, so the reference
-# distribution of |t*| centres on the OBSERVED statistic and the p-value collapses
-# towards 0.5 however large the effect is.
+# This is the constraint the bootstrap advertises. It is also the ONLY way to
+# restrict ONE coefficient of a term spanning several design columns, no formula
+# being able to drop a single contrast column, so the fixed-effect bootstrap
+# reaches it for every such coefficient; for a one-column term it is instead the
+# fallback, taken when the formula reduction turns out to restrict nothing.
+#
+# Dropping the term from the FORMULA does not always impose it. R's marginality
+# rules recode a surviving higher-order term to absorb the removed one: for
+# `y ~ x * f`, `. ~ . - x` yields `f + x:f`, which R codes with a full dummy
+# expansion (`fa:x`, `fb:x`) rather than a contrast, so the "reduced" design
+# spans exactly the same space as the full one and the coefficient under test is
+# not restricted at all. The same holds for either main effect of `f * g`, for
+# every main effect and two-way term of a three-way interaction, and for a
+# nested `f / g`. Simulating from such a fit draws data that still carry the
+# estimated effect, so the reference distribution of |t*| centres on the OBSERVED
+# statistic and the p-value collapses towards 0.5 however large the effect is.
 #
 # Working from the design matrix sidesteps formula algebra entirely: the retained
 # columns are carried as data under generated names, never re-evaluated, so
@@ -1596,24 +1621,37 @@ maihda_restrict_fixef <- function(model, drop_cols) {
 
 #' Null-restricted parametric-bootstrap fixed effects for an lme4 fit
 #'
-#' Internal helper. For each fixed-effect term, refits the model with that term's
-#' coefficients constrained to zero, simulates \code{n_boot} responses from the
-#' restricted fit, refits the full model on each, and refers the observed Wald
-#' statistic to the distribution of \eqn{|t^*|} across those refits. The null is
-#' the restricted fit itself, its remaining parameters estimated from the same
-#' data, so the reference is a parametric-bootstrap approximation rather than
-#' the exact null distribution. Returns the shape
+#' Internal helper. For each fixed-effect \emph{coefficient}, refits the model
+#' with that coefficient constrained to zero, simulates \code{n_boot} responses
+#' from the restricted fit, refits the full model on each, and refers the
+#' observed Wald statistic to the distribution of \eqn{|t^*|} across those
+#' refits. The null is the restricted fit itself, its remaining parameters
+#' estimated from the same data, so the reference is a parametric-bootstrap
+#' approximation rather than the exact null distribution. Returns the shape
 #' \code{\link{maihda_fixed_effects_table}} produces, with \code{df} \code{NA}:
 #' the reference is an empirical distribution, not a \eqn{t}.
 #'
-#' The restriction is imposed by dropping the term from the formula and then
-#' \emph{verifying} that the refitted design no longer spans the full model's
-#' column space. It usually does not, but R's marginality rules recode a
-#' surviving higher-order term to absorb a removed marginal one -- \code{. ~ . -
-#' x} applied to \code{y ~ x * f} gives \code{f + x:f}, whose full dummy
-#' expansion spans exactly the original space -- and such a "reduction"
-#' constrains nothing. Where the spans agree the constraint is instead imposed on
-#' the fitted design columns directly (\code{maihda_restrict_fixef}).
+#' One coefficient at a time, not one term at a time. A term spanning several
+#' design columns -- a factor with three or more levels, a polynomial, an
+#' interaction between factors -- holds several coefficients, each reported on
+#' its own row; constraining the whole term would test every one of them to zero
+#' while the row claims only its own. The siblings are nuisance parameters and
+#' are re-estimated, not deleted: dropping them pushes their effect into the
+#' variance components, so the draws come from a model the data do not describe.
+#' Which coefficients share a term is a property of how the design was spelled --
+#' \code{y ~ f} and \code{y ~ fb + fc} fit the identical model -- and a reference
+#' distribution may not turn on that.
+#'
+#' For a one-column term the restriction is imposed by dropping the term from the
+#' formula and then \emph{verifying} that the refitted design no longer spans the
+#' full model's column space. It usually does not, but R's marginality rules
+#' recode a surviving higher-order term to absorb a removed marginal one --
+#' \code{. ~ . - x} applied to \code{y ~ x * f} gives \code{f + x:f}, whose full
+#' dummy expansion spans exactly the original space -- and such a "reduction"
+#' constrains nothing. Where the spans agree, and for every coefficient of a
+#' multi-column term (no formula drops one contrast column), the constraint is
+#' imposed on the fitted design columns directly
+#' (\code{maihda_restrict_fixef}).
 #'
 #' The intercept has no reduced model to simulate from -- a MAIHDA intercept is a
 #' reference-category level rather than a term that can be dropped -- so its
@@ -1621,7 +1659,7 @@ maihda_restrict_fixef <- function(model, drop_cols) {
 #' exactly the regime this function exists for.
 #'
 #' @param model An lme4 model object (\code{lmerMod} or \code{glmerMod}).
-#' @param n_boot Number of bootstrap replicates \emph{per term}.
+#' @param n_boot Number of bootstrap replicates \emph{per tested coefficient}.
 #' @param conf_level Interval level.
 #' @return A data frame with \code{term}, \code{estimate}, \code{se},
 #'   \code{statistic}, \code{df}, \code{p_value}, \code{lower} and \code{upper},
@@ -1658,7 +1696,7 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
 
   p_value <- lower <- upper <- rep(NA_real_, length(nm))
   n_ok <- rep(NA_integer_, length(nm))
-  # Counted over every term's draws, so the share handed to
+  # Counted over every tested coefficient's draws, so the share handed to
   # maihda_report_nonconvergence() is non-converged refits out of the refits that
   # actually contributed -- the same denominator the VPC and PCV bootstraps use.
   n_nonconv <- 0L
@@ -1667,54 +1705,77 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
   for (k in seq_along(term_labels)) {
     cols <- which(assign_term == k)
     if (!length(cols)) next
-    # The null this term is tested against: its own design columns set to zero,
-    # every other column of the FITTED design retained.
-    X_null <- X[, setdiff(seq_len(ncol(X)), cols), drop = FALSE]
-    red_form <- stats::update(stats::formula(model),
-                              paste(". ~ . -", term_labels[k]))
-    red <- maihda_refit_reduced(model, red_form)
-    # Dropping the term from the formula usually IS that null, and refitting the
-    # formula keeps transformed terms in their natural spelling -- but R's
-    # marginality recoding can hand back a design spanning the full model's own
-    # column space, restricting nothing (see maihda_restrict_fixef). Verified
-    # rather than assumed: when the spans agree the reduction is not a null at
-    # all, and the constraint is imposed on the design columns directly instead.
-    if (!is.null(red) &&
-        !maihda_same_column_space(tryCatch(lme4::getME(red, "X"),
-                                           error = function(e) NULL), X_null)) {
-      red <- NULL
-    }
-    if (is.null(red)) red <- maihda_restrict_fixef(model, cols)
-    if (is.null(red)) {
-      stop("The model with '", term_labels[k], "' constrained to zero could not be ",
-           "refitted, so no null distribution can be simulated for that term. Use ",
-           "df_method = \"normal\".", call. = FALSE)
-    }
-
-    sim_data <- tryCatch(maihda_simulate_lme4(red, nsim = n_boot),
-                         error = function(e) NULL)
-    if (is.null(sim_data)) {
-      stop("Responses could not be simulated from the model with '",
-           term_labels[k], "' constrained to zero, so its null distribution is ",
-           "unavailable. Use df_method = \"normal\".", call. = FALSE)
-    }
-
-    t_star <- matrix(NA_real_, n_boot, length(cols))
-    for (i in seq_len(n_boot)) {
-      tryCatch({
-        boot_model <- maihda_refit_draw(model, sim_data[[i]])
-        bi <- lme4::fixef(boot_model)
-        si <- sqrt(diag(as.matrix(stats::vcov(boot_model))))
-        j <- match(nm[cols], names(bi))
-        t_star[i, ] <- bi[j] / si[j]
-        n_contrib <- n_contrib + 1L
-        if (maihda_lme4_optimizer_failed(boot_model)) n_nonconv <- n_nonconv + 1L
-      }, error = function(e) NULL)
-    }
-
     for (c_i in seq_along(cols)) {
       j <- cols[c_i]
-      ts <- abs(t_star[, c_i])
+      # The null THIS COEFFICIENT is tested against: its own design column set to
+      # zero, every other column of the FITTED design retained and re-estimated --
+      # including the sibling columns of its own term. That is the hypothesis the
+      # row states. Constraining the whole term instead tests every sibling to
+      # zero as well, which is a different, stronger null: for a three-level
+      # factor it deletes `fb` while reporting a p-value for `fc`, so the sibling
+      # effect lands in the stratum variance and the draws come from a model the
+      # data do not describe (tau^2 1.458 against the 0.299 the stated null
+      # gives). Which columns share a term is a property of how the design was
+      # SPELLED -- `y ~ f` and `y ~ fb + fc` fit the identical model -- and a
+      # reference distribution may not turn on that.
+      #
+      # Restricting one column is exactly the restriction the coefficient names,
+      # under whatever contrasts the model was fitted with: for treatment coding
+      # it merges that level into the reference, for sum coding it sets that
+      # level's deviation from the unweighted mean of the level means to zero
+      # (measured exactly, not argued). The estimate means the same thing there,
+      # so the null does too.
+      red <- NULL
+      if (length(cols) == 1L) {
+        # A one-column term IS its coefficient, so the formula reduction spells
+        # the same restriction, and refitting the formula keeps transformed terms
+        # (poly(), log(), I()) in their natural spelling. Nothing else can be
+        # reached this way: no formula drops one contrast column of a term.
+        X_null <- X[, setdiff(seq_len(ncol(X)), j), drop = FALSE]
+        red_form <- stats::update(stats::formula(model),
+                                  paste(". ~ . -", term_labels[k]))
+        red <- maihda_refit_reduced(model, red_form)
+        # Dropping the term from the formula usually IS that null -- but R's
+        # marginality recoding can hand back a design spanning the full model's
+        # own column space, restricting nothing (see maihda_restrict_fixef).
+        # Verified rather than assumed: when the spans agree the reduction is not
+        # a null at all, and the constraint is imposed on the design columns
+        # directly instead.
+        if (!is.null(red) &&
+            !maihda_same_column_space(tryCatch(lme4::getME(red, "X"),
+                                               error = function(e) NULL), X_null)) {
+          red <- NULL
+        }
+      }
+      if (is.null(red)) red <- maihda_restrict_fixef(model, j)
+      if (is.null(red)) {
+        stop("The model with '", nm[j], "' constrained to zero could not be ",
+             "refitted, so no null distribution can be simulated for that ",
+             "coefficient. Use df_method = \"normal\".", call. = FALSE)
+      }
+
+      sim_data <- tryCatch(maihda_simulate_lme4(red, nsim = n_boot),
+                           error = function(e) NULL)
+      if (is.null(sim_data)) {
+        stop("Responses could not be simulated from the model with '",
+             nm[j], "' constrained to zero, so its null distribution is ",
+             "unavailable. Use df_method = \"normal\".", call. = FALSE)
+      }
+
+      t_star <- rep(NA_real_, n_boot)
+      for (i in seq_len(n_boot)) {
+        tryCatch({
+          boot_model <- maihda_refit_draw(model, sim_data[[i]])
+          bi <- lme4::fixef(boot_model)
+          si <- sqrt(diag(as.matrix(stats::vcov(boot_model))))
+          jb <- match(nm[j], names(bi))
+          t_star[i] <- bi[jb] / si[jb]
+          n_contrib <- n_contrib + 1L
+          if (maihda_lme4_optimizer_failed(boot_model)) n_nonconv <- n_nonconv + 1L
+        }, error = function(e) NULL)
+      }
+
+      ts <- abs(t_star)
       ts <- ts[is.finite(ts)]
       n_ok[j] <- length(ts)
       if (!is.finite(se[j]) || n_ok[j] < 10L) next
@@ -1746,24 +1807,24 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
   }
   n_min <- min(ok_tested, na.rm = TRUE)
   if (n_min < 10L) {
-    stop(sprintf(paste0("Only %d of %d fixed-effect bootstrap refits succeeded for at ",
-                        "least one term; at least 10 are required. Increase n_boot or ",
-                        "check for singular/failing fits."), n_min, n_boot),
+    stop(sprintf(paste0("Only %d of %d fixed-effect bootstrap refits succeeded for ",
+                        "at least one coefficient; at least 10 are required. Increase ",
+                        "n_boot or check for singular/failing fits."), n_min, n_boot),
          call. = FALSE)
   }
   # Same majority-of-draws rule as maihda_bootstrap_ci(): the survivors of a
   # mostly-failed bootstrap are the draws that happened to converge, a biased subset.
   if (n_min < ceiling(0.5 * n_boot)) {
     stop(sprintf(paste0("Only %d of %d fixed-effect bootstrap refits succeeded (%.0f%%) ",
-                        "for at least one term; at least 50%% must succeed to form a ",
-                        "dependable reference. Increase n_boot or check for ",
+                        "for at least one coefficient; at least 50%% must succeed to ",
+                        "form a dependable reference. Increase n_boot or check for ",
                         "singular/failing fits."), n_min, n_boot,
                  100 * n_min / n_boot), call. = FALSE)
   }
   if (n_boot - n_min > n_boot * 0.25) {
-    warning(sprintf(paste0("%d of %d fixed-effect bootstrap refits failed (%.0f%%) for ",
-                           "at least one term; the p-values and intervals may be ",
-                           "unreliable."), n_boot - n_min, n_boot,
+    warning(sprintf(paste0("%d of %d fixed-effect bootstrap refits failed (%.0f%%) ",
+                           "for at least one coefficient; the p-values and intervals ",
+                           "may be unreliable."), n_boot - n_min, n_boot,
                     100 * (n_boot - n_min) / n_boot), call. = FALSE)
   }
   # Non-converged draws are retained but reported, and above a documented share the
