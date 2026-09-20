@@ -123,9 +123,9 @@
 - `summary(df_method = "bootstrap")` refers lme4 fixed-effect p-values
   and intervals to a null-restricted parametric bootstrap, the reference
   to use for a GLMM, whose Wald z is anticonservative for terms constant
-  within a stratum. It costs `n_boot` refits per fixed-effect term, and
-  the intercept, having no null model to simulate from, is `NA`.
-  `tidy(component = "fixed")` carries it through.
+  within a stratum. It costs `n_boot` refits per tested fixed-effect
+  coefficient, and the intercept, having no null model to simulate from,
+  is `NA`. `tidy(component = "fixed")` carries it through.
 
 - [`maihda_proportional_odds_test()`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
   tests the proportional-odds assumption of a cumulative (`clmm`) fit by
@@ -450,6 +450,27 @@
   roughly halves the fitting cost (most noticeable for `brms`).
 
 ### Bug fixes
+
+- `summary(df_method = "bootstrap")` now refers each fixed-effect
+  coefficient to its own null rather than to its whole term’s. A term
+  spanning several design columns – a factor with three or more levels,
+  a polynomial, an interaction between factors – had every one of its
+  columns deleted from the fit the reference draws were simulated from,
+  while each row reported the p-value and interval of a single one of
+  them. The deleted siblings’ effect moved into the variance components:
+  on a binomial fit with a three-level dimension the reference for the
+  `c` contrast came from a null whose stratum variance was 1.458, where
+  the null that row states gives 0.299. The answer therefore depended on
+  how the design was spelled – `y ~ f` and `y ~ fb + fc` are the same
+  fitted model – and it no longer does: every spelling now simulates
+  from the same restricted fit, and where the columns are also in the
+  same order the two return identical numbers. The siblings are kept and
+  re-estimated as the nuisance parameters they are, so the restriction
+  is the one the coefficient names under the fitted contrasts. `n_boot`
+  is now spent per tested coefficient rather than per term, so a k-level
+  factor costs k - 1 blocks of refits; a model whose fixed terms each
+  span one design column – every binary dimension, every continuous
+  covariate – is unchanged.
 
 - A model fitted with `na.action = na.exclude` no longer mixes
   predictions over the original input rows with summaries over the

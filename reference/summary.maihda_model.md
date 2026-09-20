@@ -72,10 +72,10 @@ summary(
   an `lme4` fit: `"between-within"` (default) a \\t\\ on containment
   degrees of freedom for a Gaussian fit and a z elsewhere, `"normal"` a
   z, `"bootstrap"` a null-restricted parametric bootstrap costing
-  `n_boot` refits *per fixed-effect term*. `"bootstrap"` is the
-  reference to use for a GLMM term that is constant within a stratum,
-  such as an adjusted model's dimension main effects. Every other engine
-  uses a z regardless.
+  `n_boot` refits *per tested fixed-effect coefficient*. `"bootstrap"`
+  is the reference to use for a GLMM term that is constant within a
+  stratum, such as an adjusted model's dimension main effects. Every
+  other engine uses a z regardless.
 
 - ...:
 
@@ -281,7 +281,7 @@ lmerTest to `x$model`.
 at least one fixed-effect term, Gaussian or not, and is the one to use
 for a GLMM – whose z is anticonservative for a term constant within a
 stratum, most severely when the strata are few. For each fixed-effect
-term the model is refitted with that term's coefficients *constrained to
+coefficient the model is refitted with that coefficient *constrained to
 zero*, `n_boot` responses are simulated from the restricted fit, the
 full model is refitted on each, and the observed Wald statistic is
 referred to the resulting distribution of \\\|t^\*\|\\. The estimate and
@@ -298,6 +298,20 @@ intercept's p-value and interval: a MAIHDA intercept is a
 reference-category level rather than a term that can be dropped, so it
 has no null model to simulate from.
 
+The restriction is on the coefficient, not on its term. A term spanning
+several design columns – a factor with three or more levels, a
+polynomial, an interaction between factors – carries one row per column,
+and each is tested against its own null: that column zeroed, the
+siblings kept and re-estimated as the nuisance parameters they are.
+Zeroing the siblings too would test a stronger hypothesis than the row
+states, and would push their effect into the variance components, so the
+draws would come from a model the data do not describe. It would also
+make the answer depend on spelling, since `y ~ f` and `y ~ fb + fc` fit
+the identical model. The restriction is the one the coefficient names
+under the fitted contrasts: treatment coding merges that level into the
+reference, sum coding sets its deviation from the unweighted mean of the
+level means to zero.
+
 The constraint is imposed on the fitted design and verified, not assumed
 from the formula. Removing a term from a formula does not always remove
 it from the model: R's marginality rules recode a surviving higher-order
@@ -305,9 +319,10 @@ term to absorb a dropped marginal one, so for `y ~ x * f` the formula
 `. ~ . - x` still spans the original column space and leaves the
 coefficient under test entirely unrestricted. The same holds for either
 main effect of `f * g`, for every main effect and two-way term under a
-three-way interaction, and for a nested `f / g`. Where that happens the
-term's design columns are constrained directly instead. A model whose
-fixed part is additive is unaffected: there, dropping the term from the
+three-way interaction, and for a nested `f / g`. Where that happens, and
+for every coefficient of a multi-column term, the design columns are
+constrained directly instead. A model whose fixed part is additive in
+one-column terms is unaffected: there, dropping the term from the
 formula already is the null.
 
 The bootstrap is an approximation, not an exact test. Its null is the
@@ -336,8 +351,10 @@ larger `n_boot` can widen it. No `n_boot` makes the test exact – on the
 4-stratum design above, 19 draws and 99 draws both rejected at about
 14%.
 
-It costs `n_boot` refits *per term*, and is a separate bootstrap from
-the `bootstrap = TRUE` VPC interval, which is not reused.
+It costs `n_boot` refits *per tested coefficient* – one block per row of
+the table except the intercept, so a \\k\\-level factor costs \\k - 1\\
+of them – and is a separate bootstrap from the `bootstrap = TRUE` VPC
+interval, which is not reused.
 
 Budget for it. A Gaussian refit takes milliseconds, but a binomial one
 takes about a second at \\n = 1000\\ and tens of seconds at \\n =

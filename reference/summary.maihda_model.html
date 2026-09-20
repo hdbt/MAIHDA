@@ -125,10 +125,10 @@ families/engines.</p></dd>
 intervals of an <code>lme4</code> fit: <code>"between-within"</code> (default) a
 \(t\) on containment degrees of freedom for a Gaussian fit and a z
 elsewhere, <code>"normal"</code> a z, <code>"bootstrap"</code> a null-restricted
-parametric bootstrap costing <code>n_boot</code> refits <em>per fixed-effect
-term</em>. <code>"bootstrap"</code> is the reference to use for a GLMM term that is
-constant within a stratum, such as an adjusted model's dimension main
-effects. Every other engine uses a z regardless.</p></dd>
+parametric bootstrap costing <code>n_boot</code> refits <em>per tested
+fixed-effect coefficient</em>. <code>"bootstrap"</code> is the reference to use for a
+GLMM term that is constant within a stratum, such as an adjusted model's
+dimension main effects. Every other engine uses a z regardless.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -316,7 +316,7 @@ posterior. For Kenward-Roger or Satterthwaite, apply <span class="pkg">pbkrtest<
 with at least one fixed-effect term, Gaussian or not, and is the one to use
 for a GLMM – whose z is anticonservative for a term constant within a
 stratum, most severely when the strata are few. For
-each fixed-effect term the model is refitted with that term's coefficients
+each fixed-effect coefficient the model is refitted with that coefficient
 <em>constrained to zero</em>, <code>n_boot</code> responses are simulated from the
 restricted fit, the full model is refitted on each, and the observed Wald
 statistic is referred to the resulting distribution of \(|t^*|\). The
@@ -333,6 +333,18 @@ approximation as the p-value (below). <code>df</code> is <code>NA</code>, and so
 intercept's p-value and interval: a MAIHDA intercept is a reference-category
 level rather than a term that can be dropped, so it has no null model to
 simulate from.</p>
+<p>The restriction is on the coefficient, not on its term. A term spanning
+several design columns – a factor with three or more levels, a polynomial, an
+interaction between factors – carries one row per column, and each is tested
+against its own null: that column zeroed, the siblings kept and re-estimated
+as the nuisance parameters they are. Zeroing the siblings too would test a
+stronger hypothesis than the row states, and would push their effect into the
+variance components, so the draws would come from a model the data do not
+describe. It would also make the answer depend on spelling, since <code>y ~ f</code>
+and <code>y ~ fb + fc</code> fit the identical model. The restriction is the one the
+coefficient names under the fitted contrasts: treatment coding merges that
+level into the reference, sum coding sets its deviation from the unweighted
+mean of the level means to zero.</p>
 <p>The constraint is imposed on the fitted design and verified, not assumed from
 the formula. Removing a term from a formula does not always remove it from the
 model: R's marginality rules recode a surviving higher-order term to absorb a
@@ -340,9 +352,10 @@ dropped marginal one, so for <code>y ~ x * f</code> the formula <code>. ~ . - x<
 still spans the original column space and leaves the coefficient under test
 entirely unrestricted. The same holds for either main effect of <code>f * g</code>,
 for every main effect and two-way term under a three-way interaction, and for
-a nested <code>f / g</code>. Where that happens the term's design columns are
-constrained directly instead. A model whose fixed part is additive is
-unaffected: there, dropping the term from the formula already is the null.</p>
+a nested <code>f / g</code>. Where that happens, and for every coefficient of a
+multi-column term, the design columns are constrained directly instead. A
+model whose fixed part is additive in one-column terms is unaffected: there,
+dropping the term from the formula already is the null.</p>
 <p>The bootstrap is an approximation, not an exact test. Its null is the
 restricted fit, whose other coefficients and variance components were
 estimated from the same data, so the p-value is only as well calibrated as
@@ -366,8 +379,10 @@ unlimited bootstrap would give: the interval settles at a fixed, non-zero
 width rather than narrowing without end, and at a given seed a larger
 <code>n_boot</code> can widen it. No <code>n_boot</code> makes the test exact – on the
 4-stratum design above, 19 draws and 99 draws both rejected at about 14%.</p>
-<p>It costs <code>n_boot</code> refits <em>per term</em>, and is a separate bootstrap
-from the <code>bootstrap = TRUE</code> VPC interval, which is not reused.</p>
+<p>It costs <code>n_boot</code> refits <em>per tested coefficient</em> – one block per
+row of the table except the intercept, so a \(k\)-level factor costs
+\(k - 1\) of them – and is a separate bootstrap from the
+<code>bootstrap = TRUE</code> VPC interval, which is not reused.</p>
 <p>Budget for it. A Gaussian refit takes milliseconds, but a binomial one takes
 about a second at \(n = 1000\) and tens of seconds at \(n = 6000\), so the
 default <code>n_boot = 1000</code> on a three-dimension GLMM is roughly an hour at
