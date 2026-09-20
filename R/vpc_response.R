@@ -225,7 +225,8 @@ maihda_vpc_response <- function(model, n_sim = 10000, seed = NULL) {
   # predictor, so the VPC is a conditional-at-mean estimate (evaluated at the average
   # covariate profile) rather than one integrated over the covariate distribution --
   # see the @details section of the function documentation.
-  lp_fixed <- mean(stats::predict(fitted_model, re.form = NA, type = "link"), na.rm = TRUE)
+  lp_fixed <- mean(maihda_fit_rows_predict(fitted_model, re.form = NA, type = "link"),
+                   na.rm = TRUE)
 
   if (!is.null(seed)) {
     # Keep reproducibility local: snapshot the caller's RNG state and restore it

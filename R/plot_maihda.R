@@ -1757,8 +1757,12 @@ plot_effect_decomposition <- function(object, summary_obj, top_n_labels = 10, hi
   # non-identity links (logit/log) the split is not additive. For Gaussian/identity
   # the link scale equals the response scale, so this is unchanged there.
   if (object$engine == "lme4") {
-    preds_total <- tryCatch(predict(object$model, type = "link", re.form = re_scope), error = function(e) rep(NA, nrow(data)))
-    preds_fixed <- tryCatch(predict(object$model, type = "link", re.form = NA), error = function(e) rep(NA, nrow(data)))
+    preds_total <- tryCatch(maihda_fit_rows_predict(object$model, type = "link",
+                                                    re.form = re_scope),
+                            error = function(e) rep(NA, nrow(data)))
+    preds_fixed <- tryCatch(maihda_fit_rows_predict(object$model, type = "link",
+                                                    re.form = NA),
+                            error = function(e) rep(NA, nrow(data)))
   } else if (object$engine == "brms") {
     preds_total <- tryCatch(maihda_brms_linpred_mean(object$model, re_formula = re_scope), error = function(e) rep(NA, nrow(data)))
     preds_fixed <- tryCatch(maihda_brms_linpred_mean(object$model, re_formula = NA), error = function(e) rep(NA, nrow(data)))

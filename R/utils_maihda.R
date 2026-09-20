@@ -612,7 +612,7 @@ maihda_adequacy_checks <- function(model, longitudinal_info = NULL) {
       grepl("^Negative Binomial", fam)
     if (is_poisson || is_negbin) {
       od <- tryCatch(
-        maihda_overdispersion_stat(stats::residuals(model, type = "pearson"),
+        maihda_overdispersion_stat(maihda_fit_rows_residuals(model, type = "pearson"),
                                    stats::df.residual(model)),
         error = function(e) NULL)
       if (!is.null(od)) {
@@ -623,7 +623,10 @@ maihda_adequacy_checks <- function(model, longitudinal_info = NULL) {
       }
       zi <- tryCatch({
         y <- as.numeric(lme4::getME(model, "y"))
-        mu <- as.numeric(stats::fitted(model))
+        # getME(model, "y") is NOT padded by na.exclude but fitted() IS, so the two
+        # are only comparable once the padding is stripped (an unstripped mu made
+        # every expected-zero count NA and dropped the whole check silently).
+        mu <- as.numeric(maihda_fit_rows_fitted(model))
         obs0 <- sum(y == 0)
         exp0 <- if (is_negbin) {
           theta <- maihda_negbin_theta_lme4(model)
@@ -694,7 +697,7 @@ maihda_adequacy_checks <- function(model, longitudinal_info = NULL) {
           !id_col %in% names(mf) || !time_col %in% names(mf)) {
         NULL
       } else {
-        maihda_resid_autocorr_stat(stats::residuals(model, type = "pearson"),
+        maihda_resid_autocorr_stat(maihda_fit_rows_residuals(model, type = "pearson"),
                                    mf[[id_col]], as.numeric(mf[[time_col]]))
       }
     }, error = function(e) NULL)
@@ -2067,6 +2070,95 @@ maihda_model_frame <- function(model, fallback = NULL) {
   out
 }
 
+# --- na.exclude row padding -------------------------------------------------
+#
+# A fit made with na.action = na.exclude -- passed to fit_maihda() directly, under an
+# abbreviated name, or inherited from options(na.action = "na.exclude") -- keeps an
+# "exclude"-class na.action on its model frame, and base R then PADS every fitted-row
+# accessor back out to the ORIGINAL input rows: napredict()/naresid() reinsert an NA at
+# each dropped position, so stats::predict(), fitted(), residuals() and
+# weights(type = "prior") all come back LONGER than the fit. `object$data` IS the
+# analytic model frame, so a consumer pairing the two positionally is misaligned -- and
+# R's recycling makes that SILENT whenever the analytic count divides the padded count
+# (720 input rows with 360 analytic rows returned stratum predictions off by 0.016 with
+# every stratum size doubled, no error and no warning). Every internal read of a
+# fitted-row quantity therefore goes through the accessors below, which return the
+# ANALYTIC rows. All of them are no-ops under the default na.omit.
+maihda_na_exclude_rows <- function(model) {
+  mf <- tryCatch(maihda_model_frame(model), error = function(e) NULL)
+  if (is.null(mf)) {
+    return(NULL)
+  }
+  na_act <- attr(mf, "na.action")
+  # Only the "exclude" class pads. na.omit records the same dropped indices, but
+  # napredict()/naresid() are then the identity, so those accessors already come back
+  # on the analytic rows and there is nothing to strip.
+  if (is.null(na_act) || !inherits(na_act, "exclude")) {
+    return(NULL)
+  }
+  omit <- suppressWarnings(as.integer(na_act))
+  if (length(omit) == 0 || anyNA(omit) || any(omit <= 0)) {
+    return(NULL)
+  }
+  list(omit = omit, n_fit = nrow(mf))
+}
+
+# Drop the na.exclude padding from a fitted-row vector or matrix, returning the
+# analytic rows. A no-op when the fit carries no "exclude" na.action, and when `x` is
+# already the analytic length (an accessor that does not pad, such as
+# lme4::getME(model, "y")).
+#
+# A length that is NEITHER the analytic nor the padded one cannot be aligned to the
+# fitted rows by any rule, so it is an error naming both counts rather than a recycled
+# -- and silently wrong -- result.
+#
+# That check guards values that REACH this function; it cannot see a call site that
+# still uses stats::predict()/fitted()/residuals()/weights() directly, since such a
+# site never gets here. What catches THOSE is the na.exclude-equals-na.omit
+# equivalence test in test-audit-2026-09-20.R, which compares the two NA actions
+# across the reported surface: the two fit identical rows, so any quantity that
+# differs is an unrouted accessor.
+maihda_unpad_fit_rows <- function(x, model, what = "fitted-row value") {
+  if (is.null(x)) {
+    return(x)
+  }
+  ex <- maihda_na_exclude_rows(model)
+  if (is.null(ex)) {
+    return(x)
+  }
+  len <- if (is.matrix(x) || is.data.frame(x)) nrow(x) else length(x)
+  if (len == ex$n_fit) {
+    return(x)
+  }
+  if (len != ex$n_fit + length(ex$omit)) {
+    stop("Internal error: the ", what, " has ", len, " row(s), but the fit has ",
+         ex$n_fit, " analytic row(s) (", ex$n_fit + length(ex$omit),
+         " before na.action = na.exclude dropped ", length(ex$omit), ").",
+         call. = FALSE)
+  }
+  if (is.matrix(x) || is.data.frame(x)) x[-ex$omit, , drop = FALSE] else x[-ex$omit]
+}
+
+# The fitted-row accessors, on the analytic rows. Use THESE -- never
+# stats::predict()/fitted()/residuals()/weights() directly -- whenever the result is
+# paired with object$data, the model frame, or another fitted-row quantity. Each
+# forwards `...` unchanged, so they are drop-in replacements.
+maihda_fit_rows_predict <- function(model, ...) {
+  maihda_unpad_fit_rows(stats::predict(model, ...), model, "prediction")
+}
+
+maihda_fit_rows_fitted <- function(model, ...) {
+  maihda_unpad_fit_rows(stats::fitted(model, ...), model, "fitted values")
+}
+
+maihda_fit_rows_residuals <- function(model, ...) {
+  maihda_unpad_fit_rows(stats::residuals(model, ...), model, "residuals")
+}
+
+maihda_fit_rows_weights <- function(model, type = "prior") {
+  maihda_unpad_fit_rows(stats::weights(model, type = type), model, "prior weights")
+}
+
 # Response-deleted fixed-effect terms for prediction, carrying the FITTED
 # transformation basis. terms() rebuilt from a bare formula has NO "predvars" attribute,
 # so a data-dependent term -- scale(x), poly(x, 2), splines::ns(x, 3) -- is
@@ -2279,7 +2371,7 @@ maihda_response_fingerprint <- function(model) {
 # engines where prior weights are not recoverable (e.g. brms) also degrade to
 # "unit" rather than erroring, leaving their current behaviour unchanged.
 maihda_weight_fingerprint <- function(model) {
-  w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
+  w <- tryCatch(maihda_fit_rows_weights(model), error = function(e) NULL)
   if (is.null(w) || length(w) == 0) {
     return("unit")
   }
@@ -3055,7 +3147,7 @@ maihda_stratum_ranef_brms <- function(model, group = "stratum",
 # sigma^2 when all weights are 1.
 maihda_gaussian_residual_variance_lme4 <- function(model, vc = lme4::VarCorr(model)) {
   sigma2 <- attr(vc, "sc")^2
-  w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
+  w <- tryCatch(maihda_fit_rows_weights(model), error = function(e) NULL)
   if (is.null(w) || length(w) == 0) {
     return(sigma2)
   }
@@ -3082,7 +3174,7 @@ maihda_lme4_simulation_weights <- function(model) {
   if (!inherits(model, "merMod") || !isTRUE(lme4::isLMM(model))) {
     return(NULL)
   }
-  w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
+  w <- tryCatch(maihda_fit_rows_weights(model), error = function(e) NULL)
   if (is.null(w) || length(w) == 0) {
     return(NULL)
   }
@@ -3118,18 +3210,28 @@ maihda_lme4_simulation_weights <- function(model) {
 # ourselves, leaving lme4's random-effect simulation untouched. Unweighted (or
 # all-weights-1) LMMs and every GLMM take the plain stats::simulate() path, so
 # those draws stay bit-identical to before.
+#
+# simulate.merMod() passes its draws through napredict(), so under
+# na.action = na.exclude they come back on the ORIGINAL input rows with an NA at each
+# dropped position -- NOT the one-value-per-model-frame-row that maihda_refit_draw()
+# below documents and that lme4::refit() needs. Strip that padding here, so the draw
+# really is on the fitted rows and the weight vector it is added to lines up.
 maihda_simulate_lme4 <- function(model, nsim) {
+  simulate_rows <- function(...) {
+    maihda_unpad_fit_rows(stats::simulate(model, nsim = nsim, ...), model,
+                          "simulated response")
+  }
   w <- maihda_lme4_simulation_weights(model)
   if (is.null(w)) {
-    return(stats::simulate(model, nsim = nsim))
+    return(simulate_rows())
   }
-  sim <- stats::simulate(model, nsim = nsim, cond.sim = FALSE)
+  sim <- simulate_rows(cond.sim = FALSE)
   # Fall back to lme4's own draws if the residual-free predictor is not the
   # one-value-per-row shape the weight vector describes (e.g. a matrix response).
   # NROW(), not nrow(): the latter is NULL for a non-matrix-like object, and a
   # guard that errors is worse than the shape it guards against.
   if (NROW(sim) != length(w)) {
-    return(stats::simulate(model, nsim = nsim))
+    return(simulate_rows())
   }
   sigma_hat <- stats::sigma(model)
   # A row whose weight is zero (or non-finite) contributes nothing to the weighted
@@ -3169,6 +3271,14 @@ maihda_simulate_lme4 <- function(model, nsim) {
 # on the attribute and never reads its value. A fit that dropped no rows is
 # untouched, so those refits stay bit-identical.
 maihda_refit_draw <- function(model, newresp) {
+  # The premise above -- "a draw has one value per row of the MODEL FRAME" -- holds
+  # for na.omit but NOT for na.exclude, where simulate() pads its draws back out to
+  # the original input rows. Tagging such a draw suppresses the very truncation it
+  # needs, and every refit then fails with "replacement has <n> rows, data has
+  # <n - k>", disabling the whole bootstrap. Strip the padding first, which restores
+  # the premise; a draw already on the fitted rows is returned untouched, so the
+  # na.omit path is unchanged.
+  newresp <- maihda_unpad_fit_rows(newresp, model, "bootstrap draw")
   if (is.null(attr(newresp, "na.action"))) {
     na_act <- attr(tryCatch(model@frame, error = function(e) NULL), "na.action")
     if (!is.null(na_act)) attr(newresp, "na.action") <- na_act
@@ -3203,7 +3313,7 @@ maihda_fit_prior_weights <- function(model) {
     }
     return(NULL)
   }
-  w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
+  w <- tryCatch(maihda_fit_rows_weights(model), error = function(e) NULL)
   if (is.null(w) || length(w) == 0) {
     return(NULL)
   }
@@ -3527,7 +3637,7 @@ maihda_bar_group_name <- function(bar) {
 # included); v_i comes from the VarCorr blocks over the fitted model frame, so
 # growth-model random slopes contribute their time-varying share.
 maihda_count_marginal_mu_lme4 <- function(model) {
-  eta <- as.numeric(stats::predict(model, re.form = NA, type = "link"))
+  eta <- as.numeric(maihda_fit_rows_predict(model, re.form = NA, type = "link"))
   bars <- reformulas::findbars(stats::formula(model))
   if (is.null(bars) || length(bars) == 0) {
     stop("Could not read the random-effect terms off the lme4 formula for the ",
@@ -4204,7 +4314,7 @@ maihda_prior_weights <- function(object) {
   if (!is.null(resp) && !is.null(dim(resp))) {
     return(rep(1, n))
   }
-  w <- tryCatch(stats::weights(object$model, type = "prior"), error = function(e) NULL)
+  w <- tryCatch(maihda_fit_rows_weights(object$model), error = function(e) NULL)
   if (is.null(w) || length(w) != n) {
     return(rep(1, n))
   }
@@ -4355,7 +4465,7 @@ maihda_prediction_weights <- function(object) {
   if (is.null(resp) || is.null(dim(resp))) {
     return(w)
   }
-  trials <- tryCatch(stats::weights(object$model, type = "prior"),
+  trials <- tryCatch(maihda_fit_rows_weights(object$model),
                      error = function(e) NULL)
   if (is.null(trials) || length(trials) != n || any(!is.finite(trials))) {
     return(w)
@@ -4698,9 +4808,11 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
   # predictor, which INCLUDES any offset. Passing newdata = data (the stored model
   # frame) would drop an external offset= and error on a formula offset() term (its
   # raw variable lives only as the frame's derived "offset(...)"/"(offset)" column).
-  # object$data IS the model frame, so predict()'s output is in the same row order as
-  # `data` / `key` below.
-  eta_fixed <- stats::predict(model, re.form = NA, type = "link")
+  # object$data IS the model frame, so the prediction is in the same row order as
+  # `data` / `key` below -- via maihda_fit_rows_predict(), NOT stats::predict(), which
+  # under na.action = na.exclude pads back out to the original input rows and would
+  # misalign against (or silently recycle into) those keys.
+  eta_fixed <- maihda_fit_rows_predict(model, re.form = NA, type = "link")
   stratum_est <- summary_obj$stratum_estimates
   if (is.null(stratum_est) || nrow(stratum_est) == 0) {
     stop("No stratum estimates available.")
@@ -4729,7 +4841,8 @@ maihda_stratum_predictions_lme4 <- function(object, summary_obj, scale = c("resp
     re_form <- maihda_re_form_for_groups(stats::formula(model),
                                          unname(object$cc_info$dim_groups))
     # As above: no newdata, so the stored offset is retained and the rows stay aligned.
-    eta_base <- as.numeric(stats::predict(model, re.form = re_form, type = "link"))
+    eta_base <- as.numeric(maihda_fit_rows_predict(model, re.form = re_form,
+                                                   type = "link"))
   }
 
   pred_df <- data.frame(

@@ -67,7 +67,7 @@ maihda_prediction_panel_prior_weights <- function(maihda_obj, model, data) {
     w <- tryCatch(maihda_prediction_weights(maihda_obj), error = function(e) NULL)
   }
   if (is.null(w)) {
-    w <- tryCatch(stats::weights(model, type = "prior"), error = function(e) NULL)
+    w <- tryCatch(maihda_fit_rows_weights(model), error = function(e) NULL)
   }
   if (is.null(w) || !is.numeric(w) || length(w) != n) {
     w <- tryCatch(maihda_prediction_panel_brms_trials(model, data),
@@ -242,9 +242,9 @@ maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALS
   if (inherits(model, "merMod")) {
     if (isTRUE(fitted_data)) {
       fit <- if (type == "binomial" || type == "poisson") {
-        stats::predict(model, type = "response")
+        maihda_fit_rows_predict(model, type = "response")
       } else {
-        stats::predict(model)
+        maihda_fit_rows_predict(model)
       }
       return(list(fit = as.numeric(fit), se.fit = rep(NA_real_, length(fit))))
     }
@@ -536,7 +536,8 @@ maihda_prediction_panel_binomial_residuals <- function(model, data, fitted, obs_
     return(aligned_resids)
   }
 
-  model_resids <- tryCatch(abs(residuals(model, type = "deviance")), error = function(e) NULL)
+  model_resids <- tryCatch(abs(maihda_fit_rows_residuals(model, type = "deviance")),
+                           error = function(e) NULL)
   if (is.numeric(model_resids) && length(model_resids) == nrow(data)) {
     return(model_resids)
   }

@@ -565,7 +565,7 @@ maihda_discriminatory_accuracy <- function(model,
   # trial counts is `aggregated` and never reaches here.
   pw <- NULL
   if (!aggregated && !design_weighted && identical(model$engine, "lme4")) {
-    pw_try <- tryCatch(as.numeric(stats::weights(model$model, type = "prior")),
+    pw_try <- tryCatch(as.numeric(maihda_fit_rows_weights(model$model)),
                        error = function(e) NULL)
     if (!is.null(pw_try) && length(pw_try) == length(prob) &&
         all(is.finite(pw_try)) &&
@@ -879,7 +879,7 @@ maihda_da_aggregated_counts <- function(model, binomial_weights = "auto",
     return(NULL)
   }
   y <- tryCatch(as.numeric(lme4::getME(model$model, "y")), error = function(e) NULL)
-  w <- tryCatch(as.numeric(stats::weights(model$model, type = "prior")),
+  w <- tryCatch(as.numeric(maihda_fit_rows_weights(model$model)),
                 error = function(e) NULL)
   maihda_agg_counts_from_weights(y, w,
                                  forced = identical(binomial_weights, "trials"),
@@ -1029,7 +1029,8 @@ maihda_da_scope_scores <- function(model, keep_groups) {
   }, character(1))
   re_form <- stats::as.formula(paste("~", paste(re_txt, collapse = " + ")))
   if (identical(model$engine, "lme4")) {
-    as.numeric(stats::predict(model$model, re.form = re_form, type = "link"))
+    as.numeric(maihda_fit_rows_predict(model$model, re.form = re_form,
+                                       type = "link"))
   } else if (identical(model$engine, "brms")) {
     maihda_brms_linpred_mean(model$model, re_formula = re_form)
   } else {

@@ -77,7 +77,12 @@ regardless.}
 Depending on type:
   \itemize{
     \item For "individual": A numeric vector of predicted values on the
-      requested scale
+      requested scale, one per row of \code{newdata} -- or, when
+      \code{newdata} is \code{NULL}, one per ANALYTIC row, matching
+      \code{nrow(object$data)}. A model fitted with
+      \code{na.action = na.exclude} is \emph{not} padded back out to the
+      original input rows the way \code{predict()} on the underlying fit is,
+      so the result can always be bound to \code{object$data}.
     \item For "strata": A data frame with stratum ID and predicted random
       effect. When \code{newdata} is supplied, the result is restricted to the
       strata present in \code{newdata} (and a stratum the model never saw is an
