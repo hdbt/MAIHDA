@@ -152,6 +152,16 @@
 
 ### API changes
 
+- [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  on the training rows now returns one value per analytic row for a fit
+  made with `na.action = na.exclude`, matching `nrow(object$data)` and
+  every other
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  return, rather than base R’s vector over the original input rows with
+  an `NA` at each dropped position. The padded vector could not be bound
+  to `object$data`, which is what produced the misalignment fixed below.
+  Unchanged under the default `na.action = na.omit`.
+
 - [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
   reports `NA` criteria, with estimator
   `"ML (glmer scale family: no likelihood)"`, for a glmer fit of a
@@ -160,6 +170,7 @@
   [`logLik()`](https://rdrr.io/r/stats/logLik.html) for those fits is
   not the marginal likelihood – it exceeded the achievable maximum by up
   to 15.4 on test fits – and nested AIC differences were off by 4 to 45.
+
 - [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
   adds back the saturated log-likelihood that lme4 leaves out of
   [`logLik()`](https://rdrr.io/r/stats/logLik.html) for a glmer fit with
@@ -167,6 +178,7 @@
   and compare with a Laplace fit’s. The two differed by 1351.6 AIC units
   on a 720-row Poisson fit; Bernoulli outcomes, whose term is zero, are
   unchanged.
+
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   now refuses `family = "negbinomial"` with `nAGQ > 1` on the lme4
   engine.
@@ -174,6 +186,7 @@
   estimates theta on that incomplete likelihood and silently returned
   theta 0.087 instead of 1.62 and a stratum SD of 0; use `nAGQ = 1`, or
   fix theta with `family = MASS::negative.binomial(theta)`.
+
 - [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md),
   and the criteria
   [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
@@ -187,6 +200,7 @@
   [`glm()`](https://rdrr.io/r/stats/glm.html) counts that family the
   same way; `family = "negbinomial"` fits estimate theta and are
   unchanged.
+
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   on an `engine = "brms"` ordinal fit now draws the posterior-mean
   category probabilities from
@@ -196,6 +210,7 @@
   [`predict()`](https://rdrr.io/r/stats/predict.html). The
   expected-score panel no longer changes between calls, and a category
   that no draw happened to produce no longer gets probability 0.
+
 - [`summary()`](https://rdrr.io/r/base/summary.html) on a
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
   analysis now errors when passed `df_method`, `bootstrap`, `n_boot`,
@@ -204,6 +219,7 @@
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md); set
   them there, or summarise the fitted model directly with
   `summary(x$model_adjusted, df_method = "bootstrap")`.
+
 - [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
   now reads non-unit integral lme4 `weights=` on a binomial fit as trial
   counts, which is what [`?glm`](https://rdrr.io/r/stats/glm.html)
@@ -215,6 +231,7 @@
   cell contributed one case and one control at the same score, and the
   AUC was exactly 0.5. Non-integral weights cannot be counts and are
   unchanged. New `binomial_weights` argument forces either reading.
+
 - The automatic ordinal proportional-odds caveat is gone. It compared
   two fixed-only `clm()` models and referred the nominal-effects LRT to
   a chi-squared distribution, but a conditional cumulative model with a
@@ -227,6 +244,7 @@
   `$proportional_odds`. Use
   [`maihda_proportional_odds_test()`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
   to test the assumption.
+
 - [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
   no longer rounds an aggregated-binomial proportion response into whole
   successes. When the response times its trial counts is not a whole
@@ -236,12 +254,14 @@
   observations, moving both the AUC and the reported `n_case` /
   `n_control`. Well-formed `successes/trials` and
   `cbind(successes, failures)` fits are unchanged.
+
 - The
   [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
   intercept row now carries an interval (`*_lower`/`*_upper`, previously
   always `NA`): the summary’s Wald interval for the likelihood engines,
   the credible interval for brms. The variance and SD rows remain point
   estimates.
+
 - The `fixed_effects` element of a
   [`summary()`](https://rdrr.io/r/base/summary.html) object gained
   `statistic`, `df`, `p_value`, `lower` and `upper` columns (and `se`
@@ -249,10 +269,12 @@
   credible-interval quantiles as well as the Wald ones. Code reading
   `term`/`estimate`/`se` is unaffected; code assuming the exact column
   set is not.
+
 - Gaussian lme4 fixed-effect p-values and Wald intervals now use a `t`
   on containment (between-within) degrees of freedom, reported in a new
   `df` column, instead of a `z`. `summary(df_method = "normal")` gives
   the z. GLMM, WeMix, `clmm` and brms are unchanged.
+
 - Gaussian PCV calculations now use each model’s fitted (REML)
   between-stratum variance by default. Use `estimation = "ML"` in
   [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
@@ -261,6 +283,7 @@
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md),
   or [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) to
   restore the previous ML-refit behaviour.
+
 - [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   now reject a stratum dimension written in transformed form in the
@@ -275,6 +298,7 @@
   `decomposition = "crossed-dimensions"` the dimension entered as a
   fixed effect and a random intercept at once). Transform the column in
   `data` and write the bare name.
+
 - [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   now also reject a fixed interaction between a covariate and a stratum
@@ -294,23 +318,28 @@
   `decomposition = "longitudinal"` a user-written `gender * wave` put
   the `dim:time` term the adjusted growth model supplies into the null
   as well. Write the additive form.
+
 - `pcv_importance(method = "sequential")` is soft-deprecated. Use
   [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
   for an order-dependent path or `method = "shapley"` for
   order-invariant attribution.
+
 - [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
   on a crossed-dimensions fit now returns the mixture MOR over pairs of
   distinct strata instead of applying the independent-strata closed form
   to the summed variance. Reported values fall, most where the variance
   sits in the additive dimensions.
+
 - `fit_maihda(engine = "wemix")` now rejects a `max_iteration` that is
   not a single whole number of at least 1.
+
 - The Poisson and negative-binomial level-1 variance behind the VPC is
   now evaluated at a single mean count, `log(1 + 1/mean(lambda))`, as
   Stryhn et al. (2006) and Nakagawa, Johnson & Schielzeth (2017) define
   it, instead of averaging `log(1 + 1/lambda_i)` over rows. Null-model
   count VPCs are unchanged; adjusted, offset, weighted, and longitudinal
   count VPCs rise.
+
 - A brms longitudinal fit’s trajectory VPCs
   (`$longitudinal$vpc_intercept` and `$vpc_slope`) are now the posterior
   median of the per-draw ratio, with a credible interval in
@@ -421,6 +450,34 @@
   roughly halves the fitting cost (most noticeable for `brms`).
 
 ### Bug fixes
+
+- A model fitted with `na.action = na.exclude` no longer mixes
+  predictions over the original input rows with summaries over the
+  analytic ones. Base R pads
+  [`predict()`](https://rdrr.io/r/stats/predict.html),
+  [`fitted()`](https://rdrr.io/r/stats/fitted.values.html),
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html) and
+  `weights(type = "prior")` on such a fit back out to every input row,
+  while `object$data` holds only the rows the engine kept, so on a
+  720-row frame with 717 analytic rows the stratum predictions stopped
+  with “arguments imply differing number of rows”,
+  [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+  with “‘prob’ and ‘y’ must have the same length”,
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
+  dropped its ranked-strata table through its error handler,
+  `plot(type = "all")` left out four panels, and
+  `summary(bootstrap = TRUE)` stopped with “All VPC bootstrap refits
+  failed” because [`simulate()`](https://rdrr.io/r/stats/simulate.html)
+  pads its draws the same way. Where the analytic count divided the
+  input count R recycled instead, silently: stratum predictions were
+  displaced by up to 0.016 on the probability scale and every stratum
+  size was doubled. The zero-inflation adequacy check disappeared, and a
+  growth count fit’s `count_vpc` reported a marginal count of 7.05
+  instead of 7.83. `na.action = na.omit`, the default, was never
+  affected, and the fits themselves were always correct. Reachable by
+  the argument, by an abbreviation of it, or from
+  `options(na.action = "na.exclude")`; lme4 only, the ordinal engine
+  having never carried the padding and WeMix refusing the argument.
 
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   now refuses an argument the engine does not take – `weights`, `subset`

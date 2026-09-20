@@ -145,7 +145,12 @@ regardless.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>Depending on type:</p><ul><li><p>For "individual": A numeric vector of predicted values on the
-      requested scale</p></li>
+      requested scale, one per row of <code>newdata</code> – or, when
+      <code>newdata</code> is <code>NULL</code>, one per ANALYTIC row, matching
+      <code>nrow(object$data)</code>. A model fitted with
+      <code>na.action = na.exclude</code> is <em>not</em> padded back out to the
+      original input rows the way <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> on the underlying fit is,
+      so the result can always be bound to <code>object$data</code>.</p></li>
 <li><p>For "strata": A data frame with stratum ID and predicted random
       effect. When <code>newdata</code> is supplied, the result is restricted to the
       strata present in <code>newdata</code> (and a stratum the model never saw is an

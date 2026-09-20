@@ -105,7 +105,12 @@ predict(
 Depending on type:
 
 - For "individual": A numeric vector of predicted values on the
-  requested scale
+  requested scale, one per row of `newdata` – or, when `newdata` is
+  `NULL`, one per ANALYTIC row, matching `nrow(object$data)`. A model
+  fitted with `na.action = na.exclude` is *not* padded back out to the
+  original input rows the way
+  [`predict()`](https://rdrr.io/r/stats/predict.html) on the underlying
+  fit is, so the result can always be bound to `object$data`.
 
 - For "strata": A data frame with stratum ID and predicted random
   effect. When `newdata` is supplied, the result is restricted to the
