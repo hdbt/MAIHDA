@@ -2159,6 +2159,43 @@ maihda_fit_rows_weights <- function(model, type = "prior") {
   maihda_unpad_fit_rows(stats::weights(model, type = type), model, "prior weights")
 }
 
+# The accessors above repair a padded value AFTER it is returned. That is enough for
+# everything the package reads itself, but NOT for a routine that reads the fit's own
+# accessors INSIDE a backend we do not control -- lme4:::.simulateFun() takes the prior
+# weights off the model and feeds them to the family simulator, where the padding's NA
+# aborts the call before any value comes back (see maihda_simulate_lme4()). Such a
+# caller needs a fit that does not pad in the first place.
+#
+# This returns one: the same rows, response, parameters and weights, with only the
+# model frame's "na.action" re-classed from "exclude" to "omit". That one bit is what
+# makes napredict()/naresid() PAD rather than act as the identity, so every accessor
+# read off the returned fit -- weights(), fitted(), predict(), model.frame() -- comes
+# back on the ANALYTIC rows, and the fit behaves exactly as the same model fitted under
+# na.action = na.omit. A fit that does not pad (na.omit, or no dropped row at all) is
+# returned unchanged, so those paths stay bit-identical.
+#
+# A COPY is modified: S4 slot assignment does not reach the caller's object, which
+# keeps its own na.exclude semantics for everything the user sees.
+maihda_lme4_unpadded_fit <- function(model) {
+  if (is.null(maihda_na_exclude_rows(model))) {
+    return(model)
+  }
+  fr <- tryCatch(model@frame, error = function(e) NULL)
+  if (is.null(fr)) {
+    return(model)
+  }
+  na_act <- attr(fr, "na.action")
+  if (is.null(na_act)) {
+    return(model)
+  }
+  class(na_act) <- "omit"
+  attr(fr, "na.action") <- na_act
+  tryCatch({
+    model@frame <- fr
+    model
+  }, error = function(e) model)
+}
+
 # Response-deleted fixed-effect terms for prediction, carrying the FITTED
 # transformation basis. terms() rebuilt from a bare formula has NO "predvars" attribute,
 # so a data-dependent term -- scale(x), poly(x, 2), splines::ns(x, 3) -- is
@@ -3211,14 +3248,49 @@ maihda_lme4_simulation_weights <- function(model) {
 # all-weights-1) LMMs and every GLMM take the plain stats::simulate() path, so
 # those draws stay bit-identical to before.
 #
-# simulate.merMod() passes its draws through napredict(), so under
-# na.action = na.exclude they come back on the ORIGINAL input rows with an NA at each
-# dropped position -- NOT the one-value-per-model-frame-row that maihda_refit_draw()
-# below documents and that lme4::refit() needs. Strip that padding here, so the draw
-# really is on the fitted rows and the weight vector it is added to lines up.
+# simulate.merMod() both READS and WRITES on the ORIGINAL input rows under
+# na.action = na.exclude, and only the writing half can be repaired afterwards.
+#
+# Writing: it passes its draws through napredict(), so they come back padded with an
+# NA at each dropped position -- NOT the one-value-per-model-frame-row that
+# maihda_refit_draw() below documents and that lme4::refit() needs.
+#
+# Reading: lme4:::.simulateFun() takes the fit's prior weights straight off the model
+# ("weights <- weights(object)") and hands them to the family's simulator as `wts`,
+# which under na.exclude is the PADDED vector -- longer than the n fitted values it is
+# paired with, and NA-carrying. Every GLMM simulator opens with a scalar test on it
+# (binomial any(wts %% 1 != 0), Poisson and negative binomial any(wts != 1)), and for
+# an UNWEIGHTED fit those reduce to any(c(FALSE, ..., NA)) == NA, so the call dies
+# inside lme4 with "missing value where TRUE/FALSE needed" BEFORE any draw is made --
+# no result to post-process.
+#
+# any() short-circuits, and that decides exactly who broke (each measured on HEAD): a
+# WEIGHTED Poisson or negative binomial survived, a real weight != 1 returning TRUE
+# before the NA is reached, while the binomial had no such escape -- integer weights
+# are all FALSE under `%% 1 != 0`, so the NA decided it weighted or not. So every
+# bootstrap that simulates from the FITTED model -- the VPC, the PCV, the
+# crossed-dimensions VPC and the longitudinal VPC(t) band -- was dead for any binomial
+# and for an unweighted Poisson or negative binomial, and a cbind() binomial would
+# have drawn rbinom(n, size = wts) from padded trial counts even without the NA.
+# Gaussian survived throughout: the LMM branch never touches `weights`.
+#
+# Two bootstraps were NOT affected, both because they simulate from a fit that records
+# no na.action of its own, so there is no padding to read (each MEASURED on HEAD, not
+# assumed): df_method = "bootstrap", whose draws come from the restricted null fit --
+# maihda_refit_reduced() refitting the reduced formula on the fit's own analytic frame,
+# or failing that maihda_restrict_fixef()'s design-matrix refit, both complete-case --
+# and pcv_importance(), whose shared preamble reduces to one complete-case sample
+# before fitting, the reason maihda_refit_draw() gives below.
+# maihda_lme4_unpadded_fit() is a no-op for all of these.
+#
+# So simulate from a fit whose accessors do not pad, and keep the unpadding of the
+# RESULT as the guarantee it always was -- with lme4 now reading analytic rows the
+# draw already has one value per model-frame row, so the strip is a no-op. The
+# ORIGINAL model still governs that check and the later refit.
 maihda_simulate_lme4 <- function(model, nsim) {
+  sim_model <- maihda_lme4_unpadded_fit(model)
   simulate_rows <- function(...) {
-    maihda_unpad_fit_rows(stats::simulate(model, nsim = nsim, ...), model,
+    maihda_unpad_fit_rows(stats::simulate(sim_model, nsim = nsim, ...), model,
                           "simulated response")
   }
   w <- maihda_lme4_simulation_weights(model)
