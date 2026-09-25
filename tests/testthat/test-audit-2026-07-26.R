@@ -139,10 +139,13 @@ test_that("prediction rejects a known stratum supplied for an unseen combination
   pa <- predict_maihda(m, newdata = unseen, type = "link", allow_new_levels = TRUE)
   expect_true(is.finite(as.numeric(pa)))
 
-  # The two paths agree: the label the rebuild path assigns to an unseen
-  # combination is exactly what the check accepts when it is supplied explicitly,
-  # and it predicts identically. (This is why the implied stratum falls back to the
-  # label rather than to NA.)
+  # The two paths agree: naming an unseen combination by its own label is what the
+  # check accepts when a 'stratum' is supplied explicitly, and it predicts
+  # identically to the rebuild path -- both reach the zero-effect fallback. (This is
+  # why the implied stratum falls back to the label rather than to NA. Since the
+  # 2026-09-24 audit the rebuild path gives such a row a GENERATED id instead of its
+  # label, because a label can coincide with a fitted stratum id; the label is still
+  # what identifies the combination here, and both routes zero the effect.)
   round_trip <- unseen
   round_trip$stratum <- maihda_stratum_labels(unseen, m$strata_vars, m$strata_sep,
                                               m$strata_autobin_info)

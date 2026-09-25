@@ -5058,6 +5058,51 @@ maihda_known_strata <- function(object) {
   s[!is.na(s)]
 }
 
+# Every stratum id the model carries: the strata the fit estimated an effect for
+# (plus the declared levels of a factor stratum column) and every id in the strata
+# table, including one whose rows all left the analytic sample. A generated id for
+# an unseen combination must avoid all of them.
+maihda_taken_stratum_ids <- function(object) {
+  s <- if (is.data.frame(object$data)) object$data[["stratum"]] else NULL
+  ids <- c(maihda_known_strata(object),
+           if (is.factor(s)) levels(s),
+           if (is.data.frame(object$strata_info))
+             as.character(object$strata_info[["stratum"]]))
+  unique(ids[!is.na(ids)])
+}
+
+# One key per distinct complete dimension combination, from per-column integer
+# codes joined by "\r" as maihda_match_strata_rows() encodes rows, so combinations
+# whose values contain the display separator -- and so share a display label -- stay
+# apart. Numeric dimensions are auto-binned first, exactly as for the labels.
+maihda_stratum_combination_keys <- function(data, vars, autobin_info = NULL) {
+  strata_data <- maihda_apply_autobin_info(data[, vars, drop = FALSE], autobin_info)
+  codes <- lapply(unname(as.list(strata_data)), function(v) {
+    v <- as.character(v)
+    match(v, unique(v))
+  })
+  do.call(paste, c(codes, list(sep = "\r")))
+}
+
+# Stratum ids for the unseen combinations of a prediction frame, one per distinct
+# key. They come from a reserved prefix, which is lengthened until no id coincides
+# with one in `taken`: a prefix alone guarantees nothing, since a strata table can
+# carry any id. Each lengthening yields ids distinct from every earlier attempt, so
+# the loop ends after at most length(taken) + 1 attempts.
+maihda_unseen_stratum_ids <- function(keys, taken) {
+  if (length(keys) == 0) {
+    return(character(0))
+  }
+  combos <- unique(keys)
+  prefix <- ".maihda_unseen_stratum_"
+  ids <- paste0(prefix, seq_along(combos))
+  while (any(ids %in% taken)) {
+    prefix <- paste0(".", prefix)
+    ids <- paste0(prefix, seq_along(combos))
+  }
+  ids[match(keys, combos)]
+}
+
 # The hint appended to an unseen- or missing-stratum error, shared by every site
 # that offers the allow_new_levels escape so the three cannot drift apart. It
 # deliberately does NOT call the result a population average: setting the unseen
@@ -5113,15 +5158,16 @@ maihda_check_known_strata <- function(stratum, known, type = "individual") {
 # disagree would silently pair one intersection's fixed part with another's random
 # effect -- a prediction belonging to no real stratum. When BOTH are present we
 # rebuild the stratum each row's dimensions imply and compare -- a training stratum
-# id where the combination was seen, otherwise the combination's own label, which is
-# what the rebuild path names such a row. Only rows whose dimensions cannot be
-# resolved at all (incomplete, or a numeric value outside the training auto-bin
-# ranges) are exempt, and the exemption applies to those rows alone. The
-# out-of-range case is not silent, though: it is a contradiction rather than a
-# genuine unknown, and maihda_check_autobin_in_range() warns about it upstream (it
-# cannot be caught here, since an out-of-range value cut()s to NA and so leaves the
-# implied stratum NA). A no-op unless the dimension columns, the stored label table
-# and the supplied stratum column are all available.
+# id where the combination was seen, otherwise the combination's own label, which
+# names it as a new stratum unless that label is also a fitted stratum id (then the
+# row would borrow that stratum's random effect, and it is rejected too). Only rows
+# whose dimensions cannot be resolved at all (incomplete, or a numeric value outside
+# the training auto-bin ranges) are exempt, and the exemption applies to those rows
+# alone. The out-of-range case is not silent, though: it is a contradiction rather
+# than a genuine unknown, and maihda_check_autobin_in_range() warns about it upstream
+# (it cannot be caught here, since an out-of-range value cut()s to NA and so leaves
+# the implied stratum NA). A no-op unless the dimension columns, the stored label
+# table and the supplied stratum column are all available.
 maihda_check_stratum_matches_dims <- function(object, newdata) {
   if (!"stratum" %in% names(newdata)) {
     return(invisible(NULL))
@@ -5142,11 +5188,10 @@ maihda_check_stratum_matches_dims <- function(object, newdata) {
   }
   # The stratum each row's dimensions imply. A complete combination the model SAW
   # maps to its training stratum id. A complete combination it never saw maps to no
-  # id, but it is still fully identified -- by the label the rebuild path below would
-  # give it (maihda_prepare_prediction_data() assigns labels[unknown] there) -- so
-  # fall back to that label instead of skipping the row: otherwise a supplied KNOWN
-  # stratum silently lends its random effect to an unseen intersection's fixed
-  # effects, exactly the pairing this check exists to prevent.
+  # id, but it is still fully identified -- by its display label -- so fall back to
+  # that label instead of skipping the row: otherwise a supplied KNOWN stratum
+  # silently lends its random effect to an unseen intersection's fixed effects,
+  # exactly the pairing this check exists to prevent.
   rebuilt <- as.character(maihda_stratum_lookup(
     newdata, strata_info, strata_vars, sep, object$strata_autobin_info))
   labels <- maihda_stratum_labels(newdata, strata_vars, sep, object$strata_autobin_info)
@@ -5160,8 +5205,25 @@ maihda_check_stratum_matches_dims <- function(object, newdata) {
   # maihda_check_autobin_in_range() call, so it is exempt here but not unremarked.
   supplied <- as.character(newdata$stratum)
   mismatch <- !is.na(supplied) & !is.na(implied) & supplied != implied
-  if (any(mismatch)) {
-    i <- which(mismatch)[1]
+  # Agreeing with an unseen combination's label is not enough when that label is
+  # also a fitted stratum id -- a one-dimension label "1", or "12" under sep = "".
+  # Every engine reads the supplied value as that stratum and applies its random
+  # effect, so the row pairs two intersections after all.
+  borrowed <- !mismatch & !is.na(supplied) & is.na(rebuilt) & !is.na(labels) &
+    supplied %in% maihda_known_strata(object)
+  if (any(mismatch | borrowed)) {
+    i <- which(mismatch | borrowed)[1]
+    if (borrowed[i]) {
+      stop(sprintf(paste0(
+        "newdata row %d gives stratum '%s', and its intersectional dimension ",
+        "column(s) (%s) identify '%s', a combination that was not present when the ",
+        "model was fit -- but '%s' is also the id of a fitted stratum, so the row ",
+        "would take that stratum's random effect. Omit the 'stratum' column so the ",
+        "stratum is rebuilt from the dimension columns (an unseen combination then ",
+        "needs allow_new_levels = TRUE)."),
+        i, supplied[i], paste(strata_vars, collapse = ", "), labels[i], supplied[i]),
+        call. = FALSE)
+    }
     identifies <- if (is.na(rebuilt[i])) {
       sprintf("identify '%s', a combination that was not present when the model was fit",
               implied[i])
@@ -5299,13 +5361,28 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
                  sum(is.na(labels))),
          maihda_new_levels_hint(), call. = FALSE)
   }
-  unknown <- !is.na(labels) & is.na(newdata$stratum)
+  # A complete combination is UNSEEN when the fit estimated no effect for it: the
+  # strata table has no id for it (make_strata() never saw it), or has one the fit
+  # never used (every row of that stratum left the analytic sample, e.g. through a
+  # missing covariate). Only a missing id used to count, so the second kind passed
+  # here unchecked and WeMix and ordinal silently gave it the zero-effect
+  # prediction without allow_new_levels (lme4 and brms raised their own errors).
+  fitted_ids <- maihda_known_strata(object)
+  unknown <- !is.na(labels) &
+    (is.na(newdata$stratum) |
+       (!is.null(fitted_ids) & !newdata$stratum %in% fitted_ids))
   if (any(unknown)) {
     if (permit_new) {
-      # Keep each new combination as its own stratum label so the engine maps it
-      # to a zero random effect (a conditional prediction at u = 0) rather than
-      # erroring; mirrors the supplied-'stratum' branch above.
-      newdata$stratum[unknown] <- labels[unknown]
+      # Give each unseen combination a stratum id that no fitted stratum carries,
+      # so every engine maps it to a zero random effect (a conditional prediction
+      # at u = 0) rather than erroring. Its display label cannot serve as that id:
+      # stratum ids are "1", "2", ..., so a one-dimension label such as "1" -- or
+      # "12" under sep = "" -- IS a fitted id, and the row silently took that
+      # stratum's random effect.
+      newdata$stratum[unknown] <- maihda_unseen_stratum_ids(
+        maihda_stratum_combination_keys(newdata[unknown, , drop = FALSE],
+                                        strata_vars, object$strata_autobin_info),
+        taken = maihda_taken_stratum_ids(object))
     } else {
       unknown_labels <- unique(labels[unknown])
       hint <- if (identical(type, "individual")) {
