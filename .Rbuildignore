@@ -24,3 +24,5 @@
 ^.*\.tar\.gz$
 ^tests/testthat/_problems$
 ^audit-2026-09-14$
+^Rplots\.pdf$
+^tests/testthat/Rplots\.pdf$

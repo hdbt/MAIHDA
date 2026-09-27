@@ -12,3 +12,13 @@
 # of the affected block, re-run the suite and, if it turns up a deterministic
 # failure, update the seed below.
 set.seed(20240607)
+
+# Send test graphics to a null device.
+#
+# plot(type = "all") PRINTS each panel -- that is the point of it for an
+# interactive user -- and with no screen device under Rscript / R CMD check, R
+# opens its default pdf() and drops an Rplots.pdf in the working directory
+# (tests/testthat during a run). Nothing ever reads it. pdf(NULL) is a documented
+# null device that discards output, so the print path is still exercised -- the
+# panels are built and drawn, just into the void -- and no file appears.
+grDevices::pdf(NULL)

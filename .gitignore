@@ -12,6 +12,10 @@ vignettes/*.html
 *.Rcheck/
 /*.tar.gz
 /check/
+# R's default graphics device: plot(type = "all") prints its panels, and with
+# no screen device under Rscript / R CMD check R writes them here. Suppressed
+# for the test suite in tests/testthat/setup-seed.R; ignored for stray runs.
+Rplots.pdf
 
 # Large public-use BRFSS cache and derived local case-study outputs.
 /data/brfss-2024/
