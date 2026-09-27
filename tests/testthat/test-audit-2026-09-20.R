@@ -272,10 +272,24 @@ test_that("a growth count fit's count_vpc is not biased by na.exclude", {
     MAIHDA:::maihda_model_frame(f$omit$model))
   expect_gt(stats::sd(v), 0.1)
 
+  # The exclude-vs-omit comparisons below are what actually test the finding, and
+  # they keep testthat's tight default: both sides are fitted on the SAME machine,
+  # so any difference between them is the defect and nothing else.
+  #
+  # The two absolute pins are a different kind of assertion and need a different
+  # tolerance. They record what glmer converged to on one machine, and a GLMM's
+  # optimum is not bit-reproducible across BLAS implementations: at 1e-8 and 1e-7
+  # they failed on every CI runner except Windows, by 0.000504 on lambda (6.4e-5
+  # relative, some 6400x the tolerance) and by -7.3e-06 on Linux against +5.5e-06 on
+  # macOS for the level-1 variance -- the sign flip showing scatter around the value,
+  # not a platform computing it wrongly. 1e-3 leaves ~15x margin over the observed
+  # spread while still catching any regression worth catching: the defect this file
+  # exists for moved lambda from 7.826 to 7.052, and a dropped offset or a mis-scoped
+  # variance shifts these by whole percent, never by thousandths of one.
   expect_equal(s$exclude$count_vpc$lambda, s$omit$count_vpc$lambda)
-  expect_equal(s$omit$count_vpc$lambda, 7.825722551708, tolerance = 1e-8)
+  expect_equal(s$omit$count_vpc$lambda, 7.825722551708, tolerance = 1e-3)
   expect_equal(s$exclude$count_vpc$level1_variance, s$omit$count_vpc$level1_variance)
-  expect_equal(s$omit$count_vpc$level1_variance, 0.120254404, tolerance = 1e-7)
+  expect_equal(s$omit$count_vpc$level1_variance, 0.120254404, tolerance = 1e-3)
   expect_equal(s$exclude$count_vpc$alternatives, s$omit$count_vpc$alternatives)
 })
 
@@ -303,8 +317,12 @@ test_that("the intercept-only count VPC was never affected", {
   lam <- vapply(f, function(x) MAIHDA:::maihda_weighted_obs_mean(
     MAIHDA:::maihda_count_marginal_mu_lme4(x$model),
     MAIHDA:::maihda_fit_prior_weights(x$model)), numeric(1))
+  # Same split as above: the exclude-vs-omit identity is the assertion with teeth
+  # and keeps the tight default, while the absolute pin is loosened to 1e-3. At 1e-9
+  # this one failed on macOS alone, by -4.85e-07 -- Linux and Windows happened to
+  # land inside a tolerance no fitted GLMM value can be held to portably.
   expect_equal(unname(lam[["exclude"]]), unname(lam[["omit"]]))
-  expect_equal(unname(lam[["omit"]]), 2.313946712603, tolerance = 1e-9)
+  expect_equal(unname(lam[["omit"]]), 2.313946712603, tolerance = 1e-3)
 })
 
 test_that("no plot panel is dropped under na.exclude", {
