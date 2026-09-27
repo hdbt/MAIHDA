@@ -2057,13 +2057,29 @@ maihda_analytic_keep_mask <- function(formula, data, subset = NULL, weights = NU
 }
 
 # The model response over the analytic sample (post-transformation, post-NA,
-# post-subset, post-weight-NA and post-offset-NA). Only plain-symbol responses
-# qualify as a Bernoulli candidate, so a transformed or aggregated response
-# (log(y), cbind(s, f), `y | trials(n)`) yields NULL -- "not a single two-level
-# response".
+# post-subset, post-weight-NA and post-offset-NA).
+#
+# The response is EVALUATED, so an expression is classified by what it computes
+# rather than refused for not being a bare column. It used to short-circuit on
+# !is.symbol(formula[[2]]), which made every caller blind to an expression: the
+# same Bernoulli outcome spelled I(ly > 0.9) instead of a precomputed column was
+# reported by maihda_response_is_binary() as NOT binary, so fit_maihda()
+# auto-detected gaussian for it, maihda_describe() called it continuous, and the
+# wemix engine refused it with a message about AGGREGATED binomial responses --
+# which it is not. An aggregated response is still excluded, but now because of
+# what it evaluates to and not how it is written: cbind(s, f) is a matrix, which
+# maihda_is_binary_vector() rejects on its dim(), and a proportion such as
+# I(s / n) is non-integral, which it rejects on its values.
+#
+# NOTE for the binomial path: maihda_prepare_binomial_response() recodes
+# data[[outcome]] BY NAME and so still applies to bare columns only. An
+# expression therefore reaches the engine exactly as it evaluates -- fine for a
+# logical, 0/1 or two-level factor, not for a character or a 1/2 coding, which
+# fit_maihda() refuses explicitly rather than letting the engine raise a
+# confusing error (see maihda_binomial_expression_is_engine_ready).
 maihda_analytic_response <- function(formula, data, subset = NULL,
                                      weights = NULL, offset = NULL) {
-  if (length(formula) != 3L || !is.symbol(formula[[2]])) {
+  if (length(formula) != 3L) {
     return(NULL)
   }
   fr <- maihda_analytic_model_frame(formula, data, subset = subset,
@@ -2072,6 +2088,28 @@ maihda_analytic_response <- function(formula, data, subset = NULL,
     return(NULL)
   }
   tryCatch(stats::model.response(fr), error = function(e) NULL)
+}
+
+# TRUE when a two-level response can go to glmer()/WeMix::mix() as it stands,
+# i.e. without the 0/1 recoding that maihda_prepare_binomial_response() performs
+# for a bare column. A logical, a 0/1 numeric and a two-level factor all qualify
+# (base R's binomial families accept each). A CHARACTER vector does not -- both
+# engines stop with "response must be numeric or factor" -- and neither does a
+# two-value numeric that is not 0/1, such as a 1/2 coding, which stops with
+# "y values must be 0 <= y <= 1". Only consulted for an EXPRESSION response,
+# since a bare column is recoded before it gets here.
+maihda_binomial_expression_is_engine_ready <- function(resp) {
+  if (is.null(resp) || !is.null(dim(resp))) {
+    return(FALSE)
+  }
+  if (is.logical(resp) || is.factor(resp)) {
+    return(TRUE)
+  }
+  if (is.numeric(resp)) {
+    u <- unique(resp[!is.na(resp)])
+    return(all(u %in% c(0, 1)))
+  }
+  FALSE
 }
 
 # Recode a vector to 0/1 using exactly two reference levels: the first level

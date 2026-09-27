@@ -254,10 +254,10 @@ test_that("the lme4 path keeps taking model.response() for a transformed outcome
 })
 
 
-test_that("the engines that cannot reach the fallback still refuse expression responses", {
-  # These guards are WHY ordinal and wemix-binomial were never exposed. If one is
-  # ever relaxed, the fallback above starts carrying those responses too, so pin
-  # them here next to the helper they protect.
+test_that("the ordinal engine still refuses an expression response", {
+  # The ordinal guard is unchanged: clmm needs a single outcome COLUMN, and
+  # maihda_ordinal_prepare_response() refuses any non-symbol response up front, so
+  # the observed-response fallback above never carries one on that path.
   skip_on_cran()
   d <- audit_0926_frame()
   q <- function(e) suppressMessages(suppressWarnings(e))
@@ -271,10 +271,52 @@ test_that("the engines that cannot reach the fallback still refuse expression re
     q(fit_maihda(factor(yo, levels = rev(labs), ordered = TRUE) ~ x + (1 | stratum),
                  data = d, engine = "ordinal", family = "ordinal")),
     "single outcome column")
+})
 
+
+test_that("a wemix binomial fit now ACCEPTS an expression response", {
+  # CHANGED (audit 2026-09-27). This block used to pin the opposite: the wemix
+  # engine refused I(y > 3) with a message about AGGREGATED binomial responses,
+  # because maihda_analytic_response() returned NULL for any non-symbol response
+  # and maihda_response_is_binary() was therefore FALSE. That was a false negative,
+  # not a real guard -- the response is Bernoulli -- and the fallback above turns
+  # out to handle it correctly, which is what this block now checks rather than
+  # assumes.
+  skip_on_cran()
   skip_if_not_installed("WeMix")
+  d <- audit_0926_frame()
+  q <- function(e) suppressMessages(suppressWarnings(e))
+
+  fe <- q(fit_maihda(I(y > 3) ~ x + (1 | stratum), data = d,
+                     family = "binomial", sampling_weights = "w"))
+  expect_s3_class(fe, "maihda_model")
+
+  # It is the SAME model as the precomputed column, to the last bit.
+  d$b3 <- as.integer(d$y > 3)
+  fs <- q(fit_maihda(b3 ~ x + (1 | stratum), data = d,
+                     family = "binomial", sampling_weights = "w"))
+  expect_equal(unname(fe$model$coef), unname(fs$model$coef), tolerance = 1e-12)
+
+  # ... and the observed-response fallback -- the helper this file exists for --
+  # carries the expression correctly on the binomial path: the evaluated logical,
+  # equal row for row to the precomputed 0/1 column.
+  expect_null(attr(fe$data, "terms"))
+  oe <- MAIHDA:::maihda_observed_response_from_model_frame(fe$data, fe$formula)
+  expect_true(is.logical(oe))
+  expect_equal(as.numeric(oe),
+               as.numeric(MAIHDA:::maihda_observed_response_from_model_frame(
+                 fs$data, fs$formula)))
+
+  # An AGGREGATED response is still refused -- now because of what it evaluates to
+  # (a matrix, and a non-integral proportion) rather than how it is spelled.
+  d$ns <- rbinom(nrow(d), 10, 0.5)
+  d$nf <- 10L - d$ns
   expect_error(
-    q(fit_maihda(I(y > 3) ~ x + (1 | stratum), data = d,
+    q(fit_maihda(cbind(ns, nf) ~ x + (1 | stratum), data = d,
+                 family = "binomial", sampling_weights = "w")),
+    "binary \\(Bernoulli\\) 0/1 outcome only")
+  expect_error(
+    q(fit_maihda(I(ns / 10) ~ x + (1 | stratum), data = d,
                  family = "binomial", sampling_weights = "w")),
     "binary \\(Bernoulli\\) 0/1 outcome only")
 })

@@ -762,6 +762,40 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     # Mapping of original outcome levels to 0/1 (which level is the modeled event),
     # captured so it is inspectable on the returned model object.
     response_recoding <- attr(data, "response_recoding")
+
+    # That recoding rewrites data[[outcome]] BY NAME, so it reaches a bare column
+    # only; an EXPRESSION response arrives at the engine exactly as it evaluates. A
+    # logical, a 0/1 value or a two-level factor is fine, but a character or a
+    # non-0/1 numeric coding is not, and the engine's own complaint ("response must
+    # be numeric or factor", "y values must be 0 <= y <= 1") says nothing about the
+    # spelling being the cause. Name the cause and the remedy instead -- the same
+    # outcome stored as a column IS recoded and fits.
+    if (!is.symbol(formula[[2]])) {
+      resp_value <- maihda_analytic_response(formula, data, subset = subset_value,
+                                             weights = detect_weights,
+                                             offset = offset_value)
+      if (!maihda_binomial_expression_is_engine_ready(resp_value)) {
+        # Describe the offending value without assuming its type: the predicate
+        # refuses anything that is not logical / 0/1 / factor, so this has to cope
+        # with whatever else turned up rather than error inside an error.
+        resp_desc <- if (is.character(resp_value)) {
+          "character values"
+        } else {
+          vals <- tryCatch(
+            utils::head(sort(unique(as.character(resp_value[!is.na(resp_value)]))), 2),
+            error = function(e) character(0))
+          if (length(vals)) paste0("the values ", paste(vals, collapse = "/")) else
+            paste0("a ", paste(class(resp_value), collapse = "/"), " value")
+        }
+        stop("The response ", paste(deparse(formula[[2]]), collapse = " "),
+             " is a two-level outcome, but it is written as an expression and ",
+             "evaluates to ", resp_desc,
+             ". The 0/1 recoding applies to a bare outcome column only, so the ",
+             "engine would receive this as it stands and reject it. Store the ",
+             "outcome as a column of 'data' (which IS recoded), or write the ",
+             "expression so it yields a logical or 0/1 value.", call. = FALSE)
+      }
+    }
   }
 
   # The pre-fit descriptive frame stored as $original_data: the FULL data (after
