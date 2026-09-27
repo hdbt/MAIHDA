@@ -152,6 +152,16 @@
 
 ### API changes
 
+- A stratum the strata table holds but the fit never used – every one of
+  its rows left the analytic sample, through a missing covariate for
+  instance – is now refused by
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  like any other unseen stratum, and predicted at a zero random effect
+  under `allow_new_levels = TRUE`. The `wemix` and `ordinal` engines
+  returned that zero-effect prediction silently by default; lme4 and
+  brms raised their own engine errors, which the package’s directed
+  message replaces.
+
 - [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
   on the training rows now returns one value per analytic row for a fit
   made with `na.action = na.exclude`, matching `nrow(object$data)` and
@@ -351,6 +361,21 @@
   by more as the strata get fewer. The interval it never reported spans
   \[0.34, 0.82\] on that same fit. lme4 point estimates are unchanged.
 
+- `plot_prediction_deviation_panels(type = "auto")` now plots a `wemix`
+  binomial fit’s stratum probabilities, as every other engine does,
+  instead of log-odds labelled “Fitted Value”:
+  [`stats::family()`](https://rdrr.io/r/stats/family.html) has no
+  `WeMixResults` method, so the family read as `NULL` and the panel took
+  its Gaussian default. `type = "gaussian"` reproduces the old panel.
+
+- A two-level outcome written as an EXPRESSION is now detected as
+  binary, so
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  with no `family=` picks `binomial` for `I(ly > 0.9) ~ x` where it
+  previously picked `gaussian` and silently fitted a linear probability
+  model; the same outcome stored as a column always picked `binomial`.
+  Pass `family = "gaussian"` for the LPM.
+
 ### Documentation
 
 - [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
@@ -451,6 +476,109 @@
 
 ### Bug fixes
 
+- `fit_maihda(engine = "wemix")` no longer refuses a Bernoulli outcome
+  written as an expression, such as `I(ly > 0.9) ~ x`, as though it were
+  an aggregated binomial: `maihda_analytic_response()` returned `NULL`
+  for every non-symbol response, so the is-binary test was a false
+  negative. The fit now matches the precomputed-column spelling to the
+  last bit, and
+  [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+  reports such an outcome as binomial rather than continuous. A
+  character or 1/2-coded expression is still refused, now saying so and
+  why: the 0/1 recoding reaches bare columns only.
+
+- [`maihda_discriminatory_accuracy()`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
+  on a brms fit whose outcome is an expression – an aggregated binomial
+  such as `round(raw) | trials(ntr) ~ ...` – now reads the response the
+  model was fitted on rather than the first variable named in the
+  formula. brms keeps every raw input column beside the evaluated
+  response in the frame it stores, so `all.vars(formula)[1]` found a
+  real column holding different values and the wrong one was read
+  silently. Measured on one 240-row fit, read with two spellings of that
+  column: sitting 0.4 above the success counts it exceeds the trial
+  count on each all-success row and stopped the call outright with an
+  internal error about negative case/control mass, while sitting 0.4
+  below them it stayed in range and nothing complained – an AUC of
+  0.6587 against a correct 0.6562, with fractional totals of 909.6 cases
+  and 1456.4 controls for data holding 1002 and 1364. The `lme4` engine
+  reads its response from the fit itself and was never affected; the
+  `wemix` and `ordinal` engines refuse a non-symbol response at fit
+  time, and a bare-symbol outcome returns the same values on every
+  engine.
+
+- `plot(type = "obs_vs_shrunken")` now puts the observed stratum means
+  on the scale the model was fitted on when the response is a
+  transformed expression. The observed outcome was read as the first
+  variable *named* in the formula, taken raw out of the data, so a
+  `wemix` fit of `log(y) ~ x` drew raw `y` on the x-axis against
+  log-scale shrunken estimates on the y-axis – 3.539 where the fitted
+  scale gives 1.100, and up to 3.0 out across the strata of that fit –
+  which left the panel’s `y = x` diagonal, its only reference,
+  meaningless. The identical model written `ly ~ x` with `ly <- log(y)`
+  precomputed plotted the correct values, so two spellings of one fit
+  disagreed while their coefficients and shrunken estimates were
+  identical. The response expression is now evaluated as
+  [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+  already evaluated it, and reconstructed through
+  [`model.frame()`](https://rdrr.io/r/stats/model.frame.html) so it
+  matches the lme4 route in class as well as value. Only `wemix` could
+  reach this: lme4 and brms store a frame that carries the evaluated
+  response, and the `ordinal` engine refuses a transformed response
+  outright.
+
+- The proportional-odds statistic of a cumulative (`clmm`) fit no longer
+  depends on how a covariate was spelled in the formula. It was computed
+  by refitting the original term labels against the model frame, which
+  stores each variable already evaluated under its deparsed name, so
+  `y ~ log(x)` sent R looking for a column `x` the frame does not have:
+  `log(x)`, `I(x^2)`, `scale(x)`, `poly(x, 2)` and `factor(g)` all lost
+  the statistic, and
+  [`maihda_proportional_odds_test()`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
+  stopped with a message blaming a covariate-free model, while the
+  identical fit written with the transformation precomputed kept it.
+  Where a same-named object of the same length happened to be reachable
+  from the package namespace, the statistic was silently computed from
+  that object instead of from the fitted data. The refit now takes the
+  fitted columns from the model matrix, reduced to full rank so a
+  covariate entered twice or a constant one no longer costs the
+  statistic either; the statistic is unchanged for the spellings that
+  already worked, and a failed refit is reported separately from a
+  covariate-free model.
+
+- [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md),
+  and the `prediction_deviation` panel of `plot(type = "all")`, now work
+  on a `wemix` fit whose response is an expression rather than a bare
+  column. WeMix’s own
+  [`predict()`](https://rdrr.io/r/stats/predict.html) method names the
+  response with `as.name(form[[2]])`, which is undefined for a call, so
+  `log(y) ~ ...` stopped with “‘language’ object cannot be coerced to
+  type ‘symbol’” and `plot(type = "all")` reported the panel as
+  uncomputable and omitted it, while the same model spelled `ly ~ ...`
+  over a pre-computed column drew normally: one fit, two spellings, a
+  plot and an error. The panel now builds the linear predictor from the
+  fit itself, as
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  already did for this engine, which also reuses the fitted
+  transformation basis and factor coding; every case that drew before
+  returns identical values, and a bare `WeMix` fit handed prediction
+  data it cannot use for such a response now names the response and the
+  way out instead of passing WeMix’s message on. `lme4`, `brms` and
+  `ordinal` fits were never affected.
+
+- `predict_maihda(allow_new_levels = TRUE)` now gives an unseen stratum
+  combination the documented zero-random-effect prediction even when its
+  label reads like an internal stratum id. Combinations are labelled
+  from their dimension values while strata are numbered `1`, `2`, …, so
+  a one-dimension value of `"1"` – or `"12"` under
+  `make_strata(sep = "")` – named a fitted stratum, and lme4, WeMix,
+  ordinal and brms all returned that stratum’s random effect instead:
+  1.508 against a correct 2.165 on one 20-stratum fit. Unseen
+  combinations now carry generated ids checked against every id the
+  model holds. The same collision defeated the check that a supplied
+  `stratum` column agrees with the dimension columns beside it,
+  including under the default `allow_new_levels = FALSE`, and such a row
+  is now refused.
+
 - `summary(df_method = "bootstrap")` now refers each fixed-effect
   coefficient to its own null rather than to its whole term’s. A term
   spanning several design columns – a factor with three or more levels,
@@ -499,6 +627,29 @@
   the argument, by an abbreviation of it, or from
   `options(na.action = "na.exclude")`; lme4 only, the ordinal engine
   having never carried the padding and WeMix refusing the argument.
+
+- A binomial model, or an unweighted Poisson or negative-binomial model,
+  fitted with `na.action = na.exclude` can be bootstrapped again. lme4
+  reads the fit’s prior weights itself when it simulates, and under
+  `na.exclude` that vector is padded back out to the original input rows
+  with an `NA` at each dropped position. The binomial simulator tests it
+  with `any(wts %% 1 != 0)` and the Poisson and negative-binomial ones
+  with `any(wts != 1)`; the padded `NA` makes the binomial test `NA` for
+  any whole-number weights and the other `NA` whenever all the real
+  weights are 1, so the call stopped inside lme4 with “missing value
+  where TRUE/FALSE needed” before any draw existed – and stripping the
+  padding from the result, all the fix above could do, cannot repair a
+  call that never returned. `summary(bootstrap = TRUE)`,
+  `calculate_pcv(bootstrap = TRUE)`, the crossed-dimensions VPC and the
+  longitudinal VPC(t) band were all dead on such a fit, and an
+  aggregated [`cbind()`](https://rdrr.io/r/base/cbind.html) binomial
+  would have drawn its trial counts from the padded vector even without
+  the `NA`. Gaussian fits and weighted Poisson and negative-binomial
+  fits were never affected, and neither were
+  `summary(df_method = "bootstrap")` and
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md),
+  which simulate from complete-case refits. The draws now come back
+  identical to the same fit under `na.action = na.omit`.
 
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   now refuses an argument the engine does not take – `weights`, `subset`

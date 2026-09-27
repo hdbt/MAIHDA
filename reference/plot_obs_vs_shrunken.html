@@ -96,6 +96,11 @@ empty panel is returned if none are.</p></dd>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The x-axis is each stratum's raw observed mean; the y-axis is the
   model-based stratum estimate, which includes the fixed-effect contribution.
+  Both are on the scale the response was <em>fitted</em> on, which is what makes
+  the \(y = x\) diagonal meaningful: for a transformed response such as
+  <code>log(y) ~ x</code> the observed values are stratum means of <code>log(y)</code>, not
+  of <code>y</code>. To read the panel on the original scale, fit the model on that
+  scale; back-transforming only one axis would not give comparable quantities.
   For an intercept-only (null) model the vertical distance from the diagonal is
   pure shrinkage toward the grand mean. For a covariate-adjusted model the model
   estimate also moves with the stratum's covariate profile, so distance from the

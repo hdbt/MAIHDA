@@ -42,9 +42,14 @@ A ggplot2 object
 
 The x-axis is each stratum's raw observed mean; the y-axis is the
 model-based stratum estimate, which includes the fixed-effect
-contribution. For an intercept-only (null) model the vertical distance
-from the diagonal is pure shrinkage toward the grand mean. For a
-covariate-adjusted model the model estimate also moves with the
+contribution. Both are on the scale the response was *fitted* on, which
+is what makes the \\y = x\\ diagonal meaningful: for a transformed
+response such as `log(y) ~ x` the observed values are stratum means of
+`log(y)`, not of `y`. To read the panel on the original scale, fit the
+model on that scale; back-transforming only one axis would not give
+comparable quantities. For an intercept-only (null) model the vertical
+distance from the diagonal is pure shrinkage toward the grand mean. For
+a covariate-adjusted model the model estimate also moves with the
 stratum's covariate profile, so distance from the diagonal reflects
 *both* shrinkage and covariate adjustment and should not be read as
 shrinkage alone.
