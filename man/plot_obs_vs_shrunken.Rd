@@ -32,6 +32,11 @@ Observed vs. Shrunken Estimates Plot
 \details{
 The x-axis is each stratum's raw observed mean; the y-axis is the
   model-based stratum estimate, which includes the fixed-effect contribution.
+  Both are on the scale the response was \emph{fitted} on, which is what makes
+  the \eqn{y = x} diagonal meaningful: for a transformed response such as
+  \code{log(y) ~ x} the observed values are stratum means of \code{log(y)}, not
+  of \code{y}. To read the panel on the original scale, fit the model on that
+  scale; back-transforming only one axis would not give comparable quantities.
   For an intercept-only (null) model the vertical distance from the diagonal is
   pure shrinkage toward the grand mean. For a covariate-adjusted model the model
   estimate also moves with the stratum's covariate profile, so distance from the

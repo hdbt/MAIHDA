@@ -826,6 +826,11 @@ plot_context_vpc <- function(summary_obj) {
 #'
 #' @details The x-axis is each stratum's raw observed mean; the y-axis is the
 #'   model-based stratum estimate, which includes the fixed-effect contribution.
+#'   Both are on the scale the response was \emph{fitted} on, which is what makes
+#'   the \eqn{y = x} diagonal meaningful: for a transformed response such as
+#'   \code{log(y) ~ x} the observed values are stratum means of \code{log(y)}, not
+#'   of \code{y}. To read the panel on the original scale, fit the model on that
+#'   scale; back-transforming only one axis would not give comparable quantities.
 #'   For an intercept-only (null) model the vertical distance from the diagonal is
 #'   pure shrinkage toward the grand mean. For a covariate-adjusted model the model
 #'   estimate also moves with the stratum's covariate profile, so distance from the
@@ -961,18 +966,13 @@ plot_obs_vs_shrunken <- function(object, summary_obj, highlight = NULL, only_fla
   }
 }
 
+# The observed response for the observed-vs-shrunken panel. ONE implementation,
+# shared with the discriminatory-accuracy reader: see maihda_response_from_frame()
+# in R/utils_maihda.R. This entry point fixes the plot path's STRICT contract -- a
+# response it cannot resolve is an error the user reads, not a NULL the caller must
+# interpret -- and keeps the name the panel and its tests already use.
 maihda_observed_response_from_model_frame <- function(data, formula_obj) {
-  response <- tryCatch(stats::model.response(data), error = function(e) NULL)
-  if (!is.null(response)) {
-    return(response)
-  }
-
-  outcome_var <- all.vars(formula_obj)[1]
-  if (!outcome_var %in% names(data)) {
-    stop("Outcome variable not found in data")
-  }
-
-  data[[outcome_var]]
+  maihda_response_from_frame(data, formula_obj, strict = TRUE)
 }
 
 maihda_observed_plot_values <- function(numerator, denominator = NULL) {

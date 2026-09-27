@@ -788,17 +788,44 @@ maihda_model_link_name <- function(model) {
   NA_character_
 }
 
-# Observed 0/1 response aligned with predict_maihda()'s individual predictions.
-# For lme4, getME(, "y") returns the numeric 0/1 response used in fitting (the
-# approach used in the binary_outcomes vignette). For other engines, fall back to
-# the response column of the model frame, coerced to 0/1.
+# Observed 0/1 response aligned with predict_maihda()'s individual predictions (or,
+# for an aggregated binomial, the per-row SUCCESS COUNTS -- see
+# maihda_da_brms_aggregated_counts()).
+#
+# For lme4, getME(, "y") returns the numeric response used in fitting (the approach
+# used in the binary_outcomes vignette). For other engines, read the EVALUATED response
+# out of the stored frame via maihda_response_from_frame().
+#
+# An earlier revision took all.vars(model$formula)[1] -- the first variable NAMED in
+# the formula -- straight out of model$data. That is the raw input column, not the
+# fitted response, whenever the outcome is an expression. A brms
+# `round(raw) | trials(ntr) ~ ...` fit keeps BOTH "round(raw)" and "raw" in its frame,
+# so the read silently succeeded on the wrong one. Measured on ONE 240-row Stan fit,
+# read with two spellings of the decoy column -- the AUC below belongs to the second,
+# because under the first there is no AUC to report:
+#   raw = successes + 0.4        exceeds the trial count on each all-success row (3 of
+#                                240) and the call STOPS, "Internal error: negative
+#                                case/control mass in the weighted AUC".
+#   raw = max(successes - 0.4, 0) stays inside [0, trials], so nothing complains: AUC
+#                                0.6587315786 against a true 0.6562245743, and
+#                                fractional totals of 909.6 cases / 1456.4 controls
+#                                for data holding 1002 / 1364.
 maihda_da_observed_response <- function(model) {
   if (identical(model$engine, "lme4")) {
     return(as.numeric(lme4::getME(model$model, "y")))
   }
 
-  resp <- all.vars(model$formula)[1]
-  y <- model$data[[resp]]
+  y <- maihda_response_from_frame(model$data, model$formula)
+  if (is.null(y)) {
+    # The label goes through tryCatch because the only way to get here with a formula
+    # that has no left-hand side is one maihda_describe_response_expr() itself refuses,
+    # and an error raised while building an error message replaces it.
+    label <- tryCatch(
+      paste(deparse(maihda_describe_response_expr(model$formula)), collapse = " "),
+      error = function(e) paste(deparse(model$formula), collapse = " "))
+    stop("Could not recover the response '", label,
+         "' from the fitted model frame.", call. = FALSE)
+  }
   if (is.logical(y)) {
     return(as.integer(y))
   }

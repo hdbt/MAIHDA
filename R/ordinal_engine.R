@@ -1051,12 +1051,32 @@ maihda_proportional_odds_test <- function(object, n_sim = 199, seed = NULL) {
     set.seed(seed)
   }
 
-  obs <- maihda_ordinal_po_stat(object$model)
+  # The observed statistic and every bootstrap replicate must be computed on the
+  # SAME design with only the response redrawn, so build it once and reuse it.
+  # maihda_po_refit_design() supplies the fitted fixed-effects columns under
+  # generated names, which is what makes a transformed term such as log(x) or
+  # factor(g) refittable at all -- see its comment for why reformulating the
+  # original term labels against the clmm model frame cannot work.
+  design <- maihda_po_refit_design(object$model)
+  if (is.null(design)) {
+    stop("A null, covariate-free cumulative model has no covariate slopes to ",
+         "test for proportional odds.", call. = FALSE)
+  }
+  obs <- maihda_po_lrt(design$data, design$resp, design$terms)
   if (is.null(obs)) {
-    stop("The proportional-odds statistic could not be computed for this fit ",
-         "(a null, covariate-free model has no covariate slopes to test).",
+    # Distinct from the covariate-free case above: the covariates are there, but
+    # the two fixed-only cumulative refits did not yield a usable statistic.
+    # Measured causes are degenerate designs -- an exactly collinear pair of
+    # covariates, a constant covariate -- where the refits mostly CONVERGE yet
+    # their likelihoods give a non-positive df or a negative LRT, so
+    # maihda_po_lrt()'s own sanity check rejects the pair. (An earlier version of
+    # this comment blamed non-monotone thresholds under a continuous nominal
+    # effect; that was never demonstrated and is not what the probes showed.)
+    stop("The proportional-odds statistic could not be computed for this fit: ",
+         "the fixed-only cumulative refit it is built from failed to converge.",
          call. = FALSE)
   }
+  obs$n_terms <- design$n_terms
 
   # Ingredients of the fitted conditional model. maihda_ordinal_check_formula()
   # guarantees the clmm path is the canonical single (1 | stratum) structure, so
@@ -1066,17 +1086,12 @@ maihda_proportional_odds_test <- function(object, n_sim = 199, seed = NULL) {
   tau <- sqrt(max(maihda_clmm_variances(object)$stratum, 0))
   eta_fixed <- maihda_clmm_linpred(object, include_re = FALSE)
 
-  # The bootstrap statistic must be recomputed on the SAME frame the observed one
-  # used, with only the response redrawn, so reuse that frame verbatim.
-  f <- stats::formula(object$model)
-  rhs_terms <- attr(stats::terms(f), "term.labels")
-  fixed_terms <- rhs_terms[!grepl("\\|", rhs_terms)]
-  resp <- all.vars(f)[1]
-  dat <- tryCatch(stats::model.frame(object$model),
-                  error = function(e) object$model$model)
+  dat <- design$data
+  resp <- design$resp
+  fixed_terms <- design$terms
 
   grp <- factor(as.character(object$data$stratum))
-  if (is.null(dat) || nrow(dat) != length(eta_fixed) ||
+  if (nrow(dat) != length(eta_fixed) ||
       length(grp) != length(eta_fixed)) {
     stop("Could not align the clmm model frame with the analytic data; the ",
          "proportional-odds bootstrap cannot be run on this fit.", call. = FALSE)

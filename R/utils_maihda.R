@@ -503,6 +503,108 @@ maihda_resid_autocorr_stat <- function(resid, id, time) {
   list(n_pairs = length(prev), acf1 = stats::cor(prev, cur), gap = g0)
 }
 
+# Refit design for the nominal-effects statistic below: the FITTED fixed-effects
+# columns of a cumulative model, under generated syntactic names, paired with the
+# response. Returns list(data, resp, terms, n_terms), or NULL when the model has no
+# covariate at all (a null MAIHDA fit, whose statistic is undefined).
+#
+# The obvious construction -- reformulate the original term labels and hand them
+# the clmm model frame -- is WRONG, because a model frame stores each variable
+# already EVALUATED under its deparsed name: a fit written y ~ log(x) + (1 |
+# stratum) leaves a column literally named "log(x)" and no column x at all. Asking
+# clm() to fit y ~ log(x) against that frame makes R look up the symbol x, which is
+# absent from the frame, so evaluation escapes into the formula's enclosing
+# environment. That failed two ways at once. Usually x was nowhere to be found, the
+# refit errored, the statistic silently became NULL, and a fit that satisfies
+# proportional odds perfectly well simply lost the check -- the SAME model written
+# y ~ lx + (1 | stratum) with lx <- log(x) precomputed, an identical fit to the last
+# digit, kept it. And when a same-named object of the same length did happen to be
+# reachable (the chain from this namespace runs through imports and base to the
+# global environment), the statistic was computed from THAT object instead of from
+# the data the model was fitted to, and returned without complaint. The scope was
+# every term that is not a bare column name: log(x), I(x^2), scale(x), poly(x, 2)
+# and -- most commonly of all -- factor(g).
+#
+# Taking the columns from stats::model.matrix() against the model frame avoids the
+# re-evaluation entirely: given a frame (a data.frame carrying a "terms" attribute)
+# model.matrix matches each variable by its deparsed NAME rather than evaluating it,
+# so the "log(x)" column is found and used as fitted. That attribute is what selects
+# the name-matching branch, so its absence is checked rather than assumed -- handed a
+# plain data.frame, model.matrix would call model.frame() on it and re-evaluate every
+# term, which is the very failure this helper exists to avoid. Renaming the columns
+# to generated names is then what lets a formula carry them: "log(x)" in a formula
+# would be parsed as a CALL and evaluated again, whatever it is a column name of.
+# The intercept is dropped because a cumulative model absorbs it into the thresholds.
+#
+# The statistic is unchanged by this: it is a likelihood ratio between a
+# proportional and a nominal-effects fit, and both are invariant to any full-rank
+# recoding of the same column space. A factor entered as one term and the same
+# factor entered as its own dummy columns give the same log-likelihood and the same
+# df in BOTH models (measured: -523.124518874 / df 6 either way), and the observed
+# statistic is identical to twelve digits on every spelling that worked before
+# (bare columns, factors, interactions). The fitted contrasts are passed through
+# anyway, restricted to variables the frame actually holds so model.matrix cannot
+# warn about an absent one; measured, they do not move the statistic (treatment,
+# sum, helmert and poly coding all give 0.798031345793). That invariance is also why
+# the character-contrast name resolution maihda_engine_fixed_coding() has to be
+# careful about cannot bite here: any full-rank coding the name resolves to spans the
+# same space, and a contrast supplied as a MATRIX is passed through unresolved.
+maihda_po_refit_design <- function(model) {
+  tryCatch({
+    fr <- tryCatch(stats::model.frame(model), error = function(e) model$model)
+    tt <- stats::terms(model)
+    labs <- attr(tt, "term.labels")
+    labs <- labs[!grepl("\\|", labs)]
+    ri <- attr(tt, "response")
+    # No "terms" attribute means model.matrix() below would re-evaluate instead of
+    # matching by name, so there is no safe design to build from this object.
+    if (is.null(fr) || is.null(attr(fr, "terms")) || length(labs) == 0L ||
+        !isTRUE(ri >= 1L) || ri > length(names(fr))) {
+      return(NULL)
+    }
+    y <- fr[[ri]]
+    # The response column sits at the terms' response index by construction, but a
+    # cumulative response is always a factor -- refuse anything else rather than
+    # refit a statistic on a column that is not the outcome.
+    if (!is.factor(y)) {
+      return(NULL)
+    }
+    ctr <- model$contrasts
+    if (length(ctr)) {
+      ctr <- ctr[names(ctr) %in% names(fr)]
+    }
+    if (!length(ctr)) {
+      ctr <- NULL
+    }
+    ff <- stats::terms(stats::reformulate(labs), data = fr)
+    X <- stats::model.matrix(ff, data = fr, contrasts.arg = ctr)
+    X <- X[, colnames(X) != "(Intercept)", drop = FALSE]
+    if (ncol(X) == 0L || nrow(X) != length(y)) {
+      return(NULL)
+    }
+    # Reduce the design to full rank before handing it on. clm() performs this
+    # rescue itself for a FORMULA -- it drops an aliased factor TERM and warns --
+    # but the columns below are plain numeric, where it does not: a fit written
+    # y ~ g + factor(g) (the same variable twice) produced a statistic through the
+    # old formula route and lost it here until this step was added. The intercept
+    # joins the rank decision because a factor's dummies are only aliased once it
+    # is present, and the thresholds supply it. Rank-deficiency is decided on the
+    # design alone, so this cannot depend on the response.
+    qx <- qr(cbind(`(Intercept)` = rep(1, nrow(X)), X))
+    keep <- sort(qx$pivot[seq_len(qx$rank)])
+    keep <- keep[keep > 1L] - 1L
+    if (length(keep) == 0L) {
+      return(NULL)   # every covariate column is aliased with the intercept
+    }
+    X <- X[, keep, drop = FALSE]
+    nms <- paste0(".po_v", seq_len(ncol(X)))
+    dat <- as.data.frame(X)
+    names(dat) <- nms
+    dat[[".po_y"]] <- y
+    list(data = dat, resp = ".po_y", terms = nms, n_terms = length(labs))
+  }, error = function(e) NULL)
+}
+
 # Omnibus nominal-effects likelihood-ratio statistic for a FIXED-ONLY cumulative
 # model. Pure in (data, response name, fixed terms): fits the all-proportional
 # ordinal::clm() and the model where every covariate enters as a threshold-specific
@@ -576,22 +678,15 @@ maihda_ordinal_po_stat <- function(model) {
     return(NULL)
   }
   tryCatch({
-    f <- stats::formula(model)
-    rhs_terms <- attr(stats::terms(f), "term.labels")
-    fixed_terms <- rhs_terms[!grepl("\\|", rhs_terms)]
-    if (length(fixed_terms) == 0) {
+    design <- maihda_po_refit_design(model)
+    if (is.null(design)) {
       return(NULL)   # null model: no covariate slopes to test
     }
-    resp <- all.vars(f)[1]
-    dat <- tryCatch(stats::model.frame(model), error = function(e) model$model)
-    if (is.null(dat)) {
-      return(NULL)
-    }
-    stat <- maihda_po_lrt(dat, resp, fixed_terms)
+    stat <- maihda_po_lrt(design$data, design$resp, design$terms)
     if (is.null(stat)) {
       return(NULL)
     }
-    list(lrt = stat$lrt, df = stat$df, n_terms = length(fixed_terms))
+    list(lrt = stat$lrt, df = stat$df, n_terms = design$n_terms)
   }, error = function(e) NULL)
 }
 
@@ -2068,6 +2163,144 @@ maihda_model_frame <- function(model, fallback = NULL) {
     out <- fallback
   }
   out
+}
+
+# The response values a model was actually ESTIMATED on, read out of a stored frame.
+#
+# ONE implementation behind two readers: the discriminatory-accuracy reader
+# (maihda_da_observed_response(), strict = FALSE) and the observed-vs-shrunken plot
+# reader (maihda_observed_response_from_model_frame(), strict = TRUE). They were
+# written as separate functions by two concurrent audit passes on 2026-09-26 that
+# fixed the SAME defect independently, and drifted: one had the brmsformula
+# unwrapping and the one-value-per-row check, the other the enclosure guard. Folding
+# them is what stops a third pass fixing it in one copy again.
+#
+# Taking all.vars(formula)[1] instead -- the first variable NAMED in the formula --
+# reads a RAW INPUT column, which for a transformed response is a different variable
+# from the one that was fitted. A brms `round(raw) | trials(ntr) ~ ...` frame keeps
+# BOTH "round(raw)" (the fitted response) and "raw" (the untransformed input), so the
+# wrong column is silently available and every value is off by the transformation.
+#
+# `data` is a fitted model frame whenever the engine has one: fit_maihda() stores
+# maihda_model_frame(model) for lme4 and brms, and both carry a "terms" attribute whose
+# response is the EVALUATED outcome -- for brms, model.frame.brmsfit() returns the
+# brmsfit's own `data` slot, whose terms are `round(raw) ~ raw + ntr + x + stratum`
+# with response = 1, brms having already stripped the `| trials(n)` addition term. So
+# model.response() is the engine's own answer to "what did I fit", not a re-derivation.
+#
+# The wemix and ordinal engines store the pre-built analytic data instead (a plain data
+# frame, no terms attribute, so model.response() is NULL). Both refuse a non-symbol
+# response at fit time, so the bare-symbol branch reads the same column the old
+# all.vars() spelling did. The model.frame() rebuild is the remaining general case.
+#
+# `strict` picks the CONTRACT, not the logic. FALSE returns NULL when the response
+# cannot be recovered, so the AUC caller keeps its own fallback (at the aggregated-
+# counts site a NULL correctly means "not an aggregated binomial") rather than
+# inheriting a wrong answer. TRUE raises the plot path's own errors, which a user
+# reads directly and which its tests pin verbatim.
+maihda_response_from_frame <- function(data, formula, strict = FALSE) {
+  fail <- function(...) {
+    if (strict) {
+      stop(..., call. = FALSE)
+    }
+    NULL
+  }
+
+  y <- tryCatch(stats::model.response(data), error = function(e) NULL)
+  if (!is.null(y)) {
+    return(y)
+  }
+
+  # brms wraps a formula in a brmsformula. Unwrap it the way
+  # maihda_trials_from_formula() unwraps the same object$formula at the plot call
+  # site, so the outcome and its denominator cannot be taken from two different
+  # places.
+  if (inherits(formula, "brmsformula") && inherits(formula$formula, "formula")) {
+    formula <- formula$formula
+  }
+
+  # Under `strict` the one-sided-formula refusal is maihda_describe_response_expr()'s
+  # own message, which is more precise than anything this function would substitute.
+  resp <- if (strict) {
+    maihda_describe_response_expr(formula)
+  } else {
+    tryCatch(maihda_describe_response_expr(formula), error = function(e) NULL)
+  }
+  if (is.null(resp) || !is.data.frame(data)) {
+    return(fail("Outcome variable not found in data"))
+  }
+
+  # A bare symbol keeps the column VERBATIM -- its class included, so a factor
+  # outcome is not coerced on its way to the extractor -- and the names(data) check
+  # keeps the pre-existing error rather than letting the rebuild below reach a
+  # same-named object in the formula environment.
+  if (is.name(resp)) {
+    nm <- as.character(resp)
+    if (nm %in% names(data)) {
+      return(data[[nm]])
+    }
+    return(fail("Outcome variable not found in data"))
+  }
+
+  outcome_label <- paste(deparse(resp), collapse = " ")
+
+  # Every VARIABLE the expression names must be a column, for the same reason the
+  # bare-symbol branch checks names(data): model.frame() resolves a name it cannot
+  # find in `data` against the enclosure, and environment(formula) chains out to
+  # globalenv. Without this the rebuild answers from whatever same-named object
+  # happens to be reachable -- measured on both readers, a frame with no `dcoy`
+  # column plus a four-element `dcoy` in scope returned 100 200 300 400 as the
+  # response. The one-value-per-row check below catches a namesake of the WRONG
+  # length but not one of the right length, which is the dangerous case.
+  #
+  # all.vars() lists variables only, never the FUNCTIONS applied to them, so a
+  # transformation the user defined beside the model still resolves from the
+  # environment exactly as it did at fit time -- which is the point: the environment
+  # supplies functions, never data.
+  resp_vars <- all.vars(resp)
+  if (length(resp_vars) == 0L || !all(resp_vars %in% names(data))) {
+    return(fail("Could not evaluate the outcome '", outcome_label,
+                "' in the model data: it names a variable that is not a column of ",
+                "the model frame."))
+  }
+
+  # Evaluate the expression the way model.frame() would, rather than with a bare
+  # eval(): that is what the lme4 route returns, so both routes agree on CLASS as
+  # well as value (a bare eval() of I(y > 3) keeps the "AsIs" wrapper that
+  # model.frame() drops). na.pass keeps one row per input row -- `data` is already
+  # the analytic sample, and a second round of NA dropping would silently shorten
+  # the result and misalign it against what the caller pairs it with.
+  env <- environment(formula)
+  if (is.null(env)) env <- baseenv()
+  frame <- tryCatch(
+    stats::model.frame(stats::as.formula(call("~", resp, 1), env = env),
+                       data = data, na.action = stats::na.pass),
+    error = function(e) {
+      if (strict) {
+        stop("Could not evaluate the outcome '", outcome_label,
+             "' in the model data: ", conditionMessage(e), call. = FALSE)
+      }
+      NULL
+    })
+  if (is.null(frame)) {
+    return(NULL)
+  }
+  response <- stats::model.response(frame)
+
+  # A response that is not one value per row would otherwise be recycled into a
+  # plausible-looking wrong answer. Refuse instead. A two-column cbind() response
+  # is one ROW per row, so it passes and stays a matrix.
+  n_resp <- if (is.matrix(response) || is.data.frame(response)) {
+    nrow(response)
+  } else {
+    length(response)
+  }
+  if (n_resp != nrow(data)) {
+    return(fail("The outcome '", outcome_label, "' did not evaluate to one value ",
+                "per row of the model data (", n_resp, " vs ", nrow(data), ")."))
+  }
+
+  response
 }
 
 # --- na.exclude row padding -------------------------------------------------
