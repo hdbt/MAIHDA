@@ -46,6 +46,7 @@
 * `fit_maihda(engine = "wemix")` now rejects a `max_iteration` that is not a single whole number of at least 1.
 * The Poisson and negative-binomial level-1 variance behind the VPC is now evaluated at a single mean count, `log(1 + 1/mean(lambda))`, as Stryhn et al. (2006) and Nakagawa, Johnson & Schielzeth (2017) define it, instead of averaging `log(1 + 1/lambda_i)` over rows. Null-model count VPCs are unchanged; adjusted, offset, weighted, and longitudinal count VPCs rise.
 * A brms longitudinal fit's trajectory VPCs (`$longitudinal$vpc_intercept` and `$vpc_slope`) are now the posterior median of the per-draw ratio, with a credible interval in `vpc_intercept_ci` / `vpc_slope_ci`, instead of a ratio of posterior-mean variance components reported without uncertainty. The between-stratum variance posterior is right-skewed whenever the strata are few, so the plug-in ran high -- by 6.6% on the twelve strata of `maihda_long_data` (0.6145 against a posterior median of 0.5765), and by more as the strata get fewer. The interval it never reported spans [0.34, 0.82] on that same fit. lme4 point estimates are unchanged.
+* `plot_prediction_deviation_panels(type = "auto")` now plots a `wemix` binomial fit's stratum probabilities, as every other engine does, instead of log-odds labelled "Fitted Value": `stats::family()` has no `WeMixResults` method, so the family read as `NULL` and the panel took its Gaussian default. `type = "gaussian"` reproduces the old panel.
 
 ## Documentation
 
