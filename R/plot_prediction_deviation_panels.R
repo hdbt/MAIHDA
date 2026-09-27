@@ -199,7 +199,7 @@ maihda_prediction_panel_per_trial <- function(x, trials) {
 }
 
 maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALSE,
-                                           trials = NULL) {
+                                           trials = NULL, maihda_obj = NULL) {
   if (inherits(model, "brmsfit")) {
     if (!requireNamespace("brms", quietly = TRUE)) {
       stop("Package 'brms' is required to plot prediction deviations from brms models.",
@@ -230,6 +230,58 @@ maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALS
       se <- maihda_prediction_panel_per_trial(se, trials)
     }
     return(list(fit = est, se.fit = se))
+  }
+
+  # wemix: predict.WeMixResults() takes the response off the CALL's formula with
+  # as.name(form[[2]]), which is only defined when the response is a bare variable --
+  # handed a call it raises "'language' object cannot be coerced to type 'symbol'". So
+  # every wemix fit with a transformed response (log(y), sqrt(y), I(y > 0)) errored
+  # here, and plot(type = "all") reported the panel as uncomputable and dropped it,
+  # while the same fit spelled with a pre-computed column worked: one fit, two
+  # spellings, two answers. Rebuild the linear predictor from the wrapper instead --
+  # the route predict_maihda() already takes for this engine, which also re-uses the
+  # FITTED transformation basis and factor coding rather than re-deriving them from the
+  # prediction rows -- and leave predict() only to a bare fit, which carries no wrapper.
+  # It agrees with predict.WeMixResults() to the last bit on a bare-response fit's own
+  # rows, so nothing that worked before changes value. WeMix exposes no prediction SE
+  # on either route, so se.fit stays NA and the case-level bars are omitted rather than
+  # faked (see the NA_real_ note below).
+  if (inherits(model, "WeMixResults")) {
+    on_response <- type == "binomial" || type == "poisson"
+    if (!is.null(maihda_obj)) {
+      eta <- as.numeric(maihda_wemix_linpred(
+        maihda_obj,
+        newdata = if (isTRUE(fitted_data)) NULL else data,
+        include_re = TRUE))
+      fit <- if (on_response) {
+        as.numeric(maihda_linkinv(maihda_model_family(maihda_obj))(eta))
+      } else {
+        eta
+      }
+      return(list(fit = fit, se.fit = rep(NA_real_, length(fit))))
+    }
+    if (isTRUE(fitted_data)) {
+      # The fit's own rows: predict() WITHOUT newdata returns the stored linear
+      # predictor / mean and never reaches the as.name() above, so a transformed
+      # response is fine here.
+      fit <- as.numeric(stats::predict(model,
+                                       type = if (on_response) "response" else "link"))
+      return(list(fit = fit, se.fit = rep(NA_real_, length(fit))))
+    }
+    # Prediction data with no wrapper to rebuild the design from leaves
+    # predict.WeMixResults() as the only route -- the one that cannot take a
+    # transformed response. A bare WeMix fit also cannot reach the fitted-rows branch
+    # above, because model.frame() of one does not evaluate, so 'data' is not
+    # optional here: name the two remedies that exist rather than pass WeMix's
+    # as.name() error on.
+    lhs <- tryCatch(stats::formula(stats::getCall(model))[[2]], error = function(e) NULL)
+    if (!is.null(lhs) && !is.symbol(lhs)) {
+      stop("WeMix's predict() method cannot predict from a fit whose response is an ",
+           "expression (", paste(deparse(lhs), collapse = " "), ") rather than a bare ",
+           "variable. Pass the fit_maihda() model object instead of the bare WeMix fit, ",
+           "or refit with the transformed response stored as a column of 'data'.",
+           call. = FALSE)
+    }
   }
 
   # lme4: when predicting the model's OWN fitted rows (no external newdata), reuse the
@@ -753,7 +805,8 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
     # interval is clamped at 0.
     is_count <- type == "poisson"
     preds <- maihda_prediction_panel_fitted(model, data, type,
-                                            fitted_data = !data_supplied)
+                                            fitted_data = !data_supplied,
+                                            maihda_obj = maihda_obj)
 
     value_dist_title <- if (is_count) "Distribution of Predicted Counts" else "Distribution of Fitted Values"
     value_axis_label <- if (is_count) "Predicted Count" else "Fitted Value"
@@ -831,7 +884,7 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
     trials <- maihda_prediction_panel_brms_trials(model, data)
     preds <- maihda_prediction_panel_fitted(model, data, "binomial",
                                             fitted_data = !data_supplied,
-                                            trials = trials)
+                                            trials = trials, maihda_obj = maihda_obj)
 
     # Try to extract response variable. A cbind(successes, failures) response sits in
     # the model's data as a two-column matrix under its deparsed name: an aggregated
