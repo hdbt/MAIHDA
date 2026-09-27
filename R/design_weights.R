@@ -625,6 +625,16 @@ maihda_wemix_linpred <- function(object, newdata = NULL, include_re = TRUE) {
   }
 
   if (include_re) {
+    # A `newdata` without the grouping column cannot be matched to the stratum effects,
+    # and re[as.character(NULL)] is a ZERO-LENGTH vector that eta + u silently shrinks
+    # eta to -- a length-0 "prediction" for n rows, which surfaces far downstream as
+    # whatever the caller does with it (dplyr: "`fitted` must be size 600 or 1, not 0").
+    # Name what is missing here instead.
+    if (!"stratum" %in% names(newdata)) {
+      stop("Prediction data for a wemix fit must carry the 'stratum' column the model ",
+           "was fitted with; without it the stratum random effects cannot be matched to ",
+           "its rows.", call. = FALSE)
+    }
     re <- maihda_wemix_ranef_vector(object)
     u <- re[as.character(newdata$stratum)]
     u[is.na(u)] <- 0

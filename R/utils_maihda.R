@@ -26,6 +26,29 @@ maihda_family <- function(model) {
   if (is.null(fam) && inherits(model, "brmsfit")) {
     fam <- tryCatch(model$family, error = function(e) NULL)
   }
+  # WeMix::mix() returns a WeMixResults, which has no stats::family() method, but
+  # the fit DOES carry the family object it was fitted with on its response
+  # component -- attr(, "resp")$family, a real stats family for both the LM
+  # (WeMixLMResp, gaussian/identity) and the GLM (WeMixGLMResp, binomial/logit)
+  # paths. It is the same object WeMix's own predict.WeMixResults() reads to
+  # invert the link, so it is the fit's family, not a guess.
+  #
+  # Without it every caller saw NULL and silently took whatever its no-family
+  # default was: plot_prediction_deviation_panels(type = "auto") routed a
+  # design-weighted BINOMIAL fit through the Gaussian branch and plotted stratum
+  # log-odds -- negative numbers -- under "Fitted Value", where every other
+  # engine plotted probabilities. Resolving it here rather than at that one call
+  # site also gets the family -- and so the branch -- right for a bare WeMixResults
+  # passed in WITHOUT its maihda_model wrapper, which maihda_model_family() cannot
+  # reach. Only the family: such a bare fit still aggregates its strata with UNIT
+  # weights, because the sampling weights live on the wrapper, so its panel is an
+  # unweighted mean of the same row probabilities (measured; unchanged here).
+  if (is.null(fam) && inherits(model, "WeMixResults")) {
+    cand <- tryCatch(attr(model, "resp")$family, error = function(e) NULL)
+    if (inherits(cand, "family")) {
+      fam <- cand
+    }
+  }
   # Canonicalise the family name (see maihda_normalize_family_name) so callers
   # can compare against fixed names; the link and linkinv are left untouched.
   if (!is.null(fam) && !is.null(fam$family)) {
@@ -53,7 +76,10 @@ maihda_negbin_theta_is_fixed <- function(model) {
 
 # The family of a maihda_model with a canonical name: the fitted object's own,
 # else the family the wrapper recorded at fit time -- stats::family() is
-# undefined for engines like wemix (WeMixResults). NULL when neither exists.
+# undefined for the ordinal engine (clmm), which carries a link but no family
+# object at all. (wemix used to need this fallback too; maihda_family() now
+# reads a WeMixResults' own family, so the two agree there.) NULL when neither
+# exists.
 maihda_model_family <- function(model) {
   fam <- maihda_family(model$model)
   if (is.null(fam) && is.list(model$family)) {
@@ -69,8 +95,8 @@ maihda_model_family <- function(model) {
 # comparable (same family and link), as the VPC and PCV require; maihda_ic()
 # relaxes it within a response class (maihda_ic_response_class). Prefers the
 # fitted object's family and falls back to the family the wrapper recorded at
-# fit time -- stats::family() is undefined for engines like wemix
-# (WeMixResults). Names are canonical via
+# fit time -- stats::family() is undefined for the ordinal engine (clmm). Names
+# are canonical via
 # maihda_family()/maihda_normalize_family_name(), so e.g. two glmer.nb() fits
 # with different ESTIMATED thetas still compare equal.
 #
