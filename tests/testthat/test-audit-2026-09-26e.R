@@ -44,12 +44,14 @@
 # both bare-fit routes, and every lme4 route), measured on a clean 1f58723 worktree
 # and on the fixed tree.
 #
-# NOT this finding (measured, left alone): maihda_prediction_panel_auto_type() reads
-# maihda_family(), which is NULL for a WeMixResults, so type = "auto" routes a wemix
-# BINOMIAL fit through the Gaussian branch and plots stratum log-odds under "Fitted
-# Value" labels (range [-0.415, 0.788]) where type = "binomial" gives probabilities
-# ([0.405, 0.669], against lme4's [0.407, 0.620]). Different root, unchanged here --
-# the last test below pins that routing so a fix to it is a deliberate change.
+# A SECOND, DIFFERENT ROOT, measured here and since FIXED by the sibling pass (audit
+# 2026-09-26d): maihda_prediction_panel_auto_type() reads maihda_family(), which was
+# NULL for a WeMixResults, so type = "auto" routed a wemix BINOMIAL fit through the
+# Gaussian branch and plotted stratum log-odds under "Fitted Value" labels (range
+# [-0.415, 0.788]) where type = "binomial" gives probabilities ([0.405, 0.669],
+# against lme4's [0.407, 0.620]). That fix reads a WeMixResults' own family off
+# attr(, "resp")$family, so it needs R/utils_maihda.R from that pass; the last test
+# below now pins the CORRECTED routing.
 
 test_that("the panel builds for a wemix fit with a transformed response (2026-09-26)", {
   skip_on_cran()
@@ -190,11 +192,22 @@ test_that("a wemix binomial panel keeps its response-scale values (2026-09-26)",
                        numeric(1))
   expect_equal(sort(pb), sort(unname(by_stratum)))
 
-  # PRE-EXISTING and deliberately unchanged: maihda_family() is NULL for a
-  # WeMixResults, so "auto" still calls this binomial fit Gaussian and plots log-odds.
-  # If a later fix routes it to "binomial", THESE are the expectations to update.
-  expect_identical(maihda_prediction_panel_auto_type(fb$model), "gaussian")
-  expect_true(is.null(maihda_family(fb$model)))
+  # ROUTING, corrected by the sibling pass (audit 2026-09-26d). These four lines pinned
+  # the OLD wrong behaviour on purpose -- "gaussian", a NULL family, and a panel with
+  # negative values -- so that fixing it would be a visible, deliberate change. It has
+  # been fixed: a WeMixResults carries its family at attr(, "resp")$family, maihda_family()
+  # now reads it, and "auto" no longer falls through to the Gaussian default.
+  expect_identical(maihda_prediction_panel_auto_type(fb$model), "binomial")
+  expect_false(is.null(maihda_family(fb$model)))
+  expect_identical(maihda_family(fb$model)$family, "binomial")
+  expect_identical(maihda_family(fb$model)$link, "logit")
+  # the wrapper always knew; it is the fitted object that did not. Unchanged throughout.
   expect_identical(maihda_model_family(fb)$family, "binomial")
-  expect_true(any(panel_fitted(plot_prediction_deviation_panels(fb, type = "auto")) < 0))
+  # "auto" IS the binomial branch now: the same values in the same order, so nothing
+  # negative reaches the panel and the response-scale sum above is what it plots.
+  expect_identical(panel_fitted(plot_prediction_deviation_panels(fb, type = "auto")), pb)
+  expect_false(any(panel_fitted(plot_prediction_deviation_panels(fb, type = "auto")) < 0))
+  expect_identical(
+    plot_prediction_deviation_panels(fb, type = "auto")[[2]]$labels$y,
+    "Predicted Probability")
 })
