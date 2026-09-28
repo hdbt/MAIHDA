@@ -156,9 +156,10 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
       maihda_weight_fingerprint(m$model)
     }, character(1))
     # Likewise for SAMPLING weights (design-weighted fits): the prior-weight
-    # fingerprint above cannot see them (it degrades to "unit" for wemix/brms),
-    # so differing design weights -- or a weighted vs. unweighted mix -- get
-    # their own key, mirroring the calculate_pcv() guard.
+    # fingerprint above does not see them (it degrades to "unit" for wemix and
+    # leaves brms's weights(.maihda_sw) to this key), so differing design weights
+    # -- or a weighted vs. unweighted mix -- get their own key, mirroring the
+    # calculate_pcv() guard.
     sampling_keys <- vapply(models, function(m) {
       maihda_sampling_weight_fingerprint(m)
     }, character(1))

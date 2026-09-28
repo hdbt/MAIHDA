@@ -2676,11 +2676,65 @@ maihda_stratum_partition_key <- function(stratum, ids) {
   as.integer(factor(s, levels = unique(s)))
 }
 
+# brms keeps a response's addition terms out of the terms of its model frame:
+# model.response() on a `y | trials(n) ~ ...` fit returns the successes alone, and a
+# brmsfit has no weights() method. So neither a brms fit's binomial trial counts nor
+# its likelihood weights reached the comparability fingerprints below through the
+# accessors every other engine answers, and two fits of the same successes out of 12
+# and out of 24 trials -- or under different weights -- passed calculate_pcv(),
+# compare_maihda() and maihda_ic() as one analytic sample. Both are part of the data
+# a fit was estimated on: the trials fix the failures and the proportions, and the
+# weights move the variance components as lme4 weights= do.
+#
+# The values of the response's `term(...)` addition term ("trials" or "weights"), one
+# per row of the fit's frame, as brms passed them to Stan: brms::standata() evaluates
+# the term as brms did, through a lookup that reaches the global environment (the
+# package's own evaluation on the stored frame sees base functions only, so a term
+# calling a user's function has no trials there), and applies weights(scale = TRUE).
+# It costs 0.14 s on 300 rows and 0.23 s on 200,000, and is only called for a term
+# the response carries; evaluating the term on the frame stands in when it is
+# unavailable (without the scale = TRUE rescaling, so two such fits compare their
+# weights as supplied). NULL when the model is not a brms fit whose response carries
+# the term, and for weights(.maihda_sw): those are the package's own SAMPLING weights,
+# which maihda_sampling_weight_fingerprint() keys.
+maihda_brms_addition_values <- function(model, term, frame) {
+  if (!inherits(model, "brmsfit") || !is.data.frame(frame)) {
+    return(NULL)
+  }
+  arg <- maihda_brms_addition_arg(model$formula, term)
+  if (is.null(arg) ||
+      (identical(term, "weights") && identical(arg, as.name(.maihda_brms_weights_col)))) {
+    return(NULL)
+  }
+  n <- nrow(frame)
+  vals <- NULL
+  if (requireNamespace("brms", quietly = TRUE)) {
+    vals <- tryCatch(suppressWarnings(suppressMessages(brms::standata(model)))[[term]],
+                     error = function(e) NULL)
+  }
+  if (!is.numeric(vals) || length(vals) != n) {
+    vals <- tryCatch(eval(arg, envir = frame, enclos = baseenv()),
+                     error = function(e) NULL)
+    if (is.numeric(vals) && length(vals) == 1L) {
+      vals <- rep(vals, n)
+    }
+  }
+  if (!is.numeric(vals) || length(vals) != n) {
+    return(NULL)
+  }
+  as.numeric(vals)
+}
+
 # Content fingerprint of a model's analytic response vector, aligned to the row
 # names so it is independent of row order. Two models fitted to the same data
 # share a fingerprint even if the rows were reordered or carry default 1:n names;
 # models fitted to unrelated data do not. Used to catch comparisons/PCV across
 # different datasets that happen to share n, row names and stratum ids.
+#
+# A brms `y | trials(n)` response is fingerprinted as successes and failures, the
+# pair an lme4 cbind(successes, failures) response already is, so the two spellings
+# of one dataset share a fingerprint and the same successes out of different trials
+# do not.
 maihda_response_fingerprint <- function(model) {
   frame <- maihda_model_frame(model)
   if (is.null(frame)) {
@@ -2689,6 +2743,11 @@ maihda_response_fingerprint <- function(model) {
   resp <- tryCatch(stats::model.response(frame), error = function(e) NULL)
   if (is.null(resp)) {
     return(NA_character_)
+  }
+  trials <- maihda_brms_addition_values(model, "trials", frame)
+  if (!is.null(trials) && is.numeric(resp) && is.null(dim(resp)) &&
+      length(trials) == length(resp)) {
+    resp <- cbind(resp, trials - resp)
   }
   resp <- maihda_order_by_ids(unname(resp), row.names(frame))
   if (is.numeric(resp)) {
@@ -2701,11 +2760,15 @@ maihda_response_fingerprint <- function(model) {
 # Fingerprint of a model's prior weights, so PCV / model comparisons do not
 # silently combine fits that share an outcome, sample and strata but used DIFFERENT
 # prior weights (which change the variance estimates). An unweighted fit and an
-# explicit weights = rep(1, n) fit both map to "unit", so they compare as equal;
-# engines where prior weights are not recoverable (e.g. brms) also degrade to
-# "unit" rather than erroring, leaving their current behaviour unchanged.
+# explicit weights = rep(1, n) fit both map to "unit", so they compare as equal. A
+# brms fit's weights are its response's weights() addition term (see
+# maihda_brms_addition_values()); engines where prior weights are not recoverable
+# (wemix) degrade to "unit" rather than erroring.
 maihda_weight_fingerprint <- function(model) {
   w <- tryCatch(maihda_fit_rows_weights(model), error = function(e) NULL)
+  if (is.null(w) || length(w) == 0) {
+    w <- maihda_brms_addition_values(model, "weights", maihda_model_frame(model))
+  }
   if (is.null(w) || length(w) == 0) {
     return("unit")
   }
@@ -4692,23 +4755,45 @@ maihda_prior_weights <- function(object) {
   w
 }
 
-# The argument expression of the first `trials(...)` call inside a brms response
-# addition term (the RHS of `y | ...`), or NULL when there is none. Recurses so a
-# combined term such as `trials(n) + weights(w)` is handled regardless of order.
-maihda_find_trials_expr <- function(expr) {
+# The argument expression of the first `name(...)` call inside a brms response
+# addition term (the RHS of `y | ...`) -- `n` for trials(n), `w` for weights(w) -- or
+# NULL when there is none. Recurses so a combined term such as
+# `trials(n) + weights(w)` is handled regardless of order.
+maihda_find_addition_arg <- function(expr, name) {
   if (!is.call(expr)) {
     return(NULL)
   }
-  if (identical(expr[[1]], as.name("trials")) && length(expr) >= 2L) {
+  if (identical(expr[[1]], as.name(name)) && length(expr) >= 2L) {
     return(expr[[2]])
   }
   for (i in seq_along(expr)[-1]) {
-    found <- maihda_find_trials_expr(expr[[i]])
+    found <- maihda_find_addition_arg(expr[[i]], name)
     if (!is.null(found)) {
       return(found)
     }
   }
   NULL
+}
+
+maihda_find_trials_expr <- function(expr) {
+  maihda_find_addition_arg(expr, "trials")
+}
+
+# The argument expression of a brms response's `name(...)` addition term, read off a
+# plain formula or a brmsformula, or NULL when the response carries no such term.
+maihda_brms_addition_arg <- function(formula_obj, name) {
+  f <- formula_obj
+  if (inherits(f, "brmsformula") && inherits(f$formula, "formula")) {
+    f <- f$formula
+  }
+  if (!inherits(f, "formula") || length(f) < 3L) {
+    return(NULL)
+  }
+  lhs <- f[[2]]
+  if (!is.call(lhs) || !identical(lhs[[1]], as.name("|"))) {
+    return(NULL)
+  }
+  maihda_find_addition_arg(lhs[[3]], name)
 }
 
 # One binomial TRIAL count per row of `data`, read off a `y | trials(n)` addition
@@ -4731,18 +4816,7 @@ maihda_find_trials_expr <- function(expr) {
 # Formula-level (no fitted model needed) so the pre-fit maihda_describe() path can
 # use it too; maihda_brms_trial_counts() is the fitted-model wrapper.
 maihda_trials_from_formula <- function(formula_obj, data, n = NULL) {
-  f <- formula_obj
-  if (inherits(f, "brmsformula") && inherits(f$formula, "formula")) {
-    f <- f$formula
-  }
-  if (!inherits(f, "formula") || length(f) < 3L) {
-    return(NULL)
-  }
-  lhs <- f[[2]]
-  if (!is.call(lhs) || !identical(lhs[[1]], as.name("|"))) {
-    return(NULL)
-  }
-  trials_expr <- maihda_find_trials_expr(lhs[[3]])
+  trials_expr <- maihda_brms_addition_arg(formula_obj, "trials")
   if (is.null(trials_expr)) {
     return(NULL)
   }

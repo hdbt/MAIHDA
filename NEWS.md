@@ -67,6 +67,10 @@
 
 ## Bug fixes
 
+* `calculate_pcv()`, `compare_maihda()` and `maihda_ic()` now compare the trial counts of a brms `y | trials(n)` outcome, not just its successes, so fits of the same successes out of different trials are refused or flagged as different samples instead of compared as one.
+
+* The same three functions now compare the weights of a brms `y | weights(w)` term, as they already compared lme4 `weights =`; brms fits with different weights passed as equally weighted.
+
 * `plot_prediction_deviation_panels()` now draws every case of a case-level binomial panel. Its point shape showed the observed outcome, which a `cbind()` response, a proportion with trial weights, a brms `trials()` fit or `data` without the outcome does not have, and ggplot dropped each such point; those cases now take a fixed shape, and Bernoulli panels are unchanged.
 
 * `predict_maihda(newdata = )` and `plot_prediction_deviation_panels(data = )` on an `engine = "brms"` fit no longer refuse rows carrying its two-level outcome as it was fitted -- a factor, character labels or a logical. `fit_maihda()` hands brms that outcome recoded to 0/1, and brms checked supplied rows against the recoded column although no prediction reads it; the rows brms sees now leave it out.

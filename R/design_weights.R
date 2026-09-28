@@ -84,8 +84,9 @@ maihda_validate_sampling_weights <- function(sampling_weights, data) {
 # -- or one weighted and one unweighted fit -- whose variance estimates are not
 # comparable. Unweighted fits map to "none"; a weighted fit is keyed by the weight
 # column name and its values on the analytic rows. The companion to
-# maihda_weight_fingerprint(), which covers lme4 PRECISION weights (and degrades
-# to "unit" for engines whose prior weights are not recoverable, wemix included).
+# maihda_weight_fingerprint(), which covers lme4 PRECISION weights and a brms
+# response's own weights() term -- not the weights(.maihda_sw) this keys -- and
+# degrades to "unit" for engines whose prior weights are not recoverable (wemix).
 maihda_sampling_weight_fingerprint <- function(model) {
   sw <- model$sampling_weights
   if (is.null(sw)) {
