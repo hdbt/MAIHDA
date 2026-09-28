@@ -361,7 +361,15 @@ The lme4-style <code>weights</code> (precision weights),
 top-level fitting argument (brms in particular expects weighting/offset as
 formula addition terms, <code>weights(.)</code> / <code>offset(.)</code>, and design
 weights via <code>sampling_weights</code>). Prefilter <code>data</code> instead of using
-<code>subset</code> on those engines.</p></dd>
+<code>subset</code> on those engines.
+On <code>engine = "brms"</code> the response may carry the <code>trials()</code> and
+<code><a href="https://rdrr.io/r/stats/weights.html" class="external-link">weights()</a></code> addition terms (<code>y | trials(n)</code>, <code>y | weights(w)</code>);
+any other – <code>se()</code>, <code>rate()</code>, <code>cens()</code>, <code><a href="https://rdrr.io/r/base/Round.html" class="external-link">trunc()</a></code>,
+<code>mi()</code>, ... – is refused, since the VPC, predictions and summaries do not
+model it. Write an exposure as <code>+ offset(log(expo))</code> rather than
+<code>rate(expo)</code>: for a Poisson model the same model, which they do (for a
+negative binomial, brms's <code>rate()</code> also scales the shape by the exposure,
+which the offset does not).</p></dd>
 
 </dl></div>
     <div class="section level2">

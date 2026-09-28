@@ -152,6 +152,20 @@
 
 ### API changes
 
+- `fit_maihda(engine = "brms")`,
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now refuse a response addition term other than `trials()` and
+  [`weights()`](https://rdrr.io/r/stats/weights.html) – `se()`,
+  `rate()`, `cens()`, [`trunc()`](https://rdrr.io/r/base/Round.html),
+  `mi()` and the like – which the VPC, predictions and summaries did not
+  model: `rate(expo)` evaluated the count VPC at the rate per unit of
+  exposure (0.18 where the same model gives 0.43), `se(s)` reported a
+  VPC of 1, and `cens()` fits had censored values summarised as exact.
+  Write an exposure as `+ offset(log(expo))`: the same model for a
+  Poisson, while for a negative binomial brms’s `rate()` also scales the
+  shape by the exposure and the offset does not.
+
 - A stratum the strata table holds but the fit never used – every one of
   its rows left the analytic sample, through a missing covariate for
   instance – is now refused by
@@ -475,6 +489,32 @@
   roughly halves the fitting cost (most noticeable for `brms`).
 
 ### Bug fixes
+
+- A brms `trials()` term that calls a function outside base R – your
+  own, or one from an attached package such as
+  [`coalesce()`](https://dplyr.tidyverse.org/reference/coalesce.html)
+  under [`library(dplyr)`](https://dplyr.tidyverse.org) – no longer
+  loses its trial counts: `predict_maihda(scale = "response")` returned
+  expected success counts, the stratum summaries, plots,
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
+  and
+  [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+  counted every row as one trial, and the AUC and the
+  prediction-deviation panel refused the fit. A response calling such a
+  function no longer leaves that panel with no row to score.
+
+- [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  and
+  [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  now compare the trial counts of a brms `y | trials(n)` outcome, not
+  just its successes, so fits of the same successes out of different
+  trials are refused or flagged as different samples instead of compared
+  as one.
+
+- The same three functions now compare the weights of a brms
+  `y | weights(w)` term, as they already compared lme4 `weights =`; brms
+  fits with different weights passed as equally weighted.
 
 - [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
   now draws every case of a case-level binomial panel. Its point shape

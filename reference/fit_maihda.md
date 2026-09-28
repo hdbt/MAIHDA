@@ -337,7 +337,16 @@ fit_maihda(
   argument (brms in particular expects weighting/offset as formula
   addition terms, `weights(.)` / `offset(.)`, and design weights via
   `sampling_weights`). Prefilter `data` instead of using `subset` on
-  those engines.
+  those engines. On `engine = "brms"` the response may carry the
+  `trials()` and [`weights()`](https://rdrr.io/r/stats/weights.html)
+  addition terms (`y | trials(n)`, `y | weights(w)`); any other –
+  `se()`, `rate()`, `cens()`,
+  [`trunc()`](https://rdrr.io/r/base/Round.html), `mi()`, ... – is
+  refused, since the VPC, predictions and summaries do not model it.
+  Write an exposure as `+ offset(log(expo))` rather than `rate(expo)`:
+  for a Poisson model the same model, which they do (for a negative
+  binomial, brms's `rate()` also scales the shape by the exposure, which
+  the offset does not).
 
 ## Value
 
