@@ -223,13 +223,10 @@ predict_maihda <- function(object, newdata = NULL,
       stop("Package 'brms' is required to predict from brms models. Please install it with: install.packages('brms')")
     }
 
-    # A sampling-weighted brms fit carries a weights() addition term, and brms
-    # requires its column in newdata even though predictions do not depend on it;
-    # supply a unit weight when the caller's newdata lacks it.
-    if (!is.null(object$sampling_weights) && ".maihda_sw" %in% all.vars(object$formula) &&
-        !".maihda_sw" %in% names(newdata)) {
-      newdata$.maihda_sw <- 1
-    }
+    # brms validates newdata against its fitted data: drop from supplied rows an
+    # outcome still in its original coding, and supply a sampling-weighted fit's unit
+    # weight as before (maihda_brms_newdata()).
+    newdata <- maihda_brms_newdata(object, newdata, drop_outcome = newdata_supplied)
 
     if (type == "individual") {
       # Individual-level predictions. As for lme4, unseen levels are rejected
@@ -490,6 +487,37 @@ maihda_brms_bar_row_levels <- function(newdata, bar) {
   }
   lab <- tryCatch(as.character(eval(grp, newdata)), error = function(e) NULL)
   if (is.null(lab) || length(lab) != nrow(newdata)) NULL else lab
+}
+
+# Supplied rows made ready for a brms prediction from a fit_maihda() model. brms
+# checks that every model variable numeric in its fitted data is numeric in `newdata`,
+# the outcome INCLUDED although a prediction never reads it -- and fit_maihda() recodes
+# a two-level outcome to 0/1 before brms sees it ($response_recoding). So rows carrying
+# a factor, character or logical outcome as the user fitted it were refused: "Variable
+# 'y' was originally numeric but is not in 'newdata'" (a 1/2 coding passes, the check
+# being on type, not values, and so does a column holding an NA, for which brms skips
+# the check). The recoded outcome column is dropped from this copy; a caller that needs
+# the outcome keeps its own (the deviation panel scores it). brms's prediction methods
+# fill a missing response themselves (check_response = FALSE).
+# `drop_outcome` is for supplied rows only: the fitted rows already are the data brms
+# was fitted on. A sampling-weighted fit's weights() column is supplied as a unit
+# weight when missing, as predict_maihda() always has; brms 2.23 fills a missing one
+# with 1 itself, and these predictions do not depend on it.
+maihda_brms_newdata <- function(object, newdata, drop_outcome = TRUE) {
+  if (!inherits(object, "maihda_model") || !is.data.frame(newdata)) {
+    return(newdata)
+  }
+  if (isTRUE(drop_outcome) && !is.null(object$response_recoding)) {
+    out <- tryCatch(maihda_describe_response_expr(object$formula), error = function(e) NULL)
+    if (is.name(out) && as.character(out) %in% names(newdata)) {
+      newdata[[as.character(out)]] <- NULL
+    }
+  }
+  if (!is.null(object$sampling_weights) && ".maihda_sw" %in% all.vars(object$formula) &&
+      !".maihda_sw" %in% names(newdata)) {
+    newdata$.maihda_sw <- 1
+  }
+  newdata
 }
 
 # Response- or link-scale brms predictions for a block of rows. On the response

@@ -115,9 +115,13 @@ test_that("an lme4 cbind() fit draws its panel on its own stored data", {
   expect_true(all(pd$abs_res_dev > 0))
 
   # The same numbers as the panel drawn from the original data, which always worked.
+  # Since 2026-09-27b the original rows' residuals are rebuilt from their own
+  # successes and trials rather than borrowed from the fit, so the two routes now
+  # differ in arithmetic (last-digit agreement); 1e-9 absorbs that and still convicts
+  # any misaligned or mis-scaled residual.
   po <- d17_quiet(plot_prediction_deviation_panels(m, data = d))[[2]]$data
   for (col in c("stratum", "fitted", "abs_res_dev", "rank", "direction")) {
-    expect_equal(pd[[col]], po[[col]], tolerance = 1e-12, label = col)
+    expect_equal(pd[[col]], po[[col]], tolerance = 1e-9, label = col)
   }
 
   grDevices::pdf(NULL)

@@ -16,7 +16,15 @@ plot_prediction_deviation_panels(
 \arguments{
 \item{model}{A fitted model object (e.g., from `lm()`, `glm()`, `MASS::polr()`, or `lme4::glmer()`).}
 
-\item{data}{The original data frame used to fit the model. If `NULL`, attempts to extract from the model.}
+\item{data}{The original data frame used to fit the model. If `NULL`, attempts
+to extract from the model. When supplied, everything is computed for its own
+rows: their predictions, their binomial residuals (from their own outcomes and
+trial counts) and their weights in the stratum summaries. A row's weight is
+read from its column in `data` -- the sampling-weight column, or the column a
+bare model's `weights =` argument names (`glm()`, `lmer()`, `MASS::polr()`,
+...) -- or else from the fitted row with the same row name and prediction (a
+`fit_maihda()` model stores its weights as values). If any plotted row's
+weight cannot be found, every row is weighted equally, with a warning.}
 
 \item{type}{Model type: "auto" (default), "gaussian", "poisson", "binomial", or "ordinal".}
 
@@ -44,10 +52,18 @@ What "notable" means depends on the model type, and the labelled points are
     (largest deviation), ranked by absolute deviation.
   \item Binomial: the cases/strata with the largest absolute deviance residual,
     i.e. where the observed 0/1 outcome -- for an aggregated binomial
-    (\code{cbind(successes, failures)}, or a brms \code{y | trials(n)} fit),
-    the observed successes out of trials -- is least consistent with the fitted
-    probability (worst-fit points), ranked by \eqn{|deviance residual|}.
-    Predictions are per-trial probabilities for every binomial fit.
+    (\code{cbind(successes, failures)}, a proportion with its trial counts as
+    prior weights, or a brms \code{y | trials(n)} fit), the observed successes
+    out of trials -- is least consistent with the fitted probability (worst-fit
+    points), ranked by \eqn{|deviance residual|}. As in R's binomial family, a
+    prior weight counts as that many trials, so a 0/1 outcome with weights is
+    scored as that many successes or failures. Every row's outcome is coded as
+    the model coded it -- by label, whatever the order of a factor's levels in
+    \code{data} -- and a factor with more than two levels, as in R's binomial
+    family, as its first level against all the others. Predictions are per-trial
+    probabilities for every binomial fit. A row whose outcome or trial count is
+    unknown has no residual: it is left out of the stratum residual means, is
+    never labelled, and is drawn as a hollow point.
   \item Ordinal \code{"surprise"} mode: the cases/strata with the highest
     surprise \eqn{-\log P(\text{observed category})}, i.e. the least probable
     observations under the model. It needs the observed response in

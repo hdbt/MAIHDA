@@ -61,10 +61,12 @@ test_that("binomial fallback residuals stay on the deviance scale", {
     obs
   )
 
+  # A row without a finite probability cannot be scored. It is NA, so a stratum mean
+  # leaves it out; it was 0, which counted it as a perfect fit (audit 2026-09-27b).
   expected <- c(
     sqrt(-2 * log1p(-0.2)),
     sqrt(-2 * log(0.8)),
-    0,
+    NA_real_,
     sqrt(-2 * log1p(-0.5))
   )
   expect_equal(resids, expected)
