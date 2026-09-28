@@ -151,10 +151,9 @@ test_that("equivalent encodings of one binomial dataset share a fingerprint", {
 test_that("trials() are read as brms evaluated them, a global function included", {
   skip_on_cran()
   skip_if_not_installed("brms")
-  # brms evaluates an addition term with a lookup that reaches the global environment;
-  # the package's own evaluation on the stored frame sees base functions only (so it
-  # cannot pick up a stray global object), and on its own would return no trials at
-  # all here. The function must live in the global environment for brms to fit it.
+  # brms looks the functions of an addition term up through the global environment,
+  # so the function must live there for brms to fit it; the package now reads the
+  # term the same way (maihda_eval_brms_term(), test-audit-2026-09-28e.R).
   skip_if(exists("a28d_plus_one", envir = globalenv(), inherits = FALSE),
           "the global environment already has an a28d_plus_one")
   assign("a28d_plus_one", function(z) z + 1L, envir = globalenv())
@@ -169,7 +168,7 @@ test_that("trials() are read as brms evaluated them, a global function included"
   d13$m <- d13$n + 1L
   m13 <- a28d_brms(y | trials(m) ~ x + (1 | stratum), d13, "binomial")
   expect_s3_class(mF, "maihda_model")
-  expect_null(maihda_trials_from_formula(mF$model$formula, mF$data))
+  expect_equal(maihda_trials_from_formula(mF$model$formula, mF$data), rep(13, 300))
   expect_equal(a28d_or_null(maihda_brms_addition_values(mF$model, "trials", mF$data)),
                rep(13, 300))
   expect_identical(a28d_fp(mF), a28d_fp(m13))

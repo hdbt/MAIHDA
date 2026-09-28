@@ -566,14 +566,15 @@ maihda_prediction_panel_brms_trials <- function(model, data) {
 }
 
 # Success counts of a brms `y | trials(n)` fit -- its response, left of the addition
-# terms -- evaluated on `data`; NULL when `data` cannot supply them.
+# terms -- evaluated on `data` as brms evaluates it (maihda_eval_brms_term(): a
+# response calling a global or attached function, which brms fits, had no successes
+# here, so the panel scored no row at all); NULL when `data` cannot supply them.
 maihda_prediction_panel_brms_successes <- function(model, data) {
   f <- maihda_prediction_panel_brms_formula(model)
   if (is.null(f)) {
     return(NULL)
   }
-  s <- tryCatch(eval(maihda_describe_response_expr(f), envir = data, enclos = baseenv()),
-                error = function(e) NULL)
+  s <- maihda_eval_brms_term(maihda_describe_response_expr(f), data)
   if (!is.numeric(s) || !is.null(dim(s)) || length(s) != nrow(data)) {
     return(NULL)
   }

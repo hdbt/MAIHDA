@@ -274,7 +274,15 @@ The lme4-style \code{weights} (precision weights),
 top-level fitting argument (brms in particular expects weighting/offset as
 formula addition terms, \code{weights(.)} / \code{offset(.)}, and design
 weights via \code{sampling_weights}). Prefilter \code{data} instead of using
-\code{subset} on those engines.}
+\code{subset} on those engines.
+On \code{engine = "brms"} the response may carry the \code{trials()} and
+\code{weights()} addition terms (\code{y | trials(n)}, \code{y | weights(w)});
+any other -- \code{se()}, \code{rate()}, \code{cens()}, \code{trunc()},
+\code{mi()}, ... -- is refused, since the VPC, predictions and summaries do not
+model it. Write an exposure as \code{+ offset(log(expo))} rather than
+\code{rate(expo)}: for a Poisson model the same model, which they do (for a
+negative binomial, brms's \code{rate()} also scales the shape by the exposure,
+which the offset does not).}
 }
 \value{
 A maihda_model object containing:

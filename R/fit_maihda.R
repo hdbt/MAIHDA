@@ -245,6 +245,14 @@
 #'   formula addition terms, \code{weights(.)} / \code{offset(.)}, and design
 #'   weights via \code{sampling_weights}). Prefilter \code{data} instead of using
 #'   \code{subset} on those engines.
+#'   On \code{engine = "brms"} the response may carry the \code{trials()} and
+#'   \code{weights()} addition terms (\code{y | trials(n)}, \code{y | weights(w)});
+#'   any other -- \code{se()}, \code{rate()}, \code{cens()}, \code{trunc()},
+#'   \code{mi()}, ... -- is refused, since the VPC, predictions and summaries do not
+#'   model it. Write an exposure as \code{+ offset(log(expo))} rather than
+#'   \code{rate(expo)}: for a Poisson model the same model, which they do (for a
+#'   negative binomial, brms's \code{rate()} also scales the shape by the exposure,
+#'   which the offset does not).
 #'
 #' @return A maihda_model object containing:
 #'   \item{model}{The fitted model object (lme4, brms, WeMix, or ordinal::clmm)}
@@ -518,6 +526,14 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
            call. = FALSE)
     }
     maihda_refuse_engine_dots(engine, dot_vals)
+  }
+  # A brms response addition term other than trials() / weights() -- se(), rate(),
+  # cens(), trunc(), mi(), ... -- changes the model in ways the VPC, predictions and
+  # summaries do not follow; refused here, before any data work (see
+  # maihda_brms_check_addition_terms()). The cumulative path refuses every addition
+  # term itself, below.
+  if (identical(engine, "brms") && !is_ordinal) {
+    maihda_brms_check_addition_terms(formula)
   }
 
   # Longitudinal (3-level growth) MAIHDA: when 'time' is supplied, validate the

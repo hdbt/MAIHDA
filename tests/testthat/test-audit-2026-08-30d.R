@@ -76,8 +76,8 @@ test_that("maihda_trials_from_formula reads a trials() addition term off any for
   expect_null(MAIHDA:::maihda_trials_from_formula(~ x, d))
 
   # An unevaluable trials() term returns NULL rather than reaching outside the
-  # data for a stray same-named object -- `n` is a common variable name, and
-  # enclos = baseenv() keeps the search off the caller's frame.
+  # data for a stray same-named object -- `n` is a common variable name, and the
+  # term's variables are read from the data alone (maihda_eval_brms_term()).
   no_such_col <- c(99, 99, 99, 99)
   expect_null(MAIHDA:::maihda_trials_from_formula(y | trials(no_such_col) ~ x, d))
 

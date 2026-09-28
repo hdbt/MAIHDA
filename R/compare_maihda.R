@@ -806,6 +806,12 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     }
     maihda_refuse_engine_dots(engine, dot_vals)
   }
+  # A brms response addition term fit_maihda() refuses (se(), rate(), cens(), ...):
+  # refused once, here, rather than as a failed fit in every group.
+  if (identical(engine, "brms") && !maihda_family_is_ordinal(
+    if (is.function(family)) tryCatch(family(), error = function(e) NULL) else family)) {
+    maihda_brms_check_addition_terms(formula)
+  }
   if (!is.logical(shared_strata) || length(shared_strata) != 1 || is.na(shared_strata)) {
     stop("'shared_strata' must be TRUE or FALSE.", call. = FALSE)
   }

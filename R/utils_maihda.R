@@ -2687,12 +2687,10 @@ maihda_stratum_partition_key <- function(stratum, ids) {
 # weights move the variance components as lme4 weights= do.
 #
 # The values of the response's `term(...)` addition term ("trials" or "weights"), one
-# per row of the fit's frame, as brms passed them to Stan: brms::standata() evaluates
-# the term as brms did, through a lookup that reaches the global environment (the
-# package's own evaluation on the stored frame sees base functions only, so a term
-# calling a user's function has no trials there), and applies weights(scale = TRUE).
-# It costs 0.14 s on 300 rows and 0.23 s on 200,000, and is only called for a term
-# the response carries; evaluating the term on the frame stands in when it is
+# per row of the fit's frame, as brms passed them to Stan: brms::standata() is brms's
+# own evaluation of the term, weights(scale = TRUE) applied. It costs 0.14 s on 300
+# rows and 0.23 s on 200,000, and is only called for a term the response carries;
+# evaluating the term on the frame (maihda_eval_brms_term()) stands in when it is
 # unavailable (without the scale = TRUE rescaling, so two such fits compare their
 # weights as supplied). NULL when the model is not a brms fit whose response carries
 # the term, and for weights(.maihda_sw): those are the package's own SAMPLING weights,
@@ -2713,8 +2711,7 @@ maihda_brms_addition_values <- function(model, term, frame) {
                      error = function(e) NULL)
   }
   if (!is.numeric(vals) || length(vals) != n) {
-    vals <- tryCatch(eval(arg, envir = frame, enclos = baseenv()),
-                     error = function(e) NULL)
+    vals <- maihda_eval_brms_term(arg, frame)
     if (is.numeric(vals) && length(vals) == 1L) {
       vals <- rep(vals, n)
     }
@@ -4796,6 +4793,131 @@ maihda_brms_addition_arg <- function(formula_obj, name) {
   maihda_find_addition_arg(lhs[[3]], name)
 }
 
+# The response addition terms of a brms formula -- the calls to the right of `|` in
+# `y | trials(n) + weights(w)`, as function names -- or character(0) when there are
+# none. A term that is not a call is returned deparsed, so it can never pass as an
+# allowed name.
+maihda_brms_addition_terms <- function(formula_obj) {
+  f <- formula_obj
+  if (inherits(f, "brmsformula") && inherits(f$formula, "formula")) {
+    f <- f$formula
+  }
+  if (!inherits(f, "formula") || length(f) < 3L) {
+    return(character(0))
+  }
+  lhs <- f[[2]]
+  if (!is.call(lhs) || !identical(lhs[[1]], as.name("|"))) {
+    return(character(0))
+  }
+  collect <- function(e) {
+    if (is.call(e) && identical(e[[1]], as.name("+")) && length(e) == 3L) {
+      return(c(collect(e[[2]]), collect(e[[3]])))
+    }
+    if (is.call(e) && is.name(e[[1]])) {
+      return(as.character(e[[1]]))
+    }
+    paste(deparse(e, width.cutoff = 500L), collapse = " ")
+  }
+  collect(lhs[[3]])
+}
+
+# engine = "brms" models two response addition terms: trials() -- a binomial's trial
+# counts -- and weights() -- likelihood weights, the user's own or the package's
+# weights(.maihda_sw) for sampling_weights. Every other one changes the model in a way
+# the VPC, the predictions and the summaries do not follow, so it is refused before
+# anything is fitted. Measured on real Stan fits:
+#   * rate(denom) enters the likelihood outside the linear predictor brms reports, so
+#     the count VPC was evaluated at the rate per unit of exposure: 0.18, where the same
+#     Poisson model written offset(log(denom)) gives 0.43 (lme4 0.38). The refusal gives
+#     that spelling, which the package reads correctly -- the same model for a Poisson;
+#     for a negative binomial brms's rate() also multiplies the shape by denom
+#     (neg_binomial_2_log_lpmf(Y | mu + log_denom, shape .* denom)), which the offset,
+#     and the package's VPC, do not.
+#   * se(s) without sigma = TRUE fixes the residual SD at 0, and the VPC read 1; with
+#     sigma = TRUE it is a true-score VPC the package does not define.
+#   * cens(): the latent VPC is sound (0.353 against 0.33 on the uncensored truth), but
+#     the observed-outcome summaries (maihda_describe(), plot_obs_vs_shrunken(), the
+#     deviation panel) take censored values as exact -- a mean of 0.955 against a true
+#     1.117.
+#   * trunc() fits a truncated likelihood none of them model (accepted, not measured).
+#   * mi() keeps rows whose outcome is missing, which the analytic sample assumes away;
+#     the rest (subset(), cat(), dec(), thres(), index(), vreal(), vint()) belong to
+#     models MAIHDA does not fit.
+# The cumulative (ordinal) path refuses every addition term itself.
+maihda_brms_check_addition_terms <- function(formula) {
+  bad <- setdiff(unique(maihda_brms_addition_terms(formula)), c("trials", "weights"))
+  if (length(bad) == 0L) {
+    return(invisible(TRUE))
+  }
+  one_line <- function(e) {
+    paste(deparse(e, width.cutoff = 500L, backtick = TRUE), collapse = " ")
+  }
+  why <- character(0)
+  if ("rate" %in% bad) {
+    denom <- maihda_brms_addition_arg(formula, "rate")
+    denom_txt <- if (is.null(denom)) "<exposure>" else one_line(denom)
+    why <- c(why, paste0(
+      "rate() enters the likelihood outside the linear predictor the count VPC reads, ",
+      "so the VPC would be evaluated at the rate per unit of exposure. Write the ",
+      "exposure as an offset instead -- remove rate(", denom_txt, ") from the response ",
+      "and add `+ offset(log(", denom_txt, "))` to the right-hand side, which the ",
+      "package reads correctly. For a Poisson model that is the same model; for a ",
+      "negative binomial, brms's rate() also multiplies the shape by the exposure, ",
+      "and the offset keeps it constant."))
+  }
+  if ("se" %in% bad) {
+    why <- c(why, paste0(
+      "se() sets known measurement errors (and, without sigma = TRUE, a residual SD ",
+      "of 0, which makes the VPC 1); MAIHDA's variance partition does not model them."))
+  }
+  if ("cens" %in% bad) {
+    why <- c(why, paste0(
+      "cens() is not supported: the observed-outcome summaries would treat censored ",
+      "values as exact."))
+  }
+  if ("trunc" %in% bad) {
+    why <- c(why, paste0(
+      "trunc() is not supported: it fits a truncated likelihood that the VPC and the ",
+      "summaries do not model."))
+  }
+  if ("mi" %in% bad) {
+    why <- c(why, paste0(
+      "mi() is not supported: drop it, and rows with a missing outcome leave the ",
+      "analytic sample as they do for every engine."))
+  }
+  stop("engine = \"brms\" supports the trials() and weights() addition terms only; ",
+       "this formula's response also carries ",
+       paste0(bad, "()", collapse = ", "), ". ", paste(why, collapse = " "),
+       call. = FALSE)
+}
+
+# Evaluate a term of a brms formula -- the argument of an addition term, `n` in
+# trials(n) or `w` in weights(w), or the response -- on the rows of `data` the way
+# brms does, or NULL when it cannot be evaluated. brms refuses a VARIABLE it can find
+# in neither its data nor its data2 (validate_data()), even one the session holds, so
+# variables come from `data` alone: a column missing there is a failure, never a
+# same-named object picked up from the session (a variable brms took from data2 is
+# not read here). The FUNCTIONS the term calls are found as brms finds them, base
+# first -- a global function masking a base one is ignored by both -- then through
+# the global environment and the attached packages. Evaluating against base alone left
+# trials(myfun(n)) with a global myfun, or trials(coalesce(n, 0L)) under
+# library(dplyr), with no trial counts at all, although brms had fitted them:
+# predict_maihda() then returned expected success counts as probabilities, the
+# prediction weights fell to 1, and maihda_describe() and plot_obs_vs_shrunken() read
+# each row as one trial.
+maihda_eval_brms_term <- function(expr, data) {
+  funs <- new.env(parent = baseenv())
+  for (fn in setdiff(all.names(expr), all.vars(expr))) {
+    if (!exists(fn, envir = baseenv(), mode = "function")) {
+      f <- get0(fn, envir = globalenv(), mode = "function")
+      if (!is.null(f)) {
+        assign(fn, f, envir = funs)
+      }
+    }
+  }
+  tryCatch(eval(expr, envir = data, enclos = funs), error = function(e) NULL)
+}
+
 # One binomial TRIAL count per row of `data`, read off a `y | trials(n)` addition
 # term, or NULL when the formula carries no trials() term (a Bernoulli / continuous
 # / count response, or a `y | weights(w)` addition term without trials). Accepts a
@@ -4820,8 +4942,7 @@ maihda_trials_from_formula <- function(formula_obj, data, n = NULL) {
   if (is.null(trials_expr)) {
     return(NULL)
   }
-  vals <- tryCatch(eval(trials_expr, envir = data, enclos = baseenv()),
-                   error = function(e) NULL)
+  vals <- maihda_eval_brms_term(trials_expr, data)
   if (is.null(vals) || !is.numeric(vals) || length(vals) == 0L) {
     return(NULL)
   }

@@ -22,6 +22,8 @@
 
 ## API changes
 
+* `fit_maihda(engine = "brms")`, `maihda()` and `compare_maihda_groups()` now refuse a response addition term other than `trials()` and `weights()` -- `se()`, `rate()`, `cens()`, `trunc()`, `mi()` and the like -- which the VPC, predictions and summaries did not model: `rate(expo)` evaluated the count VPC at the rate per unit of exposure (0.18 where the same model gives 0.43), `se(s)` reported a VPC of 1, and `cens()` fits had censored values summarised as exact. Write an exposure as `+ offset(log(expo))`: the same model for a Poisson, while for a negative binomial brms's `rate()` also scales the shape by the exposure and the offset does not.
+
 * A stratum the strata table holds but the fit never used -- every one of its rows left the analytic sample, through a missing covariate for instance -- is now refused by `predict_maihda()` like any other unseen stratum, and predicted at a zero random effect under `allow_new_levels = TRUE`. The `wemix` and `ordinal` engines returned that zero-effect prediction silently by default; lme4 and brms raised their own engine errors, which the package's directed message replaces.
 
 * `predict_maihda()` on the training rows now returns one value per analytic row for a fit made with `na.action = na.exclude`, matching `nrow(object$data)` and every other `predict_maihda()` return, rather than base R's vector over the original input rows with an `NA` at each dropped position. The padded vector could not be bound to `object$data`, which is what produced the misalignment fixed below. Unchanged under the default `na.action = na.omit`.
@@ -66,6 +68,8 @@
 * `maihda(decomposition = "crossed-dimensions")` now fits the model once instead of twice. The preliminary pass that resolves the strata and family no longer refits the supplied formula only to discard it, which roughly halves the fitting cost (most noticeable for `brms`).
 
 ## Bug fixes
+
+* A brms `trials()` term that calls a function outside base R -- your own, or one from an attached package such as `coalesce()` under `library(dplyr)` -- no longer loses its trial counts: `predict_maihda(scale = "response")` returned expected success counts, the stratum summaries, plots, `maihda_table()` and `maihda_describe()` counted every row as one trial, and the AUC and the prediction-deviation panel refused the fit. A response calling such a function no longer leaves that panel with no row to score.
 
 * `calculate_pcv()`, `compare_maihda()` and `maihda_ic()` now compare the trial counts of a brms `y | trials(n)` outcome, not just its successes, so fits of the same successes out of different trials are refused or flagged as different samples instead of compared as one.
 
