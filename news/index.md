@@ -476,6 +476,62 @@
 
 ### Bug fixes
 
+- [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
+  now draws every case of a case-level binomial panel. Its point shape
+  showed the observed outcome, which a
+  [`cbind()`](https://rdrr.io/r/base/cbind.html) response, a proportion
+  with trial weights, a brms `trials()` fit or `data` without the
+  outcome does not have, and ggplot dropped each such point; those cases
+  now take a fixed shape, and Bernoulli panels are unchanged.
+
+- `predict_maihda(newdata = )` and
+  `plot_prediction_deviation_panels(data = )` on an `engine = "brms"`
+  fit no longer refuse rows carrying its two-level outcome as it was
+  fitted – a factor, character labels or a logical.
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  hands brms that outcome recoded to 0/1, and brms checked supplied rows
+  against the recoded column although no prediction reads it; the rows
+  brms sees now leave it out.
+
+- The binomial panel of
+  [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
+  now codes the outcome of supplied `data` as the model coded it, by
+  label. It re-derived the 0/1 coding from the plotted rows, so the
+  fitted rows handed back with their factor levels reversed had every
+  residual scored against the wrong outcome and every “Wrong” /
+  “Correct” swapped, and rows holding a single outcome value could not
+  be coded, so they were scored as perfect fits.
+
+- The binomial panel of
+  [`plot_prediction_deviation_panels()`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md)
+  now scores each row from its own successes and trials. Given `data`
+  whose outcome is not one 0/1 value per row – a
+  [`cbind()`](https://rdrr.io/r/base/cbind.html) response or a
+  proportion – it borrowed the fitted rows’ deviance residuals whenever
+  `data` had as many rows, so reordering the rows moved each residual
+  onto another row, and it gave every row of a subset a residual of 0. A
+  0/1 outcome with prior weights was scored as a single trial whatever
+  its weight: five times too small at 25 trials a row, on the default
+  panel too, and unlike the same model written with
+  [`cbind()`](https://rdrr.io/r/base/cbind.html). A prior weight now
+  counts as that many trials, as in R’s binomial family, and a row whose
+  outcome or trial count is unknown is left out of the residual
+  summaries and the labels rather than scored as a perfect fit.
+
+- `plot_prediction_deviation_panels(data = )` now weights each row of
+  `data` by its own weight in the stratum summaries. The fitted rows’
+  weights were paired with the supplied rows by position whenever the
+  counts matched, so reordering the fitted rows moved the weighted
+  stratum means, new rows took the training rows’ weights, and a subset
+  was silently unweighted. A row’s weight is read from its column in
+  `data`, or from the fitted row with the same row name and prediction;
+  if any row’s weight cannot be found, every row is weighted equally,
+  with a warning. The `weights` of a
+  [`MASS::polr()`](https://rdrr.io/pkg/MASS/man/polr.html) or bare
+  [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html) fit,
+  which [`stats::weights()`](https://rdrr.io/r/stats/weights.html) does
+  not return, now weight its panel too; they were ignored.
+
 - `fit_maihda(engine = "wemix")` no longer refuses a Bernoulli outcome
   written as an expression, such as `I(ly > 0.9) ~ x`, as though it were
   an aggregated binomial: `maihda_analytic_response()` returned `NULL`
