@@ -134,6 +134,21 @@ maihda_prediction_panel_response_name <- function(model) {
   as.character(form)[2]
 }
 
+# TRUE when the binomial panel can draw the observed outcome `x` as point shapes: a
+# vector -- not the two-column cbind(successes, failures) matrix -- of categories, as a
+# 0/1 or other categorical outcome is (whole numbers when numeric, the rule
+# maihda_is_binary_vector() applies), and no more of them than ggplot's shape palette
+# holds (six). A numeric outcome with a fractional value is a proportion with trial
+# weights -- an aggregated outcome, which no shape stands for.
+maihda_prediction_panel_shape_outcome <- function(x) {
+  if (is.null(x) || !is.null(dim(x))) {
+    return(FALSE)
+  }
+  seen <- unique(x[!is.na(x)])
+  length(seen) <= 6L &&
+    (!is.numeric(seen) || all(is.finite(seen) & abs(seen - round(seen)) < 1e-8))
+}
+
 # The formula of a brms fit, unwrapped from its brmsformula; NULL for any other model.
 maihda_prediction_panel_brms_formula <- function(model) {
   if (!inherits(model, "brmsfit")) {
@@ -991,13 +1006,34 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
           x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|"
         )
     } else {
-      p2 <- p2 +
-        ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_res_dev, shape = .data$obs_outcome), alpha = 0.8)
+      # The point shape shows each case's observed outcome. An aggregated binomial has
+      # none to show -- successes out of trials in a cbind() matrix, a proportion with
+      # trial weights, a brms trials() count -- and neither has a case whose outcome
+      # `data` does not carry. Mapped to shape, those came out NA (a proportion's values
+      # past the palette's six likewise) and ggplot dropped every such point, so they
+      # take a fixed shape: the default when no case shows an outcome, and a hollow
+      # ring beside cases that do, so as not to pass for an observed category.
+      shown <- maihda_prediction_panel_shape_outcome(raw_outcome) & !is.na(df$obs_outcome)
+      if (all(shown)) {
+        p2 <- p2 +
+          ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_res_dev, shape = .data$obs_outcome), alpha = 0.8)
+      } else if (!any(shown)) {
+        p2 <- p2 +
+          ggplot2::geom_point(ggplot2::aes(color = .data$direction, size = .data$abs_res_dev), alpha = 0.8)
+      } else {
+        p2 <- p2 +
+          ggplot2::geom_point(data = df[shown, , drop = FALSE], ggplot2::aes(color = .data$direction, size = .data$abs_res_dev, shape = .data$obs_outcome), alpha = 0.8) +
+          ggplot2::geom_point(data = df[!shown, , drop = FALSE], ggplot2::aes(color = .data$direction, size = .data$abs_res_dev),
+                              shape = 1, alpha = 0.8, show.legend = FALSE)
+      }
 
       if (any(df$wrong == "Wrong", na.rm = TRUE)) {
         p2 <- p2 + ggplot2::geom_point(data = dplyr::filter(df, .data$wrong == "Wrong"), shape = 1, color = "red", ggplot2::aes(size = .data$abs_res_dev + 0.5))
       }
-      p2 <- p2 + ggplot2::labs(x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|", shape = "Observed")
+      # No shape legend to title when no case shows an outcome (labs() drops a waiver();
+      # ggplot announces a label for an unmapped aesthetic as unknown).
+      p2 <- p2 + ggplot2::labs(x = x_label, y = "Predicted Probability", color = "Direction", size = "|Deviance\nResidual|",
+                               shape = if (any(shown)) "Observed" else ggplot2::waiver())
     }
 
     p2 <- p2 +
