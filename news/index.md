@@ -152,6 +152,11 @@
 
 ### API changes
 
+- `predict_maihda(allow_new_levels = TRUE)` on a brms fit now refuses
+  newdata missing a grouping column the prediction uses, such as the
+  context column, as lme4 does; brms filled the column with `NA` and
+  drew a new effect for every row.
+
 - `fit_maihda(engine = "brms")`,
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
@@ -489,6 +494,12 @@
   roughly halves the fitting cost (most noticeable for `brms`).
 
 ### Bug fixes
+
+- `predict_maihda(allow_new_levels = TRUE)` on a brms fit now predicts a
+  row with a missing grouping value – a stratum dimension, a supplied
+  `stratum`, a context or a longitudinal `id` – at a zero effect for
+  that term, as the other engines do, instead of drawing a new effect
+  for it on every call.
 
 - A brms `trials()` term that calls a function outside base R – your
   own, or one from an attached package such as
