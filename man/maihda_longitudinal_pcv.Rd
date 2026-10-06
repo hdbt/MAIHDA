@@ -37,15 +37,13 @@ is the same at every time, so this reduces to the slope-variance cell).
 }
 \details{
 As in \code{\link{calculate_pcv}}, the \code{estimation} argument selects the
-variance-estimation basis. With \code{estimation = "ML"}, REML \code{lmer} growth
-fits are refitted with maximum likelihood (\code{\link[lme4]{refitML}}) before the
-comparison -- the null and adjusted models differ in fixed effects (the dimensions'
-main effects and their \code{dim:time} interactions), across which REML applies a
-model-specific correction -- for a correction-free comparison. With
-\code{estimation = "fitted"} (the default) each fit's own REML covariance block is
-used, matching the single-model summaries and avoiding ML's finite-sample bias. The
-stored models (and the single-model summaries computed from them, e.g. the
-time-varying VPC) always keep their REML fit; \code{ml_refit} on the result records
+variance-estimation basis. With \code{estimation = "fitted"} (the default) each
+fit's own REML covariance block is used, matching the single-model summaries. With
+\code{estimation = "ML"}, REML \code{lmer} growth fits are refitted with maximum
+likelihood (\code{\link[lme4]{refitML}}) before the comparison, which overstates
+both PCVs when strata are few. The stored models (and the single-model summaries
+computed from them, e.g. the time-varying VPC) always keep their REML fit;
+\code{ml_refit} on the result records
 whether an ML refit fully applied, and \code{estimation_used} records the basis
 ACTUALLY used -- \code{"fitted"}, \code{"ML"}, or \code{"mixed"} when an ML refit
 was requested but a model kept its REML fit (a boundary skip or a failed refit),

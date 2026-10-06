@@ -151,7 +151,7 @@ test_that("estimation='ML' with a boundary adjusted model reports a mixed basis"
   expect_true(p$adjusted_at_boundary)
   out <- paste(capture.output(print(p)), collapse = "\n")
   expect_match(out, "Variance basis: mixed")
-  expect_false(grepl("correction-free", out))   # no false pure-ML claim
+  expect_false(grepl("ML-refit", out, fixed = TRUE))   # no false pure-ML claim
 })
 
 test_that("a non-boundary estimation='ML' comparison stays a pure ML basis", {
@@ -170,7 +170,7 @@ test_that("a non-boundary estimation='ML' comparison stays a pure ML basis", {
   expect_identical(p$estimation_used, "ML")
   out <- paste(capture.output(print(p)), collapse = "\n")
   expect_match(out, "Variance basis: ML-refit")
-  expect_match(out, "correction-free")
+  expect_match(out, "maximum-likelihood variances")
 })
 
 # A stratum-level covariate x drives ALL between-stratum variation, so a model that

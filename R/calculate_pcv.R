@@ -18,19 +18,11 @@
 #'   A value below about 200 warns that the interval's tail endpoints are unstable
 #'   (the hard minimum is 10).
 #' @param conf_level Confidence level for bootstrap intervals. Default is 0.95.
-#' @param estimation Variance-estimation basis for the cross-model comparison, one of
-#'   \code{"fitted"} (default) or \code{"ML"}. \code{"fitted"} differences each model's
-#'   own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
-#'   \code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
-#'   correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
-#'   \code{glmer} and the wemix/ordinal engines are already maximum-likelihood, and a
-#'   \code{brms} fit is a Bayesian posterior (not ML), so \code{"ML"} is a no-op for all
-#'   of them; a \code{brms} comparison is reported on the as-fitted \emph{posterior}
-#'   basis rather than as an ML-refit. See Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
-#'   on the singularity boundary -- under \emph{any} \code{estimation} basis -- the PCV
-#'   is pinned near 1; this is recorded as \code{adjusted_at_boundary = TRUE} and noted
-#'   by \code{print()}. It is not treated as an error or warned about: a singular fit is
-#'   indistinguishable from genuinely additive strata (a common, legitimate result).
+#' @param estimation Which between-stratum variances are compared, \code{"fitted"}
+#'   (default) or \code{"ML"}. \code{"fitted"} uses each model's own estimate (the REML
+#'   estimate for a Gaussian \code{lmer} fit); \code{"ML"} refits REML \code{lmer} fits
+#'   by maximum likelihood first, which overstates the PCV when strata are few. Only
+#'   Gaussian \code{lmer} fits are affected. See Details.
 #'
 #' @return A list containing:
 #'   \item{pcv}{The estimated proportional change in variance}
@@ -45,8 +37,8 @@
 #'     \code{"mixed"}, or \code{"posterior"}. \code{"mixed"} arises under
 #'     \code{estimation = "ML"} when a model keeps its REML fit -- its between-stratum
 #'     variance is on the boundary so the ML refit is skipped, or \code{\link[lme4]{refitML}}
-#'     failed -- so the comparison is partly REML rather than a pure, correction-free ML
-#'     one. \code{"posterior"} is reported for a \code{brms} comparison (a Bayesian
+#'     failed -- so the comparison is partly REML rather than the pure ML one
+#'     requested. \code{"posterior"} is reported for a \code{brms} comparison (a Bayesian
 #'     posterior, on which \code{"ML"} is a no-op). \code{print()} states the basis}
 #'   \item{adjusted_at_boundary}{Logical; \code{TRUE} when model2's between-stratum
 #'     variance is on the singularity boundary, so the PCV is pinned near 1 (100\%) and
@@ -75,35 +67,35 @@
 #' non-nested models the PCV is simply a model-dependent difference in variance,
 #' not an explained proportion.
 #'
-#' \strong{REML vs ML (the \code{estimation} argument).} \code{lmer} fits Gaussian
-#' models by REML, and two considerations pull in opposite directions when the PCV
-#' differences two such fits. On one hand, the REML \emph{likelihood} is not
-#' comparable across models with different fixed effects, and REML applies a
-#' model-specific degrees-of-freedom correction that differs between the null and the
-#' adjusted fit; refitting both with maximum likelihood (\code{\link[lme4]{refitML}})
-#' puts the two between-stratum variances on a common, correction-free basis, matching
-#' \code{\link{maihda_ic}} and \code{anova()} on \code{lme4} models. On the other hand,
-#' ML variance-component estimates are downward-biased in finite samples -- most
-#' sharply with few strata (the usual MAIHDA regime), and more so for the adjusted
-#' model (more fixed effects, larger REML correction) -- which \emph{inflates} the
-#' reported PCV relative to the REML estimates. Both are defensible point estimates of
-#' each model's between-stratum variance, so \code{estimation} selects between them:
+#' \strong{REML vs ML (the \code{estimation} argument).} \code{estimation} sets which
+#' between-stratum variances are compared:
 #' \describe{
-#'   \item{\code{"fitted"} (default)}{use each model's own fitted between-stratum
-#'     variance -- the REML estimate for an \code{lmer} Gaussian fit. This matches the
-#'     variances \code{\link{summary.maihda_model}} reports and conventional MAIHDA
-#'     practice, and avoids ML's finite-sample downward bias.}
-#'   \item{\code{"ML"}}{refit any REML \code{lmer} fit with maximum likelihood before
-#'     reading the variances (and before the parametric bootstrap, so the interval
-#'     matches), for a correction-free cross-model comparison.}
+#'   \item{\code{"fitted"} (default)}{each model's own estimate -- the REML estimate
+#'     for a Gaussian \code{lmer} fit, the variance
+#'     \code{\link{summary.maihda_model}} reports.}
+#'   \item{\code{"ML"}}{REML \code{lmer} fits are refitted by maximum likelihood
+#'     (\code{\link[lme4]{refitML}}) first, and the bootstrap interval is computed on
+#'     the same basis. Use it to match an analysis fitted by maximum likelihood.}
 #' }
-#' The choice affects Gaussian \code{lmer} fits only: GLMM fits (\code{glmer}) and the
-#' wemix/ordinal engines are already on the maximum-likelihood scale, so \code{"fitted"}
-#' and \code{"ML"} coincide there. A \code{brms} fit is a Bayesian Stan \emph{posterior},
-#' not a maximum-likelihood fit, so \code{"ML"} performs no refit and the comparison is
-#' reported on the as-fitted posterior basis (\code{estimation_used = "posterior"}), never
-#' as an ML-refit. Single-model VPC/ICC summaries always keep their REML fit, since that
-#' comparison-free quantity is not subject to the cross-model pitfall.
+#' The PCV is a ratio of two variance estimates and uses no likelihood value, so it
+#' does not need maximum-likelihood fits (likelihood-ratio tests and information
+#' criteria do; see \code{\link{maihda_ic}}). REML estimates each model's
+#' between-stratum variance with little bias. Maximum likelihood makes no allowance for
+#' the degrees of freedom spent on the fixed effects, so it underestimates that
+#' variance, and by more in the adjusted model than in the null model: the PCV is
+#' \emph{overstated}, most of all with few strata. In a balanced design whose fixed
+#' effects are constant within strata, ML multiplies REML's estimate of the variance of
+#' the stratum means, \eqn{\sigma^2_u + \sigma^2_e / n}, by \eqn{(J - p) / J} (\eqn{J}
+#' strata, \eqn{p} fixed-effect coefficients, neither estimate at zero): 23/24 for the
+#' null model of a 2 x 3 x 4 design but 17/24 for the adjusted one. The bootstrap
+#' interval inherits the bias, because it simulates from and refits on the same basis.
+#'
+#' Only Gaussian \code{lmer} fits are affected. GLMM fits (\code{glmer}) and the
+#' wemix/ordinal engines fit by maximum likelihood and offer no REML counterpart, so
+#' the two settings coincide there and their PCV carries the same tendency to overstate
+#' with few strata. A \code{brms} fit is a Bayesian posterior: \code{"ML"} performs no
+#' refit and \code{estimation_used} is \code{"posterior"}. Single-model VPC/ICC
+#' summaries always use the model as fitted.
 #'
 #' \strong{Latent-scale families and rescaling.} For families whose level-1
 #' variance is a fixed latent-scale constant -- binomial/Bernoulli
@@ -218,9 +210,9 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   # `estimation` argument). "fitted" (default) keeps each lmer fit's own REML
   # between-stratum variance -- matching summary() and avoiding ML's finite-sample
   # downward bias. "ML" refits any REML lmer fit with ML first (and before the
-  # parametric bootstrap below, which reuses these fits, so the interval matches the
-  # point estimate), mirroring maihda_ic() and anova.merMod, for a correction-free
-  # comparison. A no-op for glmer / the brms/wemix/ordinal engines, already on ML.
+  # parametric bootstrap below, which reuses these fits, so the interval is on the
+  # same basis as the point estimate). A no-op for glmer / the brms/wemix/ordinal
+  # engines, already on ML.
   model1 <- maihda_pcv_apply_estimation(model1, estimation)
   model2 <- maihda_pcv_apply_estimation(model2, estimation)
   # maihda_pcv_refit_ml() flags (and warns about) a model whose intended ML refit
@@ -230,7 +222,7 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   # Under estimation = "ML", a model whose between-stratum variance is on the boundary
   # keeps its REML fit (maihda_pcv_refit_ml() skips the destabilising refit there), so
   # the comparison is then partly REML. Record the basis ACTUALLY used ("mixed") so the
-  # result does not claim a pure, correction-free ML refit when one model stayed REML.
+  # result does not claim a pure ML refit when one model stayed REML.
   # A FAILED refitML() (ml_refit_failed) likewise leaves a model on REML, so it is
   # "mixed" too -- not the pure ML the label would otherwise assert. The engine also
   # matters: a brms comparison is a posterior, never an ML-refit (handled downstream).
@@ -366,7 +358,7 @@ maihda_pcv_estimation_used <- function(estimation, mixed, engine = NULL) {
 maihda_pcv_basis_label <- function(basis) {
   if (is.null(basis)) basis <- "fitted"
   switch(basis,
-    ML = "ML-refit (correction-free cross-model comparison)",
+    ML = "ML-refit (maximum-likelihood variances; see ?calculate_pcv)",
     mixed = paste0("mixed -- ML requested, but a model kept its REML fit (a ",
                    "between-stratum variance at the boundary, or a failed refit), so ",
                    "not a pure ML comparison"),
@@ -375,13 +367,12 @@ maihda_pcv_basis_label <- function(basis) {
   )
 }
 
-# REML lmer between-stratum variance estimates carry a fixed-effects-specific REML
-# degrees-of-freedom correction that differs between the null and adjusted fits.
 # Invoked only when the ML estimation basis is requested (estimation = "ML"; see
-# maihda_pcv_apply_estimation()), this refits a REML lmer fit with ML (lme4::refitML)
-# for a correction-free cross-model comparison, matching maihda_ic() and
-# anova.merMod. Non-REML fits (glmer / the GLMM families) and the brms/wemix/ordinal
-# engines are returned unchanged. Longitudinal fits are returned unchanged TOO, but
+# maihda_pcv_apply_estimation()), this refits a REML lmer fit with ML (lme4::refitML).
+# ML shrinks the adjusted model's variance by more than the null's and so overstates
+# the PCV with few strata (see ?calculate_pcv), which is why it is not the default.
+# Non-REML fits (glmer / the GLMM families) and the brms/wemix/ordinal engines are
+# returned unchanged. Longitudinal fits are returned unchanged TOO, but
 # only because their null-vs-adjusted comparison applies the same rule itself:
 # maihda_longitudinal_pcv() ML-refits its growth models via
 # maihda_longitudinal_refit_ml() (longitudinal.R), whose boundary guard reads the
@@ -400,14 +391,14 @@ maihda_pcv_refit_ml <- function(model) {
   # nudge an exact-zero variance off the boundary, masking the zero-variance guard in
   # calculate_pcv(). A fit can be globally singular because a NON-stratum random
   # effect (e.g. an extra grouping factor like (1 | site)) sits on the boundary while
-  # the stratum variance is comfortably nonzero -- testing global isSingular() here
-  # wrongly skipped those, leaving the REML-vs-ML discrepancy this corrects in place.
+  # the stratum variance is comfortably nonzero -- so the test is on the stratum
+  # variance, not on global isSingular(), which would skip the refit for those too.
   # If refitML() itself fails, the tryCatch below keeps the original (REML) fit.
   if (maihda_stratum_at_boundary_lme4(model$model)) {
     # ML refit deliberately skipped at the boundary (see above). Record it so the
     # caller can report an HONEST basis: under estimation = "ML" a model kept on its
     # REML fit here makes the cross-model comparison partly REML -- a "mixed" basis,
-    # not the pure, correction-free ML comparison the "ML" label would otherwise
+    # not the pure ML comparison the "ML" label would otherwise
     # claim. (Forcing the refit instead is worse: refitML() of a boundary fit emits a
     # bobyqa non-convergence warning and still returns the same ~0 variance.)
     model$ml_refit_skipped_boundary <- TRUE

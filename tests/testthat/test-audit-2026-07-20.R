@@ -188,8 +188,9 @@ test_that("maihda_pcv_estimation_used folds in failed refits and the engine", {
   expect_identical(MAIHDA:::maihda_pcv_estimation_used("ML", TRUE), "mixed")
   expect_identical(MAIHDA:::maihda_pcv_estimation_used("ML", FALSE), "ML")
   expect_identical(MAIHDA:::maihda_pcv_estimation_used("fitted", TRUE), "fitted")
-  # the "mixed" label no longer asserts a pure, correction-free comparison.
-  expect_false(grepl("correction-free", MAIHDA:::maihda_pcv_basis_label("mixed")))
+  # the "mixed" label does not read as the pure ML one.
+  expect_false(grepl("ML-refit", MAIHDA:::maihda_pcv_basis_label("mixed"), fixed = TRUE))
+  expect_true(grepl("ML-refit", MAIHDA:::maihda_pcv_basis_label("ML"), fixed = TRUE))
 })
 
 test_that("calculate_pcv() reports a failed ML refit as a mixed basis", {
@@ -210,7 +211,8 @@ test_that("calculate_pcv() reports a failed ML refit as a mixed basis", {
     finally = assignInNamespace("refitML", orig, ns = "lme4"))
   expect_true(isTRUE(res$ml_refit_failed))
   expect_identical(res$estimation_used, "mixed")
-  expect_false(grepl("correction-free", MAIHDA:::maihda_pcv_basis_label(res$estimation_used)))
+  expect_false(grepl("ML-refit", MAIHDA:::maihda_pcv_basis_label(res$estimation_used),
+                     fixed = TRUE))
 })
 
 # ---- #5 P2: brms PCV is reported as a posterior basis, not an ML-refit -------

@@ -271,7 +271,7 @@ test_that("longitudinal PCV recovers a mostly-additive trajectory split", {
 
 test_that("longitudinal PCV: default 'fitted' uses REML, estimation = 'ML' refits", {
   # The null and adjusted growth models differ in fixed effects (the dimensions'
-  # main effects + dim:time), across which REML applies a model-specific correction.
+  # main effects + dim:time), so their REML and ML covariance blocks differ.
   # estimation selects the basis (see calculate_pcv()): the default "fitted" keeps
   # each fit's own REML covariance block; "ML" refits both first. The stored fits
   # (and summary()'s time-varying VPC) always keep REML.

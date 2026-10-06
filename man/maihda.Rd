@@ -119,9 +119,9 @@ inequality (Bell, Evans, Holman & Leckie 2024). As with the two-model PCV,
 the \code{estimation} argument sets the variance-estimation basis: the default
 \code{"fitted"} keeps each REML \code{lmer} growth fit's own variance, while
 \code{"ML"} refits them with maximum likelihood before the null-vs-adjusted
-comparison (REML variances are not comparable across different fixed effects;
-see \code{\link{calculate_pcv}}). The reported time-varying VPC always keeps
-each fit's own (REML) estimate.
+comparison, which overstates the PCV when strata are few (see
+\code{\link{calculate_pcv}}). The reported time-varying VPC always keeps each
+fit's own (REML) estimate.
 See \code{\link{fit_maihda}}.}
 
 \item{autobin}{Logical passed to \code{\link{make_strata}}; tertile-bins numeric
@@ -220,7 +220,7 @@ An object of class \code{maihda_analysis}: a list with
     variance-estimation basis set by \code{estimation}: the default
     \code{"fitted"} keeps each Gaussian \code{lmer} fit's own REML variance
     (matching the single-model summaries), while \code{"ML"} refits the REML
-    fits with maximum likelihood for a correction-free cross-model comparison
+    fits with maximum likelihood, which overstates the PCV when strata are few
     (see \code{\link{calculate_pcv}})}
   \item{decomposition}{the additive/interaction partition (additive and interaction
     variances and shares, per-dimension variances; \code{"crossed-dimensions"} mode

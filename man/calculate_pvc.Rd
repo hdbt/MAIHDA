@@ -32,19 +32,11 @@ A value below about 200 warns that the interval's tail endpoints are unstable
 
 \item{conf_level}{Confidence level for bootstrap intervals. Default is 0.95.}
 
-\item{estimation}{Variance-estimation basis for the cross-model comparison, one of
-\code{"fitted"} (default) or \code{"ML"}. \code{"fitted"} differences each model's
-own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
-\code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
-correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
-\code{glmer} and the wemix/ordinal engines are already maximum-likelihood, and a
-\code{brms} fit is a Bayesian posterior (not ML), so \code{"ML"} is a no-op for all
-of them; a \code{brms} comparison is reported on the as-fitted \emph{posterior}
-basis rather than as an ML-refit. See Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
-on the singularity boundary -- under \emph{any} \code{estimation} basis -- the PCV
-is pinned near 1; this is recorded as \code{adjusted_at_boundary = TRUE} and noted
-by \code{print()}. It is not treated as an error or warned about: a singular fit is
-indistinguishable from genuinely additive strata (a common, legitimate result).}
+\item{estimation}{Which between-stratum variances are compared, \code{"fitted"}
+(default) or \code{"ML"}. \code{"fitted"} uses each model's own estimate (the REML
+estimate for a Gaussian \code{lmer} fit); \code{"ML"} refits REML \code{lmer} fits
+by maximum likelihood first, which overstates the PCV when strata are few. Only
+Gaussian \code{lmer} fits are affected. See Details.}
 }
 \value{
 See \code{\link{calculate_pcv}}.

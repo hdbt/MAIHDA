@@ -1280,19 +1280,16 @@ maihda_longitudinal_components_table <- function(Sigma_s, Sigma_i, var_resid,
 
 # ---- proportional change in variance (additive vs multiplicative) -----------
 
-# REML lmer between-stratum (co)variance estimates are not comparable across
-# models with different fixed effects -- exactly the longitudinal null-vs-adjusted
-# pair, where the adjusted growth model adds the dimensions' main effects and
-# their dim:time interactions. This applies maihda_pcv_refit_ml()'s rule (see
-# calculate_pcv.R) to the growth models that helper deliberately skips: refit a
-# REML lmer growth fit with ML (lme4::refitML) before maihda_longitudinal_pcv()
-# reads its stratum covariance block. Left on REML, the comparison biases both
-# PCVs downward (overstating the multiplicative/interaction share) and can flip
-# their sign outright with few strata. glmer (GLMM) fits and the brms engine are
-# already on the ML / posterior scale and are returned unchanged, as is a fit
-# whose stratum growth block sits on the boundary (see below). The single-model
-# summaries (the time-varying VPC, the components table) deliberately keep their
-# REML fit, exactly like the cross-sectional VPC/ICC summaries.
+# estimation = "ML" for the growth pair. maihda_pcv_refit_ml() (calculate_pcv.R)
+# deliberately skips growth fits; this applies its rule to them: refit a REML lmer
+# growth fit with ML (lme4::refitML) before maihda_longitudinal_pcv() reads its
+# stratum covariance block. ML shrinks the adjusted block by more than the null one
+# and so overstates both PCVs with few strata (see ?calculate_pcv), which is why it
+# is not the default. glmer (GLMM) fits and the brms engine are already on the ML /
+# posterior scale and are returned unchanged, as is a fit whose stratum growth block
+# sits on the boundary (see below). The single-model summaries (the time-varying
+# VPC, the components table) deliberately keep their REML fit, exactly like the
+# cross-sectional VPC/ICC summaries.
 maihda_longitudinal_refit_ml <- function(model) {
   if (!inherits(model, "maihda_model") || !identical(model$engine, "lme4") ||
       is.null(model$longitudinal_info)) {
@@ -1364,15 +1361,13 @@ maihda_stratum_growth_at_boundary_lme4 <- function(model, tol = 1e-4) {
 #' is the same at every time, so this reduces to the slope-variance cell).
 #'
 #' As in \code{\link{calculate_pcv}}, the \code{estimation} argument selects the
-#' variance-estimation basis. With \code{estimation = "ML"}, REML \code{lmer} growth
-#' fits are refitted with maximum likelihood (\code{\link[lme4]{refitML}}) before the
-#' comparison -- the null and adjusted models differ in fixed effects (the dimensions'
-#' main effects and their \code{dim:time} interactions), across which REML applies a
-#' model-specific correction -- for a correction-free comparison. With
-#' \code{estimation = "fitted"} (the default) each fit's own REML covariance block is
-#' used, matching the single-model summaries and avoiding ML's finite-sample bias. The
-#' stored models (and the single-model summaries computed from them, e.g. the
-#' time-varying VPC) always keep their REML fit; \code{ml_refit} on the result records
+#' variance-estimation basis. With \code{estimation = "fitted"} (the default) each
+#' fit's own REML covariance block is used, matching the single-model summaries. With
+#' \code{estimation = "ML"}, REML \code{lmer} growth fits are refitted with maximum
+#' likelihood (\code{\link[lme4]{refitML}}) before the comparison, which overstates
+#' both PCVs when strata are few. The stored models (and the single-model summaries
+#' computed from them, e.g. the time-varying VPC) always keep their REML fit;
+#' \code{ml_refit} on the result records
 #' whether an ML refit fully applied, and \code{estimation_used} records the basis
 #' ACTUALLY used -- \code{"fitted"}, \code{"ML"}, or \code{"mixed"} when an ML refit
 #' was requested but a model kept its REML fit (a boundary skip or a failed refit),
@@ -1403,9 +1398,8 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
 
   # REML vs ML basis (see calculate_pcv()'s `estimation` argument). With
   # estimation = "ML" the two growth models are refit with ML before their
-  # between-stratum covariance blocks are read (the fits differ in fixed effects, so
-  # REML applies a model-specific correction); with "fitted" (default) each fit's own
-  # REML block is used. Either way the caller's stored models are untouched (copy
+  # between-stratum covariance blocks are read; with "fitted" (default) each fit's
+  # own REML block is used. Either way the caller's stored models are untouched (copy
   # semantics), so summary()'s time-varying VPC keeps each fit's own REML estimate.
   # ml_refit records whether the comparison is on the ML scale -- FALSE for "fitted",
   # and also when a boundary skip or a failed refitML() left a REML fit in place (the
@@ -1425,8 +1419,8 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
   # A model we WANTED on ML that is STILL REML after the refit -- a boundary skip
   # (maihda_longitudinal_refit_ml()'s guard) or a failed refitML() -- makes the
   # comparison MIXED: one covariance block on ML, the other on REML, which is
-  # exactly the cross-model REML incomparability estimation = "ML" was meant to
-  # remove. `ml_refit` alone cannot record this (it is FALSE for a plain fitted/REML
+  # neither of the two bases a user can ask for.
+  # `ml_refit` alone cannot record this (it is FALSE for a plain fitted/REML
   # request too), so it silently read as a clean fitted comparison. Track the basis
   # ACTUALLY used ("fitted"/"ML"/"mixed") on the result, mirroring calculate_pcv().
   still_reml <- is_reml_lng(null_model) || is_reml_lng(adjusted_model)
@@ -1735,14 +1729,14 @@ print.maihda_long_pcv <- function(x, ...) {
     # estimation = "ML" was requested, but a growth model kept its REML fit (a
     # between-stratum trajectory variance at the singularity boundary, or a failed
     # refitML()), so the comparison mixes an ML block with a REML one -- NOT the
-    # pure, correction-free ML basis requested. Surface it, mirroring
+    # pure ML basis requested. Surface it, mirroring
     # calculate_pcv()'s "mixed" basis note, so the output is not mistaken for a
     # clean fitted (REML) comparison.
     cat(pal$warn(paste0(
         "\nNote: estimation = \"ML\" was requested, but a growth model kept its REML fit\n",
         "(a between-stratum trajectory variance at the singularity boundary, or a failed\n",
         "refitML()), so this compares an ML variance block against a REML one -- not the\n",
-        "pure, correction-free ML basis requested. Compare against estimation = \"fitted\".\n",
+        "pure ML basis requested. Compare against estimation = \"fitted\".\n",
         "See ?calculate_pcv.\n")))
   } else if (isTRUE(x$ml_refit)) {
     # REML growth fits were ML-refitted for this comparison (see
@@ -1750,10 +1744,10 @@ print.maihda_long_pcv <- function(x, ...) {
     # summary()'s time-varying VPC keeps each fit's own REML estimate -- say so,
     # mirroring maihda_table()'s basis note for the cross-sectional PCV.
     cat(pal$muted(paste0(
-        "(REML growth fits were refitted with maximum likelihood for this comparison --\n",
-        "REML variances are not comparable across the null vs. adjusted fixed effects --\n",
-        "so these variances are on the ML scale; summary()'s time-varying VPC keeps\n",
-        "each fit's own REML estimate. See ?calculate_pcv.)\n")))
+        "(REML growth fits were refitted with maximum likelihood for this comparison,\n",
+        "as estimation = \"ML\" requests, so these variances are on the ML scale;\n",
+        "summary()'s time-varying VPC keeps each fit's own REML estimate. See\n",
+        "?calculate_pcv on how the ML basis differs from the default.)\n")))
   }
   invisible(x)
 }

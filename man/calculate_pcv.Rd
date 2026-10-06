@@ -32,19 +32,11 @@ A value below about 200 warns that the interval's tail endpoints are unstable
 
 \item{conf_level}{Confidence level for bootstrap intervals. Default is 0.95.}
 
-\item{estimation}{Variance-estimation basis for the cross-model comparison, one of
-\code{"fitted"} (default) or \code{"ML"}. \code{"fitted"} differences each model's
-own between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit);
-\code{"ML"} refits any REML \code{lmer} fit with maximum likelihood first, for a
-correction-free comparison. The choice affects Gaussian \code{lmer} fits only --
-\code{glmer} and the wemix/ordinal engines are already maximum-likelihood, and a
-\code{brms} fit is a Bayesian posterior (not ML), so \code{"ML"} is a no-op for all
-of them; a \code{brms} comparison is reported on the as-fitted \emph{posterior}
-basis rather than as an ML-refit. See Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
-on the singularity boundary -- under \emph{any} \code{estimation} basis -- the PCV
-is pinned near 1; this is recorded as \code{adjusted_at_boundary = TRUE} and noted
-by \code{print()}. It is not treated as an error or warned about: a singular fit is
-indistinguishable from genuinely additive strata (a common, legitimate result).}
+\item{estimation}{Which between-stratum variances are compared, \code{"fitted"}
+(default) or \code{"ML"}. \code{"fitted"} uses each model's own estimate (the REML
+estimate for a Gaussian \code{lmer} fit); \code{"ML"} refits REML \code{lmer} fits
+by maximum likelihood first, which overstates the PCV when strata are few. Only
+Gaussian \code{lmer} fits are affected. See Details.}
 }
 \value{
 A list containing:
@@ -60,8 +52,8 @@ A list containing:
     \code{"mixed"}, or \code{"posterior"}. \code{"mixed"} arises under
     \code{estimation = "ML"} when a model keeps its REML fit -- its between-stratum
     variance is on the boundary so the ML refit is skipped, or \code{\link[lme4]{refitML}}
-    failed -- so the comparison is partly REML rather than a pure, correction-free ML
-    one. \code{"posterior"} is reported for a \code{brms} comparison (a Bayesian
+    failed -- so the comparison is partly REML rather than the pure ML one
+    requested. \code{"posterior"} is reported for a \code{brms} comparison (a Bayesian
     posterior, on which \code{"ML"} is a no-op). \code{print()} states the basis}
   \item{adjusted_at_boundary}{Logical; \code{TRUE} when model2's between-stratum
     variance is on the singularity boundary, so the PCV is pinned near 1 (100\%) and
@@ -96,35 +88,35 @@ analytic sample and strata. The function does not require nesting, so for
 non-nested models the PCV is simply a model-dependent difference in variance,
 not an explained proportion.
 
-\strong{REML vs ML (the \code{estimation} argument).} \code{lmer} fits Gaussian
-models by REML, and two considerations pull in opposite directions when the PCV
-differences two such fits. On one hand, the REML \emph{likelihood} is not
-comparable across models with different fixed effects, and REML applies a
-model-specific degrees-of-freedom correction that differs between the null and the
-adjusted fit; refitting both with maximum likelihood (\code{\link[lme4]{refitML}})
-puts the two between-stratum variances on a common, correction-free basis, matching
-\code{\link{maihda_ic}} and \code{anova()} on \code{lme4} models. On the other hand,
-ML variance-component estimates are downward-biased in finite samples -- most
-sharply with few strata (the usual MAIHDA regime), and more so for the adjusted
-model (more fixed effects, larger REML correction) -- which \emph{inflates} the
-reported PCV relative to the REML estimates. Both are defensible point estimates of
-each model's between-stratum variance, so \code{estimation} selects between them:
+\strong{REML vs ML (the \code{estimation} argument).} \code{estimation} sets which
+between-stratum variances are compared:
 \describe{
-  \item{\code{"fitted"} (default)}{use each model's own fitted between-stratum
-    variance -- the REML estimate for an \code{lmer} Gaussian fit. This matches the
-    variances \code{\link{summary.maihda_model}} reports and conventional MAIHDA
-    practice, and avoids ML's finite-sample downward bias.}
-  \item{\code{"ML"}}{refit any REML \code{lmer} fit with maximum likelihood before
-    reading the variances (and before the parametric bootstrap, so the interval
-    matches), for a correction-free cross-model comparison.}
+  \item{\code{"fitted"} (default)}{each model's own estimate -- the REML estimate
+    for a Gaussian \code{lmer} fit, the variance
+    \code{\link{summary.maihda_model}} reports.}
+  \item{\code{"ML"}}{REML \code{lmer} fits are refitted by maximum likelihood
+    (\code{\link[lme4]{refitML}}) first, and the bootstrap interval is computed on
+    the same basis. Use it to match an analysis fitted by maximum likelihood.}
 }
-The choice affects Gaussian \code{lmer} fits only: GLMM fits (\code{glmer}) and the
-wemix/ordinal engines are already on the maximum-likelihood scale, so \code{"fitted"}
-and \code{"ML"} coincide there. A \code{brms} fit is a Bayesian Stan \emph{posterior},
-not a maximum-likelihood fit, so \code{"ML"} performs no refit and the comparison is
-reported on the as-fitted posterior basis (\code{estimation_used = "posterior"}), never
-as an ML-refit. Single-model VPC/ICC summaries always keep their REML fit, since that
-comparison-free quantity is not subject to the cross-model pitfall.
+The PCV is a ratio of two variance estimates and uses no likelihood value, so it
+does not need maximum-likelihood fits (likelihood-ratio tests and information
+criteria do; see \code{\link{maihda_ic}}). REML estimates each model's
+between-stratum variance with little bias. Maximum likelihood makes no allowance for
+the degrees of freedom spent on the fixed effects, so it underestimates that
+variance, and by more in the adjusted model than in the null model: the PCV is
+\emph{overstated}, most of all with few strata. In a balanced design whose fixed
+effects are constant within strata, ML multiplies REML's estimate of the variance of
+the stratum means, \eqn{\sigma^2_u + \sigma^2_e / n}, by \eqn{(J - p) / J} (\eqn{J}
+strata, \eqn{p} fixed-effect coefficients, neither estimate at zero): 23/24 for the
+null model of a 2 x 3 x 4 design but 17/24 for the adjusted one. The bootstrap
+interval inherits the bias, because it simulates from and refits on the same basis.
+
+Only Gaussian \code{lmer} fits are affected. GLMM fits (\code{glmer}) and the
+wemix/ordinal engines fit by maximum likelihood and offer no REML counterpart, so
+the two settings coincide there and their PCV carries the same tendency to overstate
+with few strata. A \code{brms} fit is a Bayesian posterior: \code{"ML"} performs no
+refit and \code{estimation_used} is \code{"posterior"}. Single-model VPC/ICC
+summaries always use the model as fitted.
 
 \strong{Latent-scale families and rescaling.} For families whose level-1
 variance is a fixed latent-scale constant -- binomial/Bernoulli

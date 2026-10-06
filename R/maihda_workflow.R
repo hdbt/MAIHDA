@@ -133,9 +133,9 @@
 #'   the \code{estimation} argument sets the variance-estimation basis: the default
 #'   \code{"fitted"} keeps each REML \code{lmer} growth fit's own variance, while
 #'   \code{"ML"} refits them with maximum likelihood before the null-vs-adjusted
-#'   comparison (REML variances are not comparable across different fixed effects;
-#'   see \code{\link{calculate_pcv}}). The reported time-varying VPC always keeps
-#'   each fit's own (REML) estimate.
+#'   comparison, which overstates the PCV when strata are few (see
+#'   \code{\link{calculate_pcv}}). The reported time-varying VPC always keeps each
+#'   fit's own (REML) estimate.
 #'   See \code{\link{fit_maihda}}.
 #' @param id,time,time_degree For a \strong{longitudinal} MAIHDA: the person/unit
 #'   identifier column, the numeric measurement-time column, and the growth-curve
@@ -233,7 +233,7 @@
 #'     variance-estimation basis set by \code{estimation}: the default
 #'     \code{"fitted"} keeps each Gaussian \code{lmer} fit's own REML variance
 #'     (matching the single-model summaries), while \code{"ML"} refits the REML
-#'     fits with maximum likelihood for a correction-free cross-model comparison
+#'     fits with maximum likelihood, which overstates the PCV when strata are few
 #'     (see \code{\link{calculate_pcv}})}
 #'   \item{decomposition}{the additive/interaction partition (additive and interaction
 #'     variances and shares, per-dimension variances; \code{"crossed-dimensions"} mode
