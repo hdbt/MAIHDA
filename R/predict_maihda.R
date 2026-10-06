@@ -234,9 +234,10 @@ predict_maihda <- function(object, newdata = NULL,
       # is NOT enough to honour the documented zero-effect fallback -- brms's default
       # sample_new_levels = "uncertainty" DRAWS a new effect from the estimated
       # random-effects distribution rather than treating it as zero -- so
-      # maihda_brms_individual_prediction() zeroes each unseen grouping level (via a
-      # per-row re_formula dropping only the terms that row has not seen), stratum
-      # AND context/longitudinal alike, matching lme4's allow.new.levels.
+      # maihda_brms_individual_prediction() zeroes each unseen grouping level, a
+      # missing (NA) one included (via a per-row re_formula dropping only the terms
+      # that row has not seen), stratum AND context/longitudinal alike, matching
+      # lme4's allow.new.levels.
       dots <- maihda_dots_default(list(...), "allow_new_levels",
                                   isTRUE(allow_new_levels))
       predictions <- maihda_brms_individual_prediction(object, newdata, scale,
@@ -331,18 +332,22 @@ maihda_brms_individual_prediction <- function(object, newdata, scale,
   }
 
   # For each bar, the grouping levels seen in training and the level each newdata
-  # row takes; a bar is KEPT for a row only where that row's level is known. The
-  # check is conservative: a bar whose training levels or newdata column cannot be
-  # resolved is kept (never silently dropped), so at worst the previous behaviour is
-  # retained. An NA grouping value is likewise left to the normal path.
+  # row takes; a bar is KEPT for a row only where that row's level is known. A
+  # missing (NA) level is never a known one: brms reads it as a new level and DRAWS
+  # an effect for it, where lme4's allow.new.levels sets it to zero. So it is dropped
+  # like any unseen level -- a row missing a stratum-defining dimension (its stratum
+  # stays NA, see maihda_prepare_prediction_data()), a supplied NA stratum, or an NA
+  # context or longitudinal id. Otherwise the check is conservative: a non-missing
+  # level whose training levels cannot be resolved is kept -- never silently
+  # dropped -- and a grouping column absent from newdata is refused below.
   known   <- lapply(bars, function(b) maihda_brms_bar_known_levels(object, b))
   row_lab <- lapply(bars, function(b) maihda_brms_bar_row_levels(newdata, b))
   keep <- matrix(TRUE, nrow = nrow(newdata), ncol = length(bars))
   for (j in seq_along(bars)) {
     kn <- known[[j]]
     rl <- row_lab[[j]]
-    if (length(kn) > 0 && !is.null(rl)) {
-      keep[, j] <- is.na(rl) | rl %in% kn
+    if (!is.null(rl)) {
+      keep[, j] <- !is.na(rl) & (length(kn) == 0 | rl %in% kn)
     }
   }
 
@@ -358,6 +363,21 @@ maihda_brms_individual_prediction <- function(object, newdata, scale,
     # deferring to the caller rather than silently overriding them. brms still
     # receives allow_new_levels via dots and applies its own handling.
     return(maihda_brms_predict_rows(object, newdata, scale, dots))
+  }
+
+  # A grouping column ABSENT from newdata is no level at all: under
+  # allow_new_levels = TRUE brms fills it with NA and DRAWS an effect for every row,
+  # where lme4 refuses ("object ... not found"), as brms itself does without
+  # allow_new_levels. Refuse it the same way whenever a term the prediction keeps is
+  # grouped by it; a caller's re_formula that leaves the term out needs no column.
+  in_scope <- if (is.null(scope$bars)) bars else scope$bars
+  absent <- setdiff(unique(unlist(lapply(in_scope, function(b) all.vars(b[[3]])))),
+                    names(newdata))
+  if (length(absent) > 0) {
+    stop("newdata is missing the grouping variable(s) of the model's random ",
+         "effects: ", paste(absent, collapse = ", "), ". Supply them; under ",
+         "allow_new_levels = TRUE a missing value (NA) predicts that random effect ",
+         "at zero.", call. = FALSE)
   }
 
   # Predict each distinct kept-bar signature once, under the scope that keeps exactly
@@ -477,9 +497,10 @@ maihda_brms_bar_known_levels <- function(object, bar) {
 }
 
 # The grouping level each newdata row takes for a random-effect bar's grouping
-# factor, or NULL when the grouping column(s) are absent from newdata (the caller
-# then keeps the bar so brms raises its usual missing-column error rather than the
-# effect being silently dropped).
+# factor, or NULL when the grouping column(s) are absent from newdata or cannot be
+# evaluated there. The caller never drops such a bar: it refuses an absent column
+# the prediction needs (under allow_new_levels = TRUE brms would fill it with NA and
+# draw an effect) rather than let the effect be silently dropped or sampled.
 maihda_brms_bar_row_levels <- function(newdata, bar) {
   grp <- bar[[3]]
   if (!all(all.vars(grp) %in% names(newdata))) {

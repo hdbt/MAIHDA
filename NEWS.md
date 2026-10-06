@@ -22,6 +22,8 @@
 
 ## API changes
 
+* `predict_maihda(allow_new_levels = TRUE)` on a brms fit now refuses newdata missing a grouping column the prediction uses, such as the context column, as lme4 does; brms filled the column with `NA` and drew a new effect for every row.
+
 * `fit_maihda(engine = "brms")`, `maihda()` and `compare_maihda_groups()` now refuse a response addition term other than `trials()` and `weights()` -- `se()`, `rate()`, `cens()`, `trunc()`, `mi()` and the like -- which the VPC, predictions and summaries did not model: `rate(expo)` evaluated the count VPC at the rate per unit of exposure (0.18 where the same model gives 0.43), `se(s)` reported a VPC of 1, and `cens()` fits had censored values summarised as exact. Write an exposure as `+ offset(log(expo))`: the same model for a Poisson, while for a negative binomial brms's `rate()` also scales the shape by the exposure and the offset does not.
 
 * A stratum the strata table holds but the fit never used -- every one of its rows left the analytic sample, through a missing covariate for instance -- is now refused by `predict_maihda()` like any other unseen stratum, and predicted at a zero random effect under `allow_new_levels = TRUE`. The `wemix` and `ordinal` engines returned that zero-effect prediction silently by default; lme4 and brms raised their own engine errors, which the package's directed message replaces.
@@ -68,6 +70,8 @@
 * `maihda(decomposition = "crossed-dimensions")` now fits the model once instead of twice. The preliminary pass that resolves the strata and family no longer refits the supplied formula only to discard it, which roughly halves the fitting cost (most noticeable for `brms`).
 
 ## Bug fixes
+
+* `predict_maihda(allow_new_levels = TRUE)` on a brms fit now predicts a row with a missing grouping value -- a stratum dimension, a supplied `stratum`, a context or a longitudinal `id` -- at a zero effect for that term, as the other engines do, instead of drawing a new effect for it on every call.
 
 * A brms `trials()` term that calls a function outside base R -- your own, or one from an attached package such as `coalesce()` under `library(dplyr)` -- no longer loses its trial counts: `predict_maihda(scale = "response")` returned expected success counts, the stratum summaries, plots, `maihda_table()` and `maihda_describe()` counted every row as one trial, and the AUC and the prediction-deviation panel refused the fit. A response calling such a function no longer leaves that panel with no row to score.
 
