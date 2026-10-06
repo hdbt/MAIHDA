@@ -57,22 +57,11 @@ calculate_pvc(
 
 - estimation:
 
-  Variance-estimation basis for the cross-model comparison, one of
-  `"fitted"` (default) or `"ML"`. `"fitted"` differences each model's
-  own between-stratum variance (the REML estimate for a Gaussian `lmer`
-  fit); `"ML"` refits any REML `lmer` fit with maximum likelihood first,
-  for a correction-free comparison. The choice affects Gaussian `lmer`
-  fits only – `glmer` and the wemix/ordinal engines are already
-  maximum-likelihood, and a `brms` fit is a Bayesian posterior (not ML),
-  so `"ML"` is a no-op for all of them; a `brms` comparison is reported
-  on the as-fitted *posterior* basis rather than as an ML-refit. See
-  Details for the finite-sample tradeoff. Whenever model2 (the adjusted
-  model) sits on the singularity boundary – under *any* `estimation`
-  basis – the PCV is pinned near 1; this is recorded as
-  `adjusted_at_boundary = TRUE` and noted by
-  [`print()`](https://rdrr.io/r/base/print.html). It is not treated as
-  an error or warned about: a singular fit is indistinguishable from
-  genuinely additive strata (a common, legitimate result).
+  Which between-stratum variances are compared, `"fitted"` (default) or
+  `"ML"`. `"fitted"` uses each model's own estimate (the REML estimate
+  for a Gaussian `lmer` fit); `"ML"` refits REML `lmer` fits by maximum
+  likelihood first, which overstates the PCV when strata are few. Only
+  Gaussian `lmer` fits are affected. See Details.
 
 ## Value
 

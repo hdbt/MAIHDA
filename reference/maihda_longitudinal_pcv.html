@@ -115,15 +115,13 @@ null model's reporting grid.</p></dd>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>As in <code><a href="calculate_pcv.html">calculate_pcv</a></code>, the <code>estimation</code> argument selects the
-variance-estimation basis. With <code>estimation = "ML"</code>, REML <code>lmer</code> growth
-fits are refitted with maximum likelihood (<code><a href="https://rdrr.io/pkg/lme4/man/refitML.html" class="external-link">refitML</a></code>) before the
-comparison – the null and adjusted models differ in fixed effects (the dimensions'
-main effects and their <code>dim:time</code> interactions), across which REML applies a
-model-specific correction – for a correction-free comparison. With
-<code>estimation = "fitted"</code> (the default) each fit's own REML covariance block is
-used, matching the single-model summaries and avoiding ML's finite-sample bias. The
-stored models (and the single-model summaries computed from them, e.g. the
-time-varying VPC) always keep their REML fit; <code>ml_refit</code> on the result records
+variance-estimation basis. With <code>estimation = "fitted"</code> (the default) each
+fit's own REML covariance block is used, matching the single-model summaries. With
+<code>estimation = "ML"</code>, REML <code>lmer</code> growth fits are refitted with maximum
+likelihood (<code><a href="https://rdrr.io/pkg/lme4/man/refitML.html" class="external-link">refitML</a></code>) before the comparison, which overstates
+both PCVs when strata are few. The stored models (and the single-model summaries
+computed from them, e.g. the time-varying VPC) always keep their REML fit;
+<code>ml_refit</code> on the result records
 whether an ML refit fully applied, and <code>estimation_used</code> records the basis
 ACTUALLY used – <code>"fitted"</code>, <code>"ML"</code>, or <code>"mixed"</code> when an ML refit
 was requested but a model kept its REML fit (a boundary skip or a failed refit),

@@ -48,19 +48,16 @@ An object of class `maihda_long_pcv`.
 As in
 [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
 the `estimation` argument selects the variance-estimation basis. With
+`estimation = "fitted"` (the default) each fit's own REML covariance
+block is used, matching the single-model summaries. With
 `estimation = "ML"`, REML `lmer` growth fits are refitted with maximum
 likelihood ([`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html))
-before the comparison – the null and adjusted models differ in fixed
-effects (the dimensions' main effects and their `dim:time`
-interactions), across which REML applies a model-specific correction –
-for a correction-free comparison. With `estimation = "fitted"` (the
-default) each fit's own REML covariance block is used, matching the
-single-model summaries and avoiding ML's finite-sample bias. The stored
-models (and the single-model summaries computed from them, e.g. the
-time-varying VPC) always keep their REML fit; `ml_refit` on the result
-records whether an ML refit fully applied, and `estimation_used` records
-the basis ACTUALLY used – `"fitted"`, `"ML"`, or `"mixed"` when an ML
-refit was requested but a model kept its REML fit (a boundary skip or a
-failed refit), so a mixed REML/ML comparison is not mistaken for a clean
-one. glmer (GLMM) and brms fits are already on the ML / posterior scale,
-so the choice does not affect them.
+before the comparison, which overstates both PCVs when strata are few.
+The stored models (and the single-model summaries computed from them,
+e.g. the time-varying VPC) always keep their REML fit; `ml_refit` on the
+result records whether an ML refit fully applied, and `estimation_used`
+records the basis ACTUALLY used – `"fitted"`, `"ML"`, or `"mixed"` when
+an ML refit was requested but a model kept its REML fit (a boundary skip
+or a failed refit), so a mixed REML/ML comparison is not mistaken for a
+clean one. glmer (GLMM) and brms fits are already on the ML / posterior
+scale, so the choice does not affect them.

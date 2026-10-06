@@ -485,6 +485,13 @@
   strata and a stratum VPC near 7%, the chi-squared reference still
   rejected 10% of datasets simulated from the correctly specified model
   at a nominal 5% with n = 96,000.
+- [`?calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
+  [`?maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and the
+  PCV print output no longer describe `estimation = "ML"` as a
+  “correction-free” comparison: maximum likelihood understates the
+  adjusted model’s between-stratum variance by more than the null
+  model’s, so it overstates the PCV when strata are few. Estimates are
+  unchanged.
 
 ### Performance
 

@@ -112,19 +112,11 @@ A value below about 200 warns that the interval's tail endpoints are unstable
 
 
 <dt id="arg-estimation">estimation<a class="anchor" aria-label="anchor" href="#arg-estimation"></a></dt>
-<dd><p>Variance-estimation basis for the cross-model comparison, one of
-<code>"fitted"</code> (default) or <code>"ML"</code>. <code>"fitted"</code> differences each model's
-own between-stratum variance (the REML estimate for a Gaussian <code>lmer</code> fit);
-<code>"ML"</code> refits any REML <code>lmer</code> fit with maximum likelihood first, for a
-correction-free comparison. The choice affects Gaussian <code>lmer</code> fits only –
-<code>glmer</code> and the wemix/ordinal engines are already maximum-likelihood, and a
-<code>brms</code> fit is a Bayesian posterior (not ML), so <code>"ML"</code> is a no-op for all
-of them; a <code>brms</code> comparison is reported on the as-fitted <em>posterior</em>
-basis rather than as an ML-refit. See Details for the finite-sample tradeoff. Whenever model2 (the adjusted model) sits
-on the singularity boundary – under <em>any</em> <code>estimation</code> basis – the PCV
-is pinned near 1; this is recorded as <code>adjusted_at_boundary = TRUE</code> and noted
-by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>. It is not treated as an error or warned about: a singular fit is
-indistinguishable from genuinely additive strata (a common, legitimate result).</p></dd>
+<dd><p>Which between-stratum variances are compared, <code>"fitted"</code>
+(default) or <code>"ML"</code>. <code>"fitted"</code> uses each model's own estimate (the REML
+estimate for a Gaussian <code>lmer</code> fit); <code>"ML"</code> refits REML <code>lmer</code> fits
+by maximum likelihood first, which overstates the PCV when strata are few. Only
+Gaussian <code>lmer</code> fits are affected. See Details.</p></dd>
 
 </dl></div>
     <div class="section level2">
