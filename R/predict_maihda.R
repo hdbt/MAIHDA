@@ -166,6 +166,12 @@ predict_maihda <- function(object, newdata = NULL,
              "the offset written into the formula (e.g. ... + offset(log(exposure))) ",
              "to predict on newdata.", call. = FALSE)
       }
+      # Hand lme4 each grouping column as a factor in the fitted level order (see
+      # maihda_lme4_grouping_newdata()): the rebuilt stratum is character, and lme4
+      # pairs a character copy of an integer grouping column with the wrong strata's
+      # random effects whenever its text order differs from the fitted order.
+      newdata <- maihda_lme4_grouping_newdata(model, newdata,
+                                              isTRUE(dots$allow.new.levels))
       predictions <- do.call(stats::predict,
                              c(list(model, newdata = newdata, type = scale), dots))
       return(predictions)
@@ -300,6 +306,58 @@ maihda_lme4_has_external_offset <- function(object) {
     return(FALSE)
   }
   "(offset)" %in% names(object$data)
+}
+
+# newdata for predict.merMod(), each random-effect grouping column handed over as a
+# factor whose levels follow the fitted order. Two lme4 2.0.1 behaviours make it so.
+# (1) With no new level present, lme4's levelfun() returns the fitted random effects in
+# the FITTED level order, while the random-effects design follows the levels of the
+# newdata factor. A character copy of an integer grouping column -- the stratum this
+# package rebuilds from the dimension columns is one -- sorts as text ("10" before
+# "2"), so rows were silently given other strata's random effects whenever newdata held
+# strata whose text and numeric orders differ; an integer copy of a character column
+# fails the same way. A factor in the fitted order lines the two up, as lme4 itself
+# does only for a factor training column met by character or factor newdata.
+# (2) Under allow.new.levels lme4 gives an NA grouping value a zero effect, but refuses
+# a grouping factor whose every value is NA ("Invalid grouping factor specification"),
+# unless that NA reaches it as a factor level -- the case (1) names. So the one-row
+# prediction for a row missing its stratum dimension (its stratum stays NA, see
+# maihda_prepare_prediction_data()) failed, as did a supplied NA stratum and a context
+# or longitudinal id that was NA throughout as a logical or number. Under allow_new an
+# NA now becomes a level no fitted level carries, which takes the zero effect of any
+# new level whatever the other rows hold.
+# Left as they are: without allow_new, a column holding an NA (lme4 refuses it); a
+# variable also used as a covariate or a random slope; a grouping by an expression;
+# and a column absent from newdata.
+maihda_lme4_grouping_newdata <- function(model, newdata, allow_new = FALSE) {
+  f <- stats::formula(model)
+  bars <- tryCatch(reformulas::findbars(f), error = function(e) NULL)
+  groups <- unique(unlist(lapply(bars, function(b)
+    if (is.name(b[[3]])) as.character(b[[3]]))))
+  others <- c(all.vars(reformulas::nobars(f)[[3]]),
+              unlist(lapply(bars, function(b) all.vars(b[[2]]))))
+  vars <- intersect(setdiff(groups, others), names(newdata))
+  flist <- tryCatch(lme4::getME(model, "flist"), error = function(e) NULL)
+  for (v in vars) {
+    fitted_levels <- levels(flist[[v]])
+    # as.character() first: a factor with an explicit NA level (addNA()) holds an NA
+    # that anyNA() on the factor does not see.
+    x <- as.character(newdata[[v]])
+    if (is.null(fitted_levels) || (anyNA(x) && !allow_new)) {
+      next
+    }
+    if (anyNA(x)) {
+      level <- ".maihda_missing_level"
+      i <- 0L
+      while (level %in% c(fitted_levels, x)) {
+        i <- i + 1L
+        level <- paste0(".maihda_missing_level_", i)
+      }
+      x[is.na(x)] <- level
+    }
+    newdata[[v]] <- factor(x, levels = c(fitted_levels, setdiff(unique(x), fitted_levels)))
+  }
+  newdata
 }
 
 # Individual-level brms predictions, honouring the documented unseen-stratum

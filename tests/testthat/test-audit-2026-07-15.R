@@ -145,8 +145,8 @@ test_that("missing strata are rejected for lme4 individual predictions (audit P2
 
   # allow_new_levels = TRUE opts into the zero-random-effect (fixed-only) value
   # for an unseen (non-NA) stratum -- the opt-in path stays functional. (An
-  # all-NA grouping column is a separate lme4 predict limitation, out of scope
-  # for this finding, which concerns the silent DEFAULT.)
+  # all-NA grouping column, an lme4 predict limitation deferred here, is predicted
+  # at a zero effect since test-audit-2026-10-05-lme4-all-na.R.)
   nd_new <- data.frame(x = 0, stratum = "ZZ-unseen")
   pa <- predict_maihda(m, newdata = nd_new, type = "individual",
                        allow_new_levels = TRUE)

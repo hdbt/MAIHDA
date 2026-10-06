@@ -699,6 +699,10 @@ maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALS
            "... + offset(log(exposure))), or omit 'data' to use the fitted rows.",
            call. = FALSE)
     }
+    # The grouping columns go to lme4 as factors in the fitted level order, as in
+    # predict_maihda() (maihda_lme4_grouping_newdata()): a character stratum in 'data'
+    # was given other strata's random effects.
+    data <- maihda_lme4_grouping_newdata(model, data)
   }
 
   # SE fallbacks below are NA_real_ -- not 0 -- for model classes whose predict()
