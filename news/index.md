@@ -675,6 +675,23 @@
   including under the default `allow_new_levels = FALSE`, and such a row
   is now refused.
 
+- `predict_maihda(newdata = )` on an lme4 fit now gives each row its own
+  stratum’s random effect. lme4 2.0.1 matched a character copy of an
+  integer grouping column – the stratum
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  rebuilds from the dimension columns – to the wrong strata whenever its
+  text order differs from the numeric one (`"10"` before `"2"`): 0.85
+  off on a 20-stratum fit at the default settings.
+  `plot_prediction_deviation_panels(data = )` did the same for a
+  character stratum.
+
+- `predict_maihda(allow_new_levels = TRUE)` on an lme4 fit now predicts
+  a grouping column missing in every newdata row – one row missing its
+  stratum dimension, a supplied `NA` stratum, a context or longitudinal
+  `id` that is a logical or numeric `NA` throughout – at a zero effect
+  for that term instead of failing with “Invalid grouping factor
+  specification”.
+
 - `summary(df_method = "bootstrap")` now refers each fixed-effect
   coefficient to its own null rather than to its whole term’s. A term
   spanning several design columns – a factor with three or more levels,

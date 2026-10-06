@@ -270,7 +270,7 @@ maihda_interactions(model_int)
 #>  stratum                       label   n interaction prob_diff     se  lower
 #>        8 male × White × Some College 328      0.3713    0.0896 0.0993 0.1766
 #>   upper  p_value p_adjusted flagged direction
-#>  0.5659 0.000185   0.009248    TRUE     above
+#>  0.5659 0.000185   0.009249    TRUE     above
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.
@@ -374,7 +374,7 @@ maihda_interactions(model_int, scale = "response")
 #>  stratum                       label   n interaction   lower  upper  p_value
 #>        8 male × White × Some College 328      0.0896 0.04188 0.1381 0.000185
 #>  p_adjusted flagged direction
-#>    0.009248    TRUE     above
+#>    0.009249    TRUE     above
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.
