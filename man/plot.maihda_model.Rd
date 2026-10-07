@@ -114,7 +114,7 @@ stratum is kept and the remaining slots are filled according to \code{select}.}
 
 \item{highlight_by}{Which interaction-screen column defines the highlighted
 strata: \code{"flag"} (default) uses the zero-centred \code{flagged} column
-(credibly non-zero interaction), preserving the historical behaviour;
+(credibly non-zero interaction);
 \code{"rope"} uses the equivalence \code{decision} column, highlighting the
 strata classified \code{"relevant"} (interaction interval entirely outside the
 region of practical equivalence). \code{"rope"} requires a screen carrying a
@@ -132,8 +132,8 @@ object already carries a \code{decision} column. Ignored when a precomputed
 \code{maihda_interactions} object is passed (its own \code{rope} is used).}
 
 \item{select}{When the \code{n_strata} cap must drop strata, which to keep:
-\code{"order"} (default; the first n_strata in stratum order, the historical
-behaviour) or \code{"deviation"} (the n_strata furthest from the reference
+\code{"order"} (default; the first n_strata in stratum order) or
+\code{"deviation"} (the n_strata furthest from the reference
 line -- largest \code{|predicted - reference|}, so the most extreme strata in
 \emph{both} directions). Applies to \code{"predicted"} and, for a longitudinal
 fit, \code{"trajectories"} (where it keeps the strata whose trajectories swing

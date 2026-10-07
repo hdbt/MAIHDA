@@ -26,9 +26,8 @@
 #'
 #' @return A list containing:
 #'   \item{pcv}{The estimated proportional change in variance}
-#'   \item{pvc}{Deprecated duplicate of \code{pcv}, kept so code written against
-#'     the historical \code{calculate_pvc()} spelling keeps working; it will be
-#'     removed in a future release}
+#'   \item{pvc}{Deprecated duplicate of \code{pcv}; it will be removed in a future
+#'     release}
 #'   \item{var_model1}{Between-stratum variance from model1}
 #'   \item{var_model2}{Between-stratum variance from model2}
 #'   \item{estimation}{The variance-estimation basis requested (\code{"fitted"} or
@@ -130,16 +129,12 @@
 #' \code{print()} repeats the caveat -- a sizeable boundary share signals weak
 #' between-stratum variation, and the PCV itself is then fragile.
 #'
-#' Bootstrap draws whose refit optimiser reports non-convergence
-#' (\code{optinfo$conv$opt != 0}) are \emph{retained} in the interval -- lme4's
-#' post-hoc relative-gradient flag is a frequent false positive on simulated refits,
-#' and the optimiser's own return code fires on well under 1\% of refits in practice
-#' -- but the count is reported as \code{n_boot_nonconverged} and \code{print()}
-#' discloses it. As a documented ceiling, when more than half the contributing draws
-#' fail to converge the interval is still returned but flagged
-#' \code{interval_reliable = FALSE} with an escalated warning; treat such an interval
-#' as indicative only and check for singular or failing fits. This is distinct from
-#' the boundary exclusion above: non-converged draws still carry a defined PCV.
+#' Bootstrap draws whose refit optimiser reports non-convergence are kept in the
+#' interval (they still have a defined PCV) and counted in
+#' \code{n_boot_nonconverged}, which \code{print()} shows. When more than half the
+#' contributing draws did not converge the interval is still returned, but with a
+#' warning and \code{interval_reliable = FALSE}; treat it as indicative only and
+#' check for singular or failing fits.
 #'
 #' The bootstrap is available for the \code{lme4} engine only. For the other
 #' engines the PCV is a \emph{point estimate}: a brms fit's posterior credible
@@ -306,11 +301,9 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
 
 #' Deprecated: use calculate_pcv()
 #'
-#' \code{calculate_pvc()} is the former name of \code{\link{calculate_pcv}}: the
-#' statistic is the PCV (proportional change in variance), but the historical
-#' function name transposed the acronym. \code{calculate_pvc()} now forwards to
-#' \code{calculate_pcv()} with a deprecation warning and will be removed in a
-#' future release.
+#' \code{calculate_pvc()} is a deprecated alias of \code{\link{calculate_pcv}}. It
+#' forwards to \code{calculate_pcv()} with a deprecation warning and will be removed
+#' in a future release.
 #'
 #' @inheritParams calculate_pcv
 #' @return See \code{\link{calculate_pcv}}.

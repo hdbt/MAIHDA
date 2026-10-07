@@ -228,36 +228,22 @@ dimensions' main effects in the fixed part); on a null model
 default-on \code{interactions} of \code{\link{maihda}}.}
 
 \item{count_approximation}{Which latent-scale level-1 (observation) variance
-  approximation the VPC/ICC of a \emph{log-link count} model uses, from table 1
-  of Nakagawa, Johnson & Schielzeth (2017): \code{"lognormal"} (default,
-  \eqn{\ln(1 + 1/\lambda\ [+\ 1/\theta])}), \code{"delta"}
-  (\eqn{1/\lambda\ [+\ 1/\theta]}), or \code{"trigamma"}
-  (\eqn{\psi_1(\lambda)} for Poisson,
-  \eqn{\psi_1((1/\lambda + 1/\theta)^{-1})} for the negative binomial).
-  Recorded on the fit, so \code{summary()}, the bootstrap intervals and the
-  longitudinal VPC(t) all use the same one. Inert for every other family.
-
-  The three agree above a marginal count of about \eqn{\lambda = 2} and diverge
-  sharply below it -- at \eqn{\lambda = 0.34} they give level-1 variances of
-  1.37, 2.94 and 9.76, so the VPC moves by a factor of six -- which is why
-  \code{summary()} reports the method and the \eqn{\lambda} it was evaluated at,
-  and warns below the threshold. The default is the same \emph{approximation}
-  \code{insight::get_variance()} and \code{performance::icc()} use by default,
-  but the two are not numerically identical on an adjusted model: they evaluate
-  it at a different \eqn{\lambda}. MAIHDA averages the row-wise marginal
-  expected counts \eqn{\exp(x_i'\beta + v_i/2)} over the analytic sample --
-  the global-\eqn{\lambda} form of Nakagawa et al. -- while \code{insight}
-  plugs in a single \eqn{\exp(\beta_0 + \sigma^2/2)} taken from an
-  intercept-only null model. On a \emph{null} model, the MAIHDA headline, the
-  two coincide exactly. On an adjusted model Jensen's inequality makes the
-  MAIHDA \eqn{\lambda} the larger, so its level-1 variance is the smaller and
-  its VPC slightly the larger; the gap grows with the spread of the fitted
-  means, from well under 1\% of the level-1 variance for a weak covariate to
-  tens of per cent for a very strong one. Nakagawa et al. themselves
-  recommend the trigamma form; note that it is the least conservative at low
-  counts (it drives the VPC toward zero), because it is the variance of
-  \eqn{\log X} for \eqn{X \sim \mathrm{Gamma}(\lambda, 1)} and that
-  approximation is weakest exactly where most counts are zero.}
+approximation the VPC/ICC of a \emph{log-link count} model uses, from table 1
+of Nakagawa, Johnson & Schielzeth (2017): \code{"lognormal"} (default,
+\eqn{\ln(1 + 1/\lambda\ [+\ 1/\theta])}), \code{"delta"}
+(\eqn{1/\lambda\ [+\ 1/\theta]}), or \code{"trigamma"}
+(\eqn{\psi_1(\lambda)} for Poisson,
+\eqn{\psi_1((1/\lambda + 1/\theta)^{-1})} for the negative binomial), with
+\eqn{\lambda} the marginal expected count (see
+\code{\link{summary.maihda_model}}). The three agree above about
+\eqn{\lambda = 2} and diverge sharply below it, where the VPC depends heavily
+on the choice; \code{summary()} reports the method and \eqn{\lambda}, and
+warns below that threshold. Nakagawa et al. recommend the trigamma form; at low
+counts it gives the smallest VPC of the three. The default is the approximation
+\code{performance::icc()} uses, but evaluated at a different \eqn{\lambda} on
+an adjusted model, so the two VPCs agree exactly only for a null model. Used
+by \code{summary()}, the bootstrap intervals and the longitudinal VPC(t);
+ignored for every other family.}
 
 \item{...}{Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
 \code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},

@@ -38,6 +38,10 @@
 # reference. Code is unchanged. A rejection rate is a long simulation, not a unit
 # test, so the blocks below pin the wording and the two identities the new text
 # relies on; the audit log keeps the runs.
+#
+# Since 2026-10-06 the help page is shorter and no longer carries the
+# symmetric-threshold explanation itself: block 1 bans every spelling of the old
+# claim and pins the two reasons the page gives, block 2 pins the identities.
 
 test_that("the proportional-odds help page claims no symmetric-threshold exception", {
   skip_on_cran()
@@ -50,23 +54,11 @@ test_that("the proportional-odds help page claims no symmetric-threshold excepti
     readLines(file.path(man, "maihda_proportional_odds_test.Rd"), warn = FALSE),
     collapse = " "))
 
-  # The replacement says what symmetry does and does not give ...
-  expect_true(grepl("Symmetric thresholds do not rescue the chi-squared reference.",
-                    po, fixed = TRUE))
-  expect_true(grepl(paste0("which equates the marginal slopes at thresholds \\eqn{-c} ",
-                           "and \\eqn{+c} where the location \\eqn{x'\\beta}{x'beta} ",
-                           "is zero, but not over the range of the covariates"),
-                    po, fixed = TRUE))
-  expect_true(grepl(paste0("Whether fitted thresholds look symmetric depends on how ",
-                           "the covariates are coded"), po, fixed = TRUE))
-  expect_true(grepl("without changing the fit or the statistic", po, fixed = TRUE))
-  expect_true(grepl(paste0("no threshold configuration makes observations that share ",
-                           "a stratum independent"), po, fixed = TRUE))
-  expect_true(grepl("The chi-squared reference also treats the observations as independent",
-                    po, fixed = TRUE))
-  expect_true(grepl("Even when both the thresholds and the covariate are symmetric about zero",
-                    po, fixed = TRUE))
+  # The page gives the two reasons the chi-squared reference fails, neither of
+  # which a threshold configuration removes ...
   expect_true(grepl("generally differ across thresholds once the stratum variance is non-zero",
+                    po, fixed = TRUE))
+  expect_true(grepl("The chi-squared reference also treats the observations as independent",
                     po, fixed = TRUE))
 
   # ... and no spelling of the old claim survives. Ban the words rather than the

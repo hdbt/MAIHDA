@@ -79,8 +79,8 @@ nor any value): \code{"predicted_desc"} highest predicted first,
 \code{"upset"}. See \code{\link[=plot.maihda_model]{plot}}.}
 
 \item{model}{For \code{type = "vpc"}, which model's variance partition to show:
-\code{"null"} (default) the total between-stratum heterogeneity (the previous,
-backward-compatible behaviour), \code{"adjusted"} the between-stratum
+\code{"null"} (default) the total between-stratum heterogeneity,
+\code{"adjusted"} the between-stratum
 heterogeneity remaining after the dimensions' additive main effects (closer to
 the pure intersectional component), or \code{"both"} -- a \strong{single} plot
 placing the two partitions together and annotating the PCV, so the

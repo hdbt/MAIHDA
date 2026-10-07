@@ -18,8 +18,8 @@
 #'       \code{summary()}: the single value this would return is the intercept
 #'       alone -- the stratum effect only where the slope variables are zero.
 #'   }
-#'   For backward compatibility, "link" or "response" may also be passed here
-#'   and will be interpreted as individual-level predictions on that scale.
+#'   "link" or "response" is also accepted and gives individual-level
+#'   predictions on that scale.
 #' @param scale Character string specifying the prediction scale for
 #'   individual-level predictions: "response" (default) or "link". For a
 #'   cumulative (ordinal) model the "link" scale is the latent location
@@ -28,33 +28,19 @@
 #'   For an aggregated-binomial fit (an lme4 \code{cbind(success, failure)} or a
 #'   brms \code{success | trials(n)}) the "response" scale is the per-trial
 #'   \emph{probability} on both engines (not the expected success count).
-#' @param allow_new_levels Logical. By default (\code{FALSE}) a stratum in
-#'   \code{newdata} that the model never saw -- whether supplied directly as a
-#'   \code{stratum} column or rebuilt from the grouping variables -- is an error,
-#'   for every engine, matching \pkg{lme4}'s default. Set \code{TRUE} to instead
-#'   predict unseen strata with the stratum random effect dropped (treated as
-#'   zero), while keeping any \emph{other} random effect the row participates in
-#'   (e.g. a contextual \code{(1 | school)} intercept from
-#'   \code{fit_maihda(context = )}, or a longitudinal growth term) -- the same
-#'   behaviour as \pkg{lme4}'s \code{allow.new.levels}, which zeroes only the unseen
-#'   level's effect and keeps seen ones. For the usual single-stratum model the
-#'   stratum is the only random effect, so the result is the fixed-effects-only
-#'   prediction, evaluated \emph{at a zero random effect}. That is a
-#'   \emph{conditional} (stratum-specific) prediction for a stratum whose effect
-#'   happens to be zero; it is \strong{not} a response-scale population average
-#'   (marginal mean), which requires integrating over the random-effect
-#'   distribution. The two coincide on the link scale, and on the response scale
-#'   only under the Gaussian identity link. Under a log link with stratum variance
-#'   \eqn{\tau^2} the marginal mean is larger by a factor \eqn{\exp(\tau^2/2)},
-#'   and under a logit link the marginal probability is attenuated towards 0.5
-#'   (Nakagawa, Johnson & Schielzeth 2017). Because the inverse link is monotone
-#'   and the random effect symmetric about zero, the response-scale value returned
-#'   here is the \emph{median} of the stratum-specific means across the
-#'   random-effect distribution, not their average.
-#'   This affects \code{type = "individual"} only:
-#'   a stratum-level prediction (\code{type = "strata"}) has no random effect to
-#'   report for an unseen stratum, so unseen strata remain an error there
-#'   regardless.
+#' @param allow_new_levels Logical. \code{FALSE} (default): a stratum in
+#'   \code{newdata} that the model never saw is an error, as in \pkg{lme4}.
+#'   \code{TRUE}: an unseen stratum is predicted \emph{at a zero random effect}
+#'   for that stratum; any other random effect the row has (a \code{context}
+#'   intercept, a longitudinal growth term) is kept. That is the prediction for a
+#'   stratum whose effect is zero,
+#'   \strong{not} a response-scale population average: the two agree on the link
+#'   scale and under an identity link, but under a log link with stratum variance
+#'   \eqn{\tau^2} the population mean is larger by a factor \eqn{\exp(\tau^2/2)},
+#'   and under a logit link the population probability lies closer to 0.5. The
+#'   response-scale value returned is the median, not the mean, of the
+#'   stratum-specific means. Applies to \code{type = "individual"} only; with
+#'   \code{type = "strata"} an unseen stratum is always an error.
 #' @param ... Additional arguments passed to predict method of underlying model.
 #'
 #' @return Depending on type:

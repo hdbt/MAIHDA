@@ -129,10 +129,8 @@ attribute on the returned comparison; the basis actually used is recorded as
 the boundary, leaving it on REML). Both are shown by \code{print()}.}
 
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
-\code{lmer}/\code{glmer}). An argument the engine rejects -- \code{weights},
-\code{subset} or \code{offset} on \code{wemix}/\code{brms}/\code{ordinal} --
-is refused once here, before any group is fitted, rather than failing each
-group in turn.}
+\code{lmer}/\code{glmer}). \code{weights}, \code{subset} and \code{offset} are
+an error on the \code{wemix}, \code{brms} and \code{ordinal} engines.}
 }
 \value{
 A \code{data.frame} of class \code{maihda_group_comparison} with one
@@ -156,8 +154,8 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   the PCV; under the default \code{estimation = "fitted"} this is the REML variance,
   coinciding with \code{var_between_adjusted}, and under \code{estimation = "ML"} it
   is the ML variance, differing from \code{var_between_adjusted} only by the small
-  REML-vs-ML gap in the null variance; the \code{_ml} suffix is retained for
-  output-schema continuity). All three are
+  REML-vs-ML gap in the null variance; despite its name it is not always a
+  maximum-likelihood estimate). All three are
   \code{NA} for a group whose adjusted fit failed. A fourth column,
   \code{pcv_status}, records the decomposition outcome per group:
   \code{"ok"} when the PCV was computed, \code{"failed"} when the adjusted model

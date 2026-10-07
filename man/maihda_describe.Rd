@@ -78,8 +78,7 @@ on the AUC have no counterpart here: they select an estimand for the
 concordance, not a way to count a sample. Mutually exclusive with
 \code{sampling_weights}, which are design weights and mean something
 different. Must be omitted for a fitted-model input (the fit already carries
-its weights). Placed last in the argument list for backward compatibility;
-supply it by name.}
+its weights). Supply it by name.}
 }
 \value{
 An object of class \code{maihda_describe}: a list of export-ready

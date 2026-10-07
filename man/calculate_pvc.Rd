@@ -42,9 +42,7 @@ Gaussian \code{lmer} fits are affected. See Details.}
 See \code{\link{calculate_pcv}}.
 }
 \description{
-\code{calculate_pvc()} is the former name of \code{\link{calculate_pcv}}: the
-statistic is the PCV (proportional change in variance), but the historical
-function name transposed the acronym. \code{calculate_pvc()} now forwards to
-\code{calculate_pcv()} with a deprecation warning and will be removed in a
-future release.
+\code{calculate_pvc()} is a deprecated alias of \code{\link{calculate_pcv}}. It
+forwards to \code{calculate_pcv()} with a deprecation warning and will be removed
+in a future release.
 }
