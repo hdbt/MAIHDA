@@ -188,10 +188,8 @@ compare_maihda_groups(
 
   Additional arguments passed to
   [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-  (and on to `lmer`/`glmer`). An argument the engine rejects –
-  `weights`, `subset` or `offset` on `wemix`/`brms`/`ordinal` – is
-  refused once here, before any group is fitted, rather than failing
-  each group in turn.
+  (and on to `lmer`/`glmer`). `weights`, `subset` and `offset` are an
+  error on the `wemix`, `brms` and `ordinal` engines.
 
 ## Value
 
@@ -217,21 +215,21 @@ PCV; under the default `estimation = "fitted"` this is the REML
 variance, coinciding with `var_between_adjusted`, and under
 `estimation = "ML"` it is the ML variance, differing from
 `var_between_adjusted` only by the small REML-vs-ML gap in the null
-variance; the `_ml` suffix is retained for output-schema continuity).
-All three are `NA` for a group whose adjusted fit failed. A fourth
-column, `pcv_status`, records the decomposition outcome per group:
-`"ok"` when the PCV was computed, `"failed"` when the adjusted model or
-PCV errored (`pcv` is then `NA` and the group is named in a warning –
-the group's own `status` can still be `"ok"` because its null VPC model
-succeeded), and `"singular"` when the adjusted fit was singular and the
-PCV saturated near 100% – *not* warned about, since a singular adjusted
-fit is indistinguishable from genuinely additive strata (a legitimate,
-common result), so it is flagged only in this column. These four columns
-are omitted entirely when the strata have a single dimension. When
-`context` is supplied, two further columns report each group's
-contextual partition: `var_context` (the between-context variance,
-summed over contexts) and `vpc_context` (the contexts' share of the
-group's unexplained variance); the per-context split is on the
+variance; despite its name it is not always a maximum-likelihood
+estimate). All three are `NA` for a group whose adjusted fit failed. A
+fourth column, `pcv_status`, records the decomposition outcome per
+group: `"ok"` when the PCV was computed, `"failed"` when the adjusted
+model or PCV errored (`pcv` is then `NA` and the group is named in a
+warning – the group's own `status` can still be `"ok"` because its null
+VPC model succeeded), and `"singular"` when the adjusted fit was
+singular and the PCV saturated near 100% – *not* warned about, since a
+singular adjusted fit is indistinguishable from genuinely additive
+strata (a legitimate, common result), so it is flagged only in this
+column. These four columns are omitted entirely when the strata have a
+single dimension. When `context` is supplied, two further columns report
+each group's contextual partition: `var_context` (the between-context
+variance, summed over contexts) and `vpc_context` (the contexts' share
+of the group's unexplained variance); the per-context split is on the
 `"context_per"` attribute and the context name(s) on `"context_var"`.
 These are dropped when no context is supplied. `n` is the analytic
 sample size used by the model (after dropping rows with a missing

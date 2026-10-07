@@ -101,7 +101,8 @@
 </ul></div>
 <div class="section level3">
 <h3 id="documentation-0-3-0">Documentation<a class="anchor" aria-label="anchor" href="#documentation-0-3-0"></a></h3>
-<ul><li>
+<ul><li>Shortened the help text of <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, <code><a href="../reference/maihda_proportional_odds_test.html">maihda_proportional_odds_test()</a></code>, <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code>, <code><a href="../reference/predict_maihda.html">predict_maihda()</a></code> and <code><a href="../reference/calculate_pcv.html">calculate_pcv()</a></code>: simulation figures and notes on earlier behaviour are removed, the guidance is unchanged.</li>
+<li>
 <code><a href="../reference/maihda_ic.html">maihda_ic()</a></code> now states the predictive target of the Bayesian criteria: <code>brms</code> WAIC/LOOIC condition on the fitted random effects and so assess prediction of new observations within the represented strata, not generalisation to a new stratum (a leave-one-group-out cross-validation question), while the likelihood engines’ AIC/BIC are computed from the marginal likelihood.</li>
 <li>
 <code><a href="../reference/maihda_interactions.html">maihda_interactions()</a></code> now documents that its default BH flags are a conservative screen: partial pooling deflates a truly-null stratum’s Wald tail (null z variance is about the shrinkage fraction), so the flags under-flag rather than exceed the nominal false-discovery rate. The Bayesian path is described as already partially pooled instead of “multiplicity-free”, and the flag description drops causal phrasing.</li>

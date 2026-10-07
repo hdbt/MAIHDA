@@ -397,6 +397,15 @@
 
 ### Documentation
 
+- Shortened the help text of
+  [`summary()`](https://rdrr.io/r/base/summary.html),
+  [`maihda_proportional_odds_test()`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md),
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+  [`predict_maihda()`](https://hdbt.github.io/MAIHDA/reference/predict_maihda.md)
+  and
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md):
+  simulation figures and notes on earlier behaviour are removed, the
+  guidance is unchanged.
 - [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
   now states the predictive target of the Bayesian criteria: `brms`
   WAIC/LOOIC condition on the fitted random effects and so assess

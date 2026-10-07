@@ -149,7 +149,7 @@ intersectional (interaction) component only once the additive main
 effects of the strata variables are in the model.
 
 > For a binomial model
-> [`summary()`](https://rdrr.io/r/base/summary.html) now reports the
+> [`summary()`](https://rdrr.io/r/base/summary.html) reports the
 > discriminatory accuracy (AUC / Median Odds Ratio) automatically, so
 > the printed summary above already carries that block – the
 > [Discriminatory

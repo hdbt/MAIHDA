@@ -123,9 +123,8 @@ Gaussian <code>lmer</code> fits are affected. See Details.</p></dd>
 <dd><p>The estimated proportional change in variance</p></dd>
 
   <dt>pvc</dt>
-<dd><p>Deprecated duplicate of <code>pcv</code>, kept so code written against
-    the historical <code><a href="calculate_pvc.html">calculate_pvc()</a></code> spelling keeps working; it will be
-    removed in a future release</p></dd>
+<dd><p>Deprecated duplicate of <code>pcv</code>; it will be removed in a future
+    release</p></dd>
 
   <dt>var_model1</dt>
 <dd><p>Between-stratum variance from model1</p></dd>
@@ -247,16 +246,12 @@ a positive null variance</em>. Whenever any draws hit the boundary the function
 warns, reports the count as <code>n_boot_boundary</code> on the result, and
 <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> repeats the caveat – a sizeable boundary share signals weak
 between-stratum variation, and the PCV itself is then fragile.</p>
-<p>Bootstrap draws whose refit optimiser reports non-convergence
-(<code>optinfo$conv$opt != 0</code>) are <em>retained</em> in the interval – lme4's
-post-hoc relative-gradient flag is a frequent false positive on simulated refits,
-and the optimiser's own return code fires on well under 1% of refits in practice
-– but the count is reported as <code>n_boot_nonconverged</code> and <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>
-discloses it. As a documented ceiling, when more than half the contributing draws
-fail to converge the interval is still returned but flagged
-<code>interval_reliable = FALSE</code> with an escalated warning; treat such an interval
-as indicative only and check for singular or failing fits. This is distinct from
-the boundary exclusion above: non-converged draws still carry a defined PCV.</p>
+<p>Bootstrap draws whose refit optimiser reports non-convergence are kept in the
+interval (they still have a defined PCV) and counted in
+<code>n_boot_nonconverged</code>, which <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows. When more than half the
+contributing draws did not converge the interval is still returned, but with a
+warning and <code>interval_reliable = FALSE</code>; treat it as indicative only and
+check for singular or failing fits.</p>
 <p>The bootstrap is available for the <code>lme4</code> engine only. For the other
 engines the PCV is a <em>point estimate</em>: a brms fit's posterior credible
 interval (reported by <code><a href="summary.maihda_model.html">summary.maihda_model</a></code>) covers a single

@@ -189,7 +189,7 @@ stratum is kept and the remaining slots are filled according to <code>select</co
 <dt id="arg-highlight-by">highlight_by<a class="anchor" aria-label="anchor" href="#arg-highlight-by"></a></dt>
 <dd><p>Which interaction-screen column defines the highlighted
 strata: <code>"flag"</code> (default) uses the zero-centred <code>flagged</code> column
-(credibly non-zero interaction), preserving the historical behaviour;
+(credibly non-zero interaction);
 <code>"rope"</code> uses the equivalence <code>decision</code> column, highlighting the
 strata classified <code>"relevant"</code> (interaction interval entirely outside the
 region of practical equivalence). <code>"rope"</code> requires a screen carrying a
@@ -211,8 +211,8 @@ object already carries a <code>decision</code> column. Ignored when a precompute
 
 <dt id="arg-select">select<a class="anchor" aria-label="anchor" href="#arg-select"></a></dt>
 <dd><p>When the <code>n_strata</code> cap must drop strata, which to keep:
-<code>"order"</code> (default; the first n_strata in stratum order, the historical
-behaviour) or <code>"deviation"</code> (the n_strata furthest from the reference
+<code>"order"</code> (default; the first n_strata in stratum order) or
+<code>"deviation"</code> (the n_strata furthest from the reference
 line – largest <code>|predicted - reference|</code>, so the most extreme strata in
 <em>both</em> directions). Applies to <code>"predicted"</code> and, for a longitudinal
 fit, <code>"trajectories"</code> (where it keeps the strata whose trajectories swing

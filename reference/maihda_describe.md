@@ -132,9 +132,8 @@ maihda_describe(
   counterpart here: they select an estimand for the concordance, not a
   way to count a sample. Mutually exclusive with `sampling_weights`,
   which are design weights and mean something different. Must be omitted
-  for a fitted-model input (the fit already carries its weights). Placed
-  last in the argument list for backward compatibility; supply it by
-  name.
+  for a fitted-model input (the fit already carries its weights). Supply
+  it by name.
 
 ## Value
 

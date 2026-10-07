@@ -151,12 +151,12 @@ plot(
 
   Which interaction-screen column defines the highlighted strata:
   `"flag"` (default) uses the zero-centred `flagged` column (credibly
-  non-zero interaction), preserving the historical behaviour; `"rope"`
-  uses the equivalence `decision` column, highlighting the strata
-  classified `"relevant"` (interaction interval entirely outside the
-  region of practical equivalence). `"rope"` requires a screen carrying
-  a `decision` column: either pass `rope`, or supply a
-  `maihda_interactions` object built with `rope`; otherwise it errors.
+  non-zero interaction); `"rope"` uses the equivalence `decision`
+  column, highlighting the strata classified `"relevant"` (interaction
+  interval entirely outside the region of practical equivalence).
+  `"rope"` requires a screen carrying a `decision` column: either pass
+  `rope`, or supply a `maihda_interactions` object built with `rope`;
+  otherwise it errors.
 
 - rope:
 
@@ -174,15 +174,15 @@ plot(
 - select:
 
   When the `n_strata` cap must drop strata, which to keep: `"order"`
-  (default; the first n_strata in stratum order, the historical
-  behaviour) or `"deviation"` (the n_strata furthest from the reference
-  line – largest `|predicted - reference|`, so the most extreme strata
-  in *both* directions). Applies to `"predicted"` and, for a
-  longitudinal fit, `"trajectories"` (where it keeps the strata whose
-  trajectories swing furthest from the population curve). Flagged strata
-  are always kept; this governs the fill and the unflagged case.
-  `select` changes *which* strata appear; their left-to-right display
-  order is a separate choice governed by `order_by`.
+  (default; the first n_strata in stratum order) or `"deviation"` (the
+  n_strata furthest from the reference line – largest
+  `|predicted - reference|`, so the most extreme strata in *both*
+  directions). Applies to `"predicted"` and, for a longitudinal fit,
+  `"trajectories"` (where it keeps the strata whose trajectories swing
+  furthest from the population curve). Flagged strata are always kept;
+  this governs the fill and the unflagged case. `select` changes *which*
+  strata appear; their left-to-right display order is a separate choice
+  governed by `order_by`.
 
 - order_by:
 

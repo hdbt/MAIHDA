@@ -30,92 +30,45 @@ maihda_proportional_odds_test(object, n_sim = 199, seed = NULL)
 An object of class `maihda_po_test`: a list with `lrt`, `df`, `n_terms`,
 `p_value` (the bootstrap p-value), `p_chisq`, `n_sim` (replicates that
 produced a usable statistic), `n_failed`, and `null_lrt` (the simulated
-null statistics). `p_value` is the only p-value the print method shows.
-`p_chisq` is the uncalibrated chi-squared p-value that the removed
-automatic screen used; it is retained on the object for comparison but
-deliberately not printed, and it is not evidence against the fitted
-model.
+null statistics). `p_value` is the one to report and the only one
+printed. `p_chisq` is the chi-squared p-value of the same statistic; it
+is not calibrated for a mixed model (see Details) and is returned for
+comparison only.
 
 ## Details
 
-The statistic is the ordinary omnibus nominal-effects LRT: the
-fixed-effect part of the model is refitted twice with
+The statistic is the omnibus nominal-effects likelihood-ratio statistic:
+the fixed-effect part of the model is refitted twice with
 [`ordinal::clm()`](https://rdrr.io/pkg/ordinal/man/clm.html) – once with
 all covariates proportional, once with every covariate entering as a
 threshold-specific (nominal) effect – and twice the log-likelihood
-difference is taken. Because `clm()` has no random effect, that
-statistic is computed on the *marginal* fit.
+difference is taken.
 
-Referring it to a chi-squared distribution, as an ordinary
-[`ordinal::nominal_test()`](https://rdrr.io/pkg/ordinal/man/nominal.test.html)
-would, is not valid here. A conditional cumulative model with a normal
-random intercept does not in general remain an ordinary
-proportional-odds model after the random intercept is marginalised away:
-the implied marginal cumulative-logit slopes generally differ across
-thresholds once the stratum variance is non-zero. The chi-squared null
-is therefore false in general under the correctly specified model, and
-its rejection rate grows with the sample size – at a stratum VPC near 7
-percent, a plausible MAIHDA value, a correctly specified model is
-rejected about a quarter of the time at `n = 96,000`. The chi-squared
-reference also treats the observations as independent, whereas
-observations that share a stratum share its random effect. Stratum
-heterogeneity and genuine non-proportional odds are not separable by the
-fixed-only statistic alone.
+Its usual chi-squared reference
+([`ordinal::nominal_test()`](https://rdrr.io/pkg/ordinal/man/nominal.test.html))
+is not valid here. After the stratum random intercept is integrated out,
+the marginal cumulative-logit slopes generally differ across thresholds
+once the stratum variance is non-zero. The chi-squared reference also
+treats the observations as independent, whereas observations that share
+a stratum share its random effect. A correctly specified model is
+therefore rejected too often, and more often as the sample grows.
 
-Symmetric thresholds do not rescue the chi-squared reference. For
-symmetric \\u\\ the map \\\eta \mapsto\\ logit
-\\E\[\mathrm{plogis}(\eta - u)\]\\ is odd, which equates the marginal
-slopes at thresholds \\-c\\ and \\+c\\ where the location \\x'\beta\\ is
-zero, but not over the range of the covariates. Whether fitted
-thresholds look symmetric depends on how the covariates are coded:
-adding a constant \\s\\ to a covariate with coefficient \\\beta\\ adds
-\\\beta s\\ to every threshold without changing the fit or the
-statistic. And no threshold configuration makes observations that share
-a stratum independent. Even when both the thresholds and the covariate
-are symmetric about zero – three categories cut at -1 and +1, a standard
-normal covariate with coefficient 0.8, and 12 equal strata at a stratum
-VPC near 7 percent – the chi-squared reference rejected 10 percent of
-600 datasets simulated from the correctly specified model at a nominal 5
-percent with `n = 96,000`.
+The null distribution is instead simulated under the fitted `clmm`: each
+replicate redraws the stratum random effects from \\N(0, \tau^2)\\ at
+the fitted variance, forms the conditional category probabilities from
+the fitted thresholds and location predictor, redraws the response, and
+recomputes the statistic. The p-value is \\(1 + \\\\T_b \ge T\_{obs}\\)
+/ (1 + B)\\ over the \\B\\ replicates that refitted. `n_sim` sets only
+its Monte Carlo resolution: the smallest attainable value is \\1 / (B +
+1)\\.
 
-This function accounts for that confounding by simulating the null
-distribution *under the fitted `clmm` itself*: each replicate redraws
-the stratum random effects from \\N(0, \tau^2)\\ at the fitted variance,
-forms the conditional category probabilities from the fitted thresholds
-and location predictor, redraws the ordinal response, and recomputes the
-same fixed-only statistic. The reported p-value is \\(1 + \\\\T_b \ge
-T\_{obs}\\) / (1 + B)\\ over the \\B\\ replicates that refitted. The
-added one keeps it off zero, and `n_sim` sets only its Monte Carlo
-resolution: attainable values are \\1 / (B + 1)\\ apart, so that is also
-the smallest one.
+This is a parametric-bootstrap approximation, not an exact test. The
+replicates are drawn at the fitted stratum variance, which is estimated
+from only as many units as there are strata, so the test is least
+reliable when the strata are few, whatever `n_sim` is.
 
-It is a parametric-bootstrap approximation, not an exact test. The
-replicates are drawn at the fitted thresholds, coefficients and stratum
-variance rather than the true ones, and the null distribution of the
-statistic depends on the stratum variance – that dependence is the
-confounding described above – so an error in the fitted variance passes
-into the p-value whatever `n_sim` is. That variance is estimated from as
-many units as there are strata, and more observations per stratum
-sharpen the thresholds and the coefficients but not it, so the
-approximation is poorest where the strata are few. Over 600 simulated
-4-stratum fits with 1,000 observations per stratum (stratum SD 1.5, four
-categories cut at -0.2, 0.4 and 3) the fitted stratum variance ran low –
-a median 1.42 against the true 2.25 – and correctly specified models
-were rejected 6.7% of the time at a nominal 5% and 15.5% at a nominal
-10%, their p-values departing measurably from the uniform distribution a
-calibrated test would produce. That is still far better than the
-chi-squared reference it replaces, which rejected 41% of the same fits
-at the 5% level.
-
-`ordinal` supplies no
-[`simulate()`](https://rdrr.io/r/stats/simulate.html) method for `clmm`,
-so the simulation is built directly from the fitted thresholds, location
-coefficients and random-effect variance.
-
-The test is opt-in because it is expensive: every replicate refits two
-`clm()` models, so the cost is roughly `n_sim` times the cost of the
-fixed-only refit and grows with the sample size. It is not run
-automatically at fit time.
+The test is expensive – every replicate refits two `clm()` models – and
+is not run at fit time.
 
 ## See also
 

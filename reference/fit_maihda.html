@@ -314,35 +314,22 @@ default-on <code>interactions</code> of <code><a href="maihda.html">maihda</a></
 
 <dt id="arg-count-approximation">count_approximation<a class="anchor" aria-label="anchor" href="#arg-count-approximation"></a></dt>
 <dd><p>Which latent-scale level-1 (observation) variance
-  approximation the VPC/ICC of a <em>log-link count</em> model uses, from table 1
-  of Nakagawa, Johnson &amp; Schielzeth (2017): <code>"lognormal"</code> (default,
-  \(\ln(1 + 1/\lambda\ [+\ 1/\theta])\)), <code>"delta"</code>
-  (\(1/\lambda\ [+\ 1/\theta]\)), or <code>"trigamma"</code>
-  (\(\psi_1(\lambda)\) for Poisson,
-  \(\psi_1((1/\lambda + 1/\theta)^{-1})\) for the negative binomial).
-  Recorded on the fit, so <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, the bootstrap intervals and the
-  longitudinal VPC(t) all use the same one. Inert for every other family.</p>
-<p>The three agree above a marginal count of about \(\lambda = 2\) and diverge
-  sharply below it – at \(\lambda = 0.34\) they give level-1 variances of
-  1.37, 2.94 and 9.76, so the VPC moves by a factor of six – which is why
-  <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports the method and the \(\lambda\) it was evaluated at,
-  and warns below the threshold. The default is the same <em>approximation</em>
-  <code>insight::get_variance()</code> and <code>performance::icc()</code> use by default,
-  but the two are not numerically identical on an adjusted model: they evaluate
-  it at a different \(\lambda\). MAIHDA averages the row-wise marginal
-  expected counts \(\exp(x_i'\beta + v_i/2)\) over the analytic sample –
-  the global-\(\lambda\) form of Nakagawa et al. – while <code>insight</code>
-  plugs in a single \(\exp(\beta_0 + \sigma^2/2)\) taken from an
-  intercept-only null model. On a <em>null</em> model, the MAIHDA headline, the
-  two coincide exactly. On an adjusted model Jensen's inequality makes the
-  MAIHDA \(\lambda\) the larger, so its level-1 variance is the smaller and
-  its VPC slightly the larger; the gap grows with the spread of the fitted
-  means, from well under 1% of the level-1 variance for a weak covariate to
-  tens of per cent for a very strong one. Nakagawa et al. themselves
-  recommend the trigamma form; note that it is the least conservative at low
-  counts (it drives the VPC toward zero), because it is the variance of
-  \(\log X\) for \(X \sim \mathrm{Gamma}(\lambda, 1)\) and that
-  approximation is weakest exactly where most counts are zero.</p></dd>
+approximation the VPC/ICC of a <em>log-link count</em> model uses, from table 1
+of Nakagawa, Johnson &amp; Schielzeth (2017): <code>"lognormal"</code> (default,
+\(\ln(1 + 1/\lambda\ [+\ 1/\theta])\)), <code>"delta"</code>
+(\(1/\lambda\ [+\ 1/\theta]\)), or <code>"trigamma"</code>
+(\(\psi_1(\lambda)\) for Poisson,
+\(\psi_1((1/\lambda + 1/\theta)^{-1})\) for the negative binomial), with
+\(\lambda\) the marginal expected count (see
+<code><a href="summary.maihda_model.html">summary.maihda_model</a></code>). The three agree above about
+\(\lambda = 2\) and diverge sharply below it, where the VPC depends heavily
+on the choice; <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports the method and \(\lambda\), and
+warns below that threshold. Nakagawa et al. recommend the trigamma form; at low
+counts it gives the smallest VPC of the three. The default is the approximation
+<code>performance::icc()</code> uses, but evaluated at a different \(\lambda\) on
+an adjusted model, so the two VPCs agree exactly only for a null model. Used
+by <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, the bootstrap intervals and the longitudinal VPC(t);
+ignored for every other family.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

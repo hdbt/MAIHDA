@@ -278,98 +278,46 @@ posterior. For Kenward-Roger or Satterthwaite, apply pbkrtest or
 lmerTest to `x$model`.
 
 `df_method = "bootstrap"` replaces that reference for an `lme4` fit with
-at least one fixed-effect term, Gaussian or not, and is the one to use
-for a GLMM – whose z is anticonservative for a term constant within a
-stratum, most severely when the strata are few. For each fixed-effect
-coefficient the model is refitted with that coefficient *constrained to
-zero*, `n_boot` responses are simulated from the restricted fit, the
-full model is refitted on each, and the observed Wald statistic is
-referred to the resulting distribution of \\\|t^\*\|\\. The estimate and
-standard error are unchanged. The p-value is \\(1 + \\\\\|t^\*\| \ge
-\|t\|\\) / (B + 1)\\ over the \\B\\ refits that succeeded, and the
-interval is the estimate plus or minus a critical value read from the
-same draws, times the standard error. The two agree by construction:
-zero falls outside the interval exactly when the p-value is at most
-`1 - conf_level`. That agreement is algebraic, not a coverage guarantee
-– the draws are simulated with the coefficient at zero, so how often the
-interval covers a coefficient that is not zero rests on the same
-approximation as the p-value (below). `df` is `NA`, and so are the
-intercept's p-value and interval: a MAIHDA intercept is a
-reference-category level rather than a term that can be dropped, so it
-has no null model to simulate from.
+at least one fixed-effect term, and is the one to use for a GLMM, whose
+z is anticonservative for a term constant within a stratum, most of all
+when the strata are few. For each fixed-effect coefficient the model is
+refitted with that coefficient *constrained to zero*, `n_boot` responses
+are simulated from the restricted fit, the full model is refitted on
+each, and the observed Wald statistic is referred to the resulting
+distribution of \\\|t^\*\|\\. The estimate and standard error are
+unchanged. The p-value is \\(1 + \\\\\|t^\*\| \ge \|t\|\\) / (B + 1)\\
+over the \\B\\ refits that succeeded, and the interval is the estimate
+plus or minus a critical value read from the same draws, times the
+standard error, so zero falls outside it exactly when the p-value is at
+most `1 - conf_level`. That agreement is algebraic, not a coverage
+guarantee. `df` is `NA`, and so are the intercept's p-value and
+interval: an intercept has no null model to simulate from.
 
-The restriction is on the coefficient, not on its term. A term spanning
-several design columns – a factor with three or more levels, a
-polynomial, an interaction between factors – carries one row per column,
-and each is tested against its own null: that column zeroed, the
-siblings kept and re-estimated as the nuisance parameters they are.
-Zeroing the siblings too would test a stronger hypothesis than the row
-states, and would push their effect into the variance components, so the
-draws would come from a model the data do not describe. It would also
-make the answer depend on spelling, since `y ~ f` and `y ~ fb + fc` fit
-the identical model. The restriction is the one the coefficient names
-under the fitted contrasts: treatment coding merges that level into the
-reference, sum coding sets its deviation from the unweighted mean of the
-level means to zero.
+The restriction is on the coefficient, not on its term. For a term
+spanning several design columns (a factor with three or more levels, a
+polynomial, an interaction between factors) each column is tested
+against its own null: that column zeroed, the siblings kept and
+re-estimated. What the constraint means follows the fitted contrasts:
+treatment coding merges that level into the reference, sum coding sets
+its deviation from the unweighted mean of the level means to zero.
 
-The constraint is imposed on the fitted design and verified, not assumed
-from the formula. Removing a term from a formula does not always remove
-it from the model: R's marginality rules recode a surviving higher-order
-term to absorb a dropped marginal one, so for `y ~ x * f` the formula
-`. ~ . - x` still spans the original column space and leaves the
-coefficient under test entirely unrestricted. The same holds for either
-main effect of `f * g`, for every main effect and two-way term under a
-three-way interaction, and for a nested `f / g`. Where that happens, and
-for every coefficient of a multi-column term, the design columns are
-constrained directly instead. A model whose fixed part is additive in
-one-column terms is unaffected: there, dropping the term from the
-formula already is the null.
+The bootstrap is an approximation, not an exact test. Its null is a fit
+estimated from the same data, so it is least reliable with few strata,
+where the stratum variance is often estimated at exactly zero; a p-value
+near the threshold from such a fit deserves little weight. `n_boot` sets
+the Monte Carlo resolution, not that approximation: the p-value lies on
+a grid of step \\1 / (B + 1)\\, and more draws only shrink its Monte
+Carlo error. No `n_boot` makes the test exact.
 
-The bootstrap is an approximation, not an exact test. Its null is the
-restricted fit, whose other coefficients and variance components were
-estimated from the same data, so the p-value is only as well calibrated
-as that fit stands in for the truth, and the usual large-sample argument
-for it needs many strata and a stratum variance away from zero. It is
-poorest with few strata, where the stratum variance rests on a handful
-of units and is often estimated at exactly zero. In simulations of a
-binomial MAIHDA (120 per stratum, stratum SD 0.5, every dimension effect
-zero) it rejected at about 14% for a nominal 5% with 4 strata and about
-7% with 8, where the Wald z rejected at about 40% and 19%. The excess
-sits in the fits whose stratum variance is singular – more than half of
-them at 4 strata, rejecting at about 23% against 3% on the rest. So it
-removes most of the z's error but not all of it, and a p-value near the
-threshold from a singular fit on few strata deserves little weight.
-
-`n_boot` sets the Monte Carlo resolution, not that approximation. The
-p-value lies on a grid of step \\1 / (B + 1)\\, the smallest attainable
-value being \\1 / (B + 1)\\ – the added one keeps it off zero – and more
-draws shrink the Monte Carlo error of the p-value and of the interval
-endpoints, which are order statistics of the draws. Both converge on
-what an unlimited bootstrap would give: the interval settles at a fixed,
-non-zero width rather than narrowing without end, and at a given seed a
-larger `n_boot` can widen it. No `n_boot` makes the test exact – on the
-4-stratum design above, 19 draws and 99 draws both rejected at about
-14%.
-
-It costs `n_boot` refits *per tested coefficient* – one block per row of
-the table except the intercept, so a \\k\\-level factor costs \\k - 1\\
-of them – and is a separate bootstrap from the `bootstrap = TRUE` VPC
-interval, which is not reused.
-
-Budget for it. A Gaussian refit takes milliseconds, but a binomial one
-takes about a second at \\n = 1000\\ and tens of seconds at \\n =
-6000\\, so the default `n_boot = 1000` on a three-dimension GLMM is
-roughly an hour at the smaller size and impractical at the larger.
-`n_boot = 199` is the usual compromise for a GLMM; 199 and 999 are
-conventional because `(n_boot + 1) * 0.05` is then a whole number, which
-puts the 5% level itself on the p-value grid. Give it fewer draws than
-the level needs and [`summary()`](https://rdrr.io/r/base/summary.html)
-warns: what makes the critical value unsteady is how few of them lie at
-or beyond it rather than `n_boot` on its own, so the check is
-level-aware. 99, 199 and 999 are the smallest counts that put ten draws
-beyond the cut-off at the 10%, 5% and 1% levels; 199 draws leave only
-two beyond a 99% one, and fewer than 19 cannot reach the 5% level at
-all, which leaves the interval unbounded.
+It costs `n_boot` refits *per tested coefficient* – a \\k\\-level factor
+costs \\k - 1\\ blocks – and is separate from the `bootstrap = TRUE` VPC
+interval. A Gaussian refit takes milliseconds, a binomial one about a
+second at \\n = 1000\\ and tens of seconds at \\n = 6000\\, so
+`n_boot = 199` is the usual choice for a GLMM.
+[`summary()`](https://rdrr.io/r/base/summary.html) warns when the draws
+are too few for the requested level; the check is level-aware: 99, 199
+and 999 are the smallest counts that put ten draws beyond the cut-off at
+the 10%, 5% and 1% levels.
 
 ## Two VPCs for a longitudinal fit
 
@@ -404,12 +352,11 @@ makes them comparable across studies using different instruments.
 Both are evaluated at the baseline \\t_0\\ (`ref_time`, the earliest
 observed time), pairing with `PCV_intercept` and `PCV_slope` from
 `maihda(decomposition = "longitudinal")`. The intercept VPC depends on
-where time is zeroed and the slope VPC does not, as Bell et al. note;
-their own examples centre on mean age rather than the baseline, so an
-intercept VPC replicated from the paper will differ from the one
-reported here unless the reference points are aligned. `vpc_slope` is
-`NA` when the model was fit with `stratum_slope = FALSE` (no
-between-stratum slope variance exists to take a share of).
+where time is zeroed and the slope VPC does not, so an intercept VPC
+computed at another reference time, such as the mean age of Bell et
+al.'s examples, differs from the one reported here. `vpc_slope` is `NA`
+when the model was fit with `stratum_slope = FALSE` (no between-stratum
+slope variance exists to take a share of).
 
 Both come with an interval in `vpc_intercept_ci` / `vpc_slope_ci`, and
 `trajectory_vpc_method` records its basis. For a `brms` fit the two
@@ -418,11 +365,7 @@ median with a credible interval, matching `vpc_t` and the headline VPC
 on the same fit; for an `lme4` fit the point estimates are the plug-in
 from the fitted covariance blocks and `summary(bootstrap = TRUE)` adds a
 parametric-bootstrap interval (`NA` without one). Report the interval:
-these shares are poorly determined when the strata are few, and one
-spanning half the unit interval is an ordinary result rather than an
-unusual one – the twelve strata of `maihda_long_data`, fitted with
-`brms` over 150 individuals, give an intercept VPC of 0.58 running from
-0.34 to 0.82.
+these shares are poorly determined when the strata are few.
 
 ## References
 

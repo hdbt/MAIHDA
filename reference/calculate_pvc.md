@@ -1,10 +1,8 @@
 # Deprecated: use calculate_pcv()
 
-`calculate_pvc()` is the former name of
-[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md):
-the statistic is the PCV (proportional change in variance), but the
-historical function name transposed the acronym. `calculate_pvc()` now
-forwards to
+`calculate_pvc()` is a deprecated alias of
+[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
+It forwards to
 [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
 with a deprecation warning and will be removed in a future release.
 

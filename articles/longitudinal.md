@@ -211,7 +211,7 @@ strata with `brms`, over 150 of the individuals, the plug-in gives
 0.6145 where the posterior median is 0.5765 – a 6.6% overstatement, and
 one that widens as the strata get fewer. The interval matters more than
 the shift: on that fit it runs from 0.34 to 0.82, half the unit
-interval, and it was previously not reported at all.
+interval.
 
 **Report the headline VPC unless you specifically mean the trajectory
 question.** It is the quantity comparable to published cross-sectional

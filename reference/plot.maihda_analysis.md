@@ -119,19 +119,19 @@ plot(
 - model:
 
   For `type = "vpc"`, which model's variance partition to show: `"null"`
-  (default) the total between-stratum heterogeneity (the previous,
-  backward-compatible behaviour), `"adjusted"` the between-stratum
-  heterogeneity remaining after the dimensions' additive main effects
-  (closer to the pure intersectional component), or `"both"` – a
-  **single** plot placing the two partitions together and annotating the
-  PCV, so the null-to-adjusted change is visible in one figure. The null
-  and adjusted single views are labelled with a `"Null model"` /
-  `"Adjusted model"` subtitle. For a **longitudinal** analysis the VPC
-  view is the time-varying VPC trajectory, and `"both"` overlays the
-  null and adjusted curves. A `"crossed-dimensions"` analysis fits a
-  single model (no null/adjusted pair), so only `"null"` is valid there;
-  `"adjusted"`/`"both"` error. `model` applies to the VPC view only –
-  combining a non-default `model` with another `type` is an error.
+  (default) the total between-stratum heterogeneity, `"adjusted"` the
+  between-stratum heterogeneity remaining after the dimensions' additive
+  main effects (closer to the pure intersectional component), or
+  `"both"` – a **single** plot placing the two partitions together and
+  annotating the PCV, so the null-to-adjusted change is visible in one
+  figure. The null and adjusted single views are labelled with a
+  `"Null model"` / `"Adjusted model"` subtitle. For a **longitudinal**
+  analysis the VPC view is the time-varying VPC trajectory, and `"both"`
+  overlays the null and adjusted curves. A `"crossed-dimensions"`
+  analysis fits a single model (no null/adjusted pair), so only `"null"`
+  is valid there; `"adjusted"`/`"both"` error. `model` applies to the
+  VPC view only – combining a non-default `model` with another `type` is
+  an error.
 
 - ...:
 

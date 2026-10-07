@@ -51,9 +51,8 @@ predict(
     this would return is the intercept alone – the stratum effect only
     where the slope variables are zero.
 
-  For backward compatibility, "link" or "response" may also be passed
-  here and will be interpreted as individual-level predictions on that
-  scale.
+  "link" or "response" is also accepted and gives individual-level
+  predictions on that scale.
 
 - scale:
 
@@ -68,33 +67,19 @@ predict(
 
 - allow_new_levels:
 
-  Logical. By default (`FALSE`) a stratum in `newdata` that the model
-  never saw – whether supplied directly as a `stratum` column or rebuilt
-  from the grouping variables – is an error, for every engine, matching
-  lme4's default. Set `TRUE` to instead predict unseen strata with the
-  stratum random effect dropped (treated as zero), while keeping any
-  *other* random effect the row participates in (e.g. a contextual
-  `(1 | school)` intercept from `fit_maihda(context = )`, or a
-  longitudinal growth term) – the same behaviour as lme4's
-  `allow.new.levels`, which zeroes only the unseen level's effect and
-  keeps seen ones. For the usual single-stratum model the stratum is the
-  only random effect, so the result is the fixed-effects-only
-  prediction, evaluated *at a zero random effect*. That is a
-  *conditional* (stratum-specific) prediction for a stratum whose effect
-  happens to be zero; it is **not** a response-scale population average
-  (marginal mean), which requires integrating over the random-effect
-  distribution. The two coincide on the link scale, and on the response
-  scale only under the Gaussian identity link. Under a log link with
-  stratum variance \\\tau^2\\ the marginal mean is larger by a factor
-  \\\exp(\tau^2/2)\\, and under a logit link the marginal probability is
-  attenuated towards 0.5 (Nakagawa, Johnson & Schielzeth 2017). Because
-  the inverse link is monotone and the random effect symmetric about
-  zero, the response-scale value returned here is the *median* of the
-  stratum-specific means across the random-effect distribution, not
-  their average. This affects `type = "individual"` only: a
-  stratum-level prediction (`type = "strata"`) has no random effect to
-  report for an unseen stratum, so unseen strata remain an error there
-  regardless.
+  Logical. `FALSE` (default): a stratum in `newdata` that the model
+  never saw is an error, as in lme4. `TRUE`: an unseen stratum is
+  predicted *at a zero random effect* for that stratum; any other random
+  effect the row has (a `context` intercept, a longitudinal growth term)
+  is kept. That is the prediction for a stratum whose effect is zero,
+  **not** a response-scale population average: the two agree on the link
+  scale and under an identity link, but under a log link with stratum
+  variance \\\tau^2\\ the population mean is larger by a factor
+  \\\exp(\tau^2/2)\\, and under a logit link the population probability
+  lies closer to 0.5. The response-scale value returned is the median,
+  not the mean, of the stratum-specific means. Applies to
+  `type = "individual"` only; with `type = "strata"` an unseen stratum
+  is always an error.
 
 - ...:
 

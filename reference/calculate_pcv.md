@@ -70,10 +70,7 @@ A list containing:
 
 - pvc:
 
-  Deprecated duplicate of `pcv`, kept so code written against the
-  historical
-  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
-  spelling keeps working; it will be removed in a future release
+  Deprecated duplicate of `pcv`; it will be removed in a future release
 
 - var_model1:
 
@@ -227,18 +224,13 @@ the result, and [`print()`](https://rdrr.io/r/base/print.html) repeats
 the caveat – a sizeable boundary share signals weak between-stratum
 variation, and the PCV itself is then fragile.
 
-Bootstrap draws whose refit optimiser reports non-convergence
-(`optinfo$conv$opt != 0`) are *retained* in the interval – lme4's
-post-hoc relative-gradient flag is a frequent false positive on
-simulated refits, and the optimiser's own return code fires on well
-under 1% of refits in practice – but the count is reported as
-`n_boot_nonconverged` and [`print()`](https://rdrr.io/r/base/print.html)
-discloses it. As a documented ceiling, when more than half the
-contributing draws fail to converge the interval is still returned but
-flagged `interval_reliable = FALSE` with an escalated warning; treat
-such an interval as indicative only and check for singular or failing
-fits. This is distinct from the boundary exclusion above: non-converged
-draws still carry a defined PCV.
+Bootstrap draws whose refit optimiser reports non-convergence are kept
+in the interval (they still have a defined PCV) and counted in
+`n_boot_nonconverged`, which
+[`print()`](https://rdrr.io/r/base/print.html) shows. When more than
+half the contributing draws did not converge the interval is still
+returned, but with a warning and `interval_reliable = FALSE`; treat it
+as indicative only and check for singular or failing fits.
 
 The bootstrap is available for the `lme4` engine only. For the other
 engines the PCV is a *point estimate*: a brms fit's posterior credible

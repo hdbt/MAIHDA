@@ -103,8 +103,8 @@ original data from model fitting.</p></dd>
     slopes (a hand-written <code>(1 + x | stratum)</code>) is an error here, as in
     <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>: the single value this would return is the intercept
     alone – the stratum effect only where the slope variables are zero.</p></li>
-</ul><p>For backward compatibility, "link" or "response" may also be passed here
-and will be interpreted as individual-level predictions on that scale.</p></dd>
+</ul><p>"link" or "response" is also accepted and gives individual-level
+predictions on that scale.</p></dd>
 
 
 <dt id="arg-scale">scale<a class="anchor" aria-label="anchor" href="#arg-scale"></a></dt>
@@ -119,33 +119,19 @@ brms <code>success | trials(n)</code>) the "response" scale is the per-trial
 
 
 <dt id="arg-allow-new-levels">allow_new_levels<a class="anchor" aria-label="anchor" href="#arg-allow-new-levels"></a></dt>
-<dd><p>Logical. By default (<code>FALSE</code>) a stratum in
-<code>newdata</code> that the model never saw – whether supplied directly as a
-<code>stratum</code> column or rebuilt from the grouping variables – is an error,
-for every engine, matching <span class="pkg">lme4</span>'s default. Set <code>TRUE</code> to instead
-predict unseen strata with the stratum random effect dropped (treated as
-zero), while keeping any <em>other</em> random effect the row participates in
-(e.g. a contextual <code>(1 | school)</code> intercept from
-<code>fit_maihda(context = )</code>, or a longitudinal growth term) – the same
-behaviour as <span class="pkg">lme4</span>'s <code>allow.new.levels</code>, which zeroes only the unseen
-level's effect and keeps seen ones. For the usual single-stratum model the
-stratum is the only random effect, so the result is the fixed-effects-only
-prediction, evaluated <em>at a zero random effect</em>. That is a
-<em>conditional</em> (stratum-specific) prediction for a stratum whose effect
-happens to be zero; it is <strong>not</strong> a response-scale population average
-(marginal mean), which requires integrating over the random-effect
-distribution. The two coincide on the link scale, and on the response scale
-only under the Gaussian identity link. Under a log link with stratum variance
-\(\tau^2\) the marginal mean is larger by a factor \(\exp(\tau^2/2)\),
-and under a logit link the marginal probability is attenuated towards 0.5
-(Nakagawa, Johnson &amp; Schielzeth 2017). Because the inverse link is monotone
-and the random effect symmetric about zero, the response-scale value returned
-here is the <em>median</em> of the stratum-specific means across the
-random-effect distribution, not their average.
-This affects <code>type = "individual"</code> only:
-a stratum-level prediction (<code>type = "strata"</code>) has no random effect to
-report for an unseen stratum, so unseen strata remain an error there
-regardless.</p></dd>
+<dd><p>Logical. <code>FALSE</code> (default): a stratum in
+<code>newdata</code> that the model never saw is an error, as in <span class="pkg">lme4</span>.
+<code>TRUE</code>: an unseen stratum is predicted <em>at a zero random effect</em>
+for that stratum; any other random effect the row has (a <code>context</code>
+intercept, a longitudinal growth term) is kept. That is the prediction for a
+stratum whose effect is zero,
+<strong>not</strong> a response-scale population average: the two agree on the link
+scale and under an identity link, but under a log link with stratum variance
+\(\tau^2\) the population mean is larger by a factor \(\exp(\tau^2/2)\),
+and under a logit link the population probability lies closer to 0.5. The
+response-scale value returned is the median, not the mean, of the
+stratum-specific means. Applies to <code>type = "individual"</code> only; with
+<code>type = "strata"</code> an unseen stratum is always an error.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
