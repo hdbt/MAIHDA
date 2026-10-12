@@ -20,8 +20,11 @@
 * `maihda_proportional_odds_test()` tests the proportional-odds assumption of a cumulative (`clmm`) fit by parametric bootstrap under the fitted model, redrawing the stratum random effects each replicate. Opt-in: every replicate refits two `clm()` models.
 * `maihda_describe()` gained `weights`, the precision weights of `fit_maihda()`, written the same way (a bare column name) so one call describes and fits the same sample. Rows with a missing, zero, negative or non-finite weight leave the analytic sample as the engines drop them, and on a binomial model the weights also supply the denominator of a proportion response. It is the last argument, so positional calls written against 0.2.1 are unaffected.
 * `summary(bootstrap = TRUE)` on a longitudinal lme4 fit now returns intervals for the two trajectory VPCs, as `$longitudinal$vpc_intercept_ci` and `$vpc_slope_ci`, reusing the refits the VPC(t) band already pays for. `print()` shows them and `trajectory_vpc_method` records the basis.
+* `calculate_pcv()` and `maihda()` gained `estimation = "REML"`, which compares REML-type variances for binomial and Poisson lme4 fits; their maximum-likelihood PCV runs high with few or small strata.
 
 ## API changes
+
+* `print()` on a PCV built from maximum-likelihood variances (a glmer, wemix or ordinal fit) now says so; the numbers are unchanged.
 
 * `predict_maihda(allow_new_levels = TRUE)` on a brms fit now refuses newdata missing a grouping column the prediction uses, such as the context column, as lme4 does; brms filled the column with `NA` and drew a new effect for every row.
 

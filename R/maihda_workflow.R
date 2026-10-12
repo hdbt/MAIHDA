@@ -194,11 +194,15 @@
 #'   decomposition. The computation is cheap (it reads the stratum estimates the
 #'   summary already holds; no refit).
 #' @param estimation Variance-estimation basis for the PCV (\code{"two-model"} and
-#'   \code{"longitudinal"} decompositions), \code{"fitted"} (default) or \code{"ML"};
-#'   see \code{\link{calculate_pcv}}. \code{"fitted"} differences each model's own
-#'   between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit, as
-#'   \code{summary()} reports); \code{"ML"} refits REML \code{lmer} fits with maximum
-#'   likelihood first. Affects Gaussian \code{lmer} fits only.
+#'   \code{"longitudinal"} decompositions), \code{"fitted"} (default), \code{"ML"} or
+#'   \code{"REML"}; see \code{\link{calculate_pcv}}. \code{"fitted"} differences each
+#'   model's own between-stratum variance (the REML estimate for a Gaussian
+#'   \code{lmer} fit, as \code{summary()} reports); \code{"ML"} refits REML
+#'   \code{lmer} fits with maximum likelihood first. \code{"REML"} compares REML-type
+#'   variances for a binomial or Poisson lme4 fit in the \code{"two-model"}
+#'   decomposition, whose maximum-likelihood PCV runs high with few or small strata;
+#'   it is an error with \code{group}, with \code{context} on such a fit, and in the
+#'   \code{"longitudinal"} decomposition.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}). Includes \code{count_approximation}, which selects
 #'   the log-link count level-1 variance approximation for the VPC and is applied
@@ -316,7 +320,7 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
                    sampling_weights = NULL,
                    id = NULL, time = NULL, time_degree = 1,
                    stratum_slope = TRUE,
-                   interactions = TRUE, estimation = c("fitted", "ML"), ...) {
+                   interactions = TRUE, estimation = c("fitted", "ML", "REML"), ...) {
   call <- match.call()
   estimation <- match.arg(estimation)
 
@@ -501,6 +505,13 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
     }
   }
 
+  # estimation = "REML" exists for the two-model PCV only, and not on every engine.
+  # calculate_pcv() refuses the rest, but maihda() turns its errors into a warning
+  # after every model is fitted, so what can never be honoured is refused here.
+  if (identical(estimation, "REML")) {
+    maihda_reml_workflow_check(engine, decomposition, group)
+  }
+
   # Fit the supplied formula first -- this resolves the stratum dimensions (and the
   # stratum column) and the family. Depending on whether the formula already lists the
   # dimensions' additive main effects, it serves as either the null or the adjusted
@@ -530,6 +541,12 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
                             .metadata_only = metadata_only)
   }
   family_used <- model$family
+  # The first fit settles what the up-front check above could not know: the family, a
+  # further random effect, a glmer fit asked for a bootstrap interval. Both models of
+  # the pair share them, so refuse now rather than after the summaries are computed.
+  if (identical(estimation, "REML") && identical(decomposition, "two-model")) {
+    maihda_pcv_reml_check(model, bootstrap = bootstrap)
+  }
 
   # maihda() IS the two-model decomposition -- it has no single-model mode. Building
   # the adjusted model requires at least two identifiable stratum dimensions, so error
@@ -1034,6 +1051,12 @@ print.maihda_analysis <- function(x, ...) {
     }
     cat(sprintf("Between-stratum variance: %.4f (null) -> %.4f (adjusted)\n",
                 pcv$var_model1, pcv$var_model2))
+    if (identical(pcv$estimation_used, "REML")) {
+      # The summaries above are the fits' own (maximum-likelihood) ones, so say which
+      # basis this pair of variances is on and keep the as-fitted pair in view.
+      cat(pal$muted(sprintf("  REML-type variances (estimation = \"REML\").\n  %s\n",
+                            maihda_pcv_fitted_line(pcv))))
+    }
     if (pcv$pcv >= 0) {
       cat(sprintf(paste0("  ~%.1f%% of the between-stratum variance is additive (the ",
                          "dimensions' main\n  effects); the remainder is the between-stratum ",
@@ -1050,6 +1073,13 @@ print.maihda_analysis <- function(x, ...) {
       # default output even though calculate_pcv() had recorded it all along.
       cat(pal$muted(maihda_pcv_boundary_note("the adjusted model")))
       cat("\n")   # keep the note a distinct block, not run into the Strata line
+    }
+    if (maihda_pcv_show_ml_note(pcv)) {
+      # Named only where maihda() would accept it: not with a group comparison, and
+      # not beside a bootstrap interval.
+      cat(pal$muted(maihda_pcv_ml_note(
+        isTRUE(pcv$reml_available) && !isTRUE(pcv$bootstrap) && is.null(x$groups))))
+      cat("\n")
     }
   }
 

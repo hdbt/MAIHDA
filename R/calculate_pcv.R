@@ -18,11 +18,13 @@
 #'   A value below about 200 warns that the interval's tail endpoints are unstable
 #'   (the hard minimum is 10).
 #' @param conf_level Confidence level for bootstrap intervals. Default is 0.95.
-#' @param estimation Which between-stratum variances are compared, \code{"fitted"}
-#'   (default) or \code{"ML"}. \code{"fitted"} uses each model's own estimate (the REML
-#'   estimate for a Gaussian \code{lmer} fit); \code{"ML"} refits REML \code{lmer} fits
-#'   by maximum likelihood first, which overstates the PCV when strata are few. Only
-#'   Gaussian \code{lmer} fits are affected. See Details.
+#' @param estimation Which between-stratum variances are compared: \code{"fitted"}
+#'   (default), \code{"ML"} or \code{"REML"}. \code{"fitted"} uses each model's own
+#'   estimate (REML for a Gaussian \code{lmer} fit, maximum likelihood for a
+#'   \code{glmer} fit). \code{"ML"} refits REML \code{lmer} fits by maximum likelihood
+#'   first, which overstates the PCV when strata are few. \code{"REML"} compares
+#'   REML-type variances for binomial and Poisson \code{glmer} fits, whose
+#'   maximum-likelihood PCV is overstated in the same way. See Details.
 #'
 #' @return A list containing:
 #'   \item{pcv}{The estimated proportional change in variance}
@@ -30,15 +32,28 @@
 #'     release}
 #'   \item{var_model1}{Between-stratum variance from model1}
 #'   \item{var_model2}{Between-stratum variance from model2}
-#'   \item{estimation}{The variance-estimation basis requested (\code{"fitted"} or
-#'     \code{"ML"})}
+#'   \item{estimation}{The variance-estimation basis requested (\code{"fitted"},
+#'     \code{"ML"} or \code{"REML"})}
 #'   \item{estimation_used}{The basis actually used: \code{"fitted"}, \code{"ML"},
-#'     \code{"mixed"}, or \code{"posterior"}. \code{"mixed"} arises under
+#'     \code{"mixed"}, \code{"REML"} or \code{"posterior"}. \code{"mixed"} arises under
 #'     \code{estimation = "ML"} when a model keeps its REML fit -- its between-stratum
 #'     variance is on the boundary so the ML refit is skipped, or \code{\link[lme4]{refitML}}
 #'     failed -- so the comparison is partly REML rather than the pure ML one
-#'     requested. \code{"posterior"} is reported for a \code{brms} comparison (a Bayesian
-#'     posterior, on which \code{"ML"} is a no-op). \code{print()} states the basis}
+#'     requested. \code{"REML"} is reported when the REML-type variances of a
+#'     \code{glmer} fit were compared; \code{estimation = "REML"} on REML \code{lmer}
+#'     fits uses them as fitted and reports \code{"fitted"}. \code{"posterior"} is
+#'     reported for a \code{brms} comparison (a Bayesian posterior, on which
+#'     \code{"ML"} and \code{"REML"} are no-ops). \code{print()} states the basis}
+#'   \item{ml_variances}{Logical; \code{TRUE} when the compared variances are
+#'     maximum-likelihood estimates (a \code{glmer}, wemix or ordinal fit, or an
+#'     \code{lmer} fit made or refitted by maximum likelihood). \code{print()} notes it
+#'     under the default \code{estimation}}
+#'   \item{reml_available}{Logical; \code{TRUE} when \code{estimation = "REML"} would
+#'     compare REML-type variances for these two models (binomial or Poisson
+#'     \code{glmer} fits it accepts)}
+#'   \item{pcv_fitted, var_model1_fitted, var_model2_fitted}{Present when
+#'     \code{estimation_used} is \code{"REML"}: the PCV and the two variances as fitted
+#'     by maximum likelihood, the values \code{estimation = "fitted"} returns}
 #'   \item{adjusted_at_boundary}{Logical; \code{TRUE} when model2's between-stratum
 #'     variance is on the singularity boundary, so the PCV is pinned near 1 (100\%) and
 #'     its interval/SE are unreliable -- consistent with genuinely additive strata as
@@ -75,6 +90,10 @@
 #'   \item{\code{"ML"}}{REML \code{lmer} fits are refitted by maximum likelihood
 #'     (\code{\link[lme4]{refitML}}) first, and the bootstrap interval is computed on
 #'     the same basis. Use it to match an analysis fitted by maximum likelihood.}
+#'   \item{\code{"REML"}}{REML-type variances. REML \code{lmer} fits are used as
+#'     fitted. For a binomial or Poisson \code{glmer} fit whose only random effect is
+#'     the stratum intercept, the between-stratum variance is re-estimated with the
+#'     fixed effects integrated out, as REML does for a Gaussian model (see below).}
 #' }
 #' The PCV is a ratio of two variance estimates and uses no likelihood value, so it
 #' does not need maximum-likelihood fits (likelihood-ratio tests and information
@@ -89,10 +108,37 @@
 #' null model of a 2 x 3 x 4 design but 17/24 for the adjusted one. The bootstrap
 #' interval inherits the bias, because it simulates from and refits on the same basis.
 #'
-#' Only Gaussian \code{lmer} fits are affected. GLMM fits (\code{glmer}) and the
-#' wemix/ordinal engines fit by maximum likelihood and offer no REML counterpart, so
-#' the two settings coincide there and their PCV carries the same tendency to overstate
-#' with few strata. A \code{brms} fit is a Bayesian posterior: \code{"ML"} performs no
+#' \code{"fitted"} and \code{"ML"} differ for Gaussian \code{lmer} fits only.
+#' \code{glmer} and the wemix and ordinal engines estimate variances by maximum
+#' likelihood, so under either setting their PCV is overstated in the same way: most
+#' with few strata, and more when strata are small or uneven in size, because the
+#' shortfall applies to the between-stratum variance plus the sampling variance of a
+#' stratum's own estimate. \code{print()} notes when the compared variances are
+#' maximum-likelihood estimates.
+#'
+#' \code{estimation = "REML"} corrects that shortfall for binomial and Poisson
+#' \code{glmer} fits. Each variance minimises the Laplace-approximated deviance
+#' evaluated at the joint mode of the fixed and random effects (lme4's
+#' \code{nAGQ = 0} deviance) plus the log-determinant of the fixed-effect information,
+#' which integrates the fixed effects out; for the logit and log links this is the
+#' criterion \code{glmmTMB(REML = TRUE)} minimises. The models are not refitted, and
+#' the as-fitted values are returned alongside (\code{pcv_fitted},
+#' \code{var_model1_fitted}, \code{var_model2_fitted}).
+#'
+#' Use it when strata are few but each holds enough observations for its own estimate
+#' to be precise: the PCV then has little bias, though with very few strata it stays
+#' imprecise. When the strata are small as well, neither basis is dependable. A
+#' variance estimate cannot fall below zero, so with that much noise the REML-type
+#' estimate averages too high, most in the adjusted model: the PCV then varies widely
+#' from sample to sample and can come out far too low, even negative, where the
+#' maximum-likelihood PCV stays too high.
+#'
+#' \code{estimation = "REML"} is an error for the wemix and ordinal engines, for other
+#' \code{glmer} families, for a fit with a further random effect such as a
+#' \code{context}, for an \code{lmer} fit made by maximum likelihood, and with
+#' \code{bootstrap = TRUE} on a \code{glmer} fit.
+#'
+#' A \code{brms} fit is a Bayesian posterior: \code{"ML"} and \code{"REML"} perform no
 #' refit and \code{estimation_used} is \code{"posterior"}. Single-model VPC/ICC
 #' summaries always use the model as fitted.
 #'
@@ -185,7 +231,7 @@
 #' @importFrom lme4 lmer glmer VarCorr
 calculate_pcv <- function(model1, model2, bootstrap = FALSE,
                          n_boot = 1000, conf_level = 0.95,
-                         estimation = c("fitted", "ML")) {
+                         estimation = c("fitted", "ML", "REML")) {
   estimation <- match.arg(estimation)
   # Input validation
   if (!inherits(model1, "maihda_model")) {
@@ -245,6 +291,26 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
     stop("Unable to extract variance components from one or both models")
   }
 
+  # estimation = "REML". A REML lmer pair already holds REML variances and a brms pair
+  # is a posterior, so both are compared as fitted; a binomial or Poisson glmer pair
+  # has its maximum-likelihood variances replaced by REML-type ones (`restricted`), and
+  # everything else is refused by maihda_pcv_reml_check(). This sits after the
+  # variances are read so that the refusals made there (a longitudinal or
+  # crossed-dimensions fit, a random slope) keep their directed messages.
+  restricted <- FALSE
+  var1_fitted <- var1
+  var2_fitted <- var2
+  if (identical(estimation, "REML")) {
+    maihda_pcv_reml_check(model1, bootstrap = bootstrap)
+    maihda_pcv_reml_check(model2, bootstrap = bootstrap)
+    restricted <- maihda_pcv_is_glmer(model1) && maihda_pcv_is_glmer(model2)
+    if (restricted) {
+      var1 <- maihda_restricted_variance_lme4(model1$model)
+      var2 <- maihda_restricted_variance_lme4(model2$model)
+      estimation_used <- "REML"
+    }
+  }
+
   if (var1 <= 0) {
     stop("Between-stratum variance in model1 is zero or negative. PCV cannot be calculated. ",
          "This may indicate a singular fit or no between-stratum variation.")
@@ -253,8 +319,13 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   # fit, e.g. 1e-9 after the ML refit) passes the check above yet makes the
   # ratio explode -- PCVs in the thousands with no warning. Apply the same
   # relative singularity tolerance lme4 uses to flag the stratum term (shared
-  # with stepwise_pcv() and pcv_importance()).
-  if (maihda_pcv_null_at_boundary(model1)) {
+  # with stepwise_pcv() and pcv_importance()). Under the REML-type basis the test is
+  # made on the variance actually compared, not on the fitted one.
+  at_boundary <- function(model, variance) {
+    if (!restricted) return(maihda_pcv_null_at_boundary(model))
+    maihda_variance_at_boundary(variance, stats::sigma(model$model)^2)
+  }
+  if (at_boundary(model1, var1)) {
     maihda_pcv_degenerate_null_stop("model1")
   }
 
@@ -271,7 +342,7 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   # flag at all.) model1 at the boundary is a hard stop above (a zero PCV denominator is
   # undefined); model2 at the boundary still yields a numerically valid ratio. (Despite
   # its name maihda_pcv_null_at_boundary() is a general stratum-boundary test.)
-  adjusted_at_boundary <- maihda_pcv_null_at_boundary(model2)
+  adjusted_at_boundary <- at_boundary(model2, var2)
 
   # Calculate PCV
   pcv <- (var1 - var2) / var1
@@ -288,8 +359,22 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
     estimation_used = estimation_used,
     adjusted_at_boundary = adjusted_at_boundary,
     ml_refit_failed = ml_refit_failed,
+    ml_variances = !restricted && maihda_pcv_ml_variances(model1, model2),
+    reml_available = maihda_pcv_reml_available(model1, model2),
     bootstrap = FALSE
   )
+  # Under the REML-type basis the maximum-likelihood values stay on the result, so the
+  # two bases can be read side by side.
+  if (restricted) {
+    result$var_model1_fitted <- var1_fitted
+    result$var_model2_fitted <- var2_fitted
+    result$pcv_fitted <- if (is.finite(var1_fitted) && var1_fitted > 0 &&
+                             !maihda_pcv_null_at_boundary(model1)) {
+      (var1_fitted - var2_fitted) / var1_fitted
+    } else {
+      NA_real_
+    }
+  }
 
   # Bootstrap confidence intervals if requested
   if (bootstrap) {
@@ -320,7 +405,7 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
 #' @export
 calculate_pvc <- function(model1, model2, bootstrap = FALSE,
                           n_boot = 1000, conf_level = 0.95,
-                          estimation = c("fitted", "ML")) {
+                          estimation = c("fitted", "ML", "REML")) {
   .Deprecated("calculate_pcv")
   calculate_pcv(model1, model2, bootstrap = bootstrap,
                 n_boot = n_boot, conf_level = conf_level,
@@ -333,7 +418,9 @@ calculate_pvc <- function(model1, model2, bootstrap = FALSE,
 # Gaussian lmer fits are affected -- glmer and the wemix/ordinal engines are already
 # maximum-likelihood, and a brms fit is a Bayesian posterior (not ML at all), so
 # maihda_pcv_refit_ml() returns them unchanged either way; the reported basis for brms
-# is "posterior" (maihda_pcv_estimation_used()), never an ML-refit.
+# is "posterior" (maihda_pcv_estimation_used()), never an ML-refit. "REML" leaves the
+# fits alone too: calculate_pcv() computes its REML-type variances from the fits as
+# they stand (maihda_restricted_variance_lme4()).
 # `estimation` is validated (match.arg) by the exported callers before it reaches here.
 maihda_pcv_apply_estimation <- function(model, estimation) {
   if (identical(estimation, "ML")) maihda_pcv_refit_ml(model) else model
@@ -347,9 +434,12 @@ maihda_pcv_apply_estimation <- function(model, estimation) {
 # Stan POSTERIORS, not maximum likelihood -- estimation = "ML" is a no-op there (no
 # refit occurs), so the basis is always the as-fitted posterior scale, reported as
 # "posterior" and never an "ML-refit". Callers record the result and render it with
-# maihda_pcv_basis_label().
+# maihda_pcv_basis_label(). estimation = "REML" resolves to "fitted": fits that
+# already hold REML variances are compared as fitted, and calculate_pcv() records
+# "REML" itself when it compared the REML-type variances of a glmer pair instead.
 maihda_pcv_estimation_used <- function(estimation, mixed, engine = NULL) {
   if (identical(engine, "brms")) return("posterior")
+  if (identical(estimation, "REML")) return("fitted")
   if (identical(estimation, "ML") && isTRUE(mixed)) "mixed" else estimation
 }
 
@@ -368,6 +458,242 @@ maihda_pcv_basis_label <- function(basis) {
     posterior = "posterior medians (brms fits, not maximum likelihood)",
     "as fitted (REML for Gaussian lmer, matching summary())"
   )
+}
+
+# The basis line of a calculate_pcv() result. Two bases only that function produces
+# are worded here: the REML-type variances of a glmer pair, and as-fitted variances
+# that are maximum-likelihood estimates (a glmer, wemix or ordinal pair). Everything
+# else is maihda_pcv_basis_label()'s.
+maihda_pcv_result_basis_label <- function(x) {
+  basis <- x$estimation_used
+  if (is.null(basis)) basis <- x$estimation
+  if (identical(basis, "REML")) {
+    return("REML-type (fixed effects integrated out; see ?calculate_pcv)")
+  }
+  if (identical(basis, "fitted") && isTRUE(x$ml_variances)) {
+    return("as fitted (maximum likelihood)")
+  }
+  maihda_pcv_basis_label(basis)
+}
+
+# TRUE for a maihda_model holding a glmer fit (a generalised linear mixed model on the
+# lme4 engine).
+maihda_pcv_is_glmer <- function(model) {
+  identical(model$engine, "lme4") &&
+    isTRUE(tryCatch(lme4::isGLMM(model$model), error = function(e) FALSE))
+}
+
+# TRUE when the between-stratum variances a PCV compares are maximum-likelihood
+# estimates: a glmer fit, an lmer fit made (or refitted) by maximum likelihood, or the
+# wemix / ordinal engines. A brms fit is a posterior.
+maihda_pcv_ml_variances <- function(model1, model2) {
+  one <- function(model) {
+    switch(model$engine,
+      lme4 = !isTRUE(tryCatch(lme4::isREML(model$model), error = function(e) FALSE)),
+      wemix = ,
+      ordinal = TRUE,
+      FALSE)
+  }
+  one(model1) || one(model2)
+}
+
+# Refuse estimation = "REML" where no REML or REML-type between-stratum variance
+# exists for `model`. A brms fit passes (a posterior, on which the setting is a no-op,
+# as "ML" is) and so does a REML lmer fit (compared as fitted). A glmer fit passes
+# when maihda_restricted_variance_lme4() applies to it: a binomial or Poisson family
+# and the stratum intercept as its only random effect. `bootstrap` is refused for a
+# glmer fit because the parametric bootstrap refits by maximum likelihood.
+maihda_pcv_reml_check <- function(model, bootstrap = FALSE) {
+  engine <- model$engine
+  if (identical(engine, "brms")) return(invisible(TRUE))
+  if (!identical(engine, "lme4")) {
+    stop("estimation = \"REML\" is not available for engine = \"", engine, "\", which ",
+         "estimates variances by maximum likelihood only. Use estimation = ",
+         "\"fitted\".", call. = FALSE)
+  }
+  fit <- model$model
+  if (!maihda_pcv_is_glmer(model)) {
+    if (!isTRUE(tryCatch(lme4::isREML(fit), error = function(e) FALSE))) {
+      stop("estimation = \"REML\" needs REML fits, but this Gaussian model was fitted ",
+           "by maximum likelihood (REML = FALSE). Refit it by REML, or use ",
+           "estimation = \"fitted\".", call. = FALSE)
+    }
+    return(invisible(TRUE))
+  }
+  fam <- tryCatch(stats::family(fit)$family, error = function(e) NA_character_)
+  if (!isTRUE(fam %in% c("binomial", "poisson"))) {
+    stop("estimation = \"REML\" is available for binomial and Poisson glmer fits; ",
+         "this model's family is ", fam, ". Use estimation = \"fitted\".",
+         call. = FALSE)
+  }
+  n_theta <- length(lme4::getME(fit, "theta"))
+  if (n_theta != 1L) {
+    stop("estimation = \"REML\" needs a glmer fit whose only random effect is the ",
+         "stratum intercept; this model has ", n_theta, " variance parameters (a ",
+         "context or another grouping term). Use estimation = \"fitted\".",
+         call. = FALSE)
+  }
+  if (isTRUE(bootstrap)) {
+    stop("bootstrap = TRUE is not available with estimation = \"REML\" for a glmer ",
+         "fit. Use bootstrap = FALSE, or estimation = \"fitted\" for a bootstrap ",
+         "interval on the maximum-likelihood variances.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+# TRUE when estimation = "REML" would replace the maximum-likelihood variances of this
+# pair by REML-type ones, i.e. both are glmer fits maihda_pcv_reml_check() accepts.
+# print() points to the option from its maximum-likelihood note only then.
+maihda_pcv_reml_available <- function(model1, model2) {
+  if (!maihda_pcv_is_glmer(model1) || !maihda_pcv_is_glmer(model2)) return(FALSE)
+  isTRUE(tryCatch({
+    maihda_pcv_reml_check(model1)
+    maihda_pcv_reml_check(model2)
+    TRUE
+  }, error = function(e) FALSE))
+}
+
+# maihda()'s up-front refusals of estimation = "REML", made before any model is
+# fitted from what the arguments alone decide. The crossed-dimensions decomposition
+# computes no PCV, so the setting has nothing to act on there and passes.
+maihda_reml_workflow_check <- function(engine, decomposition, group) {
+  if (identical(decomposition, "crossed-dimensions")) return(invisible(TRUE))
+  if (identical(decomposition, "longitudinal")) {
+    stop("estimation = \"REML\" is not available for a longitudinal MAIHDA. The ",
+         "default estimation = \"fitted\" compares the REML variances of Gaussian ",
+         "growth fits.", call. = FALSE)
+  }
+  if (!is.null(group)) {
+    stop("estimation = \"REML\" is not available with 'group': the per-group ",
+         "comparison takes estimation = \"fitted\" or \"ML\". Drop 'group', or run ",
+         "maihda() on each group's rows.", call. = FALSE)
+  }
+  if (isTRUE(engine %in% c("wemix", "ordinal"))) {
+    stop("estimation = \"REML\" is not available for engine = \"", engine, "\", which ",
+         "estimates variances by maximum likelihood only. Use estimation = ",
+         "\"fitted\".", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+# The random-effect terms object lme4's model builders take: reformulas::mkReTrms()
+# where the installed reformulas has it, lme4's own otherwise.
+maihda_mk_re_trms <- function(bars, fr) {
+  if ("mkReTrms" %in% getNamespaceExports("reformulas")) {
+    reformulas::mkReTrms(bars, fr)
+  } else {
+    lme4::mkReTrms(bars, fr)
+  }
+}
+
+# REML-type between-stratum variance of a binomial or Poisson glmer fit whose only
+# random effect is the stratum intercept.
+#
+# glmer estimates the variance by maximum likelihood: the Laplace approximation of the
+# likelihood with the random effects integrated out and the fixed effects held at
+# their estimates. REML integrates the fixed effects out as well. lme4's nAGQ = 0
+# deviance function evaluates the Laplace approximation at the JOINT mode of the fixed
+# and random effects, as a function of the relative standard deviation theta alone;
+# adding the log-determinant of the fixed-effect block of that joint system
+# (pp$ldRX2()) completes the Laplace approximation of the likelihood with both
+# integrated out. The variance returned minimises that criterion over theta >= 0. For
+# the logit and log links it is the criterion glmmTMB(REML = TRUE) minimises; for
+# other links lme4 weights by the expected information where TMB uses the observed.
+#
+# lme4's default inner tolerance (tolPwrss = 1e-7) leaves the criterion uneven at
+# about 1e-4, enough to move its minimiser in the fourth decimal; it is built with
+# 1e-10 instead, and with the default only if those tighter iterations fail somewhere
+# on the scan.
+maihda_restricted_variance_lme4 <- function(model) {
+  theta_ml <- as.numeric(lme4::getME(model, "theta"))[1]
+  upper <- if (is.finite(theta_ml)) max(2, 4 * theta_ml) else 2
+  for (tol in c(1e-10, 1e-7)) {
+    found <- maihda_minimise_nonneg(maihda_restricted_criterion_lme4(model, tol), upper)
+    if (found$n_failed == 0L) break
+  }
+  if (identical(found$status, "unevaluable")) {
+    stop("The REML-type criterion could not be evaluated for this fit.", call. = FALSE)
+  }
+  if (identical(found$status, "unbounded")) {
+    stop("The REML-type criterion has no minimum below a between-stratum standard ",
+         "deviation of ", format(found$upper, digits = 3), " on the latent scale, so ",
+         "no REML-type variance is reported for this fit.", call. = FALSE)
+  }
+  (found$theta * stats::sigma(model))^2
+}
+
+# The REML-type criterion of a glmer fit as a function of theta (see
+# maihda_restricted_variance_lme4()).
+#
+# The deviance function is rebuilt from the fit's own model frame, design matrix and
+# random-effect terms, so the rows, prior weights and offsets are the fit's, and it
+# works on fresh copies of lme4's reference objects: `model` itself is not touched.
+# lme4's deviance function finds lme4's own helpers (GHrule()) through the frame that
+# built it, so it is built from a frame enclosed by the lme4 namespace: lme4 is
+# imported here, not attached, and a frame of this package would not reach them. The
+# builder's arguments are passed as names bound in that frame.
+maihda_restricted_criterion_lme4 <- function(model, tol_pwrss = 1e-10) {
+  build <- new.env(parent = asNamespace("lme4"))
+  build$fr <- stats::model.frame(model)
+  build$X <- lme4::getME(model, "X")
+  build$reTrms <- maihda_mk_re_trms(reformulas::findbars(stats::formula(model)),
+                                    build$fr)
+  build$family <- stats::family(model)
+  build$control <- lme4::glmerControl(tolPwrss = tol_pwrss)
+  devfun <- suppressMessages(suppressWarnings(do.call(
+    lme4::mkGlmerDevfun,
+    list(fr = quote(fr), X = quote(X), reTrms = quote(reTrms),
+         family = quote(family), nAGQ = 0L, control = quote(control)),
+    envir = build)))
+  pp <- environment(devfun)$pp
+  function(theta) {
+    dev <- devfun(theta)
+    # ldRX2() reads the decomposition devfun() has just left at this theta.
+    dev + pp$ldRX2()
+  }
+}
+
+# The minimiser of a criterion of one non-negative parameter (here a random-effect
+# standard deviation) whose minimum is at zero or at one interior point.
+#
+# The scan is geometric -- zero, then `upper` halved fourteen times up to `upper`
+# itself -- so an interior minimum is bracketed by its two neighbours wherever it
+# lies. A scan in equal steps is not enough: such a criterion is flat next to zero,
+# and a minimum well inside the first step is then stepped over and zero returned.
+# optimize() refines inside the bracket. The interior point is kept only when it beats
+# zero by more than `gain`, which rounding in the criterion cannot produce. `upper` is
+# widened while the scan's minimum is its last point.
+#
+# Returns the minimiser `theta`, the `upper` reached, the number of evaluations that
+# failed or were not finite (`n_failed`; they count as +Inf), and `status`: "ok",
+# "unbounded" (still decreasing at the widest `upper`) or "unevaluable" (no finite
+# value on the scan).
+maihda_minimise_nonneg <- function(crit, upper = 2, gain = 1e-8, widen = 3L) {
+  n_failed <- 0L
+  value <- function(theta) {
+    v <- tryCatch(crit(theta), error = function(e) NA_real_)
+    if (length(v) == 1L && is.finite(v)) return(v)
+    n_failed <<- n_failed + 1L
+    Inf
+  }
+  result <- function(theta, status) {
+    list(theta = theta, upper = upper, n_failed = n_failed, status = status)
+  }
+  for (attempt in seq_len(widen + 1L)) {
+    grid <- c(0, upper * 2^(-14:0))
+    values <- vapply(grid, value, numeric(1))
+    if (!any(is.finite(values))) return(result(NA_real_, "unevaluable"))
+    best <- which.min(values)
+    if (best < length(grid)) break
+    if (attempt <= widen) upper <- upper * 4
+  }
+  if (best == length(grid)) return(result(NA_real_, "unbounded"))
+  # optimize() warns when handed a non-finite value; value() has already counted it.
+  opt <- suppressWarnings(stats::optimize(
+    value, c(grid[max(best - 1L, 1L)], grid[best + 1L]), tol = 1e-8))
+  theta <- if (opt$objective < values[best]) opt$minimum else grid[best]
+  if (isTRUE(values[1] - min(opt$objective, values[best]) <= gain)) theta <- 0
+  result(theta, "ok")
 }
 
 # Invoked only when the ML estimation basis is requested (estimation = "ML"; see
@@ -970,9 +1296,7 @@ print.pcv_result <- function(x, ...) {
   }
 
   if (!is.null(x$estimation)) {
-    basis <- x$estimation_used
-    if (is.null(basis)) basis <- x$estimation
-    cat(pal$muted(sprintf("Variance basis: %s\n\n", maihda_pcv_basis_label(basis))))
+    cat(pal$muted(sprintf("Variance basis: %s\n\n", maihda_pcv_result_basis_label(x))))
   }
 
   cat(pal$bold("Between-stratum variance:"), "\n", sep = "")
@@ -981,6 +1305,9 @@ print.pcv_result <- function(x, ...) {
   cat(sprintf("  Change:  %.6f (%.2f%%)\n",
               x$var_model1 - x$var_model2,
               pcv * 100))
+  if (!is.null(x$var_model1_fitted) && !is.null(x$var_model2_fitted)) {
+    cat(pal$muted(sprintf("  %s\n", maihda_pcv_fitted_line(x))))
+  }
 
   cat(pal$muted("\nInterpretation (PCV is the proportional change in between-stratum\nvariance between the models):\n"))
   if (pcv > 0) {
@@ -996,8 +1323,52 @@ print.pcv_result <- function(x, ...) {
   if (isTRUE(x$adjusted_at_boundary)) {
     cat(pal$muted(maihda_pcv_boundary_note("Model 2")))
   }
+  if (maihda_pcv_show_ml_note(x)) {
+    # estimation = "REML" gives no bootstrap interval for a glmer pair, so a result
+    # that carries one is not pointed to it.
+    cat(pal$muted(maihda_pcv_ml_note(isTRUE(x$reml_available) && !isTRUE(x$bootstrap))))
+  }
 
   invisible(x)
+}
+
+# The maximum-likelihood values kept on a REML-type PCV result, as one line. Shared by
+# print.pcv_result() and the two-model branch of print.maihda_analysis().
+maihda_pcv_fitted_line <- function(x) {
+  sprintf("As fitted (maximum likelihood): %.6f -> %.6f, PCV %s",
+          x$var_model1_fitted, x$var_model2_fitted,
+          if (is.null(x$pcv_fitted) || !is.finite(x$pcv_fitted)) {
+            "NA"
+          } else {
+            sprintf("%.4f", x$pcv_fitted)
+          })
+}
+
+# TRUE when a PCV result should carry the maximum-likelihood note: the default basis,
+# on fits whose variances are maximum-likelihood estimates. An explicit
+# estimation = "ML" is labelled as such on the basis line instead.
+maihda_pcv_show_ml_note <- function(x) {
+  isTRUE(x$ml_variances) && identical(x$estimation, "fitted")
+}
+
+# The maximum-likelihood caveat. Shared by print.pcv_result() and the two-model branch
+# of print.maihda_analysis(); it names estimation = "REML" only where that option
+# applies to the fits (`reml_available`).
+maihda_pcv_ml_note <- function(reml_available = FALSE, width = 84) {
+  # The argument is wrapped as one word, so a line never breaks inside it.
+  arg <- "estimation = \"REML\""
+  arg_word <- gsub(" ", "_", arg, fixed = TRUE)
+  txt <- paste0(
+    "Note: these are maximum-likelihood variances. With few or small strata they run ",
+    "low, and lower the more fixed effects a model has, so the PCV runs high",
+    if (isTRUE(reml_available)) {
+      paste0("; ", arg_word, " compares REML-type variances instead (see ",
+             "?calculate_pcv).")
+    } else {
+      " (see ?calculate_pcv)."
+    })
+  lines <- gsub(arg_word, arg, strwrap(txt, width = width), fixed = TRUE)
+  paste0("\n", paste(lines, collapse = "\n"), "\n")
 }
 
 # The "adjusted fit is at the singularity boundary" caveat. Shared by

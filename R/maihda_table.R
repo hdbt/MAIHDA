@@ -85,10 +85,11 @@
 #'     produced}
 #'   \item{models_note}{a character note (or \code{NULL}) flagging that the PCV was
 #'     computed from maximum-likelihood-refitted between-stratum variances while the
-#'     variance/VPC rows are each model's own (REML) estimate -- or, for a \code{brms}
-#'     analysis, from posterior medians while the variance row is a posterior mean --
-#'     so the PCV need not equal the reduction implied by the displayed variance rows;
-#'     see \code{\link{calculate_pcv}}}
+#'     variance/VPC rows are each model's own (REML) estimate -- or from REML-type
+#'     variances (\code{estimation = "REML"}) while those rows are maximum-likelihood
+#'     estimates, or, for a \code{brms} analysis, from posterior medians while the
+#'     variance row is a posterior mean -- so the PCV need not equal the reduction
+#'     implied by the displayed variance rows; see \code{\link{calculate_pcv}}}
 #'   \item{model_keys, model_labels}{the estimate-column keys and their display labels}
 #'   \item{family, engine, mode, scale, ranked_by, n_obs, n_strata_total, context_vars}{
 #'     metadata used by \code{print()}}
@@ -415,18 +416,21 @@ maihda_build_results_table <- function(model_stats, pcv = NULL) {
 }
 
 # Note flagging that a two-model PCV was computed on a different variance basis than
-# the displayed single-model variance rows. With estimation = "ML",
+# the displayed single-model variance rows. Three cases. With estimation = "ML",
 # calculate_pcv() refits a Gaussian lme4 fit to ML before differencing the
 # between-stratum variances (see ?calculate_pcv), whereas the "Between-stratum
 # variance"/SD and VPC/ICC rows are read from each model's own (REML) fit -- the same
-# quantities summary() reports. And for a brms analysis the PCV compares the posterior
+# quantities summary() reports. With estimation = "REML" on a glmer pair the PCV
+# compares REML-type variances, whereas those rows are the fits' own
+# maximum-likelihood estimates. And for a brms analysis the PCV compares the posterior
 # MEDIANS of the two variances, whereas the variance row is the posterior mean from
 # summary()'s variance-components table (the SD row its square root). When the two
 # bases differ, the displayed PCV
 # does not equal (var_null - var_adj)/var_null read off the table, which reads as an
 # inconsistency unless explained. Returns NULL (no note) when the bases coincide: the
-# default estimation = "fitted" on lme4 (the PCV then uses the same REML variances
-# shown), a glmer fit, the wemix/ordinal engines, or a boundary null where the ML refit
+# default estimation = "fitted" on lme4 (the PCV then uses the same variances shown,
+# REML for an lmer fit and maximum likelihood for a glmer fit), the wemix/ordinal
+# engines, or a boundary null where the ML refit
 # was skipped -- detected directly by comparing the PCV's own between-stratum variances
 # to the displayed ones rather than proxying on isREML() or the estimation argument.
 maihda_table_pcv_note <- function(model_stats, pcv, model_keys, engine) {
@@ -453,6 +457,16 @@ maihda_table_pcv_note <- function(model_stats, pcv, model_keys, engine) {
   # rather than present it as the pure ML comparison that was requested.
   basis <- pcv$estimation_used
   if (is.null(basis)) basis <- pcv$estimation
+  # estimation = "REML" on a glmer pair: REML-type variances against rows that are the
+  # fits' own maximum-likelihood estimates.
+  if (identical(basis, "REML")) {
+    return(paste0(
+      "The PCV is computed from REML-type between-stratum variances (estimation = ",
+      "\"REML\"; see ?calculate_pcv), while the Between-stratum variance/SD and ",
+      "VPC/ICC rows are each model's own maximum-likelihood estimate. The PCV ",
+      "therefore need not equal the variance reduction implied by the displayed ",
+      "variance rows."))
+  }
   ml_desc <- if (identical(basis, "mixed")) {
     paste0("maximum-likelihood-refitted between-stratum variances (estimation = ",
            "\"ML\"; a between-stratum variance at the boundary kept its REML fit, so ",

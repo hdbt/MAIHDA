@@ -151,6 +151,17 @@ in the between-stratum variance is partly a **rescaling** of the latent scale, n
 only "variance explained". Interpret the PCV as a model-dependent, descriptive
 change, not a causal decomposition.
 
+`glmer()` estimates these variances by maximum likelihood. With few or small strata
+they run low, and lower the more fixed effects a model has, so the PCV runs high --
+most of all when the second model adds the strata's own main effects.
+`estimation = "REML"` compares REML-type variances instead, the counterpart of what
+the default does for a continuous outcome. It needs strata large enough for their
+own estimates to be precise (see `?calculate_pcv`):
+
+```{r adjusted-reml}
+calculate_pcv(model_null2, model_adj, estimation = "REML")
+```
+
 > **A note on adjusting for the strata's own categories.** If instead you add the
 > *categorical* main effects that define the strata (e.g.
 > `Obese ~ Gender + Race + Education + ...`) to recover the additive-vs-interaction

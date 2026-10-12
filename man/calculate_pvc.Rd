@@ -10,7 +10,7 @@ calculate_pvc(
   bootstrap = FALSE,
   n_boot = 1000,
   conf_level = 0.95,
-  estimation = c("fitted", "ML")
+  estimation = c("fitted", "ML", "REML")
 )
 }
 \arguments{
@@ -32,11 +32,13 @@ A value below about 200 warns that the interval's tail endpoints are unstable
 
 \item{conf_level}{Confidence level for bootstrap intervals. Default is 0.95.}
 
-\item{estimation}{Which between-stratum variances are compared, \code{"fitted"}
-(default) or \code{"ML"}. \code{"fitted"} uses each model's own estimate (the REML
-estimate for a Gaussian \code{lmer} fit); \code{"ML"} refits REML \code{lmer} fits
-by maximum likelihood first, which overstates the PCV when strata are few. Only
-Gaussian \code{lmer} fits are affected. See Details.}
+\item{estimation}{Which between-stratum variances are compared: \code{"fitted"}
+(default), \code{"ML"} or \code{"REML"}. \code{"fitted"} uses each model's own
+estimate (REML for a Gaussian \code{lmer} fit, maximum likelihood for a
+\code{glmer} fit). \code{"ML"} refits REML \code{lmer} fits by maximum likelihood
+first, which overstates the PCV when strata are few. \code{"REML"} compares
+REML-type variances for binomial and Poisson \code{glmer} fits, whose
+maximum-likelihood PCV is overstated in the same way. See Details.}
 }
 \value{
 See \code{\link{calculate_pcv}}.
