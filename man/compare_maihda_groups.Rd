@@ -180,7 +180,8 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   frame cannot be built. \code{var_other} is the variance of any additional
   random effects and is 0 for the canonical single-stratum model. Groups that
   were skipped or failed have \code{NA} metrics and an explanatory
-  \code{status}.
+  \code{status}; for a failed fit it is \code{"fit failed: "} followed by the
+  first line of the error, whose whole message is in a warning.
 }
 \description{
 Fits a separate random-intercept MAIHDA model (intercept-only \emph{random}
@@ -228,7 +229,8 @@ strata are rebuilt inside each group, so a degenerate single-stratum group is
 instead reported with a "fit failed" status rather than a pre-fit skip. A
 singular fit yields a VPC of 0 rather than an error (unlike
 \code{\link{calculate_pcv}}). A hard fit failure in one group records \code{NA}
-and a status note without aborting the whole comparison.
+and a status note without aborting the whole comparison; one warning names the
+groups whose fit failed and gives each distinct reason once.
 
 Fit-quality diagnostics: for the \code{lme4} engine, groups whose model is
 singular or fails to converge keep a \code{status} of \code{"ok"} (the fit did

@@ -538,7 +538,8 @@ plot_comparison <- function(comparison_df) {
 #'   frame cannot be built. \code{var_other} is the variance of any additional
 #'   random effects and is 0 for the canonical single-stratum model. Groups that
 #'   were skipped or failed have \code{NA} metrics and an explanatory
-#'   \code{status}.
+#'   \code{status}; for a failed fit it is \code{"fit failed: "} followed by the
+#'   first line of the error, whose whole message is in a warning.
 #'
 #' @details
 #' Robustness: a group whose \emph{analytic} sample (rows surviving the model
@@ -551,7 +552,8 @@ plot_comparison <- function(comparison_df) {
 #' instead reported with a "fit failed" status rather than a pre-fit skip. A
 #' singular fit yields a VPC of 0 rather than an error (unlike
 #' \code{\link{calculate_pcv}}). A hard fit failure in one group records \code{NA}
-#' and a status note without aborting the whole comparison.
+#' and a status note without aborting the whole comparison; one warning names the
+#' groups whose fit failed and gives each distinct reason once.
 #'
 #' Fit-quality diagnostics: for the \code{lme4} engine, groups whose model is
 #' singular or fails to converge keep a \code{status} of \code{"ok"} (the fit did
@@ -1020,16 +1022,22 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # context variance, aggregated into a single weak-identification warning below.
   context_per <- list()
   weak_context_cells <- character(0)
+  # Groups whose own model could not be fitted, with the whole error message, for one
+  # aggregated warning after the loop (the status cell keeps the message's first line).
+  fit_failed_groups <- list()
   # Per-group PCV decomposition (two-model mode) can fail even when the group's null
   # VPC model succeeds -- e.g. a stratum dimension that is constant within the group
-  # makes the adjusted model's main effect a one-level factor lmer rejects. Those
+  # makes the adjusted model's main effect a one-level factor no engine can fit. Those
   # failures are genuine and must not be silent: collect the reason per group
-  # (pcv_failed_groups) for an aggregated warning. A group whose adjusted fit is merely
-  # SINGULAR (PCV saturated near 100%) is NOT an error and NOT warned about -- a
+  # (pcv_failed_groups) for an aggregated warning, and, for a group whose error is that
+  # one-level factor, the dimensions concerned (pcv_single_level_dims), so the warning
+  # names that cause where it applies and nowhere else. A group whose adjusted fit is
+  # merely SINGULAR (PCV saturated near 100%) is NOT an error and NOT warned about -- a
   # singular adjusted fit is indistinguishable from genuinely additive strata (the
   # common, legitimate MAIHDA result), so it is recorded only in the pcv_status column
   # ("singular") for the analyst to read, not surfaced as a caution.
   pcv_failed_groups <- list()
+  pcv_single_level_dims <- list()
   # Set when any group's per-group calculate_pcv() reports a "mixed" basis (estimation =
   # "ML" but a boundary model kept its REML fit), so the header does not claim a pure ML
   # comparison for the whole table when one group's comparison was partly REML.
@@ -1144,8 +1152,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     )
 
     if (!is.null(fit_obj$error)) {
-      row$status <- paste0("fit failed: ", fit_obj$error)
-      warning(sprintf("Group '%s' model fit failed: %s", g, fit_obj$error), call. = FALSE)
+      # The cell holds the first line of the message; the aggregated warning raised
+      # after the loop gives all of it.
+      row$status <- paste0("fit failed: ", maihda_first_line(fit_obj$error))
+      fit_failed_groups[[g]] <- fit_obj$error
       rows[[gi]] <- row
       next
     }
@@ -1226,6 +1236,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
           row$pcv_status <- "ok"
           adj_model <- NULL
           pcv_err <- NULL
+          pcv_one_level <- FALSE
           pcv_obj <- tryCatch({
             adj_model <- do.call(
               fit_maihda,
@@ -1234,7 +1245,11 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
                 slice_dots_for_group(idx))
             )
             calculate_pcv(fit_obj$model, adj_model, estimation = estimation)
-          }, error = function(e) { pcv_err <<- conditionMessage(e); NULL })
+          }, error = function(e) {
+            pcv_err <<- conditionMessage(e)
+            pcv_one_level <<- maihda_one_level_factor_error(e)
+            NULL
+          })
           if (!is.null(pcv_obj)) {
             if (identical(pcv_obj$estimation_used, "mixed")) any_mixed_basis <- TRUE
             row$pcv <- pcv_obj$pcv
@@ -1278,6 +1293,11 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
             } else {
               pcv_err
             }
+            # The erroring call tells a one-level factor; the strata the group's null
+            # fit populated tell which dimension it is.
+            if (pcv_one_level) {
+              pcv_single_level_dims[[g]] <- maihda_single_level_dims(fit_obj$model)
+            }
           }
         }
       }
@@ -1299,6 +1319,17 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     }
 
     rows[[gi]] <- row
+  }
+
+  # One warning for the groups whose own model could not be fitted (NA estimates and a
+  # "fit failed" status), giving each distinct reason once with the groups it applies
+  # to: the same error in every group is one message, not one per group.
+  if (length(fit_failed_groups) > 0) {
+    warning("compare_maihda_groups(): the model fit failed for group(s) ",
+            paste(names(fit_failed_groups), collapse = ", "),
+            ". Their estimates are NA and status gives the first line of the reason.\n",
+            paste(maihda_failure_entries(fit_failed_groups), collapse = "\n"),
+            call. = FALSE)
   }
 
   # Even with shared/global strata, groups can end up with different *populated*
@@ -1355,16 +1386,16 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # group's null VPC model succeeded (pcv is NA, pcv_status = "failed"). Without this
   # the missing PCV is silent and the row still reads status = "ok"; name the groups
   # and their error so an incomplete decomposition is never mistaken for a successful
-  # one. (A common cause: a stratum dimension constant within the group, whose adjusted
-  # main effect is a one-level factor lmer rejects.)
+  # one. Each distinct reason is given once with the groups it applies to. A stratum
+  # dimension with a single level in a group is named as the cause for the groups whose
+  # error was that one-level factor, and for no other failure.
   if (length(pcv_failed_groups) > 0) {
     warning("compare_maihda_groups(): the per-group PCV decomposition failed for ",
-            "group(s) ",
-            paste(sprintf("%s (%s)", names(pcv_failed_groups),
-                          unlist(pcv_failed_groups)), collapse = "; "),
+            "group(s) ", paste(names(pcv_failed_groups), collapse = ", "),
             ". Their null VPC model succeeded (status = \"ok\") but the adjusted ",
-            "model or PCV did not, so pcv is NA and pcv_status = \"failed\". A stratum ",
-            "dimension that is constant within a group is the usual cause.",
+            "model or PCV did not, so pcv is NA and pcv_status = \"failed\".\n",
+            paste(maihda_failure_entries(pcv_failed_groups, pcv_single_level_dims),
+                  collapse = "\n"),
             call. = FALSE)
   }
   # A singular adjusted fit (pcv_status = "singular", PCV saturated near 100%) is NOT
@@ -1510,6 +1541,87 @@ maihda_prepare_group_strata <- function(formula, data, shared_strata, autobin = 
   # Per-group strata: keep the shorthand so fit_maihda rebuilds strata in each
   # subset. Return data unchanged (no stratum column yet).
   list(data = data, formula = formula, strata_vars = strata_vars)
+}
+
+# The first line of an error message, which is what a "fit failed" status cell holds:
+# a message of several lines would otherwise spread over the printed table. Blank
+# leading lines are passed over. A message that is not valid text in its encoding
+# cannot be split and stays whole.
+maihda_first_line <- function(msg) {
+  if (!isTRUE(validEnc(msg))) {
+    return(msg)
+  }
+  lines <- trimws(strsplit(msg, "\r?\n")[[1L]])
+  lines <- lines[is.na(lines) | nzchar(lines)]
+  if (length(lines) == 0L) "" else lines[1L]
+}
+
+# TRUE when `e` is the error a design matrix stops with for a factor that has a single
+# level among the rows being fitted. Every engine builds its fixed-effect design with
+# model.matrix(), which sets a factor's contrasts through `contrasts<-`, so the erroring
+# CALL identifies the case; its message is translated and is not read.
+maihda_one_level_factor_error <- function(e) {
+  cl <- conditionCall(e)
+  if (!is.call(cl)) {
+    return(FALSE)
+  }
+  fn <- cl[[1L]]
+  # A namespace-qualified call names the same function.
+  if (is.call(fn) && length(fn) == 3L &&
+      (identical(fn[[1L]], as.name("::")) || identical(fn[[1L]], as.name(":::")))) {
+    fn <- fn[[3L]]
+  }
+  identical(fn, as.name("contrasts<-"))
+}
+
+# The stratum dimensions that take a single value among the rows a model was fitted to,
+# read from the strata it populated: strata_info counts the analytic rows per stratum
+# and holds an auto-binned dimension as its bins, which is how the adjusted model
+# enters it.
+maihda_single_level_dims <- function(model) {
+  info <- model$strata_info
+  dims <- intersect(model$strata_vars, names(info))
+  if (length(dims) == 0L || !"n" %in% names(info)) {
+    return(character(0))
+  }
+  populated <- info[!is.na(info$n) & info$n > 0L, , drop = FALSE]
+  if (nrow(populated) == 0L) {
+    return(character(0))
+  }
+  dims[vapply(dims, function(v) length(unique(as.character(populated[[v]]))) == 1L,
+              logical(1))]
+}
+
+# The lines an aggregated failure warning lists under its opening sentence: one entry
+# per distinct reason, "<groups>: <message>", so a reason several groups share is given
+# once. `reasons` is a named list, group -> message, in the order the groups were
+# fitted. `single_level` holds, for the groups whose failure was a one-level factor,
+# the stratum dimensions with a single level there; their entry gains the sentence that
+# says so, and groups differing in those dimensions get separate entries.
+maihda_failure_entries <- function(reasons, single_level = list()) {
+  groups <- names(reasons)
+  msgs <- vapply(reasons, function(m) as.character(m)[1L], character(1),
+                 USE.NAMES = FALSE)
+  msgs[is.na(msgs) | !nzchar(msgs)] <- "unknown error"
+  dims <- lapply(groups, function(g) single_level[[g]])
+  key <- paste(msgs, vapply(dims, paste, character(1), collapse = "\r"), sep = "\r\r")
+  vapply(unique(key), function(k) {
+    same <- which(key == k)
+    who <- paste(groups[same], collapse = ", ")
+    entry <- paste0(who, ": ", msgs[same[1L]])
+    d <- dims[[same[1L]]]
+    if (length(d) == 1L) {
+      entry <- paste0(entry, "\n  In ", who, " the stratum dimension '", d,
+                      "' has a single level, so its main effect cannot be estimated ",
+                      "there.")
+    } else if (length(d) > 1L) {
+      entry <- paste0(entry, "\n  In ", who, " the stratum dimensions ",
+                      paste(sprintf("'%s'", d), collapse = ", "),
+                      " have a single level each, so their main effects cannot be ",
+                      "estimated there.")
+    }
+    entry
+  }, character(1), USE.NAMES = FALSE)
 }
 
 # Basis line of a printed group comparison. The table's variance columns are read from
