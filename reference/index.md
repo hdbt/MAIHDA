@@ -54,7 +54,7 @@
 - [`maihda_upset_size()`](https://hdbt.github.io/MAIHDA/reference/maihda_upset_size.md)
   : Recommended Figure Size for the UpSet Stratum Plot
 - [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
-  : Response-scale VPC for a binomial MAIHDA model
+  : Response-scale VPC for a binomial or count MAIHDA model
 - [`make_strata()`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   : Create Strata from Multiple Variables
 - [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)

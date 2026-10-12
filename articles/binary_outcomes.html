@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-10-07</h4>
+            <h4 data-toc-skip class="date">2026-10-12</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/binary_outcomes.Rmd" class="external-link"><code>vignettes/binary_outcomes.Rmd</code></a></small>
       <div class="d-none name"><code>binary_outcomes.Rmd</code></div>
@@ -337,7 +337,7 @@ credibly non-zero:</p>
 <span><span class="co">#&gt;  stratum                       label   n interaction prob_diff     se  lower</span></span>
 <span><span class="co">#&gt;        8 male × White × Some College 328      0.3713    0.0896 0.0993 0.1766</span></span>
 <span><span class="co">#&gt;   upper  p_value p_adjusted flagged direction</span></span>
-<span><span class="co">#&gt;  0.5659 0.000185   0.009248    TRUE     above</span></span>
+<span><span class="co">#&gt;  0.5659 0.000185   0.009249    TRUE     above</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   exploratory. See ?maihda_interactions.</span></span></span>
@@ -441,7 +441,7 @@ Ask for it with <code>scale = "response"</code>:</p>
 <span><span class="co">#&gt;  stratum                       label   n interaction   lower  upper  p_value</span></span>
 <span><span class="co">#&gt;        8 male × White × Some College 328      0.0896 0.04188 0.1381 0.000185</span></span>
 <span><span class="co">#&gt;  p_adjusted flagged direction</span></span>
-<span><span class="co">#&gt;    0.009248    TRUE     above</span></span>
+<span><span class="co">#&gt;    0.009249    TRUE     above</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   exploratory. See ?maihda_interactions.</span></span></span>
@@ -597,6 +597,13 @@ variances of 1.37, 2.94 and 9.76, so the same model reports a VPC six
 times larger under one than another. <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> therefore
 names the approximation and the mean count it was evaluated at, and
 warns when that count is at or below 2. Report which one you used.</p>
+<p>The VPC can also be computed on the count scale itself. For a Poisson
+or negative-binomial model <code><a href="../reference/maihda_vpc_response.html">maihda_vpc_response()</a></code> evaluates
+the exact expressions of Leckie et al. (2020): the share of the variance
+of the observed counts that lies between strata, with no level-1
+approximation to choose. <code>summary(response_vpc = TRUE)</code>
+prints it below the latent-scale VPC. The two answer different
+questions, so say which one you report.</p>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -617,6 +624,9 @@ analysis of individual heterogeneity and discriminatory accuracy
 original stepwise multilevel logistic regression analysis of
 discriminatory accuracy: the case of neighbourhoods and health. <em>PLOS
 ONE</em>, 11(4), e0153778.</p></li>
+<li><p>Leckie, G., Browne, W. J., Goldstein, H., Merlo, J., &amp;
+Austin, P. C. (2020). Partitioning variation in multilevel models for
+count data. <em>Psychological Methods</em>, 25(6), 787-801. <a href="doi:10.1037/met0000265" class="uri">doi:10.1037/met0000265</a></p></li>
 </ul>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

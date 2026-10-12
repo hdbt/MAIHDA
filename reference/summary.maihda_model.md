@@ -59,7 +59,11 @@ summary(
   ([`maihda_vpc_response`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md))
   and attach it as the `vpc_response` slot. It is estimated by
   simulation, so it is opt-in (default `FALSE`) and uses `seed` for
-  reproducibility. Ignored for other families/engines.
+  reproducibility. For a Poisson or negative-binomial (lme4) model whose
+  only random effect is the stratum intercept, the same slot receives
+  the count-scale VPC of Leckie et al. (2020), a closed form that needs
+  no seed. Ignored for other families, engines and random-effect
+  structures.
 
 - seed:
 
@@ -147,9 +151,10 @@ A maihda_summary object containing:
 
   The response-scale VPC (`maihda_vpc_response`) when
   `response_vpc = TRUE` for a binomial lme4 model, including a
-  contextual fit (the context variance enters the VPC denominator);
-  `NULL` otherwise (including for crossed-dimensions and longitudinal
-  fits)
+  contextual fit (the context variance enters the VPC denominator), and
+  the count-scale VPC for a Poisson or negative-binomial lme4 model
+  whose only random effect is the stratum intercept; `NULL` otherwise
+  (including for crossed-dimensions and longitudinal fits)
 
 - stratum_estimates:
 
@@ -261,6 +266,12 @@ model the level-1 variance is the mean conditional residual variance,
 between-stratum deviation; they equal the *pure* intersectional
 (interaction) component only when the additive main effects of the
 strata variables are included in the model.
+
+For a Poisson or negative-binomial model the VPC can also be computed on
+the count scale itself, with no approximation of the level-1 variance
+(Leckie et al., 2020): see
+[`maihda_vpc_response`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md),
+or set `response_vpc = TRUE`.
 
 ## Fixed-effect reference distribution
 
@@ -375,6 +386,11 @@ discriminatory accuracy (MAIHDA) to study individual longitudinal
 trajectories, with application to mental health in the UK. *Social
 Science & Medicine*, 351, 116955.
 [doi:10.1016/j.socscimed.2024.116955](https://doi.org/10.1016/j.socscimed.2024.116955)
+
+Leckie, G., Browne, W. J., Goldstein, H., Merlo, J., & Austin, P. C.
+(2020). Partitioning variation in multilevel models for count data.
+*Psychological Methods*, 25(6), 787-801.
+[doi:10.1037/met0000265](https://doi.org/10.1037/met0000265)
 
 ## Examples
 

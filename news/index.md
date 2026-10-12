@@ -106,6 +106,11 @@
   output, and warns when that count (after any negative-binomial
   overdispersion) is at or below 2.
 
+- [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
+  now also returns the exact count-scale VPC of Leckie et al. (2020) for
+  Poisson and negative-binomial lme4 fits whose only random effect is
+  the stratum intercept; `summary(response_vpc = TRUE)` attaches it.
+
 - [`print()`](https://rdrr.io/r/base/print.html) on a
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
   analysis and on a [`summary()`](https://rdrr.io/r/base/summary.html)
@@ -511,11 +516,28 @@
 
 ### Bug fixes
 
+- `fit_maihda(engine = "wemix")` on a binomial model now says that the
+  between-stratum variance was estimated at zero when
+  [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
+  stops there, instead of passing on its
+  `Matrix seems negative semi-definite` error.
+
 - `predict_maihda(allow_new_levels = TRUE)` on a brms fit now predicts a
   row with a missing grouping value – a stratum dimension, a supplied
   `stratum`, a context or a longitudinal `id` – at a zero effect for
   that term, as the other engines do, instead of drawing a new effect
   for it on every call.
+
+- [`summary()`](https://rdrr.io/r/base/summary.html) on a binomial
+  `engine = "wemix"` fit with a small between-stratum variance no longer
+  passes on WeMix’s `diag(V) had non-positive or NA entries` warning,
+  and neither does anything that calls it, such as
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html),
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md),
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html),
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md);
+  estimates are unchanged.
 
 - A brms `trials()` term that calls a function outside base R – your
   own, or one from an attached package such as

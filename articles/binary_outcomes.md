@@ -270,7 +270,7 @@ maihda_interactions(model_int)
 #>  stratum                       label   n interaction prob_diff     se  lower
 #>        8 male × White × Some College 328      0.3713    0.0896 0.0993 0.1766
 #>   upper  p_value p_adjusted flagged direction
-#>  0.5659 0.000185   0.009248    TRUE     above
+#>  0.5659 0.000185   0.009249    TRUE     above
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.
@@ -374,7 +374,7 @@ maihda_interactions(model_int, scale = "response")
 #>  stratum                       label   n interaction   lower  upper  p_value
 #>        8 male × White × Some College 328      0.0896 0.04188 0.1381 0.000185
 #>  p_adjusted flagged direction
-#>    0.009248    TRUE     above
+#>    0.009249    TRUE     above
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.
@@ -552,6 +552,15 @@ under one than another.
 approximation and the mean count it was evaluated at, and warns when
 that count is at or below 2. Report which one you used.
 
+The VPC can also be computed on the count scale itself. For a Poisson or
+negative-binomial model
+[`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
+evaluates the exact expressions of Leckie et al. (2020): the share of
+the variance of the observed counts that lies between strata, with no
+level-1 approximation to choose. `summary(response_vpc = TRUE)` prints
+it below the latent-scale VPC. The two answer different questions, so
+say which one you report.
+
 ## References
 
 - Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
@@ -573,3 +582,7 @@ that count is at or below 2. Report which one you used.
   stepwise multilevel logistic regression analysis of discriminatory
   accuracy: the case of neighbourhoods and health. *PLOS ONE*, 11(4),
   e0153778.
+
+- Leckie, G., Browne, W. J., Goldstein, H., Merlo, J., & Austin, P. C.
+  (2020). Partitioning variation in multilevel models for count data.
+  *Psychological Methods*, 25(6), 787-801. <doi:10.1037/met0000265>

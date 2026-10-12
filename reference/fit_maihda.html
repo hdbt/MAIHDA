@@ -221,7 +221,11 @@ Not supported by the <code>wemix</code> engine.</p></dd>
       <code><a href="https://rdrr.io/r/stats/offset.html" class="external-link">offset()</a></code> term: <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> leaves an offset out of the
       model it fits, so a formula with one is an error. For a Gaussian outcome,
       fit the response minus the offset instead (the same model) and add the
-      offset back to its predictions. Fixed-effect
+      offset back to its predictions. A <code>binomial(logit)</code> model whose
+      between-stratum variance is estimated at zero is an error as well:
+      <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code> cannot return that fit. It is a common result for
+      the adjusted model when the strata are additive, and
+      <code>engine = "brms"</code> returns a fit there. Fixed-effect
       standard errors are the sandwich (robust) errors WeMix reports, which
       account for the weighting and for dependence within the model's own
       grouping (the intersectional strata) – but not for clustering or
@@ -329,7 +333,9 @@ counts it gives the smallest VPC of the three. The default is the approximation
 <code>performance::icc()</code> uses, but evaluated at a different \(\lambda\) on
 an adjusted model, so the two VPCs agree exactly only for a null model. Used
 by <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, the bootstrap intervals and the longitudinal VPC(t);
-ignored for every other family.</p></dd>
+ignored for every other family. The count-scale VPC of Leckie et al. (2020),
+from <code><a href="maihda_vpc_response.html">maihda_vpc_response</a></code>, partitions the variance of the counts
+themselves and does not depend on this choice.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

@@ -187,12 +187,17 @@ fit_maihda(
     leaves an offset out of the model it fits, so a formula with one is
     an error. For a Gaussian outcome, fit the response minus the offset
     instead (the same model) and add the offset back to its predictions.
-    Fixed-effect standard errors are the sandwich (robust) errors WeMix
-    reports, which account for the weighting and for dependence within
-    the model's own grouping (the intersectional strata) – but not for
-    clustering or stratification induced by the sample design, which the
-    strata do not represent. The VPC/PCV are reported as point estimates
-    (no bootstrap – see
+    A `binomial(logit)` model whose between-stratum variance is
+    estimated at zero is an error as well:
+    [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
+    cannot return that fit. It is a common result for the adjusted model
+    when the strata are additive, and `engine = "brms"` returns a fit
+    there. Fixed-effect standard errors are the sandwich (robust) errors
+    WeMix reports, which account for the weighting and for dependence
+    within the model's own grouping (the intersectional strata) – but
+    not for clustering or stratification induced by the sample design,
+    which the strata do not represent. The VPC/PCV are reported as point
+    estimates (no bootstrap – see
     [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)).
 
   - `engine = "brms"`: the weights enter the model as likelihood weights
@@ -303,6 +308,10 @@ fit_maihda(
   so the two VPCs agree exactly only for a null model. Used by
   [`summary()`](https://rdrr.io/r/base/summary.html), the bootstrap
   intervals and the longitudinal VPC(t); ignored for every other family.
+  The count-scale VPC of Leckie et al. (2020), from
+  [`maihda_vpc_response`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md),
+  partitions the variance of the counts themselves and does not depend
+  on this choice.
 
 - ...:
 
