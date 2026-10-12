@@ -289,7 +289,16 @@ maihda_fit_wemix <- function(formula, data, family, sampling_weights, dot_vals) 
   if (family$family == "binomial") {
     args$family <- stats::binomial(link = "logit")
   }
-  model <- do.call(WeMix::mix, c(args, dot_vals))
+  # A binomial fit that ends with the between-stratum variance at zero makes mix() stop
+  # with an error about a matrix; say what happened instead (see
+  # maihda_wemix_boundary_error()). Any other error leaves as WeMix raised it.
+  model <- withCallingHandlers(
+    do.call(WeMix::mix, c(args, dot_vals)),
+    error = function(e) {
+      if (maihda_wemix_boundary_error(e, family)) {
+        stop(maihda_wemix_boundary_message(e), call. = FALSE)
+      }
+    })
 
   # WeMix returns no record of how its (internal lme4) design coded the factors, and
   # that coding depends on the options in force NOW, so take it here for the
@@ -300,6 +309,48 @@ maihda_fit_wemix <- function(formula, data, family, sampling_weights, dot_vals) 
     error = function(e) NULL)
 
   list(model = model, data = data, coding = coding)
+}
+
+# TRUE when `e` is the error WeMix::mix() stops with after a binomial fit has ended with
+# the between-stratum variance at zero.
+#
+# mix() optimises that fit in the Cholesky factor and then, for its standard errors,
+# differentiates the likelihood numerically in the VARIANCE, by central differences of
+# half-width (1 + v) * eps^(1/4), about 1.2e-4. For an estimate v below that the lower
+# point is a negative variance, and Matrix::nearPD() stops on a covariance matrix
+# without a positive eigenvalue (WeMix 4.0.3). On the binomial path mix() reaches
+# nearPD() only inside that likelihood, and nearPD() has no other stop(), so the
+# erroring CALL identifies the case; its message is translated and is not read. The
+# linear (Gaussian) path differentiates in the Cholesky factor and returns a
+# zero-variance fit, so a nearPD() error there is something else.
+maihda_wemix_boundary_error <- function(e, family) {
+  if (!identical(family$family, "binomial")) {
+    return(FALSE)
+  }
+  cl <- conditionCall(e)
+  if (!is.call(cl)) {
+    return(FALSE)
+  }
+  fn <- cl[[1L]]
+  # `Matrix::nearPD(...)` as well as a bare `nearPD(...)`.
+  if (is.call(fn) && length(fn) == 3L &&
+      (identical(fn[[1L]], as.name("::")) || identical(fn[[1L]], as.name(":::")))) {
+    fn <- fn[[3L]]
+  }
+  identical(fn, as.name("nearPD"))
+}
+
+# What fit_maihda() says in place of that error. "Below 0.00013" is the half-width
+# above: mix() cannot return a smaller variance.
+maihda_wemix_boundary_message <- function(e) {
+  paste0(
+    "engine = \"wemix\": WeMix::mix() estimated the between-stratum variance of this ",
+    "binomial model at zero (below 0.00013) and cannot return a fit there: it stops ",
+    "while computing its standard errors (\"", conditionMessage(e), "\").\n",
+    "  A between-stratum variance of zero means the fixed part of the model accounts ",
+    "for all differences between strata; for the adjusted model of a two-model MAIHDA ",
+    "that is a PCV of 1.\n",
+    "  engine = \"brms\" with 'sampling_weights' returns a fit for this model.")
 }
 
 # Reject a 'max_iteration' forwarded to WeMix::mix() that would abandon (or never

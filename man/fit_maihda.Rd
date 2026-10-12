@@ -146,7 +146,11 @@ Not supported by the \code{wemix} engine.}
       \code{offset()} term: \code{WeMix::mix()} leaves an offset out of the
       model it fits, so a formula with one is an error. For a Gaussian outcome,
       fit the response minus the offset instead (the same model) and add the
-      offset back to its predictions. Fixed-effect
+      offset back to its predictions. A \code{binomial(logit)} model whose
+      between-stratum variance is estimated at zero is an error as well:
+      \code{WeMix::mix()} cannot return that fit. It is a common result for
+      the adjusted model when the strata are additive, and
+      \code{engine = "brms"} returns a fit there. Fixed-effect
       standard errors are the sandwich (robust) errors WeMix reports, which
       account for the weighting and for dependence within the model's own
       grouping (the intersectional strata) -- but not for clustering or
