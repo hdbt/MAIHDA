@@ -616,7 +616,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     stratum_estimates <- maihda_wemix_stratum_ranef(object)
     stratum_estimates <- add_stratum_labels(stratum_estimates, object$strata_info)
 
-    model_summary <- tryCatch(summary(model), error = function(e) NULL)
+    model_summary <- tryCatch(maihda_wemix_summary(model), error = function(e) NULL)
 
   } else if (engine == "ordinal") {
     if (bootstrap) {
@@ -828,6 +828,42 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
   )
 
   return(result)
+}
+
+# WeMix's own summary of a fit, for the model_summary slot, without the warning it
+# raises over a correlation matrix it then does not use.
+#
+# summary.WeMixResults() takes the correlations among a level's random effects with
+# stats::cov2cor(), which warns when a diagonal entry of its matrix is missing or not
+# positive. For a binomial fit that matrix holds the sampling variance of the variance
+# estimate, which WeMix leaves at NA when the estimate is below exp(-3.6), about 0.027.
+# The wemix engine fits one random intercept, so there is no correlation to report and
+# WeMix discards what cov2cor() returned. That warning is dropped; any other one
+# passes, and the object returned is the one WeMix built.
+maihda_wemix_summary <- function(model) {
+  withCallingHandlers(
+    summary(model),
+    warning = function(w) {
+      if (maihda_wemix_cov2cor_warning(w)) {
+        invokeRestart("muffleWarning")
+      }
+    })
+}
+
+# TRUE when the warning `w` was raised by a call to cov2cor(), written bare or with a
+# namespace. The call is read, not the text: R translates the text.
+maihda_wemix_cov2cor_warning <- function(w) {
+  cl <- conditionCall(w)
+  if (!is.call(cl)) {
+    return(FALSE)
+  }
+  fn <- cl[[1L]]
+  # `stats::cov2cor(...)` as well as a bare `cov2cor(...)`.
+  if (is.call(fn) && length(fn) == 3L &&
+      (identical(fn[[1L]], as.name("::")) || identical(fn[[1L]], as.name(":::")))) {
+    fn <- fn[[3L]]
+  }
+  identical(fn, as.name("cov2cor"))
 }
 
 #' Crossed-dimensions variance summary (lme4)
