@@ -85,9 +85,10 @@
 #'     produced}
 #'   \item{models_note}{a character note (or \code{NULL}) flagging that the PCV was
 #'     computed from maximum-likelihood-refitted between-stratum variances while the
-#'     variance/VPC rows are each model's own (REML) estimate, so the PCV need not
-#'     equal the reduction implied by the displayed variance rows; see
-#'     \code{\link{calculate_pcv}}}
+#'     variance/VPC rows are each model's own (REML) estimate -- or, for a \code{brms}
+#'     analysis, from posterior medians while the variance row is a posterior mean --
+#'     so the PCV need not equal the reduction implied by the displayed variance rows;
+#'     see \code{\link{calculate_pcv}}}
 #'   \item{model_keys, model_labels}{the estimate-column keys and their display labels}
 #'   \item{family, engine, mode, scale, ranked_by, n_obs, n_strata_total, context_vars}{
 #'     metadata used by \code{print()}}
@@ -176,8 +177,9 @@ maihda_table <- function(x, n_strata = 10L, scale = c("response", "link"),
   }
 
   models_df <- maihda_build_results_table(model_stats, pcv)
-  # Flag the REML-variance-rows / ML-based-PCV basis mismatch (two-model lme4 fits)
-  # so a reader does not misread the PCV as inconsistent with the variance rows.
+  # Flag a PCV computed on a different basis from the variance rows (an ML-refit PCV on
+  # lme4, a posterior-median PCV on brms) so a reader does not misread the PCV as
+  # inconsistent with the variance rows.
   models_note <- maihda_table_pcv_note(model_stats, pcv, model_keys,
                                        primary_model$engine)
 
@@ -413,19 +415,22 @@ maihda_build_results_table <- function(model_stats, pcv = NULL) {
 }
 
 # Note flagging that a two-model PCV was computed on a different variance basis than
-# the displayed single-model variance rows. This happens only with estimation = "ML",
-# where calculate_pcv() refits a Gaussian lme4 fit to ML before differencing the
+# the displayed single-model variance rows. With estimation = "ML",
+# calculate_pcv() refits a Gaussian lme4 fit to ML before differencing the
 # between-stratum variances (see ?calculate_pcv), whereas the "Between-stratum
 # variance"/SD and VPC/ICC rows are read from each model's own (REML) fit -- the same
-# quantities summary() reports. When the two bases differ, the displayed PCV does not
-# equal (var_null - var_adj)/var_null read off the table, which reads as an
+# quantities summary() reports. And for a brms analysis the PCV compares the posterior
+# MEDIANS of the two variances, whereas the variance row is the posterior mean from
+# summary()'s variance-components table (the SD row its square root). When the two
+# bases differ, the displayed PCV
+# does not equal (var_null - var_adj)/var_null read off the table, which reads as an
 # inconsistency unless explained. Returns NULL (no note) when the bases coincide: the
-# default estimation = "fitted" (the PCV then uses the same REML variances shown), an
-# already-ML engine (glmer/brms/wemix/ordinal), or a boundary null where the ML refit
+# default estimation = "fitted" on lme4 (the PCV then uses the same REML variances
+# shown), a glmer fit, the wemix/ordinal engines, or a boundary null where the ML refit
 # was skipped -- detected directly by comparing the PCV's own between-stratum variances
 # to the displayed ones rather than proxying on isREML() or the estimation argument.
 maihda_table_pcv_note <- function(model_stats, pcv, model_keys, engine) {
-  if (is.null(pcv) || !identical(engine, "lme4") ||
+  if (is.null(pcv) || !isTRUE(engine %in% c("lme4", "brms")) ||
       !all(c("null", "adjusted") %in% model_keys)) {
     return(NULL)
   }
@@ -436,6 +441,13 @@ maihda_table_pcv_note <- function(model_stats, pcv, model_keys, engine) {
   if (any(is.na(c(v1, v2, disp1, disp2)))) return(NULL)
   differs <- function(a, b) isTRUE(abs(a - b) > 1e-8 + 1e-6 * max(abs(a), abs(b)))
   if (!differs(disp1, v1) && !differs(disp2, v2)) return(NULL)
+  if (identical(engine, "brms")) {
+    return(paste0("The PCV is computed from the posterior medians of the two ",
+                  "between-stratum variances (see ?calculate_pcv), while the ",
+                  "Between-stratum variance row is that variance's posterior mean and ",
+                  "the SD row its square root. The PCV therefore need not equal the ",
+                  "variance reduction implied by the displayed variance rows."))
+  }
   # A boundary model keeps its REML fit even under estimation = "ML" (the refit is
   # skipped), so the comparison is then on a MIXED basis, not a pure ML one -- say so
   # rather than present it as the pure ML comparison that was requested.

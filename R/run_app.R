@@ -123,8 +123,8 @@ maihda_app_calculate_pcv_safe <- function(null_model, adjusted_model,
 
   # The point PCV itself is undefined. Surface the variances we can still report
   # alongside an availability flag and the underlying message for the UI.
-  var1 <- tryCatch(extract_between_variance(null_model), error = function(e) NA_real_)
-  var2 <- tryCatch(extract_between_variance(adjusted_model), error = function(e) NA_real_)
+  var1 <- tryCatch(maihda_pcv_between_variance(null_model), error = function(e) NA_real_)
+  var2 <- tryCatch(maihda_pcv_between_variance(adjusted_model), error = function(e) NA_real_)
   structure(
     list(
       pcv = NA_real_,

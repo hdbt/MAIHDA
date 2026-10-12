@@ -483,7 +483,7 @@ pcv_importance <- function(data, outcome, vars,
       })
     if (isTRUE(mod$ml_refit_skipped_boundary)) ml_refit_skipped_any <<- TRUE
     if (isTRUE(mod$ml_refit_failed)) ml_refit_failed_any <<- TRUE
-    variance <- extract_between_variance(mod)
+    variance <- maihda_pcv_between_variance(mod)
     if (!is.finite(variance)) {
       stop("pcv_importance(): no finite between-stratum variance for the ",
            "subset model {",

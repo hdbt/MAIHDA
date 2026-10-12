@@ -307,12 +307,16 @@ test_that("brms summary returns a posterior credible interval for the VPC/ICC", 
   # bootstrap = TRUE remains rejected for brms with a clear message.
   expect_error(summary(model, bootstrap = TRUE), "only supported for lme4", fixed = TRUE)
 
-  # PCV / stepwise use the SAME E[sd^2] between-stratum variance as summary()
-  # (both from posterior draws), not the older E[sd]^2 summary-SD-squared.
+  # The MOR's plug-in variance is the SAME E[sd^2] as summary()'s table (both from the
+  # posterior draws, not the summary-SD-squared E[sd]^2); a PCV compares the posterior
+  # median of those draws instead.
   vb_summary <- summ$variance_components$variance[
     summ$variance_components$component == "Between-stratum (random)"
   ]
   expect_equal(MAIHDA:::extract_between_variance(model), vb_summary, tolerance = 1e-8)
+  v_draws <- as.data.frame(model$model)$sd_stratum__Intercept^2
+  expect_equal(vb_summary, mean(v_draws), tolerance = 1e-8)
+  expect_identical(MAIHDA:::maihda_pcv_between_variance(model), stats::median(v_draws))
 
   # compare_maihda() keeps the brms posterior credible interval without bootstrap.
   cmp <- suppressWarnings(compare_maihda(model, model))
