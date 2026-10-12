@@ -2985,25 +2985,43 @@ maihda_total_random_variance_lme4 <- function(model) {
   sum(variances, na.rm = TRUE)
 }
 
-maihda_stratum_variance_brms <- function(model, group = "stratum") {
+# Point summary of a brms fit's between-stratum variance, from the SD draws.
+#   point = "mean"   - the posterior mean E[sd^2], the value in the variance-components
+#                      table of summary.maihda_model() (not the squared posterior-mean
+#                      SD, E[sd]^2) and the MOR's plug-in.
+#   point = "median" - the posterior median of sd^2, the value every PCV compares
+#                      (maihda_pcv_between_variance()).
+# The two differ because the posterior of a variance is right-skewed when strata are
+# few: its mean is set by an upper tail that the sampler visits rarely, so a ratio of
+# two posterior means understates the PCV and moves from one sampler seed to the next,
+# and a ratio of medians does both far less. Falls back to brms's own summary of the
+# SD (its mean, or with robust = TRUE its median) if draws are unavailable.
+maihda_stratum_variance_brms <- function(model, group = "stratum",
+                                         point = c("mean", "median")) {
+  point <- match.arg(point)
   if (!requireNamespace("brms", quietly = TRUE)) {
     stop("Package 'brms' is required to work with brms models. Please install it with: install.packages('brms')")
   }
 
-  # Posterior-mean between-stratum variance E[sd^2] from the SD draws. Using the
-  # draws (rather than the posterior summary SD squared, E[sd]^2) keeps
-  # calculate_pcv()/stepwise_pcv() consistent with the draws-based VPC reported by
-  # summary.maihda_model(). Falls back to the summary SD if draws are unavailable.
   draws <- tryCatch(maihda_posterior_draws_brms(model), error = function(e) NULL)
   if (!is.null(draws)) {
     rv <- tryCatch(maihda_random_variance_draws_brms(draws, group = group),
                    error = function(e) NULL)
     if (!is.null(rv)) {
+      if (identical(point, "median")) {
+        return(stats::median(rv$stratum))
+      }
       return(mean(rv$stratum))
     }
   }
 
-  vc <- brms::VarCorr(model)
+  # (median SD)^2 is the median variance, squaring being monotone on sd >= 0 (the two
+  # differ only by the interpolation between two middle draws when their number is even).
+  vc <- if (identical(point, "median")) {
+    brms::VarCorr(model, robust = TRUE)
+  } else {
+    brms::VarCorr(model)
+  }
   if (!group %in% names(vc)) {
     stop("No '", group, "' random-effect variance found in the brms model.")
   }

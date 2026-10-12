@@ -125,7 +125,9 @@ If you see a singular-fit note, do not read the VPC as a clean zero. The solutio
 to collapse dimensions or categories (fewer, larger cells), or to use
 `engine = "brms"`, whose weakly-informative priors regularise the variance off the
 boundary and return a posterior interval, the subject of the
-[Bayesian sparse vignette](bayesian_sparse_maihda.html).
+[Bayesian sparse vignette](bayesian_sparse_maihda.html). The interval is what `brms`
+adds: its PCV is a point estimate without one, and with few strata it is understated
+(see `?calculate_pcv`).
 
 ## Continuous variables and the analytic sample
 
@@ -145,8 +147,9 @@ boundary and return a posterior interval, the subject of the
 ## Which engine, which design?
 
 - **`lme4` (default)** -- fast frequentist fits for adequately-sized cells.
-- **`brms`** -- Bayesian; preferred when cells are sparse or dimensions have few
-  levels (regularising priors, posterior intervals).
+- **`brms`** -- Bayesian; posterior intervals for the VPC and the variance shares,
+  which sparse cells or few-level dimensions call for. Its two-model PCV has no
+  interval and is understated when strata are few.
 
 For extensions beyond the cross-sectional case, see the
 [crossed random effects](cross_classified.html) (dimensions/contexts) and

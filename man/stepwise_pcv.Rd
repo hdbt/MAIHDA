@@ -66,8 +66,9 @@ A data.frame (class \code{maihda_stepwise}) showing the sequential
   delta-AUC, versus the previous step and versus the null), and \code{MOR} (the
   Median Odds Ratio, logit link only). These columns are absent for non-binary
   outcomes. When \code{context} is supplied, a \code{Context_Variance} column
-  reports the between-context variance held at each step. For a binary outcome the
-  discriminatory-accuracy trajectory is still reported alongside it: the
+  reports the between-context variance held at each step (for a \code{brms} fit its
+  posterior mean, where \code{Variance} holds a posterior median). For a binary
+  outcome the discriminatory-accuracy trajectory is still reported alongside it: the
   \code{AUC} and \code{MOR} are the intersectional-scope (between-stratum)
   quantities -- the concordance of the fixed effects plus the stratum interaction,
   \emph{excluding} the context random effect -- so they carry the same
@@ -115,8 +116,10 @@ For a binary outcome the table additionally tracks discriminatory accuracy
 \code{Total_AUC} are its \emph{absolute} change (delta-AUC), in contrast to the
 \emph{proportional} \code{Step_PCV} / \code{Total_PCV}. The \code{MOR} is reported
 for the logit link (\code{NA} otherwise) and is a monotone transform of the
-between-stratum variance already in \code{Variance}. For a design-weighted fit
-(\code{sampling_weights}) the AUC is the design-weighted (population) C-statistic.
+between-stratum variance already in \code{Variance} (for a \code{brms} fit, of that
+variance's posterior mean, where \code{Variance} holds its median). For a
+design-weighted fit (\code{sampling_weights}) the AUC is the design-weighted
+(population) C-statistic.
 Reuses \code{\link{maihda_discriminatory_accuracy}} on each step's fitted model, so
 no additional models are fit. Note that adding a \emph{stratum-defining} dimension
 (one already encoded by the strata) typically leaves the AUC essentially unchanged:

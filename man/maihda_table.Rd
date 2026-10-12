@@ -53,9 +53,10 @@ An object of class \code{maihda_table}: a list with
     produced}
   \item{models_note}{a character note (or \code{NULL}) flagging that the PCV was
     computed from maximum-likelihood-refitted between-stratum variances while the
-    variance/VPC rows are each model's own (REML) estimate, so the PCV need not
-    equal the reduction implied by the displayed variance rows; see
-    \code{\link{calculate_pcv}}}
+    variance/VPC rows are each model's own (REML) estimate -- or, for a \code{brms}
+    analysis, from posterior medians while the variance row is a posterior mean --
+    so the PCV need not equal the reduction implied by the displayed variance rows;
+    see \code{\link{calculate_pcv}}}
   \item{model_keys, model_labels}{the estimate-column keys and their display labels}
   \item{family, engine, mode, scale, ranked_by, n_obs, n_strata_total, context_vars}{
     metadata used by \code{print()}}

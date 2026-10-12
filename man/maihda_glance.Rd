@@ -20,9 +20,9 @@
 }
 \value{
 A one-row \code{tibble}. \code{glance.maihda_analysis} adds \code{pcv}
-  (with \code{pcv.conf.low}/\code{pcv.conf.high} when bootstrapped or from a brms
-  posterior), the adjusted-model \code{auc.adjusted}, \code{nobs}, \code{family}
-  and \code{mode} to the columns produced for a single summary.
+  (with \code{pcv.conf.low}/\code{pcv.conf.high} when bootstrapped; a \code{brms}
+  PCV is a point estimate), the adjusted-model \code{auc.adjusted}, \code{nobs},
+  \code{family} and \code{mode} to the columns produced for a single summary.
 }
 \description{
 \code{\link[generics]{glance}} methods that return the MAIHDA headline as a

@@ -163,6 +163,16 @@ interval (reported by \code{\link{summary.maihda_model}}) covers a single
 fit's VPC/ICC, not the PCV, which compares two separately fitted models -- no
 posterior interval for the PCV itself is computed -- and a design-based
 (wemix) interval would require replicate weights.
+
+\strong{brms fits.} For two \code{brms} fits the variances compared are the
+posterior medians of each model's between-stratum variance; the
+variance-components table of \code{\link{summary.maihda_model}} shows posterior
+means, which lie above the medians. The posterior of a between-stratum variance is
+right-skewed when strata are few, and more so in the adjusted model, which spends
+degrees of freedom on the main effects. The PCV is therefore \emph{understated}
+with few strata -- the opposite direction to maximum likelihood -- and with very
+few strata it can be negative where the true value is positive. The understatement
+shrinks as strata are added.
 }
 \examples{
 \donttest{
