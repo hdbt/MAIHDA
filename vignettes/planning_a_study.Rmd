@@ -144,6 +144,12 @@ adds: its PCV is a point estimate without one, and with few strata it is underst
 | **PCV** | additive share of the between-stratum variance | a causal decomposition; a negative PCV is not proof of hidden inequality |
 | **Discriminatory accuracy (AUC/MOR)** | how well strata predict the *individual* outcome | how large the *group* differences are (a high VPC can go with modest AUC) |
 
+The PCV of a binary or Poisson count outcome fitted with `lme4` compares
+maximum-likelihood variances. With few or small strata these run low, the adjusted
+model's most, so that PCV runs high. `maihda(estimation = "REML")` and
+`calculate_pcv(estimation = "REML")` compare REML-type variances instead, which
+corrects this when strata are few but not small (see `?calculate_pcv`).
+
 ## Which engine, which design?
 
 - **`lme4` (default)** -- fast frequentist fits for adequately-sized cells.

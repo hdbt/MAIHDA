@@ -26,7 +26,7 @@ maihda(
   time_degree = 1,
   stratum_slope = TRUE,
   interactions = TRUE,
-  estimation = c("fitted", "ML"),
+  estimation = c("fitted", "ML", "REML"),
   ...
 )
 }
@@ -193,11 +193,15 @@ decomposition. The computation is cheap (it reads the stratum estimates the
 summary already holds; no refit).}
 
 \item{estimation}{Variance-estimation basis for the PCV (\code{"two-model"} and
-\code{"longitudinal"} decompositions), \code{"fitted"} (default) or \code{"ML"};
-see \code{\link{calculate_pcv}}. \code{"fitted"} differences each model's own
-between-stratum variance (the REML estimate for a Gaussian \code{lmer} fit, as
-\code{summary()} reports); \code{"ML"} refits REML \code{lmer} fits with maximum
-likelihood first. Affects Gaussian \code{lmer} fits only.}
+\code{"longitudinal"} decompositions), \code{"fitted"} (default), \code{"ML"} or
+\code{"REML"}; see \code{\link{calculate_pcv}}. \code{"fitted"} differences each
+model's own between-stratum variance (the REML estimate for a Gaussian
+\code{lmer} fit, as \code{summary()} reports); \code{"ML"} refits REML
+\code{lmer} fits with maximum likelihood first. \code{"REML"} compares REML-type
+variances for a binomial or Poisson lme4 fit in the \code{"two-model"}
+decomposition, whose maximum-likelihood PCV runs high with few or small strata;
+it is an error with \code{group}, with \code{context} on such a fit, and in the
+\code{"longitudinal"} decomposition.}
 
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
 \code{lmer}/\code{glmer}). Includes \code{count_approximation}, which selects
