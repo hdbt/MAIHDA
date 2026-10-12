@@ -2,44 +2,73 @@
 % Please edit documentation in R/vpc_response.R
 \name{maihda_vpc_response}
 \alias{maihda_vpc_response}
-\title{Response-scale VPC for a binomial MAIHDA model}
+\title{Response-scale VPC for a binomial or count MAIHDA model}
 \usage{
 maihda_vpc_response(model, n_sim = 10000, seed = NULL)
 }
 \arguments{
-\item{model}{A binomial \code{maihda_model} (lme4 engine) from
-\code{\link{fit_maihda}}.}
+\item{model}{A binomial, Poisson or negative-binomial \code{maihda_model} (lme4
+engine) from \code{\link{fit_maihda}}.}
 
-\item{n_sim}{Number of Monte-Carlo draws of the stratum random effect (>= 100).
-Default 10000.}
+\item{n_sim}{Number of Monte-Carlo draws of the stratum random effect (>= 100)
+for a binomial model. Default 10000.}
 
-\item{seed}{Optional integer seed for reproducibility.}
+\item{seed}{Optional integer seed for the binomial simulation.}
 }
 \value{
 An object of class \code{maihda_vpc_response}: a list with
-  \code{estimate}, \code{scale = "response"}, \code{method = "simulation"},
-  \code{n_sim}, \code{var_between} (the latent-scale between-stratum variance),
+  \code{estimate}, \code{scale = "response"}, \code{method}
+  (\code{"simulation"} for a binomial model, \code{"closed-form"} for a count
+  model), \code{var_between} (the latent-scale between-stratum variance) and
   \code{var_other} (the summed latent-scale variance of any non-stratum random
-  intercepts, 0 when there are none), \code{lp_fixed} (the mean fixed-part
-  linear predictor), \code{inner_method} (\code{"gauss-hermite"} when non-stratum
-  effects are integrated out, else \code{"none"}) and \code{inner_nodes} (the
-  number of Gauss-Hermite quadrature nodes used for that inner integral, \code{NA}
-  when there are no non-stratum effects).
+  intercepts, 0 when there are none).
+
+  For a binomial model it also holds \code{n_sim}, \code{lp_fixed} (the mean
+  fixed-part linear predictor), \code{inner_method} (\code{"gauss-hermite"} when
+  non-stratum effects are integrated out, else \code{"none"}) and
+  \code{inner_nodes} (the number of Gauss-Hermite quadrature nodes used for that
+  inner integral, \code{NA} when there are no non-stratum effects).
+
+  For a count model it also holds \code{family}, the \code{median},
+  \code{quartiles} and \code{range} of the observation-level VPCs (all equal to
+  \code{estimate} when \eqn{\lambda} is the same for every observation),
+  \code{lambda} (the mean marginal expected count), \code{lambda_range} and
+  \code{theta} (the negative-binomial dispersion, \code{Inf} for a Poisson
+  model).
 }
 \description{
-Computes the variance partition coefficient on the response (probability) scale
-for a binomial MAIHDA model, using the simulation method of Goldstein, Browne &
+Computes the variance partition coefficient on the scale of the observed
+response: the probability scale for a binomial MAIHDA model, the count scale for
+a Poisson or negative-binomial one.
+
+For a \strong{binomial} model it uses the simulation method of Goldstein, Browne &
 Rasbash (2002). Stratum random effects \eqn{u \sim N(0, \sigma^2_u)} are
 simulated and converted to predicted probabilities \eqn{p = g^{-1}(\eta + u)}
 (with \eqn{\eta} the fixed-part linear predictor); the VPC is then the
 between-stratum variance of \eqn{p} as a share of the total
 (between + the binomial within-stratum variance \eqn{\overline{p(1-p)}}).
-
 Unlike the latent-scale VPC (fixed level-1 variance \eqn{\pi^2/3} for the logit),
 the response-scale VPC depends on the overall outcome prevalence, so report it as
 a complement to -- not a replacement for -- the latent-scale value.
+
+For a \strong{Poisson or negative-binomial} model with the log link it evaluates
+the exact expressions of Leckie, Browne, Goldstein, Merlo & Austin (2020). With
+\eqn{\lambda = \exp(\eta + \sigma^2_u / 2)} the marginal expected count, the
+between-stratum variance of the counts is
+\eqn{\lambda^2 (\exp(\sigma^2_u) - 1)} and their within-stratum variance is
+\eqn{\lambda + \alpha \lambda^2 \exp(\sigma^2_u)}, where \eqn{\alpha = 1 / \theta}
+is the negative-binomial overdispersion (0 for a Poisson model); the VPC is the
+between-stratum variance as a share of their sum. It is the share of the variance
+of the counts themselves that lies between strata, and it involves no
+approximation of the level-1 variance. The latent-scale VPC of
+\code{\link{summary.maihda_model}} refers to the log scale instead and depends on
+the \code{count_approximation} of \code{\link{fit_maihda}}, so the two answer
+different questions. Report the count-scale VPC when the partition should
+describe the observed counts, or when the expected count is low and the
+latent-scale approximations disagree.
 }
 \details{
+\strong{Binomial models.}
 The fixed part \eqn{\eta} is collapsed to a single value -- the mean linear
 predictor \eqn{\bar\eta} over the analytic sample -- before the random effect is
 simulated around it. The result is therefore a VPC \emph{evaluated at the mean
@@ -70,6 +99,20 @@ sample, so it contributes no simulation error of its own and increasing
 \code{n_sim} converges the whole estimate (the outer stratum draw is then the
 only Monte-Carlo dimension). The number of quadrature nodes used is reported in
 \code{inner_nodes}.
+
+\strong{Count models.} \eqn{\lambda} is computed for each observation of the
+analytic sample from its fixed-part linear predictor, any offset included, so
+with covariates or an offset the VPC differs between observations. The
+\code{estimate} is the mean of the observation-level VPCs; their median,
+quartiles and range are returned with it, as are the mean and range of
+\eqn{\lambda}. Prior \code{weights} of the fit enter these summaries as
+frequencies. A null model without an offset has a single \eqn{\lambda} and a
+single VPC. \code{n_sim} and \code{seed} are not used.
+
+The expressions are those of a model whose only random effect is the stratum
+random intercept. A count model with a \code{context} or any other additional
+random effect, a crossed-dimensions fit, a longitudinal fit, and a link other
+than the log are refused.
 }
 \examples{
 \donttest{
@@ -78,12 +121,23 @@ d <- maihda_health_data
 d$stratum <- strata$data$stratum
 m <- fit_maihda(Obese ~ (1 | stratum), data = d, family = "binomial")
 maihda_vpc_response(m, seed = 1)
+
+# A count outcome: the VPC on the count scale, in closed form
+set.seed(1)
+u <- rnorm(max(d$stratum), sd = 0.4)
+d$visits <- rpois(nrow(d), exp(0.5 + u[d$stratum]))
+m_count <- fit_maihda(visits ~ (1 | stratum), data = d, family = "poisson")
+maihda_vpc_response(m_count)
 }
 
 }
 \references{
 Goldstein, H., Browne, W., & Rasbash, J. (2002). Partitioning variation in
 multilevel models. \emph{Understanding Statistics}, 1(4), 223-231.
+
+Leckie, G., Browne, W. J., Goldstein, H., Merlo, J., & Austin, P. C. (2020).
+Partitioning variation in multilevel models for count data.
+\emph{Psychological Methods}, 25(6), 787-801. \doi{10.1037/met0000265}
 }
 \seealso{
 \code{\link{maihda_discriminatory_accuracy}}, \code{\link{summary.maihda_model}}

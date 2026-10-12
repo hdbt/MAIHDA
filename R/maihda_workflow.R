@@ -163,8 +163,11 @@
 #' @param response_vpc Logical; for a binomial (lme4) outcome, also attach the
 #'   response-scale VPC (\code{\link{maihda_vpc_response}}) to the model summaries.
 #'   It is estimated by simulation, so it is opt-in (default \code{FALSE}) and uses
-#'   \code{seed}. The discriminatory accuracy (AUC + MOR) is attached automatically
-#'   for a binomial/Bernoulli outcome regardless of this flag (see Details).
+#'   \code{seed}. For a Poisson or negative-binomial (lme4) outcome it attaches the
+#'   count-scale VPC instead, a closed form (see
+#'   \code{\link{summary.maihda_model}}). The discriminatory accuracy (AUC + MOR)
+#'   is attached automatically for a binomial/Bernoulli outcome regardless of this
+#'   flag (see Details).
 #' @param seed Optional integer seed for the response-scale VPC simulation. It is
 #'   NOT forwarded to \code{brms::brm()}: an \code{engine = "brms"} fit's MCMC
 #'   sampler is unseeded by it (a warning says so). Call \code{set.seed()} before

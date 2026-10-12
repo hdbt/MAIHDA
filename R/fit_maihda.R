@@ -218,7 +218,9 @@
 #'   \code{performance::icc()} uses, but evaluated at a different \eqn{\lambda} on
 #'   an adjusted model, so the two VPCs agree exactly only for a null model. Used
 #'   by \code{summary()}, the bootstrap intervals and the longitudinal VPC(t);
-#'   ignored for every other family.
+#'   ignored for every other family. The count-scale VPC of Leckie et al. (2020),
+#'   from \code{\link{maihda_vpc_response}}, partitions the variance of the counts
+#'   themselves and does not depend on this choice.
 #' @param ... Additional arguments passed to \code{lmer}/\code{glmer} (lme4),
 #'   \code{brm} (brms), or \code{WeMix::mix()} (wemix; e.g. \code{nQuad},
 #'   \code{fast}). The wemix engine rejects \code{mix()}'s \code{center_grand} and

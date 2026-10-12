@@ -250,7 +250,9 @@ test_that("negbinomial is rejected where it is not defined", {
   m <- fit_nb(d)
   expect_error(maihda_discriminatory_accuracy(m), "negbinomial")
   expect_error(maihda_mor(m), "negbinomial")
-  expect_error(maihda_vpc_response(m), "negbinomial")
+  # maihda_vpc_response() is defined for a negbinomial fit, on the count scale:
+  # see test-count-vpc-response.R.
+  expect_identical(maihda_vpc_response(m)$family, "negbinomial")
 })
 
 # ---- brms plumbing (Stan-free) -------------------------------------------------

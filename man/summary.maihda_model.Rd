@@ -41,8 +41,11 @@ bootstrap CI or the brms posterior credible interval. Default is 0.95.}
 \item{response_vpc}{Logical; for a binomial (lme4) model, also compute the
 response-scale VPC (\code{\link{maihda_vpc_response}}) and attach it as the
 \code{vpc_response} slot. It is estimated by simulation, so it is opt-in (default
-\code{FALSE}) and uses \code{seed} for reproducibility. Ignored for other
-families/engines.}
+\code{FALSE}) and uses \code{seed} for reproducibility. For a Poisson or
+negative-binomial (lme4) model whose only random effect is the stratum
+intercept, the same slot receives the count-scale VPC of Leckie et al. (2020),
+a closed form that needs no seed. Ignored for other families, engines and
+random-effect structures.}
 
 \item{seed}{Optional integer seed for the response-scale VPC simulation when
 \code{response_vpc = TRUE}.}
@@ -102,7 +105,9 @@ A maihda_summary object containing:
     \code{NULL} for every other family.}
   \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
     \code{response_vpc = TRUE} for a binomial lme4 model, including a contextual
-    fit (the context variance enters the VPC denominator); \code{NULL} otherwise
+    fit (the context variance enters the VPC denominator), and the count-scale
+    VPC for a Poisson or negative-binomial lme4 model whose only random effect
+    is the stratum intercept; \code{NULL} otherwise
     (including for crossed-dimensions and longitudinal fits)}
   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
   \item{fixed_effects}{Fixed-effect estimates. For the lme4, WeMix and ordinal
@@ -191,6 +196,11 @@ expensive \eqn{ndraws \times nobs} computation.
   between-stratum deviation; they equal the \emph{pure} intersectional
   (interaction) component only when the additive main effects of the strata
   variables are included in the model.
+
+  For a Poisson or negative-binomial model the VPC can also be computed on the
+  count scale itself, with no approximation of the level-1 variance (Leckie et
+  al., 2020): see \code{\link{maihda_vpc_response}}, or set
+  \code{response_vpc = TRUE}.
 }
 
 \section{Fixed-effect reference distribution}{
@@ -315,4 +325,8 @@ multilevel analysis of individual heterogeneity and discriminatory accuracy
 (MAIHDA) to study individual longitudinal trajectories, with application to
 mental health in the UK. \emph{Social Science & Medicine}, 351, 116955.
 \doi{10.1016/j.socscimed.2024.116955}
+
+Leckie, G., Browne, W. J., Goldstein, H., Merlo, J., & Austin, P. C. (2020).
+Partitioning variation in multilevel models for count data.
+\emph{Psychological Methods}, 25(6), 787-801. \doi{10.1037/met0000265}
 }
