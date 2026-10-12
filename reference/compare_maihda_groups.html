@@ -271,7 +271,9 @@ an error on the <code>wemix</code>, <code>brms</code> and <code>ordinal</code> e
   coinciding with <code>var_between_adjusted</code>, and under <code>estimation = "ML"</code> it
   is the ML variance, differing from <code>var_between_adjusted</code> only by the small
   REML-vs-ML gap in the null variance; despite its name it is not always a
-  maximum-likelihood estimate). All three are
+  maximum-likelihood estimate; for a <code>brms</code> fit it is the posterior median of
+  the adjusted variance and does not coincide with <code>var_between_adjusted</code>,
+  because <code>var_between</code> is a posterior mean). All three are
   <code>NA</code> for a group whose adjusted fit failed. A fourth column,
   <code>pcv_status</code>, records the decomposition outcome per group:
   <code>"ok"</code> when the PCV was computed, <code>"failed"</code> when the adjusted model

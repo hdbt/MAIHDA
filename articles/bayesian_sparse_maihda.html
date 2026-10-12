@@ -251,6 +251,14 @@ point discards exactly the information that matters: the degree of
 uncertainty. When intersectional cells are sparse, a regularised
 Bayesian fit with an explicit interval is the more defensible
 summary.</p>
+<p>The two-model PCV is the exception.
+<code>maihda(engine = "brms")</code> with the default
+<code>decomposition = "two-model"</code> fits the null and the adjusted
+model separately, so there is no joint posterior to take a PCV interval
+from. The PCV it reports is a point estimate, one minus the ratio of the
+two models’ posterior-median between-stratum variances, and with few
+strata it is understated – the reverse of the maximum-likelihood PCV,
+which is overstated (see <code><a href="../reference/calculate_pcv.html">?calculate_pcv</a></code>).</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

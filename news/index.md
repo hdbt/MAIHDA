@@ -385,6 +385,21 @@
   by more as the strata get fewer. The interval it never reported spans
   \[0.34, 0.82\] on that same fit. lme4 point estimates are unchanged.
 
+- The two-model PCV of `engine = "brms"` fits –
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md),
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md),
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md),
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  – now compares the posterior medians of the between-stratum variances
+  instead of their posterior means. With few strata the mean-based PCV
+  ran low (0.58 for a true 0.84 at 8 strata, 0.74 from medians) and
+  changed from one sampler seed to the next.
+  [`summary()`](https://rdrr.io/r/base/summary.html)’s variance table,
+  the MOR and the longitudinal PCV keep posterior means;
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
+  and the printed tables say which is which.
+
 - `plot_prediction_deviation_panels(type = "auto")` now plots a `wemix`
   binomial fit’s stratum probabilities, as every other engine does,
   instead of log-odds labelled “Fitted Value”:

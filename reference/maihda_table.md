@@ -98,9 +98,10 @@ An object of class `maihda_table`: a list with
 
   a character note (or `NULL`) flagging that the PCV was computed from
   maximum-likelihood-refitted between-stratum variances while the
-  variance/VPC rows are each model's own (REML) estimate, so the PCV
-  need not equal the reduction implied by the displayed variance rows;
-  see
+  variance/VPC rows are each model's own (REML) estimate – or, for a
+  `brms` analysis, from posterior medians while the variance row is a
+  posterior mean – so the PCV need not equal the reduction implied by
+  the displayed variance rows; see
   [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
 
 - model_keys, model_labels:

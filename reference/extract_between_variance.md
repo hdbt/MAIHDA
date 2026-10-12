@@ -6,7 +6,7 @@ model.
 ## Usage
 
 ``` r
-extract_between_variance(model)
+extract_between_variance(model, brms_point = c("mean", "median"))
 ```
 
 ## Arguments
@@ -14,6 +14,12 @@ extract_between_variance(model)
 - model:
 
   A maihda_model object
+
+- brms_point:
+
+  For a `brms` fit, the posterior summary of the variance draws to
+  return: `"mean"` (default) or `"median"`. Ignored by the other
+  engines.
 
 ## Value
 

@@ -36,8 +36,8 @@ glance(x, ...)
 ## Value
 
 A one-row `tibble`. `glance.maihda_analysis` adds `pcv` (with
-`pcv.conf.low`/`pcv.conf.high` when bootstrapped or from a brms
-posterior), the adjusted-model `auc.adjusted`, `nobs`, `family` and
+`pcv.conf.low`/`pcv.conf.high` when bootstrapped; a `brms` PCV is a
+point estimate), the adjusted-model `auc.adjusted`, `nobs`, `family` and
 `mode` to the columns produced for a single summary.
 
 ## See also

@@ -173,3 +173,12 @@ sparse cells constrain it. Summarising the posterior by its point
 discards exactly the information that matters: the degree of
 uncertainty. When intersectional cells are sparse, a regularised
 Bayesian fit with an explicit interval is the more defensible summary.
+
+The two-model PCV is the exception. `maihda(engine = "brms")` with the
+default `decomposition = "two-model"` fits the null and the adjusted
+model separately, so there is no joint posterior to take a PCV interval
+from. The PCV it reports is a point estimate, one minus the ratio of the
+two models’ posterior-median between-stratum variances, and with few
+strata it is understated – the reverse of the maximum-likelihood PCV,
+which is overstated (see
+[`?calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)).

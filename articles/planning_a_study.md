@@ -214,6 +214,9 @@ or to use `engine = "brms"`, whose weakly-informative priors regularise
 the variance off the boundary and return a posterior interval, the
 subject of the [Bayesian sparse
 vignette](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md).
+The interval is what `brms` adds: its PCV is a point estimate without
+one, and with few strata it is understated (see
+[`?calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)).
 
 ## Continuous variables and the analytic sample
 
@@ -236,8 +239,10 @@ vignette](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md).
 
 - **`lme4` (default)** – fast frequentist fits for adequately-sized
   cells.
-- **`brms`** – Bayesian; preferred when cells are sparse or dimensions
-  have few levels (regularising priors, posterior intervals).
+- **`brms`** – Bayesian; posterior intervals for the VPC and the
+  variance shares, which sparse cells or few-level dimensions call for.
+  Its two-model PCV has no interval and is understated when strata are
+  few.
 
 For extensions beyond the cross-sectional case, see the [crossed random
 effects](https://hdbt.github.io/MAIHDA/articles/cross_classified.md)
