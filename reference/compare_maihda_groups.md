@@ -240,7 +240,8 @@ skipped groups, falling back to the raw row count only when the model
 frame cannot be built. `var_other` is the variance of any additional
 random effects and is 0 for the canonical single-stratum model. Groups
 that were skipped or failed have `NA` metrics and an explanatory
-`status`.
+`status`; for a failed fit it is `"fit failed: "` followed by the first
+line of the error, whose whole message is in a warning.
 
 ## Details
 
@@ -281,7 +282,8 @@ instead reported with a "fit failed" status rather than a pre-fit skip.
 A singular fit yields a VPC of 0 rather than an error (unlike
 [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)).
 A hard fit failure in one group records `NA` and a status note without
-aborting the whole comparison.
+aborting the whole comparison; one warning names the groups whose fit
+failed and gives each distinct reason once.
 
 Fit-quality diagnostics: for the `lme4` engine, groups whose model is
 singular or fails to converge keep a `status` of `"ok"` (the fit did

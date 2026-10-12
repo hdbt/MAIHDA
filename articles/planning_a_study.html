@@ -326,6 +326,13 @@ modest AUC)</td>
 </tr>
 </tbody>
 </table>
+<p>The PCV of a binary or Poisson count outcome fitted with
+<code>lme4</code> compares maximum-likelihood variances. With few or
+small strata these run low, the adjusted model’s most, so that PCV runs
+high. <code>maihda(estimation = "REML")</code> and
+<code>calculate_pcv(estimation = "REML")</code> compare REML-type
+variances instead, which corrects this when strata are few but not small
+(see <code><a href="../reference/calculate_pcv.html">?calculate_pcv</a></code>).</p>
 </div>
 <div class="section level2">
 <h2 id="which-engine-which-design">Which engine, which design?<a class="anchor" aria-label="anchor" href="#which-engine-which-design"></a>

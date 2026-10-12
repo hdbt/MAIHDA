@@ -72,7 +72,7 @@ PCV = (Var_model1 - Var_model2) / Var_model1.</p>
 <span>  bootstrap <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_boot <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
-<span>  estimation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fitted"</span>, <span class="st">"ML"</span><span class="op">)</span></span>
+<span>  estimation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fitted"</span>, <span class="st">"ML"</span>, <span class="st">"REML"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -109,11 +109,13 @@ A value below about 200 warns that the interval's tail endpoints are unstable
 
 
 <dt id="arg-estimation">estimation<a class="anchor" aria-label="anchor" href="#arg-estimation"></a></dt>
-<dd><p>Which between-stratum variances are compared, <code>"fitted"</code>
-(default) or <code>"ML"</code>. <code>"fitted"</code> uses each model's own estimate (the REML
-estimate for a Gaussian <code>lmer</code> fit); <code>"ML"</code> refits REML <code>lmer</code> fits
-by maximum likelihood first, which overstates the PCV when strata are few. Only
-Gaussian <code>lmer</code> fits are affected. See Details.</p></dd>
+<dd><p>Which between-stratum variances are compared: <code>"fitted"</code>
+(default), <code>"ML"</code> or <code>"REML"</code>. <code>"fitted"</code> uses each model's own
+estimate (REML for a Gaussian <code>lmer</code> fit, maximum likelihood for a
+<code>glmer</code> fit). <code>"ML"</code> refits REML <code>lmer</code> fits by maximum likelihood
+first, which overstates the PCV when strata are few. <code>"REML"</code> compares
+REML-type variances for binomial and Poisson <code>glmer</code> fits, whose
+maximum-likelihood PCV is overstated in the same way. See Details.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -133,17 +135,36 @@ Gaussian <code>lmer</code> fits are affected. See Details.</p></dd>
 <dd><p>Between-stratum variance from model2</p></dd>
 
   <dt>estimation</dt>
-<dd><p>The variance-estimation basis requested (<code>"fitted"</code> or
-    <code>"ML"</code>)</p></dd>
+<dd><p>The variance-estimation basis requested (<code>"fitted"</code>,
+    <code>"ML"</code> or <code>"REML"</code>)</p></dd>
 
   <dt>estimation_used</dt>
 <dd><p>The basis actually used: <code>"fitted"</code>, <code>"ML"</code>,
-    <code>"mixed"</code>, or <code>"posterior"</code>. <code>"mixed"</code> arises under
+    <code>"mixed"</code>, <code>"REML"</code> or <code>"posterior"</code>. <code>"mixed"</code> arises under
     <code>estimation = "ML"</code> when a model keeps its REML fit – its between-stratum
     variance is on the boundary so the ML refit is skipped, or <code><a href="https://rdrr.io/pkg/lme4/man/refitML.html" class="external-link">refitML</a></code>
     failed – so the comparison is partly REML rather than the pure ML one
-    requested. <code>"posterior"</code> is reported for a <code>brms</code> comparison (a Bayesian
-    posterior, on which <code>"ML"</code> is a no-op). <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> states the basis</p></dd>
+    requested. <code>"REML"</code> is reported when the REML-type variances of a
+    <code>glmer</code> fit were compared; <code>estimation = "REML"</code> on REML <code>lmer</code>
+    fits uses them as fitted and reports <code>"fitted"</code>. <code>"posterior"</code> is
+    reported for a <code>brms</code> comparison (a Bayesian posterior, on which
+    <code>"ML"</code> and <code>"REML"</code> are no-ops). <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> states the basis</p></dd>
+
+  <dt>ml_variances</dt>
+<dd><p>Logical; <code>TRUE</code> when the compared variances are
+    maximum-likelihood estimates (a <code>glmer</code>, wemix or ordinal fit, or an
+    <code>lmer</code> fit made or refitted by maximum likelihood). <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> notes it
+    under the default <code>estimation</code></p></dd>
+
+  <dt>reml_available</dt>
+<dd><p>Logical; <code>TRUE</code> when <code>estimation = "REML"</code> would
+    compare REML-type variances for these two models (binomial or Poisson
+    <code>glmer</code> fits it accepts)</p></dd>
+
+  <dt>pcv_fitted, var_model1_fitted, var_model2_fitted</dt>
+<dd><p>Present when
+    <code>estimation_used</code> is <code>"REML"</code>: the PCV and the two variances as fitted
+    by maximum likelihood, the values <code>estimation = "fitted"</code> returns</p></dd>
 
   <dt>adjusted_at_boundary</dt>
 <dd><p>Logical; <code>TRUE</code> when model2's between-stratum
@@ -197,6 +218,12 @@ between-stratum variances are compared:</p><dl><dt><code>"fitted"</code> (defaul
     (<code><a href="https://rdrr.io/pkg/lme4/man/refitML.html" class="external-link">refitML</a></code>) first, and the bootstrap interval is computed on
     the same basis. Use it to match an analysis fitted by maximum likelihood.</p></dd>
 
+  <dt><code>"REML"</code></dt>
+<dd><p>REML-type variances. REML <code>lmer</code> fits are used as
+    fitted. For a binomial or Poisson <code>glmer</code> fit whose only random effect is
+    the stratum intercept, the between-stratum variance is re-estimated with the
+    fixed effects integrated out, as REML does for a Gaussian model (see below).</p></dd>
+
 
 </dl><p>The PCV is a ratio of two variance estimates and uses no likelihood value, so it
 does not need maximum-likelihood fits (likelihood-ratio tests and information
@@ -210,10 +237,33 @@ the stratum means, \(\sigma^2_u + \sigma^2_e / n\), by \((J - p) / J\) (\(J\)
 strata, \(p\) fixed-effect coefficients, neither estimate at zero): 23/24 for the
 null model of a 2 x 3 x 4 design but 17/24 for the adjusted one. The bootstrap
 interval inherits the bias, because it simulates from and refits on the same basis.</p>
-<p>Only Gaussian <code>lmer</code> fits are affected. GLMM fits (<code>glmer</code>) and the
-wemix/ordinal engines fit by maximum likelihood and offer no REML counterpart, so
-the two settings coincide there and their PCV carries the same tendency to overstate
-with few strata. A <code>brms</code> fit is a Bayesian posterior: <code>"ML"</code> performs no
+<p><code>"fitted"</code> and <code>"ML"</code> differ for Gaussian <code>lmer</code> fits only.
+<code>glmer</code> and the wemix and ordinal engines estimate variances by maximum
+likelihood, so under either setting their PCV is overstated in the same way: most
+with few strata, and more when strata are small or uneven in size, because the
+shortfall applies to the between-stratum variance plus the sampling variance of a
+stratum's own estimate. <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> notes when the compared variances are
+maximum-likelihood estimates.</p>
+<p><code>estimation = "REML"</code> corrects that shortfall for binomial and Poisson
+<code>glmer</code> fits. Each variance minimises the Laplace-approximated deviance
+evaluated at the joint mode of the fixed and random effects (lme4's
+<code>nAGQ = 0</code> deviance) plus the log-determinant of the fixed-effect information,
+which integrates the fixed effects out; for the logit and log links this is the
+criterion <code>glmmTMB(REML = TRUE)</code> minimises. The models are not refitted, and
+the as-fitted values are returned alongside (<code>pcv_fitted</code>,
+<code>var_model1_fitted</code>, <code>var_model2_fitted</code>).</p>
+<p>Use it when strata are few but each holds enough observations for its own estimate
+to be precise: the PCV then has little bias, though with very few strata it stays
+imprecise. When the strata are small as well, neither basis is dependable. A
+variance estimate cannot fall below zero, so with that much noise the REML-type
+estimate averages too high, most in the adjusted model: the PCV then varies widely
+from sample to sample and can come out far too low, even negative, where the
+maximum-likelihood PCV stays too high.</p>
+<p><code>estimation = "REML"</code> is an error for the wemix and ordinal engines, for other
+<code>glmer</code> families, for a fit with a further random effect such as a
+<code>context</code>, for an <code>lmer</code> fit made by maximum likelihood, and with
+<code>bootstrap = TRUE</code> on a <code>glmer</code> fit.</p>
+<p>A <code>brms</code> fit is a Bayesian posterior: <code>"ML"</code> and <code>"REML"</code> perform no
 refit and <code>estimation_used</code> is <code>"posterior"</code>. Single-model VPC/ICC
 summaries always use the model as fitted.</p>
 <p><strong>Latent-scale families and rescaling.</strong> For families whose level-1

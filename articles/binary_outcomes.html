@@ -283,7 +283,7 @@ sample:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; PCV: <span style="color: #D78700;">0.0167</span></span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">Variance basis: as fitted (REML for Gaussian lmer, matching summary())</span></span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">Variance basis: as fitted (maximum likelihood)</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span><span style="font-weight: bold;">Between-stratum variance:</span></span></span>
 <span><span class="co">#&gt;   Model 1: 0.222667</span></span>
@@ -292,13 +292,43 @@ sample:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; variance between the models):</span></span></span>
-<span><span class="co"><span style="color: #555555;">#&gt; </span>  Between-stratum variance is 1.7% lower in Model 2 than in Model 1.</span></span></code></pre></div>
+<span><span class="co"><span style="color: #555555;">#&gt; </span>  Between-stratum variance is 1.7% lower in Model 2 than in Model 1.</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; Note: these are maximum-likelihood variances. With few or small strata they run</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; low, and lower the more fixed effects a model has, so the PCV runs high;</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; estimation = "REML" compares REML-type variances instead (see ?calculate_pcv).</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span></code></pre></div>
 <p>The same caveats as in the continuous case apply, with one extra
 wrinkle: for non-Gaussian models the latent residual variance is fixed
 by the link, so a change in the between-stratum variance is partly a
 <strong>rescaling</strong> of the latent scale, not only “variance
 explained”. Interpret the PCV as a model-dependent, descriptive change,
 not a causal decomposition.</p>
+<p><code>glmer()</code> estimates these variances by maximum likelihood.
+With few or small strata they run low, and lower the more fixed effects
+a model has, so the PCV runs high – most of all when the second model
+adds the strata’s own main effects. <code>estimation = "REML"</code>
+compares REML-type variances instead, the counterpart of what the
+default does for a continuous outcome. It needs strata large enough for
+their own estimates to be precise (see <code><a href="../reference/calculate_pcv.html">?calculate_pcv</a></code>):</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/calculate_pcv.html">calculate_pcv</a></span><span class="op">(</span><span class="va">model_null2</span>, <span class="va">model_adj</span>, estimation <span class="op">=</span> <span class="st">"REML"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="font-weight: bold;">Proportional Change in Variance (PCV)</span></span></span>
+<span><span class="co">#&gt; =====================================</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; PCV: <span style="color: #D78700;">0.0145</span></span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">Variance basis: REML-type (fixed effects integrated out; see ?calculate_pcv)</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span><span style="font-weight: bold;">Between-stratum variance:</span></span></span>
+<span><span class="co">#&gt;   Model 1: 0.232744</span></span>
+<span><span class="co">#&gt;   Model 2: 0.229367</span></span>
+<span><span class="co">#&gt;   Change:  0.003377 (1.45%)</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">  As fitted (maximum likelihood): 0.222667 -&gt; 0.218941, PCV 0.0167</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; variance between the models):</span></span></span>
+<span><span class="co"><span style="color: #555555;">#&gt; </span>  Between-stratum variance is 1.5% lower in Model 2 than in Model 1.</span></span></code></pre></div>
 <blockquote>
 <p><strong>A note on adjusting for the strata’s own categories.</strong>
 If instead you add the <em>categorical</em> main effects that define the
@@ -318,7 +348,7 @@ helps.</p>
 effect is the pure intersectional component, and
 <code><a href="../reference/maihda_interactions.html">maihda_interactions()</a></code> flags the strata whose component is
 credibly non-zero:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_int</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_maihda.html">fit_maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">Obese</span> <span class="op">~</span> <span class="va">Gender</span> <span class="op">+</span> <span class="va">Race</span> <span class="op">+</span> <span class="va">Education</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">health_complete</span>, family <span class="op">=</span> <span class="st">"binomial"</span></span>
@@ -382,7 +412,7 @@ is exactly zero. Take a model with a
 baseline and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mn>0.7</mn></mrow><annotation encoding="application/x-tex">+0.7</annotation></semantics></math>
 for each of two dimensions and no interaction whatsoever:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">p</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span> <span class="op">+</span> <span class="fl">0.7</span> <span class="op">*</span> <span class="va">a</span> <span class="op">+</span> <span class="fl">0.7</span> <span class="op">*</span> <span class="va">b</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>`risk added by B, at A = 0` <span class="op">=</span> <span class="fu">p</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span> <span class="op">-</span> <span class="fu">p</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>,</span>
@@ -403,7 +433,7 @@ is a perfectly ordinary design rather than a curiosity. The
 risk-difference interaction is positive below the curve’s midpoint and
 negative above it, so it must pass through zero, and it does so where
 the two comparisons straddle the midpoint symmetrically:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rd_int</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">b0</span>, <span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="va">b0</span> <span class="op">+</span> <span class="va">a</span> <span class="op">+</span> <span class="va">b</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="va">b0</span> <span class="op">+</span> <span class="va">a</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="va">b0</span> <span class="op">+</span> <span class="va">b</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="va">b0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
@@ -429,7 +459,7 @@ additive main effects alone,</p>
 where the linear case plots
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>u</mi><mi>j</mi></msub><annotation encoding="application/x-tex">u_j</annotation></semantics></math>.
 Ask for it with <code>scale = "response"</code>:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">model_int</span>, scale <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span></span>
 <span><span class="co">#&gt; <span style="color: #D78700; font-weight: bold;">1</span> of 50 strata flagged (<span style="color: #555555;">95% interval; BH-adjusted conservative p-values</span>).</span></span>
@@ -472,7 +502,7 @@ than out in the tail.</p>
 where the argument becomes concrete – “are more than two percentage
 points of this stratum’s risk attributable to its interaction?” is a
 question a reader can actually answer:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">model_int</span>, scale <span class="op">=</span> <span class="st">"response"</span>, rope <span class="op">=</span> <span class="fl">0.02</span><span class="op">)</span><span class="op">$</span><span class="va">decision</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; inconclusive     relevant </span></span>
@@ -507,7 +537,7 @@ model’s AUC is the discriminatory accuracy of the intersectional strata
 <em>themselves</em> – Merlo’s central quantity. Comparing it with the
 adjusted model shows whether individual information beyond stratum
 membership sharpens classification:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">da_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></span><span class="op">(</span><span class="va">model_null2</span><span class="op">)</span></span>
 <span><span class="va">da_adj</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></span><span class="op">(</span><span class="va">model_adj</span><span class="op">)</span></span>
 <span></span>
@@ -534,7 +564,7 @@ membership sharpens classification:</p>
 probabilities and 0/1 outcomes (it equals the Mann-Whitney U statistic,
 so it needs no extra package), and <code>maihda_mor(model)</code> for
 the Median Odds Ratio.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">prob_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/predict_maihda.html">predict_maihda</a></span><span class="op">(</span><span class="va">model_null2</span>, type <span class="op">=</span> <span class="st">"individual"</span>, scale <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span>
 <span><span class="va">y_obs</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">lme4</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/lme4/man/getME.html" class="external-link">getME</a></span><span class="op">(</span><span class="va">model_null2</span><span class="op">$</span><span class="va">model</span>, <span class="st">"y"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
@@ -563,15 +593,15 @@ link-agnostic.</p>
 </h2>
 <p>The standard plots recognise the binomial family and switch to the
 probability scale and to deviance-based diagnostics automatically:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Predicted probabilities per stratum with intervals</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"predicted"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="binary_outcomes_files/figure-html/plot-predicted-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Latent-scale variance partition</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"vpc"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="binary_outcomes_files/figure-html/plot-vpc-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># For binomial fits the dashboard highlights the largest absolute</span></span>
 <span><span class="co"># deviance residuals rather than raw deviations from the mean.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">model_adj</span>, type <span class="op">=</span> <span class="st">"prediction_deviation"</span><span class="op">)</span></span></code></pre></div>

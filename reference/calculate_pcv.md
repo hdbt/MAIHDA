@@ -14,7 +14,7 @@ calculate_pcv(
   bootstrap = FALSE,
   n_boot = 1000,
   conf_level = 0.95,
-  estimation = c("fitted", "ML")
+  estimation = c("fitted", "ML", "REML")
 )
 ```
 
@@ -54,11 +54,13 @@ calculate_pcv(
 
 - estimation:
 
-  Which between-stratum variances are compared, `"fitted"` (default) or
-  `"ML"`. `"fitted"` uses each model's own estimate (the REML estimate
-  for a Gaussian `lmer` fit); `"ML"` refits REML `lmer` fits by maximum
-  likelihood first, which overstates the PCV when strata are few. Only
-  Gaussian `lmer` fits are affected. See Details.
+  Which between-stratum variances are compared: `"fitted"` (default),
+  `"ML"` or `"REML"`. `"fitted"` uses each model's own estimate (REML
+  for a Gaussian `lmer` fit, maximum likelihood for a `glmer` fit).
+  `"ML"` refits REML `lmer` fits by maximum likelihood first, which
+  overstates the PCV when strata are few. `"REML"` compares REML-type
+  variances for binomial and Poisson `glmer` fits, whose
+  maximum-likelihood PCV is overstated in the same way. See Details.
 
 ## Value
 
@@ -82,19 +84,43 @@ A list containing:
 
 - estimation:
 
-  The variance-estimation basis requested (`"fitted"` or `"ML"`)
+  The variance-estimation basis requested (`"fitted"`, `"ML"` or
+  `"REML"`)
 
 - estimation_used:
 
-  The basis actually used: `"fitted"`, `"ML"`, `"mixed"`, or
+  The basis actually used: `"fitted"`, `"ML"`, `"mixed"`, `"REML"` or
   `"posterior"`. `"mixed"` arises under `estimation = "ML"` when a model
   keeps its REML fit – its between-stratum variance is on the boundary
   so the ML refit is skipped, or
   [`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html) failed – so the
   comparison is partly REML rather than the pure ML one requested.
-  `"posterior"` is reported for a `brms` comparison (a Bayesian
-  posterior, on which `"ML"` is a no-op).
-  [`print()`](https://rdrr.io/r/base/print.html) states the basis
+  `"REML"` is reported when the REML-type variances of a `glmer` fit
+  were compared; `estimation = "REML"` on REML `lmer` fits uses them as
+  fitted and reports `"fitted"`. `"posterior"` is reported for a `brms`
+  comparison (a Bayesian posterior, on which `"ML"` and `"REML"` are
+  no-ops). [`print()`](https://rdrr.io/r/base/print.html) states the
+  basis
+
+- ml_variances:
+
+  Logical; `TRUE` when the compared variances are maximum-likelihood
+  estimates (a `glmer`, wemix or ordinal fit, or an `lmer` fit made or
+  refitted by maximum likelihood).
+  [`print()`](https://rdrr.io/r/base/print.html) notes it under the
+  default `estimation`
+
+- reml_available:
+
+  Logical; `TRUE` when `estimation = "REML"` would compare REML-type
+  variances for these two models (binomial or Poisson `glmer` fits it
+  accepts)
+
+- pcv_fitted, var_model1_fitted, var_model2_fitted:
+
+  Present when `estimation_used` is `"REML"`: the PCV and the two
+  variances as fitted by maximum likelihood, the values
+  `estimation = "fitted"` returns
 
 - adjusted_at_boundary:
 
@@ -163,6 +189,14 @@ between-stratum variances are compared:
   the bootstrap interval is computed on the same basis. Use it to match
   an analysis fitted by maximum likelihood.
 
+- `"REML"`:
+
+  REML-type variances. REML `lmer` fits are used as fitted. For a
+  binomial or Poisson `glmer` fit whose only random effect is the
+  stratum intercept, the between-stratum variance is re-estimated with
+  the fixed effects integrated out, as REML does for a Gaussian model
+  (see below).
+
 The PCV is a ratio of two variance estimates and uses no likelihood
 value, so it does not need maximum-likelihood fits (likelihood-ratio
 tests and information criteria do; see
@@ -179,13 +213,41 @@ zero): 23/24 for the null model of a 2 x 3 x 4 design but 17/24 for the
 adjusted one. The bootstrap interval inherits the bias, because it
 simulates from and refits on the same basis.
 
-Only Gaussian `lmer` fits are affected. GLMM fits (`glmer`) and the
-wemix/ordinal engines fit by maximum likelihood and offer no REML
-counterpart, so the two settings coincide there and their PCV carries
-the same tendency to overstate with few strata. A `brms` fit is a
-Bayesian posterior: `"ML"` performs no refit and `estimation_used` is
-`"posterior"`. Single-model VPC/ICC summaries always use the model as
-fitted.
+`"fitted"` and `"ML"` differ for Gaussian `lmer` fits only. `glmer` and
+the wemix and ordinal engines estimate variances by maximum likelihood,
+so under either setting their PCV is overstated in the same way: most
+with few strata, and more when strata are small or uneven in size,
+because the shortfall applies to the between-stratum variance plus the
+sampling variance of a stratum's own estimate.
+[`print()`](https://rdrr.io/r/base/print.html) notes when the compared
+variances are maximum-likelihood estimates.
+
+`estimation = "REML"` corrects that shortfall for binomial and Poisson
+`glmer` fits. Each variance minimises the Laplace-approximated deviance
+evaluated at the joint mode of the fixed and random effects (lme4's
+`nAGQ = 0` deviance) plus the log-determinant of the fixed-effect
+information, which integrates the fixed effects out; for the logit and
+log links this is the criterion `glmmTMB(REML = TRUE)` minimises. The
+models are not refitted, and the as-fitted values are returned alongside
+(`pcv_fitted`, `var_model1_fitted`, `var_model2_fitted`).
+
+Use it when strata are few but each holds enough observations for its
+own estimate to be precise: the PCV then has little bias, though with
+very few strata it stays imprecise. When the strata are small as well,
+neither basis is dependable. A variance estimate cannot fall below zero,
+so with that much noise the REML-type estimate averages too high, most
+in the adjusted model: the PCV then varies widely from sample to sample
+and can come out far too low, even negative, where the
+maximum-likelihood PCV stays too high.
+
+`estimation = "REML"` is an error for the wemix and ordinal engines, for
+other `glmer` families, for a fit with a further random effect such as a
+`context`, for an `lmer` fit made by maximum likelihood, and with
+`bootstrap = TRUE` on a `glmer` fit.
+
+A `brms` fit is a Bayesian posterior: `"ML"` and `"REML"` perform no
+refit and `estimation_used` is `"posterior"`. Single-model VPC/ICC
+summaries always use the model as fitted.
 
 **Latent-scale families and rescaling.** For families whose level-1
 variance is a fixed latent-scale constant – binomial/Bernoulli

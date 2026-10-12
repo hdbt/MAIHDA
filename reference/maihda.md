@@ -37,7 +37,7 @@ maihda(
   time_degree = 1,
   stratum_slope = TRUE,
   interactions = TRUE,
-  estimation = c("fitted", "ML"),
+  estimation = c("fitted", "ML", "REML"),
   ...
 )
 ```
@@ -270,13 +270,17 @@ maihda(
 - estimation:
 
   Variance-estimation basis for the PCV (`"two-model"` and
-  `"longitudinal"` decompositions), `"fitted"` (default) or `"ML"`; see
+  `"longitudinal"` decompositions), `"fitted"` (default), `"ML"` or
+  `"REML"`; see
   [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
   `"fitted"` differences each model's own between-stratum variance (the
   REML estimate for a Gaussian `lmer` fit, as
   [`summary()`](https://rdrr.io/r/base/summary.html) reports); `"ML"`
-  refits REML `lmer` fits with maximum likelihood first. Affects
-  Gaussian `lmer` fits only.
+  refits REML `lmer` fits with maximum likelihood first. `"REML"`
+  compares REML-type variances for a binomial or Poisson lme4 fit in the
+  `"two-model"` decomposition, whose maximum-likelihood PCV runs high
+  with few or small strata; it is an error with `group`, with `context`
+  on such a fit, and in the `"longitudinal"` decomposition.
 
 - ...:
 
@@ -485,10 +489,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x55bb83e61bf0>
+#> <environment: 0x56237589d818>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x55bb884449e0>
+#> <environment: 0x562379b767d0>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -543,7 +547,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x55bb83192808>
+#> <environment: 0x5623744ccaf0>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

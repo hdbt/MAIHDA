@@ -213,7 +213,7 @@ print(pcv)
 #> 
 #> PCV: 0.0167
 #> 
-#> Variance basis: as fitted (REML for Gaussian lmer, matching summary())
+#> Variance basis: as fitted (maximum likelihood)
 #> 
 #> Between-stratum variance:
 #>   Model 1: 0.222667
@@ -223,6 +223,11 @@ print(pcv)
 #> Interpretation (PCV is the proportional change in between-stratum
 #> variance between the models):
 #>   Between-stratum variance is 1.7% lower in Model 2 than in Model 1.
+#> 
+#> Note: these are maximum-likelihood variances. With few or small strata they run
+#> low, and lower the more fixed effects a model has, so the PCV runs high;
+#> estimation = "REML" compares REML-type variances instead (see ?calculate_pcv).
+#> 
 ```
 
 The same caveats as in the continuous case apply, with one extra
@@ -231,6 +236,36 @@ by the link, so a change in the between-stratum variance is partly a
 **rescaling** of the latent scale, not only “variance explained”.
 Interpret the PCV as a model-dependent, descriptive change, not a causal
 decomposition.
+
+`glmer()` estimates these variances by maximum likelihood. With few or
+small strata they run low, and lower the more fixed effects a model has,
+so the PCV runs high – most of all when the second model adds the
+strata’s own main effects. `estimation = "REML"` compares REML-type
+variances instead, the counterpart of what the default does for a
+continuous outcome. It needs strata large enough for their own estimates
+to be precise (see
+[`?calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)):
+
+``` r
+
+calculate_pcv(model_null2, model_adj, estimation = "REML")
+#> Proportional Change in Variance (PCV)
+#> =====================================
+#> 
+#> PCV: 0.0145
+#> 
+#> Variance basis: REML-type (fixed effects integrated out; see ?calculate_pcv)
+#> 
+#> Between-stratum variance:
+#>   Model 1: 0.232744
+#>   Model 2: 0.229367
+#>   Change:  0.003377 (1.45%)
+#>   As fitted (maximum likelihood): 0.222667 -> 0.218941, PCV 0.0167
+#> 
+#> Interpretation (PCV is the proportional change in between-stratum
+#> variance between the models):
+#>   Between-stratum variance is 1.5% lower in Model 2 than in Model 1.
+```
 
 > **A note on adjusting for the strata’s own categories.** If instead
 > you add the *categorical* main effects that define the strata (e.g.

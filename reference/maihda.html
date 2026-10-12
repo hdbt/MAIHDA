@@ -103,7 +103,7 @@ supplied it also compares this decomposition across that variable's levels.</p>
 <span>  time_degree <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  stratum_slope <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  interactions <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  estimation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fitted"</span>, <span class="st">"ML"</span><span class="op">)</span>,</span>
+<span>  estimation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fitted"</span>, <span class="st">"ML"</span>, <span class="st">"REML"</span><span class="op">)</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -313,11 +313,15 @@ summary already holds; no refit).</p></dd>
 
 <dt id="arg-estimation">estimation<a class="anchor" aria-label="anchor" href="#arg-estimation"></a></dt>
 <dd><p>Variance-estimation basis for the PCV (<code>"two-model"</code> and
-<code>"longitudinal"</code> decompositions), <code>"fitted"</code> (default) or <code>"ML"</code>;
-see <code><a href="calculate_pcv.html">calculate_pcv</a></code>. <code>"fitted"</code> differences each model's own
-between-stratum variance (the REML estimate for a Gaussian <code>lmer</code> fit, as
-<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports); <code>"ML"</code> refits REML <code>lmer</code> fits with maximum
-likelihood first. Affects Gaussian <code>lmer</code> fits only.</p></dd>
+<code>"longitudinal"</code> decompositions), <code>"fitted"</code> (default), <code>"ML"</code> or
+<code>"REML"</code>; see <code><a href="calculate_pcv.html">calculate_pcv</a></code>. <code>"fitted"</code> differences each
+model's own between-stratum variance (the REML estimate for a Gaussian
+<code>lmer</code> fit, as <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports); <code>"ML"</code> refits REML
+<code>lmer</code> fits with maximum likelihood first. <code>"REML"</code> compares REML-type
+variances for a binomial or Poisson lme4 fit in the <code>"two-model"</code>
+decomposition, whose maximum-likelihood PCV runs high with few or small strata;
+it is an error with <code>group</code>, with <code>context</code> on such a fit, and in the
+<code>"longitudinal"</code> decomposition.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -495,10 +499,10 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55bb83e61bf0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x56237589d818&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55bb884449e0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x562379b767d0&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -553,7 +557,7 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55bb83192808&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5623744ccaf0&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>

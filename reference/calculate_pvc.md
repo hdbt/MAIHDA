@@ -15,7 +15,7 @@ calculate_pvc(
   bootstrap = FALSE,
   n_boot = 1000,
   conf_level = 0.95,
-  estimation = c("fitted", "ML")
+  estimation = c("fitted", "ML", "REML")
 )
 ```
 
@@ -55,11 +55,13 @@ calculate_pvc(
 
 - estimation:
 
-  Which between-stratum variances are compared, `"fitted"` (default) or
-  `"ML"`. `"fitted"` uses each model's own estimate (the REML estimate
-  for a Gaussian `lmer` fit); `"ML"` refits REML `lmer` fits by maximum
-  likelihood first, which overstates the PCV when strata are few. Only
-  Gaussian `lmer` fits are affected. See Details.
+  Which between-stratum variances are compared: `"fitted"` (default),
+  `"ML"` or `"REML"`. `"fitted"` uses each model's own estimate (REML
+  for a Gaussian `lmer` fit, maximum likelihood for a `glmer` fit).
+  `"ML"` refits REML `lmer` fits by maximum likelihood first, which
+  overstates the PCV when strata are few. `"REML"` compares REML-type
+  variances for binomial and Poisson `glmer` fits, whose
+  maximum-likelihood PCV is overstated in the same way. See Details.
 
 ## Value
 

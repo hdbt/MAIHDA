@@ -69,7 +69,7 @@ in a future release.</p>
 <span>  bootstrap <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  n_boot <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
-<span>  estimation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fitted"</span>, <span class="st">"ML"</span><span class="op">)</span></span>
+<span>  estimation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fitted"</span>, <span class="st">"ML"</span>, <span class="st">"REML"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -106,11 +106,13 @@ A value below about 200 warns that the interval's tail endpoints are unstable
 
 
 <dt id="arg-estimation">estimation<a class="anchor" aria-label="anchor" href="#arg-estimation"></a></dt>
-<dd><p>Which between-stratum variances are compared, <code>"fitted"</code>
-(default) or <code>"ML"</code>. <code>"fitted"</code> uses each model's own estimate (the REML
-estimate for a Gaussian <code>lmer</code> fit); <code>"ML"</code> refits REML <code>lmer</code> fits
-by maximum likelihood first, which overstates the PCV when strata are few. Only
-Gaussian <code>lmer</code> fits are affected. See Details.</p></dd>
+<dd><p>Which between-stratum variances are compared: <code>"fitted"</code>
+(default), <code>"ML"</code> or <code>"REML"</code>. <code>"fitted"</code> uses each model's own
+estimate (REML for a Gaussian <code>lmer</code> fit, maximum likelihood for a
+<code>glmer</code> fit). <code>"ML"</code> refits REML <code>lmer</code> fits by maximum likelihood
+first, which overstates the PCV when strata are few. <code>"REML"</code> compares
+REML-type variances for binomial and Poisson <code>glmer</code> fits, whose
+maximum-likelihood PCV is overstated in the same way. See Details.</p></dd>
 
 </dl></div>
     <div class="section level2">

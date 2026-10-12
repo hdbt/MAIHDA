@@ -155,7 +155,17 @@
   [`print()`](https://rdrr.io/r/base/print.html) shows them and
   `trajectory_vpc_method` records the basis.
 
+- [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  and [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  gained `estimation = "REML"`, which compares REML-type variances for
+  binomial and Poisson lme4 fits; their maximum-likelihood PCV runs high
+  with few or small strata.
+
 ### API changes
+
+- [`print()`](https://rdrr.io/r/base/print.html) on a PCV built from
+  maximum-likelihood variances (a glmer, wemix or ordinal fit) now says
+  so; the numbers are unchanged.
 
 - `predict_maihda(allow_new_levels = TRUE)` on a brms fit now refuses
   newdata missing a grouping column the prediction uses, such as the
@@ -536,6 +546,12 @@
   [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
   stops there, instead of passing on its
   `Matrix seems negative semi-definite` error.
+
+- [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now gives a failure reason shared by several groups once, in one
+  warning for failed fits and one for failed PCV decompositions, names a
+  one-level stratum dimension as the cause only for the groups where it
+  is, and keeps the first line of an error message in `status`.
 
 - `predict_maihda(allow_new_levels = TRUE)` on a brms fit now predicts a
   row with a missing grouping value – a stratum dimension, a supplied
