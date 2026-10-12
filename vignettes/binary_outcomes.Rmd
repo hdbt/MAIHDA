@@ -372,6 +372,13 @@ model reports a VPC six times larger under one than another. `summary()`
 therefore names the approximation and the mean count it was evaluated at, and
 warns when that count is at or below 2. Report which one you used.
 
+The VPC can also be computed on the count scale itself. For a Poisson or
+negative-binomial model `maihda_vpc_response()` evaluates the exact expressions
+of Leckie et al. (2020): the share of the variance of the observed counts that
+lies between strata, with no level-1 approximation to choose.
+`summary(response_vpc = TRUE)` prints it below the latent-scale VPC. The two
+answer different questions, so say which one you report.
+
 ## References
 
 - Merlo, J. (2018). Multilevel analysis of individual heterogeneity and discriminatory accuracy (MAIHDA) within an intersectional framework. *Social Science & Medicine*, 203, 74-80.
@@ -381,3 +388,5 @@ warns when that count is at or below 2. Report which one you used.
 - Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J. (2024). A tutorial for conducting intersectional multilevel analysis of individual heterogeneity and discriminatory accuracy (MAIHDA). *SSM - Population Health*, 26, 101664. doi:10.1016/j.ssmph.2024.101664
 
 - Merlo, J., Wagner, P., Ghith, N., & Leckie, G. (2016). An original stepwise multilevel logistic regression analysis of discriminatory accuracy: the case of neighbourhoods and health. *PLOS ONE*, 11(4), e0153778.
+
+- Leckie, G., Browne, W. J., Goldstein, H., Merlo, J., & Austin, P. C. (2020). Partitioning variation in multilevel models for count data. *Psychological Methods*, 25(6), 787-801. doi:10.1037/met0000265

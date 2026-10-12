@@ -139,6 +139,11 @@ maihda_tag_role <- function(s, role) {
 #'   (interaction) component only when the additive main effects of the strata
 #'   variables are included in the model.
 #'
+#'   For a Poisson or negative-binomial model the VPC can also be computed on the
+#'   count scale itself, with no approximation of the level-1 variance (Leckie et
+#'   al., 2020): see \code{\link{maihda_vpc_response}}, or set
+#'   \code{response_vpc = TRUE}.
+#'
 #' @param object A maihda_model object from \code{fit_maihda()}.
 #' @param bootstrap Logical indicating whether to compute parametric bootstrap
 #'   confidence intervals for VPC/ICC. Default is FALSE. Supported for lme4
@@ -160,8 +165,11 @@ maihda_tag_role <- function(s, role) {
 #' @param response_vpc Logical; for a binomial (lme4) model, also compute the
 #'   response-scale VPC (\code{\link{maihda_vpc_response}}) and attach it as the
 #'   \code{vpc_response} slot. It is estimated by simulation, so it is opt-in (default
-#'   \code{FALSE}) and uses \code{seed} for reproducibility. Ignored for other
-#'   families/engines.
+#'   \code{FALSE}) and uses \code{seed} for reproducibility. For a Poisson or
+#'   negative-binomial (lme4) model whose only random effect is the stratum
+#'   intercept, the same slot receives the count-scale VPC of Leckie et al. (2020),
+#'   a closed form that needs no seed. Ignored for other families, engines and
+#'   random-effect structures.
 #' @param seed Optional integer seed for the response-scale VPC simulation when
 #'   \code{response_vpc = TRUE}.
 #' @param df_method Reference distribution for the fixed-effect p-values and
@@ -217,7 +225,9 @@ maihda_tag_role <- function(s, role) {
 #'     \code{NULL} for every other family.}
 #'   \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
 #'     \code{response_vpc = TRUE} for a binomial lme4 model, including a contextual
-#'     fit (the context variance enters the VPC denominator); \code{NULL} otherwise
+#'     fit (the context variance enters the VPC denominator), and the count-scale
+#'     VPC for a Poisson or negative-binomial lme4 model whose only random effect
+#'     is the stratum intercept; \code{NULL} otherwise
 #'     (including for crossed-dimensions and longitudinal fits)}
 #'   \item{stratum_estimates}{Data frame of stratum-specific random effects with labels if available}
 #'   \item{fixed_effects}{Fixed-effect estimates. For the lme4, WeMix and ordinal
@@ -375,6 +385,10 @@ maihda_tag_role <- function(s, role) {
 #' (MAIHDA) to study individual longitudinal trajectories, with application to
 #' mental health in the UK. \emph{Social Science & Medicine}, 351, 116955.
 #' \doi{10.1016/j.socscimed.2024.116955}
+#'
+#' Leckie, G., Browne, W. J., Goldstein, H., Merlo, J., & Austin, P. C. (2020).
+#' Partitioning variation in multilevel models for count data.
+#' \emph{Psychological Methods}, 25(6), 787-801. \doi{10.1037/met0000265}
 #'
 #' @examples
 #' \donttest{
@@ -758,6 +772,17 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       vpc_response <- maihda_try_optional(
         maihda_vpc_response(object, seed = seed), "Response-scale VPC")
     }
+  }
+  # The count-scale counterpart, on the same request. It is a closed form, so it
+  # takes no seed. Attached only where maihda_vpc_response() covers the fit (a
+  # Poisson or negative-binomial lme4 fit whose one random effect is the stratum
+  # intercept), so a structure it does not cover is skipped as any other family or
+  # engine is, rather than reported as a calculation that failed.
+  if (isTRUE(response_vpc) &&
+      isTRUE(tryCatch(is.null(maihda_count_vpc_refusal(object)),
+                      error = function(e) FALSE))) {
+    vpc_response <- maihda_try_optional(
+      maihda_vpc_response(object), "Count-scale VPC")
   }
 
   # Which count level-1 approximation the VPC used, and the marginal lambda it was
@@ -2031,8 +2056,9 @@ print.maihda_summary <- function(x, ...) {
     maihda_print_context_partition(x$context)
   }
 
-  # Discriminatory accuracy (AUC + MOR) and, when requested, the response-scale VPC --
-  # the binomial companions to the latent-scale VPC. Reuse their own print methods.
+  # Discriminatory accuracy (AUC + MOR), the binomial companion to the latent-scale
+  # VPC, and, when requested, the response-scale VPC (the probability scale for a
+  # binomial fit, the count scale for a count fit). Reuse their own print methods.
   if (!is.null(x$discriminatory_accuracy)) {
     print(x$discriminatory_accuracy)
     cat("\n")
