@@ -75,6 +75,8 @@
 
 * `predict_maihda(allow_new_levels = TRUE)` on a brms fit now predicts a row with a missing grouping value -- a stratum dimension, a supplied `stratum`, a context or a longitudinal `id` -- at a zero effect for that term, as the other engines do, instead of drawing a new effect for it on every call.
 
+* `summary()` on a binomial `engine = "wemix"` fit with a small between-stratum variance no longer passes on WeMix's `diag(V) had non-positive or NA entries` warning, and neither does anything that calls it, such as `tidy()`, `maihda_table()`, `plot()`, `maihda()` and `compare_maihda_groups()`; estimates are unchanged.
+
 * A brms `trials()` term that calls a function outside base R -- your own, or one from an attached package such as `coalesce()` under `library(dplyr)` -- no longer loses its trial counts: `predict_maihda(scale = "response")` returned expected success counts, the stratum summaries, plots, `maihda_table()` and `maihda_describe()` counted every row as one trial, and the AUC and the prediction-deviation panel refused the fit. A response calling such a function no longer leaves that panel with no row to score.
 
 * `calculate_pcv()`, `compare_maihda()` and `maihda_ic()` now compare the trial counts of a brms `y | trials(n)` outcome, not just its successes, so fits of the same successes out of different trials are refused or flagged as different samples instead of compared as one.
