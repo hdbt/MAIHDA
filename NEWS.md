@@ -80,6 +80,8 @@
 
 * `fit_maihda(engine = "wemix")` on a binomial model now says that the between-stratum variance was estimated at zero when `WeMix::mix()` stops there, instead of passing on its `Matrix seems negative semi-definite` error.
 
+* `fit_maihda(engine = "wemix")` on a binomial model now says what happened when `WeMix::mix()` stops because more than half of the stratum effects are exactly zero at a likelihood evaluation, instead of passing on its `non-conformable matrix dimensions` error.
+
 * `compare_maihda_groups()` now gives a failure reason shared by several groups once, in one warning for failed fits and one for failed PCV decompositions, names a one-level stratum dimension as the cause only for the groups where it is, and keeps the first line of an error message in `status`.
 
 * `predict_maihda(allow_new_levels = TRUE)` on a brms fit now predicts a row with a missing grouping value -- a stratum dimension, a supplied `stratum`, a context or a longitudinal `id` -- at a zero effect for that term, as the other engines do, instead of drawing a new effect for it on every call.

@@ -290,13 +290,19 @@ maihda_fit_wemix <- function(formula, data, family, sampling_weights, dot_vals) 
     args$family <- stats::binomial(link = "logit")
   }
   # A binomial fit that ends with the between-stratum variance at zero makes mix() stop
-  # with an error about a matrix; say what happened instead (see
-  # maihda_wemix_boundary_error()). Any other error leaves as WeMix raised it.
+  # with an error about a matrix, and so does a likelihood evaluation at which more than
+  # half of the stratum effects are exactly zero; say what happened instead (see
+  # maihda_wemix_boundary_error() and maihda_wemix_zero_modes()). Any other error leaves
+  # as WeMix raised it.
   model <- withCallingHandlers(
     do.call(WeMix::mix, c(args, dot_vals)),
     error = function(e) {
       if (maihda_wemix_boundary_error(e, family)) {
         stop(maihda_wemix_boundary_message(e), call. = FALSE)
+      }
+      modes <- maihda_wemix_zero_modes(sys.calls(), sys.frames())
+      if (!is.null(modes)) {
+        stop(maihda_wemix_zero_modes_message(e, modes), call. = FALSE)
       }
     })
 
@@ -351,6 +357,78 @@ maihda_wemix_boundary_message <- function(e) {
     "for all differences between strata; for the adjusted model of a two-model MAIHDA ",
     "that is a PCV of 1.\n",
     "  engine = \"brms\" with 'sampling_weights' returns a fit for this model.")
+}
+
+# How many stratum effects were exactly zero where WeMix::mix() stopped, as
+# c(zero = , strata = ), when the error being handled is the one mix() raises because
+# more than half of them are; NULL for any other error. `calls` and `frames` are
+# sys.calls() and sys.frames() as the error handler sees them.
+#
+# For a binomial fit with more than one quadrature point, every likelihood evaluation
+# centres the points on the conditional modes of the stratum effects: makeAdaptedPts()
+# wraps the modes with Matrix(), as `muHat2`, and adds that single column to a dense
+# strata x points matrix. Matrix() returns a sparse matrix when more than half of its
+# entries are exact zeros, and a dense and a sparse Matrix are added only when their
+# dimensions agree (WeMix 4.0.3, Matrix 1.7-3). That error carries no call and its
+# message is translated, so the case is told by where mix() was: in makeAdaptedPts(),
+# in that addition, with `muHat2` sparse and more than half of the modes at zero.
+maihda_wemix_zero_modes <- function(calls, frames) {
+  # The function a call names, without its namespace; NULL when it names none.
+  head_of <- function(cl) {
+    if (!is.call(cl)) {
+      return(NULL)
+    }
+    fn <- cl[[1L]]
+    if (is.call(fn) && length(fn) == 3L &&
+        (identical(fn[[1L]], as.name("::")) || identical(fn[[1L]], as.name(":::")))) {
+      fn <- fn[[3L]]
+    }
+    if (is.name(fn)) fn
+  }
+  # This runs while another error is being handled, so it may neither fail nor warn:
+  # whatever it cannot read is an error it does not recognise.
+  tryCatch({
+    heads <- lapply(calls, head_of)
+    at <- which(vapply(heads, identical, logical(1), as.name("makeAdaptedPts")))
+    at <- at[at < length(heads) & at <= length(frames)]
+    if (length(at) == 0L) {
+      return(NULL)
+    }
+    # The innermost one, and the call it had made.
+    at <- max(at)
+    if (!identical(heads[[at + 1L]], as.name("+"))) {
+      return(NULL)
+    }
+    frame <- frames[[at]]
+    if (!is.environment(frame) ||
+        !inherits(get0("muHat2", envir = frame, inherits = FALSE), "sparseMatrix")) {
+      return(NULL)
+    }
+    modes <- get0("muHat", envir = frame, inherits = FALSE)
+    if (!is.numeric(modes)) {
+      return(NULL)
+    }
+    zero <- sum(modes == 0, na.rm = TRUE)
+    if (2L * zero <= length(modes)) {
+      return(NULL)
+    }
+    c(zero = zero, strata = length(modes))
+  }, error = function(e) NULL, warning = function(w) NULL)
+}
+
+# What fit_maihda() says in place of that error. Its first line is what a
+# compare_maihda_groups() status cell holds.
+maihda_wemix_zero_modes_message <- function(e, modes) {
+  paste0(
+    "engine = \"wemix\": WeMix::mix() stopped while evaluating the likelihood of this ",
+    "binomial model: the estimated effect of ", modes[["zero"]], " of the ",
+    modes[["strata"]], " strata is exactly zero there, and mix() cannot go on when ",
+    "more than half of them are.\n",
+    "  That happens when those strata hold exactly as many (weighted) successes as ",
+    "failures and the fixed part predicts a probability of one half for them. It is a ",
+    "limitation of WeMix and says nothing about the model.\n",
+    "  nQuad = 1 (the Laplace approximation) skips the failing step.\n",
+    "  WeMix's own error: ", conditionMessage(e))
 }
 
 # Reject a 'max_iteration' forwarded to WeMix::mix() that would abandon (or never
