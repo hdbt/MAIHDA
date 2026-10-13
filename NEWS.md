@@ -87,6 +87,10 @@
 
 * The fit-quality warning of `compare_maihda_groups()` no longer says that lme4 reported the problem on the `wemix`, `ordinal` and `brms` engines or that a singular fit always has a between-stratum variance of zero, explains only what it lists, and lists a `brms` group under a largest R-hat above 1.01 or divergent transitions.
 
+* The fit-quality warning of `compare_maihda_groups()` now names a group for a singular fit only when its between-stratum variance is estimated at zero; a zero interaction, dimension, context or other variance component no longer names it.
+
+* The fit-quality warning of `compare_maihda_groups()` now also names a group whose adjusted model did not converge (on `brms`: has a largest R-hat above 1.01 or divergent transitions) and points to its PCV.
+
 * `predict_maihda(allow_new_levels = TRUE)` on a brms fit now predicts a row with a missing grouping value -- a stratum dimension, a supplied `stratum`, a context or a longitudinal `id` -- at a zero effect for that term, as the other engines do, instead of drawing a new effect for it on every call.
 
 * `summary()` on a binomial `engine = "wemix"` fit with a small between-stratum variance no longer passes on WeMix's `diag(V) had non-positive or NA entries` warning, and neither does anything that calls it, such as `tidy()`, `maihda_table()`, `plot()`, `maihda()` and `compare_maihda_groups()`; estimates are unchanged.

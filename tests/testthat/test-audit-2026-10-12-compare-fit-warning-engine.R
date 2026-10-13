@@ -53,9 +53,11 @@ fq12_keep_seed <- function(expr) {
 }
 
 fq12_open <- "compare_maihda_groups(): fit problems ("
-fq12_singular <- paste0("A singular fit has a variance component estimated at zero; ",
-                        "where that is the between-stratum variance, var_between and ",
-                        "the VPC are 0.")
+# The sentence of packet 2026-10-12-compare-fit-warning-groups, under which a group is
+# named as singular only for a between-stratum variance of zero: its test file pins
+# which groups that is, this one that the sentence serves every engine.
+fq12_singular <- paste0("A singular fit listed here has its between-stratum variance ",
+                        "estimated at zero, so var_between and the VPC are 0.")
 fq12_nonconv <- "A fit that did not converge may be unreliable."
 fq12_brms <- "The posterior summaries of these brms fits may be unreliable."
 fq12_close <- " Interpret these groups' VPC/ICC values with caution."
