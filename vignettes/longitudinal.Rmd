@@ -187,6 +187,21 @@ The PCV is reported separately for the two pieces of the trajectory:
 plot(a, type = "pcv_trajectory")   # the additive share over time
 ```
 
+With `engine = "brms"` each variance in this decomposition is the posterior
+**median** of its per-draw value: the between-stratum variance at the baseline, the
+slope variance, and the variance at each time behind the trajectory plot. The
+covariance blocks in `summary()` are posterior means, so they do not reproduce
+those numbers. The posterior of a between-stratum variance is right-skewed when the
+strata are few, and more so in the adjusted model: its variance is smaller next to
+the sampling noise of the stratum estimates, and it spends degrees of freedom on the
+main effects and their time interactions. A `brms` PCV is therefore understated on
+average with few strata -- by more when the additive share is moderate, when the
+strata are small, or, for `PCV_slope`, when the strata differ little in slope next to
+how precisely a stratum's slope is estimated -- and can come out negative where the
+true share is positive. With around a dozen strata the `lme4` decomposition is less
+biased, though neither is precise with so few strata; the understatement shrinks as
+strata are added.
+
 ## Scope and cautions
 
 * **Time coding.** You can code time however is convenient for your workflow ( waves 0, 1, 2, ...,

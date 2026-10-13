@@ -228,7 +228,11 @@ An object of class \code{maihda_analysis}: a list with
     \code{"fitted"} keeps each Gaussian \code{lmer} fit's own REML variance
     (matching the single-model summaries), while \code{"ML"} refits the REML
     fits with maximum likelihood, which overstates the PCV when strata are few
-    (see \code{\link{calculate_pcv}})}
+    (see \code{\link{calculate_pcv}}). For \code{engine = "brms"} in
+    \code{"longitudinal"} mode the variances compared are posterior medians of
+    the per-draw between-stratum variance -- at the baseline, of the slope, and at
+    each reporting time -- and, like the two-model \code{brms} PCV, the result is
+    understated on average when strata are few}
   \item{decomposition}{the additive/interaction partition (additive and interaction
     variances and shares, per-dimension variances; \code{"crossed-dimensions"} mode
     only, \code{NULL} otherwise)}
