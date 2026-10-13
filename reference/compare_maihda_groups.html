@@ -334,14 +334,18 @@ singular fit yields a VPC of 0 rather than an error (unlike
 <code><a href="calculate_pcv.html">calculate_pcv</a></code>). A hard fit failure in one group records <code>NA</code>
 and a status note without aborting the whole comparison; one warning names the
 groups whose fit failed and gives each distinct reason once.</p>
-<p>Fit-quality diagnostics: on every engine, a group whose model is singular or did
-not converge keeps a <code>status</code> of <code>"ok"</code> (the fit did complete) and is
-named in one warning. A singular fit has a variance component estimated at zero.
-Where that is the between-stratum variance, <code>var_between</code> and the VPC are 0;
-otherwise the zero is in another component, such as a context or a term of the
-crossed-dimensions model. A <code>brms</code> fit is named when its largest R-hat is
-above 1.01 or its sampler had a divergent transition, and is never reported as
-singular.</p>
+<p>Fit-quality diagnostics: on every engine, one warning names the groups with a fit
+problem, and such a group keeps a <code>status</code> of <code>"ok"</code> (the fit did
+complete). A group is named for a singular fit when its between-stratum variance
+is estimated at zero, so that <code>var_between</code> and the VPC are 0. A zero in
+another variance component – a context, a further random effect, the interaction
+or a dimension of the crossed-dimensions model – leaves them as estimated and does
+not name the group. A group is also named when its model did not converge and, in
+a two-model decomposition, when its adjusted model did not. The warning says
+which: an adjusted model affects the group's PCV, not its VPC, and
+<code>pcv_status</code> does not record it. A <code>brms</code> model is named when its
+largest R-hat is above 1.01 or its sampler had a divergent transition, and is never
+reported as singular.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

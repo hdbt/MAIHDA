@@ -285,14 +285,19 @@ A hard fit failure in one group records `NA` and a status note without
 aborting the whole comparison; one warning names the groups whose fit
 failed and gives each distinct reason once.
 
-Fit-quality diagnostics: on every engine, a group whose model is
-singular or did not converge keeps a `status` of `"ok"` (the fit did
-complete) and is named in one warning. A singular fit has a variance
-component estimated at zero. Where that is the between-stratum variance,
-`var_between` and the VPC are 0; otherwise the zero is in another
-component, such as a context or a term of the crossed-dimensions model.
-A `brms` fit is named when its largest R-hat is above 1.01 or its
-sampler had a divergent transition, and is never reported as singular.
+Fit-quality diagnostics: on every engine, one warning names the groups
+with a fit problem, and such a group keeps a `status` of `"ok"` (the fit
+did complete). A group is named for a singular fit when its
+between-stratum variance is estimated at zero, so that `var_between` and
+the VPC are 0. A zero in another variance component – a context, a
+further random effect, the interaction or a dimension of the
+crossed-dimensions model – leaves them as estimated and does not name
+the group. A group is also named when its model did not converge and, in
+a two-model decomposition, when its adjusted model did not. The warning
+says which: an adjusted model affects the group's PCV, not its VPC, and
+`pcv_status` does not record it. A `brms` model is named when its
+largest R-hat is above 1.01 or its sampler had a divergent transition,
+and is never reported as singular.
 
 ## See also
 

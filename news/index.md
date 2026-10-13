@@ -437,6 +437,17 @@
   model; the same outcome stored as a column always picked `binomial`.
   Pass `family = "gaussian"` for the LPM.
 
+- `fit_maihda(engine = "ordinal")` now compares a Laplace fit that ends
+  at or near a between-stratum variance of zero with the boundary fit,
+  made by
+  [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html)’s
+  general routine (`clmm.control(useMatrix = TRUE)`), and returns the
+  boundary fit unless its log-likelihood is lower by more than 1e-9 of
+  its size: strata with the same outcome proportions, or a fixed part
+  that spans the strata, no longer return `clmm()`’s starting variance
+  of 1, and the boundary fit returned has a variance of zero, is flagged
+  singular and has threshold standard errors.
+
 ### Documentation
 
 - Shortened the help text of
@@ -579,6 +590,18 @@
   between-stratum variance of zero, explains only what it lists, and
   lists a `brms` group under a largest R-hat above 1.01 or divergent
   transitions.
+
+- The fit-quality warning of
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now names a group for a singular fit only when its between-stratum
+  variance is estimated at zero; a zero interaction, dimension, context
+  or other variance component no longer names it.
+
+- The fit-quality warning of
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  now also names a group whose adjusted model did not converge (on
+  `brms`: has a largest R-hat above 1.01 or divergent transitions) and
+  points to its PCV.
 
 - `predict_maihda(allow_new_levels = TRUE)` on a brms fit now predicts a
   row with a missing grouping value – a stratum dimension, a supplied

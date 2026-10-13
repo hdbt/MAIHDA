@@ -369,7 +369,10 @@ which the offset does not).</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A maihda_model object containing:</p>
 <dl><dt>model</dt>
-<dd><p>The fitted model object (lme4, brms, WeMix, or ordinal::clmm)</p></dd>
+<dd><p>The fitted model object (lme4, brms, WeMix, or ordinal::clmm). An
+    ordinal fit with a between-stratum variance of zero comes from
+    <code>clmm()</code>'s general routine, <code>clmm.control(useMatrix = TRUE)</code>, the
+    one that can return it</p></dd>
 
   <dt>engine</dt>
 <dd><p>The engine used ("lme4", "brms", "wemix", or "ordinal")</p></dd>

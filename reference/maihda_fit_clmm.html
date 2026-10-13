@@ -115,6 +115,15 @@ position in the bar-free variables list (see <code>maihda_offset_before_bars</co
   and contrast matrices, taken while the options that shaped the design are in
   force; <code>NULL</code> if they could not be read).</p>
     </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>A Laplace fit that ends with every stratum effect at exactly zero, or with a
+between-stratum SD below 1% of the latent residual SD, is compared with the
+boundary fit: <code>clmm()</code>'s general routine
+(<code>clmm.control(useMatrix = TRUE)</code>) started from the first fit's thresholds
+and coefficients and an SD of zero. The boundary fit is the one returned unless
+its log-likelihood is below the first fit's by more than 1e-9 of its size.</p>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

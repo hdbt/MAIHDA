@@ -347,7 +347,10 @@ A maihda_model object containing:
 
 - model:
 
-  The fitted model object (lme4, brms, WeMix, or ordinal::clmm)
+  The fitted model object (lme4, brms, WeMix, or ordinal::clmm). An
+  ordinal fit with a between-stratum variance of zero comes from
+  `clmm()`'s general routine, `clmm.control(useMatrix = TRUE)`, the one
+  that can return it
 
 - engine:
 

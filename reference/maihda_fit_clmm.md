@@ -46,3 +46,13 @@ A list with `model` (the `clmm` fit), `data` (the analytic data frame
 actually fitted) and `coding` (the fit's factor levels and contrast
 matrices, taken while the options that shaped the design are in force;
 `NULL` if they could not be read).
+
+## Details
+
+A Laplace fit that ends with every stratum effect at exactly zero, or
+with a between-stratum SD below 1% of the latent residual SD, is
+compared with the boundary fit: `clmm()`'s general routine
+(`clmm.control(useMatrix = TRUE)`) started from the first fit's
+thresholds and coefficients and an SD of zero. The boundary fit is the
+one returned unless its log-likelihood is below the first fit's by more
+than 1e-9 of its size.
