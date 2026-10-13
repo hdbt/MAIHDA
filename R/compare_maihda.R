@@ -555,11 +555,14 @@ plot_comparison <- function(comparison_df) {
 #' and a status note without aborting the whole comparison; one warning names the
 #' groups whose fit failed and gives each distinct reason once.
 #'
-#' Fit-quality diagnostics: for the \code{lme4} engine, groups whose model is
-#' singular or fails to converge keep a \code{status} of \code{"ok"} (the fit did
-#' complete) but are named in a single aggregated warning, because their VPC/ICC
-#' may be unreliable -- a singular fit usually pins the between-stratum variance at
-#' the boundary, giving a VPC of 0.
+#' Fit-quality diagnostics: on every engine, a group whose model is singular or did
+#' not converge keeps a \code{status} of \code{"ok"} (the fit did complete) and is
+#' named in one warning. A singular fit has a variance component estimated at zero.
+#' Where that is the between-stratum variance, \code{var_between} and the VPC are 0;
+#' otherwise the zero is in another component, such as a context or a term of the
+#' crossed-dimensions model. A \code{brms} fit is named when its largest R-hat is
+#' above 1.01 or its sampler had a divergent transition, and is never reported as
+#' singular.
 #'
 #' @examples
 #' \donttest{
@@ -1006,9 +1009,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   }
 
   rows <- vector("list", length(group_levels))
-  # Collect groups whose lme4 fit was singular or failed to converge, so a single
-  # aggregated warning can be raised at the end (these make a group's VPC
-  # unreliable). brms fits report NA here and are diagnosed via Rhat elsewhere.
+  # Groups whose fit is singular or did not converge, on any engine, for one
+  # aggregated warning after the loop. A brms fit is never recorded as singular, and
+  # counts as not converged when its largest R-hat is above 1.01 or its sampler had a
+  # divergent transition (maihda_fit_diagnostics()).
   singular_groups <- character(0)
   nonconverged_groups <- character(0)
   # Set of strata actually populated in each successfully fitted group, used to
@@ -1304,8 +1308,10 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     }
 
     # Flag fit-quality problems (singular / non-converged) for an aggregated
-    # warning. The fit still "succeeded" (status stays "ok"), but the VPC may be
-    # unreliable -- a singular fit typically pins the stratum variance at 0.
+    # warning. The fit still "succeeded" (status stays "ok"). On lme4 a singular fit
+    # has ANY variance component at zero -- the stratum's, a context's, or a term of
+    # the crossed-dimensions model -- while wemix and ordinal flag the stratum
+    # variance only.
     diag <- fit_obj$model$diagnostics
     if (isTRUE(diag$singular)) singular_groups <- c(singular_groups, g)
     if (isFALSE(diag$converged)) nonconverged_groups <- c(nonconverged_groups, g)
@@ -1350,23 +1356,12 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     }
   }
 
-  # Single aggregated warning when any group's lme4 fit was singular or did not
-  # converge, naming the affected groups so their VPCs can be read with caution.
-  diag_notes <- character(0)
-  if (length(singular_groups) > 0) {
-    diag_notes <- c(diag_notes,
-                    paste0("singular fit: ", paste(singular_groups, collapse = ", ")))
-  }
-  if (length(nonconverged_groups) > 0) {
-    diag_notes <- c(diag_notes,
-                    paste0("did not converge: ", paste(nonconverged_groups, collapse = ", ")))
-  }
-  if (length(diag_notes) > 0) {
-    warning("compare_maihda_groups(): lme4 reported fit problems (",
-            paste(diag_notes, collapse = "; "),
-            "). A singular fit means the between-stratum variance is at the boundary ",
-            "(often VPC = 0); a non-converged fit may be unreliable. Interpret these ",
-            "groups' VPC/ICC values with caution.", call. = FALSE)
+  # Single aggregated warning when any group's fit was singular or did not converge,
+  # naming the affected groups so their VPCs can be read with caution.
+  fit_quality <- maihda_group_fit_quality_message(engine, singular_groups,
+                                                  nonconverged_groups)
+  if (!is.null(fit_quality)) {
+    warning(fit_quality, call. = FALSE)
   }
 
   # Contextual weak identification: stratifying by group shrinks each group x
@@ -1541,6 +1536,45 @@ maihda_prepare_group_strata <- function(formula, data, shared_strata, autobin = 
   # Per-group strata: keep the shorthand so fit_maihda rebuilds strata in each
   # subset. Return data unchanged (no stratum column yet).
   list(data = data, formula = formula, strata_vars = strata_vars)
+}
+
+# The text of compare_maihda_groups()'s fit-quality warning: the groups whose fit is
+# singular and those whose fit did not converge, each followed by what its entry
+# means; NULL when no group is listed. The same words serve lme4, wemix and ordinal.
+# On brms the second entry stands for what maihda_fit_diagnostics() checks there, a
+# largest R-hat above 1.01 or a divergent transition, and is worded as that; no brms
+# fit is recorded as singular. The zero of a singular lme4 fit can be in any variance
+# component, so the sentence does not say it is the between-stratum variance.
+maihda_group_fit_quality_message <- function(engine, singular_groups,
+                                             nonconverged_groups) {
+  entries <- character(0)
+  meaning <- character(0)
+  if (length(singular_groups) > 0L) {
+    entries <- c(entries,
+                 paste0("singular fit: ", paste(singular_groups, collapse = ", ")))
+    meaning <- c(meaning,
+                 paste0("A singular fit has a variance component estimated at zero; ",
+                        "where that is the between-stratum variance, var_between and ",
+                        "the VPC are 0."))
+  }
+  if (length(nonconverged_groups) > 0L) {
+    who <- paste(nonconverged_groups, collapse = ", ")
+    if (identical(engine, "brms")) {
+      entries <- c(entries,
+                   paste0("largest R-hat above 1.01 or divergent transitions: ", who))
+      meaning <- c(meaning,
+                   "The posterior summaries of these brms fits may be unreliable.")
+    } else {
+      entries <- c(entries, paste0("did not converge: ", who))
+      meaning <- c(meaning, "A fit that did not converge may be unreliable.")
+    }
+  }
+  if (length(entries) == 0L) {
+    return(NULL)
+  }
+  paste0("compare_maihda_groups(): fit problems (", paste(entries, collapse = "; "),
+         "). ", paste(meaning, collapse = " "),
+         " Interpret these groups' VPC/ICC values with caution.")
 }
 
 # The first line of an error message, which is what a "fit failed" status cell holds:
