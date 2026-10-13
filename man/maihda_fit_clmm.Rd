@@ -34,4 +34,12 @@ ordinal fit dump the whole data set. Any formula \code{offset()} term is moved
 ahead of the \code{(1 | stratum)} term first, because clmm reads the offset by
 position in the bar-free variables list (see \code{maihda_offset_before_bars}).
 }
+\details{
+A Laplace fit that ends with every stratum effect at exactly zero, or with a
+between-stratum SD below 1\% of the latent residual SD, is compared with the
+boundary fit: \code{clmm()}'s general routine
+(\code{clmm.control(useMatrix = TRUE)}) started from the first fit's thresholds
+and coefficients and an SD of zero. The boundary fit is the one returned unless
+its log-likelihood is below the first fit's by more than 1e-9 of its size.
+}
 \keyword{internal}

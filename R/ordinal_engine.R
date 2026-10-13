@@ -345,6 +345,13 @@ maihda_offset_before_bars <- function(formula) {
 #' ahead of the \code{(1 | stratum)} term first, because clmm reads the offset by
 #' position in the bar-free variables list (see \code{maihda_offset_before_bars}).
 #'
+#' A Laplace fit that ends with every stratum effect at exactly zero, or with a
+#' between-stratum SD below 1\% of the latent residual SD, is compared with the
+#' boundary fit: \code{clmm()}'s general routine
+#' (\code{clmm.control(useMatrix = TRUE)}) started from the first fit's thresholds
+#' and coefficients and an SD of zero. The boundary fit is the one returned unless
+#' its log-likelihood is below the first fit's by more than 1e-9 of its size.
+#'
 #' @param formula The resolved model formula (with \code{(1 | stratum)}).
 #' @param data The data (after strata creation / response preparation).
 #' @param family The cumulative family marker (link "logit" or "probit").
@@ -429,7 +436,19 @@ maihda_fit_clmm <- function(formula, data, family, dot_vals) {
   # partially (see maihda_resolve_dot_names()).
   dot_vals <- maihda_resolve_dot_names(dot_vals, ordinal::clmm, names(args))
   fit_call <- as.call(c(list(quote(ordinal::clmm)), args, dot_vals))
-  model <- eval(fit_call, fit_env)
+  # What this fit signals is noted on its way out, so that a second fit of the same
+  # model does not say it again.
+  signalled <- character(0)
+  model <- withCallingHandlers(
+    eval(fit_call, fit_env),
+    warning = function(w) signalled <<- c(signalled, conditionMessage(w)),
+    message = function(m) signalled <<- c(signalled, conditionMessage(m)))
+  # clmm()'s routine for a single random intercept cannot return a between-stratum SD
+  # of zero and can lose sight of the SD altogether; a fit it leaves there is made
+  # again by clmm()'s general routine (see maihda_clmm_refit_wanted()).
+  if (maihda_clmm_refit_wanted(model)) {
+    model <- maihda_clmm_general_refit(model, args, dot_vals, fit_env, signalled)
+  }
 
   # Record the factor coding of the fitted design NOW, while the options and the
   # contrasts argument that shaped it are still in force: predictions rebuild the
@@ -441,6 +460,222 @@ maihda_fit_clmm <- function(formula, data, family, dot_vals) {
     error = function(e) NULL)
 
   list(model = model, data = data, coding = coding)
+}
+
+# A fit of clmm()'s single-intercept routine is made again by the general one when its
+# between-stratum SD is below this share of the latent residual SD. The value decides
+# only whether the second routine is tried, not what counts as a boundary fit.
+.maihda_clmm_refit_below <- 0.01
+
+# SD of the stratum random intercept of a clmm fit; NA when it cannot be read.
+maihda_clmm_stratum_sd <- function(model) {
+  v <- tryCatch(as.numeric(ordinal::VarCorr(model)[["stratum"]][1, 1]),
+                error = function(e) NA_real_)
+  if (length(v) == 1L && is.finite(v) && v >= 0) sqrt(v) else NA_real_
+}
+
+# TRUE when clmm()'s routine for a single random intercept returned every stratum
+# effect at exactly zero. That routine tests the effects' convergence before it
+# computes their Hessian, so effects that pass at their starting value of zero come
+# back with the Hessian as it was handed in. The Laplace approximation is then the
+# likelihood of the model without the random effect, which does not depend on the
+# between-stratum SD, and a quadrature rule is left unadapted: the SD of such a fit is
+# where the optimiser stood, not an estimate. At clmm()'s own starting point (the
+# pooled fixed-effect estimates, SD 1) every stratum's score is zero whenever the
+# strata have the same outcome proportions or the fixed part spans the strata, and the
+# fit then returns that SD of 1.
+maihda_clmm_effects_at_start <- function(model) {
+  if (!inherits(model, "clmm") || !isFALSE(model$control$useMatrix)) {
+    return(FALSE)
+  }
+  effects <- model$ranef
+  is.numeric(effects) && length(effects) > 0L && isTRUE(all(effects == 0))
+}
+
+# What the fit record says of a fit maihda_clmm_effects_at_start() recognises and
+# clmm()'s general routine did not take over.
+maihda_clmm_effects_at_start_message <- function(model) {
+  n_quad <- model$nAGQ
+  quadrature <- is.numeric(n_quad) && length(n_quad) == 1L && !n_quad %in% c(0, 1)
+  paste0(
+    "ordinal::clmm() returned every stratum effect at exactly zero beside a ",
+    "between-stratum SD of ", format(signif(maihda_clmm_stratum_sd(model), 3)),
+    ". Effects of exactly zero go with an SD of zero, so this SD was not estimated: ",
+    "do not use it, or the VPC and PCV built on it.",
+    if (quadrature) {
+      paste0(" With nAGQ = 1 (the Laplace approximation) such a fit is made again by ",
+             "clmm()'s general routine.")
+    })
+}
+
+# TRUE when a clmm fit is to be made again by clmm()'s general routine
+# (clmm.control(useMatrix = TRUE)): a Laplace fit of the single-intercept routine whose
+# stratum effects are all exactly zero (maihda_clmm_effects_at_start()), or whose
+# between-stratum SD is below .maihda_clmm_refit_below of the latent residual SD. The
+# single-intercept routine works on the log of the SD, so on its way to a zero variance
+# it stops where the optimiser's relative tolerance is met, at an SD that depends on
+# the data. The general routine bounds the SD at zero and computes the effects' Hessian
+# where it returns them, so it can return the boundary fit. A quadrature fit stays
+# where it is: only the single-intercept routine offers quadrature.
+maihda_clmm_refit_wanted <- function(model) {
+  if (!inherits(model, "clmm") || !isFALSE(model$control$useMatrix)) {
+    return(FALSE)
+  }
+  n_quad <- model$nAGQ
+  if (!is.numeric(n_quad) || length(n_quad) != 1L || !n_quad %in% c(0, 1)) {
+    return(FALSE)
+  }
+  if (maihda_clmm_effects_at_start(model)) {
+    return(TRUE)
+  }
+  sd_stratum <- maihda_clmm_stratum_sd(model)
+  sd_latent <- if (identical(model$link, "probit")) 1 else pi / sqrt(3)
+  is.finite(sd_stratum) && sd_stratum / sd_latent < .maihda_clmm_refit_below
+}
+
+# Where the general routine starts when it fits the model of `model` again: the first
+# fit's thresholds and coefficients, and an SD of zero. The likelihood is level in the
+# SD at zero, so the routine stays on that bound and returns the boundary fit -- the
+# first fit's fixed part with no between-stratum variance -- after a few iterations;
+# maihda_clmm_refit_no_worse() then says whether that fit or the first one is kept.
+# From its own start (the estimates of the model without the random effect, SD 1) the
+# routine is a poor judge of a small variance: it can use up nlminb()'s iterations
+# before it arrives, most readily with a covariate on a scale far from 1, and it can
+# come to rest at zero where a small positive SD has the higher likelihood.
+maihda_clmm_general_start <- function(model) {
+  list(as.numeric(model$coefficients), 0)
+}
+
+# The call that fits the model of a first clmm() call by the general routine. `args`
+# and `dot_vals` are what the first call was built from. Loose arguments of clmm() are
+# control settings and take precedence over the entries of `control`, so the routine
+# and its optimiser are set that way and everything else the caller passed stays as it
+# was. Left out: the caller's starting value, which the two routines read in different
+# forms, and the quadrature setting, which the general routine refuses unless it is 1.
+# The start is named, not written out: the caller binds .maihda_clmm_start where the
+# call is evaluated (see maihda_clmm_general_start()), which keeps the stored call
+# short.
+maihda_clmm_general_call <- function(args, dot_vals) {
+  tags <- names(dot_vals)
+  if (is.null(tags)) {
+    tags <- rep("", length(dot_vals))
+  }
+  # `method` sits ahead of clmm.control()'s dots, so a shortened spelling binds to it.
+  left_out <- tags %in% c("start", "nAGQ", "useMatrix") |
+    (nzchar(tags) & startsWith("method", tags))
+  as.call(c(list(quote(ordinal::clmm)), args, dot_vals[!left_out],
+            list(start = quote(.maihda_clmm_start), useMatrix = TRUE,
+                 method = "nlminb")))
+}
+
+# TRUE when the between-stratum variance of a clmm fit is below the 1e-8 that
+# maihda_fit_diagnostics() flags as a singular fit.
+maihda_clmm_at_boundary <- function(model) {
+  sd_stratum <- maihda_clmm_stratum_sd(model)
+  is.finite(sd_stratum) && sd_stratum^2 < 1e-8
+}
+
+# clmm()'s optimiser verdict for a fit: TRUE for return code 0, FALSE for any other,
+# NA when there is no code to read. Two other cases are not failures. nlminb() can
+# report "singular convergence" (PORT code 7) with the between-stratum variance at
+# zero; that is the boundary fit, which the `singular` flag reports. And a boundary
+# fit that maihda_clmm_general_refit() kept on the strength of the first fit's own
+# convergence carries that verdict with it as a mark.
+maihda_clmm_converged <- function(model) {
+  if (isTRUE(attr(model, "maihda_converged"))) {
+    return(TRUE)
+  }
+  code <- tryCatch(model$optRes$convergence, error = function(e) NULL)
+  if (!is.numeric(code) || length(code) != 1L || is.na(code)) {
+    return(NA)
+  }
+  if (code == 0) {
+    return(TRUE)
+  }
+  maihda_clmm_at_boundary(model) &&
+    identical(maihda_nlminb_port_code(model$optRes$message), 7L)
+}
+
+# The PORT return code nlminb() closes its message with, as in
+# "singular convergence (7)"; NA for any other text.
+maihda_nlminb_port_code <- function(message) {
+  if (!is.character(message) || length(message) != 1L || is.na(message)) {
+    return(NA_integer_)
+  }
+  found <- regmatches(message, regexec("\\(([0-9]+)\\)[[:space:]]*$", message))[[1]]
+  if (length(found) == 2L) as.integer(found[2]) else NA_integer_
+}
+
+# TRUE when a second fit can take the first one's place: a clmm fit with a
+# between-stratum SD and a log-likelihood to read, which converged or sits on the
+# boundary. nlminb() cannot always say of the boundary fit that it converged: started
+# on the fit it is to return, it reports "false convergence" with a covariate on a
+# scale far from 1. Whether such a fit is kept is for maihda_clmm_refit_no_worse() to
+# say, and what its fit record says of convergence for maihda_clmm_general_refit().
+maihda_clmm_refit_usable <- function(refit) {
+  if (!inherits(refit, "clmm") || !is.finite(maihda_clmm_stratum_sd(refit)) ||
+      !isTRUE(is.finite(as.numeric(refit$logLik)))) {
+    return(FALSE)
+  }
+  isTRUE(maihda_clmm_converged(refit)) || maihda_clmm_at_boundary(refit)
+}
+
+# Two log-likelihoods closer than this share of their size are not told apart: ten
+# times the relative tolerance nlminb() stops at by default.
+.maihda_clmm_loglik_tol <- 1e-9
+
+# TRUE when the second fit's log-likelihood is not below the first one's. The second
+# fit is the boundary fit, so a first fit with the higher log-likelihood has a
+# between-stratum variance that is not zero, and stays. A first fit left with every
+# stratum effect at zero carries the log-likelihood of the model without the random
+# effect, which is the boundary fit's own.
+maihda_clmm_refit_no_worse <- function(refit, model) {
+  ll_new <- as.numeric(refit$logLik)
+  ll_old <- as.numeric(model$logLik)
+  if (length(ll_old) != 1L || !is.finite(ll_old)) {
+    return(TRUE)
+  }
+  isTRUE(ll_new >= ll_old - .maihda_clmm_loglik_tol * max(1, abs(ll_old)))
+}
+
+# The fit of clmm()'s general routine for the model of `model`, or `model` itself when
+# that fit fails, is no fit to take the first one's place (maihda_clmm_refit_usable())
+# or has the lower log-likelihood. `signalled` holds the warnings and messages of the
+# first fit, which the second would repeat; what the second fit has to say beyond
+# them is passed on only if that fit is the one kept.
+maihda_clmm_general_refit <- function(model, args, dot_vals, fit_env, signalled) {
+  assign(".maihda_clmm_start", maihda_clmm_general_start(model), envir = fit_env)
+  refit_call <- maihda_clmm_general_call(args, dot_vals)
+  fresh <- list()
+  refit <- tryCatch(
+    withCallingHandlers(
+      eval(refit_call, fit_env),
+      warning = function(w) {
+        if (!conditionMessage(w) %in% signalled) {
+          fresh[[length(fresh) + 1L]] <<- w
+        }
+        invokeRestart("muffleWarning")
+      },
+      message = function(m) {
+        if (!conditionMessage(m) %in% signalled) {
+          fresh[[length(fresh) + 1L]] <<- m
+        }
+        invokeRestart("muffleMessage")
+      }),
+    error = function(e) NULL)
+  if (!maihda_clmm_refit_usable(refit) || !maihda_clmm_refit_no_worse(refit, model)) {
+    return(model)
+  }
+  # A boundary fit nlminb() did not vouch for takes the first fit's convergence, when
+  # that fit converged: it started from the same fixed part and loses nothing. The fit
+  # record reads the mark; without it, it gives the optimiser's own return.
+  if (!isTRUE(maihda_clmm_converged(refit)) && isTRUE(maihda_clmm_converged(model))) {
+    attr(refit, "maihda_converged") <- TRUE
+  }
+  for (cond in fresh) {
+    if (inherits(cond, "warning")) warning(cond) else message(cond)
+  }
+  refit
 }
 
 #' Variance components of a cumulative (clmm) MAIHDA fit

@@ -247,7 +247,10 @@
 #'   which the offset does not).
 #'
 #' @return A maihda_model object containing:
-#'   \item{model}{The fitted model object (lme4, brms, WeMix, or ordinal::clmm)}
+#'   \item{model}{The fitted model object (lme4, brms, WeMix, or ordinal::clmm). An
+#'     ordinal fit with a between-stratum variance of zero comes from
+#'     \code{clmm()}'s general routine, \code{clmm.control(useMatrix = TRUE)}, the
+#'     one that can return it}
 #'   \item{engine}{The engine used ("lme4", "brms", "wemix", or "ordinal")}
 #'   \item{sampling_weights}{The sampling-weight column name when supplied,
 #'     NULL otherwise}

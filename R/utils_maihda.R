@@ -289,24 +289,30 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
     diagnostics$messages <- conv$messages
   } else if (inherits(model, "clmm")) {
     diagnostics$engine <- "ordinal"
-    # clmm stores the optimiser result: convergence code 0 means converged, and
-    # the message carries the optimiser's own wording otherwise. A boundary
-    # (zero between-stratum variance) fit is flagged like lme4's isSingular().
-    conv <- tryCatch(model$optRes$convergence, error = function(e) NULL)
-    diagnostics$converged <- if (is.numeric(conv) && length(conv) == 1) {
-      conv == 0
-    } else {
-      NA
-    }
-    if (isFALSE(diagnostics$converged)) {
-      msg <- tryCatch(as.character(model$optRes$message), error = function(e) character(0))
-      diagnostics$messages <- msg[nzchar(msg)]
-    }
+    # A boundary (zero between-stratum variance) fit is flagged like lme4's
+    # isSingular().
     diagnostics$singular <- tryCatch({
       vc <- ordinal::VarCorr(model)
       s <- as.numeric(vc[["stratum"]][1, 1])
       is.finite(s) && s < 1e-8
     }, error = function(e) NA)
+    # clmm stores the optimiser result: its return code is the verdict (see
+    # maihda_clmm_converged() for the one non-zero code that is a boundary fit), and
+    # the message carries the optimiser's own wording otherwise.
+    diagnostics$converged <- maihda_clmm_converged(model)
+    if (isFALSE(diagnostics$converged)) {
+      msg <- tryCatch(as.character(model$optRes$message), error = function(e) character(0))
+      diagnostics$messages <- msg[nzchar(msg)]
+    }
+    # Stratum effects returned at exactly zero beside a between-stratum SD that is not
+    # zero: that SD was never estimated (maihda_clmm_effects_at_start()). fit_maihda()
+    # makes such a fit again by clmm()'s general routine, so this is a fit that routine
+    # did not take over -- a quadrature fit, or one whose second fit was not kept.
+    if (maihda_clmm_effects_at_start(model) && !isTRUE(diagnostics$singular)) {
+      diagnostics$converged <- FALSE
+      diagnostics$messages <- c(diagnostics$messages,
+                                maihda_clmm_effects_at_start_message(model))
+    }
   } else if (inherits(model, "brmsfit")) {
     diagnostics$engine <- "brms"
     # Stan/brms convergence is not flagged at fit time the way lme4 surfaces
@@ -926,7 +932,7 @@ maihda_format_fit_diagnostics <- function(diagnostics,
     header <- switch(
       as.character(diagnostics$engine),
       brms = "MCMC convergence diagnostics (brms):",
-      ordinal = "Convergence warnings reported by ordinal::clmm:",
+      ordinal = "Convergence problems of the ordinal::clmm fit:",
       lme4 = "Convergence warnings reported by lme4:",
       "Convergence warnings:"
     )

@@ -80,8 +80,19 @@ test_that("ordinal PCV rejects a boundary (near-zero) between-stratum denominato
     fit_maihda(y ~ age + (1 | gender:race), data = do, engine = "ordinal")))
   expect_lt(MAIHDA:::maihda_clmm_variances(mo0)$stratum, 1e-4)
   expect_true(MAIHDA:::maihda_pcv_null_at_boundary(mo0))
-  # Previously returned a nonsensical PCV (~ -110%) from ~0 / ~0; now a clean stop.
-  expect_error(calculate_pcv(mo0, mo1), "zero boundary")
+  # The engine returns clmm()'s boundary fit, whose variance is exactly zero, and the
+  # PCV stops on that.
+  expect_identical(MAIHDA:::maihda_clmm_variances(mo0)$stratum, 0)
+  expect_error(calculate_pcv(mo0, mo1), "zero or negative")
+  # A boundary-level variance that is not exactly zero -- what clmm()'s routine for a
+  # single random intercept returns, as it still does for a quadrature fit -- passes
+  # that check and stops on the relative tolerance. Previously it returned a
+  # nonsensical PCV (~ -110%) from ~0 / ~0.
+  tiny <- mo0
+  tiny$model$ST[[1]][] <- 5e-5
+  expect_equal(MAIHDA:::maihda_clmm_variances(tiny)$stratum, 2.5e-9)
+  expect_true(MAIHDA:::maihda_pcv_null_at_boundary(tiny))
+  expect_error(calculate_pcv(tiny, mo1), "zero boundary")
 })
 
 test_that("a healthy ordinal fit is NOT flagged at the boundary", {
