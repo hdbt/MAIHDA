@@ -285,11 +285,14 @@ A hard fit failure in one group records `NA` and a status note without
 aborting the whole comparison; one warning names the groups whose fit
 failed and gives each distinct reason once.
 
-Fit-quality diagnostics: for the `lme4` engine, groups whose model is
-singular or fails to converge keep a `status` of `"ok"` (the fit did
-complete) but are named in a single aggregated warning, because their
-VPC/ICC may be unreliable – a singular fit usually pins the
-between-stratum variance at the boundary, giving a VPC of 0.
+Fit-quality diagnostics: on every engine, a group whose model is
+singular or did not converge keeps a `status` of `"ok"` (the fit did
+complete) and is named in one warning. A singular fit has a variance
+component estimated at zero. Where that is the between-stratum variance,
+`var_between` and the VPC are 0; otherwise the zero is in another
+component, such as a context or a term of the crossed-dimensions model.
+A `brms` fit is named when its largest R-hat is above 1.01 or its
+sampler had a divergent transition, and is never reported as singular.
 
 ## See also
 
