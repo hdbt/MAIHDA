@@ -247,10 +247,10 @@ by `maihda(group = "country")` (the `pcv` column appears when the strata
 have at least two dimensions).
 
 ``` r
+
 group_cmp <- compare_maihda_groups(
   math ~ 1 + (1 | gender:ses),
   data = maihda_country_data,
-  pvc_
   group = "country"
 )
 
