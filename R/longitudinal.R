@@ -516,7 +516,9 @@ maihda_stratum_slope_at_boundary <- function(object) {
 }
 
 # Posterior-mean ordered covariance block of a grouping factor (brms), for the
-# point-estimate PCV / components table. Built from the SD and correlation draws
+# components table and the blocks a longitudinal PCV stores. The PCV itself does not
+# read its variances off this block: it compares per-draw posterior medians (see
+# maihda_longitudinal_pcv_variances()). Built from the SD and correlation draws
 # (maihda_re_cov_draws_brms), avoiding any dependence on the dimension order of
 # brms::VarCorr()'s $cov array. The brms longitudinal engine is restricted to
 # linear growth (time_degree 1), so the block is the 2x2 (intercept, slope).
@@ -1348,6 +1350,50 @@ maihda_stratum_growth_at_boundary_lme4 <- function(model, tol = 1e-4) {
   all(sqrt(pmax(d, 0)) / sigma_resid < tol)
 }
 
+# The between-stratum variances one growth model contributes to the longitudinal
+# PCV: at the baseline, of the instantaneous slope at the baseline, and at each
+# reporting time. `ref_c` and `t_c` are on the model's (possibly centered)
+# coefficient scale; `Sigma` is the model's stratum block from maihda_re_block().
+#
+# lme4: quadratic forms of the fitted block (maihda_var_at_time(),
+# maihda_slope_var_at_time()).
+#
+# brms: the posterior MEDIAN of each variance computed draw by draw -- v0 + 2 t cov +
+# t^2 v1 at time t, and v1 for the slope (the brms growth engine is linear) -- not a
+# quadratic form of `Sigma`, which holds posterior means. The posterior of a
+# between-stratum variance is right-skewed when strata are few, and the adjusted
+# model's more than the null's, so its mean sits further above its centre in the
+# adjusted model and one minus a ratio of posterior means understates the PCV; a
+# ratio of medians does so by less. The median is taken of the variance at each time
+# separately: the medians of the three cells of the block are not the median of
+# a(t)' Sigma a(t), and need not form a covariance matrix.
+#
+# `has_slope` says whether a slope variance is reported at all. It is the NULL
+# model's for both models of a pair, as the slope PCV is defined by the null block.
+maihda_longitudinal_pcv_variances <- function(object, Sigma, ref_c, t_c, has_slope) {
+  if (identical(object$engine, "brms")) {
+    lng <- object$longitudinal_info
+    blk <- maihda_re_cov_draws_brms(maihda_posterior_draws_brms(object$model),
+                                    "stratum", maihda_lng_time_term(lng),
+                                    time_degree = maihda_lng_stratum_degree(lng))
+    med <- function(v) {
+      v <- v[is.finite(v)]
+      if (length(v)) stats::median(v) else NA_real_
+    }
+    at <- function(t) med(blk$v0 + 2 * t * blk$cov + t^2 * blk$v1)
+    return(list(baseline = at(ref_c),
+                slope = if (has_slope) med(blk$v1) else NA_real_,
+                at_t = vapply(t_c, at, numeric(1)),
+                summary = "posterior median",
+                Sigma_summary = "posterior mean"))
+  }
+  list(baseline = maihda_var_at_time(Sigma, ref_c),
+       slope = if (has_slope) maihda_slope_var_at_time(Sigma, ref_c) else NA_real_,
+       at_t = maihda_var_at_time(Sigma, t_c),
+       summary = "estimate",
+       Sigma_summary = "estimate")
+}
+
 #' Longitudinal MAIHDA proportional change in variance (PCV)
 #'
 #' Compares the stratum-level random-effect covariance block of the null growth
@@ -1375,13 +1421,30 @@ maihda_stratum_growth_at_boundary_lme4 <- function(model, tol = 1e-4) {
 #' brms fits are already on the ML / posterior scale, so the choice does not affect
 #' them.
 #'
+#' For a \code{brms} pair every variance compared is the posterior median of its
+#' per-draw value: the between-stratum variance \eqn{a(t)' \Sigma a(t)} at the
+#' baseline and at each reporting time, and the slope variance. The stored blocks
+#' \code{Sigma_stratum_null} and \code{Sigma_stratum_adjusted} are the posterior
+#' means \code{summary()} tabulates, so those variances are not quadratic forms of
+#' them. The posterior of a between-stratum variance is right-skewed when strata are
+#' few, and more so in the adjusted model, so the PCV of a \code{brms} pair is
+#' understated on average with few strata -- by more when the additive share is
+#' moderate, when the strata are small, or, for the slope, when the strata differ
+#' little in slope next to the precision of a stratum's slope -- and can be negative
+#' where the true value is positive. The \code{lme4} (REML) decomposition is less
+#' biased then; neither is precise with so few strata.
+#'
 #' @param null_model,adjusted_model Longitudinal \code{maihda_model}s from a
 #'   \code{maihda(decomposition = "longitudinal")} pair.
 #' @param times Optional numeric times for the time-specific PCV; defaults to the
 #'   null model's reporting grid.
 #' @param estimation Variance-estimation basis, \code{"fitted"} (default) or
 #'   \code{"ML"}; see \code{\link{calculate_pcv}}.
-#' @return An object of class \code{maihda_long_pcv}.
+#' @return An object of class \code{maihda_long_pcv}. \code{variance_summary} names
+#'   what \code{var_baseline_*}, \code{var_slope_*} and the variances in \code{pcv_t}
+#'   are (\code{"estimate"} for lme4, \code{"posterior median"} for brms), and
+#'   \code{Sigma_summary} what the two stored blocks are (\code{"estimate"} or
+#'   \code{"posterior mean"}).
 #' @keywords internal
 maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
                                     estimation = c("fitted", "ML")) {
@@ -1497,16 +1560,27 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
   # VPC summary reports its baseline.
   ref_time <- lng$ref_time
   ref_c <- ref_time - center
-  var_baseline_null <- maihda_var_at_time(Sn, ref_c)
-  var_baseline_adjusted <- maihda_var_at_time(Sa, ref_c)
+  if (is.null(times)) {
+    times <- maihda_longitudinal_time_grid(null_model$data[[lng$time]])
+  }
+  # Every variance the PCV compares, per model: quadratic forms of the fitted block
+  # for lme4, per-draw posterior medians for brms (see
+  # maihda_longitudinal_pcv_variances()). Sn and Sa are stored on the result as they
+  # are; for a brms pair they are posterior means and so NOT what the PCV is built on.
+  vars_null <- maihda_longitudinal_pcv_variances(null_model, Sn, ref_c, times - center,
+                                                 has_slope = deg >= 1)
+  vars_adj <- maihda_longitudinal_pcv_variances(adjusted_model, Sa, ref_c,
+                                                times - center, has_slope = deg >= 1)
+  var_baseline_null <- vars_null$baseline
+  var_baseline_adjusted <- vars_adj$baseline
   pcv_intercept <- pcv_cell(var_baseline_null, var_baseline_adjusted)
   # The slope PCV compares the INSTANTANEOUS-slope variance at the baseline,
   # b(t)'Sigma b(t) with b = da/dt -- not the raw Sn[2, 2] cell, which is the
   # slope variance at the coefficient origin and is NOT invariant to where time
   # is zeroed once time_degree >= 2 (for linear growth the two coincide at every
   # t, so this reduces to Sn[2, 2] there).
-  var_slope_null <- if (deg >= 1) maihda_slope_var_at_time(Sn, ref_c) else NA_real_
-  var_slope_adjusted <- if (deg >= 1) maihda_slope_var_at_time(Sa, ref_c) else NA_real_
+  var_slope_null <- vars_null$slope
+  var_slope_adjusted <- vars_adj$slope
   # A null slope component at the BOUNDARY makes PCV_slope undefined, not merely
   # uncertain. Its Cholesky diagonal is 0, so the stratum slope variance conditional
   # on the stratum intercept is zero: the stratum variation has collapsed onto a
@@ -1533,11 +1607,8 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
     pcv_cell(var_slope_null, var_slope_adjusted)
   }
 
-  if (is.null(times)) {
-    times <- maihda_longitudinal_time_grid(null_model$data[[lng$time]])
-  }
-  vn_t <- maihda_var_at_time(Sn, times - center)
-  va_t <- maihda_var_at_time(Sa, times - center)
+  vn_t <- vars_null$at_t
+  va_t <- vars_adj$at_t
   pcv_t <- ifelse(vapply(vn_t, denom_at_boundary, logical(1)), NA_real_,
                   (vn_t - va_t) / vn_t)
 
@@ -1565,7 +1636,17 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
       null_rank_deficient = null_rank_deficient,
       null_slope_at_boundary = null_slope_at_boundary,
       adjusted_rank_deficient = adjusted_rank_deficient,
-      stratum_slope = has_stratum_slope
+      stratum_slope = has_stratum_slope,
+      variance_summary = if (identical(vars_null$summary, vars_adj$summary)) {
+        vars_null$summary
+      } else {
+        "mixed"
+      },
+      Sigma_summary = if (identical(vars_null$Sigma_summary, vars_adj$Sigma_summary)) {
+        vars_null$Sigma_summary
+      } else {
+        "mixed"
+      }
     ),
     class = "maihda_long_pcv"
   )
@@ -1748,6 +1829,16 @@ print.maihda_long_pcv <- function(x, ...) {
         "as estimation = \"ML\" requests, so these variances are on the ML scale;\n",
         "summary()'s time-varying VPC keeps each fit's own REML estimate. See\n",
         "?calculate_pcv on how the ML basis differs from the default.)\n")))
+  }
+  if (identical(x$variance_summary, "posterior median")) {
+    # A brms pair: the variances printed above are posterior medians while summary()
+    # tabulates the posterior-mean blocks, so the two differ by design. Keyed on the
+    # field the result carries, never on the engine: an object stored without it
+    # holds posterior-mean variances and must not be described as medians.
+    cat(pal$muted(paste0(
+        "(brms fits: each variance above is the posterior median of its per-draw value;\n",
+        "summary() tabulates the posterior means of the covariance blocks. With few\n",
+        "strata this PCV runs low on average.)\n")))
   }
   invisible(x)
 }
