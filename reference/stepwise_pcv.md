@@ -99,13 +99,14 @@ delta-AUC, versus the previous step and versus the null), and `MOR` (the
 Median Odds Ratio, logit link only). These columns are absent for
 non-binary outcomes. When `context` is supplied, a `Context_Variance`
 column reports the between-context variance held at each step (for a
-`brms` fit its posterior mean, where `Variance` holds a posterior
-median). For a binary outcome the discriminatory-accuracy trajectory is
-still reported alongside it: the `AUC` and `MOR` are the
-intersectional-scope (between-stratum) quantities – the concordance of
-the fixed effects plus the stratum interaction, *excluding* the context
-random effect – so they carry the same net-of-context scope as the
-`Step_PCV` / `Total_PCV` columns, exactly as
+`brms` fit the posterior median of each context's variance, summed over
+the contexts; `Variance` is a posterior median too). For a binary
+outcome the discriminatory-accuracy trajectory is still reported
+alongside it: the `AUC` and `MOR` are the intersectional-scope
+(between-stratum) quantities – the concordance of the fixed effects plus
+the stratum interaction, *excluding* the context random effect – so they
+carry the same net-of-context scope as the `Step_PCV` / `Total_PCV`
+columns, exactly as
 [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
 reports the intersectional-scope AUC for a contextual fit.
 
@@ -144,10 +145,9 @@ accuracy (Merlo et al. 2016): `AUC` is each model's C-statistic and
 `Step_AUC` / `Total_AUC` are its *absolute* change (delta-AUC), in
 contrast to the *proportional* `Step_PCV` / `Total_PCV`. The `MOR` is
 reported for the logit link (`NA` otherwise) and is a monotone transform
-of the between-stratum variance already in `Variance` (for a `brms` fit,
-of that variance's posterior mean, where `Variance` holds its median).
-For a design-weighted fit (`sampling_weights`) the AUC is the
-design-weighted (population) C-statistic. Reuses
+of the between-stratum variance already in `Variance`. For a
+design-weighted fit (`sampling_weights`) the AUC is the design-weighted
+(population) C-statistic. Reuses
 [`maihda_discriminatory_accuracy`](https://hdbt.github.io/MAIHDA/reference/maihda_discriminatory_accuracy.md)
 on each step's fitted model, so no additional models are fit. Note that
 adding a *stratum-defining* dimension (one already encoded by the

@@ -1,12 +1,13 @@
 # Extract Between-Stratum Variance
 
 Internal function to extract between-stratum variance from a MAIHDA
-model.
+model. For a `brms` fit it is the posterior median of the variance
+draws.
 
 ## Usage
 
 ``` r
-extract_between_variance(model, brms_point = c("mean", "median"))
+extract_between_variance(model)
 ```
 
 ## Arguments
@@ -14,12 +15,6 @@ extract_between_variance(model, brms_point = c("mean", "median"))
 - model:
 
   A maihda_model object
-
-- brms_point:
-
-  For a `brms` fit, the posterior summary of the variance draws to
-  return: `"mean"` (default) or `"median"`. Ignored by the other
-  engines.
 
 ## Value
 

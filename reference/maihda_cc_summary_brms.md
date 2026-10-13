@@ -7,7 +7,9 @@ returns posterior point estimates with credible intervals for the VPC
 and the shares (no bootstrap – the posterior already supplies the
 interval). A contextual random intercept (`object$context_info` set)
 enters the per-draw VPC denominator and is reported as its own component
-row and `context` element.
+row and `context` element. Each variance component is the posterior
+median of its draws, and the additive, between-strata and context totals
+are sums of those components.
 
 ## Usage
 
@@ -31,7 +33,8 @@ maihda_cc_summary_brms(object, cc, conf_level, point = c("median", "mean"))
 
 - point:
 
-  Posterior point estimate, "median" (default) or "mean".
+  Posterior point estimate of the VPC and the shares, "median" (default)
+  or "mean".
 
 ## Value
 

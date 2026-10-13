@@ -144,8 +144,8 @@ A maihda_summary object containing:
   report the three agree. These are plug-in values at a single `lambda`:
   on the likelihood engines that is exactly the number in
   `variance_components`, but a `brms` summary works draw by draw and
-  reports \\E\[\sigma^2_e\]\\ there, which differs slightly. `NULL` for
-  every other family.
+  reports the posterior median of the level-1 variance there, which
+  differs slightly. `NULL` for every other family.
 
 - vpc_response:
 
@@ -215,21 +215,33 @@ summarised directly from the posterior draws: the reported estimate is
 the posterior median of the per-draw VPC (\\E\[\sigma^2\]\\-based, not
 the biased \\E\[\sigma\]^2\\) and the interval is a central credible
 interval at `conf_level` (default 95%), so no `bootstrap` argument is
-needed. The variance-components table reports the posterior-mean
-variance components, so the stratum proportion shown there may differ
-slightly from the headline VPC because the median of a ratio is not the
-ratio of means. For non-Gaussian `brms` families the level-1 (residual)
-variance uses the usual latent-scale approximation. For the count
-families (Poisson, negative binomial) the marginal expected counts are
-propagated *per draw* – from the fixed-part linear-predictor draws and
-each draw's total random-intercept variance – for the intercept-only VPC
-structures (strata, crossed-dimensions, contextual), so the credible
-interval reflects fixed-effect and random-effect variance uncertainty;
-the negative-binomial `shape` draws are always propagated. A
-random-slope (longitudinal) structure, whose per-row random-effect
-design that fast path does not carry, instead holds the marginal
-expected counts at a posterior-mean plug-in (constant across draws) to
-avoid an expensive \\ndraws \times nobs\\ computation.
+needed. The variance-components table of a cross-sectional `brms` fit
+reports the posterior median of each variance component – the
+between-stratum row is the variance the PCV and the Median Odds Ratio
+use, and its `sd` the posterior median SD – with the total and the
+proportions computed from those rows. The stratum proportion therefore
+equals the headline VPC when the level-1 variance is fixed by the link
+and the stratum is the only random effect, and differs from it slightly
+otherwise, because the median of a ratio is not the ratio of medians; in
+a crossed-dimensions fit, whose between-strata variance is the sum of
+several components, the share those rows add up to can differ markedly
+from the headline VPC when dimensions have few levels. With few strata
+the posterior of a variance is right-skewed, and its median overstates
+the variance (and with it the VPC and the Median Odds Ratio); the
+overstatement shrinks as strata are added. A longitudinal fit's table
+holds the posterior means of its covariance blocks. For non-Gaussian
+`brms` families the level-1 (residual) variance uses the usual
+latent-scale approximation. For the count families (Poisson, negative
+binomial) the marginal expected counts are propagated *per draw* – from
+the fixed-part linear-predictor draws and each draw's total
+random-intercept variance – for the intercept-only VPC structures
+(strata, crossed-dimensions, contextual), so the credible interval
+reflects fixed-effect and random-effect variance uncertainty; the
+negative-binomial `shape` draws are always propagated. A random-slope
+(longitudinal) structure, whose per-row random-effect design that fast
+path does not carry, instead holds the marginal expected counts at a
+posterior-mean plug-in (constant across draws) to avoid an expensive
+\\ndraws \times nobs\\ computation.
 
 ## Interpreting the VPC/ICC
 

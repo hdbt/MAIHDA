@@ -217,31 +217,31 @@ variance, coinciding with `var_between_adjusted`, and under
 `var_between_adjusted` only by the small REML-vs-ML gap in the null
 variance; despite its name it is not always a maximum-likelihood
 estimate; for a `brms` fit it is the posterior median of the adjusted
-variance and does not coincide with `var_between_adjusted`, because
-`var_between` is a posterior mean). All three are `NA` for a group whose
-adjusted fit failed. A fourth column, `pcv_status`, records the
-decomposition outcome per group: `"ok"` when the PCV was computed,
-`"failed"` when the adjusted model or PCV errored (`pcv` is then `NA`
-and the group is named in a warning – the group's own `status` can still
-be `"ok"` because its null VPC model succeeded), and `"singular"` when
-the adjusted fit was singular and the PCV saturated near 100% – *not*
-warned about, since a singular adjusted fit is indistinguishable from
-genuinely additive strata (a legitimate, common result), so it is
-flagged only in this column. These four columns are omitted entirely
-when the strata have a single dimension. When `context` is supplied, two
-further columns report each group's contextual partition: `var_context`
-(the between-context variance, summed over contexts) and `vpc_context`
-(the contexts' share of the group's unexplained variance); the
-per-context split is on the `"context_per"` attribute and the context
-name(s) on `"context_var"`. These are dropped when no context is
-supplied. `n` is the analytic sample size used by the model (after
-dropping rows with a missing outcome/covariate) for both fitted and
-skipped groups, falling back to the raw row count only when the model
-frame cannot be built. `var_other` is the variance of any additional
-random effects and is 0 for the canonical single-stratum model. Groups
-that were skipped or failed have `NA` metrics and an explanatory
-`status`; for a failed fit it is `"fit failed: "` followed by the first
-line of the error, whose whole message is in a warning.
+variance, which `var_between_adjusted` equals as well). All three are
+`NA` for a group whose adjusted fit failed. A fourth column,
+`pcv_status`, records the decomposition outcome per group: `"ok"` when
+the PCV was computed, `"failed"` when the adjusted model or PCV errored
+(`pcv` is then `NA` and the group is named in a warning – the group's
+own `status` can still be `"ok"` because its null VPC model succeeded),
+and `"singular"` when the adjusted fit was singular and the PCV
+saturated near 100% – *not* warned about, since a singular adjusted fit
+is indistinguishable from genuinely additive strata (a legitimate,
+common result), so it is flagged only in this column. These four columns
+are omitted entirely when the strata have a single dimension. When
+`context` is supplied, two further columns report each group's
+contextual partition: `var_context` (the between-context variance,
+summed over contexts) and `vpc_context` (the contexts' share of the
+group's unexplained variance); the per-context split is on the
+`"context_per"` attribute and the context name(s) on `"context_var"`.
+These are dropped when no context is supplied. `n` is the analytic
+sample size used by the model (after dropping rows with a missing
+outcome/covariate) for both fitted and skipped groups, falling back to
+the raw row count only when the model frame cannot be built. `var_other`
+is the variance of any additional random effects and is 0 for the
+canonical single-stratum model. Groups that were skipped or failed have
+`NA` metrics and an explanatory `status`; for a failed fit it is
+`"fit failed: "` followed by the first line of the error, whose whole
+message is in a warning.
 
 ## Details
 

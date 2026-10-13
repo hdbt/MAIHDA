@@ -5,7 +5,9 @@ brms counterpart of
 computes the stratum / context / residual partition per posterior draw
 and returns posterior point estimates with credible intervals for the
 between-stratum VPC and the contexts' total share (no bootstrap – the
-posterior supplies the interval).
+posterior supplies the interval). Each variance component is the
+posterior median of its draws, and the contexts' total variance is the
+sum of the context components.
 
 ## Usage
 
@@ -34,7 +36,7 @@ maihda_context_summary_brms(
 
 - point:
 
-  Posterior point estimate, "median" (default) or "mean".
+  Posterior point estimate of the shares, "median" (default) or "mean".
 
 ## Value
 

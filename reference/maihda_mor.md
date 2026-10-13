@@ -47,6 +47,16 @@ has difference variance \\v = 2(\tau^2_I + \sum\_{d \in D^\*}
 single-stratum fit the two calculations coincide, and that closed form
 is used.
 
+**brms fits.** For a `brms` fit `V_A` is the posterior median of the
+between-stratum variance, the value in the variance-components table of
+[`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md).
+The closed form is monotone in `V_A`, so the MOR is then the posterior
+median of the Median Odds Ratio itself. A crossed-dimensions fit
+evaluates the mixture at the posterior median of each variance. With few
+strata the posterior of a variance is right-skewed and its median
+overstates the variance, so the MOR runs high; the overstatement shrinks
+as strata are added.
+
 ## Usage
 
 ``` r

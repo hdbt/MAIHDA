@@ -4,12 +4,16 @@ interaction partition per posterior draw and returns posterior point estimates w
 credible intervals for the VPC and the shares (no bootstrap – the posterior already
 supplies the interval). A contextual random intercept
 (object$context_info set) enters the per-draw VPC denominator and is
-reported as its own component row and context element."><meta property="og:description" content="brms counterpart of maihda_cc_summary_lme4: computes the additive /
+reported as its own component row and context element. Each variance
+component is the posterior median of its draws, and the additive, between-strata
+and context totals are sums of those components."><meta property="og:description" content="brms counterpart of maihda_cc_summary_lme4: computes the additive /
 interaction partition per posterior draw and returns posterior point estimates with
 credible intervals for the VPC and the shares (no bootstrap – the posterior already
 supplies the interval). A contextual random intercept
 (object$context_info set) enters the per-draw VPC denominator and is
-reported as its own component row and context element."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
+reported as its own component row and context element. Each variance
+component is the posterior median of its draws, and the additive, between-strata
+and context totals are sums of those components."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -67,7 +71,9 @@ interaction partition per posterior draw and returns posterior point estimates w
 credible intervals for the VPC and the shares (no bootstrap – the posterior already
 supplies the interval). A contextual random intercept
 (<code>object$context_info</code> set) enters the per-draw VPC denominator and is
-reported as its own component row and <code>context</code> element.</p>
+reported as its own component row and <code>context</code> element. Each variance
+component is the posterior median of its draws, and the additive, between-strata
+and context totals are sums of those components.</p>
     </div>
 
     <div class="section level2">
@@ -92,7 +98,8 @@ reported as its own component row and <code>context</code> element.</p>
 
 
 <dt id="arg-point">point<a class="anchor" aria-label="anchor" href="#arg-point"></a></dt>
-<dd><p>Posterior point estimate, "median" (default) or "mean".</p></dd>
+<dd><p>Posterior point estimate of the VPC and the shares, "median"
+(default) or "mean".</p></dd>
 
 </dl></div>
     <div class="section level2">

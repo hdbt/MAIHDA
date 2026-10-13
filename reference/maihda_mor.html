@@ -38,7 +38,15 @@ difference variance \(v = 2(\tau^2_I + \sum_{d \in D^*} \tau^2_d)\), and the
 MOR is exp(x) for the x solving
 \(\sum_{pairs} (2\Phi(x/\sqrt{v}) - 1) / n_{pairs} = 0.5\). For a canonical
 single-stratum fit the two calculations coincide, and that closed form is
-used."><meta property="og:description" content="The Median Odds Ratio translates the between-stratum variance of a logistic
+used.
+brms fits. For a brms fit V_A is the posterior median of
+the between-stratum variance, the value in the variance-components table of
+summary.maihda_model. The closed form is monotone in V_A, so
+the MOR is then the posterior median of the Median Odds Ratio itself. A
+crossed-dimensions fit evaluates the mixture at the posterior median of each
+variance. With few strata the posterior of a variance is right-skewed and its
+median overstates the variance, so the MOR runs high; the overstatement shrinks
+as strata are added."><meta property="og:description" content="The Median Odds Ratio translates the between-stratum variance of a logistic
 MAIHDA model onto the odds-ratio scale: the median relative change in the odds
 of the outcome when comparing two individuals from randomly chosen strata
 (higher- vs lower-risk). MOR = exp(sqrt(2 * V_A) * qnorm(0.75)), where
@@ -77,7 +85,15 @@ difference variance \(v = 2(\tau^2_I + \sum_{d \in D^*} \tau^2_d)\), and the
 MOR is exp(x) for the x solving
 \(\sum_{pairs} (2\Phi(x/\sqrt{v}) - 1) / n_{pairs} = 0.5\). For a canonical
 single-stratum fit the two calculations coincide, and that closed form is
-used."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
+used.
+brms fits. For a brms fit V_A is the posterior median of
+the between-stratum variance, the value in the variance-components table of
+summary.maihda_model. The closed form is monotone in V_A, so
+the MOR is then the posterior median of the Median Odds Ratio itself. A
+crossed-dimensions fit evaluates the mixture at the posterior median of each
+variance. With few strata the posterior of a variance is right-skewed and its
+median overstates the variance, so the MOR runs high; the overstatement shrinks
+as strata are added."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -170,6 +186,14 @@ MOR is <code>exp(x)</code> for the <code>x</code> solving
 \(\sum_{pairs} (2\Phi(x/\sqrt{v}) - 1) / n_{pairs} = 0.5\). For a canonical
 single-stratum fit the two calculations coincide, and that closed form is
 used.</p>
+<p><strong>brms fits.</strong> For a <code>brms</code> fit <code>V_A</code> is the posterior median of
+the between-stratum variance, the value in the variance-components table of
+<code><a href="summary.maihda_model.html">summary.maihda_model</a></code>. The closed form is monotone in <code>V_A</code>, so
+the MOR is then the posterior median of the Median Odds Ratio itself. A
+crossed-dimensions fit evaluates the mixture at the posterior median of each
+variance. With few strata the posterior of a variance is right-skewed and its
+median overstates the variance, so the MOR runs high; the overstatement shrinks
+as strata are added.</p>
     </div>
 
     <div class="section level2">

@@ -304,16 +304,15 @@ computed – and a design-based (wemix) interval would require replicate
 weights.
 
 **brms fits.** For two `brms` fits the variances compared are the
-posterior medians of each model's between-stratum variance; the
-variance-components table of
+posterior medians of each model's between-stratum variance, the values
+the variance-components table of
 [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)
-shows posterior means, which lie above the medians. The posterior of a
-between-stratum variance is right-skewed when strata are few, and more
-so in the adjusted model, which spends degrees of freedom on the main
-effects. The PCV is therefore *understated* with few strata – the
-opposite direction to maximum likelihood – and with very few strata it
-can be negative where the true value is positive. The understatement
-shrinks as strata are added.
+shows. The posterior of a between-stratum variance is right-skewed when
+strata are few, and more so in the adjusted model, which spends degrees
+of freedom on the main effects. The PCV is therefore *understated* with
+few strata – the opposite direction to maximum likelihood – and with
+very few strata it can be negative where the true value is positive. The
+understatement shrinks as strata are added.
 
 ## References
 

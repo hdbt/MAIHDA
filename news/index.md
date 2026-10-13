@@ -405,10 +405,22 @@
   instead of their posterior means. With few strata the mean-based PCV
   ran low (0.58 for a true 0.84 at 8 strata, 0.74 from medians) and
   changed from one sampler seed to the next.
-  [`summary()`](https://rdrr.io/r/base/summary.html)’s variance table,
-  the MOR and the longitudinal PCV keep posterior means;
-  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
-  and the printed tables say which is which.
+
+- For `engine = "brms"` fits,
+  [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
+  and the variance-components table of
+  [`summary()`](https://rdrr.io/r/base/summary.html) – with everything
+  read from it:
+  [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)’s
+  variance and SD rows,
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)’s
+  variance columns,
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)’s
+  `Context_Variance`, the VPC plots – now report the posterior median of
+  each variance instead of its posterior mean, as the PCV does, with
+  totals and proportions computed from those rows. Random-effect
+  variances and MORs fall, most with few strata. A longitudinal fit’s
+  table is unchanged.
 
 - `plot_prediction_deviation_panels(type = "auto")` now plots a `wemix`
   binomial fit’s stratum probabilities, as every other engine does,
@@ -546,6 +558,13 @@
   [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
   stops there, instead of passing on its
   `Matrix seems negative semi-definite` error.
+
+- `fit_maihda(engine = "wemix")` on a binomial model now says what
+  happened when
+  [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
+  stops because more than half of the stratum effects are exactly zero
+  at a likelihood evaluation, instead of passing on its
+  `non-conformable matrix dimensions` error.
 
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   now gives a failure reason shared by several groups once, in one
