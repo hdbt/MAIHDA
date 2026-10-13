@@ -196,8 +196,9 @@ maihda_singular_terms_lme4 <- function(model, tol = 1e-4) {
 # Capture fit-quality diagnostics (singular fit, non-convergence) so they can be
 # surfaced on demand. lme4 returns singular fits silently and only warns about
 # convergence once, at fit time, so we re-read both from the fitted object for
-# reporting in print()/summary(). brms (Stan) convergence is diagnosed elsewhere
-# via Rhat, so for brmsfit objects only the engine is recorded here.
+# reporting in print()/summary(). A brmsfit is never recorded as singular; its
+# `converged` is FALSE for a largest Rhat above 1.01 or a divergent transition, TRUE
+# for a finite Rhat with neither, and NA when Rhat cannot be read.
 maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
   diagnostics <- list(
     engine = NA_character_,
