@@ -307,16 +307,26 @@ test_that("brms summary returns a posterior credible interval for the VPC/ICC", 
   # bootstrap = TRUE remains rejected for brms with a clear message.
   expect_error(summary(model, bootstrap = TRUE), "only supported for lme4", fixed = TRUE)
 
-  # The MOR's plug-in variance is the SAME E[sd^2] as summary()'s table (both from the
-  # posterior draws, not the summary-SD-squared E[sd]^2); a PCV compares the posterior
-  # median of those draws instead.
+  # summary()'s table, the MOR's plug-in and the PCV hold ONE between-stratum variance:
+  # the posterior median of the variance draws (not their mean, and not the
+  # summary-SD-squared E[sd]^2).
   vb_summary <- summ$variance_components$variance[
     summ$variance_components$component == "Between-stratum (random)"
   ]
-  expect_equal(MAIHDA:::extract_between_variance(model), vb_summary, tolerance = 1e-8)
   v_draws <- as.data.frame(model$model)$sd_stratum__Intercept^2
-  expect_equal(vb_summary, mean(v_draws), tolerance = 1e-8)
-  expect_identical(MAIHDA:::maihda_pcv_between_variance(model), stats::median(v_draws))
+  expect_identical(vb_summary, stats::median(v_draws))
+  expect_identical(MAIHDA:::extract_between_variance(model), vb_summary)
+  expect_identical(MAIHDA:::maihda_pcv_between_variance(model), vb_summary)
+  # The residual row is the posterior median of sigma^2, and the table's stratum
+  # proportion, built from the two rows, sits next to the headline VPC.
+  s2_draws <- as.data.frame(model$model)$sigma^2
+  vr_summary <- summ$variance_components$variance[
+    summ$variance_components$component == "Within-stratum (residual)"
+  ]
+  expect_identical(vr_summary, stats::median(s2_draws))
+  expect_equal(summ$vpc$estimate, stats::median(v_draws / (v_draws + s2_draws)),
+               tolerance = 1e-12)
+  expect_lt(abs(vb_summary / (vb_summary + vr_summary) - summ$vpc$estimate), 0.02)
 
   # compare_maihda() keeps the brms posterior credible interval without bootstrap.
   cmp <- suppressWarnings(compare_maihda(model, model))

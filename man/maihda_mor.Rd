@@ -63,6 +63,15 @@ MOR is \code{exp(x)} for the \code{x} solving
 \eqn{\sum_{pairs} (2\Phi(x/\sqrt{v}) - 1) / n_{pairs} = 0.5}. For a canonical
 single-stratum fit the two calculations coincide, and that closed form is
 used.
+
+\strong{brms fits.} For a \code{brms} fit \code{V_A} is the posterior median of
+the between-stratum variance, the value in the variance-components table of
+\code{\link{summary.maihda_model}}. The closed form is monotone in \code{V_A}, so
+the MOR is then the posterior median of the Median Odds Ratio itself. A
+crossed-dimensions fit evaluates the mixture at the posterior median of each
+variance. With few strata the posterior of a variance is right-skewed and its
+median overstates the variance, so the MOR runs high; the overstatement shrinks
+as strata are added.
 }
 \references{
 Larsen, K., & Merlo, J. (2005). Appropriate assessment of neighborhood effects

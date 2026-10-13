@@ -156,8 +156,8 @@ A \code{data.frame} of class \code{maihda_group_comparison} with one
   is the ML variance, differing from \code{var_between_adjusted} only by the small
   REML-vs-ML gap in the null variance; despite its name it is not always a
   maximum-likelihood estimate; for a \code{brms} fit it is the posterior median of
-  the adjusted variance and does not coincide with \code{var_between_adjusted},
-  because \code{var_between} is a posterior mean). All three are
+  the adjusted variance, which \code{var_between_adjusted} equals as well). All
+  three are
   \code{NA} for a group whose adjusted fit failed. A fourth column,
   \code{pcv_status}, records the decomposition outcome per group:
   \code{"ok"} when the PCV was computed, \code{"failed"} when the adjusted model

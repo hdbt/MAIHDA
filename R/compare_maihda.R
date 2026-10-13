@@ -514,8 +514,8 @@ plot_comparison <- function(comparison_df) {
 #'   is the ML variance, differing from \code{var_between_adjusted} only by the small
 #'   REML-vs-ML gap in the null variance; despite its name it is not always a
 #'   maximum-likelihood estimate; for a \code{brms} fit it is the posterior median of
-#'   the adjusted variance and does not coincide with \code{var_between_adjusted},
-#'   because \code{var_between} is a posterior mean). All three are
+#'   the adjusted variance, which \code{var_between_adjusted} equals as well). All
+#'   three are
 #'   \code{NA} for a group whose adjusted fit failed. A fourth column,
 #'   \code{pcv_status}, records the decomposition outcome per group:
 #'   \code{"ok"} when the PCV was computed, \code{"failed"} when the adjusted model
@@ -1624,22 +1624,6 @@ maihda_failure_entries <- function(reasons, single_level = list()) {
   }, character(1), USE.NAMES = FALSE)
 }
 
-# Basis line of a printed group comparison. The table's variance columns are read from
-# each group's summary(), which for a brms fit holds posterior means, while a brms PCV
-# compares posterior medians (maihda_pcv_between_variance()); so the PCV's own label
-# would misdescribe var_between. Every other basis reads as it does for a PCV.
-maihda_group_basis_label <- function(basis, has_pcv = FALSE) {
-  if (!identical(basis, "posterior")) {
-    return(maihda_pcv_basis_label(basis))
-  }
-  if (isTRUE(has_pcv)) {
-    paste0("as fitted (brms posterior summaries: var_between is a posterior mean, ",
-           "the PCV compares posterior medians)")
-  } else {
-    "as fitted (brms posterior summaries, not maximum likelihood)"
-  }
-}
-
 #' Print method for MAIHDA group comparisons
 #'
 #' @param x A maihda_group_comparison object.
@@ -1662,7 +1646,9 @@ print.maihda_group_comparison <- function(x, ...) {
     est <- attr(x, "estimation_used")
     if (is.null(est)) est <- attr(x, "estimation")
     if (!is.null(est)) {
-      cat("Variance basis:", maihda_group_basis_label(est, "pcv" %in% names(x)), "\n")
+      # The PCV's basis label. For a brms comparison it describes the variance columns
+      # too: they are the posterior medians the PCV compares.
+      cat("Variance basis:", maihda_pcv_basis_label(est), "\n")
     }
     # Contextual comparison: each per-group fit is a contextual cross-classified
     # model, so vpc/var_between are the between-stratum share NET of the context and

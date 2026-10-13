@@ -457,7 +457,8 @@ test_that("maihda_cc_summary_brms folds a context into the partition (Stan-free)
   expect_identical(res$context$context_vars, "site")
   expect_equal(res$context$vpc_context_total, stats::median(v_c / total))
   expect_length(res$context$vpc_context_total_ci, 2)
-  expect_equal(unname(res$context$per_context["site"]), mean(v_c))
+  # Each variance component is the posterior median of its own draws.
+  expect_equal(unname(res$context$per_context["site"]), stats::median(v_c))
 
   tab <- res$variance_components
   expect_true("Context: site" %in% tab$component)

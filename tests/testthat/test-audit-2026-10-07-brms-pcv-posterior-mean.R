@@ -7,10 +7,11 @@
 # rarely, so that ratio also moves from one sampler seed to the next. Measured against
 # a known truth of 0.84 at 8 strata: 0.58 from posterior means, 0.74 from medians.
 #
-# The blocks below pin the summary on hand-built draws (no Stan), check that only the
-# PCV's variances moved -- the MOR's plug-in, summary()'s table and the other engines
-# did not -- that the printed tables say which summary each column holds, and repeat
-# the check on real fits when MAIHDA_TEST_BRMS=true.
+# The blocks below pin the summary on hand-built draws (no Stan), check that the MOR
+# reads the same variance and that the other engines keep their fitted one, that the
+# printed tables carry one basis line, and repeat the check on real fits when
+# MAIHDA_TEST_BRMS=true. The variance-components table and the MOR have their own
+# file, test-audit-2026-10-12-brms-mor-variance-table.R.
 
 # Evaluate `expr` under a fixed seed and put the caller's RNG state back, so this file
 # leaves the random stream the later test files read as it found it (see setup-seed.R).
@@ -66,33 +67,30 @@ pcv_mock_brms <- function(env = parent.frame()) {
   )
 }
 
-test_that("the brms stratum variance is its posterior mean or median, as asked", {
+test_that("the brms stratum variance is the posterior median of its draws", {
   skip_if_not_installed("brms")
   pcv_mock_brms()
   fit <- pcv_brms_stub(pcv_sd_adj)$model
   v <- pcv_sd_adj^2
 
-  expect_identical(maihda_stratum_variance_brms(fit), mean(v))
-  expect_identical(maihda_stratum_variance_brms(fit, point = "mean"), mean(v))
-  expect_identical(maihda_stratum_variance_brms(fit, point = "median"), stats::median(v))
+  expect_identical(maihda_stratum_variance_brms(fit), stats::median(v))
   # The median does not depend on whether it is taken on the SD or on the variance.
-  expect_equal(maihda_stratum_variance_brms(fit, point = "median"),
-               stats::median(pcv_sd_adj)^2, tolerance = 1e-12)
-  # Fixture premise: skewed enough that the two summaries cannot be confused.
+  expect_equal(maihda_stratum_variance_brms(fit), stats::median(pcv_sd_adj)^2,
+               tolerance = 1e-12)
+  # Fixture premise: skewed enough that the median cannot be taken for the mean.
   expect_gt(mean(v), 3 * stats::median(v))
-  # No pattern: match.arg()'s message is translated by R.
-  expect_error(maihda_stratum_variance_brms(fit, point = "mode"))
 })
 
-test_that("without draws the brms stratum variance falls back to brms's SD summary", {
+test_that("without draws the brms stratum variance falls back to brms's median SD", {
   skip_if_not_installed("brms")
   pcv_mock_brms()
   local_mocked_bindings(maihda_posterior_draws_brms = function(model) stop("no draws"))
   fit <- pcv_brms_stub(pcv_sd_adj)$model
 
-  expect_equal(maihda_stratum_variance_brms(fit), mean(pcv_sd_adj)^2, tolerance = 1e-12)
-  expect_equal(maihda_stratum_variance_brms(fit, point = "median"),
-               stats::median(pcv_sd_adj)^2, tolerance = 1e-12)
+  expect_equal(maihda_stratum_variance_brms(fit), stats::median(pcv_sd_adj)^2,
+               tolerance = 1e-12)
+  # Not the squared mean SD, which is what VarCorr() reports without robust = TRUE.
+  expect_gt(abs(maihda_stratum_variance_brms(fit) - mean(pcv_sd_adj)^2), 0.01)
 })
 
 test_that("calculate_pcv() compares posterior medians for two brms fits", {
@@ -129,18 +127,16 @@ test_that("calculate_pcv() compares posterior medians for two brms fits", {
   expect_true(any(grepl(sprintf("Model 2: %.6f", stats::median(v1)), out, fixed = TRUE)))
 })
 
-test_that("only the PCV reads the median: the MOR's variance keeps the posterior mean", {
+test_that("the PCV and the MOR read one between-stratum variance, the posterior median", {
   skip_if_not_installed("brms")
   pcv_mock_brms()
   m0 <- pcv_brms_stub(pcv_sd_null, family = list(family = "bernoulli", link = "logit"))
   v0 <- pcv_sd_null^2
 
   expect_identical(maihda_pcv_between_variance(m0), stats::median(v0))
-  expect_identical(extract_between_variance(m0), mean(v0))
-  expect_identical(extract_between_variance(m0, brms_point = "mean"), mean(v0))
-  expect_identical(extract_between_variance(m0, brms_point = "median"), stats::median(v0))
-  expect_identical(maihda_mor_between_variance(m0), mean(v0))
-  expect_equal(maihda_mor(m0), exp(sqrt(2 * mean(v0)) * stats::qnorm(0.75)),
+  expect_identical(extract_between_variance(m0), stats::median(v0))
+  expect_identical(maihda_mor_between_variance(m0), stats::median(v0))
+  expect_equal(maihda_mor(m0), exp(sqrt(2 * stats::median(v0)) * stats::qnorm(0.75)),
                tolerance = 1e-12)
 })
 
@@ -167,8 +163,6 @@ test_that("the PCV variance of an lme4 or ordinal fit is the fitted one, exactly
   })
   for (m in fits[c("gaussian", "binomial")]) {
     expect_identical(maihda_pcv_between_variance(m), extract_between_variance(m))
-    expect_identical(extract_between_variance(m, brms_point = "median"),
-                     extract_between_variance(m))
     expect_identical(maihda_pcv_between_variance(m), maihda_stratum_variance_lme4(m$model))
   }
 
@@ -210,9 +204,9 @@ test_that("stepwise_pcv() and pcv_importance() tabulate posterior medians for br
   expect_equal(imp$total_pcv, 1 - med[3] / med[1], tolerance = 1e-12)
 })
 
-test_that("printed tables do not pass a posterior-mean variance off as a median", {
-  # stepwise_pcv(): the basis line is about the Variance column; on a brms fit the
-  # context variance and the MOR are read from posterior means and are named as such.
+test_that("printed tables of a brms fit carry one basis line", {
+  # stepwise_pcv(): Variance, Context_Variance and the MOR all rest on posterior
+  # medians, so the basis line covers the table and no column is singled out.
   sw <- structure(
     data.frame(Step = 0:1, Model = c("Null Model", "Model 1"),
                Added_Variable = c("None (Intercept only)", "a"),
@@ -224,44 +218,40 @@ test_that("printed tables do not pass a posterior-mean variance off as a median"
     class = c("maihda_stepwise", "data.frame"))
   out <- capture.output(print(sw))
   expect_true(any(grepl("Variance basis: posterior medians", out, fixed = TRUE)))
-  expect_true(any(grepl("Context_Variance and MOR: from posterior means.", out, fixed = TRUE)))
+  expect_false(any(grepl("posterior means", out, fixed = TRUE)))
   no_context <- sw
   no_context$Context_Variance <- NULL      # `$<-` keeps the table's attributes
-  expect_true(any(grepl("^MOR: from posterior means\\.", capture.output(print(no_context)))))
+  out_nc <- capture.output(print(no_context))
+  expect_true(any(grepl("Variance basis: posterior medians", out_nc, fixed = TRUE)))
+  expect_false(any(grepl("posterior means", out_nc, fixed = TRUE)))
   attr(sw, "estimation_used") <- "fitted"
   expect_false(any(grepl("posterior", capture.output(print(sw)), fixed = TRUE)))
 
-  # compare_maihda_groups(): var_between comes from each group's summary(), a posterior
-  # mean on brms, so the header does not call the table's variances medians.
-  with_pcv <- maihda_group_basis_label("posterior", has_pcv = TRUE)
-  expect_true(grepl("var_between is a posterior mean", with_pcv, fixed = TRUE))
-  expect_true(grepl("the PCV compares posterior medians", with_pcv, fixed = TRUE))
-  no_pcv <- maihda_group_basis_label("posterior", has_pcv = FALSE)
-  expect_identical(no_pcv, "as fitted (brms posterior summaries, not maximum likelihood)")
-  for (basis in c("fitted", "ML", "mixed")) {
-    expect_identical(maihda_group_basis_label(basis, TRUE), maihda_pcv_basis_label(basis))
-    expect_identical(maihda_group_basis_label(basis, FALSE), maihda_pcv_basis_label(basis))
-  }
+  # compare_maihda_groups(): the variance columns are each group's summary() variances,
+  # posterior medians on brms as the PCV's are, so the PCV's label serves the table.
+  basis_line <- paste0("Variance basis: ", maihda_pcv_basis_label("posterior"))
 
   cmp <- structure(
     data.frame(group = c("A", "B"), n = c(100L, 120L), n_strata = c(8L, 8L),
                vpc = c(0.10, 0.12), var_between = c(0.40, 0.45), var_other = c(0, 0),
                var_residual = c(3.29, 3.29), status = c("ok", "ok"), pcv = c(0.7, 0.6),
                var_between_adjusted = c(0.12, 0.18),
-               var_between_adjusted_ml = c(0.06, 0.09), pcv_status = c("ok", "ok"),
+               var_between_adjusted_ml = c(0.12, 0.18), pcv_status = c("ok", "ok"),
                stringsAsFactors = FALSE),
     group_var = "grp", engine = "brms", family = "binomial", shared_strata = TRUE,
     estimation = "fitted", estimation_used = "posterior",
     class = c("maihda_group_comparison", "data.frame"))
   out <- capture.output(print(cmp))
-  expect_true(any(grepl(paste0("Variance basis: ", with_pcv), out, fixed = TRUE)))
-  # A comparison without the PCV columns (strata from one dimension) mentions no median.
+  expect_true(any(grepl(basis_line, out, fixed = TRUE)))
+  expect_false(any(grepl("posterior mean", out, fixed = TRUE)))
+  # A comparison without the PCV columns (strata from one dimension) reads the same:
+  # its var_between is a posterior median too.
   one_dim <- cmp
   one_dim$pcv <- one_dim$var_between_adjusted <- one_dim$var_between_adjusted_ml <-
     one_dim$pcv_status <- NULL
   out1 <- capture.output(print(one_dim))
-  expect_true(any(grepl(paste0("Variance basis: ", no_pcv), out1, fixed = TRUE)))
-  expect_false(any(grepl("median", out1, fixed = TRUE)))
+  expect_true(any(grepl(basis_line, out1, fixed = TRUE)))
+  expect_false(any(grepl("posterior mean", out1, fixed = TRUE)))
 })
 
 test_that("the printed basis and the bootstrap refusal name the posterior medians", {
@@ -280,35 +270,28 @@ test_that("the printed basis and the bootstrap refusal name the posterior median
   expect_false(grepl("posterior-mean", msg, fixed = TRUE))
 })
 
-test_that("maihda_table() says a brms PCV is not the ratio of its variance rows", {
-  # The table's variance rows are summary()'s posterior means; the PCV compares medians.
+test_that("maihda_table() attaches no PCV note to a brms analysis", {
+  # The table's variance rows are summary()'s posterior medians, the values the PCV
+  # compares, so there is no second basis to explain.
   rows <- function(bv) list("Between-stratum variance" = c(bv, NA_real_, NA_real_))
   shown <- list(null = rows(0.40), adjusted = rows(0.20))
-  pcv <- list(pcv = 0.79, var_model1 = 0.30, var_model2 = 0.063,
-              estimation_used = "posterior")
+  agree <- list(pcv = 0.5, var_model1 = 0.40, var_model2 = 0.20,
+                estimation_used = "posterior")
   keys <- c("null", "adjusted")
-
-  note <- maihda_table_pcv_note(shown, pcv, keys, "brms")
-  expect_type(note, "character")
-  expect_true(grepl("posterior medians", note, fixed = TRUE))
-  # The variance row is a posterior mean; the SD row is its square root, not a mean SD.
-  expect_true(grepl("variance row is that variance's posterior mean", note, fixed = TRUE))
-  expect_true(grepl("SD row its square root", note, fixed = TRUE))
-  expect_false(grepl("maximum-likelihood", note, fixed = TRUE))
-
-  # No note when the PCV's variances are the rows shown, without a null/adjusted pair,
-  # without a PCV, or on the engines whose PCV reads the fitted variances.
-  agree <- list(pcv = 0.5, var_model1 = 0.40, var_model2 = 0.20)
   expect_null(maihda_table_pcv_note(shown, agree, keys, "brms"))
-  expect_null(maihda_table_pcv_note(shown, pcv, "estimate", "brms"))
-  expect_null(maihda_table_pcv_note(shown, NULL, keys, "brms"))
-  expect_null(maihda_table_pcv_note(shown, pcv, keys, "wemix"))
-  expect_null(maihda_table_pcv_note(shown, pcv, keys, "ordinal"))
 
-  # The lme4 note keeps its maximum-likelihood wording.
-  ml <- maihda_table_pcv_note(shown, c(pcv[1:3], list(estimation_used = "ML")), keys, "lme4")
+  # The lme4 note, for a PCV on another basis than the rows, keeps its wording, and it
+  # is a note about lme4's estimation bases: no other engine is ever handed it, even
+  # with variances that differ from the rows.
+  other <- list(pcv = 0.79, var_model1 = 0.30, var_model2 = 0.063, estimation_used = "ML")
+  ml <- maihda_table_pcv_note(shown, other, keys, "lme4")
   expect_true(grepl("maximum-likelihood", ml, fixed = TRUE))
   expect_false(grepl("posterior", ml, fixed = TRUE))
+  for (engine in c("brms", "wemix", "ordinal")) {
+    expect_null(maihda_table_pcv_note(shown, other, keys, engine), info = engine)
+  }
+  expect_null(maihda_table_pcv_note(shown, other, "estimate", "lme4"))
+  expect_null(maihda_table_pcv_note(shown, NULL, keys, "lme4"))
 })
 
 test_that("?calculate_pcv says what a brms PCV compares and which way it leans", {
@@ -363,27 +346,30 @@ test_that("real brms fits: the PCV is built from the draws' medians", {
   expect_gt(mean(v0), stats::median(v0))
   expect_gt(mean(v1) / stats::median(v1), mean(v0) / stats::median(v0))
 
-  # Nothing else moved: summary()'s table and the MOR still read the posterior mean.
+  # summary()'s table and the MOR hold the same posterior medians.
   vb <- a$summary$variance_components
-  expect_equal(vb$variance[vb$component == "Between-stratum (random)"], mean(v0),
-               tolerance = 1e-8)
-  expect_identical(extract_between_variance(a$model), mean(v0))
-  expect_equal(maihda_mor(a$model), exp(sqrt(2 * mean(v0)) * stats::qnorm(0.75)),
+  expect_identical(vb$variance[vb$component == "Between-stratum (random)"],
+                   stats::median(v0))
+  expect_identical(extract_between_variance(a$model), stats::median(v0))
+  expect_equal(maihda_mor(a$model), exp(sqrt(2 * stats::median(v0)) * stats::qnorm(0.75)),
                tolerance = 1e-12)
 
-  # The report table shows those posterior-mean variances, so it carries the note; and
-  # the PCV has no interval to report.
+  # The report table shows the variances the PCV compares, so its PCV row is the
+  # reduction its two variance rows imply and it needs no note; the PCV has no
+  # interval to report.
   tab <- suppressWarnings(suppressMessages(maihda_table(a)))
   bv <- tab$models[tab$models$statistic == "Between-stratum variance", ]
-  expect_equal(c(bv$null, bv$adjusted), c(mean(v0), mean(v1)), tolerance = 1e-8)
-  expect_true(grepl("posterior medians", tab$models_note, fixed = TRUE))
+  expect_identical(c(bv$null, bv$adjusted), c(stats::median(v0), stats::median(v1)))
+  expect_equal(tab$models$adjusted[tab$models$statistic == "PCV (null -> adjusted)"],
+               1 - bv$adjusted / bv$null, tolerance = 1e-12)
+  expect_null(tab$models_note)
   g <- suppressWarnings(glance(a))
   expect_true(is.na(g$pcv.conf.low) && is.na(g$pcv.conf.high))
 
-  # Without draws the two summaries come from brms's own SD summary: its median SD
-  # (robust = TRUE) for the PCV, its mean SD otherwise.
+  # Without draws the variance comes from brms's own median SD (robust = TRUE).
   local_mocked_bindings(maihda_posterior_draws_brms = function(model) stop("no draws"))
   expect_equal(maihda_pcv_between_variance(a$model), stats::median(sqrt(v0))^2,
                tolerance = 1e-10)
-  expect_equal(extract_between_variance(a$model), mean(sqrt(v0))^2, tolerance = 1e-10)
+  expect_equal(extract_between_variance(a$model), stats::median(sqrt(v0))^2,
+               tolerance = 1e-10)
 })

@@ -101,7 +101,8 @@ A maihda_summary object containing:
     which Nakagawa et al. (2017) report the three agree. These are plug-in
     values at a single \code{lambda}: on the likelihood engines that is exactly
     the number in \code{variance_components}, but a \code{brms} summary works
-    draw by draw and reports \eqn{E[\sigma^2_e]} there, which differs slightly.
+    draw by draw and reports the posterior median of the level-1 variance there,
+    which differs slightly.
     \code{NULL} for every other family.}
   \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
     \code{response_vpc = TRUE} for a binomial lme4 model, including a contextual
@@ -147,9 +148,20 @@ summarised directly from the posterior draws: the reported estimate is the
 posterior median of the per-draw VPC (\eqn{E[\sigma^2]}-based, not the biased
 \eqn{E[\sigma]^2}) and the interval is a central credible interval at
 \code{conf_level} (default 95\%), so no \code{bootstrap} argument is needed.
-The variance-components table reports the posterior-mean variance components,
-so the stratum proportion shown there may differ slightly from the headline
-VPC because the median of a ratio is not the ratio of means. For non-Gaussian
+The variance-components table of a cross-sectional \code{brms} fit reports the
+posterior median of each variance component -- the between-stratum row is the
+variance the PCV and the Median Odds Ratio use, and its \code{sd} the posterior
+median SD -- with the total and the proportions computed from those rows. The
+stratum proportion therefore equals the headline VPC when the level-1 variance
+is fixed by the link and the stratum is the only random effect, and differs
+from it slightly otherwise, because the median of a ratio is not the ratio of
+medians; in a crossed-dimensions fit, whose between-strata variance is the sum
+of several components, the share those rows add up to can differ markedly from
+the headline VPC when dimensions have few levels. With few strata the posterior
+of a variance is right-skewed, and its
+median overstates the variance (and with it the VPC and the Median Odds
+Ratio); the overstatement shrinks as strata are added. A longitudinal fit's
+table holds the posterior means of its covariance blocks. For non-Gaussian
 \code{brms} families the level-1 (residual) variance uses the usual
 latent-scale approximation. For the count families (Poisson, negative
 binomial) the marginal expected counts are propagated \emph{per draw} -- from

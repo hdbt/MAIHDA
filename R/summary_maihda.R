@@ -221,7 +221,8 @@ maihda_tag_role <- function(s, role) {
 #'     which Nakagawa et al. (2017) report the three agree. These are plug-in
 #'     values at a single \code{lambda}: on the likelihood engines that is exactly
 #'     the number in \code{variance_components}, but a \code{brms} summary works
-#'     draw by draw and reports \eqn{E[\sigma^2_e]} there, which differs slightly.
+#'     draw by draw and reports the posterior median of the level-1 variance there,
+#'     which differs slightly.
 #'     \code{NULL} for every other family.}
 #'   \item{vpc_response}{The response-scale VPC (\code{maihda_vpc_response}) when
 #'     \code{response_vpc = TRUE} for a binomial lme4 model, including a contextual
@@ -263,9 +264,20 @@ maihda_tag_role <- function(s, role) {
 #' posterior median of the per-draw VPC (\eqn{E[\sigma^2]}-based, not the biased
 #' \eqn{E[\sigma]^2}) and the interval is a central credible interval at
 #' \code{conf_level} (default 95\%), so no \code{bootstrap} argument is needed.
-#' The variance-components table reports the posterior-mean variance components,
-#' so the stratum proportion shown there may differ slightly from the headline
-#' VPC because the median of a ratio is not the ratio of means. For non-Gaussian
+#' The variance-components table of a cross-sectional \code{brms} fit reports the
+#' posterior median of each variance component -- the between-stratum row is the
+#' variance the PCV and the Median Odds Ratio use, and its \code{sd} the posterior
+#' median SD -- with the total and the proportions computed from those rows. The
+#' stratum proportion therefore equals the headline VPC when the level-1 variance
+#' is fixed by the link and the stratum is the only random effect, and differs
+#' from it slightly otherwise, because the median of a ratio is not the ratio of
+#' medians; in a crossed-dimensions fit, whose between-strata variance is the sum
+#' of several components, the share those rows add up to can differ markedly from
+#' the headline VPC when dimensions have few levels. With few strata the posterior
+#' of a variance is right-skewed, and its
+#' median overstates the variance (and with it the VPC and the Median Odds
+#' Ratio); the overstatement shrinks as strata are added. A longitudinal fit's
+#' table holds the posterior means of its covariance blocks. For non-Gaussian
 #' \code{brms} families the level-1 (residual) variance uses the usual
 #' latent-scale approximation. For the count families (Poisson, negative
 #' binomial) the marginal expected counts are propagated \emph{per draw} -- from
@@ -701,13 +713,13 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       vpc_result <- ctx_res$vpc_result
       context_summary <- ctx_res$context
     } else {
-      # Summarise the VPC/ICC from posterior draws (E[sd^2], with a credible
+      # Summarise the VPC/ICC from posterior draws (per-draw sd^2, with a credible
       # interval) rather than from the posterior summary SDs (E[sd]^2, no interval).
       vpc_draws <- maihda_vpc_draws_brms(
         model, conf_level = conf_level,
         approximation = maihda_count_approximation(object))
 
-      # Components table reports the posterior-mean variance of each component.
+      # Components table reports the posterior-median variance of each component.
       variance_components <- maihda_variance_components_table(
         vpc_draws$var_stratum, vpc_draws$var_other_random, vpc_draws$var_residual
       )
@@ -972,12 +984,15 @@ maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level
 #' credible intervals for the VPC and the shares (no bootstrap -- the posterior already
 #' supplies the interval). A contextual random intercept
 #' (\code{object$context_info} set) enters the per-draw VPC denominator and is
-#' reported as its own component row and \code{context} element.
+#' reported as its own component row and \code{context} element. Each variance
+#' component is the posterior median of its draws, and the additive, between-strata
+#' and context totals are sums of those components.
 #'
 #' @param object A \code{maihda_model} (crossed-dimensions, brms engine).
 #' @param cc The \code{cc_info} list.
 #' @param conf_level Credible-interval level.
-#' @param point Posterior point estimate, "median" (default) or "mean".
+#' @param point Posterior point estimate of the VPC and the shares, "median"
+#'   (default) or "mean".
 #' @return A list with \code{variance_components}, \code{vpc_result},
 #'   \code{decomposition} and \code{context} (NULL without a context).
 #' @keywords internal
@@ -1021,18 +1036,26 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
   add_s <- summ(part$additive_share)
   int_s <- summ(part$interaction_share)
 
-  per_dim_mean <- vapply(dim_re, function(g) mean(gv[[g]]), numeric(1))
-  names(per_dim_mean) <- names(cc$dim_groups)
-  interaction_mean <- mean(interaction_draws)
-  within_mean <- mean(within_draws)
-  per_context_mean <- if (length(ctx_vars) > 0) {
-    vapply(ctx_vars, function(g) mean(gv[[g]]), numeric(1))
+  # Each variance component is the posterior median of its own draws -- the summary
+  # every variance of a cross-sectional brms fit uses (maihda_stratum_variance_brms())
+  # -- and the additive, between-strata and context totals are sums of those rows, so
+  # the table and the decomposition add up. The VPC and the shares are summarised per
+  # draw above; a sum of medians is not the median of the per-draw sum, so the table's
+  # proportions need not equal them.
+  per_dim_var <- vapply(dim_re, function(g) stats::median(gv[[g]]), numeric(1))
+  names(per_dim_var) <- names(cc$dim_groups)
+  interaction_var <- stats::median(interaction_draws)
+  within_var <- stats::median(within_draws)
+  per_context_var <- if (length(ctx_vars) > 0) {
+    vapply(ctx_vars, function(g) stats::median(gv[[g]]), numeric(1))
   } else {
     NULL
   }
+  additive_var <- sum(per_dim_var)
+  between_var <- additive_var + interaction_var
 
-  variance_components <- maihda_cc_components_table(per_dim_mean, interaction_mean,
-                                                   within_mean, per_context_mean)
+  variance_components <- maihda_cc_components_table(per_dim_var, interaction_var,
+                                                   within_var, per_context_var)
 
   vpc_result <- list(
     estimate = vpc_s$estimate,
@@ -1044,15 +1067,15 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
   )
 
   decomposition <- list(
-    additive_var = mean(additive_draws),
-    interaction_var = interaction_mean,
-    between_var = mean(part$between),
-    within_var = within_mean,
+    additive_var = additive_var,
+    interaction_var = interaction_var,
+    between_var = between_var,
+    within_var = within_var,
     additive_share = add_s$estimate,
     interaction_share = int_s$estimate,
     additive_share_ci = c(add_s$ci_lower, add_s$ci_upper),
     interaction_share_ci = c(int_s$ci_lower, int_s$ci_upper),
-    per_dim = per_dim_mean,
+    per_dim = per_dim_var,
     bootstrap = FALSE,
     method = "posterior",
     conf_level = conf_level
@@ -1063,10 +1086,10 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
     ctx_total_s <- summ(part$other / part$total)
     context_summary <- list(
       context_vars = ctx_vars,
-      var_stratum = mean(part$between),
-      per_context = per_context_mean,
-      context_var_total = mean(context_total_draws),
-      within_var = within_mean,
+      var_stratum = between_var,
+      per_context = per_context_var,
+      context_var_total = sum(per_context_var),
+      within_var = within_var,
       other_var = 0,
       vpc_stratum = vpc_s$estimate,
       vpc_context = vapply(ctx_vars, function(g) summ(gv[[g]] / part$total)$estimate,
@@ -1243,12 +1266,15 @@ maihda_context_summary_lme4 <- function(object, ctx, vc, bootstrap, n_boot,
 #' brms counterpart of \code{\link{maihda_context_summary_lme4}}: computes the
 #' stratum / context / residual partition per posterior draw and returns posterior
 #' point estimates with credible intervals for the between-stratum VPC and the
-#' contexts' total share (no bootstrap -- the posterior supplies the interval).
+#' contexts' total share (no bootstrap -- the posterior supplies the interval). Each
+#' variance component is the posterior median of its draws, and the contexts' total
+#' variance is the sum of the context components.
 #'
 #' @param object A \code{maihda_model} with \code{context_info} (brms engine).
 #' @param ctx The \code{context_info} list.
 #' @param conf_level Credible-interval level.
-#' @param point Posterior point estimate, "median" (default) or "mean".
+#' @param point Posterior point estimate of the shares, "median" (default) or
+#'   "mean".
 #' @return A list with \code{variance_components}, \code{vpc_result}, \code{context}.
 #' @keywords internal
 maihda_context_summary_brms <- function(object, ctx, conf_level,
@@ -1287,14 +1313,21 @@ maihda_context_summary_brms <- function(object, ctx, conf_level,
   vpc_s <- summ(part$vpc_stratum)
   ctx_total_s <- summ(part$vpc_context_total)
 
-  per_context_mean <- vapply(ctx_vars, function(g) mean(gv[[g]]), numeric(1))
-  other_mean <- if (is.numeric(other_draws) && length(other_draws) > 1) {
-    mean(other_draws)
+  # Each variance component is the posterior median of its own draws -- the summary
+  # every variance of a cross-sectional brms fit uses (maihda_stratum_variance_brms()),
+  # so var_stratum is the variance a PCV of this fit compares -- and the contexts' total
+  # is the sum of the context rows, so the table adds up. The shares are summarised
+  # per draw above.
+  var_stratum <- stats::median(stratum_draws)
+  per_context_var <- vapply(ctx_vars, function(g) stats::median(gv[[g]]), numeric(1))
+  other_var <- if (is.numeric(other_draws) && length(other_draws) > 1) {
+    stats::median(other_draws)
   } else {
     other_draws
   }
+  within_var <- stats::median(within_draws)
   variance_components <- maihda_context_components_table(
-    mean(stratum_draws), per_context_mean, other_mean, mean(within_draws)
+    var_stratum, per_context_var, other_var, within_var
   )
 
   vpc_result <- list(
@@ -1308,11 +1341,11 @@ maihda_context_summary_brms <- function(object, ctx, conf_level,
 
   context_summary <- list(
     context_vars = ctx_vars,
-    var_stratum = mean(stratum_draws),
-    per_context = per_context_mean,
-    context_var_total = mean(part$context_total),
-    within_var = mean(within_draws),
-    other_var = other_mean,
+    var_stratum = var_stratum,
+    per_context = per_context_var,
+    context_var_total = sum(per_context_var),
+    within_var = within_var,
+    other_var = other_var,
     vpc_stratum = vpc_s$estimate,
     vpc_context = vapply(ctx_vars, function(g) summ(gv[[g]] / part$total)$estimate,
                          numeric(1)),

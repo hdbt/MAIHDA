@@ -190,9 +190,9 @@
 #' (wemix) interval would require replicate weights.
 #'
 #' \strong{brms fits.} For two \code{brms} fits the variances compared are the
-#' posterior medians of each model's between-stratum variance; the
-#' variance-components table of \code{\link{summary.maihda_model}} shows posterior
-#' means, which lie above the medians. The posterior of a between-stratum variance is
+#' posterior medians of each model's between-stratum variance, the values the
+#' variance-components table of \code{\link{summary.maihda_model}} shows. The
+#' posterior of a between-stratum variance is
 #' right-skewed when strata are few, and more so in the adjusted model, which spends
 #' degrees of freedom on the main effects. The PCV is therefore \emph{understated}
 #' with few strata -- the opposite direction to maximum likelihood -- and with very
@@ -823,18 +823,15 @@ maihda_pcv_degenerate_null_stop <- function(subject) {
 
 #' Extract Between-Stratum Variance
 #'
-#' Internal function to extract between-stratum variance from a MAIHDA model.
+#' Internal function to extract between-stratum variance from a MAIHDA model. For a
+#' \code{brms} fit it is the posterior median of the variance draws.
 #'
 #' @param model A maihda_model object
-#' @param brms_point For a \code{brms} fit, the posterior summary of the variance
-#'   draws to return: \code{"mean"} (default) or \code{"median"}. Ignored by the
-#'   other engines.
 #'
 #' @return Numeric value of between-stratum variance
 #' @keywords internal
 #' @importFrom lme4 VarCorr
-extract_between_variance <- function(model, brms_point = c("mean", "median")) {
-  brms_point <- match.arg(brms_point)
+extract_between_variance <- function(model) {
   engine <- model$engine
   fitted_model <- model$model
 
@@ -909,7 +906,7 @@ extract_between_variance <- function(model, brms_point = c("mean", "median")) {
       brms::VarCorr(fitted_model),
       context = "PCV calculations"
     )
-    return(maihda_stratum_variance_brms(fitted_model, point = brms_point))
+    return(maihda_stratum_variance_brms(fitted_model))
 
   } else {
     stop("Unsupported engine: ", engine,
@@ -917,13 +914,13 @@ extract_between_variance <- function(model, brms_point = c("mean", "median")) {
   }
 }
 
-# The between-stratum variance a PCV compares: each model's own estimate, and for a
-# brms fit the posterior MEDIAN of its variance draws (see
-# maihda_stratum_variance_brms() for why not the mean). Every PCV entry point --
-# calculate_pcv(), stepwise_pcv() and pcv_importance() -- reads its variances here,
-# so they cannot differ in the summary they compare.
+# The between-stratum variance a PCV compares: each model's own estimate
+# (extract_between_variance(); for a brms fit the posterior median of its variance
+# draws). Every PCV entry point -- calculate_pcv(), stepwise_pcv() and
+# pcv_importance() -- reads its variances here, and the MOR and summary()'s
+# variance-components table hold the same value for a model.
 maihda_pcv_between_variance <- function(model) {
-  extract_between_variance(model, brms_point = "median")
+  extract_between_variance(model)
 }
 
 validate_pcv_models <- function(model1, model2) {
@@ -1634,8 +1631,9 @@ maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
 #'   delta-AUC, versus the previous step and versus the null), and \code{MOR} (the
 #'   Median Odds Ratio, logit link only). These columns are absent for non-binary
 #'   outcomes. When \code{context} is supplied, a \code{Context_Variance} column
-#'   reports the between-context variance held at each step (for a \code{brms} fit its
-#'   posterior mean, where \code{Variance} holds a posterior median). For a binary
+#'   reports the between-context variance held at each step (for a \code{brms} fit the
+#'   posterior median of each context's variance, summed over the contexts;
+#'   \code{Variance} is a posterior median too). For a binary
 #'   outcome the discriminatory-accuracy trajectory is still reported alongside it: the
 #'   \code{AUC} and \code{MOR} are the intersectional-scope (between-stratum)
 #'   quantities -- the concordance of the fixed effects plus the stratum interaction,
@@ -1676,8 +1674,7 @@ maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
 #' \code{Total_AUC} are its \emph{absolute} change (delta-AUC), in contrast to the
 #' \emph{proportional} \code{Step_PCV} / \code{Total_PCV}. The \code{MOR} is reported
 #' for the logit link (\code{NA} otherwise) and is a monotone transform of the
-#' between-stratum variance already in \code{Variance} (for a \code{brms} fit, of that
-#' variance's posterior mean, where \code{Variance} holds its median). For a
+#' between-stratum variance already in \code{Variance}. For a
 #' design-weighted fit (\code{sampling_weights}) the AUC is the design-weighted
 #' (population) C-statistic.
 #' Reuses \code{\link{maihda_discriminatory_accuracy}} on each step's fitted model, so
@@ -1950,14 +1947,6 @@ print.maihda_stepwise <- function(x, ...) {
   if (!is.null(est)) {
     cat(maihda_palette()$muted(sprintf("\nVariance basis: %s\n",
       maihda_pcv_basis_label(est))))
-    # The basis line describes the Variance column. On a brms fit the context variance
-    # and the MOR are read from posterior means, so name them rather than let the line
-    # above cover them.
-    from_mean <- intersect(c("Context_Variance", "MOR"), names(x))
-    if (identical(est, "posterior") && length(from_mean) > 0) {
-      cat(maihda_palette()$muted(sprintf("%s: from posterior means.\n",
-        paste(from_mean, collapse = " and "))))
-    }
   }
   bstep <- attr(x, "boundary_steps")
   if (length(bstep) > 0) {

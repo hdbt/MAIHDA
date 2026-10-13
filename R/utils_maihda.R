@@ -2985,20 +2985,19 @@ maihda_total_random_variance_lme4 <- function(model) {
   sum(variances, na.rm = TRUE)
 }
 
-# Point summary of a brms fit's between-stratum variance, from the SD draws.
-#   point = "mean"   - the posterior mean E[sd^2], the value in the variance-components
-#                      table of summary.maihda_model() (not the squared posterior-mean
-#                      SD, E[sd]^2) and the MOR's plug-in.
-#   point = "median" - the posterior median of sd^2, the value every PCV compares
-#                      (maihda_pcv_between_variance()).
-# The two differ because the posterior of a variance is right-skewed when strata are
-# few: its mean is set by an upper tail that the sampler visits rarely, so a ratio of
-# two posterior means understates the PCV and moves from one sampler seed to the next,
-# and a ratio of medians does both far less. Falls back to brms's own summary of the
-# SD (its mean, or with robust = TRUE its median) if draws are unavailable.
-maihda_stratum_variance_brms <- function(model, group = "stratum",
-                                         point = c("mean", "median")) {
-  point <- match.arg(point)
+# Point summary of a brms fit's between-stratum variance: the posterior MEDIAN of its
+# variance draws (sd^2). A cross-sectional analysis reports that variance through this
+# one summary -- the PCV, the MOR, the variance-components table of
+# summary.maihda_model() and what is read from it -- so it shows a single
+# between-stratum variance. (A longitudinal fit's covariance blocks have their own
+# summary, maihda_re_block_brms().)
+# The posterior of a variance is right-skewed when strata are few: its mean is set by
+# an upper tail the sampler visits rarely, overstates the variance by more than the
+# median does, and moves from one sampler seed to the next. A monotone transform of the
+# variance (its SD, the MOR, the VPC of a model whose level-1 variance is fixed)
+# evaluated at this median is the posterior median of that transform. Falls back to
+# brms's own median SD (VarCorr with robust = TRUE) if draws are unavailable.
+maihda_stratum_variance_brms <- function(model, group = "stratum") {
   if (!requireNamespace("brms", quietly = TRUE)) {
     stop("Package 'brms' is required to work with brms models. Please install it with: install.packages('brms')")
   }
@@ -3008,20 +3007,13 @@ maihda_stratum_variance_brms <- function(model, group = "stratum",
     rv <- tryCatch(maihda_random_variance_draws_brms(draws, group = group),
                    error = function(e) NULL)
     if (!is.null(rv)) {
-      if (identical(point, "median")) {
-        return(stats::median(rv$stratum))
-      }
-      return(mean(rv$stratum))
+      return(stats::median(rv$stratum))
     }
   }
 
   # (median SD)^2 is the median variance, squaring being monotone on sd >= 0 (the two
   # differ only by the interpolation between two middle draws when their number is even).
-  vc <- if (identical(point, "median")) {
-    brms::VarCorr(model, robust = TRUE)
-  } else {
-    brms::VarCorr(model)
-  }
+  vc <- brms::VarCorr(model, robust = TRUE)
   if (!group %in% names(vc)) {
     stop("No '", group, "' random-effect variance found in the brms model.")
   }
@@ -3077,8 +3069,8 @@ maihda_total_random_variance_brms <- function(model) {
   vc <- brms::VarCorr(model)
   maihda_validate_intercept_only_random_effects_brms(vc)
 
-  # Posterior-mean total random-effect variance E[sum sd^2] from the SD draws,
-  # consistent with maihda_stratum_variance_brms(); falls back to summary SDs.
+  # Posterior-mean total random-effect variance E[sum sd^2] from the SD draws; falls
+  # back to summary SDs.
   draws <- tryCatch(maihda_posterior_draws_brms(model), error = function(e) NULL)
   if (!is.null(draws)) {
     sd_cols <- grep("^sd_", names(draws), value = TRUE)
@@ -3218,12 +3210,13 @@ maihda_group_variance_draws_brms <- function(draws) {
   out
 }
 
-# Named numeric vector of posterior-mean intercept variances per group (brms),
-# mirroring maihda_random_variances_lme4() for the point summary.
+# Named numeric vector of posterior-median intercept variances per group (brms),
+# mirroring maihda_random_variances_lme4() for the point summary: the same summary of
+# each variance as maihda_stratum_variance_brms() and the variance-components tables.
 maihda_random_variances_brms <- function(model) {
   draws <- maihda_posterior_draws_brms(model)
   gv <- maihda_group_variance_draws_brms(draws)
-  vapply(gv, mean, numeric(1))
+  vapply(gv, stats::median, numeric(1))
 }
 
 # Split a named variance vector into additive (sum of the dimension REs), the
@@ -4360,7 +4353,7 @@ maihda_residual_variance_brms <- function(model,
 
 # ---- brms VPC/ICC from posterior draws -------------------------------------
 # The helpers above collapse the posterior to summary SDs and so report E[sd]^2;
-# the helpers below instead work draw-by-draw (E[sd^2]) and yield a credible
+# the helpers below instead work draw-by-draw (on sd^2) and yield a credible
 # interval for the VPC/ICC. summary.maihda_model() uses the draws-based path.
 
 # Posterior draws of a brms model as a data frame. Column names follow the
@@ -4665,7 +4658,14 @@ maihda_vpc_posterior_summary <- function(var_stratum, var_other_random,
 # Orchestrates the draws-based brms VPC/ICC used by summary.maihda_model():
 # validates the intercept-only random-effect structure, extracts per-draw
 # variances, and returns both the posterior VPC summary (estimate + credible
-# interval) and the posterior-mean variance components for the components table.
+# interval) and the variance components for the components table. Each component is
+# the posterior MEDIAN of its own draws, whatever `point` summarises the VPC with, so
+# the table's between-stratum row is the variance the PCV and the MOR read
+# (maihda_stratum_variance_brms()). The table derives its Total and its proportions
+# from these rows: for a model whose level-1 variance is fixed by the link and whose
+# only random effect is the stratum, the stratum proportion is then the posterior
+# median of the per-draw VPC (up to the interpolation between the two middle draws when
+# their number is even), and otherwise close to it.
 maihda_vpc_draws_brms <- function(model, conf_level = 0.95, group = "stratum",
                                   point = c("median", "mean"),
                                   approximation = "lognormal") {
@@ -4688,9 +4688,9 @@ maihda_vpc_draws_brms <- function(model, conf_level = 0.95, group = "stratum",
 
   list(
     vpc = vpc,
-    var_stratum = mean(rv$stratum),
-    var_other_random = mean(rv$other),
-    var_residual = mean(var_residual)
+    var_stratum = stats::median(rv$stratum),
+    var_other_random = stats::median(rv$other),
+    var_residual = stats::median(var_residual)
   )
 }
 

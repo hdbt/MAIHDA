@@ -560,9 +560,11 @@ test_that("maihda_context_summary_brms partitions per draw (Stan-free)", {
   expect_equal(res$context$vpc_context_total_ci,
                stats::quantile(ctx_draws, c(0.05, 0.95), names = FALSE))
   expect_identical(res$context$method, "posterior")
-  expect_equal(res$context$var_stratum, mean(v_s))
-  expect_equal(unname(res$context$per_context["site"]), mean(v_c))
-  expect_equal(res$context$within_var, mean(v_e))
+  # Each variance component is the posterior median of its own draws.
+  expect_equal(res$context$var_stratum, stats::median(v_s))
+  expect_equal(unname(res$context$per_context["site"]), stats::median(v_c))
+  expect_equal(res$context$context_var_total, stats::median(v_c))
+  expect_equal(res$context$within_var, stats::median(v_e))
 
   tab <- res$variance_components
   expect_identical(attr(tab, "kind"), "contextual")
@@ -591,7 +593,8 @@ test_that("maihda_context_summary_brms keeps extra REs in the denominator; point
   v_x <- draws$sd_extra__Intercept^2
   v_e <- draws$sigma^2
   expect_equal(res$vpc_result$estimate, mean(v_s / (v_s + v_c + v_x + v_e)))
-  expect_equal(res$context$other_var, mean(v_x))
+  # `point` summarises the shares; the variance components stay posterior medians.
+  expect_equal(res$context$other_var, stats::median(v_x))
   expect_true("Other random effects" %in% res$variance_components$component)
   tab <- res$variance_components
   expect_equal(sum(tab$proportion[tab$component != "Total"]), 1, tolerance = 1e-8)

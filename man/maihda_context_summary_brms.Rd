@@ -18,7 +18,8 @@ maihda_context_summary_brms(
 
 \item{conf_level}{Credible-interval level.}
 
-\item{point}{Posterior point estimate, "median" (default) or "mean".}
+\item{point}{Posterior point estimate of the shares, "median" (default) or
+"mean".}
 }
 \value{
 A list with \code{variance_components}, \code{vpc_result}, \code{context}.
@@ -27,6 +28,8 @@ A list with \code{variance_components}, \code{vpc_result}, \code{context}.
 brms counterpart of \code{\link{maihda_context_summary_lme4}}: computes the
 stratum / context / residual partition per posterior draw and returns posterior
 point estimates with credible intervals for the between-stratum VPC and the
-contexts' total share (no bootstrap -- the posterior supplies the interval).
+contexts' total share (no bootstrap -- the posterior supplies the interval). Each
+variance component is the posterior median of its draws, and the contexts' total
+variance is the sum of the context components.
 }
 \keyword{internal}

@@ -119,6 +119,15 @@ maihda_auc <- function(prob, y) {
 #' single-stratum fit the two calculations coincide, and that closed form is
 #' used.
 #'
+#' \strong{brms fits.} For a \code{brms} fit \code{V_A} is the posterior median of
+#' the between-stratum variance, the value in the variance-components table of
+#' \code{\link{summary.maihda_model}}. The closed form is monotone in \code{V_A}, so
+#' the MOR is then the posterior median of the Median Odds Ratio itself. A
+#' crossed-dimensions fit evaluates the mixture at the posterior median of each
+#' variance. With few strata the posterior of a variance is right-skewed and its
+#' median overstates the variance, so the MOR runs high; the overstatement shrinks
+#' as strata are added.
+#'
 #' @param model A \code{maihda_model} from \code{\link{fit_maihda}} fitted with a
 #'   \code{binomial} (lme4), \code{bernoulli} (brms), or \code{cumulative}
 #'   (ordinal) family and a \strong{logit} link.
@@ -324,7 +333,8 @@ maihda_mor_crossed_parts <- function(model) {
 # The intersectional random-effect variances of a crossed-dimensions fit: one per
 # additive dimension (in cc_info$dim_groups order) plus the interaction. Shared by
 # the total-variance accessor below and the MOR mixture above, so the two cannot
-# drift apart on engine support or on which effects count as intersectional.
+# drift apart on engine support or on which effects count as intersectional. For a
+# brms fit each is the posterior median of its draws, the value in summary()'s table.
 maihda_cc_variances <- function(model) {
   cc <- model$cc_info
   dim_groups <- unname(cc$dim_groups)
@@ -352,7 +362,9 @@ maihda_cc_variances <- function(model) {
 # additive dimension effect plus the interaction -- so its variance is their
 # total; reading only the "stratum" (interaction) component would understate the
 # between-stratum heterogeneity. Contextual and other non-intersectional REs are
-# never included.
+# never included. For a brms fit every variance read here is the posterior median of
+# its draws; the closed-form MOR at the median variance is the posterior median of
+# the per-draw MOR.
 #
 # NOTE this total is the variance of ONE stratum's effect. It is NOT half the
 # variance of the DIFFERENCE between two strata, because crossed strata sharing a

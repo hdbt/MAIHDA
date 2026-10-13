@@ -211,9 +211,9 @@ posterior interval for the PCV itself is computed -- and a design-based
 (wemix) interval would require replicate weights.
 
 \strong{brms fits.} For two \code{brms} fits the variances compared are the
-posterior medians of each model's between-stratum variance; the
-variance-components table of \code{\link{summary.maihda_model}} shows posterior
-means, which lie above the medians. The posterior of a between-stratum variance is
+posterior medians of each model's between-stratum variance, the values the
+variance-components table of \code{\link{summary.maihda_model}} shows. The
+posterior of a between-stratum variance is
 right-skewed when strata are few, and more so in the adjusted model, which spends
 degrees of freedom on the main effects. The PCV is therefore \emph{understated}
 with few strata -- the opposite direction to maximum likelihood -- and with very

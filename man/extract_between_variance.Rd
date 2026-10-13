@@ -4,19 +4,16 @@
 \alias{extract_between_variance}
 \title{Extract Between-Stratum Variance}
 \usage{
-extract_between_variance(model, brms_point = c("mean", "median"))
+extract_between_variance(model)
 }
 \arguments{
 \item{model}{A maihda_model object}
-
-\item{brms_point}{For a \code{brms} fit, the posterior summary of the variance
-draws to return: \code{"mean"} (default) or \code{"median"}. Ignored by the
-other engines.}
 }
 \value{
 Numeric value of between-stratum variance
 }
 \description{
-Internal function to extract between-stratum variance from a MAIHDA model.
+Internal function to extract between-stratum variance from a MAIHDA model. For a
+\code{brms} fit it is the posterior median of the variance draws.
 }
 \keyword{internal}

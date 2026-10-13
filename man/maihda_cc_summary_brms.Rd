@@ -13,7 +13,8 @@ maihda_cc_summary_brms(object, cc, conf_level, point = c("median", "mean"))
 
 \item{conf_level}{Credible-interval level.}
 
-\item{point}{Posterior point estimate, "median" (default) or "mean".}
+\item{point}{Posterior point estimate of the VPC and the shares, "median"
+(default) or "mean".}
 }
 \value{
 A list with \code{variance_components}, \code{vpc_result},
@@ -25,6 +26,8 @@ interaction partition per posterior draw and returns posterior point estimates w
 credible intervals for the VPC and the shares (no bootstrap -- the posterior already
 supplies the interval). A contextual random intercept
 (\code{object$context_info} set) enters the per-draw VPC denominator and is
-reported as its own component row and \code{context} element.
+reported as its own component row and \code{context} element. Each variance
+component is the posterior median of its draws, and the additive, between-strata
+and context totals are sums of those components.
 }
 \keyword{internal}
