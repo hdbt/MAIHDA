@@ -328,7 +328,12 @@ An object of class `maihda_analysis`: a list with
   (matching the single-model summaries), while `"ML"` refits the REML
   fits with maximum likelihood, which overstates the PCV when strata are
   few (see
-  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md))
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)).
+  For `engine = "brms"` in `"longitudinal"` mode the variances compared
+  are posterior medians of the per-draw between-stratum variance – at
+  the baseline, of the slope, and at each reporting time – and, like the
+  two-model `brms` PCV, the result is understated on average when strata
+  are few
 
 - decomposition:
 
@@ -489,10 +494,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x564adfe9df58>
+#> <environment: 0x5557e49f0ee8>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x564ae420fc00>
+#> <environment: 0x5557e8cac400>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -547,7 +552,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x564adf73ccf8>
+#> <environment: 0x5557e1b7d7e0>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

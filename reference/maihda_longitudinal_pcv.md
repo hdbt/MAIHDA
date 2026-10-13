@@ -41,7 +41,11 @@ maihda_longitudinal_pcv(
 
 ## Value
 
-An object of class `maihda_long_pcv`.
+An object of class `maihda_long_pcv`. `variance_summary` names what
+`var_baseline_*`, `var_slope_*` and the variances in `pcv_t` are
+(`"estimate"` for lme4, `"posterior median"` for brms), and
+`Sigma_summary` what the two stored blocks are (`"estimate"` or
+`"posterior mean"`).
 
 ## Details
 
@@ -61,3 +65,18 @@ an ML refit was requested but a model kept its REML fit (a boundary skip
 or a failed refit), so a mixed REML/ML comparison is not mistaken for a
 clean one. glmer (GLMM) and brms fits are already on the ML / posterior
 scale, so the choice does not affect them.
+
+For a `brms` pair every variance compared is the posterior median of its
+per-draw value: the between-stratum variance \\a(t)' \Sigma a(t)\\ at
+the baseline and at each reporting time, and the slope variance. The
+stored blocks `Sigma_stratum_null` and `Sigma_stratum_adjusted` are the
+posterior means [`summary()`](https://rdrr.io/r/base/summary.html)
+tabulates, so those variances are not quadratic forms of them. The
+posterior of a between-stratum variance is right-skewed when strata are
+few, and more so in the adjusted model, so the PCV of a `brms` pair is
+understated on average with few strata – by more when the additive share
+is moderate, when the strata are small, or, for the slope, when the
+strata differ little in slope next to the precision of a stratum's slope
+– and can be negative where the true value is positive. The `lme4`
+(REML) decomposition is less biased then; neither is precise with so few
+strata.

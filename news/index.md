@@ -384,6 +384,18 @@
   count VPCs are unchanged; adjusted, offset, weighted, and longitudinal
   count VPCs rise.
 
+- The longitudinal PCV of `engine = "brms"` fits – `PCV_intercept`,
+  `PCV_slope` and the time-specific PCV of
+  `maihda(decomposition = "longitudinal")` – now compares posterior
+  medians of the per-draw between-stratum variances instead of variances
+  read off the posterior-mean covariance blocks. With few strata the
+  mean-based PCV ran low (0.73 for a true 0.83 at 12 strata, 0.80 from
+  medians; 0.81 and 0.83 at 24), and from medians it still runs low on
+  average when strata are few. The stored blocks `Sigma_stratum_null` /
+  `Sigma_stratum_adjusted` remain posterior means; the new
+  `variance_summary` and `Sigma_summary` fields say which is which, and
+  [`print()`](https://rdrr.io/r/base/print.html) notes it.
+
 - A brms longitudinal fit’s trajectory VPCs
   (`$longitudinal$vpc_intercept` and `$vpc_slope`) are now the posterior
   median of the per-draw ratio, with a credible interval in
