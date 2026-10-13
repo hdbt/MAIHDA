@@ -269,11 +269,16 @@ test_that("the message gives the count, the cause, the way round and WeMix's wor
 test_that("mix() stops in makeAdaptedPts() and fit_maihda() says what happened", {
   skip_on_cran()
   skip_if_not_installed("WeMix")
-  doubled <- nc12_all_half()
-  doubled$w <- 2
+  # A weight other than 1 must be a power of four, so that mix()'s working weight,
+  # sqrt(w / 0.25), is a power of two and every product in a stratum's score is exact.
+  # With a weight of 2 the products are rounded, and a build that fuses each
+  # multiplication into the sum (arm64) keeps the rounding errors: the modes are then
+  # not exact zeros and mix() goes on to its zero-variance error.
+  quadrupled <- nc12_all_half()
+  quadrupled$w <- 4
   cases <- list(list(data = nc12_all_half(), zero = 8L),
                 list(data = nc12_six_half(), zero = 6L),
-                list(data = doubled, zero = 8L))
+                list(data = quadrupled, zero = 8L))
   for (case in cases) {
     info <- paste(case$zero, "strata at one half, weight", case$data$w[1L])
     # WeMix on these rows with no package code in between, read by a handler of the
