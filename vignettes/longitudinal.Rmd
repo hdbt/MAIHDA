@@ -220,7 +220,9 @@ strata are added.
 ## Scope and cautions
 
 * **Time coding.** You can code time however is convenient for your workflow ( waves 0, 1, 2, ...,
-  waves 10, 11, ..., age, or calendar year). When the axis does not start at 0,
+  waves 10, 11, ..., age, or calendar year), in coarse units: waves or years rather than
+  days. Over a span of hundreds or thousands of time units lme4's optimiser can stop short
+  of the optimum, in some fits without a convergence warning. When the axis does not start at 0,
   the growth terms are fit on internally *centered* time (`time - min(time)`,
   with a message), because the raw polynomial basis over an offset range is
   ill-conditioned and can silently converge to a wrong solution. All results (

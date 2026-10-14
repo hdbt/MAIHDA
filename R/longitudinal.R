@@ -478,7 +478,59 @@ maihda_re_block_lme4 <- function(model, group, time, time_degree) {
 # yields a confident-looking PCV_slope built on a boundary artefact -- the reported
 # cause of "puzzling slope PCV" values on irregular longitudinal data.
 maihda_stratum_growth_rank_deficient_lme4 <- function(model, tol = 1e-4) {
-  "stratum" %in% maihda_singular_terms_lme4(model, tol = tol)
+  any(maihda_stratum_block_boundary_lme4(model, tol = tol))
+}
+
+# The relative Cholesky factor of one random-effects term, in lme4's order (column by
+# column, lower triangle): for a linear growth block (l11, l21, l22). NULL when the term
+# is absent or theta cannot be read.
+maihda_re_theta_block_lme4 <- function(model, group) {
+  tryCatch({
+    th <- lme4::getME(model, "theta")
+    cnms <- lme4::getME(model, "cnms")
+    sizes <- vapply(cnms, function(cn) length(cn) * (length(cn) + 1) / 2, numeric(1))
+    k <- which(names(cnms) == group)
+    if (length(k) != 1L || sum(sizes) != length(th)) {
+      NULL
+    } else {
+      end <- cumsum(sizes)[k]
+      unname(th[seq.int(end - sizes[k] + 1, end)])
+    }
+  }, error = function(e) NULL)
+}
+
+# Boundary verdict, per component, for a LINEAR growth block from its relative Cholesky
+# factor l = (l11, l21, l22): c(intercept, slope). The intercept is at the boundary when
+# its SD is below `tol` of the residual SD, as in lme4. The slope is judged by its SD
+# conditional on the intercept against its own SD, sqrt(1 - rho^2) = |l22| /
+# sqrt(l21^2 + l22^2), below `ratio_tol` -- a ratio of two SDs in the same units, so the
+# verdict does not depend on the unit of time, where |l22| itself does (it is a slope SD
+# per time unit, relative to the residual SD). With the intercept at the boundary the
+# slope's conditional SD is its whole SD, so only a slope SD of exactly zero puts it there.
+maihda_linear_block_boundary <- function(l, tol = 1e-4, ratio_tol = 0.01) {
+  intercept <- abs(l[1]) < tol
+  slope_sd <- sqrt(l[2]^2 + l[3]^2)
+  slope <- slope_sd == 0 || (!intercept && abs(l[3]) / slope_sd < ratio_tol)
+  c(intercept = intercept, slope = slope)
+}
+
+# Per-component boundary verdict for the stratum block of an lme4 growth fit: the
+# unit-free rule above for a linear block, lme4's rule (each Cholesky diagonal entry
+# below `tol` of the residual SD, maihda_re_boundary_components_lme4()) for a block of any
+# other size. NULL when there is no stratum term or theta cannot be read.
+maihda_stratum_block_boundary_lme4 <- function(model, tol = 1e-4, ratio_tol = 0.01) {
+  comps <- maihda_re_boundary_components_lme4(model, tol = tol)
+  if (is.null(comps) || !"stratum" %in% names(comps)) {
+    return(NULL)
+  }
+  blk <- comps[[which(names(comps) == "stratum")[1]]]
+  if (length(blk) == 2L) {
+    l <- maihda_re_theta_block_lme4(model, "stratum")
+    if (length(l) == 3L && all(is.finite(l))) {
+      blk <- stats::setNames(maihda_linear_block_boundary(l, tol, ratio_tol), names(blk))
+    }
+  }
+  blk
 }
 
 # Engine-agnostic wrapper: TRUE only for an lme4 growth fit whose stratum block is
@@ -491,21 +543,20 @@ maihda_stratum_growth_rank_deficient <- function(object) {
 }
 
 # TRUE when the stratum block's LINEAR TIME component specifically sits at the
-# boundary -- its Cholesky diagonal is ~0, so the stratum slope variance conditional
-# on the stratum intercept is zero and the slope is not separately identified.
+# boundary -- the stratum slope variance conditional on the stratum intercept is zero
+# (for a linear block, next to nothing against the slope's own variance; see
+# maihda_linear_block_boundary()) and the slope is not separately identified.
 #
 # This is deliberately NARROWER than rank deficiency of the whole block. For the 2x2
-# linear block the two coincide (Sigma = ss' forces sigma^2_u1 = s2^2), but a 3x3
+# linear block the two coincide (Sigma = ss' forces sigma^2_u1 = s2^2) unless the
+# intercept variance is the one at zero, which leaves the slope variance identified on
+# its own; and a 3x3
 # quadratic block that loses only its I(time^2) dimension still estimates the linear
 # slope variance perfectly well -- gating PCV_slope on the block-level verdict there
 # would discard a sound proportion (observed: 0.874 on the package's own quadratic
 # fixture, whose stratum Cholesky diagonal is 1.074, 0.2357, 0).
 maihda_stratum_slope_at_boundary_lme4 <- function(model, tol = 1e-4) {
-  comps <- maihda_re_boundary_components_lme4(model, tol = tol)
-  if (is.null(comps) || !"stratum" %in% names(comps)) {
-    return(FALSE)
-  }
-  blk <- comps[[which(names(comps) == "stratum")[1]]]
+  blk <- maihda_stratum_block_boundary_lme4(model, tol = tol)
   length(blk) >= 2L && isTRUE(unname(blk[[2]]))
 }
 
@@ -513,6 +564,133 @@ maihda_stratum_slope_at_boundary <- function(object) {
   identical(object$engine, "lme4") &&
     isTRUE(tryCatch(maihda_stratum_slope_at_boundary_lme4(object$model),
                     error = function(e) FALSE))
+}
+
+# ---- restarts of an lmer growth fit ----------------------------------------------------
+
+# lmer's default optimiser can stop on the wrong side of the boundary of a growth model's
+# linear stratum block -- at a point whose stratum intercept-slope correlation has the
+# opposite sign to the optimum's, often with the intercept SD at exactly 0 -- and, with time
+# counted in fine units such as days (slope entries of theta that are tiny), far from any
+# optimum. fit_maihda() therefore refits such a model from two more starting points and
+# keeps the fit with the lowest criterion (maihda_fit_lmer_growth()).
+#
+# The starts: lme4's theta of the first fit with the stratum block replaced by half the
+# person-level block's intercept and slope SDs of the same fit -- in the same time units,
+# so the start suits any unit -- once with a positive and once with a negative
+# intercept-slope correlation. An empty list when the stratum block is not 2 x 2, there is
+# no person-level block with a slope, or its SDs are not positive and finite.
+maihda_growth_restart_starts <- function(theta, cnms, id, scale = 0.5) {
+  if (!is.numeric(theta) || !is.list(cnms) || is.null(names(cnms))) {
+    return(list())
+  }
+  sizes <- vapply(cnms, function(cn) length(cn) * (length(cn) + 1) / 2, numeric(1))
+  if (sum(sizes) != length(theta)) {
+    return(list())
+  }
+  end <- cumsum(sizes)
+  beg <- end - sizes + 1
+  s <- which(names(cnms) == "stratum")
+  p <- which(names(cnms) == id)
+  if (length(s) != 1L || length(p) != 1L || length(cnms[[s]]) != 2L ||
+      length(cnms[[p]]) < 2L) {
+    return(list())
+  }
+  person <- theta[seq.int(beg[p], end[p])]
+  sd_int <- abs(person[1])
+  sd_slope <- sqrt(person[2]^2 + person[length(cnms[[p]]) + 1]^2)
+  if (!is.finite(sd_int) || !is.finite(sd_slope) || sd_int <= 0 || sd_slope <= 0) {
+    return(list())
+  }
+  lapply(c(1, -1), function(sign) {
+    start <- theta
+    start[seq.int(beg[s], end[s])] <- scale * c(sd_int, sign * sd_slope, sd_slope)
+    start
+  })
+}
+
+# The criterion lme4 minimised: the REML criterion of a REML fit, the deviance otherwise.
+maihda_lmer_criterion <- function(model) {
+  if (lme4::isREML(model)) lme4::REMLcrit(model) else stats::deviance(model)
+}
+
+# Which of several fits to keep, from their criteria: the first (lmer's own fit) unless
+# another is lower by more than `tol`, then the lowest. Two optimisers that reach the same
+# optimum of a growth fit differed by less than 1e-4 in the criterion up to a few
+# thousand rows, and by up to 2e-4 at 12,000; a refit at the same optimum can then
+# replace lmer's fit, with estimates that agree to the optimiser's precision.
+maihda_pick_lowest <- function(crit, tol = 1e-4) {
+  if (!length(crit)) {
+    return(NA_integer_)
+  }
+  if (!is.finite(crit[1])) {
+    ok <- which(is.finite(crit))
+    return(if (length(ok)) ok[which.min(crit[ok])] else 1L)
+  }
+  better <- which(is.finite(crit) & crit < crit[1] - tol)
+  if (length(better)) better[which.min(crit[better])] else 1L
+}
+
+# Evaluate a fitting call while holding back its warnings and messages, so that only the
+# fit that is kept speaks. Errors pass through.
+maihda_eval_holding_conditions <- function(call, env) {
+  conditions <- list()
+  value <- withCallingHandlers(
+    eval(call, env),
+    warning = function(w) {
+      conditions[[length(conditions) + 1L]] <<- w
+      invokeRestart("muffleWarning")
+    },
+    message = function(m) {
+      conditions[[length(conditions) + 1L]] <<- m
+      invokeRestart("muffleMessage")
+    })
+  list(value = value, conditions = conditions)
+}
+
+maihda_signal_conditions <- function(conditions) {
+  for (cnd in conditions) {
+    if (inherits(cnd, "warning")) {
+      warning(cnd)
+    } else if (inherits(cnd, "message")) {
+      message(cnd)
+    }
+  }
+  invisible(NULL)
+}
+
+# Fit an lmer growth model (`fit_call`, evaluated in `fit_env`), refit it from the starts of
+# maihda_growth_restart_starts() and return the fit with the lowest criterion, signalling
+# that fit's warnings and messages only. A restart that fails is passed over.
+maihda_fit_lmer_growth <- function(fit_call, fit_env, id, tol = 1e-4) {
+  first <- maihda_eval_holding_conditions(fit_call, fit_env)
+  fits <- list(first)
+  starts <- tryCatch(
+    maihda_growth_restart_starts(lme4::getME(first$value, "theta"),
+                                 lme4::getME(first$value, "cnms"), id),
+    error = function(e) list())
+  for (start in starts) {
+    restart_call <- fit_call
+    restart_call$start <- start
+    fits[[length(fits) + 1L]] <- tryCatch(
+      maihda_eval_holding_conditions(restart_call, fit_env), error = function(e) NULL)
+  }
+  crit <- vapply(fits, function(f) {
+    if (is.null(f)) NA_real_ else tryCatch(maihda_lmer_criterion(f$value),
+                                           error = function(e) NA_real_)
+  }, numeric(1))
+  kept <- fits[[maihda_pick_lowest(crit, tol)]]
+  maihda_signal_conditions(kept$conditions)
+  kept$value
+}
+
+# Whether fit_maihda() restarts an lme4 fit: a growth model with a linear stratum slope,
+# fitted by lmer, without starting values of the user's own.
+maihda_growth_restarts_apply <- function(fit_fun, longitudinal_info, dot_vals) {
+  identical(fit_fun, quote(lme4::lmer)) && !is.null(longitudinal_info) &&
+    !isFALSE(longitudinal_info$stratum_slope) &&
+    identical(as.integer(longitudinal_info$time_degree), 1L) &&
+    !"start" %in% names(dot_vals)
 }
 
 # Posterior-mean ordered covariance block of a grouping factor (brms), for the
@@ -1603,7 +1781,9 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
   # outcome-units^2 per time-unit^2, so its 1e-4 relative threshold has no fixed
   # meaning for this cell -- a denominator of 1.3e-06 that sends the ratio to -196
   # still tests 17x above the threshold. Identifiability, not magnitude, is the
-  # right question, and rank deficiency answers it at lme4's own tolerance.
+  # right question: for a linear block, the slope's SD conditional on the intercept
+  # against its own SD (maihda_linear_block_boundary()), which does not depend on the
+  # unit of time; for larger blocks, lme4's own tolerance.
   #
   # PCV_intercept and PCV(t) are NOT gated on rank deficiency. A rank-deficient linear
   # block is rank 1, so its variance a(t)' Sn a(t) is a perfect square with one zero
