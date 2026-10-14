@@ -228,7 +228,10 @@ An object of class \code{maihda_analysis}: a list with
     \code{"fitted"} keeps each Gaussian \code{lmer} fit's own REML variance
     (matching the single-model summaries), while \code{"ML"} refits the REML
     fits with maximum likelihood, which overstates the PCV when strata are few
-    (see \code{\link{calculate_pcv}}). For \code{engine = "brms"} in
+    (see \code{\link{calculate_pcv}}). In \code{"longitudinal"} mode both PCVs,
+    the slope's first, are understated on average when the strata differ little
+    after adjustment next to the precision of one stratum's own estimate. For
+    \code{engine = "brms"} in
     \code{"longitudinal"} mode the variances compared are posterior medians of
     the per-draw between-stratum variance -- at the baseline, of the slope, and at
     each reporting time -- and, like the two-model \code{brms} PCV, the result is
