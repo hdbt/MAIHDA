@@ -393,6 +393,11 @@
   count VPCs are unchanged; adjusted, offset, weighted, and longitudinal
   count VPCs rise.
 
+- [`print()`](https://rdrr.io/r/base/print.html) on a longitudinal PCV
+  with a rank-deficient linear stratum block now names the time at which
+  that block has no between-stratum variance, near which the PCV is not
+  interpretable; the numbers are unchanged.
+
 - The longitudinal PCV of `engine = "brms"` fits – `PCV_intercept`,
   `PCV_slope` and the time-specific PCV of
   `maihda(decomposition = "longitudinal")` – now compares posterior
@@ -605,6 +610,13 @@
   at a likelihood evaluation, instead of passing on its
   `non-conformable matrix dimensions` error.
 
+- A `fit_maihda(engine = "ordinal")` fit made with ordinal’s `ucminf`
+  optimiser is no longer always recorded as not converged: `ucminf()`’s
+  return is read by its own codes, and where it says only that the
+  search could go no further, the fit counts as converged when the
+  gradient and Hessian `clmm()` stores with it put it within a tenth of
+  a standard error of a stationary point.
+
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   now gives a failure reason shared by several groups once, in one
   warning for failed fits and one for failed PCV decompositions, names a
@@ -630,6 +642,12 @@
   now also names a group whose adjusted model did not converge (on
   `brms`: has a largest R-hat above 1.01 or divergent transitions) and
   points to its PCV.
+
+- The singular-fit note printed for a
+  `decomposition = "crossed-dimensions"` fit, and shown in the Shiny
+  app, now reads a zero `stratum` term as the interaction and a zero
+  dimension term as part of the additive variance, instead of calling
+  the between-stratum variance unreliable or unaffected.
 
 - `predict_maihda(allow_new_levels = TRUE)` on a brms fit now predicts a
   row with a missing grouping value – a stratum dimension, a supplied

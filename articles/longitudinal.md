@@ -278,6 +278,25 @@ plot(a, type = "pcv_trajectory")   # the additive share over time
 
 ![](longitudinal_files/figure-html/pcv-traj-1.png)
 
+Both PCVs compare REML variance estimates, and such an estimate cannot
+fall below zero: the stratum block must remain a covariance matrix.
+Where the strata differ little after adjustment next to how precisely
+one stratum’s own baseline or slope is estimated, the adjusted model’s
+variance is therefore too large on average while the null model’s is
+not, and the PCV is understated on average; single values scatter widely
+and can be negative. `PCV_slope` is the more exposed, because strata
+usually differ less in slope than in level. The yardstick is the
+sampling variance of one stratum’s slope, about
+$`(\sigma^2_{v1} + \sigma^2_e / \sum_k (t_k - \bar t)^2) / n_j`$ for a
+stratum of $`n_j`$ individuals observed at times $`t_k`$, with
+$`\sigma^2_{v1}`$ the slope variance between individuals. Here it is
+about 0.0014 (0.0006 to 0.0025 across the twelve strata) against a null
+between-stratum slope variance of 0.043, and the shortfall is
+negligible; with a dozen strata it shows from about a third of the null
+variance, and when the two are of similar size the data do not support a
+decomposition of the slope. More strata, larger strata and more waves
+reduce it.
+
 With `engine = "brms"` each variance in this decomposition is the
 posterior **median** of its per-draw value: the between-stratum variance
 at the baseline, the slope variance, and the variance at each time
@@ -322,13 +341,17 @@ strata; the understatement shrinks as strata are added.
   short of a full covariance matrix, and the stratum slope variance is
   not separately identified. `PCV_slope` is `NA` in that case, and
   [`print()`](https://rdrr.io/r/base/print.html) on the PCV object says
-  why. `PCV_intercept` and the VPC trajectory come from the intercept
-  variance, which is still estimable.
+  why. `PCV_intercept` and the VPC trajectory are still reported. A rank
+  1 block has no between-stratum variance at one time, which
+  [`print()`](https://rdrr.io/r/base/print.html) names: the further that
+  time lies from the observed times, the more both are carried by the
+  intercept variance, which is still estimable; close to it the VPC is
+  near zero and a PCV is not interpretable.
 
   How often this happens depends on the stratum-level slope variance. it
   is common when the slope variance is near zero, but rare when it is
-  near zero. A rank-deficient block is usually evidence that the strata
-  do not diverge over time.
+  not. A rank-deficient block is usually evidence that the strata do not
+  diverge over time.
 
   Both structures share the same fixed effects, so their fits can be
   compared with `AIC`:

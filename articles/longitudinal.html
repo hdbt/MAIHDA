@@ -347,6 +347,28 @@ multiplicative/interaction part.</li>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"pcv_trajectory"</span><span class="op">)</span>   <span class="co"># the additive share over time</span></span></code></pre></div>
 <p><img src="longitudinal_files/figure-html/pcv-traj-1.png" class="r-plt" alt="" width="672"></p>
+<p>Both PCVs compare REML variance estimates, and such an estimate
+cannot fall below zero: the stratum block must remain a covariance
+matrix. Where the strata differ little after adjustment next to how
+precisely one stratum’s own baseline or slope is estimated, the adjusted
+model’s variance is therefore too large on average while the null
+model’s is not, and the PCV is understated on average; single values
+scatter widely and can be negative. <code>PCV_slope</code> is the more
+exposed, because strata usually differ less in slope than in level. The
+yardstick is the sampling variance of one stratum’s slope, about
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><msubsup><mi>σ</mi><mrow><mi>v</mi><mn>1</mn></mrow><mn>2</mn></msubsup><mo>+</mo><msubsup><mi>σ</mi><mi>e</mi><mn>2</mn></msubsup><mi>/</mi><msub><mo>∑</mo><mi>k</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>t</mi><mi>k</mi></msub><mo>−</mo><mover><mi>t</mi><mo accent="true">‾</mo></mover><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup><mo stretchy="false" form="postfix">)</mo><mi>/</mi><msub><mi>n</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">(\sigma^2_{v1} + \sigma^2_e / \sum_k (t_k - \bar t)^2) / n_j</annotation></semantics></math>
+for a stratum of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>n</mi><mi>j</mi></msub><annotation encoding="application/x-tex">n_j</annotation></semantics></math>
+individuals observed at times
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>t</mi><mi>k</mi></msub><annotation encoding="application/x-tex">t_k</annotation></semantics></math>,
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>σ</mi><mrow><mi>v</mi><mn>1</mn></mrow><mn>2</mn></msubsup><annotation encoding="application/x-tex">\sigma^2_{v1}</annotation></semantics></math>
+the slope variance between individuals. Here it is about 0.0014 (0.0006
+to 0.0025 across the twelve strata) against a null between-stratum slope
+variance of 0.043, and the shortfall is negligible; with a dozen strata
+it shows from about a third of the null variance, and when the two are
+of similar size the data do not support a decomposition of the slope.
+More strata, larger strata and more waves reduce it.</p>
 <p>With <code>engine = "brms"</code> each variance in this decomposition
 is the posterior <strong>median</strong> of its per-draw value: the
 between-stratum variance at the baseline, the slope variance, and the
@@ -395,12 +417,16 @@ then rank 1 (one row), one parameter short of a full covariance matrix,
 and the stratum slope variance is not separately identified.
 <code>PCV_slope</code> is <code>NA</code> in that case, and
 <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> on the PCV object says why.
-<code>PCV_intercept</code> and the VPC trajectory come from the
-intercept variance, which is still estimable.</p>
+<code>PCV_intercept</code> and the VPC trajectory are still reported. A
+rank 1 block has no between-stratum variance at one time, which
+<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> names: the further that time lies from the observed
+times, the more both are carried by the intercept variance, which is
+still estimable; close to it the VPC is near zero and a PCV is not
+interpretable.</p>
 <p>How often this happens depends on the stratum-level slope variance.
 it is common when the slope variance is near zero, but rare when it is
-near zero. A rank-deficient block is usually evidence that the strata do
-not diverge over time.</p>
+not. A rank-deficient block is usually evidence that the strata do not
+diverge over time.</p>
 <p>Both structures share the same fixed effects, so their fits can be
 compared with <code>AIC</code>:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">

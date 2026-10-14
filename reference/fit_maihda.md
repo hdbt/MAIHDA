@@ -395,17 +395,17 @@ A maihda_model object containing:
 - diagnostics:
 
   Fit-quality diagnostics, surfaced by the print and summary methods:
-  singular fit / convergence for lme4 and WeMix, MCMC convergence
-  (maximum Rhat, divergent transitions) for brms, and the optimizer
-  convergence code for an ordinal (clmm) fit. An lme4 fit also carries
-  likelihood-adequacy caveats – count overdispersion and zero inflation,
-  stratum random-effect non-normality and longitudinal residual
-  autocorrelation – reported only when a conservative threshold is
-  crossed, since the VPC/PCV and interaction estimates are conditional
-  on the likelihood holding. Every one of those checks is lme4-only, so
-  a cumulative (clmm) fit raises no adequacy caveat at all: it stores a
-  single descriptive fixed-only proportional-odds proxy statistic, never
-  flagged because it cannot be separated from stratum heterogeneity; use
+  singular fit / convergence for lme4, WeMix and ordinal (clmm) fits,
+  and MCMC convergence (maximum Rhat, divergent transitions) for brms.
+  An lme4 fit also carries likelihood-adequacy caveats – count
+  overdispersion and zero inflation, stratum random-effect non-normality
+  and longitudinal residual autocorrelation – reported only when a
+  conservative threshold is crossed, since the VPC/PCV and interaction
+  estimates are conditional on the likelihood holding. Every one of
+  those checks is lme4-only, so a cumulative (clmm) fit raises no
+  adequacy caveat at all: it stores a single descriptive fixed-only
+  proportional-odds proxy statistic, never flagged because it cannot be
+  separated from stratum heterogeneity; use
   [`maihda_proportional_odds_test`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
   to test that assumption
 

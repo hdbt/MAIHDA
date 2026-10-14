@@ -340,11 +340,13 @@ An object of class `maihda_analysis`: a list with
   fits with maximum likelihood, which overstates the PCV when strata are
   few (see
   [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)).
-  For `engine = "brms"` in `"longitudinal"` mode the variances compared
-  are posterior medians of the per-draw between-stratum variance – at
-  the baseline, of the slope, and at each reporting time – and, like the
-  two-model `brms` PCV, the result is understated on average when strata
-  are few
+  In `"longitudinal"` mode both PCVs, the slope's first, are understated
+  on average when the strata differ little after adjustment next to the
+  precision of one stratum's own estimate. For `engine = "brms"` in
+  `"longitudinal"` mode the variances compared are posterior medians of
+  the per-draw between-stratum variance – at the baseline, of the slope,
+  and at each reporting time – and, like the two-model `brms` PCV, the
+  result is understated on average when strata are few
 
 - decomposition:
 
@@ -506,10 +508,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x5573001edb28>
+#> <environment: 0x55743b023320>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x557304220848>
+#> <environment: 0x55743eb88268>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -537,8 +539,9 @@ cc                                    # VPC and additive/interaction shares
 #> Fit diagnostics:
 #>   Singular fit: the random-effects block for 'Gender' is at (or near) the boundary
 #>     (a variance estimated at ~0, or a perfect correlation between an intercept and a slope).
-#>     The 'stratum' block is NOT at the boundary, so the between-stratum variance and
-#>     the VPC/PCV are unaffected by this.
+#>     'Gender' is a stratum dimension of this crossed-dimensions model: the additive variance
+#>     has nothing from it, so read the additive and interaction shares with caution.
+#>     The between-stratum variance and the VPC come from the terms not at the boundary.
 #> 
 #> 
 #> VPC/ICC: 0.0637
@@ -564,7 +567,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x5572ffeb43e8>
+#> <environment: 0x55743d010310>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

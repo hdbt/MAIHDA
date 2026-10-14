@@ -89,8 +89,9 @@ cc
 #> Fit diagnostics:
 #>   Singular fit: the random-effects block for 'Gender' is at (or near) the boundary
 #>     (a variance estimated at ~0, or a perfect correlation between an intercept and a slope).
-#>     The 'stratum' block is NOT at the boundary, so the between-stratum variance and
-#>     the VPC/PCV are unaffected by this.
+#>     'Gender' is a stratum dimension of this crossed-dimensions model: the additive variance
+#>     has nothing from it, so read the additive and interaction shares with caution.
+#>     The between-stratum variance and the VPC come from the terms not at the boundary.
 #> 
 #> 
 #> VPC/ICC: 0.0707
@@ -126,7 +127,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x56507a428858>
+#> <environment: 0x5595fc0e6038>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -159,8 +160,9 @@ summary(cc$model)
 #> Fit diagnostics:
 #>   Singular fit: the random-effects block for 'Gender' is at (or near) the boundary
 #>     (a variance estimated at ~0, or a perfect correlation between an intercept and a slope).
-#>     The 'stratum' block is NOT at the boundary, so the between-stratum variance and
-#>     the VPC/PCV are unaffected by this.
+#>     'Gender' is a stratum dimension of this crossed-dimensions model: the additive variance
+#>     has nothing from it, so read the additive and interaction shares with caution.
+#>     The between-stratum variance and the VPC come from the terms not at the boundary.
 #> 
 #> 
 #> Variance Partition Coefficient (VPC/ICC):
