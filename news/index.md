@@ -649,6 +649,18 @@
   dimension term as part of the additive variance, instead of calling
   the between-stratum variance unreliable or unaffected.
 
+- [`print()`](https://rdrr.io/r/base/print.html) of a
+  [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
+  table now says that the stratum standard errors collapse only when the
+  term the interaction is read from has a variance of zero, not for a
+  zero in a dimension, context or other term, and calls it the
+  interaction variance for a crossed-dimensions fit; the new attribute
+  `interaction_at_boundary` records it.
+
+- The “Fit diagnostics” card of the Shiny app now shows one bullet per
+  diagnostic, its sentences as running text and the convergence messages
+  listed under it, instead of one bullet per printed line.
+
 - `predict_maihda(allow_new_levels = TRUE)` on a brms fit now predicts a
   row with a missing grouping value – a stratum dimension, a supplied
   `stratum`, a context or a longitudinal `id` – at a zero effect for

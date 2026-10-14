@@ -177,7 +177,10 @@ dimension random effects, matching that decomposition.</p></dd>
   log-odds departure from one in the outcome's own units), <code>response_kind</code>
   (what the model's response scale is – <code>"probability"</code>, <code>"count"</code>,
   <code>"score"</code> or <code>"response"</code> – which the link alone does not settle,
-  since a cumulative fit is logit-linked but scores categories), <code>singular</code>,
+  since a cumulative fit is logit-linked but scores categories), <code>singular</code>
+  (a variance of the fit is at zero, in any term), <code>interaction_at_boundary</code>
+  (the variance of the term the interaction is read from is at zero, so its
+  standard errors collapse; <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> then says so),
   and – on a non-identity link under the default <code>scale</code> –
   <code>response_interaction</code>, the outcome-scale estimates keyed by stratum. That
   last attribute exists so <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> can show the outcome-scale size beside

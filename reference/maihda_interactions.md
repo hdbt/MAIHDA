@@ -112,10 +112,13 @@ caller can tell a log-odds departure from one in the outcome's own
 units), `response_kind` (what the model's response scale is –
 `"probability"`, `"count"`, `"score"` or `"response"` – which the link
 alone does not settle, since a cumulative fit is logit-linked but scores
-categories), `singular`, and – on a non-identity link under the default
-`scale` – `response_interaction`, the outcome-scale estimates keyed by
-stratum. That last attribute exists so
-[`print()`](https://rdrr.io/r/base/print.html) can show the
+categories), `singular` (a variance of the fit is at zero, in any term),
+`interaction_at_boundary` (the variance of the term the interaction is
+read from is at zero, so its standard errors collapse;
+[`print()`](https://rdrr.io/r/base/print.html) then says so), and – on a
+non-identity link under the default `scale` – `response_interaction`,
+the outcome-scale estimates keyed by stratum. That last attribute exists
+so [`print()`](https://rdrr.io/r/base/print.html) can show the
 outcome-scale size beside the link-scale one; the columns are the same
 either way, and `scale = "response"` is how to obtain those numbers,
 with their interval, as data.
