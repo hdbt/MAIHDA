@@ -86,7 +86,10 @@ An object of class \code{maihda_interactions} (a data frame), one row
   log-odds departure from one in the outcome's own units), \code{response_kind}
   (what the model's response scale is -- \code{"probability"}, \code{"count"},
   \code{"score"} or \code{"response"} -- which the link alone does not settle,
-  since a cumulative fit is logit-linked but scores categories), \code{singular},
+  since a cumulative fit is logit-linked but scores categories), \code{singular}
+  (a variance of the fit is at zero, in any term), \code{interaction_at_boundary}
+  (the variance of the term the interaction is read from is at zero, so its
+  standard errors collapse; \code{print()} then says so),
   and -- on a non-identity link under the default \code{scale} --
   \code{response_interaction}, the outcome-scale estimates keyed by stratum. That
   last attribute exists so \code{print()} can show the outcome-scale size beside

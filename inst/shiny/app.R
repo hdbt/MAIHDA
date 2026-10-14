@@ -559,10 +559,16 @@ server <- function(input, output, session) {
     # fit / non-convergence): these silently invalidate the VPC/PCV if ignored.
     diag_lines <- MAIHDA:::maihda_format_fit_diagnostics(
       model_results()$diagnostics, cc_info = model_results()$cc_info)
-    diag_ui <- if (length(diag_lines) > 0) {
+    # One bullet per diagnostic, its sentences as running text; convergence messages
+    # are listed under their header.
+    diag_items <- MAIHDA:::maihda_app_diagnostics_items(diag_lines)
+    diag_ui <- if (length(diag_items) > 0) {
       div(class = "alert alert-warning",
           tags$strong("Fit diagnostics"),
-          tags$ul(lapply(diag_lines, function(l) tags$li(l))))
+          tags$ul(lapply(diag_items, function(item) {
+            tags$li(item$text,
+                    if (length(item$sub) > 0) tags$ul(lapply(item$sub, tags$li)))
+          })))
     } else {
       div(class = "text-success small",
           icon("check-circle"), " Model converged with no singularity warnings.")

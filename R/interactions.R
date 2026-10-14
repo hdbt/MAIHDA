@@ -229,7 +229,10 @@
 #'   log-odds departure from one in the outcome's own units), \code{response_kind}
 #'   (what the model's response scale is -- \code{"probability"}, \code{"count"},
 #'   \code{"score"} or \code{"response"} -- which the link alone does not settle,
-#'   since a cumulative fit is logit-linked but scores categories), \code{singular},
+#'   since a cumulative fit is logit-linked but scores categories), \code{singular}
+#'   (a variance of the fit is at zero, in any term), \code{interaction_at_boundary}
+#'   (the variance of the term the interaction is read from is at zero, so its
+#'   standard errors collapse; \code{print()} then says so),
 #'   and -- on a non-identity link under the default \code{scale} --
 #'   \code{response_interaction}, the outcome-scale estimates keyed by stratum. That
 #'   last attribute exists so \code{print()} can show the outcome-scale size beside
@@ -429,6 +432,16 @@ maihda_interactions <- function(object, conf_level = 0.95, adjust = "BH",
 
   singular <- isTRUE(summary_obj$diagnostics$singular) ||
     isTRUE(model$diagnostics$singular)
+  # The stratum effects' standard errors collapse only when the term they come from
+  # is at zero: 'stratum', or the interaction term of a crossed-dimensions fit. A zero
+  # in another term (a stratum dimension, a context) leaves them as they are. The rule
+  # is the one maihda_between_variance_singular() applies to its terms, so a record
+  # without a list of terms (wemix and ordinal flag the stratum variance itself, and
+  # an lme4 fit whose terms could not be read) counts as that term being at zero.
+  group <- maihda_interaction_group(model)
+  interaction_at_boundary <-
+    maihda_between_variance_singular(summary_obj$diagnostics, between_blocks = group) ||
+    maihda_between_variance_singular(model$diagnostics, between_blocks = group)
 
   attr(out, "conf_level") <- conf_level
   attr(out, "adjust") <- adjust
@@ -445,6 +458,7 @@ maihda_interactions <- function(object, conf_level = 0.95, adjust = "BH",
   attr(out, "response_kind") <- response_kind
   attr(out, "response_interaction") <- response_map
   attr(out, "singular") <- singular
+  attr(out, "interaction_at_boundary") <- interaction_at_boundary
   class(out) <- c("maihda_interactions", "data.frame")
   out
 }
@@ -548,10 +562,24 @@ print.maihda_interactions <- function(x, ...) {
                 pal$muted(sprintf("%d inconclusive", tab[["inconclusive"]]))))
   }
 
-  if (isTRUE(attr(x, "singular"))) {
+  # Only a zero in the term the stratum effects come from collapses their standard
+  # errors. A table without interaction_at_boundary falls back to `singular`, a zero in
+  # any term.
+  at_boundary <- attr(x, "interaction_at_boundary")
+  if (length(at_boundary) != 1L) {
+    at_boundary <- attr(x, "singular")
+  }
+  if (isTRUE(at_boundary)) {
+    # In a crossed-dimensions fit that term is the interaction; the between-stratum
+    # variance also holds the dimension terms.
+    at_zero <- if (identical(model_type, "crossed-dimensions")) {
+      "interaction variance"
+    } else {
+      "between-stratum variance"
+    }
     cat(pal$warn(paste0(
       "\n", cli::symbol$warning,
-      " singular/boundary fit (between-stratum variance ~ 0); the BLUP SEs\n",
+      " singular/boundary fit (", at_zero, " ~ 0); the BLUP SEs\n",
       "  collapse toward zero, so 'no flag' is not evidence of no interaction.\n")))
   }
 
