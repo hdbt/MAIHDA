@@ -115,9 +115,19 @@
 #'   read directly from that one fit. The two modes target the same scientific question
 #'   with different estimators, so their additive shares are conceptually parallel but
 #'   not numerically identical. The crossed-dimensions additive share is a partial-pooling
-#'   estimate: dimensions with few levels (e.g. a binary sex variable, whose variance is
-#'   estimated from two groups) are poorly identified and often give a singular lme4 fit
-#'   -- the \code{brms} engine handles this better. See Details.
+#'   estimate, and each dimension's variance is estimated from that dimension's levels
+#'   alone, so a dimension with few levels (a binary sex variable has two) is poorly
+#'   identified with either engine. \code{lme4} often returns a singular fit. With
+#'   \code{engine = "brms"} the posterior of such a variance depends on the prior on
+#'   its standard deviation -- with two levels roughly in proportion to the prior's
+#'   scale -- and the VPC and the additive share follow it: under the default prior
+#'   they are overstated, most with two- to four-level dimensions, and with two- or
+#'   three-level dimensions the additive share comes out high even where the
+#'   dimensions have no additive effect. \code{print()} names the dimensions of a
+#'   \code{brms} fit that have fewer than 10 levels. Prefer \code{"two-model"} (with
+#'   few strata see \code{estimation}) unless every dimension has about ten or more
+#'   levels, or pass a \code{prior} and report how the results change with it. See
+#'   Details.
 #'   (\code{"cross-classified"} is accepted as a deprecated alias for
 #'   \code{"crossed-dimensions"}, with a warning: in the MAIHDA literature
 #'   \dQuote{cross-classified} refers to the contextual stratum-by-place model,
@@ -247,8 +257,9 @@
 #'     each reporting time -- and, like the two-model \code{brms} PCV, the result is
 #'     understated on average when strata are few}
 #'   \item{decomposition}{the additive/interaction partition (additive and interaction
-#'     variances and shares, per-dimension variances; \code{"crossed-dimensions"} mode
-#'     only, \code{NULL} otherwise)}
+#'     variances and shares, per-dimension variances and, for a \code{brms} fit, each
+#'     dimension's number of levels in \code{dim_levels}; \code{"crossed-dimensions"}
+#'     mode only, \code{NULL} otherwise)}
 #'   \item{groups}{a \code{maihda_group_comparison} when \code{group} is supplied,
 #'     otherwise \code{NULL}}
 #'   \item{interactions}{the \code{maihda_interactions} diagnostic (per-stratum
