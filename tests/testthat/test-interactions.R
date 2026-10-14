@@ -181,7 +181,7 @@ test_that("print reports the flagged count and is exploratory", {
 # head() to drop it.
 maihda_strip_interaction_attrs <- function(x) {
   for (nm in c("n_flagged", "n_strata", "conf_level", "adjust", "engine",
-               "model_type", "rope", "singular")) {
+               "model_type", "rope", "singular", "interaction_at_boundary")) {
     attr(x, nm) <- NULL
   }
   x
@@ -231,7 +231,7 @@ test_that("a singular/boundary fit flags nothing and prints without error", {
   mi <- maihda_interactions(a)
   expect_s3_class(mi, "maihda_interactions")
   expect_output(print(mi))
-  if (isTRUE(attr(mi, "singular"))) {
+  if (isTRUE(attr(mi, "interaction_at_boundary"))) {
     expect_equal(attr(mi, "n_flagged"), 0L)
     expect_output(print(mi), "singular")
   }

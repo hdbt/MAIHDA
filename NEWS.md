@@ -100,6 +100,8 @@
 
 * The singular-fit note printed for a `decomposition = "crossed-dimensions"` fit, and shown in the Shiny app, now reads a zero `stratum` term as the interaction and a zero dimension term as part of the additive variance, instead of calling the between-stratum variance unreliable or unaffected.
 
+* `print()` of a `maihda_interactions()` table now says that the stratum standard errors collapse only when the term the interaction is read from has a variance of zero, not for a zero in a dimension, context or other term, and calls it the interaction variance for a crossed-dimensions fit; the new attribute `interaction_at_boundary` records it.
+
 * `predict_maihda(allow_new_levels = TRUE)` on a brms fit now predicts a row with a missing grouping value -- a stratum dimension, a supplied `stratum`, a context or a longitudinal `id` -- at a zero effect for that term, as the other engines do, instead of drawing a new effect for it on every call.
 
 * `summary()` on a binomial `engine = "wemix"` fit with a small between-stratum variance no longer passes on WeMix's `diag(V) had non-positive or NA entries` warning, and neither does anything that calls it, such as `tidy()`, `maihda_table()`, `plot()`, `maihda()` and `compare_maihda_groups()`; estimates are unchanged.
