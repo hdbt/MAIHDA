@@ -268,7 +268,8 @@ test_that("real brms fits: the level counts, the printed note and a forwarded pr
                    as.integer(unlist(ng[c("d1", "d2", "d3")])))
   expect_identical(a$summary$decomposition$dim_levels, a$decomposition$dim_levels)
 
-  note <- maihda_cc_few_levels_note(c(d1 = 2L, d2 = 3L, d3 = 4L))
+  # A real fit also prints the realised-strata block, which the note points to.
+  note <- maihda_cc_few_levels_note(c(d1 = 2L, d2 = 3L, d3 = 4L), pointer = TRUE)
   for (out in list(cfl_print(print(a)), cfl_print(print(a$summary)))) {
     i <- which(out == cfl_old_note[2])
     expect_length(i, 1L)
