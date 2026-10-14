@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-10-13</h4>
+            <h4 data-toc-skip class="date">2026-10-14</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/planning_a_study.Rmd" class="external-link"><code>vignettes/planning_a_study.Rmd</code></a></small>
       <div class="d-none name"><code>planning_a_study.Rmd</code></div>
@@ -343,9 +343,12 @@ variances instead, which corrects this when strata are few but not small
 for adequately-sized cells.</li>
 <li>
 <strong><code>brms</code></strong> – Bayesian; posterior intervals
-for the VPC and the variance shares, which sparse cells or few-level
-dimensions call for. Its two-model PCV has no interval and is
-understated when strata are few.</li>
+for the VPC and the variance shares, which sparse cells call for.
+Few-level dimensions are not a reason to choose it: a crossed-dimensions
+fit then depends on the prior on the random-effect standard deviations
+(see <code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>). Its
+two-model PCV has no interval and is understated when strata are
+few.</li>
 </ul>
 <p>For extensions beyond the cross-sectional case, see the <a href="cross_classified.html">crossed random effects</a>
 (dimensions/contexts) and <a href="longitudinal.html">longitudinal</a>

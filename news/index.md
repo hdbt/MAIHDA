@@ -167,6 +167,15 @@
   maximum-likelihood variances (a glmer, wemix or ordinal fit) now says
   so; the numbers are unchanged.
 
+- [`print()`](https://rdrr.io/r/base/print.html) on a
+  `maihda(decomposition = "crossed-dimensions")` analysis fitted with
+  `engine = "brms"`, and on its
+  [`summary()`](https://rdrr.io/r/base/summary.html), now names the
+  stratum dimensions with fewer than 10 levels: the variance of such a
+  dimension depends on the prior on its standard deviation, and the VPC
+  and the shares follow it. The level counts are in
+  `decomposition$dim_levels`; the numbers are unchanged.
+
 - `predict_maihda(allow_new_levels = TRUE)` on a brms fit now refuses
   newdata missing a grouping column the prediction uses, such as the
   context column, as lme4 does; brms filled the column with `NA` and
@@ -566,6 +575,13 @@
   adjusted model’s between-stratum variance by more than the null
   model’s, so it overstates the PCV when strata are few. Estimates are
   unchanged.
+- [`?maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and the
+  cross-classified and planning vignettes no longer recommend
+  `engine = "brms"` for a crossed-dimensions decomposition whose
+  dimensions have few levels. Under the default prior the VPC and the
+  additive share of such a fit are overstated, most with two- to
+  four-level dimensions; the two-model decomposition, or a `prior` with
+  a sensitivity check, is the alternative.
 
 ### Performance
 

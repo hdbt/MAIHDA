@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-10-13</h4>
+            <h4 data-toc-skip class="date">2026-10-14</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/cross_classified.Rmd" class="external-link"><code>vignettes/cross_classified.Rmd</code></a></small>
       <div class="d-none name"><code>cross_classified.Rmd</code></div>
@@ -205,7 +205,7 @@ the intersection random intercept, and fits the single model:</p>
 <code class="sourceCode R"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span></span>
 <span><span class="co">#&gt; BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | </span></span>
 <span><span class="co">#&gt;     stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x557e42509600&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x56507a428858&gt;</span></span></code></pre></div>
 <p>The partition is on <code>cc$decomposition</code> (and printed
 above):</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
@@ -329,8 +329,9 @@ differs across countries in the PISA data:</p>
 </h3>
 <p>Set <code>engine = "brms"</code> for a Bayesian crossed-dimensions
 fit; the additive and interaction shares then carry posterior credible
-intervals (no bootstrap needed). This is the recommended engine when
-dimensions have few levels (see the caveats below).</p>
+intervals (no bootstrap needed). When dimensions have few levels, those
+shares and the VPC depend on the prior on the random-effect standard
+deviations (see the caveats below).</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cc_b</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
@@ -357,9 +358,19 @@ dimension (e.g. a two-level sex variable) contributes a variance
 estimated from just two groups, so <code>lme4</code> may estimate one or
 more variance components at or near zero (a singular fit). This makes
 the additive and interaction shares unstable. Watch for the singular-fit
-note in the output, and consider <code>engine = "brms"</code> with
-explicit prior sensitivity checks when dimensions are
-few-levelled.</p></li>
+note in the output. <code>engine = "brms"</code> does not repair this:
+the posterior of a few-level dimension’s variance depends on the prior
+on its standard deviation, with two levels roughly in proportion to that
+prior’s scale. Under the default prior the VPC and the additive share
+are overstated, most with two- to four-level dimensions, and with two-
+or three-level dimensions the additive share comes out high even where
+the dimensions have no additive effect. The output of a
+<code>brms</code> fit names the dimensions with fewer than 10 levels.
+With such dimensions prefer the two-model decomposition (for few strata
+see <code>estimation</code> in <code><a href="../reference/calculate_pcv.html">?calculate_pcv</a></code>), or pass a
+<code>prior</code> and report how the results change with it
+(<code><a href="../articles/bayesian_sparse_maihda.html">vignette("bayesian_sparse_maihda", package = "MAIHDA")</a></code>
+shows a fit with one).</p></li>
 </ol>
 </div>
 </div>

@@ -195,9 +195,19 @@ the additive and interaction <em>shares</em> of the total between-strata varianc
 read directly from that one fit. The two modes target the same scientific question
 with different estimators, so their additive shares are conceptually parallel but
 not numerically identical. The crossed-dimensions additive share is a partial-pooling
-estimate: dimensions with few levels (e.g. a binary sex variable, whose variance is
-estimated from two groups) are poorly identified and often give a singular lme4 fit
-– the <code>brms</code> engine handles this better. See Details.
+estimate, and each dimension's variance is estimated from that dimension's levels
+alone, so a dimension with few levels (a binary sex variable has two) is poorly
+identified with either engine. <code>lme4</code> often returns a singular fit. With
+<code>engine = "brms"</code> the posterior of such a variance depends on the prior on
+its standard deviation – with two levels roughly in proportion to the prior's
+scale – and the VPC and the additive share follow it: under the default prior
+they are overstated, most with two- to four-level dimensions, and with two- or
+three-level dimensions the additive share comes out high even where the
+dimensions have no additive effect. <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> names the dimensions of a
+<code>brms</code> fit that have fewer than 10 levels. Prefer <code>"two-model"</code> (with
+few strata see <code>estimation</code>) unless every dimension has about ten or more
+levels, or pass a <code>prior</code> and report how the results change with it. See
+Details.
 (<code>"cross-classified"</code> is accepted as a deprecated alias for
 <code>"crossed-dimensions"</code>, with a warning: in the MAIHDA literature
 “cross-classified” refers to the contextual stratum-by-place model,
@@ -369,8 +379,9 @@ to every derived fit.</p></dd>
 
   <dt>decomposition</dt>
 <dd><p>the additive/interaction partition (additive and interaction
-    variances and shares, per-dimension variances; <code>"crossed-dimensions"</code> mode
-    only, <code>NULL</code> otherwise)</p></dd>
+    variances and shares, per-dimension variances and, for a <code>brms</code> fit, each
+    dimension's number of levels in <code>dim_levels</code>; <code>"crossed-dimensions"</code>
+    mode only, <code>NULL</code> otherwise)</p></dd>
 
   <dt>groups</dt>
 <dd><p>a <code>maihda_group_comparison</code> when <code>group</code> is supplied,
@@ -503,10 +514,10 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55de2cfe16f0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5573001edb28&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55de312aa738&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x557304220848&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -561,7 +572,7 @@ covariate rather than a stratum dimension.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55de2b391920&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5572ffeb43e8&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>

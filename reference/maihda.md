@@ -137,12 +137,23 @@ maihda(
   modes target the same scientific question with different estimators,
   so their additive shares are conceptually parallel but not numerically
   identical. The crossed-dimensions additive share is a partial-pooling
-  estimate: dimensions with few levels (e.g. a binary sex variable,
-  whose variance is estimated from two groups) are poorly identified and
-  often give a singular lme4 fit – the `brms` engine handles this
-  better. See Details. (`"cross-classified"` is accepted as a deprecated
-  alias for `"crossed-dimensions"`, with a warning: in the MAIHDA
-  literature “cross-classified” refers to the contextual
+  estimate, and each dimension's variance is estimated from that
+  dimension's levels alone, so a dimension with few levels (a binary sex
+  variable has two) is poorly identified with either engine. `lme4`
+  often returns a singular fit. With `engine = "brms"` the posterior of
+  such a variance depends on the prior on its standard deviation – with
+  two levels roughly in proportion to the prior's scale – and the VPC
+  and the additive share follow it: under the default prior they are
+  overstated, most with two- to four-level dimensions, and with two- or
+  three-level dimensions the additive share comes out high even where
+  the dimensions have no additive effect.
+  [`print()`](https://rdrr.io/r/base/print.html) names the dimensions of
+  a `brms` fit that have fewer than 10 levels. Prefer `"two-model"`
+  (with few strata see `estimation`) unless every dimension has about
+  ten or more levels, or pass a `prior` and report how the results
+  change with it. See Details. (`"cross-classified"` is accepted as a
+  deprecated alias for `"crossed-dimensions"`, with a warning: in the
+  MAIHDA literature “cross-classified” refers to the contextual
   stratum-by-place model, which this package fits via `context`.)
   `"longitudinal"` fits a 3-level **growth-curve** MAIHDA (requires `id`
   and `time`; selected automatically when they are supplied): a null and
@@ -338,8 +349,9 @@ An object of class `maihda_analysis`: a list with
 - decomposition:
 
   the additive/interaction partition (additive and interaction variances
-  and shares, per-dimension variances; `"crossed-dimensions"` mode only,
-  `NULL` otherwise)
+  and shares, per-dimension variances and, for a `brms` fit, each
+  dimension's number of levels in `dim_levels`; `"crossed-dimensions"`
+  mode only, `NULL` otherwise)
 
 - groups:
 
@@ -494,10 +506,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x55de2cfe16f0>
+#> <environment: 0x5573001edb28>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x55de312aa738>
+#> <environment: 0x557304220848>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -552,7 +564,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x55de2b391920>
+#> <environment: 0x5572ffeb43e8>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

@@ -126,7 +126,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x557e42509600>
+#> <environment: 0x56507a428858>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -266,8 +266,9 @@ plot(cc_grp, type = "group_components")       # additive / interaction / residua
 
 Set `engine = "brms"` for a Bayesian crossed-dimensions fit; the
 additive and interaction shares then carry posterior credible intervals
-(no bootstrap needed). This is the recommended engine when dimensions
-have few levels (see the caveats below).
+(no bootstrap needed). When dimensions have few levels, those shares and
+the VPC depend on the prior on the random-effect standard deviations
+(see the caveats below).
 
 ``` r
 
@@ -297,8 +298,20 @@ cc_b$decomposition$additive_share_ci
     from just two groups, so `lme4` may estimate one or more variance
     components at or near zero (a singular fit). This makes the additive
     and interaction shares unstable. Watch for the singular-fit note in
-    the output, and consider `engine = "brms"` with explicit prior
-    sensitivity checks when dimensions are few-levelled.
+    the output. `engine = "brms"` does not repair this: the posterior of
+    a few-level dimension’s variance depends on the prior on its
+    standard deviation, with two levels roughly in proportion to that
+    prior’s scale. Under the default prior the VPC and the additive
+    share are overstated, most with two- to four-level dimensions, and
+    with two- or three-level dimensions the additive share comes out
+    high even where the dimensions have no additive effect. The output
+    of a `brms` fit names the dimensions with fewer than 10 levels. With
+    such dimensions prefer the two-model decomposition (for few strata
+    see `estimation` in
+    [`?calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)),
+    or pass a `prior` and report how the results change with it
+    ([`vignette("bayesian_sparse_maihda", package = "MAIHDA")`](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md)
+    shows a fit with one).
 
 ## Part 2, Contextual cross-classified MAIHDA (`context =`)
 

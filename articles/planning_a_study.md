@@ -248,7 +248,10 @@ few but not small (see
 - **`lme4` (default)** – fast frequentist fits for adequately-sized
   cells.
 - **`brms`** – Bayesian; posterior intervals for the VPC and the
-  variance shares, which sparse cells or few-level dimensions call for.
+  variance shares, which sparse cells call for. Few-level dimensions are
+  not a reason to choose it: a crossed-dimensions fit then depends on
+  the prior on the random-effect standard deviations (see
+  [`vignette("cross_classified", package = "MAIHDA")`](https://hdbt.github.io/MAIHDA/articles/cross_classified.md)).
   Its two-model PCV has no interval and is understated when strata are
   few.
 
