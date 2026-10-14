@@ -83,8 +83,10 @@ A maihda_summary object containing:
   \item{context}{For a contextual cross-classified fit, the stratum vs.
     context partition: per-context variances and shares, the contexts' total
     share (\code{vpc_context_total}, with an interval when bootstrapped or for
-    brms), and the between-stratum share (\code{vpc_stratum}); \code{NULL}
-    otherwise}
+    brms), and the between-stratum share (\code{vpc_stratum}); for brms also
+    each context's number of levels in the fitted data (\code{context_levels}),
+    and \code{print()} names a context with fewer than 10, whose variance
+    depends on the prior on its standard deviation; \code{NULL} otherwise}
   \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
     \code{maihda_da} object (AUC + MOR) from
     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise. A

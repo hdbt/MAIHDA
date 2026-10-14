@@ -203,8 +203,10 @@ maihda_tag_role <- function(s, role) {
 #'   \item{context}{For a contextual cross-classified fit, the stratum vs.
 #'     context partition: per-context variances and shares, the contexts' total
 #'     share (\code{vpc_context_total}, with an interval when bootstrapped or for
-#'     brms), and the between-stratum share (\code{vpc_stratum}); \code{NULL}
-#'     otherwise}
+#'     brms), and the between-stratum share (\code{vpc_stratum}); for brms also
+#'     each context's number of levels in the fitted data (\code{context_levels}),
+#'     and \code{print()} names a context with fewer than 10, whose variance
+#'     depends on the prior on its standard deviation; \code{NULL} otherwise}
 #'   \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
 #'     \code{maihda_da} object (AUC + MOR) from
 #'     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise. A
@@ -1112,7 +1114,8 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
       vpc_context_total_ci = c(ctx_total_s$ci_lower, ctx_total_s$ci_upper),
       bootstrap = FALSE,
       method = "posterior",
-      conf_level = conf_level
+      conf_level = conf_level,
+      context_levels = maihda_context_levels(object$data, ctx_vars)
     )
   }
 
@@ -1596,7 +1599,8 @@ maihda_context_summary_brms <- function(object, ctx, conf_level,
     vpc_context_total_ci = c(ctx_total_s$ci_lower, ctx_total_s$ci_upper),
     bootstrap = FALSE,
     method = "posterior",
-    conf_level = conf_level
+    conf_level = conf_level,
+    context_levels = maihda_context_levels(object$data, ctx_vars)
   )
 
   list(variance_components = variance_components, vpc_result = vpc_result,
@@ -2268,6 +2272,66 @@ maihda_cc_few_levels_note <- function(few, pointer = FALSE) {
     width = 78, indent = 2, exdent = 2)
 }
 
+# The number of levels of each context in the fitted data, named by context (NA for a
+# column the data do not hold). Stored on the contextual partition of a brms fit.
+maihda_context_levels <- function(data, ctx_vars) {
+  maihda_cc_dim_levels(data, stats::setNames(ctx_vars, ctx_vars))
+}
+
+# A context with fewer levels than this is named in the printed contextual partition
+# of a brms fit. Measured on 8 strata crossed with C contexts, 100 rows a cell, context
+# effects of variance 0.1 on the logit scale: under brms's default prior,
+# student_t(3, 0, 2.5), the posterior median of the context variance is about 6, 2.7,
+# 1.7, 1.25 and 1.1 times the variance of the context effects with 2, 3, 5, 10 and 20
+# contexts (larger multiples for smaller effects and smaller ones for larger effects:
+# above 1 for context variances from 0.025 to 1.6; with two contexts about 1 once the
+# effects' standard deviation reaches the prior's scale and 0.6 to 0.75 at 1.6 times
+# it), and under normal(0, 0.5), a fifth of that scale, about 0.23, 0.5, 0.76 and 0.93
+# of what it is under the default with 2, 3, 5 and 10 contexts. With no context effect
+# at all the default prior still gives two contexts a share of about 0.02 to 0.03 of
+# the unexplained variance.
+.maihda_context_few_levels <- 10L
+
+# The contexts of a brms contextual partition that have few levels, as a named integer
+# vector of their level counts. Empty for an lme4 partition, which has no prior, and
+# when every context has enough levels.
+maihda_context_few_levels <- function(ctx) {
+  if (!identical(ctx$method, "posterior")) {
+    return(integer(0))
+  }
+  lv <- ctx$context_levels
+  if (is.null(lv)) {
+    return(integer(0))
+  }
+  lv[!is.na(lv) & lv < .maihda_context_few_levels]
+}
+
+# The printed note that names those contexts, one string per output line;
+# character(0) when there is none to name. The clause on two levels is given only
+# when a two-level context is among them.
+maihda_context_few_levels_note <- function(few) {
+  if (length(few) == 0) {
+    return(character(0))
+  }
+  and_list <- function(x) {
+    if (length(x) > 1) paste(paste(x[-length(x)], collapse = ", "), "and", x[length(x)]) else x
+  }
+  named <- and_list(sprintf("'%s'", names(few)))
+  counted <- if (length(few) == 1) {
+    sprintf("context %s has %d level%s", named, few, if (few == 1L) "" else "s")
+  } else if (length(unique(few)) == 1) {
+    sprintf("contexts %s have %d level%s each", named, few[1], if (few[1] == 1L) "" else "s")
+  } else {
+    sprintf("contexts %s have %s levels", named, and_list(as.character(few)))
+  }
+  strwrap(paste0(
+    "Note: ", counted, ". With engine = \"brms\" the variance of such a context ",
+    "depends on the prior on its standard deviation",
+    if (any(few == 2L)) " (with two levels roughly in proportion to that prior's scale)",
+    ", and the context share and the VPC depend on it. See ?maihda."),
+    width = 78, indent = 2, exdent = 2)
+}
+
 # Print the realised-strata block of a brms crossed-dimensions decomposition (see
 # maihda_cc_realised_brms()). A line is left out for a quantity the block does not
 # give: the VPC of a count or contextual fit, the median odds ratio of a non-logit
@@ -2351,10 +2415,15 @@ maihda_print_context_partition <- function(ctx) {
     cat(sprintf("  Context share interval: %s\n",
                 fmt_share(ctx$vpc_context_total, ctx$vpc_context_total_ci)))
   }
+  # A brms fit's contexts with few levels are named below the note (see
+  # maihda_context_few_levels()).
+  few_note <- maihda_context_few_levels_note(maihda_context_few_levels(ctx))
   cat(maihda_palette()$muted(paste0(
       "  Note: the headline VPC/ICC is the between-stratum share conditional on\n",
       "  the context random effect(s). The context share is the between-context\n",
-      "  component of the unexplained variance.\n\n")))
+      "  component of the unexplained variance.\n",
+      if (length(few_note) > 0) paste0(paste(few_note, collapse = "\n"), "\n"),
+      "\n")))
   invisible(NULL)
 }
 
