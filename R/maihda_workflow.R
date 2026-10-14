@@ -124,10 +124,13 @@
 #'   they are overstated, most with two- to four-level dimensions, and with two- or
 #'   three-level dimensions the additive share comes out high even where the
 #'   dimensions have no additive effect. \code{print()} names the dimensions of a
-#'   \code{brms} fit that have fewer than 10 levels. Prefer \code{"two-model"} (with
-#'   few strata see \code{estimation}) unless every dimension has about ten or more
-#'   levels, or pass a \code{prior} and report how the results change with it. See
-#'   Details.
+#'   \code{brms} fit that have fewer than 10 levels. A \code{brms} fit also reports
+#'   the realised strata: the VPC, shares and variances of the effects of the strata
+#'   and dimension levels in the data, which depend little on that prior when each
+#'   stratum has enough data, whatever the number of levels (see the section Realised
+#'   strata).
+#'   Otherwise prefer \code{"two-model"} (with few strata see \code{estimation})
+#'   unless every dimension has about ten or more levels. See Details.
 #'   (\code{"cross-classified"} is accepted as a deprecated alias for
 #'   \code{"crossed-dimensions"}, with a warning: in the MAIHDA literature
 #'   \dQuote{cross-classified} refers to the contextual stratum-by-place model,
@@ -232,6 +235,50 @@
 #' \code{factor()} before fitting, or, for a genuinely continuous variable, use it as a
 #' covariate rather than a stratum dimension.
 #'
+#' @section Realised strata:
+#' For a \code{brms} crossed-dimensions fit, \code{decomposition$realised} and the
+#' "Realised strata" block of \code{print()} summarise, over the posterior draws, the
+#' effects of the \eqn{J}{J} strata in the data. In each draw stratum \eqn{j}{j} has
+#' the effect \eqn{\zeta_j}{zeta_j}, the sum of its dimensions' level effects and its
+#' own (interaction) effect. These are finite-population summaries (Gelman 2005): they
+#' describe the strata and levels in the data, where the variance components describe
+#' the distributions those were drawn from. A dimension with two levels says a lot
+#' about the former and little about the latter, so the realised values depend little
+#' on the prior on the standard deviations when each stratum has enough data to pin
+#' down its own effect. With few observations per stratum each draw also carries the
+#' uncertainty about every stratum's effect: the realised variances then come out too
+#' high and move with the prior. Compare the intervals of the stratum estimates with
+#' the spread between the strata. Per draw:
+#' \describe{
+#'   \item{\code{between_var}}{\eqn{\sum_j (\zeta_j - \bar\zeta)^2 / (J - 1)}{sum_j
+#'     (zeta_j - mean(zeta))^2 / (J - 1)}, half the mean squared difference between
+#'     two distinct strata.}
+#'   \item{\code{vpc}}{\code{between_var} over itself plus the within-stratum
+#'     variance: \eqn{\pi^2/3}{pi^2/3} for a logit link, 1 for a probit link,
+#'     \eqn{\pi^2/6}{pi^2/6} for a cloglog link, the residual variance of a Gaussian
+#'     fit. Not given for a Poisson or
+#'     negative-binomial fit, whose within-stratum variance is computed from the
+#'     variance components, or for a fit with a \code{context}.}
+#'   \item{\code{interaction_var}}{the residual sum of squares of the least-squares
+#'     fit of the \eqn{\zeta_j}{zeta_j} on an intercept and the dimensions' levels,
+#'     divided by its residual degrees of freedom, \code{df_interaction}. Strata
+#'     missing from the grid of dimension levels are allowed.}
+#'   \item{\code{additive_share}}{1 minus \code{interaction_var / between_var}, and
+#'     \code{interaction_share} the rest: a mean-square split, like a PCV computed
+#'     from REML variances. It is near zero when the dimensions explain none of the
+#'     differences between the strata, and can then fall below zero.}
+#'   \item{\code{per_dim}}{the variance of each dimension's level effects, with its
+#'     number of levels minus one as divisor.}
+#'   \item{\code{mor}}{for a logit link, the median odds ratio between two distinct
+#'     strata of the data: the exponential of the median of
+#'     \eqn{|\zeta_j - \zeta_{j'}|}{|zeta_j - zeta_j'|} over the pairs. With many
+#'     strata it is computed from an evenly spaced subset of at least 1000 draws.}
+#' }
+#' Each is the posterior median, with the equal-tailed credible interval at
+#' \code{conf_level} in the matching \code{*_ci} element. Every stratum counts once,
+#' whatever its size. \code{n_strata} is \eqn{J}{J}. An \code{lme4}
+#' crossed-dimensions fit reports its variance components only.
+#'
 #' @return An object of class \code{maihda_analysis}: a list with
 #'   \item{model}{the fitted \code{maihda_model} (see \code{\link{fit_maihda}}); the
 #'     \strong{null} model in \code{"two-model"} mode, or the single
@@ -261,8 +308,9 @@
 #'     understated on average when strata are few}
 #'   \item{decomposition}{the additive/interaction partition (additive and interaction
 #'     variances and shares, per-dimension variances and, for a \code{brms} fit, each
-#'     dimension's number of levels in \code{dim_levels}; \code{"crossed-dimensions"}
-#'     mode only, \code{NULL} otherwise)}
+#'     dimension's number of levels in \code{dim_levels} and the realised strata in
+#'     \code{realised}, described in the section Realised strata;
+#'     \code{"crossed-dimensions"} mode only, \code{NULL} otherwise)}
 #'   \item{groups}{a \code{maihda_group_comparison} when \code{group} is supplied,
 #'     otherwise \code{NULL}}
 #'   \item{interactions}{the \code{maihda_interactions} diagnostic (per-stratum
@@ -272,6 +320,10 @@
 #'   \item{context_vars}{the context variable name(s) when \code{context} was
 #'     supplied, otherwise \code{NULL}}
 #'   \item{formula, adjusted_formula, group_var, call}{bookkeeping for printing}
+#'
+#' @references
+#' Gelman, A. (2005). Analysis of variance -- why it is more important than ever.
+#' \emph{The Annals of Statistics}, 33(1), 1-53. \doi{10.1214/009053604000001048}
 #'
 #' @seealso \code{\link{fit_maihda}} for the single-model fitter,
 #'   \code{\link{compare_maihda_groups}} for the group comparison, and

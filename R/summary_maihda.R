@@ -1056,6 +1056,12 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
   # A dimension's variance is estimated from its levels alone, so the decomposition
   # carries how many each has; print() names the dimensions with few of them.
   dim_levels <- maihda_cc_dim_levels(object$data, cc$dim_groups)
+  # The variances of the effects of the strata and levels in the data, which the data
+  # identify however few levels a dimension has (see maihda_cc_realised_brms()).
+  realised <- maihda_try_optional(
+    maihda_cc_realised_brms(object, cc, draws, within_draws, conf_level, point = point,
+                            context = length(ctx_vars) > 0),
+    "The realised-strata summary")
 
   variance_components <- maihda_cc_components_table(per_dim_var, interaction_var,
                                                    within_var, per_context_var)
@@ -1084,6 +1090,10 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
     method = "posterior",
     conf_level = conf_level
   )
+  if (!is.null(realised)) {
+    decomposition <- append(decomposition, list(realised = realised),
+                            after = match("dim_levels", names(decomposition)))
+  }
 
   context_summary <- NULL
   if (length(ctx_vars) > 0) {
@@ -1108,6 +1118,235 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
 
   list(variance_components = variance_components, vpc_result = vpc_result,
        decomposition = decomposition, context = context_summary)
+}
+
+# The realised-strata summary of a brms crossed-dimensions fit. Each posterior draw
+# gives an effect for every stratum in the fitted data -- the sum of its dimensions'
+# level effects and its own (interaction) effect -- and for every level of every
+# dimension. The summary is of the finite-population variances of these effects
+# (Gelman 2005, eq. 8). They describe the strata and levels that exist, which the data
+# pin down however few levels a dimension has; the variance components describe the
+# distributions those were drawn from, and with few levels they follow the prior on
+# the standard deviations.
+#
+# The VPC is given where the within-stratum variance of a draw does not depend on the
+# variance components -- a Gaussian identity fit, and a binomial, Bernoulli or
+# cumulative fit on its latent scale -- and the fit has no context, whose variance
+# would enter the denominator. The median odds ratio is given for a logit link. NULL
+# when the draws hold no level effects (a fit stored without them).
+maihda_cc_realised_brms <- function(object, cc, draws, within_draws, conf_level,
+                                    point = "median", context = FALSE) {
+  if (!any(startsWith(names(draws), "r_"))) {
+    return(NULL)
+  }
+  dim_re <- unname(cc$dim_groups)
+  dim_names <- names(cc$dim_groups)
+  if (is.null(dim_names)) {
+    dim_names <- dim_re
+  }
+  igroup <- cc$interaction_group
+  lev <- maihda_level_draws_brms(object$model, c(dim_re, igroup))
+  cells <- maihda_cc_realised_cells(object$data, dim_re, igroup)
+
+  # One column per stratum: its own effect plus the effect of its level on each
+  # dimension.
+  V <- lev[[igroup]]
+  j <- match(cells[[igroup]], colnames(V))
+  if (anyNA(j)) {
+    stop("A stratum of the fitted data has no effect in the brms posterior.",
+         call. = FALSE)
+  }
+  Z <- V[, j, drop = FALSE]
+  U <- list()
+  for (k in seq_along(dim_re)) {
+    Uk <- lev[[dim_re[k]]]
+    i <- match(cells[[dim_re[k]]], colnames(Uk))
+    if (anyNA(i)) {
+      stop("A level of '", dim_names[k], "' in the fitted data has no effect in the ",
+           "brms posterior.", call. = FALSE)
+    }
+    Z <- Z + Uk[, i, drop = FALSE]
+    U[[dim_names[k]]] <- Uk
+  }
+  colnames(Z) <- cells[[igroup]]
+  dims <- cells[, dim_re, drop = FALSE]
+  names(dims) <- dim_names
+
+  fam <- maihda_model_family_name(object)
+  link <- maihda_model_link_name(object)
+  latent <- isTRUE(fam %in% c("binomial", "bernoulli", "cumulative"))
+  give_vpc <- !context &&
+    ((identical(fam, "gaussian") && identical(link, "identity")) ||
+       (latent && isTRUE(link %in% c("logit", "probit", "cloglog"))))
+  maihda_cc_realised_from_draws(Z, U, dims,
+                                within = if (give_vpc) within_draws else NULL,
+                                mor = latent && identical(link, "logit"),
+                                conf_level = conf_level, point = point)
+}
+
+# The realised-strata quantities from posterior draws, a pure function so that the
+# arithmetic can be checked without a fit.
+#   Z       draws x strata matrix of the stratum effects
+#   U       named list of draws x levels matrices, each dimension's level effects
+#   cells   data frame with one row per column of Z: each stratum's dimension levels
+#   within  the within-stratum variance per draw (length 1 or nrow(Z)); NULL: no VPC
+#   mor     whether to give the median odds ratio between two strata
+# Per draw, with J strata: the between-strata variance is
+# sum_j (z_j - mean)^2 / (J - 1), half the mean squared difference between two
+# distinct strata. The interaction variance is the residual sum of squares of the
+# least-squares fit of the z_j on an intercept and the dimensions' indicators, over
+# the strata present, divided by its degrees of freedom (J minus the rank of that
+# fit), so strata missing from the grid need no rule of their own. The additive
+# share is 1 - interaction / between, a mean-square split like a PCV computed from
+# REML variances: near zero, and possibly below it, when the dimensions add nothing.
+# A dimension's variance is that of its level effects (divisor levels - 1).
+# Each is summarised by the posterior median (or mean) and the equal-tailed interval
+# at conf_level; NULL with fewer than two strata.
+maihda_cc_realised_from_draws <- function(Z, U, cells, within = NULL, mor = FALSE,
+                                          conf_level = 0.95, point = "median") {
+  Z <- as.matrix(Z)
+  J <- ncol(Z)
+  if (J < 2L) {
+    return(NULL)
+  }
+  between <- rowSums((Z - rowMeans(Z))^2) / (J - 1)
+  q <- qr(maihda_cc_additive_design(cells))
+  df_int <- J - q$rank
+  interaction <- if (df_int > 0) {
+    colSums(qr.resid(q, t(Z))^2) / df_int
+  } else {
+    rep(NA_real_, nrow(Z))
+  }
+  share_int <- ifelse(between > 0, interaction / between, NA_real_)
+
+  summ <- function(v) {
+    v <- v[is.finite(v)]
+    if (length(v) == 0) {
+      return(c(NA_real_, NA_real_, NA_real_))
+    }
+    a <- 1 - conf_level
+    c(if (point == "median") stats::median(v) else mean(v),
+      stats::quantile(v, probs = c(a / 2, 1 - a / 2), names = FALSE))
+  }
+  out <- list()
+  s <- summ(between)
+  out$between_var <- s[1]
+  out$between_var_ci <- s[2:3]
+  if (!is.null(within)) {
+    s <- summ(between / (between + within))
+    out$vpc <- s[1]
+    out$vpc_ci <- s[2:3]
+  }
+  s <- summ(1 - share_int)
+  out$additive_share <- s[1]
+  out$additive_share_ci <- s[2:3]
+  s <- summ(share_int)
+  out$interaction_share <- s[1]
+  out$interaction_share_ci <- s[2:3]
+  s <- summ(interaction)
+  out$interaction_var <- s[1]
+  out$interaction_var_ci <- s[2:3]
+  per_dim <- lapply(U, function(u) {
+    u <- as.matrix(u)
+    if (ncol(u) < 2L) {
+      return(c(NA_real_, NA_real_, NA_real_))
+    }
+    summ(rowSums((u - rowMeans(u))^2) / (ncol(u) - 1))
+  })
+  out$per_dim <- vapply(per_dim, `[`, numeric(1), 1L)
+  out$per_dim_ci <- matrix(as.numeric(unlist(lapply(per_dim, `[`, 2:3))), ncol = 2L,
+                           byrow = TRUE, dimnames = list(names(U), c("lower", "upper")))
+  if (isTRUE(mor)) {
+    rows <- maihda_mor_draw_rows(nrow(Z), J)
+    s <- summ(exp(maihda_pair_median_draws(Z[rows, , drop = FALSE])))
+    out$mor <- s[1]
+    out$mor_ci <- s[2:3]
+  }
+  out$n_strata <- J
+  out$df_interaction <- df_int
+  out$conf_level <- conf_level
+  out$method <- "posterior"
+  out
+}
+
+# Design of the additive fit over the strata: an intercept and the treatment
+# indicators of each dimension that has two or more levels among them.
+maihda_cc_additive_design <- function(cells) {
+  X <- matrix(1, nrow(cells), 1L)
+  for (k in seq_along(cells)) {
+    f <- factor(as.character(cells[[k]]))
+    if (nlevels(f) > 1L) {
+      X <- cbind(X, stats::model.matrix(~ f)[, -1L, drop = FALSE])
+    }
+  }
+  X
+}
+
+# One row per stratum of the fitted data: the stratum (its level of the interaction
+# grouping factor) and its level on each dimension, all as character.
+maihda_cc_realised_cells <- function(data, dim_re, igroup) {
+  cols <- c(dim_re, igroup)
+  if (is.null(data) || !all(cols %in% names(data))) {
+    stop("The fitted data do not hold the stratum and dimension columns.",
+         call. = FALSE)
+  }
+  d <- data[stats::complete.cases(data[, cols, drop = FALSE]), cols, drop = FALSE]
+  d[] <- lapply(d, as.character)
+  d <- unique(d)
+  if (anyDuplicated(d[[igroup]])) {
+    stop("A stratum of the fitted data has more than one level on a dimension.",
+         call. = FALSE)
+  }
+  rownames(d) <- NULL
+  d
+}
+
+# Posterior draws of the intercept effects of the named grouping factors of a brms
+# fit, as a named list of draws x levels matrices whose column names are the levels.
+maihda_level_draws_brms <- function(model, groups) {
+  maihda_level_draws_from_ranef(brms::ranef(model, summary = FALSE, groups = groups),
+                                groups)
+}
+
+# The same from what brms::ranef(summary = FALSE) returns: a list, by grouping factor, of
+# draws x levels x coefficients arrays named by their levels and coefficients.
+maihda_level_draws_from_ranef <- function(re, groups) {
+  out <- lapply(groups, function(g) {
+    arr <- re[[g]]
+    if (is.null(arr)) {
+      stop("No '", g, "' random effects in the brms posterior.", call. = FALSE)
+    }
+    k <- match("Intercept", dimnames(arr)[[3L]])
+    if (is.na(k)) {
+      stop("The '", g, "' random effect has no intercept draws.", call. = FALSE)
+    }
+    matrix(arr[, , k], nrow = dim(arr)[1L], dimnames = list(NULL, dimnames(arr)[[2L]]))
+  })
+  names(out) <- groups
+  out
+}
+
+# The draws the median odds ratio is computed from: all of them while the pairs of
+# strata times the draws stay under 2e7, otherwise an evenly spaced subset of at
+# least 1000.
+maihda_mor_draw_rows <- function(n_draws, n_strata) {
+  n_pairs <- n_strata * (n_strata - 1) / 2
+  n_use <- min(n_draws, max(1000, floor(2e7 / n_pairs)))
+  unique(as.integer(round(seq(1, n_draws, length.out = n_use))))
+}
+
+# Per row of Z, the median of |Z[, j] - Z[, k]| over the distinct pairs of columns,
+# taken in blocks of rows holding at most `max_cells` differences at a time.
+maihda_pair_median_draws <- function(Z, max_cells = 1e6) {
+  ij <- which(upper.tri(diag(ncol(Z))), arr.ind = TRUE)
+  per_block <- max(1L, floor(max_cells / nrow(ij)))
+  out <- numeric(nrow(Z))
+  for (s in seq(1L, nrow(Z), by = per_block)) {
+    r <- s:min(nrow(Z), s + per_block - 1L)
+    D <- abs(Z[r, ij[, 1L], drop = FALSE] - Z[r, ij[, 2L], drop = FALSE])
+    out[r] <- apply(D, 1L, stats::median)
+  }
+  out
 }
 
 #' Bootstrap a crossed-dimensions MAIHDA partition (lme4)
@@ -1953,12 +2192,16 @@ maihda_print_cc_decomposition <- function(d) {
       cat(sprintf("    %s: %.4f\n", nm, per_dim[[nm]]))
     }
   }
-  few_note <- maihda_cc_few_levels_note(maihda_cc_few_level_dims(d))
+  few_note <- maihda_cc_few_levels_note(maihda_cc_few_level_dims(d),
+                                        pointer = !is.null(d$realised))
   cat(maihda_palette()$muted(paste0(
       "  Note: the additive share is the crossed-dimensions analogue of the PCV but\n",
       "  a different estimator; interpret the interaction share cautiously.\n",
       if (length(few_note) > 0) paste0(paste(few_note, collapse = "\n"), "\n"),
       "\n")))
+  if (!is.null(d$realised)) {
+    maihda_print_cc_realised(d$realised)
+  }
   invisible(NULL)
 }
 
@@ -1999,8 +2242,9 @@ maihda_cc_few_level_dims <- function(d) {
 
 # The printed note that names those dimensions, one string per output line;
 # character(0) when there is none to name. The clause on two levels is given only
-# when a two-level dimension is among them.
-maihda_cc_few_levels_note <- function(few) {
+# when a two-level dimension is among them, and the pointer to the realised-strata
+# block only when that block is printed below it.
+maihda_cc_few_levels_note <- function(few, pointer = FALSE) {
   if (length(few) == 0) {
     return(character(0))
   }
@@ -2015,8 +2259,64 @@ maihda_cc_few_levels_note <- function(few) {
     "With engine = \"brms\" the variance of such a dimension depends on the prior on ",
     "its standard deviation",
     if (any(few == 2L)) " (with two levels roughly in proportion to that prior's scale)",
-    ", and the VPC and the shares follow it. See ?maihda."),
+    ", and the VPC and the shares follow it",
+    if (isTRUE(pointer)) {
+      paste("; the realised-strata block below depends little on it when each stratum",
+            "has enough data")
+    },
+    ". See ?maihda."),
     width = 78, indent = 2, exdent = 2)
+}
+
+# Print the realised-strata block of a brms crossed-dimensions decomposition (see
+# maihda_cc_realised_brms()). A line is left out for a quantity the block does not
+# give: the VPC of a count or contextual fit, the median odds ratio of a non-logit
+# fit.
+maihda_print_cc_realised <- function(r) {
+  pal <- maihda_palette()
+  fmt <- function(est, ci, scale = 1, digits = 4L, suffix = "") {
+    if (!isTRUE(is.finite(est))) {
+      return("NA")
+    }
+    v <- function(x) sprintf("%.*f%s", digits, scale * x, suffix)
+    if (length(ci) == 2L && all(is.finite(ci))) {
+      sprintf("%s [%s, %s]", v(est), v(ci[1]), v(ci[2]))
+    } else {
+      v(est)
+    }
+  }
+  pct <- function(est, ci) fmt(est, ci, scale = 100, digits = 1L, suffix = "%")
+  line <- function(label, value) cat(sprintf("  %-25s %s\n", label, value))
+  cat(pal$bold(sprintf("Realised strata (the %d strata in the data):",
+                       as.integer(r$n_strata))), "\n", sep = "")
+  cat("  ", pal$muted(maihda_vpc_interval_label(r)), "\n", sep = "")
+  line("Between-strata variance:", fmt(r$between_var, r$between_var_ci))
+  if (!is.null(r$vpc)) {
+    line("VPC:", fmt(r$vpc, r$vpc_ci))
+  }
+  if (isTRUE(r$df_interaction > 0)) {
+    line("Interaction variance:", fmt(r$interaction_var, r$interaction_var_ci))
+    line("Additive share:", pct(r$additive_share, r$additive_share_ci))
+    line("Interaction share:", pct(r$interaction_share, r$interaction_share_ci))
+  } else {
+    cat("  Interaction variance and shares: NA (the strata in the data leave no\n",
+        "  degrees of freedom for an interaction)\n", sep = "")
+  }
+  if (length(r$per_dim) > 0) {
+    cat("  Variance of each dimension's level effects:\n")
+    for (nm in names(r$per_dim)) {
+      ci <- if (!is.null(r$per_dim_ci)) r$per_dim_ci[nm, ] else NULL
+      cat(sprintf("    %s: %s\n", nm, fmt(r$per_dim[[nm]], ci)))
+    }
+  }
+  if (!is.null(r$mor)) {
+    line("Median odds ratio:", fmt(r$mor, r$mor_ci, digits = 3L))
+  }
+  cat(pal$muted(paste0(
+    "  Note: finite-population summaries of the effects of these strata and levels\n",
+    "  (Gelman 2005); they depend little on the prior when each stratum has enough\n",
+    "  data. See ?maihda.\n\n")))
+  invisible(NULL)
 }
 
 #' Print the stratum vs. context partition of a contextual cross-classified summary

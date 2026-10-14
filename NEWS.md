@@ -21,6 +21,7 @@
 * `maihda_describe()` gained `weights`, the precision weights of `fit_maihda()`, written the same way (a bare column name) so one call describes and fits the same sample. Rows with a missing, zero, negative or non-finite weight leave the analytic sample as the engines drop them, and on a binomial model the weights also supply the denominator of a proportion response. It is the last argument, so positional calls written against 0.2.1 are unaffected.
 * `summary(bootstrap = TRUE)` on a longitudinal lme4 fit now returns intervals for the two trajectory VPCs, as `$longitudinal$vpc_intercept_ci` and `$vpc_slope_ci`, reusing the refits the VPC(t) band already pays for. `print()` shows them and `trajectory_vpc_method` records the basis.
 * `calculate_pcv()` and `maihda()` gained `estimation = "REML"`, which compares REML-type variances for binomial and Poisson lme4 fits; their maximum-likelihood PCV runs high with few or small strata.
+* A `brms` crossed-dimensions fit now reports its realised strata (Gelman 2005) in `decomposition$realised` and a second `print()` block: the VPC, shares, variances and median odds ratio of the effects of the strata and levels in the data, which depend little on the prior when each stratum has enough data. The few-levels note points to the block.
 
 ## API changes
 

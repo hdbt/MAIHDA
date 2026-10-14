@@ -149,7 +149,13 @@ plot(cc_grp, type = "group_components")       # additive / interaction / residua
 Set `engine = "brms"` for a Bayesian crossed-dimensions fit; the additive and interaction
 shares then carry posterior credible intervals (no bootstrap needed). When dimensions
 have few levels, those shares and the VPC depend on the prior on the random-effect
-standard deviations (see the caveats below).
+standard deviations (see the caveats below). A `brms` fit therefore also reports the
+*realised strata*: the VPC, the additive and interaction shares, the variances and,
+with a logit link, the median odds ratio of the effects of the strata and dimension
+levels in the data (finite-population summaries, Gelman 2005), which depend little on
+that prior when each stratum has enough data; with few observations per stratum they
+come out too high and move with the prior too. `print()` shows them in a second block
+and `decomposition$realised` holds them; `?maihda` defines each one.
 
 ```{r brms, eval = FALSE}
 cc_b <- maihda(
@@ -159,6 +165,7 @@ cc_b <- maihda(
   decomposition = "crossed-dimensions"
 )
 cc_b$decomposition$additive_share_ci
+cc_b$decomposition$realised$additive_share_ci
 ```
 
 ### Two important caveats
@@ -182,9 +189,12 @@ cc_b$decomposition$additive_share_ci
    most with two- to four-level dimensions, and with two- or three-level
    dimensions the additive share comes out high even where the dimensions have no
    additive effect. The output of a `brms` fit names the dimensions with fewer
-   than 10 levels. With such dimensions prefer the two-model decomposition (for
-   few strata see `estimation` in `?calculate_pcv`), or pass a `prior` and report
-   how the results change with it
+   than 10 levels, and its realised-strata block, which depends little on the
+   prior when each stratum has enough data, is the part of it to report with such
+   dimensions. Otherwise prefer the
+   two-model decomposition (for few strata see `estimation` in
+   `?calculate_pcv`), or pass a `prior` and report how the variance components
+   change with it
    (`vignette("bayesian_sparse_maihda", package = "MAIHDA")` shows a fit with one).
 
 ## Part 2, Contextual cross-classified MAIHDA (`context =`)
