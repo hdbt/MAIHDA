@@ -284,8 +284,17 @@ Because they answer different questions, `maihda()` errors if you supply both.
 ### Notes
 
 - Few context levels identify the context variance weakly. The
-  `maihda_country_data` example has only 6 countries resulting in imprecise estimates and `lme4` may fit it singular. Prefer many-level contexts, or `engine = "brms"`, whose priors
-  regularise the variance.
+  `maihda_country_data` example has only 6 countries, so its country variance and
+  share are imprecise. `lme4` may estimate such a variance at zero (a singular fit),
+  and `engine = "brms"` does not repair this: the posterior of a few-level context's
+  variance depends on the prior on its standard deviation and, under the default
+  prior, comes out high when the context effects are smaller than that prior's scale
+  (most with two or three contexts), and the context share and the VPC depend on it.
+  `print()` of a `brms` analysis and of its `summary()` names the contexts with fewer
+  than 10 levels. Prefer many-level contexts; with few, report the context share with its
+  interval, or enter the context as a fixed effect instead
+  (`math ~ country + (1 | gender:ses)`, without `context =`) when only the strata net
+  of it are wanted.
 - A manually written `+ (1 | school)` in the formula fits the same model, but is
   summarised generically as "Other random effects". Only `context =` activates the
   labelled stratum-vs-context partition.

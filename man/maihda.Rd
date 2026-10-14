@@ -73,8 +73,19 @@ stratified comparison then fits a contextual cross-classified model within
 each group and reports each group's stratum-vs-context partition (a per-group
 subset shrinks the context level count, so weak identification is warned about
 per group). Not available for the \code{wemix}/\code{ordinal} engines (they
-fit no crossed random effect); a context with few levels weakly identifies its
-variance (consider \code{engine = "brms"}).}
+fit no crossed random effect). A context with few levels identifies its
+variance weakly with either engine: \code{lme4} estimates it imprecisely, at
+zero (a singular fit) when the levels differ little, and with
+\code{engine = "brms"} its posterior depends on the prior on its standard
+deviation -- with two levels roughly in proportion to the prior's scale --
+and under the default prior it comes out high when the context effects are
+smaller than that prior's scale, most with two or three levels; the context
+share and the VPC depend on it. \code{print()} of the analysis and of its
+\code{summary()} names the contexts of a \code{brms} fit that have fewer than
+10 levels, and the contextual partition of a \code{brms} summary holds the
+level counts as \code{context_levels}.
+Prefer contexts with many levels (see \code{context} in
+\code{\link{fit_maihda}} for what to do with few).}
 
 \item{engine}{Modeling engine, "lme4" (default), "brms", "wemix" (the
 design-weighted pseudo-maximum-likelihood fit; requires

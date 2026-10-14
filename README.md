@@ -105,8 +105,8 @@ a$summary$context$vpc_context_total  # the country share of unexplained variance
 plot(a, type = "context_vpc")
 ```
 
-A context with few levels (like these 6 countries) weakly identifies its variance;
-prefer many-level contexts or `engine = "brms"` for serious use.
+A context with few levels (like these 6 countries) identifies its variance weakly
+with either engine (see `?fit_maihda`); prefer many-level contexts for serious use.
 
 ### `summary()`
 Provides comprehensive model summaries including:

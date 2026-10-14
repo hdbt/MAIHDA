@@ -1200,7 +1200,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
       if (!is.null(cs$per_context)) context_per[[g]] <- cs$per_context
       for (cv in context) {
         n_lvl <- length(unique(stats::na.omit(fit_obj$model$data[[cv]])))
-        if (is.finite(n_lvl) && n_lvl < 10) {
+        if (is.finite(n_lvl) && n_lvl < .maihda_context_few_levels) {
           weak_context_cells <- c(weak_context_cells,
                                   sprintf("%s x %s (%d level%s)", g, cv, n_lvl,
                                           if (n_lvl == 1) "" else "s"))
@@ -1395,14 +1395,11 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # Contextual weak identification: stratifying by group shrinks each group x
   # context cell, so a context that identifies its variance on the pooled data can
   # have too few levels within a group. Name the offending cells in one warning so
-  # the per-group context variances there are read with caution (the brms engine's
-  # weakly-informative priors regularise this better than lme4).
-  if (length(weak_context_cells) > 0) {
-    warning("compare_maihda_groups(): few context levels within group(s) (",
-            paste(weak_context_cells, collapse = "; "),
-            "). A context with < 10 levels weakly identifies its variance (often a ",
-            "singular lme4 fit, VPC_context near 0); interpret those groups' context ",
-            "partition with caution or use engine = \"brms\".", call. = FALSE)
+  # the per-group context variances there are read with caution, worded for the
+  # engine that fitted them (maihda_weak_context_message()).
+  weak_context <- maihda_weak_context_message(engine, weak_context_cells)
+  if (!is.null(weak_context)) {
+    warning(weak_context, call. = FALSE)
   }
 
   # Aggregated warning for per-group PCV decompositions that FAILED even though the
@@ -1649,6 +1646,31 @@ maihda_group_fit_quality_message <- function(engine, singular_groups,
   }
   paste0("compare_maihda_groups(): fit problems (", paste(entries, collapse = "; "),
          "). ", paste(meaning, collapse = " "), closing)
+}
+
+# The text of compare_maihda_groups()'s warning on the group x context cells whose
+# analytic sample holds fewer than .maihda_context_few_levels context levels, worded
+# for the engine that fitted them: an lme4 variance from so few levels is imprecise
+# and sits at zero when the levels differ little; a brms posterior depends on the
+# prior on the context's standard deviation (see maihda_context_few_levels()). NULL
+# when no cell is listed.
+maihda_weak_context_message <- function(engine, cells) {
+  if (length(cells) == 0L) {
+    return(NULL)
+  }
+  why <- if (identical(engine, "brms")) {
+    sprintf(paste0("With fewer than %d levels a context's variance depends on the prior ",
+                   "on its standard deviation, and the context share with it"),
+            .maihda_context_few_levels)
+  } else {
+    sprintf(paste0("A context variance estimated from fewer than %d levels is ",
+                   "imprecise, and at zero (a singular fit) when the levels differ ",
+                   "little"),
+            .maihda_context_few_levels)
+  }
+  paste0("compare_maihda_groups(): few context levels within group(s) (",
+         paste(cells, collapse = "; "), "). ", why,
+         "; interpret those groups' context partition with caution.")
 }
 
 # The first line of an error message, which is what a "fit failed" status cell holds:

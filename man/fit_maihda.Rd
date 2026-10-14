@@ -105,8 +105,16 @@ between-context vs. residual, and the headline VPC/ICC remains the
 between-stratum share (now net of the context). A context variable may not be
 a stratum dimension or \code{"stratum"} itself, and may not already appear as
 a fixed-effect term (its variance would then be absorbed by the fixed part).
-A context with few levels (say < 10) weakly identifies its variance and often
-yields a singular lme4 fit; the \code{brms} engine handles this better.
+A context with few levels (say < 10) identifies its variance weakly with
+either engine: \code{lme4} estimates it imprecisely, at zero (a singular fit)
+when the levels differ little, and with \code{engine = "brms"} its posterior
+depends on the prior on its standard deviation (under the default prior it
+comes out high when the context effects are smaller than that prior's scale,
+most with two or three levels), and the context share and the VPC depend on
+it. Prefer contexts with many levels; with few, report the context
+share with its interval, or enter the context as a fixed effect instead
+(\code{outcome ~ context + (1 | ...)}, without \code{context =}) when only
+the strata net of it are wanted.
 Writing the random effect directly in the formula (\code{... + (1 | school)})
 fits the same model but is summarised generically as "Other random effects";
 only \code{context =} activates the labelled contextual partition.

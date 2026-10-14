@@ -1124,7 +1124,7 @@ maihda_describe_warnings <- function(data, strata, strata_vars, have_dims,
       k <- nrow(units)
       if (k < .maihda_describe_context_levels) {
         add("context_few_levels", sprintf(
-          "Context '%s' has %d levels; fewer than ~%d levels weakly identify the context variance and often yield a singular lme4 fit. Consider engine = \"brms\".",
+          "Context '%s' has %d levels; with fewer than ~%d levels the context variance is imprecise: lme4 may estimate it at zero (a singular fit), and a brms fit's posterior depends on the prior on its standard deviation.",
           cv, k, .maihda_describe_context_levels))
       }
       n_small <- sum(units$n < .maihda_describe_small_unit)

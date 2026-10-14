@@ -27,6 +27,7 @@
 
 * `print()` on a PCV built from maximum-likelihood variances (a glmer, wemix or ordinal fit) now says so; the numbers are unchanged.
 * `print()` on a `maihda(decomposition = "crossed-dimensions")` analysis fitted with `engine = "brms"`, and on its `summary()`, now names the stratum dimensions with fewer than 10 levels: the variance of such a dimension depends on the prior on its standard deviation, and the VPC and the shares follow it. The level counts are in `decomposition$dim_levels`; the numbers are unchanged.
+* `print()` on a `maihda()` analysis fitted with `engine = "brms"`, and on the `summary()` of a brms fit, now names a `context` with fewer than 10 levels: its variance depends on the prior on its standard deviation, and the context share and the VPC depend on it. The level counts are in the contextual partition's `context_levels`; the numbers are unchanged.
 
 * `predict_maihda(allow_new_levels = TRUE)` on a brms fit now refuses newdata missing a grouping column the prediction uses, such as the context column, as lme4 does; brms filled the column with `NA` and drew a new effect for every row.
 
@@ -80,6 +81,7 @@
 * `?maihda_proportional_odds_test` no longer says that symmetric thresholds make the marginal slopes coincide and the fixed-only chi-squared statistic valid. Symmetry equates the marginal slopes at thresholds `-c` and `+c` where the location is zero but not elsewhere -- -0.882 against -0.826 one unit away, at `c = 1`, a unit coefficient and stratum SD 1 -- whether fitted thresholds look symmetric depends on how the covariates are coded, and observations that share a stratum stay dependent. With three categories cut at -1 and +1, a covariate symmetric about zero, 12 strata and a stratum VPC near 7%, the chi-squared reference still rejected 10% of datasets simulated from the correctly specified model at a nominal 5% with n = 96,000.
 * `?calculate_pcv`, `?maihda` and the PCV print output no longer describe `estimation = "ML"` as a "correction-free" comparison: maximum likelihood understates the adjusted model's between-stratum variance by more than the null model's, so it overstates the PCV when strata are few. Estimates are unchanged.
 * `?maihda` and the cross-classified and planning vignettes no longer recommend `engine = "brms"` for a crossed-dimensions decomposition whose dimensions have few levels. Under the default prior the VPC and the additive share of such a fit are overstated, most with two- to four-level dimensions; the two-model decomposition, or a `prior` with a sensitivity check, is the alternative.
+* `?maihda`, `?fit_maihda`, the README and the cross-classified vignette no longer recommend `engine = "brms"` for a `context` with few levels: under the default prior its variance comes out high for context effects smaller than that prior's scale, most with two or three levels, and the context share and the VPC depend on it, while `lme4` may estimate it at zero. The sparse-intersections vignette now says that its shares depend on the priors it uses.
 
 ## Performance
 
@@ -100,6 +102,7 @@
 * The fit-quality warning of `compare_maihda_groups()` now names a group for a singular fit only when its between-stratum variance is estimated at zero; a zero interaction, dimension, context or other variance component no longer names it.
 
 * The fit-quality warning of `compare_maihda_groups()` now also names a group whose adjusted model did not converge (on `brms`: has a largest R-hat above 1.01 or divergent transitions) and points to its PCV.
+* The few-context-levels warning of `compare_maihda_groups()` and the `context_few_levels` note of `maihda_describe()` no longer advise `engine = "brms"`; they say what each engine does with so few levels: an `lme4` variance is imprecise and at zero when the levels differ little, a `brms` one depends on the prior on its standard deviation.
 
 * The singular-fit note printed for a `decomposition = "crossed-dimensions"` fit, and shown in the Shiny app, now reads a zero `stratum` term as the interaction and a zero dimension term as part of the additive variance, instead of calling the between-stratum variance unreliable or unaffected.
 
