@@ -1053,6 +1053,9 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
   }
   additive_var <- sum(per_dim_var)
   between_var <- additive_var + interaction_var
+  # A dimension's variance is estimated from its levels alone, so the decomposition
+  # carries how many each has; print() names the dimensions with few of them.
+  dim_levels <- maihda_cc_dim_levels(object$data, cc$dim_groups)
 
   variance_components <- maihda_cc_components_table(per_dim_var, interaction_var,
                                                    within_var, per_context_var)
@@ -1076,6 +1079,7 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
     additive_share_ci = c(add_s$ci_lower, add_s$ci_upper),
     interaction_share_ci = c(int_s$ci_lower, int_s$ci_upper),
     per_dim = per_dim_var,
+    dim_levels = dim_levels,
     bootstrap = FALSE,
     method = "posterior",
     conf_level = conf_level
@@ -1949,10 +1953,70 @@ maihda_print_cc_decomposition <- function(d) {
       cat(sprintf("    %s: %.4f\n", nm, per_dim[[nm]]))
     }
   }
+  few_note <- maihda_cc_few_levels_note(maihda_cc_few_level_dims(d))
   cat(maihda_palette()$muted(paste0(
       "  Note: the additive share is the crossed-dimensions analogue of the PCV but\n",
-      "  a different estimator; interpret the interaction share cautiously.\n\n")))
+      "  a different estimator; interpret the interaction share cautiously.\n",
+      if (length(few_note) > 0) paste0(paste(few_note, collapse = "\n"), "\n"),
+      "\n")))
   invisible(NULL)
+}
+
+# Number of levels each stratum dimension has in the fitted data, named by the
+# dimension. NA for a dimension whose grouping column the data do not carry.
+maihda_cc_dim_levels <- function(data, dim_groups) {
+  out <- vapply(unname(dim_groups), function(g) {
+    x <- data[[g]]
+    if (is.null(x)) NA_integer_ else length(unique(x[!is.na(x)]))
+  }, integer(1))
+  names(out) <- names(dim_groups)
+  out
+}
+
+# A dimension with fewer levels than this is named in the printed decomposition of a
+# brms crossed-dimensions fit. Measured with dimension effects of variance about 0.1
+# on the logit scale: under brms's default prior, student_t(3, 0, 2.5), the posterior
+# median of a dimension's variance is about 5, 3, 2, 1.7, 1.3 and 1.25 times the
+# variance of the dimension's effects with 2, 3, 4, 5, 8 and 10 levels, and under
+# normal(0, 0.5), a fifth of that scale, it is 0.2, 0.5, 0.67, 0.8, 0.9 and 0.93 of
+# what it is under the default. With two levels the multiple grows as the effects
+# shrink, the median being roughly proportional to the prior's scale.
+.maihda_cc_few_levels <- 10L
+
+# The dimensions of a brms crossed-dimensions decomposition that have few levels, as
+# a named integer vector of their level counts. Empty for an lme4 decomposition,
+# which has no prior, and when every dimension has enough levels.
+maihda_cc_few_level_dims <- function(d) {
+  if (!identical(d$method, "posterior")) {
+    return(integer(0))
+  }
+  lv <- d$dim_levels
+  if (is.null(lv)) {
+    return(integer(0))
+  }
+  lv[!is.na(lv) & lv < .maihda_cc_few_levels]
+}
+
+# The printed note that names those dimensions, one string per output line;
+# character(0) when there is none to name. The clause on two levels is given only
+# when a two-level dimension is among them.
+maihda_cc_few_levels_note <- function(few) {
+  if (length(few) == 0) {
+    return(character(0))
+  }
+  named <- sprintf("%s (%d level%s)", names(few), few, ifelse(few == 1L, "", "s"))
+  listed <- if (length(named) > 1) {
+    paste(paste(named[-length(named)], collapse = ", "), "and", named[length(named)])
+  } else {
+    named
+  }
+  strwrap(paste0(
+    "Note: ", listed, if (length(named) > 1) " have" else " has", " few levels. ",
+    "With engine = \"brms\" the variance of such a dimension depends on the prior on ",
+    "its standard deviation",
+    if (any(few == 2L)) " (with two levels roughly in proportion to that prior's scale)",
+    ", and the VPC and the shares follow it. See ?maihda."),
+    width = 78, indent = 2, exdent = 2)
 }
 
 #' Print the stratum vs. context partition of a contextual cross-classified summary

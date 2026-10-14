@@ -25,6 +25,7 @@
 ## API changes
 
 * `print()` on a PCV built from maximum-likelihood variances (a glmer, wemix or ordinal fit) now says so; the numbers are unchanged.
+* `print()` on a `maihda(decomposition = "crossed-dimensions")` analysis fitted with `engine = "brms"`, and on its `summary()`, now names the stratum dimensions with fewer than 10 levels: the variance of such a dimension depends on the prior on its standard deviation, and the VPC and the shares follow it. The level counts are in `decomposition$dim_levels`; the numbers are unchanged.
 
 * `predict_maihda(allow_new_levels = TRUE)` on a brms fit now refuses newdata missing a grouping column the prediction uses, such as the context column, as lme4 does; brms filled the column with `NA` and drew a new effect for every row.
 
@@ -74,6 +75,7 @@
 * `?summary.maihda_model` and `?maihda_proportional_odds_test` no longer call their parametric-bootstrap p-values exact. The first said the `df_method = "bootstrap"` p-value is exact whenever `(n_boot + 1) * alpha` is a whole number, the second that correctly specified data are rejected at the nominal rate by construction. Both simulate from a fit estimated on the same data, so each is an approximation that no replicate count makes exact -- a binomial fit with 4 strata rejected a true null about 14% of the time at a nominal 5% -- and `n_boot` or `n_sim` sets only the Monte Carlo resolution. The interval's agreement with the p-value is now described as algebraic rather than as a coverage guarantee, and more draws as converging on a fixed interval width rather than tightening it.
 * `?maihda_proportional_odds_test` no longer says that symmetric thresholds make the marginal slopes coincide and the fixed-only chi-squared statistic valid. Symmetry equates the marginal slopes at thresholds `-c` and `+c` where the location is zero but not elsewhere -- -0.882 against -0.826 one unit away, at `c = 1`, a unit coefficient and stratum SD 1 -- whether fitted thresholds look symmetric depends on how the covariates are coded, and observations that share a stratum stay dependent. With three categories cut at -1 and +1, a covariate symmetric about zero, 12 strata and a stratum VPC near 7%, the chi-squared reference still rejected 10% of datasets simulated from the correctly specified model at a nominal 5% with n = 96,000.
 * `?calculate_pcv`, `?maihda` and the PCV print output no longer describe `estimation = "ML"` as a "correction-free" comparison: maximum likelihood understates the adjusted model's between-stratum variance by more than the null model's, so it overstates the PCV when strata are few. Estimates are unchanged.
+* `?maihda` and the cross-classified and planning vignettes no longer recommend `engine = "brms"` for a crossed-dimensions decomposition whose dimensions have few levels. Under the default prior the VPC and the additive share of such a fit are overstated, most with two- to four-level dimensions; the two-model decomposition, or a `prior` with a sensitivity check, is the alternative.
 
 ## Performance
 
