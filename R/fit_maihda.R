@@ -273,7 +273,14 @@
 #'   \item{diagnostics}{Fit-quality diagnostics, surfaced by the print and
 #'     summary methods: singular fit / convergence for lme4, WeMix and ordinal
 #'     (clmm) fits, and MCMC convergence (maximum Rhat, divergent transitions)
-#'     for brms. An lme4 fit also
+#'     for brms. lme4 checks a \code{glmer()} fit in the units of its covariates,
+#'     so its checks can fire at the maximum when a covariate is far from zero or
+#'     in large units, as a calendar year or an income is. When they fire and the
+#'     optimiser reports success, the fit counts as converged if it lies within a
+#'     tenth of a standard error of a stationary point of its likelihood, measured
+#'     with the fixed effects in centred and scaled units; the distance is
+#'     \code{stationary_distance}, and lme4's messages are kept in
+#'     \code{lme4_overruled} when the fit converged by it. An lme4 fit also
 #'     carries likelihood-adequacy caveats -- count overdispersion and zero
 #'     inflation, stratum random-effect non-normality and longitudinal residual
 #'     autocorrelation -- reported only when a conservative threshold is crossed,

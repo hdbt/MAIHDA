@@ -193,6 +193,144 @@ maihda_singular_terms_lme4 <- function(model, tol = 1e-4) {
   unique(names(comps)[vapply(comps, any, logical(1))])
 }
 
+# A glmer fit counts as at a stationary point of its likelihood when it is less than
+# this many standard errors from one (maihda_lme4_stationary_distance()), the line
+# ordinal fits are judged by.
+.maihda_lme4_stationary_within <- 0.1
+
+# The matrix A with beta = A %*% gamma, where beta are the coefficients of the
+# fixed-effects design `X` and gamma those of the same design with every column but the
+# intercept centred and scaled to a standard deviation of 1. Without an intercept column
+# the columns are only scaled; a constant column is left as it is.
+maihda_centre_scale_map <- function(X) {
+  X <- as.matrix(X)
+  p <- ncol(X)
+  A <- diag(1, p)
+  intercept <- unname(which(apply(X, 2L, function(v) all(v == 1))))[1L]
+  for (j in seq_len(p)) {
+    if (!is.na(intercept) && j == intercept) next
+    s <- stats::sd(X[, j])
+    if (!is.finite(s) || s <= 0) next
+    A[j, j] <- 1 / s
+    if (!is.na(intercept)) A[intercept, j] <- -mean(X[, j]) / s
+  }
+  A
+}
+
+# The gradient and Hessian of `fun` at `x` by central differences with a step of `step`
+# in every coordinate, the scheme lme4 takes its convergence checks with. NULL when a
+# lower bound lies within a step of `x`.
+maihda_central_derivatives <- function(fun, x, lower = rep(-Inf, length(x)),
+                                       step = 1e-4, fx = fun(x)) {
+  n <- length(x)
+  if (any(x - step < lower)) {
+    return(NULL)
+  }
+  at <- function(i, si, j = NULL, sj = 0) {
+    y <- x
+    y[i] <- y[i] + si * step
+    if (!is.null(j)) y[j] <- y[j] + sj * step
+    fun(y)
+  }
+  gradient <- numeric(n)
+  hessian <- matrix(NA_real_, n, n)
+  for (j in seq_len(n)) {
+    up <- at(j, 1)
+    down <- at(j, -1)
+    gradient[j] <- (up - down) / (2 * step)
+    hessian[j, j] <- (up - 2 * fx + down) / step^2
+    for (i in seq_len(j - 1L)) {
+      hessian[i, j] <- hessian[j, i] <-
+        (at(i, 1, j, 1) - at(i, 1, j, -1) - at(i, -1, j, 1) + at(i, -1, j, -1)) /
+        (4 * step^2)
+    }
+  }
+  list(gradient = gradient, hessian = hessian)
+}
+
+# How far a glmer fit is from a stationary point of its likelihood, in standard errors:
+# sqrt(g' H^-1 g / 2) for the gradient g and the Hessian H of its deviance (-2
+# log-likelihood, Laplace or quadrature as fitted), taken by
+# maihda_central_derivatives() with the fixed effects as the coefficients of centred
+# and scaled columns (maihda_centre_scale_map()). Half its square is the log-likelihood
+# the fit is short of that point by. The distance is the same in any linear
+# parametrisation; the differences it is computed from are not. lme4 takes them in the
+# coefficients as the formula has them, where a step along the coefficient of a
+# covariate far from zero or in large units moves every observation's linear predictor
+# by the step times the covariate, so that its checks can fire at the maximum itself.
+# NA when the fit cannot say: not a glmer fit whose fixed effects were optimised with
+# the variances (nAGQ = 0), a deviance function that does not reproduce the fit's
+# log-likelihood, a variance parameter within a step of its bound, or a Hessian that is
+# not positive definite.
+maihda_lme4_stationary_distance <- function(model) {
+  if (!inherits(model, "glmerMod") ||
+      !isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))) {
+    return(NA_real_)
+  }
+  # lme4 maps vectors of a fit into the deviance function it rebuilds from it and writes
+  # into some of them at every evaluation (the covariance factor; an offset given as an
+  # argument), so the function is rebuilt from a copy and the fit is never touched.
+  deviance <- tryCatch(lme4::getME(maihda_lme4_detached_copy(model), "devfun"),
+                       error = function(e) NULL)
+  if (!is.function(deviance)) {
+    return(NA_real_)
+  }
+  tryCatch(maihda_lme4_distance_with(model, deviance), error = function(e) NA_real_)
+}
+
+# A copy of the merMod `model` that shares no memory with it, for
+# maihda_lme4_stationary_distance(). The call and the formulas of its model frame are
+# made to carry no environment of the fit, which may hold whatever the frame the fit was
+# made in held; lme4 rebuilds the deviance function from the frame and the fitted
+# matrices alone.
+maihda_lme4_detached_copy <- function(model) {
+  frame <- model@frame
+  for (a in c("terms", "formula")) {
+    formula <- attr(frame, a)
+    if (inherits(formula, "formula")) {
+      environment(formula) <- baseenv()
+      attr(frame, a) <- formula
+    }
+  }
+  model@frame <- frame
+  model@call <- call("glmer")
+  unserialize(serialize(model, NULL))
+}
+
+# The work of maihda_lme4_stationary_distance(), with `deviance` the fit's deviance as a
+# function of its variance parameters and fixed effects (lme4::getME(, "devfun")).
+maihda_lme4_distance_with <- function(model, deviance) {
+  if (!isTRUE(model@devcomp$dims[["nAGQ"]] >= 1)) {
+    return(NA_real_)
+  }
+  theta <- lme4::getME(model, "theta")
+  beta <- lme4::fixef(model)
+  X <- lme4::getME(model, "X")
+  if (length(beta) == 0L || ncol(X) != length(beta)) {
+    return(NA_real_)
+  }
+  k <- length(theta)
+  A <- maihda_centre_scale_map(X)
+  f <- function(p) deviance(c(p[seq_len(k)], drop(A %*% p[-seq_len(k)])))
+  at <- c(theta, solve(A, beta))
+  f_at <- f(at)
+  target <- -2 * as.numeric(stats::logLik(model))
+  if (!is.finite(f_at) || abs(f_at - target) > 1e-5 * max(1, abs(target))) {
+    return(NA_real_)
+  }
+  lower <- c(lme4::getME(model, "lower"), rep(-Inf, length(beta)))
+  d <- maihda_central_derivatives(f, at, lower = lower, fx = f_at)
+  if (is.null(d) || !all(is.finite(d$gradient)) || !all(is.finite(d$hessian))) {
+    return(NA_real_)
+  }
+  curvature <- eigen(d$hessian, symmetric = TRUE, only.values = TRUE)$values
+  if (!all(is.finite(curvature)) || min(curvature) <= 0) {
+    return(NA_real_)
+  }
+  squared <- sum(d$gradient * solve(d$hessian, d$gradient)) / 2
+  if (is.finite(squared) && squared >= 0) sqrt(squared) else NA_real_
+}
+
 # Capture fit-quality diagnostics (singular fit, non-convergence) so they can be
 # surfaced on demand. lme4 returns singular fits silently and only warns about
 # convergence once, at fit time, so we re-read both from the fitted object for
@@ -238,7 +376,7 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
     # can land at a point whose gradient still passes lme4's check, leaving
     # conv$lme4$messages EMPTY; reading only (a) then reports that non-converged fit
     # as converged. Consult both, so `converged` is TRUE only when neither flags a
-    # problem.
+    # problem or, for a glmer fit, when the fit itself answers (a) (below).
     lme4_msgs <- tryCatch(model@optinfo$conv$lme4$messages, error = function(e) NULL)
     lme4_msgs <- as.character(lme4_msgs)
     lme4_msgs <- lme4_msgs[nzchar(lme4_msgs)]
@@ -267,6 +405,23 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
     msgs <- unique(c(lme4_msgs, opt_msg))
     diagnostics$messages <- msgs
     diagnostics$converged <- length(msgs) == 0
+    # lme4's checks of a glmer fit are taken in the coefficients as the formula has
+    # them and can fire at the maximum when a covariate is far from zero or in large
+    # units (maihda_lme4_stationary_distance()). When they fire on a fit whose
+    # optimiser reported no failure, the fit is measured in centred and scaled units:
+    # less than .maihda_lme4_stationary_within standard errors from a stationary point
+    # it counts as converged, and lme4's messages are kept for the report.
+    if (!opt_failed && length(lme4_msgs) > 0) {
+      distance <- maihda_lme4_stationary_distance(model)
+      if (!is.na(distance)) {
+        diagnostics$stationary_distance <- distance
+        if (distance < .maihda_lme4_stationary_within) {
+          diagnostics$converged <- TRUE
+          diagnostics$messages <- character(0)
+          diagnostics$lme4_overruled <- lme4_msgs
+        }
+      }
+    }
   } else if (inherits(model, "WeMixResults")) {
     diagnostics$engine <- "wemix"
     # Flag a boundary (zero between-stratum variance) fit the same way lme4's
@@ -910,6 +1065,54 @@ maihda_crossed_singular_lines <- function(diagnostics, cc_info, width = 88) {
   paste0("  ", unlist(lapply(sentences, strwrap, width = width), use.names = FALSE))
 }
 
+# A distance from maihda_lme4_stationary_distance() as printed: with two decimals from
+# a tenth of a standard error up; below that to two significant digits rounded down, so
+# that a distance under the line never prints as the line; "less than 0.0001" below
+# 0.0001.
+maihda_format_stationary_distance <- function(distance) {
+  if (distance >= 0.1) {
+    return(format(round(distance, 2), nsmall = 2))
+  }
+  if (distance < 1e-4) {
+    return("less than 0.0001")
+  }
+  unit <- 10^(floor(log10(distance)) - 1)
+  formatC(floor(distance / unit + 1e-9) * unit, format = "fg", digits = 2)
+}
+
+# The report lines of an lme4 fit measured by maihda_lme4_stationary_distance() because
+# lme4's checks fired: for a fit that converged by that measure, what lme4 warned of and
+# how far the fit is from the maximum; for one that did not, how far its gradient and
+# Hessian put it from a stationary point, to follow lme4's messages. Each sentence
+# starts a line and goes on indented by two spaces. Empty for a fit that was not
+# measured.
+maihda_lme4_distance_lines <- function(diagnostics, width = 80) {
+  distance <- diagnostics$stationary_distance
+  if (!identical(diagnostics$engine, "lme4") || !is.numeric(distance) ||
+      length(distance) != 1L || !is.finite(distance)) {
+    return(character(0))
+  }
+  shown <- maihda_format_stationary_distance(distance)
+  sentence <- if (isTRUE(diagnostics$converged)) {
+    said <- diagnostics$lme4_overruled
+    warned <- if (any(grepl("failed to converge", said, fixed = TRUE))) {
+      "lme4 warned that the model failed to converge"
+    } else if (any(grepl("unidentifiable", said, fixed = TRUE))) {
+      "lme4 warned that the model is nearly unidentifiable"
+    } else {
+      "lme4's convergence checks raised a warning"
+    }
+    sprintf("%s; in centred and scaled units the fit is %s standard errors from the maximum.",
+            warned, shown)
+  } else {
+    # Far from a stationary point the gradient and Hessian at the fit overstate the
+    # distance, so the number is theirs.
+    sprintf(paste0("In centred and scaled units the fit's gradient and Hessian put it %s ",
+                   "standard errors from a stationary point."), shown)
+  }
+  strwrap(sentence, width = width, exdent = 2)
+}
+
 # Format fit diagnostics as a character vector of report lines (empty when the fit
 # looks clean), shared by the maihda_model and maihda_summary print methods.
 #
@@ -991,7 +1194,10 @@ maihda_format_fit_diagnostics <- function(diagnostics,
       lme4 = "Convergence warnings reported by lme4:",
       "Convergence warnings:"
     )
-    out <- c(out, header, paste0("  - ", diagnostics$messages))
+    out <- c(out, header, paste0("  - ", diagnostics$messages),
+             maihda_lme4_distance_lines(diagnostics))
+  } else if (isTRUE(diagnostics$converged)) {
+    out <- c(out, maihda_lme4_distance_lines(diagnostics))
   }
   if (isTRUE(include_adequacy)) {
     out <- c(out, maihda_format_adequacy(diagnostics$adequacy))
