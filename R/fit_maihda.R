@@ -175,7 +175,9 @@
 #'   converge to a wrong solution. All results (the time-varying VPC, the
 #'   PCV, plots, predictions) are reported on the original \code{time} scale;
 #'   the column name \code{.maihda_ctime} is reserved for the internal centered
-#'   variable. Default \code{NULL}.
+#'   variable. Count time in coarse units -- waves or years rather than days: over a
+#'   span of hundreds or thousands of time units lme4's optimiser can stop short of
+#'   the optimum, in some fits without a convergence warning. Default \code{NULL}.
 #' @param time_degree Polynomial degree of the growth curve when \code{time} is
 #'   supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
 #'   degree 1 only.
@@ -192,7 +194,15 @@
 #'   correlation, and the trajectory decomposition it supports is then a boundary
 #'   artefact. The VPC still varies with time through the person-level slope
 #'   variance and the residual, so this is a time-constant between-stratum
-#'   \emph{variance}, not a time-constant VPC.
+#'   \emph{variance}, not a time-constant VPC. For a Gaussian model fitted by
+#'   \code{lmer()} with linear growth, the model is fitted from lme4's starting values
+#'   and again from two starts scaled by the person-level block, with a positive and a
+#'   negative stratum intercept-slope correlation, and a refit replaces lmer's fit when
+#'   its REML criterion (deviance for a maximum-likelihood fit) is lower by more than
+#'   1e-4: lme4's default optimiser can stop on the wrong side of the stratum block's
+#'   boundary, and far from the optimum when time is counted in fine units such as
+#'   days (see \code{time}). Pass \code{start} through \code{...} to fit from your own
+#'   starting values only.
 #' @param interactions Opt-in per-stratum interaction diagnostic
 #'   (\code{\link{maihda_interactions}}), attached as the \code{interactions} slot
 #'   and shown by \code{print()}. \code{FALSE} (default) skips it; \code{TRUE}
@@ -1034,7 +1044,14 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   }
 
   fit_call <- as.call(c(list(fit_fun), fit_args, dot_args))
-  model <- eval(fit_call, fit_env)
+  # A growth model with a linear stratum slope is refitted from two more starting
+  # points and the fit with the lowest criterion is kept: lmer's default optimiser can
+  # stop on the wrong side of that block's boundary (see maihda_fit_lmer_growth()).
+  model <- if (maihda_growth_restarts_apply(fit_fun, longitudinal_info, dot_vals)) {
+    maihda_fit_lmer_growth(fit_call, fit_env, longitudinal_info$id)
+  } else {
+    eval(fit_call, fit_env)
+  }
 
   }
 
