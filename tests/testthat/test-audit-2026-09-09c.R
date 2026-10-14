@@ -174,16 +174,20 @@ test_that("the ordinal fit uses the formula offset, not the grouping column", {
   m <- fit_off(y ~ x + offset(off) + (1 | d1:d2:d3), d, family = "ordinal")
 
   # Reference: the same model written with the offset BEFORE the random effect,
-  # which is the spelling clmm parses correctly.
+  # which is the spelling clmm parses correctly. The package fits on rescaled columns
+  # (test-audit-2026-10-14-ordinal-covariate-scale.R), so the two are one maximum
+  # reached by two searches: the same log-likelihood, the parameters to the
+  # optimisers' tolerance (1.2e-4 at most here; the wrong-offset fit below is 6.4 off).
   ref <- ordinal::clmm(y ~ x + offset(off) + (1 | stratum), data = m$data,
                        link = "logit", Hess = TRUE)
 
   expect_equal(as.numeric(stats::logLik(m$model)), as.numeric(stats::logLik(ref)))
-  expect_equal(unname(m$model$Theta), unname(ref$Theta))
-  expect_equal(unname(m$model$beta), unname(ref$beta))
-  expect_equal(unname(stats::fitted(m$model)), unname(stats::fitted(ref)))
+  expect_equal(unname(m$model$Theta), unname(ref$Theta), tolerance = 1e-3)
+  expect_equal(unname(m$model$beta), unname(ref$beta), tolerance = 1e-3)
+  expect_equal(unname(stats::fitted(m$model)), unname(stats::fitted(ref)),
+               tolerance = 1e-3)
   expect_equal(as.numeric(ordinal::VarCorr(m$model)[[1]]),
-               as.numeric(ordinal::VarCorr(ref)[[1]]))
+               as.numeric(ordinal::VarCorr(ref)[[1]]), tolerance = 1e-3)
 
   # The formula clmm actually recorded puts the offset ahead of the bar.
   expect_false(is.null(
@@ -237,7 +241,7 @@ test_that("a parenthesized trailing offset fits correctly too", {
                  y ~ (1 | stratum) + (x + offset(off)))) {
     m <- fit_off(f, ds, family = "ordinal")
     expect_equal(as.numeric(stats::logLik(m$model)), as.numeric(stats::logLik(ref)))
-    expect_equal(unname(m$model$Theta), unname(ref$Theta))
+    expect_equal(unname(m$model$Theta), unname(ref$Theta), tolerance = 1e-3)
   }
 })
 
@@ -272,13 +276,13 @@ test_that("an offset-free ordinal fit is untouched by the normalization", {
   d <- make_offord_data()
   m <- fit_off(y ~ x + (1 | d1:d2:d3), d, family = "ordinal")
 
-  # The resolved formula is passed through unchanged, so the fit is the one the
-  # package always produced.
+  # The resolved formula is passed through unchanged, so the fit is clmm()'s fit of
+  # that formula (to the optimisers' tolerance: the package fits on rescaled columns).
   expect_identical(maihda_offset_before_bars(m$formula), m$formula)
   ref <- ordinal::clmm(y ~ x + (1 | stratum), data = m$data, link = "logit",
                        Hess = TRUE)
   expect_equal(as.numeric(stats::logLik(m$model)), as.numeric(stats::logLik(ref)))
-  expect_equal(unname(m$model$Theta), unname(ref$Theta))
+  expect_equal(unname(m$model$Theta), unname(ref$Theta), tolerance = 1e-3)
 })
 
 test_that("maihda() runs the two-model ordinal decomposition with an offset", {

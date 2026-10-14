@@ -353,6 +353,17 @@ maihda_offset_before_bars <- function(formula) {
 #' and coefficients and an SD of zero. The boundary fit is the one returned unless
 #' its log-likelihood is below the first fit's by more than 1e-9 of its size.
 #'
+#' The model is fitted on its fixed-effects design with every column centred and
+#' scaled, the boundary fit included, and returned as the \code{clmm()} fit of the
+#' formula at that maximum. A covariate far from zero or on a large or tiny scale
+#' can leave \code{clmm()}'s optimiser at its starting values or short of the maximum,
+#' and \code{clmm()} takes the gradient and Hessian by differences with a fixed step,
+#' too coarse for the coefficient of such a covariate. The returned fit carries the
+#' gradient and Hessian of the rescaled fit, mapped exactly, so its standard errors
+#' are those of that fit. Under \code{threshold = "symmetric2"} the thresholds cannot
+#' take up a shift, and the columns are scaled only. A fit given a \code{start} is
+#' made as the formula stands, since the start is in the formula's own terms.
+#'
 #' @param formula The resolved model formula (with \code{(1 | stratum)}).
 #' @param data The data (after strata creation / response preparation).
 #' @param family The cumulative family marker (link "logit" or "probit").
@@ -437,18 +448,12 @@ maihda_fit_clmm <- function(formula, data, family, dot_vals) {
   # partially (see maihda_resolve_dot_names()).
   dot_vals <- maihda_resolve_dot_names(dot_vals, ordinal::clmm, names(args))
   fit_call <- as.call(c(list(quote(ordinal::clmm)), args, dot_vals))
-  # What this fit signals is noted on its way out, so that a second fit of the same
-  # model does not say it again.
-  signalled <- character(0)
-  model <- withCallingHandlers(
-    eval(fit_call, fit_env),
-    warning = function(w) signalled <<- c(signalled, conditionMessage(w)),
-    message = function(m) signalled <<- c(signalled, conditionMessage(m)))
-  # clmm()'s routine for a single random intercept cannot return a between-stratum SD
-  # of zero and can lose sight of the SD altogether; a fit it leaves there is made
-  # again by clmm()'s general routine (see maihda_clmm_refit_wanted()).
-  if (maihda_clmm_refit_wanted(model)) {
-    model <- maihda_clmm_general_refit(model, args, dot_vals, fit_env, signalled)
+  # The fit is made on the fixed-effects design with its columns centred and scaled
+  # and returned in the formula's own terms (see maihda_clmm_rescaled_fit()); a fit
+  # that cannot be made that way is made as the formula stands.
+  model <- maihda_clmm_rescaled_fit(args, dot_vals, fit_env, fit_call)
+  if (is.null(model)) {
+    model <- maihda_clmm_fit_and_refit(fit_call, args, dot_vals, fit_env)
   }
 
   # Record the factor coding of the fitted design NOW, while the options and the
@@ -683,8 +688,14 @@ maihda_clmm_step_coarseness <- function(hessian, inverse) {
 # standard error below the step, as with a covariate in the thousands, or one tied to
 # the thresholds by a covariate far from zero, as with a calendar year. What such a
 # gradient and Hessian give is the error of the differences, not the fit's distance:
-# they have put fits at their maximum up to 5 standard errors from it.
+# they have put fits at their maximum up to 5 standard errors from it. A fit made on
+# rescaled columns (maihda_clmm_carry_back()) is asked by the derivatives clmm() took
+# there; the distance is the same in either parametrisation, the coarseness is not.
 maihda_clmm_stationary_distance <- function(model) {
+  taken <- tryCatch(attr(model, "maihda_rescaled"), error = function(e) NULL)
+  if (is.list(taken)) {
+    model <- taken
+  }
   gradient <- tryCatch(as.numeric(model$gradient), error = function(e) NULL)
   hessian <- tryCatch(model$Hessian, error = function(e) NULL)
   if (!is.numeric(gradient) || length(gradient) == 0L || !is.matrix(hessian) ||
@@ -814,6 +825,240 @@ maihda_clmm_general_refit <- function(model, args, dot_vals, fit_env, signalled)
     if (inherits(cond, "warning")) warning(cond) else message(cond)
   }
   refit
+}
+
+# The fit of `fit_call`, made again by clmm()'s general routine where its routine for a
+# single random intercept leaves it at or near a between-stratum SD of zero (see
+# maihda_clmm_refit_wanted()). What the first fit signals is noted on its way out, so
+# that the second does not say it again; `signalled` holds what was said before it.
+maihda_clmm_fit_and_refit <- function(fit_call, args, dot_vals, fit_env,
+                                      signalled = character(0)) {
+  model <- withCallingHandlers(
+    eval(fit_call, fit_env),
+    warning = function(w) signalled <<- c(signalled, conditionMessage(w)),
+    message = function(m) signalled <<- c(signalled, conditionMessage(m)))
+  if (maihda_clmm_refit_wanted(model)) {
+    model <- maihda_clmm_general_refit(model, args, dot_vals, fit_env, signalled)
+  }
+  model
+}
+
+# The fit of the model of `args` made on its fixed-effects design with every column
+# centred and scaled (maihda_clmm_rescaled_design()), the boundary fit included, and
+# returned in the formula's own terms (maihda_clmm_carry_back()). NULL when the caller
+# gave a start, the design has no column to rescale, or the fit could not be made or
+# carried back; the model is then fitted as the formula stands. What the fits signal
+# is held back until the fit to be returned is known, and is then passed on once.
+maihda_clmm_rescaled_fit <- function(args, dot_vals, fit_env, fit_call) {
+  heard <- list()
+  outcome <- tryCatch(
+    withCallingHandlers({
+      design <- maihda_clmm_rescaled_design(args, dot_vals, fit_env)
+      if (is.null(design)) {
+        NULL
+      } else {
+        said <- vapply(heard, conditionMessage, character(1))
+        model <- maihda_clmm_fit_and_refit(design$call, design$args, design$dot_vals,
+                                           design$env, said)
+        maihda_clmm_carry_back(model, design, args, dot_vals, fit_env, fit_call)
+      }
+    },
+    warning = function(w) {
+      heard[[length(heard) + 1L]] <<- w
+      invokeRestart("muffleWarning")
+    },
+    message = function(m) {
+      heard[[length(heard) + 1L]] <<- m
+      invokeRestart("muffleMessage")
+    }),
+    error = function(e) NULL)
+  if (is.null(outcome)) {
+    return(NULL)
+  }
+  for (cond in heard) {
+    if (inherits(cond, "warning")) warning(cond) else message(cond)
+  }
+  outcome
+}
+
+# The model of `args` on its fixed-effects design with the columns centred and scaled:
+# the call that fits it and what maihda_clmm_carry_back() needs to take that fit back.
+# The design is clmm()'s own (control method "model.frame"): its columns, the intercept
+# left out, become .maihda_x1, .maihda_x2, ... in a copy of the data, beside the
+# formula's offset and its random-effect terms. A column is centred on its mean, which
+# the thresholds take up, and divided by its SD; a constant column is left as it is,
+# and under threshold = "symmetric2", whose thresholds cannot take up a shift, no column
+# is centred. NULL when the caller gave a start or there is nothing to rescale.
+maihda_clmm_rescaled_design <- function(args, dot_vals, fit_env) {
+  tags <- names(dot_vals)
+  if (is.null(tags)) {
+    tags <- rep("", length(dot_vals))
+  }
+  if ("start" %in% tags) {
+    return(NULL)
+  }
+  # `method` sits ahead of clmm.control()'s dots, so a shortened spelling binds to it.
+  frame_call <- as.call(c(list(quote(ordinal::clmm)), args,
+                          dot_vals[!(nzchar(tags) & startsWith("method", tags))],
+                          list(method = "model.frame")))
+  frames <- eval(frame_call, fit_env)
+  data <- get("data", envir = fit_env)
+  design <- frames$X
+  if (!is.matrix(design) || nrow(design) != nrow(data)) {
+    return(NULL)
+  }
+  design <- design[, colnames(design) != "(Intercept)", drop = FALSE]
+  spread <- apply(design, 2L, stats::sd)
+  varies <- is.finite(spread) & spread > 0
+  if (!any(varies)) {
+    return(NULL)
+  }
+  threshold <- dot_vals[["threshold"]]
+  threshold <- if (is.null(threshold)) "flexible" else
+    match.arg(threshold, c("flexible", "symmetric", "symmetric2", "equidistant"))
+  centre <- if (identical(threshold, "symmetric2")) rep(0, ncol(design)) else
+    colMeans(design)
+  centre[!varies] <- 0
+  spread[!varies] <- 1
+  generated <- paste0(".maihda_x", seq_len(ncol(design)))
+  if (any(c(generated, ".maihda_offset") %in% names(data))) {
+    return(NULL)
+  }
+  for (j in seq_len(ncol(design))) {
+    data[[generated[j]]] <- (design[, j] - centre[j]) / spread[j]
+  }
+  terms <- lapply(generated, as.name)
+  if (is.numeric(frames$off) && any(frames$off != 0)) {
+    data$.maihda_offset <- frames$off
+    terms <- c(terms, list(quote(offset(.maihda_offset))))
+  }
+  terms <- c(terms, lapply(reformulas::findbars(args$formula), function(bar) call("(", bar)))
+  formula <- stats::as.formula(call("~", args$formula[[2L]],
+                                    maihda_rhs_from_plus_terms(terms)))
+  env <- new.env(parent = parent.env(fit_env))
+  env$data <- data
+  environment(formula) <- env
+  args$formula <- formula
+  # The rescaled design has no factor left for a `contrasts` argument to code.
+  dot_vals <- dot_vals[tags != "contrasts"]
+  list(call = as.call(c(list(quote(ordinal::clmm)), args, dot_vals)), args = args,
+       dot_vals = dot_vals, env = env, columns = colnames(design), generated = generated,
+       centre = unname(centre), spread = unname(spread))
+}
+
+# The map from the fixed-effect parameters of a fit on rescaled columns to those of the
+# formula's own columns: (alpha, beta) = map %*% (alpha_s, beta_s). Column j entered as
+# (x_j - centre_j) / spread_j, so beta_j = beta_s,j / spread_j, and every cut point moves
+# by sum(centre * beta); `tJac` (cut points = tJac %*% alpha) says how the free threshold
+# parameters take up that common shift. Pure in its inputs.
+maihda_clmm_rescaled_map <- function(tJac, centre, spread) {
+  n_alpha <- ncol(tJac)
+  n_beta <- length(spread)
+  map <- diag(n_alpha + n_beta)
+  if (n_beta == 0L) {
+    return(map)
+  }
+  shift <- rep(0, n_alpha)
+  if (any(centre != 0)) {
+    shift <- qr.solve(tJac, rep(1, nrow(tJac)))
+    if (max(abs(drop(tJac %*% shift) - 1)) > 1e-8) {
+      stop("These thresholds cannot take up a shift of the cut points.", call. = FALSE)
+    }
+  }
+  beta <- n_alpha + seq_len(n_beta)
+  map[seq_len(n_alpha), beta] <- outer(shift, centre / spread)
+  map[beta, beta] <- diag(1 / spread, n_beta)
+  map
+}
+
+# The call that rebuilds the fit of the formula at a point it is handed, without a
+# search: clmm()'s start bound as .maihda_clmm_start, nlminb() allowed no iteration, and
+# no Hessian (maihda_clmm_carry_back() carries one over). `general`: clmm()'s general
+# routine, which takes no quadrature setting.
+maihda_clmm_rebuild_call <- function(args, dot_vals, general) {
+  tags <- names(dot_vals)
+  if (is.null(tags)) {
+    tags <- rep("", length(dot_vals))
+  }
+  left_out <- tags %in% c("start", "useMatrix", "Hess", "iter.max", if (general) "nAGQ") |
+    (nzchar(tags) & startsWith("method", tags))
+  args$Hess <- FALSE
+  as.call(c(list(quote(ordinal::clmm)), args, dot_vals[!left_out],
+            list(start = quote(.maihda_clmm_start), method = "nlminb", iter.max = 0L),
+            if (general) list(useMatrix = TRUE)))
+}
+
+# The clmm() fit of the formula at the maximum of `model`, the fit on the rescaled
+# columns of `design`. clmm() builds it at the carried-back point without a search, so
+# its frames, coefficients, stratum effects and fitted values are those of the formula;
+# the record of the search is the rescaled fit's -- the optimiser's return (its `par`
+# carried back), the control settings, the start, the counts of evaluations and
+# iterations -- and so are the gradient and Hessian, carried over exactly
+# (g = T^-T g_s, H = T^-T H_s T^-1 for the map T of the free parameters), which give its
+# standard errors. The derivatives as clmm() took them, on the rescaled columns, stay
+# with the fit as attr(, "maihda_rescaled") for maihda_clmm_stationary_distance(). An
+# error when the two fits do not line up.
+maihda_clmm_carry_back <- function(model, design, args, dot_vals, fit_env, fit_call) {
+  n_fixed <- length(model$coefficients)
+  kept <- match(names(model$beta), design$generated)
+  if (anyNA(kept) || !is.matrix(model$Hessian) || !is.numeric(model$gradient)) {
+    stop("The fit on rescaled columns cannot be carried back.", call. = FALSE)
+  }
+  map <- maihda_clmm_rescaled_map(model$tJac, design$centre[kept], design$spread[kept])
+  fixed <- seq_len(n_fixed)
+  carried <- function(par) {
+    par <- as.numeric(par)
+    par[fixed] <- drop(map %*% par[fixed])
+    par
+  }
+  par <- carried(model$optRes$par)
+  general <- isTRUE(model$control$useMatrix)
+  assign(".maihda_clmm_start", if (general) list(par[fixed], par[-fixed]) else par,
+         envir = fit_env)
+  rebuilt <- suppressWarnings(suppressMessages(
+    eval(maihda_clmm_rebuild_call(args, dot_vals, general), fit_env)))
+  free <- length(model$gradient)
+  if (!inherits(rebuilt, "clmm") || length(rebuilt$coefficients) != n_fixed ||
+      !identical(unname(names(rebuilt$beta)), design$columns[kept]) ||
+      length(rebuilt$gradient) != free || free < n_fixed) {
+    stop("The fit on rescaled columns cannot be carried back.", call. = FALSE)
+  }
+  # The free parameters are the fixed part and any variance parameter off its bound,
+  # which the map leaves as they are.
+  carry <- diag(free)
+  carry[fixed, fixed] <- map
+  inverse <- solve(carry)
+  gradient <- drop(crossprod(inverse, as.numeric(model$gradient)))
+  hessian <- crossprod(inverse, model$Hessian %*% inverse)
+  names(gradient) <- names(rebuilt$gradient)
+  dimnames(hessian) <- list(names(gradient), names(gradient))
+  rebuilt$gradient <- gradient
+  rebuilt$Hessian <- hessian
+  returned <- model$optRes
+  returned$par <- par
+  rebuilt$optRes <- returned
+  rebuilt$control <- model$control
+  start <- model$start
+  rebuilt$start <- if (is.list(start)) list(carried(start[[1L]]), start[[2L]]) else
+    carried(start)
+  rebuilt$Niter <- model$Niter
+  rebuilt$neval <- model$neval
+  rebuilt$info$niter <- model$info$niter
+  rebuilt$info$max.grad <- formatC(max(abs(gradient)), digits = 2, format = "e")
+  if (isTRUE(attr(model, "maihda_converged"))) {
+    attr(rebuilt, "maihda_converged") <- TRUE
+  }
+  attr(rebuilt, "maihda_rescaled") <- list(
+    columns = design$columns, centre = design$centre, spread = design$spread,
+    gradient = model$gradient, Hessian = model$Hessian)
+  # The call the fit stands for, as clmm() records a call it is given: the general
+  # routine's for the boundary fit maihda_clmm_general_refit() made, whose call starts
+  # from .maihda_clmm_start, and the caller's otherwise.
+  refitted <- identical(model$call[["start"]], quote(.maihda_clmm_start))
+  rebuilt$call <- match.call(ordinal::clmm,
+                             if (refitted) maihda_clmm_general_call(args, dot_vals) else
+                               fit_call)
+  rebuilt
 }
 
 #' Variance components of a cumulative (clmm) MAIHDA fit
