@@ -84,6 +84,28 @@ maihda_app_pcv_display <- function(pcv_percent) {
   )
 }
 
+# The lines of maihda_format_fit_diagnostics() as one item per diagnostic, for the
+# app's "Fit diagnostics" card. Those lines are broken for a console: a diagnostic
+# starts on a line without indent and continues on lines indented by two spaces,
+# and a convergence message is an indented "- " line. Here each diagnostic's lines
+# are joined into one text, and its "- " lines become its sub-items. A list of
+# items, each with `text` and `sub` (character, possibly empty).
+maihda_app_diagnostics_items <- function(lines) {
+  items <- list()
+  for (line in lines) {
+    if (!startsWith(line, " ") || length(items) == 0L) {
+      items[[length(items) + 1L]] <- list(text = trimws(line), sub = character(0))
+    } else if (grepl("^\\s*- ", line)) {
+      k <- length(items)
+      items[[k]]$sub <- c(items[[k]]$sub, sub("^\\s*- ", "", line))
+    } else {
+      k <- length(items)
+      items[[k]]$text <- paste(items[[k]]$text, trimws(line))
+    }
+  }
+  items
+}
+
 # PCV is genuinely undefined for some otherwise valid fits -- most commonly when
 # the baseline (null) model has zero or negative between-stratum variance (a
 # singular fit / no between-stratum variation). calculate_pcv() errors in that
