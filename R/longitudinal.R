@@ -474,9 +474,9 @@ maihda_re_block_lme4 <- function(model, group, time, time_degree) {
 # This is precisely the case maihda_stratum_growth_at_boundary_lme4() cannot see
 # (it requires EVERY variance to be at the boundary) and that
 # maihda_variance_at_boundary() cannot see either (it tests the magnitude of the
-# scalar a(t)' Sigma a(t), which is perfectly healthy). Left undetected it yields a
-# confident-looking PCV_slope built on a boundary artefact -- the reported cause of
-# "puzzling slope PCV" values on irregular longitudinal data.
+# scalar a(t)' Sigma a(t), which is positive at all but one time). Left undetected it
+# yields a confident-looking PCV_slope built on a boundary artefact -- the reported
+# cause of "puzzling slope PCV" values on irregular longitudinal data.
 maihda_stratum_growth_rank_deficient_lme4 <- function(model, tol = 1e-4) {
   "stratum" %in% maihda_singular_terms_lme4(model, tol = tol)
 }
@@ -1421,6 +1421,13 @@ maihda_longitudinal_pcv_variances <- function(object, Sigma, ref_c, t_c, has_slo
 #' brms fits are already on the ML / posterior scale, so the choice does not affect
 #' them.
 #'
+#' A variance estimate cannot fall below zero. When the strata differ little after
+#' adjustment next to the precision of one stratum's own baseline or slope, the
+#' adjusted model's variance is too large on average and the null model's is not, so
+#' the PCV is understated on average and single values can be far too low or negative.
+#' This affects the slope first, where strata usually differ least, and eases with
+#' more strata, larger strata and more measurement occasions.
+#'
 #' For a \code{brms} pair every variance compared is the posterior median of its
 #' per-draw value: the between-stratum variance \eqn{a(t)' \Sigma a(t)} at the
 #' baseline and at each reporting time, and the slope variance. The stored blocks
@@ -1533,10 +1540,10 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
                     error = function(e) FALSE))
   # Rank-deficient (perfectly correlated intercept-slope) stratum blocks. Neither
   # boundary test above sees these -- every variance is nonzero and a(t)'Sigma a(t)
-  # is healthy -- yet the slope variance is not separately identified, so PCV_slope
-  # is a ratio of two boundary artefacts. Only meaningful when there IS a slope
-  # (stratum_slope = FALSE gives a 1x1 block, for which rank deficiency would just be
-  # a zero variance, already covered by *_at_boundary).
+  # is positive at all but one time -- yet the slope variance is not separately
+  # identified, so PCV_slope is a ratio of two boundary artefacts. Only meaningful
+  # when there IS a slope (stratum_slope = FALSE gives a 1x1 block, for which rank
+  # deficiency would just be a zero variance, already covered by *_at_boundary).
   has_stratum_slope <- nrow(Sn) >= 2
   null_rank_deficient <- has_stratum_slope &&
     maihda_stratum_growth_rank_deficient(null_model)
@@ -1598,9 +1605,13 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
   # still tests 17x above the threshold. Identifiability, not magnitude, is the
   # right question, and rank deficiency answers it at lme4's own tolerance.
   #
-  # PCV_intercept and PCV(t) are NOT gated: they are dominated by the intercept
-  # variance, which stays estimable, and were no more variable under rank
-  # deficiency than without it (sd 0.24 vs 0.23) with no excursion outside [0, 1].
+  # PCV_intercept and PCV(t) are NOT gated on rank deficiency. A rank-deficient linear
+  # block is rank 1, so its variance a(t)' Sn a(t) is a perfect square with one zero
+  # (maihda_long_pcv_zero_time()). Far from that time the intercept variance carries
+  # the PCV; close to it the denominator is what the collapse leaves over, not an
+  # estimate of the between-stratum variance at that time, and the ratio can be far
+  # below zero. No cut-off separates the two, so the values are returned and print()
+  # names the time.
   pcv_slope <- if (deg < 1 || isTRUE(null_slope_at_boundary)) {
     NA_real_
   } else {
@@ -1701,6 +1712,70 @@ maihda_longitudinal_strata_predictions <- function(object) {
   cbind(df, as.data.frame(mat, stringsAsFactors = FALSE))
 }
 
+# The time, on the user's time scale, at which a rank-deficient LINEAR (2 x 2) stratum
+# block has no between-stratum variance. Such a block is rank 1, so a(t)' Sigma a(t)
+# is the perfect square (s1 + s2 t)^2, zero at t = -Sigma[1, 2] / Sigma[2, 2] in the
+# block's own coordinates; `center` (the fit's internal time centering) moves that
+# back to the user's scale. NA for a block of any other size, for one without slope
+# variance (its between-stratum variance is the same at every time) and when the
+# centering is unknown.
+maihda_long_pcv_zero_time <- function(Sigma, center = 0) {
+  if (!is.matrix(Sigma) || !identical(dim(Sigma), c(2L, 2L)) ||
+      length(center) != 1L || !is.finite(center)) {
+    return(NA_real_)
+  }
+  v1 <- Sigma[2, 2]
+  cv <- Sigma[1, 2]
+  if (!is.finite(v1) || !is.finite(cv) || v1 <= 0) {
+    return(NA_real_)
+  }
+  as.numeric(center - cv / v1)
+}
+
+# What print.maihda_long_pcv() says about PCV_intercept and PCV(t) under a
+# rank-deficient stratum block; both are reported whatever the blocks' rank.
+# `zero_null` / `zero_adjusted` are the times from maihda_long_pcv_zero_time(), NA for
+# a model whose block is not a rank-deficient linear one, and `times` the reporting
+# times. Near the null model's time the PCV divides by a variance next to zero; at the
+# adjusted model's it is 1 whatever the strata do. One unwrapped string.
+maihda_long_pcv_zero_note <- function(time, zero_null, zero_adjusted, times) {
+  has_null <- length(zero_null) == 1L && is.finite(zero_null)
+  has_adj <- length(zero_adjusted) == 1L && is.finite(zero_adjusted)
+  if (!has_null && !has_adj) {
+    return(paste0("PCV_intercept and PCV(", time, ") are still reported: they are ",
+                  "carried by the intercept variance, which stays estimable."))
+  }
+  times <- times[is.finite(times)]
+  span <- if (length(times)) diff(range(times)) else NA_real_
+  # Two decimals over a span of 1 to 10 time units, more for a shorter span, fewer for
+  # a longer one.
+  digits <- if (is.finite(span) && span > 0) max(0, 2 - floor(log10(span))) else 2
+  at <- function(v) paste0(time, " = ", formatC(v, digits = digits, format = "f"))
+  where <- if (length(times)) {
+    sprintf(" (%s to %s)", format(min(times)), format(max(times)))
+  } else {
+    ""
+  }
+  open <- paste0("PCV_intercept and PCV(", time, ") are still reported. A ",
+                 "rank-deficient linear block has no between-stratum variance at one ",
+                 "time")
+  if (has_null && has_adj) {
+    paste0(open, " -- ", at(zero_null), " for the null model, ", at(zero_adjusted),
+           " for the adjusted model -- and the PCV is not interpretable near either: ",
+           "it divides by almost nothing near the null model's, and is 100% at the ",
+           "adjusted model's. The further both lie from the reported times", where,
+           ", the more the PCV is carried by the intercept variance, which stays ",
+           "estimable.")
+  } else {
+    paste0(open, ", ", if (has_null) at(zero_null) else at(zero_adjusted), " for the ",
+           if (has_null) "null" else "adjusted", " model, and the PCV is not ",
+           "interpretable near it: it ",
+           if (has_null) "divides by almost nothing" else "is 100%", " there. The ",
+           "further that time lies from the reported times", where, ", the more the ",
+           "PCV is carried by the intercept variance, which stays estimable.")
+  }
+}
+
 #' Print a longitudinal MAIHDA PCV
 #'
 #' @param x A \code{maihda_long_pcv} object.
@@ -1757,15 +1832,30 @@ print.maihda_long_pcv <- function(x, ...) {
     # block's Cholesky diagonals at 0, so the stratum variation lies in a subspace of
     # (intercept, slope, ...) rather than filling it. For the linear 2x2 block that is
     # a perfect intercept-slope correlation. Every VARIANCE stays nonzero and
-    # a(t)'Sigma a(t) is healthy, so neither the magnitude guard above nor lme4's own
-    # reporting distinguishes this from a well-estimated block -- which is exactly why
-    # it has to be said out loud.
+    # a(t)'Sigma a(t) is positive at all but one time, so neither the magnitude guard
+    # above nor lme4's own reporting distinguishes this from a well-estimated block --
+    # which is exactly why it has to be said out loud.
     which_fit <- if (isTRUE(x$null_rank_deficient) && isTRUE(x$adjusted_rank_deficient)) {
       "Both the null and the adjusted"
     } else if (isTRUE(x$null_rank_deficient)) {
       "The null"
     } else {
       "The adjusted"
+    }
+    # Where each rank-deficient linear block has no between-stratum variance; NA for a
+    # model whose block is full rank, not linear, or without slope variance. A block
+    # with every variance at the boundary has none at ANY time (its own note below
+    # says so), so it is given no such time.
+    zero_null <- if (isTRUE(x$null_rank_deficient) && !isTRUE(x$null_at_boundary)) {
+      maihda_long_pcv_zero_time(x$Sigma_stratum_null, x$time_center)
+    } else {
+      NA_real_
+    }
+    zero_adjusted <- if (isTRUE(x$adjusted_rank_deficient) &&
+                         !isTRUE(x$adjusted_at_boundary)) {
+      maihda_long_pcv_zero_time(x$Sigma_stratum_adjusted, x$time_center)
+    } else {
+      NA_real_
     }
     cat(pal$warn(paste0(
         "\nNote: ", which_fit, " model's between-stratum block is RANK-DEFICIENT --\n",
@@ -1779,10 +1869,12 @@ print.maihda_long_pcv <- function(x, ...) {
         "adjustment (in simulation such ratios ranged from -196 to +1).\n") else paste0(
         "The slope component itself is still estimable, so PCV_slope is reported -- but\n",
         "read it alongside this caveat.\n"),
-        "PCV_intercept and PCV(", x$time, ") are still reported: they are carried by the\n",
-        "intercept variance, which stays estimable. A trajectory decomposition needs\n",
-        "either more measurement occasions per stratum, or stratum_slope = FALSE, which\n",
-        "models a time-constant between-stratum variance and says so explicitly.\n")))
+        paste(strwrap(paste(
+          maihda_long_pcv_zero_note(x$time, zero_null, zero_adjusted, x$pcv_t$time),
+          "A trajectory decomposition needs either more measurement occasions per",
+          "stratum, or stratum_slope = FALSE, which models a time-constant",
+          "between-stratum variance and says so explicitly."), width = 80),
+          collapse = "\n"), "\n")))
   }
   if (isTRUE(x$null_at_boundary)) {
     # The null growth model's between-stratum block sits on the singularity boundary

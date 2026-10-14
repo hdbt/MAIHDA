@@ -55,6 +55,13 @@ so a mixed REML/ML comparison is not mistaken for a clean one. glmer (GLMM) and
 brms fits are already on the ML / posterior scale, so the choice does not affect
 them.
 
+A variance estimate cannot fall below zero. When the strata differ little after
+adjustment next to the precision of one stratum's own baseline or slope, the
+adjusted model's variance is too large on average and the null model's is not, so
+the PCV is understated on average and single values can be far too low or negative.
+This affects the slope first, where strata usually differ least, and eases with
+more strata, larger strata and more measurement occasions.
+
 For a \code{brms} pair every variance compared is the posterior median of its
 per-draw value: the between-stratum variance \eqn{a(t)' \Sigma a(t)} at the
 baseline and at each reporting time, and the slope variance. The stored blocks
