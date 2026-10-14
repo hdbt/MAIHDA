@@ -296,13 +296,12 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
       s <- as.numeric(vc[["stratum"]][1, 1])
       is.finite(s) && s < 1e-8
     }, error = function(e) NA)
-    # clmm stores the optimiser result: its return code is the verdict (see
-    # maihda_clmm_converged() for the one non-zero code that is a boundary fit), and
-    # the message carries the optimiser's own wording otherwise.
+    # clmm stores the optimiser's return: maihda_clmm_converged() reads its verdict by
+    # the rules of the optimiser that made it, and maihda_clmm_optimiser_message()
+    # gives what the record says of a fit that optimiser did not vouch for.
     diagnostics$converged <- maihda_clmm_converged(model)
     if (isFALSE(diagnostics$converged)) {
-      msg <- tryCatch(as.character(model$optRes$message), error = function(e) character(0))
-      diagnostics$messages <- msg[nzchar(msg)]
+      diagnostics$messages <- maihda_clmm_optimiser_message(model)
     }
     # Stratum effects returned at exactly zero beside a between-stratum SD that is not
     # zero: that SD was never estimated (maihda_clmm_effects_at_start()). fit_maihda()

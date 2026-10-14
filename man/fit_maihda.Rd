@@ -297,9 +297,9 @@ A maihda_model object containing:
     each original level to its 0/1 value and role (reference/event); NULL when no
     recoding occurred}
   \item{diagnostics}{Fit-quality diagnostics, surfaced by the print and
-    summary methods: singular fit / convergence for lme4 and WeMix, MCMC
-    convergence (maximum Rhat, divergent transitions) for brms, and the
-    optimizer convergence code for an ordinal (clmm) fit. An lme4 fit also
+    summary methods: singular fit / convergence for lme4, WeMix and ordinal
+    (clmm) fits, and MCMC convergence (maximum Rhat, divergent transitions)
+    for brms. An lme4 fit also
     carries likelihood-adequacy caveats -- count overdispersion and zero
     inflation, stratum random-effect non-normality and longitudinal residual
     autocorrelation -- reported only when a conservative threshold is crossed,
