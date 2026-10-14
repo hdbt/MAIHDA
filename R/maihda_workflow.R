@@ -931,7 +931,7 @@ print.maihda_analysis <- function(x, ...) {
       cat("Context:         ", paste(x$context_vars, collapse = ", "),
           " (crossed contextual random intercept)\n", sep = "")
     }
-    maihda_print_fit_diagnostics(x$model$diagnostics)
+    maihda_print_fit_diagnostics(x$model$diagnostics, cc_info = x$model$cc_info)
     maihda_print_autobin_info(x$model$strata_autobin_info)
 
     vpc <- x$summary$vpc

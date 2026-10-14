@@ -2015,7 +2015,7 @@ print.maihda_summary <- function(x, ...) {
   } else if (identical(role, "adjusted")) {
     cat(pal$muted("Adjusted model.\n\n"))
   }
-  maihda_print_fit_diagnostics(x$diagnostics)
+  maihda_print_fit_diagnostics(x$diagnostics, cc_info = x$cc_info)
   # The auto-bin recipe belongs next to the numbers it produced: a tertile-binned
   # numeric dimension makes the strata (and so the VPC/PCV below) data-dependent,
   # and make_strata()'s fit-time message is long gone by the time a saved model is

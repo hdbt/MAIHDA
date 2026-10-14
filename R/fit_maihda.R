@@ -1423,7 +1423,7 @@ print.maihda_model <- function(x, ...) {
         }, "\n")
   }
   cat("\n")
-  maihda_print_fit_diagnostics(x$diagnostics)
+  maihda_print_fit_diagnostics(x$diagnostics, cc_info = x$cc_info)
   maihda_print_interactions_line(x$interactions)
   cat("Underlying model:\n")
   print(x$model, ...)
