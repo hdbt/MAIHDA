@@ -557,7 +557,8 @@ server <- function(input, output, session) {
 
     # Surface the fit-quality diagnostics fit_maihda() already computes (singular
     # fit / non-convergence): these silently invalidate the VPC/PCV if ignored.
-    diag_lines <- MAIHDA:::maihda_format_fit_diagnostics(model_results()$diagnostics)
+    diag_lines <- MAIHDA:::maihda_format_fit_diagnostics(
+      model_results()$diagnostics, cc_info = model_results()$cc_info)
     diag_ui <- if (length(diag_lines) > 0) {
       div(class = "alert alert-warning",
           tags$strong("Fit diagnostics"),

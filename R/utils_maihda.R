@@ -863,6 +863,53 @@ maihda_and_list <- function(x) {
   paste(paste(x[-n], collapse = ", "), "and", x[n])
 }
 
+# The sentences that close the "Singular fit" block of a crossed-dimensions fit, or
+# NULL when the block's usual sentences apply. In that model the between-stratum
+# variance is the sum of the dimension terms and the interaction term (`cc_info`:
+# dim_groups, interaction_group), so a zero in some of them says something about the
+# additive / interaction split and leaves the rest of the between-stratum variance in
+# place: a zero interaction is strata estimated as additive, a zero dimension an
+# additive variance without that dimension. NULL for a fit that is not a
+# crossed-dimensions one, for a zero in none of these terms (a context) and for a zero
+# in all of them, which is a between-stratum variance of zero
+# (maihda_between_variance_singular()). Terms are named as the block's first line
+# names them, each sentence starts a line, and no line is longer than the block's
+# second one.
+maihda_crossed_singular_lines <- function(diagnostics, cc_info, width = 88) {
+  if (is.null(cc_info)) {
+    return(NULL)
+  }
+  terms <- diagnostics$singular_terms
+  dims <- unname(cc_info$dim_groups)
+  crossed <- c(dims, cc_info$interaction_group)
+  if (!any(crossed %in% terms) ||
+      maihda_between_variance_singular(diagnostics, crossed)) {
+    return(NULL)
+  }
+  model <- " of this crossed-dimensions model"
+  sentences <- character(0)
+  if (isTRUE(cc_info$interaction_group %in% terms)) {
+    sentences <- c(sentences, sprintf(
+      paste0("'%s' is the interaction term%s: the strata are estimated as additive ",
+             "(interaction share 0%%)."),
+      cc_info$interaction_group, model))
+    model <- ""
+  }
+  dims_zero <- terms[terms %in% dims]
+  if (length(dims_zero) > 0L) {
+    one <- length(dims_zero) == 1L
+    sentences <- c(sentences, sprintf(
+      paste0("%s %s%s: the additive variance has nothing from %s, so read the ",
+             "additive and interaction shares with caution."),
+      maihda_and_list(sprintf("'%s'", dims_zero)),
+      if (one) "is a stratum dimension" else "are stratum dimensions",
+      model, if (one) "it" else "them"))
+  }
+  sentences <- c(sentences, paste0("The between-stratum variance and the VPC come from ",
+                                   "the terms not at the boundary."))
+  paste0("  ", unlist(lapply(sentences, strwrap, width = width), use.names = FALSE))
+}
+
 # Format fit diagnostics as a character vector of report lines (empty when the fit
 # looks clean), shared by the maihda_model and maihda_summary print methods.
 #
@@ -879,9 +926,13 @@ maihda_and_list <- function(x) {
 #   inflation, random-effect non-normality, residual autocorrelation). Suppressed for
 #   the adjusted model of a two-model decomposition, where both fits sit on the same
 #   data and would report the same caveat twice.
+# cc_info: the crossed-dimensions tag of the fit (dim_groups, interaction_group); NULL
+#   for every other fit. With it, a zero in some of the dimension and interaction
+#   terms is reported as what it is in that model (maihda_crossed_singular_lines()).
 maihda_format_fit_diagnostics <- function(diagnostics,
                                           suppress_stratum_singular = FALSE,
-                                          include_adequacy = TRUE) {
+                                          include_adequacy = TRUE,
+                                          cc_info = NULL) {
   if (is.null(diagnostics)) {
     return(character(0))
   }
@@ -909,7 +960,12 @@ maihda_format_fit_diagnostics <- function(diagnostics,
       out <- c(out, sprintf("Singular fit: %s at (or near) the boundary", which_blocks),
                paste0("  (a variance estimated at ~0, or a perfect correlation between ",
                       "an intercept and a slope)."))
-      if (isTRUE(diagnostics$stratum_singular)) {
+      # A crossed-dimensions fit with a zero in some of its dimension and interaction
+      # terms has sentences of its own; the two below serve every other case.
+      crossed_lines <- maihda_crossed_singular_lines(diagnostics, cc_info)
+      if (!is.null(crossed_lines)) {
+        out <- c(out, crossed_lines)
+      } else if (isTRUE(diagnostics$stratum_singular)) {
         out <- c(out, paste0("  The between-stratum variance and any VPC/PCV derived ",
                              "from it may be unreliable."))
       } else if (isFALSE(diagnostics$stratum_singular)) {
@@ -1005,10 +1061,11 @@ maihda_format_adequacy <- function(adequacy) {
 # Print the fit-diagnostics block (nothing is printed for a clean fit).
 maihda_print_fit_diagnostics <- function(diagnostics, label = NULL,
                                         suppress_stratum_singular = FALSE,
-                                        include_adequacy = TRUE) {
+                                        include_adequacy = TRUE,
+                                        cc_info = NULL) {
   diag_lines <- maihda_format_fit_diagnostics(
     diagnostics, suppress_stratum_singular = suppress_stratum_singular,
-    include_adequacy = include_adequacy)
+    include_adequacy = include_adequacy, cc_info = cc_info)
   if (length(diag_lines) == 0) {
     return(invisible(NULL))
   }
