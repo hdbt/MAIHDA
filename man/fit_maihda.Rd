@@ -281,7 +281,12 @@ A maihda_model object containing:
   \item{model}{The fitted model object (lme4, brms, WeMix, or ordinal::clmm). An
     ordinal fit with a between-stratum variance of zero comes from
     \code{clmm()}'s general routine, \code{clmm.control(useMatrix = TRUE)}, the
-    one that can return it}
+    one that can return it. An ordinal model with fixed effects is fitted on its
+    design with the columns centred and scaled (scaled only under
+    \code{threshold = "symmetric2"}), since a covariate far from zero or on a large
+    or tiny scale can stall the optimiser, and is returned in the formula's own
+    terms with the gradient and Hessian of that fit, which give its standard
+    errors; a fit given a \code{start} is made as the formula stands}
   \item{engine}{The engine used ("lme4", "brms", "wemix", or "ordinal")}
   \item{sampling_weights}{The sampling-weight column name when supplied,
     NULL otherwise}

@@ -73,7 +73,10 @@
 # there.
 #
 # No block draws a random number. The live blocks assert what holds whichever of its
-# stops ucminf() takes on the platform.
+# stops ucminf() takes on the platform. The package fits a model with fixed effects on
+# rescaled columns unless the caller gives a start (test-audit-2026-10-14-ordinal-
+# covariate-scale.R), so the live blocks that need a search in a covariate's own units
+# give one.
 
 uc13_observe <- function(expr) {
   warns <- character(0)
@@ -797,28 +800,21 @@ test_that("a search that stops short of a maximum is not called converged", {
   expect_length(loose$diagnostics$messages, 0L)
   expect_lt(uc13_loglik(reference) - uc13_loglik(loose), 0.005)
 
-  # One model, the covariate standardised and in currency units: the same maximum.
+  # One model, the covariate standardised and in currency units: the same maximum. The
+  # fit in currency units is made on rescaled columns, where ucminf() reaches the
+  # maximum and the derivatives clmm() takes there say so. (A search made in currency
+  # units, from a start the caller gives, is in the blocks below.)
   scaled <- uc13_fit(d, yo ~ z + (1 | gender:ses))
   expect_true(scaled$diagnostics$converged)
   raw <- uc13_fit(d, yo ~ income + (1 | gender:ses), control = by_ucminf())
   returned <- raw$model$optRes
   expect_true(maihda_is_ucminf_return(returned))
-  # Its coefficient is too fine for clmm()'s derivatives: the fit cannot say.
-  expect_true(is.na(maihda_clmm_stationary_distance(raw$model)))
-  if (maihda_ucminf_made_no_step(returned)) {
-    # The starting values come back, with the starting SD of 1.
-    expect_equal(returned$convergence, 4)
-    expect_identical(unname(as.numeric(returned$par)),
-                     unname(as.numeric(raw$model$start)))
-    expect_equal(uc13_variance(raw), 1)
-    expect_lt(uc13_loglik(raw), uc13_loglik(scaled) - 0.5)
-    expect_false(raw$diagnostics$converged)
-    expect_false(raw$diagnostics$singular)
-    expect_identical(raw$diagnostics$messages, uc13_no_step)
-    printed <- uc13_printed(raw)
-    expect_true("  Convergence problems of the ordinal::clmm fit:" %in% printed)
-    expect_true(paste0("    - ", uc13_no_step) %in% printed)
-  }
+  expect_false(maihda_ucminf_made_no_step(returned))
+  expect_lt(maihda_clmm_stationary_distance(raw$model), 0.01)
+  expect_equal(uc13_loglik(raw), uc13_loglik(scaled), tolerance = 1e-8)
+  expect_equal(uc13_variance(raw), uc13_variance(scaled), tolerance = 1e-4)
+  expect_true(raw$diagnostics$converged)
+  expect_length(raw$diagnostics$messages, 0L)
   # Whatever ucminf() does with it: never converged beside a log-likelihood more than a
   # tenth of a standard error's worth below the maximum.
   for (m in list(raw, loose, uc13_fit(d, control = by_ucminf(xtol = 0.01)),
