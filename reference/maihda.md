@@ -148,26 +148,30 @@ maihda(
   three-level dimensions the additive share comes out high even where
   the dimensions have no additive effect.
   [`print()`](https://rdrr.io/r/base/print.html) names the dimensions of
-  a `brms` fit that have fewer than 10 levels. Prefer `"two-model"`
-  (with few strata see `estimation`) unless every dimension has about
-  ten or more levels, or pass a `prior` and report how the results
-  change with it. See Details. (`"cross-classified"` is accepted as a
-  deprecated alias for `"crossed-dimensions"`, with a warning: in the
-  MAIHDA literature “cross-classified” refers to the contextual
-  stratum-by-place model, which this package fits via `context`.)
-  `"longitudinal"` fits a 3-level **growth-curve** MAIHDA (requires `id`
-  and `time`; selected automatically when they are supplied): a null and
-  an adjusted growth model, where the adjusted model adds the
-  dimensions' main effects *and their interactions with time*
-  (`dim:time`). The between-stratum variance is then time-varying and
-  the PCV is reported separately for the baseline (intercept) and the
-  slope variance – the additive-vs-multiplicative split of the
-  intersectional trajectory inequality (Bell, Evans, Holman & Leckie
-  2024). As with the two-model PCV, the `estimation` argument sets the
-  variance-estimation basis: the default `"fitted"` keeps each REML
-  `lmer` growth fit's own variance, while `"ML"` refits them with
-  maximum likelihood before the null-vs-adjusted comparison, which
-  overstates the PCV when strata are few (see
+  a `brms` fit that have fewer than 10 levels. A `brms` fit also reports
+  the realised strata: the VPC, shares and variances of the effects of
+  the strata and dimension levels in the data, which depend little on
+  that prior when each stratum has enough data, whatever the number of
+  levels (see the section Realised strata). Otherwise prefer
+  `"two-model"` (with few strata see `estimation`) unless every
+  dimension has about ten or more levels. See Details.
+  (`"cross-classified"` is accepted as a deprecated alias for
+  `"crossed-dimensions"`, with a warning: in the MAIHDA literature
+  “cross-classified” refers to the contextual stratum-by-place model,
+  which this package fits via `context`.) `"longitudinal"` fits a
+  3-level **growth-curve** MAIHDA (requires `id` and `time`; selected
+  automatically when they are supplied): a null and an adjusted growth
+  model, where the adjusted model adds the dimensions' main effects *and
+  their interactions with time* (`dim:time`). The between-stratum
+  variance is then time-varying and the PCV is reported separately for
+  the baseline (intercept) and the slope variance – the
+  additive-vs-multiplicative split of the intersectional trajectory
+  inequality (Bell, Evans, Holman & Leckie 2024). As with the two-model
+  PCV, the `estimation` argument sets the variance-estimation basis: the
+  default `"fitted"` keeps each REML `lmer` growth fit's own variance,
+  while `"ML"` refits them with maximum likelihood before the
+  null-vs-adjusted comparison, which overstates the PCV when strata are
+  few (see
   [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)).
   The reported time-varying VPC always keeps each fit's own (REML)
   estimate. See
@@ -352,8 +356,9 @@ An object of class `maihda_analysis`: a list with
 
   the additive/interaction partition (additive and interaction variances
   and shares, per-dimension variances and, for a `brms` fit, each
-  dimension's number of levels in `dim_levels`; `"crossed-dimensions"`
-  mode only, `NULL` otherwise)
+  dimension's number of levels in `dim_levels` and the realised strata
+  in `realised`, described in the section Realised strata;
+  `"crossed-dimensions"` mode only, `NULL` otherwise)
 
 - groups:
 
@@ -452,6 +457,75 @@ factor are equivalent): wrap category codes in
 a genuinely continuous variable, use it as a covariate rather than a
 stratum dimension.
 
+## Realised strata
+
+For a `brms` crossed-dimensions fit, `decomposition$realised` and the
+"Realised strata" block of
+[`print()`](https://rdrr.io/r/base/print.html) summarise, over the
+posterior draws, the effects of the \\J\\ strata in the data. In each
+draw stratum \\j\\ has the effect \\\zeta_j\\, the sum of its
+dimensions' level effects and its own (interaction) effect. These are
+finite-population summaries (Gelman 2005): they describe the strata and
+levels in the data, where the variance components describe the
+distributions those were drawn from. A dimension with two levels says a
+lot about the former and little about the latter, so the realised values
+depend little on the prior on the standard deviations when each stratum
+has enough data to pin down its own effect. With few observations per
+stratum each draw also carries the uncertainty about every stratum's
+effect: the realised variances then come out too high and move with the
+prior. Compare the intervals of the stratum estimates with the spread
+between the strata. Per draw:
+
+- `between_var`:
+
+  \\\sum_j (\zeta_j - \bar\zeta)^2 / (J - 1)\\, half the mean squared
+  difference between two distinct strata.
+
+- `vpc`:
+
+  `between_var` over itself plus the within-stratum variance:
+  \\\pi^2/3\\ for a logit link, 1 for a probit link, \\\pi^2/6\\ for a
+  cloglog link, the residual variance of a Gaussian fit. Not given for a
+  Poisson or negative-binomial fit, whose within-stratum variance is
+  computed from the variance components, or for a fit with a `context`.
+
+- `interaction_var`:
+
+  the residual sum of squares of the least-squares fit of the
+  \\\zeta_j\\ on an intercept and the dimensions' levels, divided by its
+  residual degrees of freedom, `df_interaction`. Strata missing from the
+  grid of dimension levels are allowed.
+
+- `additive_share`:
+
+  1 minus `interaction_var / between_var`, and `interaction_share` the
+  rest: a mean-square split, like a PCV computed from REML variances. It
+  is near zero when the dimensions explain none of the differences
+  between the strata, and can then fall below zero.
+
+- `per_dim`:
+
+  the variance of each dimension's level effects, with its number of
+  levels minus one as divisor.
+
+- `mor`:
+
+  for a logit link, the median odds ratio between two distinct strata of
+  the data: the exponential of the median of \\\|\zeta_j -
+  \zeta\_{j'}\|\\ over the pairs. With many strata it is computed from
+  an evenly spaced subset of at least 1000 draws.
+
+Each is the posterior median, with the equal-tailed credible interval at
+`conf_level` in the matching `*_ci` element. Every stratum counts once,
+whatever its size. `n_strata` is \\J\\. An `lme4` crossed-dimensions fit
+reports its variance components only.
+
+## References
+
+Gelman, A. (2005). Analysis of variance – why it is more important than
+ever. *The Annals of Statistics*, 33(1), 1-53.
+[doi:10.1214/009053604000001048](https://doi.org/10.1214/009053604000001048)
+
 ## See also
 
 [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
@@ -508,10 +582,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x561898aedff8>
+#> <environment: 0x5650b83d4978>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x56189c546fc8>
+#> <environment: 0x5650b2151208>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -567,7 +641,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x5618982bd9c0>
+#> <environment: 0x5650bf777700>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

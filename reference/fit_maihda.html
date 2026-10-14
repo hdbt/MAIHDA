@@ -372,7 +372,12 @@ which the offset does not).</p></dd>
 <dd><p>The fitted model object (lme4, brms, WeMix, or ordinal::clmm). An
     ordinal fit with a between-stratum variance of zero comes from
     <code>clmm()</code>'s general routine, <code>clmm.control(useMatrix = TRUE)</code>, the
-    one that can return it</p></dd>
+    one that can return it. An ordinal model with fixed effects is fitted on its
+    design with the columns centred and scaled (scaled only under
+    <code>threshold = "symmetric2"</code>), since a covariate far from zero or on a large
+    or tiny scale can stall the optimiser, and is returned in the formula's own
+    terms with the gradient and Hessian of that fit, which give its standard
+    errors; a fit given a <code>start</code> is made as the formula stands</p></dd>
 
   <dt>engine</dt>
 <dd><p>The engine used ("lme4", "brms", "wemix", or "ordinal")</p></dd>

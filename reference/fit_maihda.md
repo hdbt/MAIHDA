@@ -350,7 +350,13 @@ A maihda_model object containing:
   The fitted model object (lme4, brms, WeMix, or ordinal::clmm). An
   ordinal fit with a between-stratum variance of zero comes from
   `clmm()`'s general routine, `clmm.control(useMatrix = TRUE)`, the one
-  that can return it
+  that can return it. An ordinal model with fixed effects is fitted on
+  its design with the columns centred and scaled (scaled only under
+  `threshold = "symmetric2"`), since a covariate far from zero or on a
+  large or tiny scale can stall the optimiser, and is returned in the
+  formula's own terms with the gradient and Hessian of that fit, which
+  give its standard errors; a fit given a `start` is made as the formula
+  stands
 
 - engine:
 

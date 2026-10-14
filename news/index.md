@@ -161,6 +161,13 @@
   binomial and Poisson lme4 fits; their maximum-likelihood PCV runs high
   with few or small strata.
 
+- A `brms` crossed-dimensions fit now reports its realised strata
+  (Gelman 2005) in `decomposition$realised` and a second
+  [`print()`](https://rdrr.io/r/base/print.html) block: the VPC, shares,
+  variances and median odds ratio of the effects of the strata and
+  levels in the data, which depend little on the prior when each stratum
+  has enough data. The few-levels note points to the block.
+
 ### API changes
 
 - [`print()`](https://rdrr.io/r/base/print.html) on a PCV built from
@@ -473,6 +480,21 @@
   that spans the strata, no longer return `clmm()`’s starting variance
   of 1, and the boundary fit returned has a variance of zero, is flagged
   singular and has threshold standard errors.
+
+- `fit_maihda(engine = "ordinal")` now fits a model with fixed effects
+  on its design with the columns centred and scaled and returns the
+  `clmm` fit of the formula at that maximum: a covariate far from zero
+  or on a large or tiny scale (a birth year, currency units, a squared
+  age) could leave
+  [`ordinal::clmm()`](https://rdrr.io/pkg/ordinal/man/clmm.html) at its
+  starting values or short of the maximum. A fit given a `start` is made
+  as the formula stands.
+
+- Standard errors of `engine = "ordinal"` fits now come from the Hessian
+  of that rescaled fit, carried over exactly; `clmm()`’s own, taken by
+  differences with a fixed step, were wrong for a covariate far from
+  zero or on a large scale (for a birth year between 0.01 and 1.8 times
+  the right value on simulated data).
 
 ### Documentation
 

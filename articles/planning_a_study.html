@@ -343,10 +343,12 @@ variances instead, which corrects this when strata are few but not small
 for adequately-sized cells.</li>
 <li>
 <strong><code>brms</code></strong> – Bayesian; posterior intervals
-for the VPC and the variance shares, which sparse cells call for.
-Few-level dimensions are not a reason to choose it: a crossed-dimensions
-fit then depends on the prior on the random-effect standard deviations
-(see <code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>). Its
+for the VPC and the variance shares, which sparse cells call for. With
+few-level dimensions the variance components of a crossed-dimensions fit
+depend on the prior on the random-effect standard deviations, and its
+realised-strata block depends little on it when each stratum has enough
+data (see
+<code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>). Its
 two-model PCV has no interval and is understated when strata are
 few.</li>
 </ul>

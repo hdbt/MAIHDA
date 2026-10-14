@@ -56,3 +56,16 @@ compared with the boundary fit: `clmm()`'s general routine
 thresholds and coefficients and an SD of zero. The boundary fit is the
 one returned unless its log-likelihood is below the first fit's by more
 than 1e-9 of its size.
+
+The model is fitted on its fixed-effects design with every column
+centred and scaled, the boundary fit included, and returned as the
+`clmm()` fit of the formula at that maximum. A covariate far from zero
+or on a large or tiny scale can leave `clmm()`'s optimiser at its
+starting values or short of the maximum, and `clmm()` takes the gradient
+and Hessian by differences with a fixed step, too coarse for the
+coefficient of such a covariate. The returned fit carries the gradient
+and Hessian of the rescaled fit, mapped exactly, so its standard errors
+are those of that fit. Under `threshold = "symmetric2"` the thresholds
+cannot take up a shift, and the columns are scaled only. A fit given a
+`start` is made as the formula stands, since the start is in the
+formula's own terms.

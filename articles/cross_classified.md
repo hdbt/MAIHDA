@@ -127,7 +127,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x5639b9045f68>
+#> <environment: 0x5615109e72d0>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -270,7 +270,17 @@ Set `engine = "brms"` for a Bayesian crossed-dimensions fit; the
 additive and interaction shares then carry posterior credible intervals
 (no bootstrap needed). When dimensions have few levels, those shares and
 the VPC depend on the prior on the random-effect standard deviations
-(see the caveats below).
+(see the caveats below). A `brms` fit therefore also reports the
+*realised strata*: the VPC, the additive and interaction shares, the
+variances and, with a logit link, the median odds ratio of the effects
+of the strata and dimension levels in the data (finite-population
+summaries, Gelman 2005), which depend little on that prior when each
+stratum has enough data; with few observations per stratum they come out
+too high and move with the prior too.
+[`print()`](https://rdrr.io/r/base/print.html) shows them in a second
+block and `decomposition$realised` holds them;
+[`?maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) defines
+each one.
 
 ``` r
 
@@ -281,6 +291,7 @@ cc_b <- maihda(
   decomposition = "crossed-dimensions"
 )
 cc_b$decomposition$additive_share_ci
+cc_b$decomposition$realised$additive_share_ci
 ```
 
 ### Two important caveats
@@ -307,11 +318,14 @@ cc_b$decomposition$additive_share_ci
     share are overstated, most with two- to four-level dimensions, and
     with two- or three-level dimensions the additive share comes out
     high even where the dimensions have no additive effect. The output
-    of a `brms` fit names the dimensions with fewer than 10 levels. With
-    such dimensions prefer the two-model decomposition (for few strata
-    see `estimation` in
+    of a `brms` fit names the dimensions with fewer than 10 levels, and
+    its realised-strata block, which depends little on the prior when
+    each stratum has enough data, is the part of it to report with such
+    dimensions. Otherwise prefer the two-model decomposition (for few
+    strata see `estimation` in
     [`?calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)),
-    or pass a `prior` and report how the results change with it
+    or pass a `prior` and report how the variance components change with
+    it
     ([`vignette("bayesian_sparse_maihda", package = "MAIHDA")`](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md)
     shows a fit with one).
 
