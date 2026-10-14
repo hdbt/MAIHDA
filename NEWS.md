@@ -85,6 +85,8 @@
 
 * `fit_maihda(engine = "wemix")` on a binomial model now says what happened when `WeMix::mix()` stops because more than half of the stratum effects are exactly zero at a likelihood evaluation, instead of passing on its `non-conformable matrix dimensions` error.
 
+* A `fit_maihda(engine = "ordinal")` fit made with ordinal's `ucminf` optimiser is no longer always recorded as not converged: `ucminf()`'s return is read by its own codes, and where it says only that the search could go no further, the fit counts as converged when the gradient and Hessian `clmm()` stores with it put it within a tenth of a standard error of a stationary point.
+
 * `compare_maihda_groups()` now gives a failure reason shared by several groups once, in one warning for failed fits and one for failed PCV decompositions, names a one-level stratum dimension as the cause only for the groups where it is, and keeps the first line of an error message in `status`.
 
 * The fit-quality warning of `compare_maihda_groups()` no longer says that lme4 reported the problem on the `wemix`, `ordinal` and `brms` engines or that a singular fit always has a between-stratum variance of zero, explains only what it lists, and lists a `brms` group under a largest R-hat above 1.01 or divergent transitions.

@@ -19,7 +19,8 @@
 # maihda_clmm_cutpoints()), $beta (named location
 # coefficients, NO intercept -- it is absorbed by the thresholds), $model (the
 # model frame), $link, $xlevels, $terms (fixed-effects-only terms), and
-# $optRes$convergence (0 = converged). ordinal exports VarCorr(), ranef() and
+# $optRes (the return of the optimiser that made the fit, nlminb() or ucminf(),
+# read by maihda_clmm_converged()). ordinal exports VarCorr(), ranef() and
 # condVar() for clmm (condVar returns conditional VARIANCES); nobs() and vcov()
 # (which includes the threshold rows) dispatch off the loaded namespace;
 # stats::family() is undefined for clmm, so the family the wrapper records at
@@ -575,25 +576,162 @@ maihda_clmm_at_boundary <- function(model) {
   is.finite(sd_stratum) && sd_stratum^2 < 1e-8
 }
 
-# clmm()'s optimiser verdict for a fit: TRUE for return code 0, FALSE for any other,
-# NA when there is no code to read. Two other cases are not failures. nlminb() can
-# report "singular convergence" (PORT code 7) with the between-stratum variance at
-# zero; that is the boundary fit, which the `singular` flag reports. And a boundary
-# fit that maihda_clmm_general_refit() kept on the strength of the first fit's own
-# convergence carries that verdict with it as a mark.
+# clmm()'s optimiser verdict for a fit: TRUE, FALSE, or NA where it is not known --
+# there is no return code to read, or ucminf() could go no further and the fit cannot
+# say where that left it. The return is read by the rules of the optimiser that made
+# it: ucminf()'s by maihda_ucminf_converged(), any other as nlminb()'s, where 0 is
+# convergence. nlminb() can also report "singular convergence" (PORT code 7) with the
+# between-stratum variance at zero; that is the boundary fit, which the `singular` flag
+# reports. And a boundary fit that maihda_clmm_general_refit() kept on the strength of
+# the first fit's own convergence carries that verdict with it as a mark.
 maihda_clmm_converged <- function(model) {
   if (isTRUE(attr(model, "maihda_converged"))) {
     return(TRUE)
   }
-  code <- tryCatch(model$optRes$convergence, error = function(e) NULL)
+  returned <- tryCatch(model$optRes, error = function(e) NULL)
+  code <- tryCatch(returned$convergence, error = function(e) NULL)
   if (!is.numeric(code) || length(code) != 1L || is.na(code)) {
     return(NA)
+  }
+  if (maihda_is_ucminf_return(returned)) {
+    return(maihda_ucminf_converged(returned, model))
   }
   if (code == 0) {
     return(TRUE)
   }
   maihda_clmm_at_boundary(model) &&
-    identical(maihda_nlminb_port_code(model$optRes$message), 7L)
+    identical(maihda_nlminb_port_code(returned$message), 7L)
+}
+
+# TRUE when `returned`, the optimiser's return a clmm fit keeps as $optRes, is
+# ucminf()'s: it has the class "ucminf", which older versions of ucminf do not set, or
+# the largest gradient and the count of evaluations that ucminf() reports in $info.
+# The fit's control settings do not say which optimiser ran: clmm()'s general routine
+# runs nlminb() when it is asked for ucminf().
+maihda_is_ucminf_return <- function(returned) {
+  inherits(returned, "ucminf") ||
+    (is.list(returned) &&
+       all(c("maxgradient", "neval") %in% names(returned[["info"]])))
+}
+
+# A clmm fit counts as at a stationary point of its likelihood when it is less than
+# this many standard errors from one (maihda_clmm_stationary_distance()).
+.maihda_clmm_stationary_within <- 0.1
+
+# ucminf()'s verdict for the fit `model` it returned as `returned`. It stops for one of
+# four reasons: its gradient tolerance is met (code 1), a step is shorter than its step
+# tolerance (2), its evaluations are used up (3), or its line search finds no lower
+# point (4). 1 is convergence; 3 is not, and nor are the negative codes of a search
+# that did not start. 2 and 4 say only that the search could go no further. That is
+# where it ends at a maximum, once the gradient tolerance asks for more than the
+# finite-difference gradient of the likelihood can show, and also where it ends short
+# of one: with the starting values when its first line search fails, or some steps on
+# when the likelihood is rough. So for 2 and 4 the fit itself is asked, and it is
+# converged when it lies within .maihda_clmm_stationary_within standard errors of a
+# stationary point. Where the fit cannot say, a search that made no step is not
+# converged -- it returned its starting values -- and any other is unknown, NA.
+maihda_ucminf_converged <- function(returned, model) {
+  code <- returned$convergence
+  if (code == 1) {
+    return(TRUE)
+  }
+  if (!code %in% c(2, 4)) {
+    return(FALSE)
+  }
+  distance <- maihda_clmm_stationary_distance(model)
+  if (!is.na(distance)) {
+    return(distance < .maihda_clmm_stationary_within)
+  }
+  if (maihda_ucminf_made_no_step(returned)) FALSE else NA
+}
+
+# TRUE when ucminf() made no step and so returned its starting values: its count of
+# evaluations stands at the 1 made there and grows with every step.
+maihda_ucminf_made_no_step <- function(returned) {
+  count <- tryCatch(as.numeric(returned[["info"]][["neval"]]),
+                    error = function(e) NA_real_)
+  length(count) == 1L && is.finite(count) && count <= 1
+}
+
+# The step of the central differences by which clmm() takes the gradient and the
+# Hessian it stores with a fit, the same in every parameter (the default of ordinal's
+# deriv12()).
+.maihda_clmm_derivative_step <- 1e-4
+
+# How coarse that step is for each parameter of a fit with the Hessian `hessian`, whose
+# inverse is `inverse`:
+#   step^2 * H_jj^1.5 * sqrt((H^-1)_jj),
+# the squared step in the parameter's conditional standard errors times the ratio of
+# its marginal standard error to its conditional one. A central difference along a
+# parameter errs by a sixth of the squared step times the third derivative there, and
+# a few thousandths of this is what that error adds to the distance of
+# maihda_clmm_stationary_distance(). For a parameter tied to no other it is the squared
+# ratio of the step to its standard error; a covariate far from zero ties its
+# coefficient to the thresholds, and a step along the coefficient then moves every
+# observation's predictor by the step times the covariate.
+maihda_clmm_step_coarseness <- function(hessian, inverse) {
+  .maihda_clmm_derivative_step^2 * diag(hessian)^1.5 * sqrt(diag(inverse))
+}
+
+# How far a clmm fit is from a stationary point of its likelihood, in standard errors:
+# sqrt(g' H^-1 g) for the gradient g and the Hessian H of the negative log-likelihood
+# that clmm() stores with the fit. It is the length of the Newton step in the metric of
+# H, and half its square is the log-likelihood the fit is short of that point by. NA
+# when the fit cannot say: it holds no gradient and Hessian that go together, the
+# Hessian is not positive definite, or the step by which clmm() took them is too
+# coarse for a parameter (maihda_clmm_step_coarseness() above 1): a coefficient with a
+# standard error below the step, as with a covariate in the thousands, or one tied to
+# the thresholds by a covariate far from zero, as with a calendar year. What such a
+# gradient and Hessian give is the error of the differences, not the fit's distance:
+# they have put fits at their maximum up to 5 standard errors from it.
+maihda_clmm_stationary_distance <- function(model) {
+  gradient <- tryCatch(as.numeric(model$gradient), error = function(e) NULL)
+  hessian <- tryCatch(model$Hessian, error = function(e) NULL)
+  if (!is.numeric(gradient) || length(gradient) == 0L || !is.matrix(hessian) ||
+      !is.numeric(hessian) || !identical(dim(hessian), rep(length(gradient), 2L)) ||
+      !all(is.finite(gradient)) || !all(is.finite(hessian))) {
+    return(NA_real_)
+  }
+  curvature <- tryCatch(eigen(hessian, symmetric = TRUE, only.values = TRUE)$values,
+                        error = function(e) NA_real_)
+  if (!all(is.finite(curvature)) || min(curvature) <= 0) {
+    return(NA_real_)
+  }
+  inverse <- tryCatch(solve(hessian), error = function(e) NULL)
+  if (is.null(inverse) || !all(is.finite(inverse)) || min(diag(inverse)) <= 0) {
+    return(NA_real_)
+  }
+  if (max(maihda_clmm_step_coarseness(hessian, inverse)) > 1) {
+    return(NA_real_)
+  }
+  squared <- sum(gradient * drop(inverse %*% gradient))
+  if (is.finite(squared) && squared >= 0) sqrt(squared) else NA_real_
+}
+
+# What the fit record says of a fit its optimiser did not vouch for: the optimiser's
+# own message. Of a ucminf() search that could go no further it says where that left
+# the fit: at the starting values when no step was made, else how far from a
+# stationary point.
+maihda_clmm_optimiser_message <- function(model) {
+  returned <- tryCatch(model$optRes, error = function(e) NULL)
+  said <- tryCatch(as.character(returned$message), error = function(e) character(0))
+  said <- said[nzchar(said)]
+  if (!maihda_is_ucminf_return(returned) ||
+      !isTRUE(returned$convergence %in% c(2, 4))) {
+    return(said)
+  }
+  own <- if (length(said) > 0L) paste0(" (", sub("[.]$", "", said[1]), ")")
+  if (maihda_ucminf_made_no_step(returned)) {
+    return(paste0("ucminf() made no step from the starting values", own,
+                  ": the estimates returned are those values."))
+  }
+  distance <- maihda_clmm_stationary_distance(model)
+  if (isTRUE(distance >= .maihda_clmm_stationary_within)) {
+    return(paste0("ucminf() stopped ", format(signif(distance, 2)),
+                  " standard errors from a stationary point by the fit's own gradient ",
+                  "and Hessian", own, "."))
+  }
+  said
 }
 
 # The PORT return code nlminb() closes its message with, as in
