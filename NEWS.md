@@ -22,6 +22,7 @@
 * `summary(bootstrap = TRUE)` on a longitudinal lme4 fit now returns intervals for the two trajectory VPCs, as `$longitudinal$vpc_intercept_ci` and `$vpc_slope_ci`, reusing the refits the VPC(t) band already pays for. `print()` shows them and `trajectory_vpc_method` records the basis.
 * `calculate_pcv()` and `maihda()` gained `estimation = "REML"`, which compares REML-type variances for binomial and Poisson lme4 fits; their maximum-likelihood PCV runs high with few or small strata.
 * A `brms` crossed-dimensions fit now reports its realised strata (Gelman 2005) in `decomposition$realised` and a second `print()` block: the VPC, shares, variances and median odds ratio of the effects of the strata and levels in the data, which depend little on the prior when each stratum has enough data. The few-levels note points to the block.
+* A `brms` fit with a `context` now reports its realised partition (Gelman 2005) in `summary()$context$realised` and a second `print()` block: the variances, VPC and context shares of the effects of the strata and context levels in the data, which depend little on the prior when each context and stratum has enough data (variances only for Poisson and negative-binomial fits). A two-model analysis prints the realised VPC and context share, a crossed-dimensions fit's realised-strata block its VPC, and the few-levels note points to them.
 
 ## API changes
 

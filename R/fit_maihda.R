@@ -90,7 +90,10 @@
 #'   comes out high when the context effects are smaller than that prior's scale,
 #'   most with two or three levels), and the context share and the VPC depend on
 #'   it. Prefer contexts with many levels; with few, report the context
-#'   share with its interval, or enter the context as a fixed effect instead
+#'   share with its interval (a \code{brms} summary also gives the realised partition,
+#'   which depends little on that prior when each context and stratum has enough data;
+#'   see the section Realised strata and contexts of \code{\link{maihda}}), or enter
+#'   the context as a fixed effect instead
 #'   (\code{outcome ~ context + (1 | ...)}, without \code{context =}) when only
 #'   the strata net of it are wanted.
 #'   Writing the random effect directly in the formula (\code{... + (1 | school)})

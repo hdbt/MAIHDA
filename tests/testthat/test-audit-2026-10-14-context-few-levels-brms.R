@@ -369,7 +369,8 @@ test_that("real brms fits: the level counts, the printed note and a forwarded pr
   expect_identical(s$context$context_levels, c(ctx = 2L))
   expect_identical(unname(s$context$context_levels),
                    as.integer(brms::ngrps(m$model)[["ctx"]]))
-  note <- maihda_context_few_levels_note(c(ctx = 2L))
+  # A real fit also prints the realised partition, which the note points to.
+  note <- maihda_context_few_levels_note(c(ctx = 2L), pointer = "block")
   out <- cfc_print(suppressWarnings(print(s)))
   i <- which(out == cfc_old_note[3])
   expect_length(i, 1L)

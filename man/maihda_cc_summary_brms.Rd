@@ -28,6 +28,9 @@ supplies the interval). A contextual random intercept
 (\code{object$context_info} set) enters the per-draw VPC denominator and is
 reported as its own component row and \code{context} element. Each variance
 component is the posterior median of its draws, and the additive, between-strata
-and context totals are sums of those components.
+and context totals are sums of those components. When the draws hold the level
+effects, \code{decomposition$realised} carries the realised strata and
+\code{context$realised} the realised partition (see the sections Realised strata
+and Realised strata and contexts of \code{\link{maihda}}).
 }
 \keyword{internal}

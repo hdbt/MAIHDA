@@ -86,7 +86,10 @@ A maihda_summary object containing:
     brms), and the between-stratum share (\code{vpc_stratum}); for brms also
     each context's number of levels in the fitted data (\code{context_levels}),
     and \code{print()} names a context with fewer than 10, whose variance
-    depends on the prior on its standard deviation; \code{NULL} otherwise}
+    depends on the prior on its standard deviation, and the realised partition
+    in \code{realised}: the same quantities for the effects of the strata and
+    context levels in the data (see the section Realised strata and contexts of
+    \code{\link{maihda}}); \code{NULL} otherwise}
   \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
     \code{maihda_da} object (AUC + MOR) from
     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise. A

@@ -100,7 +100,10 @@
 #'   share and the VPC depend on it. \code{print()} of the analysis and of its
 #'   \code{summary()} names the contexts of a \code{brms} fit that have fewer than
 #'   10 levels, and the contextual partition of a \code{brms} summary holds the
-#'   level counts as \code{context_levels}.
+#'   level counts as \code{context_levels}. A \code{brms} fit also reports the
+#'   realised partition: the variances and shares of the effects of the strata and
+#'   context levels in the data, which depend little on that prior when each context
+#'   and stratum has enough data (see the section Realised strata and contexts).
 #'   Prefer contexts with many levels (see \code{context} in
 #'   \code{\link{fit_maihda}} for what to do with few).
 #' @param engine Modeling engine, "lme4" (default), "brms", "wemix" (the
@@ -269,7 +272,9 @@
 #'     \eqn{\pi^2/6}{pi^2/6} for a cloglog link, the residual variance of a Gaussian
 #'     fit. Not given for a Poisson or
 #'     negative-binomial fit, whose within-stratum variance is computed from the
-#'     variance components, or for a fit with a \code{context}.}
+#'     variance components. With a \code{context}, the realised variance of the
+#'     context effects is added to the denominator (see the section Realised strata
+#'     and contexts).}
 #'   \item{\code{interaction_var}}{the residual sum of squares of the least-squares
 #'     fit of the \eqn{\zeta_j}{zeta_j} on an intercept and the dimensions' levels,
 #'     divided by its residual degrees of freedom, \code{df_interaction}. Strata
@@ -289,6 +294,45 @@
 #' \code{conf_level} in the matching \code{*_ci} element. Every stratum counts once,
 #' whatever its size. \code{n_strata} is \eqn{J}{J}. An \code{lme4}
 #' crossed-dimensions fit reports its variance components only.
+#'
+#' @section Realised strata and contexts:
+#' For a \code{brms} fit with a \code{context}, \code{summary()$context$realised} and
+#' the "Realised strata and contexts" block of \code{print()} give the realised
+#' partition: over the posterior draws, the finite-population variances (Gelman 2005)
+#' of the effects of the strata and of each context's levels in the data. A context's
+#' variance component describes the distribution its levels were drawn from, and with
+#' few levels it follows the prior on its standard deviation; the variance of the
+#' effects of the levels in the data describes those levels, which the data pin down
+#' when each level has enough observations. With two contexts it is half the squared
+#' difference between their effects. Per draw, for a grouping factor with \eqn{C}{C}
+#' levels in the data and effects \eqn{u_k}{u_k}:
+#' \describe{
+#'   \item{\code{var_stratum}}{the realised variance of the strata: of the stratum
+#'     intercepts, or of the \eqn{\zeta_j}{zeta_j} of a crossed-dimensions fit (its
+#'     \code{between_var}).}
+#'   \item{\code{per_context}}{each context's
+#'     \eqn{\sum_k (u_k - \bar u)^2 / (C - 1)}{sum_k (u_k - mean(u))^2 / (C - 1)}, and
+#'     \code{context_var_total} their sum.}
+#'   \item{\code{other_var}}{the same, summed over any other random effect in the
+#'     formula; given only when there is one.}
+#'   \item{\code{vpc_stratum}}{\code{var_stratum} over the sum of the realised
+#'     variances and the within-stratum variance (see \code{vpc} in Realised strata),
+#'     and \code{vpc_context} and \code{vpc_context_total} each context's and all
+#'     contexts' share of that sum. Given for a Gaussian identity fit and for a
+#'     binomial, Bernoulli or cumulative fit on its latent scale, not for a Poisson or
+#'     negative-binomial fit. For a crossed-dimensions fit \code{vpc_stratum} is
+#'     \code{decomposition$realised$vpc}.}
+#' }
+#' Each is the posterior median, with the equal-tailed credible interval at
+#' \code{conf_level} in the matching \code{*_ci} element; for \code{per_context} and
+#' \code{vpc_context} a matrix with a row per context. Every level counts once,
+#' whatever its size. \code{n_strata} is the number of strata, and the partition's
+#' \code{context_levels} the number of each context's levels. \code{print()} of a
+#' two-model analysis shows the realised VPC and context share of the null model.
+#' These values depend little on the prior on the standard deviations when each
+#' context and stratum has enough data. With few observations per context each draw
+#' also carries the uncertainty about every context's effect, and they then move with
+#' the prior. An \code{lme4} fit reports its variance components only.
 #'
 #' @return An object of class \code{maihda_analysis}: a list with
 #'   \item{model}{the fitted \code{maihda_model} (see \code{\link{fit_maihda}}); the
@@ -1120,9 +1164,21 @@ print.maihda_analysis <- function(x, ...) {
     ctx <- x$summary$context
     cat(sprintf("Context share (null): %.4f (between-%s share of unexplained variance)\n",
                 ctx$vpc_context_total, paste(ctx$context_vars, collapse = "/")))
-    few_note <- maihda_context_few_levels_note(maihda_context_few_levels(ctx))
+    # A brms fit's realised VPC and context share (see the section Realised strata and
+    # contexts), below the note that names its contexts with few levels.
+    real <- ctx$realised
+    real_lines <- !is.null(real$vpc_stratum)
+    few_note <- maihda_context_few_levels_note(maihda_context_few_levels(ctx),
+                                               pointer = if (real_lines) "lines" else "none")
     if (length(few_note) > 0) {
       cat(pal$muted(paste0(paste(few_note, collapse = "\n"), "\n")))
+    }
+    if (real_lines) {
+      cat(sprintf("Realised VPC (null):           %.4f [%.4f, %.4f]\n", real$vpc_stratum,
+                  real$vpc_stratum_ci[1], real$vpc_stratum_ci[2]))
+      cat(sprintf("Realised context share (null): %.4f [%.4f, %.4f]\n",
+                  real$vpc_context_total, real$vpc_context_total_ci[1],
+                  real$vpc_context_total_ci[2]))
     }
   }
 

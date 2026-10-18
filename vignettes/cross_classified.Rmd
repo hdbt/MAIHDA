@@ -291,8 +291,12 @@ Because they answer different questions, `maihda()` errors if you supply both.
   prior, comes out high when the context effects are smaller than that prior's scale
   (most with two or three contexts), and the context share and the VPC depend on it.
   `print()` of a `brms` analysis and of its `summary()` names the contexts with fewer
-  than 10 levels. Prefer many-level contexts; with few, report the context share with its
-  interval, or enter the context as a fixed effect instead
+  than 10 levels. A `brms` fit also reports the realised partition, the variances and
+  shares of the effects of the strata and context levels in the data
+  (`summary()$context$realised`, defined in `?maihda`), which depend little on that
+  prior when each context and stratum has enough data. Prefer many-level contexts; with
+  few, report the context share with its interval, or enter the context as a fixed effect
+  instead
   (`math ~ country + (1 | gender:ses)`, without `context =`) when only the strata net
   of it are wanted.
 - A manually written `+ (1 | school)` in the formula fits the same model, but is
