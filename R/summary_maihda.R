@@ -572,6 +572,11 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
       )
       fe_method <- NULL
     }
+    # A growth fit on internally scaled time reports its time coefficients per unit of
+    # the user's time (maihda_lng_unscale_fixed(); a no-op for an unscaled fit).
+    if (!is.null(lng)) {
+      fixed_effects <- maihda_lng_unscale_fixed(fixed_effects, object)
+    }
 
     # Stratum (intersection) random-effect estimates -- the interaction residuals in
     # the cross-classified model (the named interaction group), or the single stratum

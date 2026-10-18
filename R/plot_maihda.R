@@ -2126,12 +2126,17 @@ plot_pcv_trajectory <- function(pcv) {
 # Per-stratum random-effect coefficient vector (intercept, slope, ...) for the
 # stratum grouping of a longitudinal fit, as a data frame with a list-column
 # `coef`. Used by plot_stratum_trajectories(). Engine-aware (lme4 ranef /
-# brms ranef posterior means).
+# brms ranef posterior means). The coefficients are in centered user units: an lme4
+# fit's coefficient of internal time to the power d is divided by its time scale^d.
 maihda_longitudinal_stratum_re <- function(object) {
   lng <- object$longitudinal_info
   if (identical(object$engine, "lme4")) {
     re <- lme4::ranef(object$model)[["stratum"]]
-    coefs <- lapply(seq_len(nrow(re)), function(i) as.numeric(re[i, ]))
+    scale <- maihda_lng_time_scale(lng)
+    coefs <- lapply(seq_len(nrow(re)), function(i) {
+      co <- as.numeric(re[i, ])
+      if (scale == 1) co else co / scale^(seq_along(co) - 1L)
+    })
     ids <- rownames(re)
   } else if (identical(object$engine, "brms")) {
     arr <- brms::ranef(object$model)[["stratum"]]
@@ -2208,10 +2213,10 @@ maihda_longitudinal_fixed_trajectory <- function(object, grid, strata = NULL) {
     }
   }
   nd[[lng$time]] <- rep(grid, times = length(seed))
-  # A centered fit's formula references the derived centered column, not the
+  # A centered or scaled fit's formula references the derived internal column, not the
   # original time; keep it aligned with the (original-scale) grid.
   if (!identical(time_term, lng$time)) {
-    nd[[time_term]] <- nd[[lng$time]] - maihda_lng_time_center(lng)
+    nd[[time_term]] <- maihda_lng_internal_time(lng, nd[[lng$time]])
   }
 
   eta <- if (identical(object$engine, "lme4")) {

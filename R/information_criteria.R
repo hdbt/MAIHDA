@@ -360,6 +360,20 @@ maihda_ic_one <- function(model, ml = FALSE) {
       row$AIC <- as.numeric(stats::AIC(ll))
       row$BIC <- as.numeric(stats::BIC(ll))
     }
+    # A REML log-likelihood depends on how the fixed-effect columns are scaled: a growth
+    # fit on internally scaled time (maihda_lng_time_scale()) has each column of time to
+    # the power d divided by scale^d, which adds d * log(scale) per column. Report the
+    # REML log-likelihood of the model in the user's time, as before the scaling; an ML
+    # log-likelihood does not depend on it.
+    lng <- model$longitudinal_info
+    sc <- maihda_lng_time_scale(lng)
+    if (!is.null(lng) && sc != 1 && reml && !ml_used && is.finite(row$logLik)) {
+      shift <- sum(maihda_lng_coef_time_power(colnames(lme4::getME(fit_for_ic, "X")), lng)) *
+        log(sc)
+      row$logLik <- row$logLik - shift
+      row$AIC <- row$AIC + 2 * shift
+      row$BIC <- row$BIC + 2 * shift
+    }
 
   } else if (inherits(fm, "clmm")) {
     # ordinal::clmm is maximum-likelihood; AIC/BIC dispatch through the stats

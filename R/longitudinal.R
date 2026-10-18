@@ -39,13 +39,40 @@
 # plots, prediction newdata -- stays on the original scale; only the model terms
 # use the derived column below, and a(t)' Sigma a(t) evaluations subtract the
 # stored centering offset first.
+#
+# INTERNAL TIME SCALING (lmer only). A growth fit lme4 makes with lmer() is also fit on
+# time divided by a power of ten k chosen so that the time span lies in [1, 10): k = 1
+# for a span that already does (waves 0-9, years 0-9), 1000 for days over five years,
+# 0.1 for a span of 0.4. lme4 optimises the random-effect covariance on its relative
+# Cholesky scale, where a slope entry is per unit of time (and a t^d entry per unit to
+# the power d): counted in fine units these entries are tiny next to the intercept's,
+# and lmer stops far from the optimum while recording the fit as converged -- every
+# linear growth fit of a balanced 16-stratum design in days (up to 198 REML units above
+# the exact optimum; refitML() off in 360 of 376), and quadratic fits from a span of
+# about 12 (in days every one of 108, by a median of 719 units). On (t - c) / k with the
+# restarts below, the linear fits of that design reach the REML and ML optima (0 and 1
+# of 400 more than 0.01 above them); quadratic fits, which have no restarts, still miss
+# by a little in about one in ten fits at any scale.
+# The stored fit stays on the internal time, so a refit made from it -- refitML() for
+# estimation = "ML", maihda_ic(), the bootstrap refits -- solves the well-conditioned
+# problem too; every quantity in units of time is converted back where it is read: the
+# covariance blocks (maihda_re_block_lme4()), the stratum coefficients
+# (maihda_longitudinal_stratum_re()), the fixed effects (maihda_lng_unscale_fixed()),
+# the REML log-likelihood of maihda_ic(), the gap of the residual-autocorrelation check,
+# and a time put into the model frame ((t - c) / k: maihda_lng_internal_time()).
+# Not scaled (maihda_longitudinal_scales_time()): a glmer growth fit, which has no
+# restarts and whose optimiser, on the internal time, missed the maximum as often or
+# more often, in other fits (see that function), and a brms fit, whose default prior
+# on every random-effect SD (student_t(3, 0, s) with s set from the response, the same
+# with time in waves or in days) would then be a different prior on the slope SD,
+# changing the posterior and not only its parameterisation.
 
 # ---- internal time centering -------------------------------------------------
 
-# Reserved column name for the internally centered time variable, mirroring the
-# reserved-column pattern of .maihda_dim_* (decompose_maihda.R) and .maihda_sw
-# (design_weights.R). Written into the analytic data by fit_maihda() when
-# centering applies; prediction newdata rebuilds it from the original time column
+# Reserved column name for the internal time variable, (t - center) / scale, mirroring
+# the reserved-column pattern of .maihda_dim_* (decompose_maihda.R) and .maihda_sw
+# (design_weights.R). Written into the analytic data by fit_maihda() when centering or
+# scaling applies; prediction newdata rebuilds it from the original time column
 # (maihda_prepare_prediction_data), so callers always work in original units.
 .maihda_ctime_col <- ".maihda_ctime"
 
@@ -68,6 +95,85 @@ maihda_lng_time_center <- function(lng) {
   } else {
     0
   }
+}
+
+# The scale the internal time was divided by (1 when the fit used unscaled time, or
+# for an object stored before internal scaling existed). A centered time t - center maps
+# to the model's coordinates as (t - center) / scale, so a coefficient or covariance
+# entry of time to the power d is per scale^d units of the user's time.
+maihda_lng_time_scale <- function(lng) {
+  s <- lng$time_scale
+  if (is.numeric(s) && length(s) == 1 && is.finite(s) && s > 0) s else 1
+}
+
+# The model's (internal) time for user times `t`: (t - center) / scale.
+maihda_lng_internal_time <- function(lng, t) {
+  (t - maihda_lng_time_center(lng)) / maihda_lng_time_scale(lng)
+}
+
+# The power of the internal time in each fixed-effect coefficient named in `terms`
+# (0 for one without it): 1 for the internal time and its interactions with the
+# dimensions (dim:time), d for I(time^d) and its interactions. Read off the names: the
+# package builds every term on the internal column itself, and a term the user wrote on
+# the original time column is in the user's units already.
+maihda_lng_coef_time_power <- function(terms, lng) {
+  vars <- maihda_time_terms(maihda_lng_time_term(lng), as.integer(lng$time_degree))
+  vapply(strsplit(terms, ":", fixed = TRUE),
+         function(pieces) sum(match(pieces, vars, nomatch = 0L)), numeric(1))
+}
+
+# The fixed-effect table of a growth fit on internally scaled time, in the user's units:
+# a coefficient of internal time to the power d is divided by scale^d, and so are its
+# standard error and interval; the statistic, df and p-value do not change. On an axis
+# that starts at 0 the internal column is the user's time divided by the scale, so its
+# rows take the user's time name, as on a fit of the user's time; a centered fit keeps
+# the internal name, as an unscaled centered fit does. Unchanged for an unscaled fit.
+maihda_lng_unscale_fixed <- function(fe, object) {
+  lng <- object$longitudinal_info
+  scale <- maihda_lng_time_scale(lng)
+  if (is.null(lng) || scale == 1 || !is.data.frame(fe) || !nrow(fe)) {
+    return(fe)
+  }
+  f <- scale^-maihda_lng_coef_time_power(as.character(fe$term), lng)
+  for (col in intersect(c("estimate", "se", "lower", "upper"), names(fe))) {
+    fe[[col]] <- fe[[col]] * f
+  }
+  if (maihda_lng_time_center(lng) == 0) {
+    fe$term <- gsub(maihda_lng_time_term(lng), maihda_quote_name(lng$time),
+                    as.character(fe$term), fixed = TRUE)
+  }
+  fe
+}
+
+# Whether a growth fit is made on internally scaled time: one lme4 fits with lmer()
+# (a Gaussian family with the identity link). A glmer growth fit is not: it has no
+# restarts, and on the internal time glmer's optimiser missed the maximum as often or
+# more often, in other fits (Poisson growth, 20 seeds, fits more than 0.01 below the
+# maximum: weeks 2 -> 11, 30.4-day units 1 -> 20, days 17 -> 9).
+maihda_longitudinal_scales_time <- function(engine, family) {
+  fam <- tryCatch(maihda_resolve_family_spec(family), error = function(e) NULL)
+  identical(engine, "lme4") && !is.null(fam) &&
+    identical(fam$family, "gaussian") && identical(fam$link, "identity")
+}
+
+# The internal time scale of an lmer growth fit: the power of ten k that puts the time
+# span in [1, 10), so that 1 is returned for a span that already lies there (waves 0-9,
+# years 0-9: those fits are unchanged). 1 as well when there is no finite positive span.
+maihda_longitudinal_scale <- function(time_values) {
+  tv <- time_values[is.finite(time_values)]
+  if (length(tv) < 2L) {
+    return(1)
+  }
+  span <- max(tv) - min(tv)
+  if (!is.finite(span) || span <= 0) {
+    return(1)
+  }
+  k <- 10^floor(log10(span))
+  # log10() of a span next to a power of ten can land on the wrong side of the
+  # integer; settle it on the span itself.
+  if (span / k >= 10) k <- k * 10
+  if (span / k < 1) k <- k / 10
+  k
 }
 
 # Centering offset for a time vector: its minimum finite value, anchoring the
@@ -111,6 +217,9 @@ maihda_longitudinal_center <- function(time_values) {
 #' @param formula Optional model formula, used only to tell a package-derived
 #'   refit (whose formula already references the reserved \code{.maihda_ctime}
 #'   column) from a fresh user call when guarding that reserved name.
+#' @param family The model family (name, function or object), used only to tell
+#'   whether the fit will be made on internally scaled time (an lmer fit) when
+#'   guarding that reserved name.
 #' @return A list \code{list(id, time, time_degree, stratum_slope)}.
 #' @keywords internal
 maihda_validate_longitudinal <- function(id, time, time_degree, data,
@@ -118,7 +227,8 @@ maihda_validate_longitudinal <- function(id, time, time_degree, data,
                                          sampling_weights = NULL,
                                          context = NULL,
                                          formula = NULL,
-                                         stratum_slope = TRUE) {
+                                         stratum_slope = TRUE,
+                                         family = "gaussian") {
   if (!is.character(time) || length(time) != 1 || is.na(time) || !nzchar(time)) {
     stop("'time' must be a single column name (a character string) naming the ",
          "measurement-time variable for a longitudinal MAIHDA.", call. = FALSE)
@@ -196,20 +306,24 @@ maihda_validate_longitudinal <- function(id, time, time_degree, data,
   # only reduce both, so this early check never rejects a fittable model.
   maihda_check_longitudinal_times(data, id, time, time_degree)
 
-  # Guard the reserved centered-time column against silently overwriting a user
-  # variable of the same name. Only fires when centering will actually occur
-  # (min(time) != 0 writes the column) AND the formula does not already reference
-  # it -- a formula that does is a package-derived refit (maihda()'s null/adjusted
-  # pair re-entering fit_maihda with the first fit's original_data), whose column
-  # is the package's own and is recomputed idempotently.
+  # Guard the reserved internal-time column against silently overwriting a user
+  # variable of the same name. Only fires when centering or scaling will actually
+  # occur (min(time) != 0, or an lmer time span outside [1, 10), writes the column)
+  # AND the formula does not already reference it -- a formula that does is a
+  # package-derived refit (maihda()'s null/adjusted pair re-entering fit_maihda with
+  # the first fit's original_data), whose column is the package's own and is
+  # recomputed idempotently.
   if (.maihda_ctime_col %in% names(data) &&
-      maihda_longitudinal_center(data[[time]]) != 0 &&
+      (maihda_longitudinal_center(data[[time]]) != 0 ||
+       (maihda_longitudinal_scales_time(engine, family) &&
+          maihda_longitudinal_scale(data[[time]]) != 1)) &&
       (is.null(formula) || !.maihda_ctime_col %in% all.vars(formula))) {
     stop("'", .maihda_ctime_col, "' is a reserved internal column name for the ",
-         "longitudinal MAIHDA fit (it carries the internally centered time, ",
-         "needed because '", time, "' does not start at 0), but 'data' already ",
-         "contains a column of that name; fitting would overwrite it. Rename ",
-         "your '", .maihda_ctime_col, "' column before fitting.", call. = FALSE)
+         "longitudinal MAIHDA fit (it carries the internally centered and scaled ",
+         "time, needed because '", time, "' does not start at 0 or its span lies ",
+         "outside 1 to 10 time units), but 'data' already contains a column of that ",
+         "name; fitting would overwrite it. Rename your '", .maihda_ctime_col,
+         "' column before fitting.", call. = FALSE)
   }
 
   list(id = id, time = time, time_degree = time_degree,
@@ -446,8 +560,10 @@ maihda_longitudinal_adjusted_formula <- function(null_formula, strata_vars,
 # rows/cols in the order (Intercept), time, I(time^2), ..., so the time design
 # vector a(t) = (1, t, t^2, ...) lines up with it. This is the longitudinal
 # generalisation of maihda_stratum_variance_lme4()'s single (Intercept,Intercept)
-# cell.
-maihda_re_block_lme4 <- function(model, group, time, time_degree) {
+# cell. `scale` is the fit's internal time scale (maihda_lng_time_scale()): the fitted
+# entry of t^i and t^j is per scale^(i + j) units of the user's time, so it is divided
+# by that, which puts the block in centered user units.
+maihda_re_block_lme4 <- function(model, group, time, time_degree, scale = 1) {
   vc <- lme4::VarCorr(model)
   if (!group %in% names(vc)) {
     stop("No '", group, "' random effect found in the model.", call. = FALSE)
@@ -461,7 +577,18 @@ maihda_re_block_lme4 <- function(model, group, time, time_degree) {
          ". A longitudinal MAIHDA needs a random intercept and slope on '", time,
          "' at this level.", call. = FALSE)
   }
-  m[idx, idx, drop = FALSE]
+  maihda_unscale_block(m[idx, idx, drop = FALSE], scale)
+}
+
+# A covariance block over (1, t, t^2, ...) of internal time t = (user time) / scale, in
+# the user's units: entry (i, j), counting from 0, divided by scale^(i + j). Unchanged
+# for scale 1.
+maihda_unscale_block <- function(Sigma, scale = 1) {
+  if (scale == 1) {
+    return(Sigma)
+  }
+  p <- seq_len(nrow(Sigma)) - 1L
+  Sigma / scale^outer(p, p, `+`)
 }
 
 # TRUE when the stratum growth block has LOST A DIMENSION -- a variance at zero or,
@@ -570,10 +697,11 @@ maihda_stratum_slope_at_boundary <- function(object) {
 
 # lmer's default optimiser can stop on the wrong side of the boundary of a growth model's
 # linear stratum block -- at a point whose stratum intercept-slope correlation has the
-# opposite sign to the optimum's, often with the intercept SD at exactly 0 -- and, with time
-# counted in fine units such as days (slope entries of theta that are tiny), far from any
-# optimum. fit_maihda() therefore refits such a model from two more starting points and
-# keeps the fit with the lowest criterion (maihda_fit_lmer_growth()).
+# opposite sign to the optimum's, often with the intercept SD at exactly 0 -- whatever the
+# unit of time: with a time span between 1 and 10 (see the header) 5 to 34 of about 400
+# fits of a balanced 16-stratum design stopped above the optimum. fit_maihda() therefore refits
+# such a model from two more starting points and keeps the fit with the lowest criterion
+# (maihda_fit_lmer_growth()).
 #
 # The starts: lme4's theta of the first fit with the stratum block replaced by half the
 # person-level block's intercept and slope SDs of the same fit -- in the same time units,
@@ -719,9 +847,9 @@ maihda_re_block_brms <- function(model, group, time, time_degree) {
 }
 
 # Engine-agnostic ordered covariance block (point estimate) for a maihda_model.
-# The block is in the model's coefficient coordinates -- CENTERED time when the
-# fit used the internal centering -- so evaluations at an original-scale time t
-# must subtract maihda_lng_time_center() first.
+# The block is in CENTERED user units -- centered time when the fit used the internal
+# centering, and converted back from an lme4 fit's internal time scale -- so
+# evaluations at an original-scale time t must subtract maihda_lng_time_center() first.
 maihda_re_block <- function(object, group) {
   lng <- object$longitudinal_info
   time_term <- maihda_lng_time_term(lng)
@@ -733,7 +861,8 @@ maihda_re_block <- function(object, group) {
     lng$time_degree
   }
   if (identical(object$engine, "lme4")) {
-    maihda_re_block_lme4(object$model, group, time_term, deg)
+    maihda_re_block_lme4(object$model, group, time_term, deg,
+                         scale = maihda_lng_time_scale(lng))
   } else if (identical(object$engine, "brms")) {
     maihda_re_block_brms(object$model, group, time_term, deg)
   } else {
@@ -743,8 +872,8 @@ maihda_re_block <- function(object, group) {
 
 # Between-level variance implied by a covariance block at time(s) t:
 # a(t)' Sigma a(t) with a(t) = (1, t, t^2, ...). Vectorised over t. t must be on
-# the block's own coefficient scale: for a fit on internally centered time,
-# convert an original-scale time first (t - maihda_lng_time_center(lng)).
+# the block's own coefficient scale: for a block from maihda_re_block() (centered
+# user units), convert an original-scale time first (t - maihda_lng_time_center(lng)).
 maihda_var_at_time <- function(Sigma, t) {
   degree <- nrow(Sigma) - 1L
   vapply(t, function(ti) {
@@ -911,10 +1040,12 @@ maihda_longitudinal_time_grid <- function(time_values) {
 # row's OWN observed time while the result is reported as "at time t", which biases
 # any quantity built from the linear predictor on the grid (the count VPC's
 # marginal lambda). The columns must move together, so this is the one place that
-# does it.
+# does it. `t_c` is a centered time in the user's units; the internal column holds it
+# divided by the fit's time scale (maihda_lng_time_scale()).
 maihda_longitudinal_set_time <- function(newdata, time_term, t_c,
-                                         orig_time = time_term, center = 0) {
-  newdata[[time_term]] <- t_c
+                                         orig_time = time_term, center = 0,
+                                         scale = 1) {
+  newdata[[time_term]] <- if (scale == 1) t_c else t_c / scale
   if (!identical(orig_time, time_term)) {
     # Assigned unconditionally, not only when the column is already present: a
     # formula offset such as offset(0.5 * wave) is re-evaluated against this frame
@@ -937,11 +1068,13 @@ maihda_longitudinal_set_time <- function(newdata, time_term, t_c,
 # before the transform, as the cross-sectional path averages over the sample --
 # see maihda_count_level1_variance()) and apply the
 # log-normal mean correction v(t)/2 from the total growth-block variance v_t at
-# that time. `t_c` is on the model's (possibly centered) coefficient scale; `v_t`
-# is VarStratum(t) + VarId(t) at the same times, aligned to `t_c`.
+# that time. `t_c` is a centered time in the user's units (divided by `scale`, the
+# fit's internal time scale, where it enters the frame); `v_t` is VarStratum(t) +
+# VarId(t) at the same times, aligned to `t_c`.
 maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t,
                                                 orig_time = time_term, center = 0,
-                                                approximation = "lognormal") {
+                                                approximation = "lognormal",
+                                                scale = 1) {
   fam <- maihda_family(model)
   is_count <- !is.null(fam) && identical(fam$link, "log") &&
     fam$family %in% c("poisson", "negbinomial")
@@ -972,7 +1105,8 @@ maihda_longitudinal_resid_grid_lme4 <- function(model, time_term, t_c, v_t,
     attr(stats::terms(maihda_nobars(stats::formula(model))), "offset"))
   vapply(seq_along(t_c), function(j) {
     nd <- maihda_longitudinal_set_time(frame, time_term, t_c[j],
-                                       orig_time = orig_time, center = center)
+                                       orig_time = orig_time, center = center,
+                                       scale = scale)
     off_j <- off_ext
     if (has_formula_off) {
       fo <- maihda_lme4_formula_offset_at(model, nd)
@@ -1050,17 +1184,18 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   model <- object$model
   time_term <- maihda_lng_time_term(lng)
   center <- maihda_lng_time_center(lng)
+  scale <- maihda_lng_time_scale(lng)
   # Degree 0 at the stratum level under stratum_slope = FALSE: a 1x1 block, so
   # a(t)'Sigma_s a(t) is constant and VPC(t) moves only through Var_I(t)/residual.
   stratum_deg <- maihda_lng_stratum_degree(lng)
-  Sigma_s <- maihda_re_block_lme4(model, "stratum", time_term, stratum_deg)
-  Sigma_i <- maihda_re_block_lme4(model, lng$id, time_term, lng$time_degree)
+  Sigma_s <- maihda_re_block_lme4(model, "stratum", time_term, stratum_deg, scale = scale)
+  Sigma_i <- maihda_re_block_lme4(model, lng$id, time_term, lng$time_degree, scale = scale)
 
   grid <- maihda_longitudinal_time_grid(object$data[[lng$time]])
   ref_time <- lng$ref_time
-  # Times are user-facing (original scale); the covariance blocks are in the
-  # (possibly centered) coefficient coordinates, so every a(t)' Sigma a(t)
-  # evaluation subtracts the centering offset first.
+  # Times are user-facing (original scale); the covariance blocks are in centered
+  # user units (converted back from the internal time scale), so every
+  # a(t)' Sigma a(t) evaluation subtracts the centering offset first.
   grid_c <- grid - center
   ref_c <- ref_time - center
 
@@ -1076,11 +1211,13 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   resid_grid <- maihda_longitudinal_resid_grid_lme4(model, time_term, grid_c,
                                                     var_s_grid + var_i_grid,
                                                     orig_time = lng$time, center = center,
-                                                    approximation = count_approx)
+                                                    approximation = count_approx,
+                                                    scale = scale)
   resid_ref <- maihda_longitudinal_resid_grid_lme4(model, time_term, ref_c,
                                                    var_s_ref + var_i_ref,
                                                    orig_time = lng$time, center = center,
-                                                   approximation = count_approx)
+                                                   approximation = count_approx,
+                                                   scale = scale)
   # Scalar residual for the components table / headline: the reference-time value
   # (a single latent-scale number that the trajectory generalises over time).
   var_resid <- as.numeric(resid_ref)
@@ -1106,17 +1243,19 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
     for (i in seq_len(n_boot)) {
       tryCatch({
         bm <- maihda_refit_draw(model, sim[[i]])
-        Ss <- maihda_re_block_lme4(bm, "stratum", time_term, stratum_deg)
-        Si <- maihda_re_block_lme4(bm, lng$id, time_term, lng$time_degree)
+        Ss <- maihda_re_block_lme4(bm, "stratum", time_term, stratum_deg, scale = scale)
+        Si <- maihda_re_block_lme4(bm, lng$id, time_term, lng$time_degree, scale = scale)
         vs <- maihda_var_at_time(Ss, grid_c); vi <- maihda_var_at_time(Si, grid_c)
         vr_grid <- maihda_longitudinal_resid_grid_lme4(bm, time_term, grid_c, vs + vi,
                                                        orig_time = lng$time, center = center,
-                                                       approximation = count_approx)
+                                                       approximation = count_approx,
+                                                       scale = scale)
         boot[i, ] <- vs / (vs + vi + vr_grid)
         rs <- maihda_var_at_time(Ss, ref_c); ri <- maihda_var_at_time(Si, ref_c)
         vr_ref <- maihda_longitudinal_resid_grid_lme4(bm, time_term, ref_c, rs + ri,
                                                       orig_time = lng$time, center = center,
-                                                      approximation = count_approx)
+                                                      approximation = count_approx,
+                                                      scale = scale)
         ref_boot[i] <- rs / (rs + ri + vr_ref)
         # Same helper as the point estimate below, so the replicates cannot drift
         # from the quantity the interval is meant to cover (and the 1x1 stratum
@@ -1190,6 +1329,7 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
     time = lng$time,
     time_term = time_term,
     time_center = center,
+    time_scale = scale,
     time_degree = lng$time_degree,
     id = lng$id,
     bootstrap = isTRUE(bootstrap),
