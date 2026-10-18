@@ -69,8 +69,9 @@
 #' product of the observed dimension levels) and \code{n_empty_strata}; with
 #' \code{include_empty_strata = TRUE} the empty combinations are enumerated as
 #' rows of \code{$strata} (with \code{stratum = NA}, so real stratum IDs stay
-#' identical to a subsequent fit). This sparsity is exactly what motivates the
-#' Bayesian engine for small-cell designs (\code{engine = "brms"}).
+#' identical to a subsequent fit). With many small strata the stratum effects are
+#' shrunk toward the mean and the variance components are imprecise with either
+#' engine.
 #'
 #' \strong{Missing data.} \code{$overview} separates the rows lost to a missing
 #' stratum dimension (\code{make_strata()} routes them to the NA stratum) from
@@ -1065,7 +1066,7 @@ maihda_describe_warnings <- function(data, strata, strata_vars, have_dims,
 
   if (is.finite(n_empty) && n_empty > 0) {
     add("empty_strata", sprintf(
-      "%d of %s expected strata are empty (no observations): the strata space is sparse. Sparse designs are where the Bayesian engine (engine = \"brms\") is most useful.",
+      "%d of %s expected strata are empty (no observations): the strata space is sparse; small strata are shrunk toward the mean and their effects are imprecise with either engine.",
       as.integer(n_empty), format(n_expected, big.mark = ",", trim = TRUE)))
   }
   small <- strata[strata$small, , drop = FALSE]

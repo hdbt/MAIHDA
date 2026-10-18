@@ -87,6 +87,7 @@
 * `?calculate_pcv`, `?maihda` and the PCV print output no longer describe `estimation = "ML"` as a "correction-free" comparison: maximum likelihood understates the adjusted model's between-stratum variance by more than the null model's, so it overstates the PCV when strata are few. Estimates are unchanged.
 * `?maihda` and the cross-classified and planning vignettes no longer recommend `engine = "brms"` for a crossed-dimensions decomposition whose dimensions have few levels. Under the default prior the VPC and the additive share of such a fit are overstated, most with two- to four-level dimensions; the two-model decomposition, or a `prior` with a sensitivity check, is the alternative.
 * `?maihda`, `?fit_maihda`, the README and the cross-classified vignette no longer recommend `engine = "brms"` for a `context` with few levels: under the default prior its variance comes out high for context effects smaller than that prior's scale, most with two or three levels, and the context share and the VPC depend on it, while `lme4` may estimate it at zero. The sparse-intersections vignette now says that its shares depend on the priors it uses.
+* `?maihda_sparse_data` no longer calls the brms interval calibrated, and the planning and longitudinal vignettes no longer recommend `engine = "brms"` for sparse cells or few waves: with cells this small its estimate depends more on the prior than on the data, and its interval shows how little they say.
 
 ## Performance
 
@@ -112,6 +113,7 @@
 
 * The fit-quality warning of `compare_maihda_groups()` now also names a group whose adjusted model did not converge (on `brms`: has a largest R-hat above 1.01 or divergent transitions) and points to its PCV.
 * The few-context-levels warning of `compare_maihda_groups()` and the `context_few_levels` note of `maihda_describe()` no longer advise `engine = "brms"`; they say what each engine does with so few levels: an `lme4` variance is imprecise and at zero when the levels differ little, a `brms` one depends on the prior on its standard deviation.
+* The `empty_strata` note of `maihda_describe()` no longer says sparse designs are where `engine = "brms"` is most useful; it says that small strata are shrunk toward the mean and their effects are imprecise with either engine.
 
 * The singular-fit note printed for a `decomposition = "crossed-dimensions"` fit, and shown in the Shiny app, now reads a zero `stratum` term as the interaction and a zero dimension term as part of the additive variance, instead of calling the between-stratum variance unreliable or unaffected.
 

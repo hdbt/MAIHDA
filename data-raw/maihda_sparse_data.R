@@ -4,11 +4,10 @@
 #
 # The point of the dataset is the regime where frequentist ML (lme4) breaks down:
 # many intersectional strata, MANY of them with only a handful of individuals (some
-# singletons). In that regime the maximum-likelihood estimate of the *interaction*
-# between-stratum variance is pinned at the boundary (a singular fit) and carries no
-# uncertainty -- so the additive-vs-interaction split is both unstable and falsely
-# precise. Weakly-informative priors (engine = "brms") regularise the variance off
-# the boundary and return a calibrated credible interval.
+# singletons). In that regime the maximum-likelihood fit of the *interaction*
+# between-stratum variance can be singular, so the additive-vs-interaction split is
+# both unstable and falsely precise. Weakly-informative priors (engine = "brms")
+# regularise the variance off the boundary and return a credible interval.
 #
 # To make that demonstrable, the data carry a KNOWN, non-trivial interaction:
 #   * 4 dimensions -> 36 intersectional strata (gender x ethnicity x education x age)
