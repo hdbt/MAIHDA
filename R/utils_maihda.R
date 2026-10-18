@@ -979,8 +979,14 @@ maihda_adequacy_checks <- function(model, longitudinal_info = NULL) {
           !id_col %in% names(mf) || !time_col %in% names(mf)) {
         NULL
       } else {
-        maihda_resid_autocorr_stat(maihda_fit_rows_residuals(model, type = "pearson"),
-                                   mf[[id_col]], as.numeric(mf[[time_col]]))
+        stat <- maihda_resid_autocorr_stat(maihda_fit_rows_residuals(model, type = "pearson"),
+                                           mf[[id_col]], as.numeric(mf[[time_col]]))
+        # The time term of a scaled growth fit is the user's time divided by its scale
+        # (maihda_lng_time_scale()); the gap is reported in the user's units, to the
+        # eight significant digits the statistic keys its gaps on.
+        sc <- maihda_lng_time_scale(longitudinal_info)
+        if (!is.null(stat) && sc != 1) stat$gap <- signif(stat$gap * sc, 8)
+        stat
       }
     }, error = function(e) NULL)
     if (!is.null(ac)) {
@@ -6106,7 +6112,7 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
   # are present).
   newdata <- maihda_add_binned_dim_columns(newdata, object$strata_autobin_info)
 
-  # A longitudinal fit on internally centered time references the derived
+  # A longitudinal fit on internally centered or scaled time references the derived
   # .maihda_ctime column; rebuild it from the original time column so newdata in
   # original time units predicts correctly. Always recomputed (idempotent when
   # predicting on the fitted data, which already carries the package's own copy),
@@ -6116,7 +6122,7 @@ maihda_prepare_prediction_data <- function(object, newdata, type = "individual",
     time_term <- maihda_lng_time_term(lng)
     if (!identical(time_term, lng$time)) {
       if (lng$time %in% names(newdata)) {
-        newdata[[time_term]] <- newdata[[lng$time]] - maihda_lng_time_center(lng)
+        newdata[[time_term]] <- maihda_lng_internal_time(lng, newdata[[lng$time]])
       } else if (!time_term %in% names(newdata)) {
         stop("Cannot predict from this longitudinal model: newdata must contain ",
              "the time column '", lng$time, "'.", call. = FALSE)

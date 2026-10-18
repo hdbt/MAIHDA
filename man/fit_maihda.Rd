@@ -205,12 +205,17 @@ see \code{id}. When the time axis does not start at 0 (age, calendar year,
 waves coded 10, 11, ...), the growth terms are fit on internally
 \emph{centered} time (\code{time - min(time)}, with a message): the raw
 polynomial basis over an offset range is ill-conditioned and can silently
-converge to a wrong solution. All results (the time-varying VPC, the
-PCV, plots, predictions) are reported on the original \code{time} scale;
-the column name \code{.maihda_ctime} is reserved for the internal centered
-variable. Count time in coarse units -- waves or years rather than days: over a
-span of hundreds or thousands of time units lme4's optimiser can stop short of
-the optimum, in some fits without a convergence warning. Default \code{NULL}.}
+converge to a wrong solution. A Gaussian model fitted by \code{lmer()}
+(\code{engine = "lme4"}, identity link) is also fit on time divided by the power
+of ten that puts its span between 1 and 10 (days over five years are divided by
+1000; a span already between 1 and 10 is left as it is), with a message: counted
+in fine units (days, or months for a quadratic curve), lme4's optimiser stops far
+from the optimum, mostly without a convergence warning. All results (the
+time-varying VPC, the PCV, the fixed effects in \code{summary()}, plots,
+predictions) are reported on the original \code{time} scale; the lme4 fit stored
+in the result's \code{model} element is on the internal time. The column name
+\code{.maihda_ctime} is reserved for the internal time variable. Default
+\code{NULL}.}
 
 \item{time_degree}{Polynomial degree of the growth curve when \code{time} is
 supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
@@ -235,9 +240,8 @@ and again from two starts scaled by the person-level block, with a positive and 
 negative stratum intercept-slope correlation, and a refit replaces lmer's fit when
 its REML criterion (deviance for a maximum-likelihood fit) is lower by more than
 1e-4: lme4's default optimiser can stop on the wrong side of the stratum block's
-boundary, and far from the optimum when time is counted in fine units such as
-days (see \code{time}). Pass \code{start} through \code{...} to fit from your own
-starting values only.}
+boundary. Pass \code{start} through \code{...} to fit from your own starting values
+only; they are on the internal time when \code{time} is scaled (see \code{time}).}
 
 \item{interactions}{Opt-in per-stratum interaction diagnostic
 (\code{\link{maihda_interactions}}), attached as the \code{interactions} slot

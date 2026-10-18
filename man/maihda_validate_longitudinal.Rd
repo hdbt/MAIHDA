@@ -13,7 +13,8 @@ maihda_validate_longitudinal(
   sampling_weights = NULL,
   context = NULL,
   formula = NULL,
-  stratum_slope = TRUE
+  stratum_slope = TRUE,
+  family = "gaussian"
 )
 }
 \arguments{
@@ -38,6 +39,10 @@ column) from a fresh user call when guarding that reserved name.}
 
 \item{stratum_slope}{Single \code{TRUE}/\code{FALSE}: keep the stratum-level
 random slope(s) on time.}
+
+\item{family}{The model family (name, function or object), used only to tell
+whether the fit will be made on internally scaled time (an lmer fit) when
+guarding that reserved name.}
 }
 \value{
 A list \code{list(id, time, time_degree, stratum_slope)}.

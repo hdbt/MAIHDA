@@ -180,12 +180,17 @@
 #'   waves coded 10, 11, ...), the growth terms are fit on internally
 #'   \emph{centered} time (\code{time - min(time)}, with a message): the raw
 #'   polynomial basis over an offset range is ill-conditioned and can silently
-#'   converge to a wrong solution. All results (the time-varying VPC, the
-#'   PCV, plots, predictions) are reported on the original \code{time} scale;
-#'   the column name \code{.maihda_ctime} is reserved for the internal centered
-#'   variable. Count time in coarse units -- waves or years rather than days: over a
-#'   span of hundreds or thousands of time units lme4's optimiser can stop short of
-#'   the optimum, in some fits without a convergence warning. Default \code{NULL}.
+#'   converge to a wrong solution. A Gaussian model fitted by \code{lmer()}
+#'   (\code{engine = "lme4"}, identity link) is also fit on time divided by the power
+#'   of ten that puts its span between 1 and 10 (days over five years are divided by
+#'   1000; a span already between 1 and 10 is left as it is), with a message: counted
+#'   in fine units (days, or months for a quadratic curve), lme4's optimiser stops far
+#'   from the optimum, mostly without a convergence warning. All results (the
+#'   time-varying VPC, the PCV, the fixed effects in \code{summary()}, plots,
+#'   predictions) are reported on the original \code{time} scale; the lme4 fit stored
+#'   in the result's \code{model} element is on the internal time. The column name
+#'   \code{.maihda_ctime} is reserved for the internal time variable. Default
+#'   \code{NULL}.
 #' @param time_degree Polynomial degree of the growth curve when \code{time} is
 #'   supplied: 1 (default) linear, 2 quadratic, etc. The brms engine supports
 #'   degree 1 only.
@@ -208,9 +213,8 @@
 #'   negative stratum intercept-slope correlation, and a refit replaces lmer's fit when
 #'   its REML criterion (deviance for a maximum-likelihood fit) is lower by more than
 #'   1e-4: lme4's default optimiser can stop on the wrong side of the stratum block's
-#'   boundary, and far from the optimum when time is counted in fine units such as
-#'   days (see \code{time}). Pass \code{start} through \code{...} to fit from your own
-#'   starting values only.
+#'   boundary. Pass \code{start} through \code{...} to fit from your own starting values
+#'   only; they are on the internal time when \code{time} is scaled (see \code{time}).
 #' @param interactions Opt-in per-stratum interaction diagnostic
 #'   (\code{\link{maihda_interactions}}), attached as the \code{interactions} slot
 #'   and shown by \code{print()}. \code{FALSE} (default) skips it; \code{TRUE}
@@ -572,7 +576,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
                                              sampling_weights = sampling_weights,
                                              context = context,
                                              formula = formula,
-                                             stratum_slope = stratum_slope)
+                                             stratum_slope = stratum_slope,
+                                             family = family)
   }
 
   # Parse formula to find grouping variables and resolve the strata shorthand.
@@ -699,24 +704,53 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     # maihda_prepare_prediction_data). Center on the analytic rows (analytic_keep):
     # deriving the centre from excluded early/late waves would leave the fitted times
     # off-centre and defeat the stability protection.
+    #
+    # An lmer fit (maihda_longitudinal_scales_time()) is also fit on time divided by the
+    # power of ten that puts its span in [1, 10) (maihda_longitudinal_scale(); 1, no
+    # scaling, for a span already there): counted in fine units such as days, the slope
+    # entries of lme4's covariance parameters are tiny next to the intercept's and lmer
+    # stops far from the optimum, in most fits recorded as converged. The stored fit
+    # stays on the internal time and every quantity in units of time is converted back
+    # where it is read (see the header of longitudinal.R). Scaled on the analytic rows,
+    # as centred.
     tv <- data[[lng_spec$time]]
     center <- maihda_longitudinal_center(tv[analytic_keep])
+    time_scale <- if (maihda_longitudinal_scales_time(engine, family)) {
+      maihda_longitudinal_scale(tv[analytic_keep])
+    } else {
+      1
+    }
     time_term <- lng_spec$time
-    if (center != 0) {
+    if (center != 0 || time_scale != 1) {
       # A formula already referencing the derived column is a package-derived
       # refit (maihda()'s null/adjusted pair re-entering with the first fit's
       # original_data): recomputing the column from the original time column is
       # idempotent and needs no repeat message. A fresh user column of the
       # reserved name was rejected by maihda_validate_longitudinal() above.
       derived_refit <- .maihda_ctime_col %in% all.vars(formula)
-      data[[.maihda_ctime_col]] <- tv - center
+      data[[.maihda_ctime_col]] <- if (time_scale == 1) {
+        tv - center
+      } else {
+        (tv - center) / time_scale
+      }
       time_term <- .maihda_ctime_col
       if (!derived_refit) {
-        message("fit_maihda(): the time axis '", lng_spec$time, "' starts at ",
-                center, ", not 0, so the growth terms are fit on internally ",
-                "centered time (", lng_spec$time, " - ", center, ") for ",
-                "numerical stability. All results are reported on the original '",
-                lng_spec$time, "' scale.")
+        span <- diff(range(tv[analytic_keep], na.rm = TRUE))
+        k <- format(time_scale, scientific = FALSE)
+        why <- c(if (center != 0) paste0("starts at ", center, ", not 0"),
+                 if (time_scale != 1) paste0("spans ", format(span), " time units"))
+        how <- if (time_scale == 1) {
+          paste0("internally centered time (", lng_spec$time, " - ", center, ")")
+        } else if (center == 0) {
+          paste0("internally scaled time (", lng_spec$time, " / ", k, ")")
+        } else {
+          paste0("internally centered and scaled time ((", lng_spec$time, " - ", center,
+                 ") / ", k, ")")
+        }
+        message("fit_maihda(): the time axis '", lng_spec$time, "' ",
+                paste(why, collapse = " and "), ", so the growth terms are fit on ",
+                how, " for numerical stability. All results are reported on the ",
+                "original '", lng_spec$time, "' scale.")
       }
     }
     formula <- maihda_longitudinal_formula(formula, lng_spec$id, time_term,
@@ -730,6 +764,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
                               time_degree = lng_spec$time_degree,
                               stratum_slope = lng_spec$stratum_slope,
                               time_term = time_term, time_center = center,
+                              time_scale = time_scale,
                               time_range = range(tv, na.rm = TRUE),
                               ref_time = min(tv, na.rm = TRUE))
   }
@@ -1110,8 +1145,21 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     if (!identical(tt, longitudinal_info$time) &&
         !longitudinal_info$time %in% names(model_data) &&
         tt %in% names(model_data)) {
-      model_data[[longitudinal_info$time]] <-
+      sc <- maihda_lng_time_scale(longitudinal_info)
+      model_data[[longitudinal_info$time]] <- if (sc == 1) {
         model_data[[tt]] + longitudinal_info$time_center
+      } else {
+        # A scaled time does not always give back the original when multiplied back
+        # (1001 / 1000 * 1000 is not 1001 in floating point), and the reporting grid is
+        # built from the distinct times, so each fitted row's own time is read from the
+        # data.
+        idx <- match(rownames(model_data), rownames(data))
+        if (anyNA(idx)) {
+          model_data[[tt]] * sc + longitudinal_info$time_center
+        } else {
+          data[[longitudinal_info$time]][idx]
+        }
+      }
     }
     tv_fit <- model_data[[longitudinal_info$time]]
     longitudinal_info$time_range <- range(tv_fit, na.rm = TRUE)
@@ -1446,10 +1494,18 @@ print.maihda_model <- function(x, ...) {
   if (!is.null(x$longitudinal_info)) {
     lng <- x$longitudinal_info
     ct <- maihda_lng_time_center(lng)
+    sc <- maihda_lng_time_scale(lng)
+    internal <- if (sc != 1) {
+      sprintf(" (growth terms on internal time %s / %s; the underlying model is in those units)",
+              if (ct != 0) sprintf("(%s - %g)", lng$time, ct) else lng$time,
+              format(sc, scientific = FALSE))
+    } else if (ct != 0) {
+      sprintf(" (growth terms internally centered at %g)", ct)
+    } else {
+      ""
+    }
     cat(sprintf("Longitudinal: id = %s, time = %s%s, degree = %d (3-level growth)\n",
-                lng$id, lng$time,
-                if (ct != 0) sprintf(" (growth terms internally centered at %g)", ct) else "",
-                lng$time_degree))
+                lng$id, lng$time, internal, lng$time_degree))
   }
   if (!is.null(x$sampling_weights)) {
     cat("Sampling weights:", x$sampling_weights,
