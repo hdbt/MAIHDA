@@ -93,6 +93,8 @@
 
 ## Bug fixes
 
+* `print()` on a longitudinal PCV now shows a variance below 1e-4, such as a slope variance with time counted in days, to four significant digits instead of as `0.0000`.
+
 * `fit_maihda(engine = "wemix")` on a binomial model now says that the between-stratum variance was estimated at zero when `WeMix::mix()` stops there, instead of passing on its `Matrix seems negative semi-definite` error.
 
 * `fit_maihda(engine = "wemix")` on a binomial model now says what happened when `WeMix::mix()` stops because more than half of the stratum effects are exactly zero at a likelihood evaluation, instead of passing on its `non-conformable matrix dimensions` error.

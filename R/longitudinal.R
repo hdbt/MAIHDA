@@ -2096,6 +2096,18 @@ maihda_long_pcv_zero_note <- function(time, zero_null, zero_adjusted, times) {
   }
 }
 
+# Render a variance for print.maihda_long_pcv(): four decimals, or four significant
+# digits for one that is not zero and below 1e-4, which four decimals would show as
+# 0.0000. A slope variance is per unit of time squared, so with time in days it is of
+# the order of 1e-7.
+maihda_format_variance <- function(v) {
+  v <- as.numeric(v)
+  out <- sprintf("%.4f", v)
+  small <- is.finite(v) & v != 0 & abs(v) < 1e-4
+  out[small] <- sprintf("%.3e", v[small])
+  out
+}
+
 #' Print a longitudinal MAIHDA PCV
 #'
 #' @param x A \code{maihda_long_pcv} object.
@@ -2110,8 +2122,9 @@ print.maihda_long_pcv <- function(x, ...) {
   # Baseline = the between-stratum variance at the observed baseline time
   # (ref_time), evaluated in the model's (possibly centered) coefficient
   # coordinates (see maihda_longitudinal_pcv).
-  cat(sprintf("Baseline (%s = %g) variance: %.4f (null) -> %.4f (adjusted)\n",
-              x$time, x$ref_time, x$var_baseline_null, x$var_baseline_adjusted))
+  cat(sprintf("Baseline (%s = %g) variance: %s (null) -> %s (adjusted)\n",
+              x$time, x$ref_time, maihda_format_variance(x$var_baseline_null),
+              maihda_format_variance(x$var_baseline_adjusted)))
   cat(sprintf("  PCV_intercept: %s of the baseline between-stratum inequality is additive.\n",
               fmt(x$pcv_intercept)))
   if (nrow(x$Sigma_stratum_null) >= 2) {
@@ -2120,8 +2133,8 @@ print.maihda_long_pcv <- function(x, ...) {
     # fall back to the slope-variance cell they reported.
     vsn <- if (!is.null(x$var_slope_null)) x$var_slope_null else x$Sigma_stratum_null[2, 2]
     vsa <- if (!is.null(x$var_slope_adjusted)) x$var_slope_adjusted else x$Sigma_stratum_adjusted[2, 2]
-    cat(sprintf("Slope (%s) variance at baseline: %.4f (null) -> %.4f (adjusted)\n",
-                x$time, vsn, vsa))
+    cat(sprintf("Slope (%s) variance at baseline: %s (null) -> %s (adjusted)\n",
+                x$time, maihda_format_variance(vsn), maihda_format_variance(vsa)))
     cat(sprintf("  PCV_slope:     %s of the *trajectory* between-stratum inequality is additive\n",
                 fmt(x$pcv_slope)))
     cat("                 (the remainder is the multiplicative/interaction part).\n")
