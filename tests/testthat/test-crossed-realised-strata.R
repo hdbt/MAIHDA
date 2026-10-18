@@ -357,13 +357,25 @@ test_that("the VPC line and the median odds ratio follow the family and the cont
   expect_identical(r_ctx[setdiff(names(r_no), c("vpc", "vpc_ci"))],
                    r_no[setdiff(names(r_no), c("vpc", "vpc_ci"))])
 
-  # Through the summary: a contextual brms crossed fit has the block without a VPC.
+  # Through the summary: a contextual brms crossed fit puts the realised variance of the
+  # context effects into the VPC's denominator.
   m <- crs_stub(context = "site")
   m$data$site <- rep(c("u", "v"), 3)
-  d <- maihda_cc_summary_brms(m, m$cc_info, conf_level = 0.95)$decomposition
-  expect_false(is.null(d$realised))
-  expect_null(d$realised$vpc)
+  site <- matrix(c(0.3, -0.2, 0.1, 0.4, -0.1, -0.3, 0.2, 0, -0.4, 0.1), 5, 2,
+                 dimnames = list(NULL, c("u", "v")))
+  m$model$levels$site <- site
+  expect_no_warning(d <- maihda_cc_summary_brms(m, m$cc_info, conf_level = 0.95)$decomposition)
+  ctx <- apply(site, 1, stats::var)
+  expect_equal(c(d$realised$vpc, d$realised$vpc_ci),
+               crs_q(between / (between + ctx + pi^2 / 3)))
   expect_false(is.null(d$realised$mor))
+  # Without the context's level effects there is no VPC, and a warning says why.
+  m$model$levels$site <- NULL
+  expect_warning(d0 <- maihda_cc_summary_brms(m, m$cc_info, conf_level = 0.95)$decomposition,
+                 "realised contextual partition")
+  expect_false(is.null(d0$realised))
+  expect_null(d0$realised$vpc)
+  expect_false(is.null(d0$realised$mor))
 })
 
 test_that("no level-effect draws, no block; a failure to read them warns", {

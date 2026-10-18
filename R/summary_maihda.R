@@ -206,7 +206,10 @@ maihda_tag_role <- function(s, role) {
 #'     brms), and the between-stratum share (\code{vpc_stratum}); for brms also
 #'     each context's number of levels in the fitted data (\code{context_levels}),
 #'     and \code{print()} names a context with fewer than 10, whose variance
-#'     depends on the prior on its standard deviation; \code{NULL} otherwise}
+#'     depends on the prior on its standard deviation, and the realised partition
+#'     in \code{realised}: the same quantities for the effects of the strata and
+#'     context levels in the data (see the section Realised strata and contexts of
+#'     \code{\link{maihda}}); \code{NULL} otherwise}
 #'   \item{discriminatory_accuracy}{For a binomial/Bernoulli outcome, the
 #'     \code{maihda_da} object (AUC + MOR) from
 #'     \code{\link{maihda_discriminatory_accuracy}}; \code{NULL} otherwise. A
@@ -988,7 +991,10 @@ maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level
 #' (\code{object$context_info} set) enters the per-draw VPC denominator and is
 #' reported as its own component row and \code{context} element. Each variance
 #' component is the posterior median of its draws, and the additive, between-strata
-#' and context totals are sums of those components.
+#' and context totals are sums of those components. When the draws hold the level
+#' effects, \code{decomposition$realised} carries the realised strata and
+#' \code{context$realised} the realised partition (see the sections Realised strata
+#' and Realised strata and contexts of \code{\link{maihda}}).
 #'
 #' @param object A \code{maihda_model} (crossed-dimensions, brms engine).
 #' @param cc The \code{cc_info} list.
@@ -1058,12 +1064,25 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
   # A dimension's variance is estimated from its levels alone, so the decomposition
   # carries how many each has; print() names the dimensions with few of them.
   dim_levels <- maihda_cc_dim_levels(object$data, cc$dim_groups)
-  # The variances of the effects of the strata and levels in the data, which the data
-  # identify however few levels a dimension has (see maihda_cc_realised_brms()).
-  realised <- maihda_try_optional(
-    maihda_cc_realised_brms(object, cc, draws, within_draws, conf_level, point = point,
-                            context = length(ctx_vars) > 0),
-    "The realised-strata summary")
+  # The variances of the effects of the strata, levels and contexts in the data, which
+  # the data identify however few levels a dimension or context has (see
+  # maihda_cc_realised_brms()). The contexts' realised variance enters the realised VPC.
+  effects <- maihda_try_optional(maihda_cc_realised_effects(object, cc, draws),
+                                 "The realised-strata summary")
+  ctx_realised <- if (!is.null(effects) && length(ctx_vars) > 0) {
+    maihda_try_optional(maihda_realised_group_vars_brms(object, ctx_vars),
+                        "The realised contextual partition")
+  }
+  realised <- if (!is.null(effects)) {
+    maihda_try_optional(
+      maihda_cc_realised_brms(object, cc, draws, within_draws, conf_level, point = point,
+                              context = length(ctx_vars) > 0,
+                              context_draws = if (!is.null(ctx_realised)) {
+                                Reduce(`+`, ctx_realised)
+                              },
+                              effects = effects),
+      "The realised-strata summary")
+  }
 
   variance_components <- maihda_cc_components_table(per_dim_var, interaction_var,
                                                    within_var, per_context_var)
@@ -1117,6 +1136,19 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
       conf_level = conf_level,
       context_levels = maihda_context_levels(object$data, ctx_vars)
     )
+    # The realised partition: the strata's realised variance is the realised-strata
+    # block's, so its share is that block's VPC.
+    if (!is.null(ctx_realised)) {
+      ctx_part <- maihda_try_optional(
+        maihda_context_realised_from_draws(
+          maihda_fp_var_draws(effects$Z), ctx_realised,
+          within = if (maihda_realised_within_ok(object)) within_draws,
+          conf_level = conf_level, point = point, n_strata = ncol(effects$Z)),
+        "The realised contextual partition")
+      if (!is.null(ctx_part)) {
+        context_summary$realised <- ctx_part
+      }
+    }
   }
 
   list(variance_components = variance_components, vpc_result = vpc_result,
@@ -1134,11 +1166,34 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
 #
 # The VPC is given where the within-stratum variance of a draw does not depend on the
 # variance components -- a Gaussian identity fit, and a binomial, Bernoulli or
-# cumulative fit on its latent scale -- and the fit has no context, whose variance
-# would enter the denominator. The median odds ratio is given for a logit link. NULL
-# when the draws hold no level effects (a fit stored without them).
+# cumulative fit on its latent scale (maihda_realised_within_ok()). With a context, the
+# contexts' realised variance per draw (context_draws) enters its denominator, and
+# without it no VPC is given. The median odds ratio is given for a logit link. NULL
+# when the draws hold no level effects (a fit stored without them). `effects` takes
+# what maihda_cc_realised_effects() returns, so that it is built once.
 maihda_cc_realised_brms <- function(object, cc, draws, within_draws, conf_level,
-                                    point = "median", context = FALSE) {
+                                    point = "median", context = FALSE,
+                                    context_draws = NULL, effects = NULL) {
+  eff <- if (is.null(effects)) maihda_cc_realised_effects(object, cc, draws) else effects
+  if (is.null(eff)) {
+    return(NULL)
+  }
+  fam <- maihda_model_family_name(object)
+  link <- maihda_model_link_name(object)
+  latent <- isTRUE(fam %in% c("binomial", "bernoulli", "cumulative"))
+  give_vpc <- (!context || !is.null(context_draws)) && maihda_realised_within_ok(object)
+  maihda_cc_realised_from_draws(eff$Z, eff$U, eff$dims,
+                                within = if (give_vpc) within_draws else NULL,
+                                mor = latent && identical(link, "logit"),
+                                conf_level = conf_level, point = point,
+                                other = if (give_vpc) context_draws)
+}
+
+# The effects, per posterior draw, of the strata of a brms crossed-dimensions fit: Z,
+# a draws x strata matrix with one column per stratum of the fitted data (its own
+# effect plus the effect of its level on each dimension), U, each dimension's level
+# effects, and dims, each stratum's levels. NULL when the draws hold no level effects.
+maihda_cc_realised_effects <- function(object, cc, draws) {
   if (!any(startsWith(names(draws), "r_"))) {
     return(NULL)
   }
@@ -1174,17 +1229,20 @@ maihda_cc_realised_brms <- function(object, cc, draws, within_draws, conf_level,
   colnames(Z) <- cells[[igroup]]
   dims <- cells[, dim_re, drop = FALSE]
   names(dims) <- dim_names
+  list(Z = Z, U = U, dims = dims)
+}
 
+# Whether a brms fit's within-stratum variance per draw stands apart from its variance
+# components, so that realised variances can be set beside it: a Gaussian identity fit
+# (its residual variance) and a binomial, Bernoulli or cumulative fit on the latent
+# scale of a logit, probit or cloglog link (a constant of the link). A Poisson or
+# negative-binomial fit's is computed from the variance components.
+maihda_realised_within_ok <- function(object) {
   fam <- maihda_model_family_name(object)
   link <- maihda_model_link_name(object)
   latent <- isTRUE(fam %in% c("binomial", "bernoulli", "cumulative"))
-  give_vpc <- !context &&
-    ((identical(fam, "gaussian") && identical(link, "identity")) ||
-       (latent && isTRUE(link %in% c("logit", "probit", "cloglog"))))
-  maihda_cc_realised_from_draws(Z, U, dims,
-                                within = if (give_vpc) within_draws else NULL,
-                                mor = latent && identical(link, "logit"),
-                                conf_level = conf_level, point = point)
+  (identical(fam, "gaussian") && identical(link, "identity")) ||
+    (latent && isTRUE(link %in% c("logit", "probit", "cloglog")))
 }
 
 # The realised-strata quantities from posterior draws, a pure function so that the
@@ -1194,6 +1252,8 @@ maihda_cc_realised_brms <- function(object, cc, draws, within_draws, conf_level,
 #   cells   data frame with one row per column of Z: each stratum's dimension levels
 #   within  the within-stratum variance per draw (length 1 or nrow(Z)); NULL: no VPC
 #   mor     whether to give the median odds ratio between two strata
+#   other   a further variance per draw in the VPC's denominator (the contexts'
+#           realised variance), or NULL
 # Per draw, with J strata: the between-strata variance is
 # sum_j (z_j - mean)^2 / (J - 1), half the mean squared difference between two
 # distinct strata. The interaction variance is the residual sum of squares of the
@@ -1206,7 +1266,8 @@ maihda_cc_realised_brms <- function(object, cc, draws, within_draws, conf_level,
 # Each is summarised by the posterior median (or mean) and the equal-tailed interval
 # at conf_level; NULL with fewer than two strata.
 maihda_cc_realised_from_draws <- function(Z, U, cells, within = NULL, mor = FALSE,
-                                          conf_level = 0.95, point = "median") {
+                                          conf_level = 0.95, point = "median",
+                                          other = NULL) {
   Z <- as.matrix(Z)
   J <- ncol(Z)
   if (J < 2L) {
@@ -1236,7 +1297,11 @@ maihda_cc_realised_from_draws <- function(Z, U, cells, within = NULL, mor = FALS
   out$between_var <- s[1]
   out$between_var_ci <- s[2:3]
   if (!is.null(within)) {
-    s <- summ(between / (between + within))
+    s <- summ(if (is.null(other)) {
+      between / (between + within)
+    } else {
+      between / (between + other + within)
+    })
     out$vpc <- s[1]
     out$vpc_ci <- s[2:3]
   }
@@ -1326,6 +1391,127 @@ maihda_level_draws_from_ranef <- function(re, groups) {
     matrix(arr[, , k], nrow = dim(arr)[1L], dimnames = list(NULL, dimnames(arr)[[2L]]))
   })
   names(out) <- groups
+  out
+}
+
+# Per row of a draws x levels matrix, the variance of the levels' effects with the
+# number of levels minus one as divisor; NA when there are fewer than two levels.
+maihda_fp_var_draws <- function(M) {
+  M <- as.matrix(M)
+  if (ncol(M) < 2L) {
+    return(rep(NA_real_, nrow(M)))
+  }
+  rowSums((M - rowMeans(M))^2) / (ncol(M) - 1)
+}
+
+# The levels of a grouping column in the fitted data, as text, missing values left out.
+maihda_levels_in_data <- function(data, group) {
+  x <- data[[group]]
+  if (is.null(x)) {
+    stop("The fitted data do not hold the '", group, "' column.", call. = FALSE)
+  }
+  unique(as.character(x[!is.na(x)]))
+}
+
+# The realised variance of each named grouping factor of a brms fit, per posterior
+# draw: the variance of the effects of its levels in the fitted data (Gelman 2005,
+# eq. 8, with only their mean removed), divisor the number of those levels minus one.
+# A named list of per-draw vectors.
+maihda_realised_group_vars_brms <- function(object, groups) {
+  lev <- maihda_level_draws_brms(object$model, groups)
+  out <- lapply(groups, function(g) {
+    present <- maihda_levels_in_data(object$data, g)
+    U <- lev[[g]]
+    i <- match(present, colnames(U))
+    if (anyNA(i)) {
+      stop("A level of '", g, "' in the fitted data has no effect in the brms ",
+           "posterior.", call. = FALSE)
+    }
+    maihda_fp_var_draws(U[, i, drop = FALSE])
+  })
+  names(out) <- groups
+  out
+}
+
+# The realised contextual partition of a brms fit with a stratum random intercept
+# (fit_maihda(context = ), the two-model decomposition): the realised variances of the
+# strata, of each context and of any other grouping factor, and their shares where the
+# within-stratum variance stands apart from the variance components
+# (maihda_realised_within_ok()).
+maihda_context_realised_brms <- function(object, ctx_vars, other_groups, within_draws,
+                                         conf_level, point = "median") {
+  v <- maihda_realised_group_vars_brms(object, c("stratum", ctx_vars, other_groups))
+  maihda_context_realised_from_draws(
+    v[["stratum"]], v[ctx_vars],
+    other = if (length(other_groups) > 0) Reduce(`+`, v[other_groups]),
+    within = if (maihda_realised_within_ok(object)) within_draws,
+    conf_level = conf_level, point = point,
+    n_strata = length(maihda_levels_in_data(object$data, "stratum")))
+}
+
+# The realised contextual partition from per-draw variances, a pure function so that
+# the arithmetic can be checked without a fit.
+#   strata    the strata's realised variance per draw
+#   contexts  named list, one per context, of its realised variance per draw
+#   other     the other grouping factors' realised variance per draw, or NULL
+#   within    the within-stratum variance per draw, or NULL: no shares
+# Per draw the total is the sum of these, and each share is a part over the total.
+# Each is summarised by the posterior median (or mean) and the equal-tailed interval
+# at conf_level; a context's interval is a row of a contexts x (lower, upper) matrix.
+maihda_context_realised_from_draws <- function(strata, contexts, other = NULL,
+                                               within = NULL, conf_level = 0.95,
+                                               point = "median",
+                                               n_strata = NA_integer_) {
+  summ <- function(v) {
+    v <- v[is.finite(v)]
+    if (length(v) == 0) {
+      return(c(NA_real_, NA_real_, NA_real_))
+    }
+    a <- 1 - conf_level
+    c(if (point == "median") stats::median(v) else mean(v),
+      stats::quantile(v, probs = c(a / 2, 1 - a / 2), names = FALSE))
+  }
+  by_context <- function(f) {
+    s <- lapply(contexts, function(v) summ(f(v)))
+    list(est = vapply(s, `[`, numeric(1), 1L),
+         ci = matrix(as.numeric(unlist(lapply(s, `[`, 2:3))), ncol = 2L, byrow = TRUE,
+                     dimnames = list(names(contexts), c("lower", "upper"))))
+  }
+  ctx_total <- Reduce(`+`, contexts)
+  out <- list()
+  s <- summ(strata)
+  out$var_stratum <- s[1]
+  out$var_stratum_ci <- s[2:3]
+  pc <- by_context(identity)
+  out$per_context <- pc$est
+  out$per_context_ci <- pc$ci
+  s <- summ(ctx_total)
+  out$context_var_total <- s[1]
+  out$context_var_total_ci <- s[2:3]
+  if (!is.null(other)) {
+    s <- summ(other)
+    out$other_var <- s[1]
+    out$other_var_ci <- s[2:3]
+  }
+  if (!is.null(within)) {
+    total <- if (is.null(other)) {
+      strata + ctx_total + within
+    } else {
+      strata + ctx_total + other + within
+    }
+    s <- summ(strata / total)
+    out$vpc_stratum <- s[1]
+    out$vpc_stratum_ci <- s[2:3]
+    pc <- by_context(function(v) v / total)
+    out$vpc_context <- pc$est
+    out$vpc_context_ci <- pc$ci
+    s <- summ(ctx_total / total)
+    out$vpc_context_total <- s[1]
+    out$vpc_context_total_ci <- s[2:3]
+  }
+  out$n_strata <- as.integer(n_strata)
+  out$conf_level <- conf_level
+  out$method <- "posterior"
   out
 }
 
@@ -1514,7 +1700,9 @@ maihda_context_summary_lme4 <- function(object, ctx, vc, bootstrap, n_boot,
 #' point estimates with credible intervals for the between-stratum VPC and the
 #' contexts' total share (no bootstrap -- the posterior supplies the interval). Each
 #' variance component is the posterior median of its draws, and the contexts' total
-#' variance is the sum of the context components.
+#' variance is the sum of the context components. When the draws hold the level
+#' effects, \code{context$realised} carries the realised partition (see the section
+#' Realised strata and contexts of \code{\link{maihda}}).
 #'
 #' @param object A \code{maihda_model} with \code{context_info} (brms engine).
 #' @param ctx The \code{context_info} list.
@@ -1602,6 +1790,18 @@ maihda_context_summary_brms <- function(object, ctx, conf_level,
     conf_level = conf_level,
     context_levels = maihda_context_levels(object$data, ctx_vars)
   )
+  # The realised partition: the variances of the effects of the strata and context
+  # levels in the data, which the data identify however few levels a context has (see
+  # maihda_context_realised_from_draws()).
+  if (any(startsWith(names(draws), "r_"))) {
+    realised <- maihda_try_optional(
+      maihda_context_realised_brms(object, ctx_vars, other_groups, within_draws,
+                                   conf_level, point = point),
+      "The realised contextual partition")
+    if (!is.null(realised)) {
+      context_summary$realised <- realised
+    }
+  }
 
   list(variance_components = variance_components, vpc_result = vpc_result,
        context = context_summary)
@@ -2308,8 +2508,11 @@ maihda_context_few_levels <- function(ctx) {
 
 # The printed note that names those contexts, one string per output line;
 # character(0) when there is none to name. The clause on two levels is given only
-# when a two-level context is among them.
-maihda_context_few_levels_note <- function(few) {
+# when a two-level context is among them, and the pointer only when what it points to
+# is printed below the note: "block" for the realised partition of a summary, "lines"
+# for the realised lines of an analysis.
+maihda_context_few_levels_note <- function(few, pointer = c("none", "block", "lines")) {
+  pointer <- match.arg(pointer)
   if (length(few) == 0) {
     return(character(0))
   }
@@ -2328,14 +2531,21 @@ maihda_context_few_levels_note <- function(few) {
     "Note: ", counted, ". With engine = \"brms\" the variance of such a context ",
     "depends on the prior on its standard deviation",
     if (any(few == 2L)) " (with two levels roughly in proportion to that prior's scale)",
-    ", and the context share and the VPC depend on it. See ?maihda."),
+    ", and the context share and the VPC depend on it",
+    switch(pointer,
+           none = "",
+           block = paste("; the realised partition below depends little on it when each",
+                         "context has enough data"),
+           lines = paste("; the realised VPC and context share below depend little on it",
+                         "when each context has enough data")),
+    ". See ?maihda."),
     width = 78, indent = 2, exdent = 2)
 }
 
 # Print the realised-strata block of a brms crossed-dimensions decomposition (see
 # maihda_cc_realised_brms()). A line is left out for a quantity the block does not
-# give: the VPC of a count or contextual fit, the median odds ratio of a non-logit
-# fit.
+# give: the VPC of a count fit, or of a contextual fit whose context level effects
+# could not be read, and the median odds ratio of a non-logit fit.
 maihda_print_cc_realised <- function(r) {
   pal <- maihda_palette()
   fmt <- function(est, ci, scale = 1, digits = 4L, suffix = "") {
@@ -2416,14 +2626,74 @@ maihda_print_context_partition <- function(ctx) {
                 fmt_share(ctx$vpc_context_total, ctx$vpc_context_total_ci)))
   }
   # A brms fit's contexts with few levels are named below the note (see
-  # maihda_context_few_levels()).
-  few_note <- maihda_context_few_levels_note(maihda_context_few_levels(ctx))
+  # maihda_context_few_levels()), and its realised partition follows.
+  few_note <- maihda_context_few_levels_note(
+    maihda_context_few_levels(ctx), pointer = if (!is.null(ctx$realised)) "block" else "none")
   cat(maihda_palette()$muted(paste0(
       "  Note: the headline VPC/ICC is the between-stratum share conditional on\n",
       "  the context random effect(s). The context share is the between-context\n",
       "  component of the unexplained variance.\n",
       if (length(few_note) > 0) paste0(paste(few_note, collapse = "\n"), "\n"),
       "\n")))
+  if (!is.null(ctx$realised)) {
+    maihda_print_context_realised(ctx$realised, ctx$context_levels)
+  }
+  invisible(NULL)
+}
+
+# Print the realised contextual partition of a brms fit (see
+# maihda_context_realised_from_draws()); `levels` is the partition's context_levels.
+# The shares are left out where the partition gives none (a Poisson or
+# negative-binomial fit).
+maihda_print_context_realised <- function(r, levels = NULL) {
+  pal <- maihda_palette()
+  fmt <- function(est, ci, scale = 1, digits = 4L, suffix = "") {
+    if (!isTRUE(is.finite(est))) {
+      return("NA")
+    }
+    v <- function(x) sprintf("%.*f%s", digits, scale * x, suffix)
+    if (length(ci) == 2L && all(is.finite(ci))) {
+      sprintf("%s [%s, %s]", v(est), v(ci[1]), v(ci[2]))
+    } else {
+      v(est)
+    }
+  }
+  pct <- function(est, ci) fmt(est, ci, scale = 100, digits = 1L, suffix = "%")
+  ctx <- names(r$per_context)
+  shares <- !is.null(r$vpc_stratum)
+  rows <- list(list("Between-stratum variance:", fmt(r$var_stratum, r$var_stratum_ci),
+                    if (shares) pct(r$vpc_stratum, r$vpc_stratum_ci)))
+  for (nm in ctx) {
+    rows[[length(rows) + 1L]] <- list(
+      sprintf("Context '%s' variance:", nm),
+      fmt(r$per_context[[nm]], r$per_context_ci[nm, ]),
+      if (shares) pct(r$vpc_context[[nm]], r$vpc_context_ci[nm, ]))
+  }
+  if (length(ctx) > 1L) {
+    rows[[length(rows) + 1L]] <- list(
+      "All contexts combined:", fmt(r$context_var_total, r$context_var_total_ci),
+      if (shares) pct(r$vpc_context_total, r$vpc_context_total_ci))
+  }
+  if (!is.null(r$other_var)) {
+    rows[[length(rows) + 1L]] <- list("Other random effects:",
+                                      fmt(r$other_var, r$other_var_ci), NULL)
+  }
+  width <- max(nchar(vapply(rows, `[[`, character(1), 1L)))
+  n_lv <- if (is.null(levels)) rep(NA_integer_, length(ctx)) else unname(levels[ctx])
+  counted <- ifelse(is.na(n_lv), sprintf("'%s'", ctx),
+                    sprintf("%d level%s of '%s'", n_lv, ifelse(n_lv == 1L, "", "s"), ctx))
+  cat(pal$bold(sprintf("Realised strata and contexts (%d strata; %s):",
+                       as.integer(r$n_strata), paste(counted, collapse = ", "))),
+      "\n", sep = "")
+  cat("  ", pal$muted(maihda_vpc_interval_label(r)), "\n", sep = "")
+  for (row in rows) {
+    cat(sprintf("  %-*s %s%s\n", width, row[[1]], row[[2]],
+                if (is.null(row[[3]])) "" else paste0("  share ", row[[3]])))
+  }
+  cat(pal$muted(paste0(
+    "  Note: finite-population summaries of the effects of these strata and\n",
+    "  contexts (Gelman 2005); they depend little on the prior when each has\n",
+    "  enough data. See ?maihda.\n\n")))
   invisible(NULL)
 }
 
