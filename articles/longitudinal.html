@@ -407,10 +407,11 @@ reported on your original time scale, and the baseline
 (<code>ref_time</code>) is always the earliest observed time.</p></li>
 <li><p><strong>Identifiability.</strong> A stratum random slope needs
 enough occasions per stratum; sparse strata, few waves, or irregular
-measurement times can give a singular lme4 fit (the brms engine handles
-this better). The fit diagnostics name the block that is at the
-boundary. Which block it is decides whether the result is affected. For
-example a boundary <code>(time | id)</code> block leaves the
+measurement times can give a singular lme4 fit
+(<code>engine = "brms"</code> reports an interval instead, very wide
+when the data say little). The fit diagnostics name the block that is at
+the boundary. Which block it is decides whether the result is affected.
+For example a boundary <code>(time | id)</code> block leaves the
 between-stratum variance well estimated, a boundary
 <code>(time | stratum)</code> block does not.</p></li>
 <li>

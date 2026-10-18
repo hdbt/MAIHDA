@@ -284,8 +284,9 @@ with a Gaussian mean/SD as if continuous:</p><ul><li><p>gaussian (and other cont
 product of the observed dimension levels) and <code>n_empty_strata</code>; with
 <code>include_empty_strata = TRUE</code> the empty combinations are enumerated as
 rows of <code>$strata</code> (with <code>stratum = NA</code>, so real stratum IDs stay
-identical to a subsequent fit). This sparsity is exactly what motivates the
-Bayesian engine for small-cell designs (<code>engine = "brms"</code>).</p>
+identical to a subsequent fit). With many small strata the stratum effects are
+shrunk toward the mean and the variance components are imprecise with either
+engine.</p>
 <p><strong>Missing data.</strong> <code>$overview</code> separates the rows lost to a missing
 stratum dimension (<code><a href="make_strata.html">make_strata()</a></code> routes them to the NA stratum) from
 rows with a missing outcome, and reports the resulting complete-case

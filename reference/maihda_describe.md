@@ -230,8 +230,9 @@ with `n_strata_expected` (the full Cartesian product of the observed
 dimension levels) and `n_empty_strata`; with
 `include_empty_strata = TRUE` the empty combinations are enumerated as
 rows of `$strata` (with `stratum = NA`, so real stratum IDs stay
-identical to a subsequent fit). This sparsity is exactly what motivates
-the Bayesian engine for small-cell designs (`engine = "brms"`).
+identical to a subsequent fit). With many small strata the stratum
+effects are shrunk toward the mean and the variance components are
+imprecise with either engine.
 
 **Missing data.** `$overview` separates the rows lost to a missing
 stratum dimension

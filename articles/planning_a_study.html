@@ -271,12 +271,13 @@ than letting it pass silently:</p>
 <span><span class="co">#&gt; optimizer (nloptwrap) convergence code: 0 (OK) ; 0 optimizer warnings; 1 lme4 warnings</span></span></code></pre></div>
 <p>If you see a singular-fit note, do not read the VPC as a clean zero.
 The solution is to collapse dimensions or categories (fewer, larger
-cells), or to use <code>engine = "brms"</code>, whose weakly-informative
-priors regularise the variance off the boundary and return a posterior
-interval, the subject of the <a href="bayesian_sparse_maihda.html">Bayesian sparse vignette</a>. The
-interval is what <code>brms</code> adds: its PCV is a point estimate
-without one, and with few strata it is understated (see
-<code><a href="../reference/calculate_pcv.html">?calculate_pcv</a></code>).</p>
+cells). <code>engine = "brms"</code> does not repair this: it never puts
+the variance at zero, but with cells this small its estimate depends
+more on the prior than on the data, and its posterior interval shows how
+little the cells say (the <a href="bayesian_sparse_maihda.html">Bayesian
+sparse vignette</a>). The interval is what <code>brms</code> adds: its
+PCV is a point estimate without one, and with few strata it is
+understated (see <code><a href="../reference/calculate_pcv.html">?calculate_pcv</a></code>).</p>
 </div>
 <div class="section level2">
 <h2 id="continuous-variables-and-the-analytic-sample">Continuous variables and the analytic sample<a class="anchor" aria-label="anchor" href="#continuous-variables-and-the-analytic-sample"></a>
@@ -343,11 +344,10 @@ variances instead, which corrects this when strata are few but not small
 for adequately-sized cells.</li>
 <li>
 <strong><code>brms</code></strong> – Bayesian; posterior intervals
-for the VPC and the variance shares, which sparse cells call for. With
-few-level dimensions the variance components of a crossed-dimensions fit
-depend on the prior on the random-effect standard deviations, and its
-realised-strata block depends little on it when each stratum has enough
-data (see
+for the VPC and the variance shares. With few-level dimensions the
+variance components of a crossed-dimensions fit depend on the prior on
+the random-effect standard deviations, and its realised-strata block
+depends little on it when each stratum has enough data (see
 <code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>). Its
 two-model PCV has no interval and is understated when strata are
 few.</li>

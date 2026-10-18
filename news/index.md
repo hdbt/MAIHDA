@@ -663,6 +663,12 @@
   share and the VPC depend on it, while `lme4` may estimate it at zero.
   The sparse-intersections vignette now says that its shares depend on
   the priors it uses.
+- [`?maihda_sparse_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sparse_data.md)
+  no longer calls the brms interval calibrated, and the planning and
+  longitudinal vignettes no longer recommend `engine = "brms"` for
+  sparse cells or few waves: with cells this small its estimate depends
+  more on the prior than on the data, and its interval shows how little
+  they say.
 
 ### Performance
 
@@ -742,6 +748,12 @@
   with so few levels: an `lme4` variance is imprecise and at zero when
   the levels differ little, a `brms` one depends on the prior on its
   standard deviation.
+
+- The `empty_strata` note of
+  [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+  no longer says sparse designs are where `engine = "brms"` is most
+  useful; it says that small strata are shrunk toward the mean and their
+  effects are imprecise with either engine.
 
 - The singular-fit note printed for a
   `decomposition = "crossed-dimensions"` fit, and shown in the Shiny

@@ -209,11 +209,12 @@ over
 ```
 
 If you see a singular-fit note, do not read the VPC as a clean zero. The
-solution is to collapse dimensions or categories (fewer, larger cells),
-or to use `engine = "brms"`, whose weakly-informative priors regularise
-the variance off the boundary and return a posterior interval, the
-subject of the [Bayesian sparse
-vignette](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md).
+solution is to collapse dimensions or categories (fewer, larger cells).
+`engine = "brms"` does not repair this: it never puts the variance at
+zero, but with cells this small its estimate depends more on the prior
+than on the data, and its posterior interval shows how little the cells
+say (the [Bayesian sparse
+vignette](https://hdbt.github.io/MAIHDA/articles/bayesian_sparse_maihda.md)).
 The interval is what `brms` adds: its PCV is a point estimate without
 one, and with few strata it is understated (see
 [`?calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)).
@@ -248,11 +249,10 @@ few but not small (see
 - **`lme4` (default)** – fast frequentist fits for adequately-sized
   cells.
 - **`brms`** – Bayesian; posterior intervals for the VPC and the
-  variance shares, which sparse cells call for. With few-level
-  dimensions the variance components of a crossed-dimensions fit depend
-  on the prior on the random-effect standard deviations, and its
-  realised-strata block depends little on it when each stratum has
-  enough data (see
+  variance shares. With few-level dimensions the variance components of
+  a crossed-dimensions fit depend on the prior on the random-effect
+  standard deviations, and its realised-strata block depends little on
+  it when each stratum has enough data (see
   [`vignette("cross_classified", package = "MAIHDA")`](https://hdbt.github.io/MAIHDA/articles/cross_classified.md)).
   Its two-model PCV has no interval and is understated when strata are
   few.

@@ -334,11 +334,12 @@ strata; the understatement shrinks as strata are added.
 
 - **Identifiability.** A stratum random slope needs enough occasions per
   stratum; sparse strata, few waves, or irregular measurement times can
-  give a singular lme4 fit (the brms engine handles this better). The
-  fit diagnostics name the block that is at the boundary. Which block it
-  is decides whether the result is affected. For example a boundary
-  `(time | id)` block leaves the between-stratum variance well
-  estimated, a boundary `(time | stratum)` block does not.
+  give a singular lme4 fit (`engine = "brms"` reports an interval
+  instead, very wide when the data say little). The fit diagnostics name
+  the block that is at the boundary. Which block it is decides whether
+  the result is affected. For example a boundary `(time | id)` block
+  leaves the between-stratum variance well estimated, a boundary
+  `(time | stratum)` block does not.
 
 - **Rank-deficient stratum blocks.** The usual boundary outcome is a
   stratum intercept-slope correlation of exactly 1 or -1 (`Corr = 1.00`

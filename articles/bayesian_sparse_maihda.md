@@ -181,7 +181,8 @@ share is accompanied by an interval whose width reflects how little the
 sparse cells constrain it. Summarising the posterior by its point
 discards exactly the information that matters: the degree of
 uncertainty. When intersectional cells are sparse, a regularised
-Bayesian fit with an explicit interval is the more defensible summary.
+Bayesian fit with an explicit interval is the more defensible summary,
+read with the priors it rests on.
 
 The two-model PCV is the exception. `maihda(engine = "brms")` with the
 default `decomposition = "two-model"` fits the null and the adjusted

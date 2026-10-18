@@ -3,12 +3,11 @@
 A simulated cross-sectional dataset built to showcase \*\*Bayesian
 (brms) MAIHDA for sparse intersections\*\* – the regime where many
 intersectional strata each hold only a handful of individuals. There the
-maximum-likelihood (lme4) estimate of the \*interaction\*
-between-stratum variance collapses to a singular fit with no
-uncertainty, so the additive-vs-interaction split is both unstable and
-falsely precise; weakly-informative priors (\`engine = "brms"\`)
-regularise the variance off the boundary and return a calibrated
-credible interval.
+maximum-likelihood (lme4) fit of the \*interaction\* between-stratum
+variance can be singular, so the additive-vs-interaction split is both
+unstable and falsely precise; weakly-informative priors (\`engine =
+"brms"\`) regularise the variance off the boundary and return a credible
+interval.
 
 ## Usage
 
@@ -62,7 +61,7 @@ form 36 intersectional strata with deliberately skewed sizes (median 6
 individuals, 12 of 36 cells below 5, two singletons), and the true
 interaction accounts for \*\*40 between-stratum variance\*\* on both
 outcomes. On the binary outcome a genuine 40 interaction is read by lme4
-as roughly 3 that is purely a small-cell artifact.
+as roughly 3
 
 ## Note
 
@@ -78,11 +77,11 @@ data(maihda_sparse_data)
 attr(maihda_sparse_data, "truth")$gaussian$interaction_share  # 0.40
 #> [1] 0.4
 
-# ML over-shrinks the interaction under sparse cells (a singular fit):
+# ML over-shrinks the interaction under sparse cells (often a singular fit):
 # m_lme4 <- maihda(y ~ 1 + (1 | gender:ethnicity:education:age_group),
 #                  data = maihda_sparse_data, decomposition = "crossed-dimensions")
 #
-# Weakly-informative priors regularise it and report honest uncertainty:
+# Weakly-informative priors regularise it and report an interval:
 # m_brms <- maihda(y ~ 1 + (1 | gender:ethnicity:education:age_group),
 #                  data = maihda_sparse_data, decomposition = "crossed-dimensions",
 #                  engine = "brms",
