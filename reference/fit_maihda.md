@@ -139,13 +139,24 @@ fit_maihda(
   between-stratum share (now net of the context). A context variable may
   not be a stratum dimension or `"stratum"` itself, and may not already
   appear as a fixed-effect term (its variance would then be absorbed by
-  the fixed part). A context with few levels (say \< 10) weakly
-  identifies its variance and often yields a singular lme4 fit; the
-  `brms` engine handles this better. Writing the random effect directly
-  in the formula (`... + (1 | school)`) fits the same model but is
-  summarised generically as "Other random effects"; only `context =`
-  activates the labelled contextual partition. Not supported by the
-  `wemix` engine.
+  the fixed part). A context with few levels (say \< 10) identifies its
+  variance weakly with either engine: `lme4` estimates it imprecisely,
+  at zero (a singular fit) when the levels differ little, and with
+  `engine = "brms"` its posterior depends on the prior on its standard
+  deviation (under the default prior it comes out high when the context
+  effects are smaller than that prior's scale, most with two or three
+  levels), and the context share and the VPC depend on it. Prefer
+  contexts with many levels; with few, report the context share with its
+  interval (a `brms` summary also gives the realised partition, which
+  depends little on that prior when each context and stratum has enough
+  data; see the section Realised strata and contexts of
+  [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)), or
+  enter the context as a fixed effect instead
+  (`outcome ~ context + (1 | ...)`, without `context =`) when only the
+  strata net of it are wanted. Writing the random effect directly in the
+  formula (`... + (1 | school)`) fits the same model but is summarised
+  generically as "Other random effects"; only `context =` activates the
+  labelled contextual partition. Not supported by the `wemix` engine.
 
 - sampling_weights:
 
@@ -244,10 +255,19 @@ fit_maihda(
   calendar year, waves coded 10, 11, ...), the growth terms are fit on
   internally *centered* time (`time - min(time)`, with a message): the
   raw polynomial basis over an offset range is ill-conditioned and can
-  silently converge to a wrong solution. All results (the time-varying
-  VPC, the PCV, plots, predictions) are reported on the original `time`
-  scale; the column name `.maihda_ctime` is reserved for the internal
-  centered variable. Default `NULL`.
+  silently converge to a wrong solution. A Gaussian model fitted by
+  `lmer()` (`engine = "lme4"`, identity link) is also fit on time
+  divided by the power of ten that puts its span between 1 and 10 (days
+  over five years are divided by 1000; a span already between 1 and 10
+  is left as it is), with a message: counted in fine units (days, or
+  months for a quadratic curve), lme4's optimiser stops far from the
+  optimum, mostly without a convergence warning. All results (the
+  time-varying VPC, the PCV, the fixed effects in
+  [`summary()`](https://rdrr.io/r/base/summary.html), plots,
+  predictions) are reported on the original `time` scale; the lme4 fit
+  stored in the result's `model` element is on the internal time. The
+  column name `.maihda_ctime` is reserved for the internal time
+  variable. Default `NULL`.
 
 - time_degree:
 
@@ -271,7 +291,15 @@ fit_maihda(
   decomposition it supports is then a boundary artefact. The VPC still
   varies with time through the person-level slope variance and the
   residual, so this is a time-constant between-stratum *variance*, not a
-  time-constant VPC.
+  time-constant VPC. For a Gaussian model fitted by `lmer()` with linear
+  growth, the model is fitted from lme4's starting values and again from
+  two starts scaled by the person-level block, with a positive and a
+  negative stratum intercept-slope correlation, and a refit replaces
+  lmer's fit when its REML criterion (deviance for a maximum-likelihood
+  fit) is lower by more than 1e-4: lme4's default optimiser can stop on
+  the wrong side of the stratum block's boundary. Pass `start` through
+  `...` to fit from your own starting values only; they are on the
+  internal time when `time` is scaled (see `time`).
 
 - interactions:
 
@@ -403,15 +431,23 @@ A maihda_model object containing:
   Fit-quality diagnostics, surfaced by the print and summary methods:
   singular fit / convergence for lme4, WeMix and ordinal (clmm) fits,
   and MCMC convergence (maximum Rhat, divergent transitions) for brms.
-  An lme4 fit also carries likelihood-adequacy caveats – count
-  overdispersion and zero inflation, stratum random-effect non-normality
-  and longitudinal residual autocorrelation – reported only when a
-  conservative threshold is crossed, since the VPC/PCV and interaction
-  estimates are conditional on the likelihood holding. Every one of
-  those checks is lme4-only, so a cumulative (clmm) fit raises no
-  adequacy caveat at all: it stores a single descriptive fixed-only
-  proportional-odds proxy statistic, never flagged because it cannot be
-  separated from stratum heterogeneity; use
+  lme4 checks a `glmer()` fit in the units of its covariates, so its
+  checks can fire at the maximum when a covariate is far from zero or in
+  large units, as a calendar year or an income is. When they fire and
+  the optimiser reports success, the fit counts as converged if it lies
+  within a tenth of a standard error of a stationary point of its
+  likelihood, measured with the fixed effects in centred and scaled
+  units; the distance is `stationary_distance`, and lme4's messages are
+  kept in `lme4_overruled` when the fit converged by it. An lme4 fit
+  also carries likelihood-adequacy caveats – count overdispersion and
+  zero inflation, stratum random-effect non-normality and longitudinal
+  residual autocorrelation – reported only when a conservative threshold
+  is crossed, since the VPC/PCV and interaction estimates are
+  conditional on the likelihood holding. Every one of those checks is
+  lme4-only, so a cumulative (clmm) fit raises no adequacy caveat at
+  all: it stores a single descriptive fixed-only proportional-odds proxy
+  statistic, never flagged because it cannot be separated from stratum
+  heterogeneity; use
   [`maihda_proportional_odds_test`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
   to test that assumption
 

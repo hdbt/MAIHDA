@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-10-14</h4>
+            <h4 data-toc-skip class="date">2026-10-18</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/bayesian_sparse_maihda.Rmd" class="external-link"><code>vignettes/bayesian_sparse_maihda.Rmd</code></a></small>
       <div class="d-none name"><code>bayesian_sparse_maihda.Rmd</code></div>
@@ -201,6 +201,15 @@ likelihood reported a singular point as if it were certain;
 this simulation and makes the uncertainty explicit. The diagnostics
 (<code>max_rhat</code> close to 1, no divergent transitions) suggest the
 posterior is well-sampled.</p>
+<p>These summaries also depend on the prior on the random-effect
+standard deviations, <code>normal(0, 0.5)</code> above and
+<code>normal(0, 1)</code> for the binary fit: each of the four
+dimensions has two or three levels, and the variance of such a dimension
+follows that prior (see the caveats in
+<code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>). Refitted
+under brms’s default prior instead, the interaction share is about 3%
+for both outcomes, and the intervals end between 25% and 31% (the upper
+limit moves with the sampler’s seed), short of the true 40%.</p>
 </div>
 <div class="section level2">
 <h2 id="comparison">Comparison<a class="anchor" aria-label="anchor" href="#comparison"></a>

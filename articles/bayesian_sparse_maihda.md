@@ -124,6 +124,15 @@ reports an interval that includes the true share in this simulation and
 makes the uncertainty explicit. The diagnostics (`max_rhat` close to 1,
 no divergent transitions) suggest the posterior is well-sampled.
 
+These summaries also depend on the prior on the random-effect standard
+deviations, `normal(0, 0.5)` above and `normal(0, 1)` for the binary
+fit: each of the four dimensions has two or three levels, and the
+variance of such a dimension follows that prior (see the caveats in
+[`vignette("cross_classified", package = "MAIHDA")`](https://hdbt.github.io/MAIHDA/articles/cross_classified.md)).
+Refitted under brms’s default prior instead, the interaction share is
+about 3% for both outcomes, and the intervals end between 25% and 31%
+(the upper limit moves with the sampler’s seed), short of the true 40%.
+
 ## Comparison
 
 ``` r

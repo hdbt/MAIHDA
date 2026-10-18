@@ -14,7 +14,8 @@ maihda_validate_longitudinal(
   sampling_weights = NULL,
   context = NULL,
   formula = NULL,
-  stratum_slope = TRUE
+  stratum_slope = TRUE,
+  family = "gaussian"
 )
 ```
 
@@ -56,6 +57,12 @@ maihda_validate_longitudinal(
 - stratum_slope:
 
   Single `TRUE`/`FALSE`: keep the stratum-level random slope(s) on time.
+
+- family:
+
+  The model family (name, function or object), used only to tell whether
+  the fit will be made on internally scaled time (an lmer fit) when
+  guarding that reserved name.
 
 ## Value
 

@@ -7,7 +7,10 @@ and returns posterior point estimates with credible intervals for the
 between-stratum VPC and the contexts' total share (no bootstrap – the
 posterior supplies the interval). Each variance component is the
 posterior median of its draws, and the contexts' total variance is the
-sum of the context components.
+sum of the context components. When the draws hold the level effects,
+`context$realised` carries the realised partition (see the section
+Realised strata and contexts of
+[`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)).
 
 ## Usage
 

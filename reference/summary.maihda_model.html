@@ -168,8 +168,13 @@ dimension main effects. Every other engine uses a z regardless.</p></dd>
 <dd><p>For a contextual cross-classified fit, the stratum vs.
     context partition: per-context variances and shares, the contexts' total
     share (<code>vpc_context_total</code>, with an interval when bootstrapped or for
-    brms), and the between-stratum share (<code>vpc_stratum</code>); <code>NULL</code>
-    otherwise</p></dd>
+    brms), and the between-stratum share (<code>vpc_stratum</code>); for brms also
+    each context's number of levels in the fitted data (<code>context_levels</code>),
+    and <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> names a context with fewer than 10, whose variance
+    depends on the prior on its standard deviation, and the realised partition
+    in <code>realised</code>: the same quantities for the effects of the strata and
+    context levels in the data (see the section Realised strata and contexts of
+    <code><a href="maihda.html">maihda</a></code>); <code>NULL</code> otherwise</p></dd>
 
   <dt>discriminatory_accuracy</dt>
 <dd><p>For a binomial/Bernoulli outcome, the

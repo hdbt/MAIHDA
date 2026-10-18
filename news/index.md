@@ -168,6 +168,16 @@
   levels in the data, which depend little on the prior when each stratum
   has enough data. The few-levels note points to the block.
 
+- A `brms` fit with a `context` now reports its realised partition
+  (Gelman 2005) in `summary()$context$realised` and a second
+  [`print()`](https://rdrr.io/r/base/print.html) block: the variances,
+  VPC and context shares of the effects of the strata and context levels
+  in the data, which depend little on the prior when each context and
+  stratum has enough data (variances only for Poisson and
+  negative-binomial fits). A two-model analysis prints the realised VPC
+  and context share, a crossed-dimensions fit’s realised-strata block
+  its VPC, and the few-levels note points to them.
+
 ### API changes
 
 - [`print()`](https://rdrr.io/r/base/print.html) on a PCV built from
@@ -182,6 +192,15 @@
   dimension depends on the prior on its standard deviation, and the VPC
   and the shares follow it. The level counts are in
   `decomposition$dim_levels`; the numbers are unchanged.
+
+- [`print()`](https://rdrr.io/r/base/print.html) on a
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis fitted with `engine = "brms"`, and on the
+  [`summary()`](https://rdrr.io/r/base/summary.html) of a brms fit, now
+  names a `context` with fewer than 10 levels: its variance depends on
+  the prior on its standard deviation, and the context share and the VPC
+  depend on it. The level counts are in the contextual partition’s
+  `context_levels`; the numbers are unchanged.
 
 - `predict_maihda(allow_new_levels = TRUE)` on a brms fit now refuses
   newdata missing a grouping column the prediction uses, such as the
@@ -405,6 +424,28 @@
   that block has no between-stratum variance, near which the PCV is not
   interpretable; the numbers are unchanged.
 
+- Gaussian growth models fitted by lme4 with a linear stratum slope are
+  refitted from two more starting values, and a refit replaces lmer’s
+  fit when its REML criterion (deviance for a maximum-likelihood fit) is
+  lower by more than 1e-4. lmer’s default optimiser could stop on the
+  wrong side of the stratum block’s boundary; pass `start` to fit from
+  your own values only.
+
+- Gaussian growth models fitted by lme4 whose time span is not between 1
+  and 10 are fitted on time divided by a power of ten (days over five
+  years by 1000), with a message; results are reported on the original
+  time scale, while the stored lme4 fit is on the internal time. Counted
+  in fine units, lmer stopped far from the optimum, mostly recorded as
+  converged: in days `maihda_long_data`’s ML PCV was 0.92 / 0.35 (0.96 /
+  0.92 in waves) and
+  [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  was off by 78 and 87 log-likelihood units, and quadratic growth failed
+  from a span of about 12.
+
+- The rank-deficiency verdict for a linear stratum block, behind
+  `PCV_slope`’s `NA` and the longitudinal PCV’s note, no longer depends
+  on the unit of time.
+
 - The longitudinal PCV of `engine = "brms"` fits – `PCV_intercept`,
   `PCV_slope` and the time-specific PCV of
   `maihda(decomposition = "longitudinal")` – now compares posterior
@@ -538,6 +579,10 @@
   plus the binary-outcomes vignette set out both the new
   `scale = "response"` reading and the linear-probability-model route to
   an additive-scale model.
+- The binary-outcomes vignette no longer blames `glmer()`’s convergence
+  and “nearly unidentifiable” warnings on the strata’s own main effects;
+  they come from a covariate far from zero or in large units, such as
+  age in years, and from lme4’s tolerance.
 - The design-weighted documentation no longer describes the fixed-effect
   standard errors as design-consistent for complex surveys.
   `sampling_weights` takes one person-level weight column and cannot
@@ -609,6 +654,15 @@
   additive share of such a fit are overstated, most with two- to
   four-level dimensions; the two-model decomposition, or a `prior` with
   a sensitivity check, is the alternative.
+- [`?maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md),
+  [`?fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+  the README and the cross-classified vignette no longer recommend
+  `engine = "brms"` for a `context` with few levels: under the default
+  prior its variance comes out high for context effects smaller than
+  that prior’s scale, most with two or three levels, and the context
+  share and the VPC depend on it, while `lme4` may estimate it at zero.
+  The sparse-intersections vignette now says that its shares depend on
+  the priors it uses.
 
 ### Performance
 
@@ -618,6 +672,10 @@
   roughly halves the fitting cost (most noticeable for `brms`).
 
 ### Bug fixes
+
+- [`print()`](https://rdrr.io/r/base/print.html) on a longitudinal PCV
+  now shows a variance below 1e-4, such as a slope variance with time
+  counted in days, to four significant digits instead of as `0.0000`.
 
 - `fit_maihda(engine = "wemix")` on a binomial model now says that the
   between-stratum variance was estimated at zero when
@@ -638,6 +696,17 @@
   search could go no further, the fit counts as converged when the
   gradient and Hessian `clmm()` stores with it put it within a tenth of
   a standard error of a stationary point.
+
+- A glmer fit whose optimiser reports success now counts as converged
+  when lme4’s convergence checks fire but the fit lies within a tenth of
+  a standard error of a stationary point, measured with the fixed
+  effects centred and scaled: lme4 takes its checks in the covariates’
+  own units, where a calendar year, an income or an age in years on a
+  few thousand rows can trip them at the maximum, so such fits were
+  recorded as not converged and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  named their groups. [`print()`](https://rdrr.io/r/base/print.html)
+  says what lme4 warned of and how far the fit is.
 
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   now gives a failure reason shared by several groups once, in one
@@ -664,6 +733,15 @@
   now also names a group whose adjusted model did not converge (on
   `brms`: has a largest R-hat above 1.01 or divergent transitions) and
   points to its PCV.
+
+- The few-context-levels warning of
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  and the `context_few_levels` note of
+  [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+  no longer advise `engine = "brms"`; they say what each engine does
+  with so few levels: an `lme4` variance is imprecise and at zero when
+  the levels differ little, a `brms` one depends on the prior on its
+  standard deviation.
 
 - The singular-fit note printed for a
   `decomposition = "crossed-dimensions"` fit, and shown in the Shiny

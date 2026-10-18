@@ -184,7 +184,7 @@
 <span>            context <span class="op">=</span> <span class="st">"country"</span><span class="op">)</span></span>
 <span><span class="va">a</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">context</span><span class="op">$</span><span class="va">vpc_context_total</span>  <span class="co"># the country share of unexplained variance</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">a</span>, type <span class="op">=</span> <span class="st">"context_vpc"</span><span class="op">)</span></span></code></pre></div>
-<p>A context with few levels (like these 6 countries) weakly identifies its variance; prefer many-level contexts or <code>engine = "brms"</code> for serious use.</p>
+<p>A context with few levels (like these 6 countries) identifies its variance weakly with either engine (see <code><a href="reference/fit_maihda.html">?fit_maihda</a></code>); prefer many-level contexts for serious use.</p>
 </div>
 <div class="section level3">
 <h3 id="summary">

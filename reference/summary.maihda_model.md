@@ -120,7 +120,15 @@ A maihda_summary object containing:
   For a contextual cross-classified fit, the stratum vs. context
   partition: per-context variances and shares, the contexts' total share
   (`vpc_context_total`, with an interval when bootstrapped or for brms),
-  and the between-stratum share (`vpc_stratum`); `NULL` otherwise
+  and the between-stratum share (`vpc_stratum`); for brms also each
+  context's number of levels in the fitted data (`context_levels`), and
+  [`print()`](https://rdrr.io/r/base/print.html) names a context with
+  fewer than 10, whose variance depends on the prior on its standard
+  deviation, and the realised partition in `realised`: the same
+  quantities for the effects of the strata and context levels in the
+  data (see the section Realised strata and contexts of
+  [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)); `NULL`
+  otherwise
 
 - discriminatory_accuracy:
 

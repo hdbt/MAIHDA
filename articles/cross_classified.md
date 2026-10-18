@@ -127,7 +127,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x5615109e72d0>
+#> <environment: 0x556b821d0370>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -491,9 +491,25 @@ if you supply both.
 ### Notes
 
 - Few context levels identify the context variance weakly. The
-  `maihda_country_data` example has only 6 countries resulting in
-  imprecise estimates and `lme4` may fit it singular. Prefer many-level
-  contexts, or `engine = "brms"`, whose priors regularise the variance.
+  `maihda_country_data` example has only 6 countries, so its country
+  variance and share are imprecise. `lme4` may estimate such a variance
+  at zero (a singular fit), and `engine = "brms"` does not repair this:
+  the posterior of a few-level context’s variance depends on the prior
+  on its standard deviation and, under the default prior, comes out high
+  when the context effects are smaller than that prior’s scale (most
+  with two or three contexts), and the context share and the VPC depend
+  on it. [`print()`](https://rdrr.io/r/base/print.html) of a `brms`
+  analysis and of its [`summary()`](https://rdrr.io/r/base/summary.html)
+  names the contexts with fewer than 10 levels. A `brms` fit also
+  reports the realised partition, the variances and shares of the
+  effects of the strata and context levels in the data
+  (`summary()$context$realised`, defined in
+  [`?maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)), which
+  depend little on that prior when each context and stratum has enough
+  data. Prefer many-level contexts; with few, report the context share
+  with its interval, or enter the context as a fixed effect instead
+  (`math ~ country + (1 | gender:ses)`, without `context =`) when only
+  the strata net of it are wanted.
 - A manually written `+ (1 | school)` in the formula fits the same
   model, but is summarised generically as “Other random effects”. Only
   `context =` activates the labelled stratum-vs-context partition.

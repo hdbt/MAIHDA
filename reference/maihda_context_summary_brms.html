@@ -4,12 +4,16 @@ stratum / context / residual partition per posterior draw and returns posterior
 point estimates with credible intervals for the between-stratum VPC and the
 contexts' total share (no bootstrap – the posterior supplies the interval). Each
 variance component is the posterior median of its draws, and the contexts' total
-variance is the sum of the context components."><meta property="og:description" content="brms counterpart of maihda_context_summary_lme4: computes the
+variance is the sum of the context components. When the draws hold the level
+effects, context$realised carries the realised partition (see the section
+Realised strata and contexts of maihda)."><meta property="og:description" content="brms counterpart of maihda_context_summary_lme4: computes the
 stratum / context / residual partition per posterior draw and returns posterior
 point estimates with credible intervals for the between-stratum VPC and the
 contexts' total share (no bootstrap – the posterior supplies the interval). Each
 variance component is the posterior median of its draws, and the contexts' total
-variance is the sum of the context components."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
+variance is the sum of the context components. When the draws hold the level
+effects, context$realised carries the realised partition (see the section
+Realised strata and contexts of maihda)."><meta property="og:image" content="https://hdbt.github.io/MAIHDA/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -67,7 +71,9 @@ stratum / context / residual partition per posterior draw and returns posterior
 point estimates with credible intervals for the between-stratum VPC and the
 contexts' total share (no bootstrap – the posterior supplies the interval). Each
 variance component is the posterior median of its draws, and the contexts' total
-variance is the sum of the context components.</p>
+variance is the sum of the context components. When the draws hold the level
+effects, <code>context$realised</code> carries the realised partition (see the section
+Realised strata and contexts of <code><a href="maihda.html">maihda</a></code>).</p>
     </div>
 
     <div class="section level2">

@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-10-14</h4>
+            <h4 data-toc-skip class="date">2026-10-18</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/cross_classified.Rmd" class="external-link"><code>vignettes/cross_classified.Rmd</code></a></small>
       <div class="d-none name"><code>cross_classified.Rmd</code></div>
@@ -206,7 +206,7 @@ the intersection random intercept, and fits the single model:</p>
 <code class="sourceCode R"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span></span>
 <span><span class="co">#&gt; BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | </span></span>
 <span><span class="co">#&gt;     stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x5615109e72d0&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x556b821d0370&gt;</span></span></code></pre></div>
 <p>The partition is on <code>cc$decomposition</code> (and printed
 above):</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
@@ -565,10 +565,25 @@ if you supply both.</p>
 </h3>
 <ul>
 <li>Few context levels identify the context variance weakly. The
-<code>maihda_country_data</code> example has only 6 countries resulting
-in imprecise estimates and <code>lme4</code> may fit it singular. Prefer
-many-level contexts, or <code>engine = "brms"</code>, whose priors
-regularise the variance.</li>
+<code>maihda_country_data</code> example has only 6 countries, so its
+country variance and share are imprecise. <code>lme4</code> may estimate
+such a variance at zero (a singular fit), and
+<code>engine = "brms"</code> does not repair this: the posterior of a
+few-level context’s variance depends on the prior on its standard
+deviation and, under the default prior, comes out high when the context
+effects are smaller than that prior’s scale (most with two or three
+contexts), and the context share and the VPC depend on it.
+<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> of a <code>brms</code> analysis and of its
+<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> names the contexts with fewer than 10 levels. A
+<code>brms</code> fit also reports the realised partition, the variances
+and shares of the effects of the strata and context levels in the data
+(<code>summary()$context$realised</code>, defined in
+<code><a href="../reference/maihda.html">?maihda</a></code>), which depend little on that prior when each
+context and stratum has enough data. Prefer many-level contexts; with
+few, report the context share with its interval, or enter the context as
+a fixed effect instead (<code>math ~ country + (1 | gender:ses)</code>,
+without <code>context =</code>) when only the strata net of it are
+wanted.</li>
 <li>A manually written <code>+ (1 | school)</code> in the formula fits
 the same model, but is summarised generically as “Other random effects”.
 Only <code>context =</code> activates the labelled stratum-vs-context

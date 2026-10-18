@@ -161,8 +161,22 @@ stratified comparison then fits a contextual cross-classified model within
 each group and reports each group's stratum-vs-context partition (a per-group
 subset shrinks the context level count, so weak identification is warned about
 per group). Not available for the <code>wemix</code>/<code>ordinal</code> engines (they
-fit no crossed random effect); a context with few levels weakly identifies its
-variance (consider <code>engine = "brms"</code>).</p></dd>
+fit no crossed random effect). A context with few levels identifies its
+variance weakly with either engine: <code>lme4</code> estimates it imprecisely, at
+zero (a singular fit) when the levels differ little, and with
+<code>engine = "brms"</code> its posterior depends on the prior on its standard
+deviation – with two levels roughly in proportion to the prior's scale –
+and under the default prior it comes out high when the context effects are
+smaller than that prior's scale, most with two or three levels; the context
+share and the VPC depend on it. <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> of the analysis and of its
+<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> names the contexts of a <code>brms</code> fit that have fewer than
+10 levels, and the contextual partition of a <code>brms</code> summary holds the
+level counts as <code>context_levels</code>. A <code>brms</code> fit also reports the
+realised partition: the variances and shares of the effects of the strata and
+context levels in the data, which depend little on that prior when each context
+and stratum has enough data (see the section Realised strata and contexts).
+Prefer contexts with many levels (see <code>context</code> in
+<code><a href="fit_maihda.html">fit_maihda</a></code> for what to do with few).</p></dd>
 
 
 <dt id="arg-engine">engine<a class="anchor" aria-label="anchor" href="#arg-engine"></a></dt>
@@ -494,7 +508,9 @@ the spread between the strata. Per draw:</p><dl><dt><code>between_var</code></dt
     \(\pi^2/6\) for a cloglog link, the residual variance of a Gaussian
     fit. Not given for a Poisson or
     negative-binomial fit, whose within-stratum variance is computed from the
-    variance components, or for a fit with a <code>context</code>.</p></dd>
+    variance components. With a <code>context</code>, the realised variance of the
+    context effects is added to the denominator (see the section Realised strata
+    and contexts).</p></dd>
 
   <dt><code>interaction_var</code></dt>
 <dd><p>the residual sum of squares of the least-squares
@@ -523,6 +539,54 @@ the spread between the strata. Per draw:</p><dl><dt><code>between_var</code></dt
 <code>conf_level</code> in the matching <code>*_ci</code> element. Every stratum counts once,
 whatever its size. <code>n_strata</code> is \(J\). An <code>lme4</code>
 crossed-dimensions fit reports its variance components only.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="realised-strata-and-contexts">Realised strata and contexts<a class="anchor" aria-label="anchor" href="#realised-strata-and-contexts"></a></h2>
+
+
+<p>For a <code>brms</code> fit with a <code>context</code>, <code>summary()$context$realised</code> and
+the "Realised strata and contexts" block of <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> give the realised
+partition: over the posterior draws, the finite-population variances (Gelman 2005)
+of the effects of the strata and of each context's levels in the data. A context's
+variance component describes the distribution its levels were drawn from, and with
+few levels it follows the prior on its standard deviation; the variance of the
+effects of the levels in the data describes those levels, which the data pin down
+when each level has enough observations. With two contexts it is half the squared
+difference between their effects. Per draw, for a grouping factor with \(C\)
+levels in the data and effects \(u_k\):</p><dl><dt><code>var_stratum</code></dt>
+<dd><p>the realised variance of the strata: of the stratum
+    intercepts, or of the \(\zeta_j\) of a crossed-dimensions fit (its
+    <code>between_var</code>).</p></dd>
+
+  <dt><code>per_context</code></dt>
+<dd><p>each context's
+    \(\sum_k (u_k - \bar u)^2 / (C - 1)\), and
+    <code>context_var_total</code> their sum.</p></dd>
+
+  <dt><code>other_var</code></dt>
+<dd><p>the same, summed over any other random effect in the
+    formula; given only when there is one.</p></dd>
+
+  <dt><code>vpc_stratum</code></dt>
+<dd><p><code>var_stratum</code> over the sum of the realised
+    variances and the within-stratum variance (see <code>vpc</code> in Realised strata),
+    and <code>vpc_context</code> and <code>vpc_context_total</code> each context's and all
+    contexts' share of that sum. Given for a Gaussian identity fit and for a
+    binomial, Bernoulli or cumulative fit on its latent scale, not for a Poisson or
+    negative-binomial fit. For a crossed-dimensions fit <code>vpc_stratum</code> is
+    <code>decomposition$realised$vpc</code>.</p></dd>
+
+
+</dl><p>Each is the posterior median, with the equal-tailed credible interval at
+<code>conf_level</code> in the matching <code>*_ci</code> element; for <code>per_context</code> and
+<code>vpc_context</code> a matrix with a row per context. Every level counts once,
+whatever its size. <code>n_strata</code> is the number of strata, and the partition's
+<code>context_levels</code> the number of each context's levels. <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> of a
+two-model analysis shows the realised VPC and context share of the null model.
+These values depend little on the prior on the standard deviations when each
+context and stratum has enough data. With few observations per context each draw
+also carries the uncertainty about every context's effect, and they then move with
+the prior. An <code>lme4</code> fit reports its variance components only.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
@@ -582,10 +646,10 @@ crossed-dimensions fit reports its variance components only.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">formula</span>                      <span class="co"># null:     BMI ~ Age + (1 | stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5650b83d4978&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55cf66506090&gt;</span>
 <span class="r-in"><span><span class="va">a</span><span class="op">$</span><span class="va">adjusted_formula</span>             <span class="co"># adjusted: null + Gender + Race main effects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + Gender + Race + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5650b2151208&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55cf68137078&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Omitting them is equivalent -- maihda() adds them to the adjusted model and</span></span></span>
 <span class="r-in"><span><span class="co"># emits a message; the null and PCV are identical to the explicit form above.</span></span></span>
@@ -641,7 +705,7 @@ crossed-dimensions fit reports its variance components only.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6136712</span>
 <span class="r-in"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span>                            <span class="co"># BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5650bf777700&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55cf6ed20ea8&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Add a higher-level grouping variable to also compare across its levels.</span></span></span>
 <span class="r-in"><span><span class="co"># maihda_country_data has a real country grouping (PISA achievement data):</span></span></span>

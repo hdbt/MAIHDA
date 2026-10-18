@@ -9,7 +9,11 @@ interval). A contextual random intercept (`object$context_info` set)
 enters the per-draw VPC denominator and is reported as its own component
 row and `context` element. Each variance component is the posterior
 median of its draws, and the additive, between-strata and context totals
-are sums of those components.
+are sums of those components. When the draws hold the level effects,
+`decomposition$realised` carries the realised strata and
+`context$realised` the realised partition (see the sections Realised
+strata and Realised strata and contexts of
+[`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)).
 
 ## Usage
 

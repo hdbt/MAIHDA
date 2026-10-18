@@ -98,8 +98,25 @@ maihda(
   group's stratum-vs-context partition (a per-group subset shrinks the
   context level count, so weak identification is warned about per
   group). Not available for the `wemix`/`ordinal` engines (they fit no
-  crossed random effect); a context with few levels weakly identifies
-  its variance (consider `engine = "brms"`).
+  crossed random effect). A context with few levels identifies its
+  variance weakly with either engine: `lme4` estimates it imprecisely,
+  at zero (a singular fit) when the levels differ little, and with
+  `engine = "brms"` its posterior depends on the prior on its standard
+  deviation – with two levels roughly in proportion to the prior's scale
+  – and under the default prior it comes out high when the context
+  effects are smaller than that prior's scale, most with two or three
+  levels; the context share and the VPC depend on it.
+  [`print()`](https://rdrr.io/r/base/print.html) of the analysis and of
+  its [`summary()`](https://rdrr.io/r/base/summary.html) names the
+  contexts of a `brms` fit that have fewer than 10 levels, and the
+  contextual partition of a `brms` summary holds the level counts as
+  `context_levels`. A `brms` fit also reports the realised partition:
+  the variances and shares of the effects of the strata and context
+  levels in the data, which depend little on that prior when each
+  context and stratum has enough data (see the section Realised strata
+  and contexts). Prefer contexts with many levels (see `context` in
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  for what to do with few).
 
 - engine:
 
@@ -487,7 +504,9 @@ between the strata. Per draw:
   \\\pi^2/3\\ for a logit link, 1 for a probit link, \\\pi^2/6\\ for a
   cloglog link, the residual variance of a Gaussian fit. Not given for a
   Poisson or negative-binomial fit, whose within-stratum variance is
-  computed from the variance components, or for a fit with a `context`.
+  computed from the variance components. With a `context`, the realised
+  variance of the context effects is added to the denominator (see the
+  section Realised strata and contexts).
 
 - `interaction_var`:
 
@@ -519,6 +538,58 @@ Each is the posterior median, with the equal-tailed credible interval at
 `conf_level` in the matching `*_ci` element. Every stratum counts once,
 whatever its size. `n_strata` is \\J\\. An `lme4` crossed-dimensions fit
 reports its variance components only.
+
+## Realised strata and contexts
+
+For a `brms` fit with a `context`, `summary()$context$realised` and the
+"Realised strata and contexts" block of
+[`print()`](https://rdrr.io/r/base/print.html) give the realised
+partition: over the posterior draws, the finite-population variances
+(Gelman 2005) of the effects of the strata and of each context's levels
+in the data. A context's variance component describes the distribution
+its levels were drawn from, and with few levels it follows the prior on
+its standard deviation; the variance of the effects of the levels in the
+data describes those levels, which the data pin down when each level has
+enough observations. With two contexts it is half the squared difference
+between their effects. Per draw, for a grouping factor with \\C\\ levels
+in the data and effects \\u_k\\:
+
+- `var_stratum`:
+
+  the realised variance of the strata: of the stratum intercepts, or of
+  the \\\zeta_j\\ of a crossed-dimensions fit (its `between_var`).
+
+- `per_context`:
+
+  each context's \\\sum_k (u_k - \bar u)^2 / (C - 1)\\, and
+  `context_var_total` their sum.
+
+- `other_var`:
+
+  the same, summed over any other random effect in the formula; given
+  only when there is one.
+
+- `vpc_stratum`:
+
+  `var_stratum` over the sum of the realised variances and the
+  within-stratum variance (see `vpc` in Realised strata), and
+  `vpc_context` and `vpc_context_total` each context's and all contexts'
+  share of that sum. Given for a Gaussian identity fit and for a
+  binomial, Bernoulli or cumulative fit on its latent scale, not for a
+  Poisson or negative-binomial fit. For a crossed-dimensions fit
+  `vpc_stratum` is `decomposition$realised$vpc`.
+
+Each is the posterior median, with the equal-tailed credible interval at
+`conf_level` in the matching `*_ci` element; for `per_context` and
+`vpc_context` a matrix with a row per context. Every level counts once,
+whatever its size. `n_strata` is the number of strata, and the
+partition's `context_levels` the number of each context's levels.
+[`print()`](https://rdrr.io/r/base/print.html) of a two-model analysis
+shows the realised VPC and context share of the null model. These values
+depend little on the prior on the standard deviations when each context
+and stratum has enough data. With few observations per context each draw
+also carries the uncertainty about every context's effect, and they then
+move with the prior. An `lme4` fit reports its variance components only.
 
 ## References
 
@@ -582,10 +653,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x5650b83d4978>
+#> <environment: 0x55cf66506090>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x5650b2151208>
+#> <environment: 0x55cf68137078>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -641,7 +712,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x5650bf777700>
+#> <environment: 0x55cf6ed20ea8>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

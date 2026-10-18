@@ -182,8 +182,19 @@ between-context vs. residual, and the headline VPC/ICC remains the
 between-stratum share (now net of the context). A context variable may not be
 a stratum dimension or <code>"stratum"</code> itself, and may not already appear as
 a fixed-effect term (its variance would then be absorbed by the fixed part).
-A context with few levels (say &lt; 10) weakly identifies its variance and often
-yields a singular lme4 fit; the <code>brms</code> engine handles this better.
+A context with few levels (say &lt; 10) identifies its variance weakly with
+either engine: <code>lme4</code> estimates it imprecisely, at zero (a singular fit)
+when the levels differ little, and with <code>engine = "brms"</code> its posterior
+depends on the prior on its standard deviation (under the default prior it
+comes out high when the context effects are smaller than that prior's scale,
+most with two or three levels), and the context share and the VPC depend on
+it. Prefer contexts with many levels; with few, report the context
+share with its interval (a <code>brms</code> summary also gives the realised partition,
+which depends little on that prior when each context and stratum has enough data;
+see the section Realised strata and contexts of <code><a href="maihda.html">maihda</a></code>), or enter
+the context as a fixed effect instead
+(<code>outcome ~ context + (1 | ...)</code>, without <code>context =</code>) when only
+the strata net of it are wanted.
 Writing the random effect directly in the formula (<code>... + (1 | school)</code>)
 fits the same model but is summarised generically as "Other random effects";
 only <code>context =</code> activates the labelled contextual partition.
@@ -275,10 +286,17 @@ see <code>id</code>. When the time axis does not start at 0 (age, calendar year,
 waves coded 10, 11, ...), the growth terms are fit on internally
 <em>centered</em> time (<code>time - min(time)</code>, with a message): the raw
 polynomial basis over an offset range is ill-conditioned and can silently
-converge to a wrong solution. All results (the time-varying VPC, the
-PCV, plots, predictions) are reported on the original <code>time</code> scale;
-the column name <code>.maihda_ctime</code> is reserved for the internal centered
-variable. Default <code>NULL</code>.</p></dd>
+converge to a wrong solution. A Gaussian model fitted by <code>lmer()</code>
+(<code>engine = "lme4"</code>, identity link) is also fit on time divided by the power
+of ten that puts its span between 1 and 10 (days over five years are divided by
+1000; a span already between 1 and 10 is left as it is), with a message: counted
+in fine units (days, or months for a quadratic curve), lme4's optimiser stops far
+from the optimum, mostly without a convergence warning. All results (the
+time-varying VPC, the PCV, the fixed effects in <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, plots,
+predictions) are reported on the original <code>time</code> scale; the lme4 fit stored
+in the result's <code>model</code> element is on the internal time. The column name
+<code>.maihda_ctime</code> is reserved for the internal time variable. Default
+<code>NULL</code>.</p></dd>
 
 
 <dt id="arg-time-degree">time_degree<a class="anchor" aria-label="anchor" href="#arg-time-degree"></a></dt>
@@ -301,7 +319,14 @@ strata, few occasions per stratum, or irregular measurement times, a
 correlation, and the trajectory decomposition it supports is then a boundary
 artefact. The VPC still varies with time through the person-level slope
 variance and the residual, so this is a time-constant between-stratum
-<em>variance</em>, not a time-constant VPC.</p></dd>
+<em>variance</em>, not a time-constant VPC. For a Gaussian model fitted by
+<code>lmer()</code> with linear growth, the model is fitted from lme4's starting values
+and again from two starts scaled by the person-level block, with a positive and a
+negative stratum intercept-slope correlation, and a refit replaces lmer's fit when
+its REML criterion (deviance for a maximum-likelihood fit) is lower by more than
+1e-4: lme4's default optimiser can stop on the wrong side of the stratum block's
+boundary. Pass <code>start</code> through <code>...</code> to fit from your own starting values
+only; they are on the internal time when <code>time</code> is scaled (see <code>time</code>).</p></dd>
 
 
 <dt id="arg-interactions">interactions<a class="anchor" aria-label="anchor" href="#arg-interactions"></a></dt>
@@ -415,7 +440,14 @@ which the offset does not).</p></dd>
 <dd><p>Fit-quality diagnostics, surfaced by the print and
     summary methods: singular fit / convergence for lme4, WeMix and ordinal
     (clmm) fits, and MCMC convergence (maximum Rhat, divergent transitions)
-    for brms. An lme4 fit also
+    for brms. lme4 checks a <code>glmer()</code> fit in the units of its covariates,
+    so its checks can fire at the maximum when a covariate is far from zero or
+    in large units, as a calendar year or an income is. When they fire and the
+    optimiser reports success, the fit counts as converged if it lies within a
+    tenth of a standard error of a stationary point of its likelihood, measured
+    with the fixed effects in centred and scaled units; the distance is
+    <code>stationary_distance</code>, and lme4's messages are kept in
+    <code>lme4_overruled</code> when the fit converged by it. An lme4 fit also
     carries likelihood-adequacy caveats – count overdispersion and zero
     inflation, stratum random-effect non-normality and longitudinal residual
     autocorrelation – reported only when a conservative threshold is crossed,
