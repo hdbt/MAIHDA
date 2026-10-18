@@ -231,7 +231,8 @@ strata are added.
   observed time.
 * **Identifiability.** A stratum random slope needs enough occasions per stratum;
   sparse strata, few waves, or irregular measurement times can give a singular lme4
-  fit (the brms engine handles this better). The fit diagnostics name the block that
+  fit (`engine = "brms"` reports an interval instead, very wide when the data say
+  little). The fit diagnostics name the block that
   is at the boundary. Which block it is decides whether the result is affected. For example a
   boundary `(time | id)` block leaves the between-stratum variance well estimated, a
   boundary `(time | stratum)` block does not.
