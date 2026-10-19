@@ -208,12 +208,24 @@ see \code{id}. When the time axis does not start at 0 (age, calendar year,
 waves coded 10, 11, ...), the growth terms are fit on internally
 \emph{centered} time (\code{time - min(time)}, with a message): the raw
 polynomial basis over an offset range is ill-conditioned and can silently
-converge to a wrong solution. A Gaussian model fitted by \code{lmer()}
-(\code{engine = "lme4"}, identity link) is also fit on time divided by the power
-of ten that puts its span between 1 and 10 (days over five years are divided by
-1000; a span already between 1 and 10 is left as it is), with a message: counted
-in fine units (days, or months for a quadratic curve), lme4's optimiser stops far
-from the optimum, mostly without a convergence warning. All results (the
+converge to a wrong solution. With \code{engine = "lme4"} the model is also fit
+on time divided by the power of ten that puts its span between 1 and 10 (days
+over five years are divided by 1000; a span already between 1 and 10 is left as
+it is), with a message: counted in fine units (days, or months for a quadratic
+curve), lme4's optimisers stop far from the optimum, mostly without a convergence
+warning. A model fitted by \code{glmer()} (\code{glmer.nb()} for
+\code{family = "negbinomial"}) is refitted as well: glmer's first stage often
+leaves a growth block's intercept variance at zero, where the likelihood still
+rises with the sign of the intercept-slope covariance reversed, and its second
+stage stops there. Linear growth with a stratum slope is refitted from two more
+starts, which reset the person-level block and start the stratum block at half the
+person-level intercept SD and 0.71 times its slope SD, with an intercept-slope
+correlation of 0.71 or -0.71; a refit replaces the fit when its -2 log-likelihood
+is lower by more than 1e-4. Then any glmer growth fit that still has a block's
+intercept variance at zero is refitted once from the other side of that bound, and
+the refit is kept on the same terms. This takes about three times as long as one
+fit. Pass \code{start} through \code{...} to fit from your own starting values
+only; they are on the internal time when \code{time} is scaled. All results (the
 time-varying VPC, the PCV, the fixed effects in \code{summary()}, plots,
 predictions) are reported on the original \code{time} scale; the lme4 fit stored
 in the result's \code{model} element is on the internal time. The column name
@@ -337,7 +349,11 @@ A maihda_model object containing:
     tenth of a standard error of a stationary point of its likelihood, measured
     with the fixed effects in centred and scaled units; the distance is
     \code{stationary_distance}, and lme4's messages are kept in
-    \code{lme4_overruled} when the fit converged by it. An lme4 fit also
+    \code{lme4_overruled} when the fit converged by it. A glmer growth fit with a
+    block's intercept variance at zero (or, in a quadratic block, its slope
+    perfectly correlated with its intercept), where the likelihood still rises
+    across that bound, has stopped at a bound of lme4's parametrisation and counts
+    as not converged; those blocks are in \code{boundary_traps}. An lme4 fit also
     carries likelihood-adequacy caveats -- count overdispersion and zero
     inflation, stratum random-effect non-normality and longitudinal residual
     autocorrelation -- reported only when a conservative threshold is crossed,
