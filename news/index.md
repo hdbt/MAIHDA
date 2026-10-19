@@ -440,6 +440,21 @@
   was off by 78 and 87 log-likelihood units, and quadratic growth failed
   from a span of about 12.
 
+- Growth models fitted by glmer (Poisson, binomial, negative binomial)
+  are fitted on the internally scaled time too, so their fixed-effect
+  standard errors no longer depend on the unit of time.
+
+- glmer growth models with a linear stratum slope are refitted from two
+  more starts, and any glmer growth fit with a block’s intercept
+  variance at zero is refitted once from the other side of that bound,
+  at about three times the fitting time; glmer stopped more than 0.01
+  below the maximum in about a third of 120 Poisson growth fits, by up
+  to 32 log-likelihood units.
+
+- A glmer growth fit stopped with a block’s intercept variance at zero
+  where the likelihood still rises is recorded as not converged, the
+  blocks in `diagnostics$boundary_traps`.
+
 - The rank-deficiency verdict for a linear stratum block, behind
   `PCV_slope`’s `NA` and the longitudinal PCV’s note, no longer depends
   on the unit of time.

@@ -407,14 +407,17 @@ calendar year, or days since baseline). When the axis does not start at
 0, the growth terms are fit on internally <em>centered</em> time
 (<code>time - min(time)</code>, with a message), because the raw
 polynomial basis over an offset range is ill-conditioned and can
-silently converge to a wrong solution. For a Gaussian outcome with
+silently converge to a wrong solution. With
 <code>engine = "lme4"</code>, time whose span is not between 1 and 10 is
 also divided by a power of ten for the fit (days over five years by
-1000, with a message): counted in fine units, lme4’s optimiser stops far
-from the optimum, mostly without a convergence warning. All results (the
-VPC trajectory, the PCV, the fixed effects, plots, and predictions) are
-reported on your original time scale, and the baseline
-(<code>ref_time</code>) is always the earliest observed time.</p></li>
+1000, with a message): counted in fine units, lme4’s optimisers stop far
+from the optimum, mostly without a convergence warning. The growth model
+of a count or binary outcome is also refitted from more starting values,
+because glmer’s optimiser often stops with a variance at zero, short of
+the maximum. All results (the VPC trajectory, the PCV, the fixed
+effects, plots, and predictions) are reported on your original time
+scale, and the baseline (<code>ref_time</code>) is always the earliest
+observed time.</p></li>
 <li><p><strong>Identifiability.</strong> A stratum random slope needs
 enough occasions per stratum; sparse strata, few waves, or irregular
 measurement times can give a singular lme4 fit
