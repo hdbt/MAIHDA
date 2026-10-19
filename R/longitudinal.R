@@ -40,7 +40,7 @@
 # use the derived column below, and a(t)' Sigma a(t) evaluations subtract the
 # stored centering offset first.
 #
-# INTERNAL TIME SCALING (lmer only). A growth fit lme4 makes with lmer() is also fit on
+# INTERNAL TIME SCALING. A growth fit lme4 makes, with lmer() or glmer(), is also fit on
 # time divided by a power of ten k chosen so that the time span lies in [1, 10): k = 1
 # for a span that already does (waves 0-9, years 0-9), 1000 for days over five years,
 # 0.1 for a span of 0.4. lme4 optimises the random-effect covariance on its relative
@@ -60,12 +60,12 @@
 # (maihda_longitudinal_stratum_re()), the fixed effects (maihda_lng_unscale_fixed()),
 # the REML log-likelihood of maihda_ic(), the gap of the residual-autocorrelation check,
 # and a time put into the model frame ((t - c) / k: maihda_lng_internal_time()).
-# Not scaled (maihda_longitudinal_scales_time()): a glmer growth fit, which has no
-# restarts and whose optimiser, on the internal time, missed the maximum as often or
-# more often, in other fits (see that function), and a brms fit, whose default prior
-# on every random-effect SD (student_t(3, 0, s) with s set from the response, the same
-# with time in waves or in days) would then be a different prior on the slope SD,
-# changing the posterior and not only its parameterisation.
+# A glmer growth fit is refitted on the internal time as maihda_fit_glmer_growth() says:
+# the scaling alone moves glmer's failures rather than removing them. Not scaled
+# (maihda_longitudinal_scales_time()): a brms fit, whose default prior on every
+# random-effect SD (student_t(3, 0, s) with s set from the response, the same with time
+# in waves or in days) would then be a different prior on the slope SD, changing the
+# posterior and not only its parameterisation.
 
 # ---- internal time centering -------------------------------------------------
 
@@ -145,18 +145,15 @@ maihda_lng_unscale_fixed <- function(fe, object) {
   fe
 }
 
-# Whether a growth fit is made on internally scaled time: one lme4 fits with lmer()
-# (a Gaussian family with the identity link). A glmer growth fit is not: it has no
-# restarts, and on the internal time glmer's optimiser missed the maximum as often or
-# more often, in other fits (Poisson growth, 20 seeds, fits more than 0.01 below the
-# maximum: weeks 2 -> 11, 30.4-day units 1 -> 20, days 17 -> 9).
+# Whether a growth fit is made on internally scaled time: one lme4 fits, with lmer(),
+# glmer() or, for a negative-binomial family, glmer.nb(). A brms fit is not (see the
+# header).
 maihda_longitudinal_scales_time <- function(engine, family) {
-  fam <- tryCatch(maihda_resolve_family_spec(family), error = function(e) NULL)
-  identical(engine, "lme4") && !is.null(fam) &&
-    identical(fam$family, "gaussian") && identical(fam$link, "identity")
+  identical(engine, "lme4") &&
+    !is.null(tryCatch(maihda_resolve_family_spec(family), error = function(e) NULL))
 }
 
-# The internal time scale of an lmer growth fit: the power of ten k that puts the time
+# The internal time scale of an lme4 growth fit: the power of ten k that puts the time
 # span in [1, 10), so that 1 is returned for a span that already lies there (waves 0-9,
 # years 0-9: those fits are unchanged). 1 as well when there is no finite positive span.
 maihda_longitudinal_scale <- function(time_values) {
@@ -308,7 +305,7 @@ maihda_validate_longitudinal <- function(id, time, time_degree, data,
 
   # Guard the reserved internal-time column against silently overwriting a user
   # variable of the same name. Only fires when centering or scaling will actually
-  # occur (min(time) != 0, or an lmer time span outside [1, 10), writes the column)
+  # occur (min(time) != 0, or an lme4 time span outside [1, 10), writes the column)
   # AND the formula does not already reference it -- a formula that does is a
   # package-derived refit (maihda()'s null/adjusted pair re-entering fit_maihda with
   # the first fit's original_data), whose column is the package's own and is
@@ -819,6 +816,149 @@ maihda_growth_restarts_apply <- function(fit_fun, longitudinal_info, dot_vals) {
     !isFALSE(longitudinal_info$stratum_slope) &&
     identical(as.integer(longitudinal_info$time_degree), 1L) &&
     !"start" %in% names(dot_vals)
+}
+
+# ---- refits of a glmer growth fit ------------------------------------------------------
+
+# glmer() fits in two stages: bobyqa on the variance parameters with the fixed effects in
+# the penalised least squares (nAGQ = 0), then Nelder-Mead on both from that point. The
+# first stage often stops a growth fit with a block's intercept SD at its bound of 0 beside
+# a non-zero intercept-slope entry, a point that is not a maximum
+# (maihda_lme4_boundary_traps()), and the second stage stops there too. On a Poisson growth
+# design of 16 strata of 6 persons and 6 waves, about a third of 120 fits (30 data sets,
+# time in waves, weeks, months and days) ended more than 0.01 below the maximum of the
+# Laplace likelihood, by up to 32, and about half on the internal time alone, nearly all
+# recorded as converged. fit_maihda() therefore refits a glmer growth model on the
+# internal time (maihda_fit_glmer_growth()): a linear one with a stratum slope from two
+# more starts, keeping the fit with the highest likelihood, and then any one at a boundary
+# trap once from the other side of the bound. That reached the maximum in all 120 fits,
+# and in 48 each of Bernoulli and binomial outcomes and of two other designs (8 strata of
+# 12 persons with 4 waves; 32 strata of 4 persons with 8 waves and a fifth of the
+# occasions missing), and in 24 negative-binomial fits; 2 of 48 adjusted fits stayed 0.011
+# short of a stratum block at 0, and those are recorded as not converged.
+
+# Whether fit_maihda() makes an lme4 fit by maihda_fit_glmer_growth(): a growth model
+# fitted by glmer() or glmer.nb(), without starting values of the user's own.
+maihda_glmer_growth_applies <- function(fit_fun, longitudinal_info, dot_vals) {
+  (identical(fit_fun, quote(lme4::glmer)) || identical(fit_fun, quote(lme4::glmer.nb))) &&
+    !is.null(longitudinal_info) && !"start" %in% names(dot_vals)
+}
+
+# The starts of a linear glmer growth fit's restarts: lme4's theta of the first fit with
+# the person-level block reset to its SDs s0 and s1 and no correlation, and the stratum
+# block's Cholesky entries set to half of (s0, +/- s1, s1) -- an intercept SD of s0 / 2, a
+# slope SD of 0.71 s1 and an intercept-slope correlation of +0.71 or -0.71 -- as the lmer
+# restarts set it (maihda_growth_restart_starts()). The person block is reset because
+# glmer's first stage can leave it at its bound; an SD at the bound (1e-4 or less) is
+# started at 1, glmer's own start, a size that suits time on the internal scale. An empty
+# list unless the person and stratum blocks are both 2 x 2.
+maihda_glmer_growth_starts <- function(theta, cnms, id, scale = 0.5) {
+  if (!is.numeric(theta) || !is.list(cnms) || is.null(names(cnms))) {
+    return(list())
+  }
+  sizes <- vapply(cnms, function(cn) length(cn) * (length(cn) + 1) / 2, numeric(1))
+  if (sum(sizes) != length(theta)) {
+    return(list())
+  }
+  end <- cumsum(sizes)
+  beg <- end - sizes + 1
+  s <- which(names(cnms) == "stratum")
+  p <- which(names(cnms) == id)
+  if (length(s) != 1L || length(p) != 1L || length(cnms[[s]]) != 2L ||
+      length(cnms[[p]]) != 2L) {
+    return(list())
+  }
+  person <- theta[seq.int(beg[p], end[p])]
+  sd_int <- abs(person[1])
+  sd_slope <- sqrt(person[2]^2 + person[3]^2)
+  if (!is.finite(sd_int) || sd_int <= 1e-4) sd_int <- 1
+  if (!is.finite(sd_slope) || sd_slope <= 1e-4) sd_slope <- 1
+  lapply(c(1, -1), function(sign) {
+    start <- theta
+    start[seq.int(beg[p], end[p])] <- c(sd_int, 0, sd_slope)
+    start[seq.int(beg[s], end[s])] <- scale * c(sd_int, sign * sd_slope, sd_slope)
+    start
+  })
+}
+
+# The criterion of a glmer fit as a deviance to minimise: -2 times its log-likelihood
+# (Laplace, or quadrature). Not deviance(), which for a glmer fit is the conditional
+# deviance, the squared deviance residuals at the conditional modes, and can be lower for
+# a fit of lower likelihood.
+maihda_glmer_criterion <- function(model) {
+  -2 * as.numeric(stats::logLik(model))
+}
+
+# Fit a glmer growth model (`fit_call`, evaluated in `fit_env`), refit it from the starts of
+# maihda_glmer_growth_starts() and keep the fit with the lowest criterion
+# (maihda_pick_lowest()); then refit that fit once from the other side of its boundary
+# traps (maihda_glmer_mirror_refit()). Only the kept fit's warnings and messages are
+# signalled. A refit that fails is passed over.
+maihda_fit_glmer_growth <- function(fit_call, fit_env, id, tol = 1e-4) {
+  first <- maihda_eval_holding_conditions(fit_call, fit_env)
+  fits <- list(first)
+  starts <- tryCatch(
+    maihda_glmer_growth_starts(lme4::getME(first$value, "theta"),
+                               lme4::getME(first$value, "cnms"), id),
+    error = function(e) list())
+  for (start in starts) {
+    restart_call <- fit_call
+    restart_call$start <- list(theta = start)
+    fits[[length(fits) + 1L]] <- tryCatch(
+      maihda_eval_holding_conditions(restart_call, fit_env), error = function(e) NULL)
+  }
+  crit <- vapply(fits, function(f) {
+    if (is.null(f)) NA_real_ else tryCatch(maihda_glmer_criterion(f$value),
+                                           error = function(e) NA_real_)
+  }, numeric(1))
+  kept <- fits[[maihda_pick_lowest(crit, tol)]]
+  mirrored <- tryCatch(maihda_glmer_mirror_refit(kept, fit_call, fit_env, tol),
+                       error = function(e) NULL)
+  if (!is.null(mirrored)) {
+    kept <- mirrored
+  }
+  maihda_signal_conditions(kept$conditions)
+  kept$value
+}
+
+# The refit of maihda_fit_glmer_growth() from the other side of a boundary trap: when the
+# fit in `kept` (a value / conditions pair of maihda_eval_holding_conditions()) has columns
+# where a trap can sit (maihda_lme4_trap_columns()), `fit_call` is evaluated once from its
+# estimates with each such column taken across its bound (maihda_lme4_mirror_theta(), the
+# diagonal entry at 0.05) and glmer's second stage only. The refit's pair when its
+# criterion is lower than the kept fit's by more than `tol`, else NULL. The refit does not
+# wait for the deviance to fall within a small step across the bound
+# (maihda_lme4_boundary_traps()): the maximum can lie further across, where such a step
+# does not reach (a Poisson growth fit in weeks: the deviance rose by 0.0002 at a step of
+# 0.001, and the refit gained 0.17 in log-likelihood).
+maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4) {
+  model <- kept$value
+  if (!isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))) {
+    return(NULL)
+  }
+  theta <- lme4::getME(model, "theta")
+  cnms <- lme4::getME(model, "cnms")
+  cols <- maihda_lme4_trap_columns(theta, cnms)
+  if (!length(cols)) {
+    return(NULL)
+  }
+  theta <- maihda_lme4_mirror_theta(theta, cnms, vapply(cols, `[[`, integer(1), "index"), 0.05)
+  control <- if (is.null(fit_call$control)) {
+    lme4::glmerControl()
+  } else {
+    eval(fit_call$control, fit_env)
+  }
+  control$nAGQ0initStep <- FALSE
+  assign(".maihda_arg_refit_control", control, envir = fit_env)
+  refit_call <- fit_call
+  refit_call$start <- list(theta = unname(theta), fixef = lme4::fixef(kept$value))
+  refit_call$control <- as.name(".maihda_arg_refit_control")
+  refit <- maihda_eval_holding_conditions(refit_call, fit_env)
+  if (maihda_glmer_criterion(refit$value) < maihda_glmer_criterion(kept$value) - tol) {
+    refit
+  } else {
+    NULL
+  }
 }
 
 # Posterior-mean ordered covariance block of a grouping factor (brms), for the

@@ -297,6 +297,119 @@ maihda_lme4_detached_copy <- function(model) {
   unserialize(serialize(model, NULL))
 }
 
+# A glmer fit is at a boundary trap when the deviance falls by more than this at the
+# mirrored point of maihda_lme4_boundary_traps(): 0 of 631 growth fits at the maximum and
+# 164 of 250 more than 0.01 below it fell by more (Poisson and Bernoulli growth designs).
+.maihda_lme4_trap_drop <- 1e-3
+
+# Every column of an lme4 fit's random-effect Cholesky factors that has entries below its
+# diagonal, in the order of theta (each block's lower triangle by column): the block's
+# name, the column's term, the theta index of the diagonal entry and the indices of the
+# entries below it.
+maihda_lme4_theta_columns <- function(cnms) {
+  out <- list()
+  pos <- 0L
+  for (b in seq_along(cnms)) {
+    q <- length(cnms[[b]])
+    for (j in seq_len(q)) {
+      idx <- pos + seq_len(q - j + 1L)
+      if (length(idx) > 1L) {
+        out[[length(out) + 1L]] <- list(block = names(cnms)[b], term = cnms[[b]][j],
+                                        index = idx[1L], below = idx[-1L])
+      }
+      pos <- pos + length(idx)
+    }
+  }
+  out
+}
+
+# The columns of maihda_lme4_theta_columns() that sit where a boundary trap can: the
+# diagonal entry at the bound of 0 (below `entry_tol`) and an entry below it not 0.
+maihda_lme4_trap_columns <- function(theta, cnms, entry_tol = 1e-4) {
+  Filter(function(cl) abs(theta[cl$index]) < entry_tol && any(theta[cl$below] != 0),
+         maihda_lme4_theta_columns(cnms))
+}
+
+# `theta` with each column whose diagonal entry has a theta index in `index` taken to the
+# other side of its bound: the diagonal entry set to `value`, the entries below negated.
+maihda_lme4_mirror_theta <- function(theta, cnms, index, value) {
+  for (cl in maihda_lme4_theta_columns(cnms)) {
+    if (cl$index %in% index) {
+      theta[cl$index] <- value
+      theta[cl$below] <- -theta[cl$below]
+    }
+  }
+  theta
+}
+
+# The boundary traps of a glmer fit: columns of its random-effect Cholesky factors whose
+# diagonal entry is at the bound of 0 (below `entry_tol`) while an entry below it is not,
+# such as a growth block's intercept SD at 0 beside a non-zero intercept-slope entry. The
+# covariance matrix there is the same as with the entries below negated; moving the
+# diagonal entry off 0 changes the covariances of that term with the later ones to first
+# order, with opposite signs on the two sides, so unless the likelihood is flat in them it
+# is higher on one side, which lme4's optimisers cannot reach across the bound. glmer's
+# first stage (nAGQ = 0) often stops a growth fit there and the second stops with it.
+# `drop` is the deviance (-2 log-likelihood) at the fit minus the deviance at the mirrored
+# point with the diagonal entry at `step`: positive where the likelihood is higher on the
+# other side (.maihda_lme4_trap_drop says how much counts). A data frame with a row per
+# such column (block, term, index of the diagonal entry in theta, drop, the number of
+# terms of the block); no rows for a fit
+# with none, or that is not a glmer fit with its fixed effects among the optimised
+# parameters (nAGQ 0); drop NA when the deviance function does not reproduce the fit's
+# log-likelihood.
+maihda_lme4_boundary_traps <- function(model, entry_tol = 1e-4, step = 1e-3) {
+  none <- data.frame(block = character(0), term = character(0), index = integer(0),
+                     drop = numeric(0), n_terms = integer(0), stringsAsFactors = FALSE)
+  if (!inherits(model, "glmerMod") ||
+      !isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))) {
+    return(none)
+  }
+  theta <- lme4::getME(model, "theta")
+  cnms <- lme4::getME(model, "cnms")
+  cols <- maihda_lme4_trap_columns(theta, cnms, entry_tol)
+  if (!length(cols)) {
+    return(none)
+  }
+  out <- data.frame(block = vapply(cols, `[[`, character(1), "block"),
+                    term = vapply(cols, `[[`, character(1), "term"),
+                    index = vapply(cols, `[[`, integer(1), "index"),
+                    drop = NA_real_, stringsAsFactors = FALSE)
+  out$n_terms <- unname(lengths(cnms)[out$block])
+  # Rebuilt from a copy: lme4 writes into vectors the deviance function shares with the fit.
+  deviance <- tryCatch(lme4::getME(maihda_lme4_detached_copy(model), "devfun"),
+                       error = function(e) NULL)
+  if (!is.function(deviance)) {
+    return(out)
+  }
+  beta <- unname(lme4::fixef(model))
+  at <- function(th) tryCatch(deviance(c(unname(th), beta)), error = function(e) NA_real_)
+  d0 <- at(theta)
+  target <- -2 * as.numeric(stats::logLik(model))
+  if (!is.finite(d0) || abs(d0 - target) > 1e-5 * max(1, abs(target))) {
+    return(out)
+  }
+  out$drop <- vapply(out$index, function(i) d0 - at(maihda_lme4_mirror_theta(theta, cnms, i, step)),
+                     numeric(1))
+  out
+}
+
+# The record's sentence for a boundary trap (a row of maihda_lme4_boundary_traps()) of a
+# growth block with `n_terms` terms: its intercept column, or the linear one of a curve.
+maihda_lme4_trap_message <- function(block, term, n_terms) {
+  tail <- paste0(": the fit stopped at a bound of lme4's parametrisation, not at the maximum.")
+  if (identical(term, "(Intercept)")) {
+    return(sprintf(paste0("The intercept variance of the '%s' block is at zero, where the ",
+                          "likelihood still rises with the sign of its covariance with %s ",
+                          "reversed%s"), block,
+                   if (n_terms > 2) "the time terms" else "the slope", tail))
+  }
+  # A later column at its bound: that term is a multiple of the earlier ones, not zero.
+  sprintf(paste0("In the '%s' block the slope is perfectly correlated with the intercept, ",
+                 "where the likelihood still rises with the sign of its covariance with the ",
+                 "curvature reversed%s"), block, tail)
+}
+
 # The work of maihda_lme4_stationary_distance(), with `deviance` the fit's deviance as a
 # function of its variance parameters and fixed effects (lme4::getME(, "devfun")).
 maihda_lme4_distance_with <- function(model, deviance) {
@@ -420,6 +533,21 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
           diagnostics$messages <- character(0)
           diagnostics$lme4_overruled <- lme4_msgs
         }
+      }
+    }
+    # A glmer fit stopped at a boundary trap is not at the maximum, whatever lme4 recorded:
+    # lme4 takes no derivatives at a bound, so it records such a fit as converged.
+    # Growth fits only, as decided; a cross-sectional random-slope fit is not looked at.
+    traps <- if (is.null(longitudinal_info)) NULL else
+      tryCatch(maihda_lme4_boundary_traps(model), error = function(e) NULL)
+    if (!is.null(traps)) {
+      traps <- traps[!is.na(traps$drop) & traps$drop > .maihda_lme4_trap_drop, , drop = FALSE]
+      if (nrow(traps) > 0) {
+        diagnostics$converged <- FALSE
+        diagnostics$boundary_traps <- traps
+        diagnostics$messages <- c(diagnostics$messages,
+                                  mapply(maihda_lme4_trap_message, traps$block, traps$term,
+                                         traps$n_terms, USE.NAMES = FALSE))
       }
     }
   } else if (inherits(model, "WeMixResults")) {
@@ -1177,7 +1305,10 @@ maihda_format_fit_diagnostics <- function(diagnostics,
       } else if (isTRUE(diagnostics$stratum_singular)) {
         out <- c(out, paste0("  The between-stratum variance and any VPC/PCV derived ",
                              "from it may be unreliable."))
-      } else if (isFALSE(diagnostics$stratum_singular)) {
+      } else if (isFALSE(diagnostics$stratum_singular) &&
+                 NROW(diagnostics$boundary_traps) == 0) {
+        # Not said of a fit stopped at a boundary trap: that fit is not at the maximum, so
+        # every variance in it can be off, the between-stratum one included.
         out <- c(out, paste0("  The 'stratum' block is NOT at the boundary, so the ",
                              "between-stratum variance and"),
                  "  the VPC/PCV are unaffected by this.")
@@ -1197,7 +1328,12 @@ maihda_format_fit_diagnostics <- function(diagnostics,
       as.character(diagnostics$engine),
       brms = "MCMC convergence diagnostics (brms):",
       ordinal = "Convergence problems of the ordinal::clmm fit:",
-      lme4 = "Convergence warnings reported by lme4:",
+      # A boundary trap is the package's finding, not one of lme4's warnings.
+      lme4 = if (NROW(diagnostics$boundary_traps) > 0) {
+        "Convergence problems of the lme4 fit:"
+      } else {
+        "Convergence warnings reported by lme4:"
+      },
       "Convergence warnings:"
     )
     out <- c(out, header, paste0("  - ", diagnostics$messages),

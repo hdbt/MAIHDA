@@ -10,7 +10,8 @@
 # log-likelihood units off). Quadratic growth failed from a span of about 12, in months.
 # A Gaussian growth fit lme4 makes with lmer() is now made on time divided by the power of
 # ten that puts its span in [1, 10); the stored fit stays on that time and every quantity
-# in units of time is converted back. glmer and brms growth fits are not scaled.
+# in units of time is converted back. brms growth fits are not scaled; glmer growth fits
+# are, with refits of their own (test-audit-2026-10-18-glmer-growth-optimum.R).
 #
 # Random numbers are drawn only inside with_seed(), which puts the suite's stream back.
 
@@ -152,11 +153,12 @@ test_that("the reserved internal column is guarded when the time will be scaled"
                   .maihda_ctime = 1)
   expect_error(maihda_validate_longitudinal("pid", "day", 1, d, formula = y ~ (1 | g)),
                "reserved")
-  # brms and glmer fits are not scaled, and this axis starts at 0: nothing would be written.
+  # A glmer fit is scaled as well; a brms fit is not, and this axis starts at 0: nothing
+  # would be written.
+  expect_error(maihda_validate_longitudinal("pid", "day", 1, d, formula = y ~ (1 | g),
+                                            family = "poisson"), "reserved")
   expect_silent(maihda_validate_longitudinal("pid", "day", 1, d, engine = "brms",
                                              formula = y ~ (1 | g)))
-  expect_silent(maihda_validate_longitudinal("pid", "day", 1, d, formula = y ~ (1 | g),
-                                             family = "poisson"))
   # A span between 1 and 10 from 0 writes no column either.
   d$day <- rep(c(0, 5), 4)
   expect_silent(maihda_validate_longitudinal("pid", "day", 1, d, formula = y ~ (1 | g)))
@@ -288,37 +290,34 @@ test_that("quadratic growth in months gives the waves answer", {
   expect_equal(tr_m$value, tr_w$value, tolerance = 1e-3)
 })
 
-test_that("a glmer growth fit is not scaled, and a scaled count fit would convert back", {
+test_that("a glmer growth fit is scaled, and a scaled count fit converts back", {
   skip_on_cran()
   fit_in <- function(k) {
     quiet(fit_maihda(n ~ wave + (1 | A:B:C:D), data = growth_design(31, k = k),
                      id = "id", time = "wave", family = "poisson"))
   }
-  # glmer growth fits stay on the user's time: on the internal time glmer's optimiser
-  # missed the maximum as often or more often, in other fits.
+  # glmer growth fits are made on the internal time too, and refitted as
+  # maihda_fit_glmer_growth() says.
   days <- fit_in(365)
-  expect_identical(days$longitudinal_info$time_scale, 1)
-  expect_identical(days$longitudinal_info$time_term, "wave")
-  expect_false(".maihda_ctime" %in% names(days$data))
+  expect_identical(days$longitudinal_info$time_scale, 1000)
+  expect_identical(days$longitudinal_info$time_term, ".maihda_ctime")
+  expect_true(".maihda_ctime" %in% names(days$data))
   expect_true(maihda_longitudinal_scales_time("lme4", "gaussian"))
   expect_true(maihda_longitudinal_scales_time("lme4", stats::gaussian))
-  expect_false(maihda_longitudinal_scales_time("lme4", "poisson"))
-  expect_false(maihda_longitudinal_scales_time("lme4", "binomial"))
-  expect_false(maihda_longitudinal_scales_time("lme4", stats::gaussian(link = "log")))
+  expect_true(maihda_longitudinal_scales_time("lme4", "poisson"))
+  expect_true(maihda_longitudinal_scales_time("lme4", "binomial"))
+  expect_true(maihda_longitudinal_scales_time("lme4", stats::gaussian(link = "log")))
   expect_false(maihda_longitudinal_scales_time("brms", "gaussian"))
   expect_false(maihda_longitudinal_scales_time("lme4", "no such family"))
-  # Scaled all the same, a count model's level-1 variance is evaluated at each
-  # reporting time on the internal time, and its likelihood is the same.
+  # A count model's level-1 variance is evaluated at each reporting time on the internal
+  # time, and its likelihood is the same.
   waves <- fit_in(1)
-  local_mocked_bindings(maihda_longitudinal_scales_time = function(engine, family) TRUE)
-  forced <- fit_in(365)
-  expect_identical(forced$longitudinal_info$time_scale, 1000)
   sw <- summary(waves)
-  sf <- summary(forced)
-  expect_equal(sf$longitudinal$var_resid_t, sw$longitudinal$var_resid_t, tolerance = 1e-3)
-  expect_equal(sf$longitudinal$vpc_t$estimate, sw$longitudinal$vpc_t$estimate, tolerance = 1e-3)
-  expect_equal(as.numeric(stats::logLik(forced$model)), as.numeric(stats::logLik(waves$model)),
-               tolerance = 1e-6)
+  sd <- summary(days)
+  expect_equal(sd$longitudinal$var_resid_t, sw$longitudinal$var_resid_t, tolerance = 1e-3)
+  expect_equal(sd$longitudinal$vpc_t$estimate, sw$longitudinal$vpc_t$estimate, tolerance = 1e-3)
+  expect_lt(abs(as.numeric(stats::logLik(days$model)) - as.numeric(stats::logLik(waves$model))),
+            0.005)
 })
 
 test_that("the bootstrap VPC band of a scaled fit is in the user's time", {
@@ -338,12 +337,11 @@ test_that("the bootstrap VPC band of a scaled fit is in the user's time", {
   expect_equal(sd$longitudinal$vpc_slope_ci, sw$longitudinal$vpc_slope_ci, tolerance = 1e-3)
   expect_equal(c(sd$vpc$ci_lower, sd$vpc$ci_upper), c(sw$vpc$ci_lower, sw$vpc$ci_upper),
                tolerance = 1e-3)
-  # A count model's bootstrap draws, were it scaled, evaluate their level-1 variance on
-  # the internal time, as the estimate does: with every draw the fitted model itself,
-  # the band is the estimate. (Refits of a glmer growth model differ between time scales
-  # by more than the conversions could show.)
-  local_mocked_bindings(maihda_longitudinal_scales_time = function(engine, family) TRUE,
-                        maihda_refit_draw = function(model, newresp) model)
+  # A count model's bootstrap draws evaluate their level-1 variance on the internal time,
+  # as the estimate does: with every draw the fitted model itself, the band is the
+  # estimate. (Refits of a glmer growth model differ between time scales by more than the
+  # conversions could show.)
+  local_mocked_bindings(maihda_refit_draw = function(model, newresp) model)
   pd <- quiet(fit_maihda(n ~ wave + (1 | A:B:C:D), data = growth_design(31, k = 365),
                          id = "id", time = "wave", family = "poisson"))
   expect_identical(pd$longitudinal_info$time_scale, 1000)
