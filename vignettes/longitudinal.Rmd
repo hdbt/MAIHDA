@@ -246,9 +246,14 @@ strata are added.
   the more both are carried by the intercept variance, which is still estimable; close
   to it the VPC is near zero and a PCV is not interpretable.
 
-    How often this happens depends on the stratum-level slope variance. it is common when
-    the slope variance is near zero, but rare when it is not. A rank-deficient block is usually evidence that the strata do not
-    diverge over time.
+    How often this happens depends on the number of strata and on how large the stratum
+    slope variance is next to the sampling variance of one stratum's slope (the yardstick
+    in the decomposition section above). Where the strata do not diverge it is common in
+    any design. Where they do, it is common with few strata unless their slope variance
+    is well above the yardstick, and the slope variance of such a fit tends to be too
+    small; more strata, more people per stratum and more measurement occasions make it
+    rarer. With few strata, a rank-deficient block is therefore weak evidence that the
+    strata do not diverge over time.
 
     Both structures share the same fixed effects, so their fits can be compared
     with `AIC`:
@@ -262,13 +267,19 @@ strata are added.
     AIC(m_slope$model) - AIC(m_level$model)   # negative favours keeping the slope
     ```
 
+    With few strata this comparison has little power: it often favours dropping a slope
+    variance that is there.
+
     `stratum_slope = FALSE` fits `(time | id) + (1 | stratum)`. Individuals keep their
     growth curves; strata are constrained to differ in level only. Report the
     constraint, when the absence of trajectory divergence is assumed, and therefore not
     estimated. The between-stratum variance is then one time-constant number and the
     decomposition reports `PCV_intercept` (no slope) only. The VPC still varies with time,
     because the individual-level slope variance and the residual are in its
-    denominator.
+    denominator. Where the strata do diverge, the constraint moves their slope differences
+    into the individual-level slope variance, so the VPC understates the between-stratum
+    share at later times and can fall where the true VPC rises; `PCV_intercept` can then
+    also take in part of that divergence.
 * **Not a single number.** The VPC is time-varying, so `extract_between_variance()`
   and `calculate_pcv()` deliberately refuse a longitudinal model; use the
   longitudinal decomposition above.
