@@ -76,9 +76,11 @@ c(gaussian_singular = isTRUE(m_g$model$diagnostics$singular),
   binary_singular   = isTRUE(m_b$model$diagnostics$singular))
 ```
 
-Both fits are singular: maximum likelihood has placed the interaction variance at
-the boundary. The Gaussian interaction share is pulled down to
-`r pct(pc$lme4$gaussian$share)`, and the binary share to `r pct(pc$lme4$binary$share)` --
+Both fits are singular: maximum likelihood has placed a dimension's variance at zero
+(gender's in the Gaussian fit; gender's and ethnicity's in the binary one), and the
+interaction variance is positive in both. The interaction share is understated all
+the same, at `r pct(pc$lme4$gaussian$share)` for the Gaussian outcome and
+`r pct(pc$lme4$binary$share)` for the binary one --
 against a true 40%, the binary fit reports a substantial interaction as effectively
 absent. Crucially, neither estimate carries an interval. The estimate is not only biased
 but reported with unwarranted precision, because the model has no way to express how
@@ -168,7 +170,7 @@ Both point estimates fall below the true value; neither engine can locate an int
 the sparse data do not pin down. They differ in what is reported alongside the point. The
 `brms` credible interval spans the true 40%, whereas `lme4` provides a single value with
 no uncertainty. Reading the `lme4` point at face value (an interaction of roughly
-3--23%, or none at all) is the error the singular fit invites.
+3--23%) is the error the singular fit invites.
 
 ## Why the interval, not the point, is what changes
 
