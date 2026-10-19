@@ -92,6 +92,7 @@
 * `?maihda`, `?fit_maihda`, the README and the cross-classified vignette no longer recommend `engine = "brms"` for a `context` with few levels: under the default prior its variance comes out high for context effects smaller than that prior's scale, most with two or three levels, and the context share and the VPC depend on it, while `lme4` may estimate it at zero. The sparse-intersections vignette now says that its shares depend on the priors it uses.
 * `?maihda_sparse_data` no longer calls the brms interval calibrated, and the planning and longitudinal vignettes no longer recommend `engine = "brms"` for sparse cells or few waves: with cells this small its estimate depends more on the prior than on the data, and its interval shows how little they say.
 * The longitudinal vignette and `?fit_maihda` no longer present a rank-deficient stratum block as evidence that the strata do not diverge: with few strata it is common when they do. They say what `stratum_slope = FALSE` does to diverging strata, and the vignette that the AIC comparison has little power with few strata.
+* The sparse-intersections vignette no longer says that its `lme4` fits put the interaction variance at the boundary: they put a dimension's variance at zero (two in the binary fit), and the interaction variance is positive in both.
 * `?pcv_importance` no longer calls the exact methods deterministic: the `bootstrap = TRUE` intervals and `engine = "brms"` fits are random draws and need `set.seed()`.
 
 ## Performance
