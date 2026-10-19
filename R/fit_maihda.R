@@ -283,6 +283,9 @@
 #'   \code{rate(expo)}: for a Poisson model the same model, which they do (for a
 #'   negative binomial, brms's \code{rate()} also scales the shape by the exposure,
 #'   which the offset does not).
+#'   An \code{engine = "brms"} fit without a \code{seed} takes its sampler seed from
+#'   R's random-number stream, so \code{set.seed()} before the call reproduces it,
+#'   with the chains run in parallel (\code{cores > 1}) as well.
 #'
 #' @return A maihda_model object containing:
 #'   \item{model}{The fitted model object (lme4, brms, WeMix, or ordinal::clmm). An
@@ -1106,6 +1109,32 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       maihda_ordinal_assert_min_levels(droplevels(ord_y), resp_name)
       fit_env$data <- data
       family <- maihda_brms_cumulative_family(family)
+    }
+
+    # brms passes an unseeded fit's seed = NA to rstan, which draws the seed from R's
+    # random-number stream in the process that runs the chains. With parallel chains
+    # (cores > 1) each chain runs in a process of its own whose stream starts afresh,
+    # so set.seed() would not reproduce the fit; draw the seed here instead, from this
+    # session's stream, where a serial fit's seed comes from. Under future = TRUE brms
+    # runs the chains as futures seeded from this session, so nothing is drawn. The
+    # dots are read by the brm() formals they bind to, so a partial spelling (se = 7,
+    # cor = 2) counts, and a drawn seed takes the user's own spelling.
+    brm_names <- names(maihda_resolve_dot_names(dot_vals, brms::brm,
+                                                c("formula", "data", "family"),
+                                                watch = c("seed", "cores", "future")))
+    brm_dot <- function(arg, default) {
+      at <- which(brm_names == arg)
+      if (length(at) == 0L) default else dot_vals[[at[1L]]]
+    }
+    seed_value <- brm_dot("seed", NULL)
+    cores_value <- brm_dot("cores", getOption("mc.cores", 1L))
+    if ((is.null(seed_value) || (length(seed_value) == 1L && is.na(seed_value))) &&
+        isTRUE(suppressWarnings(as.numeric(cores_value)) > 1) &&
+        !isTRUE(brm_dot("future", getOption("future", FALSE)))) {
+      seed_name <- c(names(dot_vals)[brm_names == "seed"], "seed")[1L]
+      bind_name <- paste0(".maihda_arg_", seed_name)
+      assign(bind_name, sample.int(.Machine$integer.max, 1L), envir = fit_env)
+      dot_args[[seed_name]] <- as.name(bind_name)
     }
 
     fit_fun <- quote(brms::brm)

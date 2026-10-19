@@ -92,12 +92,15 @@
 * `?maihda`, `?fit_maihda`, the README and the cross-classified vignette no longer recommend `engine = "brms"` for a `context` with few levels: under the default prior its variance comes out high for context effects smaller than that prior's scale, most with two or three levels, and the context share and the VPC depend on it, while `lme4` may estimate it at zero. The sparse-intersections vignette now says that its shares depend on the priors it uses.
 * `?maihda_sparse_data` no longer calls the brms interval calibrated, and the planning and longitudinal vignettes no longer recommend `engine = "brms"` for sparse cells or few waves: with cells this small its estimate depends more on the prior than on the data, and its interval shows how little they say.
 * The longitudinal vignette and `?fit_maihda` no longer present a rank-deficient stratum block as evidence that the strata do not diverge: with few strata it is common when they do. They say what `stratum_slope = FALSE` does to diverging strata, and the vignette that the AIC comparison has little power with few strata.
+* `?pcv_importance` no longer calls the exact methods deterministic: the `bootstrap = TRUE` intervals and `engine = "brms"` fits are random draws and need `set.seed()`.
 
 ## Performance
 
 * `maihda(decomposition = "crossed-dimensions")` now fits the model once instead of twice. The preliminary pass that resolves the strata and family no longer refits the supplied formula only to discard it, which roughly halves the fitting cost (most noticeable for `brms`).
 
 ## Bug fixes
+
+* `set.seed()` now reproduces `engine = "brms"` fits whose chains run in parallel (`cores > 1`): an unseeded fit takes its sampler seed from R's random-number stream, as a serial fit does, instead of each chain's process drawing its own.
 
 * `print()` on a longitudinal PCV now shows a variance below 1e-4, such as a slope variance with time counted in days, to four significant digits instead of as `0.0000`.
 

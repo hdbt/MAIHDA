@@ -281,8 +281,11 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #'
 #' @section Reproducibility:
 #' \code{approx = "montecarlo"} draws random permutations with the session RNG;
-#' call \code{set.seed()} first for reproducible results. The exact methods are
-#' deterministic.
+#' call \code{set.seed()} first for reproducible results. The exact methods give
+#' the same contributions on every run of a likelihood engine, but the
+#' \code{bootstrap = TRUE} intervals come from simulated responses and an
+#' \code{engine = "brms"} fit is an MCMC draw, so call \code{set.seed()} first for
+#' those as well.
 #'
 #' @examples
 #' \donttest{
