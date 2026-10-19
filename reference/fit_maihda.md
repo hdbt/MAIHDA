@@ -284,11 +284,12 @@ fit_maihda(
   `(time | id) + (1 | stratum)`: the individual level keeps its growth
   block, but strata differ in *level* only, so the between-stratum
   variance – and the numerator of the VPC – is constant over time and no
-  `PCV_slope` is defined. Use it when the stratum slope variance is at
-  the singularity boundary: with few strata, few occasions per stratum,
-  or irregular measurement times, a `(time | stratum)` block routinely
-  collapses to a perfect intercept-slope correlation, and the trajectory
-  decomposition it supports is then a boundary artefact. The VPC still
+  `PCV_slope` is defined. It assumes that the strata do not diverge over
+  time. A `(time | stratum)` block that collapses to a perfect
+  intercept-slope correlation does not show that: few strata, few
+  occasions per stratum or irregular measurement times produce such fits
+  when the strata diverge too, and where they do, `FALSE` moves their
+  slope differences into the person-level slope variance. The VPC still
   varies with time through the person-level slope variance and the
   residual, so this is a time-constant between-stratum *variance*, not a
   time-constant VPC. For a Gaussian model fitted by `lmer()` with linear

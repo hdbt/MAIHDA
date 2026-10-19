@@ -51,11 +51,9 @@
   fits `(time | id) + (1 | stratum)`: individuals keep their growth
   curves but strata differ in level only, so the between-stratum
   variance is constant over time and the decomposition reports
-  `PCV_intercept` alone. It is the remedy when the stratum slope
-  variance sits at the singularity boundary, which few strata, few
-  occasions per stratum, or irregular measurement times routinely
-  produce. The VPC still varies with time, through the person-level
-  slope variance and the residual.
+  `PCV_intercept` alone. It assumes that strata do not diverge over
+  time. The VPC still varies with time, through the person-level slope
+  variance and the residual.
 
 - [`maihda_interactions()`](https://hdbt.github.io/MAIHDA/reference/maihda_interactions.md)
   gained `scale = "response"`, which reports Evans et al.’s (2024,
@@ -669,6 +667,12 @@
   sparse cells or few waves: with cells this small its estimate depends
   more on the prior than on the data, and its interval shows how little
   they say.
+- The longitudinal vignette and
+  [`?fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  no longer present a rank-deficient stratum block as evidence that the
+  strata do not diverge: with few strata it is common when they do. They
+  say what `stratum_slope = FALSE` does to diverging strata, and the
+  vignette that the AIC comparison has little power with few strata.
 
 ### Performance
 
@@ -682,6 +686,13 @@
 - [`print()`](https://rdrr.io/r/base/print.html) on a longitudinal PCV
   now shows a variance below 1e-4, such as a slope variance with time
   counted in days, to four significant digits instead of as `0.0000`.
+
+- The rank-deficiency note of
+  [`print()`](https://rdrr.io/r/base/print.html) on a longitudinal PCV
+  no longer offers `stratum_slope = FALSE` as the remedy: it says that
+  such a block is common with few strata even when the strata diverge,
+  and that the constraint then moves their slope differences to the
+  person level.
 
 - `fit_maihda(engine = "wemix")` on a binomial model now says that the
   between-stratum variance was estimated at zero when

@@ -66,25 +66,33 @@ growth slopes on time are added for you.
 
 m <- fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
                 data = maihda_long_data, id = "id", time = "wave")
+#> Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00213664 (tol = 0.002, component 1)
+#>   See ?lme4::convergence and ?lme4::troubleshooting.
 summary(m)
 #> MAIHDA Model Summary
 #> ====================
 #> 
+#> Fit diagnostics:
+#>   Convergence warnings reported by lme4:
+#>     - Model failed to converge with max|grad| = 0.00213664 (tol = 0.002, component 1)
+#>   See ?lme4::convergence and ?lme4::troubleshooting.
+#> 
+#> 
 #> Variance Partition Coefficient (VPC/ICC) at baseline (wave = 0):
-#>   Estimate: 0.3985
+#>   Estimate: 0.3986
 #> 
 #> Variance Components:
-#>                                            component variance     sd
-#>                Between-stratum: intercept (time = 0)  0.40774 0.6385
-#>                        Between-stratum: slope (wave)  0.04284 0.2070
-#>          Between-stratum: intercept-slope covariance  0.08848     NA
-#>        Between-individual (id): intercept (time = 0)  0.25558 0.5055
-#>                Between-individual (id): slope (wave)  0.01936 0.1391
-#>  Between-individual (id): intercept-slope covariance -0.00110     NA
-#>                                    Within (residual)  0.35982 0.5999
+#>                                            component  variance     sd
+#>                Between-stratum: intercept (time = 0)  0.407878 0.6387
+#>                        Between-stratum: slope (wave)  0.042860 0.2070
+#>          Between-stratum: intercept-slope covariance  0.088498     NA
+#>        Between-individual (id): intercept (time = 0)  0.255609 0.5056
+#>                Between-individual (id): slope (wave)  0.019360 0.1391
+#>  Between-individual (id): intercept-slope covariance -0.001107     NA
+#>                                    Within (residual)  0.359816 0.5998
 #> 
 #> Time-varying VPC/ICC (between-stratum share over wave):
-#>   range 0.3985 to 0.6628 across wave in [0, 4].
+#>   range 0.3986 to 0.6629 across wave in [0, 4].
 #>   The between-stratum variance is a function of time (random intercept +
 #>   slope), so the VPC varies; it depends on where time is zeroed. See
 #>   plot(type = "vpc_trajectory") for the full curve.
@@ -97,23 +105,23 @@ summary(m)
 #>   scale and is not comparable to it. See ?summary.maihda_model.
 #> 
 #> Fixed Effects (Wald t, 95% intervals):
-#>         term  estimate     se statistic df  p_value   lower  upper
-#>  (Intercept)  4.986465 0.1870   26.6719 10 1.27e-10  4.5699 5.4030
-#>         wave -0.006306 0.0607   -0.1039 10    0.919 -0.1415 0.1289
+#>         term  estimate      se statistic df  p_value   lower upper
+#>  (Intercept)  4.986466 0.18699   26.6677 10 1.27e-10  4.5698 5.403
+#>         wave -0.006306 0.06071   -0.1039 10    0.919 -0.1416 0.129
 #>   df: containment (between-within).
 #> 
 #> Stratum baseline (intercept) deviations (first 10):
 #>  stratum stratum_id               label random_effect      se lower_95 upper_95
-#>        1          1    Men × EthB × Low      -0.63793 0.08953 -0.81340  -0.4625
-#>        2          2  Women × EthB × Low      -0.06461 0.08594 -0.23306   0.1038
-#>        3          3   Men × EthA × High       0.86073 0.07782  0.70820   1.0133
-#>        4          4   Men × EthB × High       0.09123 0.10259 -0.10985   0.2923
-#>        5          5 Women × EthA × High       0.93600 0.08804  0.76344   1.1086
-#>        6          6 Women × EthC × High       0.35847 0.13544  0.09300   0.6239
-#>        7          7   Men × EthC × High      -0.11459 0.13286 -0.37500   0.1458
-#>        8          8    Men × EthA × Low      -0.32848 0.07050 -0.46665  -0.1903
-#>        9          9  Women × EthA × Low       0.15991 0.07326  0.01633   0.3035
-#>       10         10    Men × EthC × Low      -0.82706 0.13286 -1.08747  -0.5667
+#>        1          1    Men × EthB × Low      -0.63796 0.08953 -0.81344  -0.4625
+#>        2          2  Women × EthB × Low      -0.06459 0.08595 -0.23305   0.1039
+#>        3          3   Men × EthA × High       0.86072 0.07783  0.70819   1.0133
+#>        4          4   Men × EthB × High       0.09121 0.10260 -0.10988   0.2923
+#>        5          5 Women × EthA × High       0.93602 0.08804  0.76345   1.1086
+#>        6          6 Women × EthC × High       0.35851 0.13545  0.09302   0.6240
+#>        7          7   Men × EthC × High      -0.11460 0.13287 -0.37503   0.1458
+#>        8          8    Men × EthA × Low      -0.32848 0.07050 -0.46667  -0.1903
+#>        9          9  Women × EthA × Low       0.15992 0.07326  0.01633   0.3035
+#>       10         10    Men × EthC × Low      -0.82710 0.13287 -1.08753  -0.5667
 #>   ... and 2 more strata
 #>   (random slope not shown; use predict(type = "strata") for the per-stratum intercept and slope, or plot(type = "trajectories")).
 ```
@@ -176,7 +184,7 @@ equation (5):
 s <- summary(m)
 c(intercept = s$longitudinal$vpc_intercept, slope = s$longitudinal$vpc_slope)
 #> intercept     slope 
-#> 0.6146997 0.6887613
+#> 0.6147490 0.6888492
 ```
 
 These ask how intersectionally patterned people’s *trajectories* are –
@@ -246,13 +254,15 @@ it leaves behind is the interaction beyond additive.
 a <- maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
             data = maihda_long_data, id = "id", time = "wave",
             decomposition = "longitudinal")
+#> Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00213664 (tol = 0.002, component 1)
+#>   See ?lme4::convergence and ?lme4::troubleshooting.
 a$pcv
 #> Longitudinal PCV (additive vs. multiplicative intersectionality)
 #> ================================================================
 #> 
-#> Baseline (wave = 0) variance: 0.4077 (null) -> 0.0332 (adjusted)
+#> Baseline (wave = 0) variance: 0.4079 (null) -> 0.0332 (adjusted)
 #>   PCV_intercept: 91.9% of the baseline between-stratum inequality is additive.
-#> Slope (wave) variance at baseline: 0.0428 (null) -> 0.0058 (adjusted)
+#> Slope (wave) variance at baseline: 0.0429 (null) -> 0.0058 (adjusted)
 #>   PCV_slope:     86.6% of the *trajectory* between-stratum inequality is additive
 #>                  (the remainder is the multiplicative/interaction part).
 #> 
@@ -354,9 +364,15 @@ strata; the understatement shrinks as strata are added.
   intercept variance, which is still estimable; close to it the VPC is
   near zero and a PCV is not interpretable.
 
-  How often this happens depends on the stratum-level slope variance. it
-  is common when the slope variance is near zero, but rare when it is
-  not. A rank-deficient block is usually evidence that the strata do not
+  How often this happens depends on the number of strata and on how
+  large the stratum slope variance is next to the sampling variance of
+  one stratum’s slope (the yardstick in the decomposition section
+  above). Where the strata do not diverge it is common in any design.
+  Where they do, it is common with few strata unless their slope
+  variance is well above the yardstick, and the slope variance of such a
+  fit tends to be too small; more strata, more people per stratum and
+  more measurement occasions make it rarer. With few strata, a
+  rank-deficient block is therefore weak evidence that the strata do not
   diverge over time.
 
   Both structures share the same fixed effects, so their fits can be
@@ -372,6 +388,9 @@ strata; the understatement shrinks as strata are added.
   AIC(m_slope$model) - AIC(m_level$model)   # negative favours keeping the slope
   ```
 
+  With few strata this comparison has little power: it often favours
+  dropping a slope variance that is there.
+
   `stratum_slope = FALSE` fits `(time | id) + (1 | stratum)`.
   Individuals keep their growth curves; strata are constrained to differ
   in level only. Report the constraint, when the absence of trajectory
@@ -379,7 +398,11 @@ strata; the understatement shrinks as strata are added.
   between-stratum variance is then one time-constant number and the
   decomposition reports `PCV_intercept` (no slope) only. The VPC still
   varies with time, because the individual-level slope variance and the
-  residual are in its denominator.
+  residual are in its denominator. Where the strata do diverge, the
+  constraint moves their slope differences into the individual-level
+  slope variance, so the VPC understates the between-stratum share at
+  later times and can fall where the true VPC rises; `PCV_intercept` can
+  then also take in part of that divergence.
 
 - **Not a single number.** The VPC is time-varying, so
   [`extract_between_variance()`](https://hdbt.github.io/MAIHDA/reference/extract_between_variance.md)
