@@ -51,18 +51,22 @@ lme4_b <- maihda(stats::update(form, event ~ .), data = d,
                  decomposition = "crossed-dimensions", engine = "lme4", family = "binomial")
 
 ## ---- brms fits --------------------------------------------------------------
+# A brms fit without a seed takes its sampler seed from R's random-number stream,
+# so set.seed() before each fit reproduces it.
+set.seed(1)
 brms_g <- maihda(
   stats::update(form, y ~ .), data = d,
   decomposition = "crossed-dimensions", engine = "brms",
   prior = set_prior("normal(0, 0.5)", class = "sd"),
-  chains = 4, iter = 2000, warmup = 1000, cores = 4, seed = 1,
+  chains = 4, iter = 2000, warmup = 1000, cores = 4,
   refresh = 0, silent = 2, control = list(adapt_delta = 0.97, max_treedepth = 12)
 )
+set.seed(1)
 brms_b <- maihda(
   stats::update(form, event ~ .), data = d,
   decomposition = "crossed-dimensions", engine = "brms", family = "binomial",
   prior = set_prior("normal(0, 1)", class = "sd"),
-  chains = 4, iter = 2500, warmup = 1000, cores = 4, seed = 1,
+  chains = 4, iter = 2500, warmup = 1000, cores = 4,
   refresh = 0, silent = 2, control = list(adapt_delta = 0.99, max_treedepth = 12)
 )
 
