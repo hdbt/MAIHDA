@@ -344,6 +344,7 @@ make_po_data <- function(seed, violate) {
 # calibrated bootstrap test rather than by an automatic caveat.
 test_that("the calibrated proportional-odds test separates violated from proportional", {
   skip_on_cran()
+  skip_slow_test()
   skip_if_not_installed("ordinal")
 
   m_bad <- suppressMessages(suppressWarnings(

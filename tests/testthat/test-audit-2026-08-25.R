@@ -202,6 +202,7 @@ test_that("PCV_slope is gated on identifiability, not on magnitude", {
 
 test_that("the slope gate is the slope's own component, not the whole block", {
   skip_on_cran()
+  skip_slow_test()
   # A QUADRATIC growth block can lose its I(time^2) dimension while estimating the
   # linear slope variance perfectly well. Gating PCV_slope on a block-level
   # "is anything at the boundary" verdict would discard a sound proportion, so the

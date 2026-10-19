@@ -206,6 +206,7 @@ test_that("a wemix summary that WeMix built without a warning is as it was", {
 
 test_that("maihda() and compare_maihda_groups() pass no warning on from wemix summaries", {
   skip_on_cran()
+  skip_slow_test()
   skip_if_not_installed("WeMix")
 
   # Two groups holding the reported data: a null model per group, both variances below

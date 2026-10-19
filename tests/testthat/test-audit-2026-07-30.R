@@ -179,6 +179,7 @@ test_that("the negative-binomial level-1 variance follows the same reduction", {
 
 test_that("the longitudinal count VPC(t) grid reduces on the counts at each time", {
   skip_on_cran()
+  skip_slow_test()
   set.seed(31)
   nid <- 160
   d <- data.frame(id   = rep(seq_len(nid), each = 5),

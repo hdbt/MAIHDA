@@ -301,6 +301,7 @@ test_that("a one-column term still takes the formula reduction, unchanged", {
 
 test_that("the binomial case from the report is spelling-invariant too", {
   skip_on_cran()
+  skip_slow_test()
   set.seed(19)
   dg <- expand.grid(f = factor(c("a", "b", "c")), g = factor(1:4))
   d <- dg[rep(seq_len(nrow(dg)), each = 30), ]

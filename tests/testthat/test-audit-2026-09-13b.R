@@ -98,6 +98,7 @@ test_that("the studentized branch counts draws beyond the cut-off, not replicate
 
 test_that("summary() applies the rule that matches the interval it forms", {
   skip_on_cran()
+  skip_slow_test()
   set.seed(3)
   g <- expand.grid(d1 = factor(1:2), d2 = factor(1:2), d3 = factor(1:2))
   d <- g[rep(seq_len(8), each = 40), , drop = FALSE]

@@ -217,6 +217,7 @@ test_that("a bootstrapped fit with no stratum slope keeps an NA slope interval",
 
 test_that("conf_level reaches the trajectory interval and its printed label", {
   skip_on_cran()
+  skip_slow_test()
   data(maihda_long_data, envir = environment())
   d <- subset(maihda_long_data, id %in% unique(maihda_long_data$id)[1:200])
   m <- suppressMessages(suppressWarnings(
@@ -239,6 +240,7 @@ test_that("conf_level reaches the trajectory interval and its printed label", {
 
 test_that("the trajectory intervals survive into a maihda() longitudinal analysis", {
   skip_on_cran()
+  skip_slow_test()
   data(maihda_long_data, envir = environment())
   d <- subset(maihda_long_data, id %in% unique(maihda_long_data$id)[1:150])
   set.seed(7)

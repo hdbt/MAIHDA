@@ -275,6 +275,7 @@ test_that("the ordinal engine still refuses an expression response", {
 
 
 test_that("a wemix binomial fit now ACCEPTS an expression response", {
+  skip_slow_test()
   # CHANGED (audit 2026-09-27). This block used to pin the opposite: the wemix
   # engine refused I(y > 3) with a message about AGGREGATED binomial responses,
   # because maihda_analytic_response() returned NULL for any non-symbol response

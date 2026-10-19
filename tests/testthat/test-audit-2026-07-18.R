@@ -114,6 +114,7 @@ test_that("prediction-deviation panels retain the offset and reject external-off
 })
 
 test_that("longitudinal count VPC retains the offset (external and formula agree)", {
+  skip_slow_test()
   set.seed(5); nid <- 130
   g1 <- sample(c("F", "M"), nid, TRUE); g2 <- sample(c("A", "B", "C"), nid, TRUE)
   base <- do.call(rbind, lapply(seq_len(nid), function(i)

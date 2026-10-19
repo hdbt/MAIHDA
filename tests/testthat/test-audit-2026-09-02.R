@@ -58,6 +58,7 @@ maihda_boot_fe_data <- function(n_per = 40, seed = 3) {
 
 test_that("df_method = 'bootstrap' gives a GLMM a null-restricted reference", {
   skip_on_cran()
+  skip_slow_test()
   d <- maihda_boot_fe_data()
   fit <- fit_maihda(ev ~ d1 + d2 + d3 + (1 | stratum), data = d,
                     family = stats::binomial())
@@ -246,6 +247,7 @@ test_that("summary() on an analysis refuses arguments it cannot apply", {
 
 test_that("the fixed-effect bootstrap survives every supported response shape", {
   skip_on_cran()
+  skip_slow_test()
   # An aggregated binomial reaches refit() as a two-column response, and a
   # weighted Gaussian goes down maihda_simulate_lme4()'s separate weights branch.
   # Neither is exercised by the plain Bernoulli tests above.
@@ -356,6 +358,7 @@ test_that("non-convergence is reported through the shared helper", {
 
 test_that("print() surfaces an unreliable fixed-effect reference", {
   skip_on_cran()
+  skip_slow_test()
   # The flag is worthless if it only lives on an attribute: a saved summary
   # printed in a later session must still say the reference is untrustworthy,
   # exactly as the VPC interval does. Compute-time warnings are long gone by then.

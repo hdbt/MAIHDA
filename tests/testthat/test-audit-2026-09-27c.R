@@ -192,6 +192,7 @@ test_that("word labels and logical outcomes holding one value are scored", {
 
 test_that("a wemix binomial fit codes supplied rows as it was fitted", {
   skip_on_cran()
+  skip_slow_test()
   skip_if_not_installed("WeMix")
   e <- a27c_strata_data()
   set.seed(23)

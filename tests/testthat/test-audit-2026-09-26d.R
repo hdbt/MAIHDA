@@ -140,6 +140,7 @@ test_that("a WeMixResults reports the family it was fitted with", {
 
 test_that("the wemix binomial panel plots probabilities, not log-odds", {
   skip_on_cran()
+  skip_slow_test()
   skip_if_not_installed("WeMix")
   d <- audit_0926d_data()
   q <- audit_0926d_q

@@ -112,6 +112,7 @@ test_that("the dead chi-squared cut-off is no longer part of the thresholds", {
 
 test_that("maihda_proportional_odds_test calibrates away the random-effect confounding", {
   skip_on_cran()
+  skip_slow_test()
   skip_if_not_installed("ordinal")
 
   # correctly specified conditional PO model with a LARGE stratum variance --

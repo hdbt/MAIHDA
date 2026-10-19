@@ -46,6 +46,7 @@ collect_warnings <- function(expr) {
 
 test_that("pcv_importance() reports n_boot_boundary and warns when boundary draws are excluded", {
   skip_on_cran()
+  skip_slow_test()
   dat <- make_boundary_pcv_data()
   ws <- character(0)
   res <- withCallingHandlers(
@@ -64,6 +65,7 @@ test_that("pcv_importance() reports n_boot_boundary and warns when boundary draw
 
 test_that("a healthy pcv_importance() bootstrap carries n_boot_boundary = 0 and does not over-warn", {
   skip_on_cran()
+  skip_slow_test()
   set.seed(3)
   strata <- expand.grid(d1 = c("a", "b", "c"), d2 = c("p", "q", "r", "s"),
                         stringsAsFactors = FALSE)

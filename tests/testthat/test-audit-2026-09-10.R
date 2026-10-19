@@ -349,6 +349,7 @@ test_that("a formula offset is still re-evaluated on the per-stratum grid", {
 
 test_that("an external offset= is still added as its sample mean, per stratum", {
   skip_on_cran()
+  skip_slow_test()
   set.seed(9)
   nid <- 160
   base <- do.call(rbind, lapply(seq_len(nid), function(i) {

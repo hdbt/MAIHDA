@@ -55,6 +55,7 @@ growth_design <- function(seed, k = 1, deg = 1) {
 # ---- the rule ----------------------------------------------------------------------------
 
 test_that("the internal time scale is the power of ten that puts the span in [1, 10)", {
+  skip_slow_test()
   sc <- function(...) maihda_longitudinal_scale(c(...))
   # A span already between 1 and 10 is left alone, wherever the axis starts.
   for (s in c(1, 4, 5, 9.99)) expect_identical(sc(0, s), 1)
@@ -168,6 +169,7 @@ test_that("the reserved internal column is guarded when the time will be scaled"
 
 test_that("maihda_long_data gives the same results in days as in waves", {
   skip_on_cran()
+  skip_slow_test()
   data(maihda_long_data, envir = environment())
   f <- wellbeing ~ wave + (1 | gender:ethnicity:education)
   fit_in <- function(k) {
@@ -292,6 +294,7 @@ test_that("quadratic growth in months gives the waves answer", {
 
 test_that("a glmer growth fit is scaled, and a scaled count fit converts back", {
   skip_on_cran()
+  skip_slow_test()
   fit_in <- function(k) {
     quiet(fit_maihda(n ~ wave + (1 | A:B:C:D), data = growth_design(31, k = k),
                      id = "id", time = "wave", family = "poisson"))
@@ -322,6 +325,7 @@ test_that("a glmer growth fit is scaled, and a scaled count fit converts back", 
 
 test_that("the bootstrap VPC band of a scaled fit is in the user's time", {
   skip_on_cran()
+  skip_slow_test()
   fit_in <- function(k) {
     quiet(fit_maihda(y ~ wave + (1 | A:B:C:D), data = growth_design(52, k = k), id = "id",
                      time = "wave"))

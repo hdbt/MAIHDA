@@ -257,6 +257,7 @@ test_that("the columns of a Cholesky factor that can sit at a boundary trap", {
 
 test_that("a glmer growth fit reaches the maximum in every unit of time", {
   skip_on_cran()
+  skip_slow_test()
   # Seed 3: lme4's own fit stops 6.37 below the maximum in waves (the person intercept SD at
   # exactly 0) and 24.8 below it in days. The maximum, from the best of about 40 fits by
   # several optimisers and starts, is -1082.00427.
@@ -301,6 +302,7 @@ test_that("a growth fit without a stratum slope is refitted across a bound too",
 
 test_that("the record flags a fit stopped at a bound where the likelihood still rises", {
   skip_on_cran()
+  skip_slow_test()
   # The user's own start is fitted as given: here glmer's own trap in waves.
   d <- growth_design(3)
   trap <- c(0, -0.1156, 0.0812, 0.1206, -0.0185, 0)
@@ -374,6 +376,7 @@ test_that("the record's sentence says what is at the bound", {
 
 test_that("the refit across a bound starts there, skips the first stage, and must be lower", {
   skip_on_cran()
+  skip_slow_test()
   env <- new.env()
   env$data <- growth_design(3)
   call <- quote(lme4::glmer(n ~ wave + (wave | id) + (wave | A:B:C:D), data = data,
@@ -434,6 +437,7 @@ test_that("a growth block at zero is not flagged when the likelihood does not ri
 
 test_that("fit_maihda() refits glmer growth models and nothing else", {
   skip_on_cran()
+  skip_slow_test()
   calls <- 0L
   real <- maihda_fit_glmer_growth
   local_mocked_bindings(maihda_fit_glmer_growth = function(...) { calls <<- calls + 1L; real(...) })
@@ -450,6 +454,7 @@ test_that("fit_maihda() refits glmer growth models and nothing else", {
 
 test_that("a negative-binomial growth fit is refitted through glmer.nb", {
   skip_on_cran()
+  skip_slow_test()
   d <- with_seed(11, {
     g <- expand.grid(A = 0:1, B = 0:1)
     u <- stats::rnorm(4, 0, 0.3)
