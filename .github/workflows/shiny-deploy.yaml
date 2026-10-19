@@ -1,7 +1,8 @@
-# Auto-deploy the bundled Shiny app (inst/shiny/app.R) to shinyapps.io.
+# Deploy the bundled Shiny app (inst/shiny/app.R) to shinyapps.io.
 #
-# Runs on every push to `main` that touches the app or the package, and can also
-# be run manually from the Actions tab (workflow_dispatch).
+# R-CMD-check.yaml calls this workflow on every push to `main` once all its
+# checks have passed, so a failing check never deploys. It can also be run by
+# hand from the Actions tab (workflow_dispatch) to redeploy without the checks.
 #
 # REQUIRED repository secrets (Settings -> Secrets and variables -> Actions):
 #   SHINYAPPS_TOKEN   - token  from shinyapps.io -> Account -> Tokens
@@ -10,14 +11,12 @@
 # The deploy targets the EXISTING app: account "hdbt", appName "shiny", so it
 # updates https://hdbt.shinyapps.io/shiny/ rather than creating a new app.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'inst/shiny/**'
-      - 'R/**'
-      - 'DESCRIPTION'
-      - 'NAMESPACE'
-      - '.github/workflows/shiny-deploy.yaml'
+  workflow_call:
+    secrets:
+      SHINYAPPS_TOKEN:
+        required: true
+      SHINYAPPS_SECRET:
+        required: true
   workflow_dispatch:
 
 name: shiny-deploy
@@ -29,14 +28,15 @@ name: shiny-deploy
 permissions:
   contents: read
 
-# Never let two deploys run at once; a newer push supersedes an in-flight deploy.
-concurrency:
-  group: shiny-deploy
-  cancel-in-progress: true
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Never let two deploys run at once; a newer push supersedes an in-flight
+    # deploy. The group sits on the job so that it holds for called and manual
+    # runs alike.
+    concurrency:
+      group: shiny-deploy
+      cancel-in-progress: true
     env:
       # Lets remotes::install_github() use the Actions token (needed for a private
       # repo; harmless for a public one).
@@ -64,16 +64,14 @@ jobs:
       # available.packages() at deploy time - it then records the bare string
       # "RSPM" as the repo and shinyapps.io fails to fetch the source. Plain names
       # install identically but keep clean CRAN provenance. Build-only tooling
-      # (rsconnect/remotes/testthat/pkgload) is not in the app bundle, so its
-      # provenance is irrelevant and it keeps any::.
+      # (rsconnect/remotes) is not in the app bundle, so its provenance is
+      # irrelevant and it keeps any::.
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           dependencies: '"hard"'
           extra-packages: |
             any::rsconnect
             any::remotes
-            any::testthat
-            any::pkgload
             MASS
             shiny
             bslib
@@ -97,14 +95,13 @@ jobs:
             upgrade = "never", dependencies = TRUE
           )
 
-      # Gate the deploy: a red test suite, or an app.R that fails to load, must
-      # abort the job BEFORE anything is published. The smoke test sources app.R,
-      # which runs its top-level code (library() calls, UI/server construction) and
-      # so catches errors the helper unit tests do not exercise.
-      - name: Test the package and smoke-test the app
+      # Gate the deploy: an app.R that fails to load must abort the job BEFORE
+      # anything is published. Sourcing app.R runs its top-level code (library()
+      # calls, UI/server construction) and so catches errors the package tests,
+      # run in R-CMD-check.yaml, do not exercise.
+      - name: Smoke-test the app
         shell: Rscript {0}
         run: |
-          testthat::test_local(stop_on_failure = TRUE)
           app <- source("inst/shiny/app.R")$value
           stopifnot(inherits(app, "shiny.appobj"))
           cat("App built successfully:", class(app)[1], "\n")
