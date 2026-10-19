@@ -220,7 +220,7 @@ test_that("warnings and messages held back are signalled unchanged and in order"
 
 # ---- which fits are restarted ---------------------------------------------------------------
 
-test_that("only lmer growth fits with a linear stratum slope and no user start are restarted", {
+test_that("lmer growth fits with a linear stratum slope and no user start are restarted", {
   lng <- list(id = "id", stratum_slope = TRUE, time_degree = 1)
   expect_true(maihda_growth_restarts_apply(quote(lme4::lmer), lng, list()))
   expect_true(maihda_growth_restarts_apply(quote(lme4::lmer), lng, list(REML = FALSE)))
@@ -229,8 +229,10 @@ test_that("only lmer growth fits with a linear stratum slope and no user start a
   expect_false(maihda_growth_restarts_apply(quote(lme4::lmer), NULL, list()))
   expect_false(maihda_growth_restarts_apply(quote(lme4::lmer),
                                             utils::modifyList(lng, list(stratum_slope = FALSE)), list()))
-  expect_false(maihda_growth_restarts_apply(quote(lme4::lmer),
-                                            utils::modifyList(lng, list(time_degree = 2)), list()))
+  # A quadratic one is restarted too, from other starts (test-audit-2026-10-18-lme4-growth-
+  # quadratic-restarts.R).
+  expect_true(maihda_growth_restarts_apply(quote(lme4::lmer),
+                                           utils::modifyList(lng, list(time_degree = 2)), list()))
 })
 
 test_that("fit_maihda() takes the restart path for exactly those fits", {
@@ -247,12 +249,13 @@ test_that("fit_maihda() takes the restart path for exactly those fits", {
   q(fit_maihda(f, data = d, id = "id", time = "wave", REML = FALSE))
   expect_identical(calls, 2L)
   q(fit_maihda(f, data = d, id = "id", time = "wave", start = c(0.8, 0, 0.2, 1, 0.2, 0.25)))
-  q(fit_maihda(f, data = d, id = "id", time = "wave", time_degree = 2))
   q(fit_maihda(f, data = d, id = "id", time = "wave", stratum_slope = FALSE))
   q(fit_maihda(low_wellbeing ~ wave + (1 | gender:ethnicity:education), data = d, id = "id",
                time = "wave", family = "binomial"))
   q(fit_maihda(wellbeing ~ age + (1 | gender:ethnicity:education), data = d))
   expect_identical(calls, 2L)
+  q(fit_maihda(f, data = d, id = "id", time = "wave", time_degree = 2))
+  expect_identical(calls, 3L)
 })
 
 # ---- the fits it changes ------------------------------------------------------------------
