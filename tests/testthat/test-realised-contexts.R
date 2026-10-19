@@ -223,7 +223,12 @@ test_that("the realised partition follows its definitions", {
 
 test_that("each grouping factor's levels in the fitted data are read once, by name", {
   dr <- rcx_draws()
-  expect_identical(maihda_fp_var_draws(dr$A), apply(dr$A, 1, stats::var))
+  # stats::var() of each draw's level effects, up to rounding: stats::var() rounds its
+  # mean and products differently, so the last bit can differ (it does on arm64).
+  fp <- maihda_fp_var_draws(dr$A)
+  expect_null(attributes(fp))
+  expect_length(fp, 5L)
+  expect_lt(max(abs(fp / apply(dr$A, 1, stats::var) - 1)), 1e-12)
   expect_identical(maihda_fp_var_draws(dr$A[, 1, drop = FALSE]), rep(NA_real_, 5))
   d <- data.frame(site = c("a2", NA, "a1", "a2", "a3"), stringsAsFactors = FALSE)
   expect_identical(maihda_levels_in_data(d, "site"), c("a2", "a1", "a3"))
