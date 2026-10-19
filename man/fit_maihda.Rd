@@ -312,7 +312,10 @@ any other -- \code{se()}, \code{rate()}, \code{cens()}, \code{trunc()},
 model it. Write an exposure as \code{+ offset(log(expo))} rather than
 \code{rate(expo)}: for a Poisson model the same model, which they do (for a
 negative binomial, brms's \code{rate()} also scales the shape by the exposure,
-which the offset does not).}
+which the offset does not).
+An \code{engine = "brms"} fit without a \code{seed} takes its sampler seed from
+R's random-number stream, so \code{set.seed()} before the call reproduces it,
+with the chains run in parallel (\code{cores > 1}) as well.}
 }
 \value{
 A maihda_model object containing:

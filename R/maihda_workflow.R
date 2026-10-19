@@ -560,10 +560,10 @@ maihda <- function(formula, data, group = NULL, context = NULL, engine = "lme4",
   # posterior on every run. Say so rather than let it pass unremarked.
   if (!is.null(seed) && identical(engine, "brms")) {
     warning("maihda(): 'seed' seeds the response-scale VPC simulation only -- it ",
-            "is NOT forwarded to brms::brm(), so the MCMC sampler is unseeded and ",
-            "an engine = \"brms\" fit is not reproducible from it. Call set.seed() ",
-            "before maihda() (brms draws its sampler seed from R's RNG), or use ",
-            "fit_maihda(seed = ), whose 'seed' does reach brm().", call. = FALSE)
+            "is NOT forwarded to brms::brm(), so an engine = \"brms\" fit is not ",
+            "reproducible from it. Call set.seed() before maihda() (a brms fit without ",
+            "a seed takes its sampler seed from R's RNG), or use fit_maihda(seed = ), ",
+            "whose 'seed' does reach brm().", call. = FALSE)
   }
 
   fit_maihda_fwd <- function(...) do.call(fit_maihda, c(list(...), dots_eval))
