@@ -32,11 +32,11 @@ jobs:
   brms-tests:
     runs-on: ubuntu-latest
     # A cold runner installs rstan and compiles the Stan models at test time.
-    # The whole suite is run with the brms gate open, so every brms-backed test
-    # file (cross-classified, contextual, interactions, longitudinal, negbinomial,
-    # ordinal, tidiers, fit_maihda, summary_variance) compiles its own Stan model
-    # -- roughly nine compiles on a cold runner -- hence the generous budget.
-    timeout-minutes: 120
+    # The whole suite is run with the brms gate open, so the test files gated on
+    # MAIHDA_TEST_BRMS compile dozens of Stan models between them, and the
+    # longitudinal growth fits are sampling-bound by design -- hence the long
+    # budget.
+    timeout-minutes: 180
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
