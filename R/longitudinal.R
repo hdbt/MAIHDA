@@ -2204,9 +2204,12 @@ print.maihda_long_pcv <- function(x, ...) {
         "read it alongside this caveat.\n"),
         paste(strwrap(paste(
           maihda_long_pcv_zero_note(x$time, zero_null, zero_adjusted, x$pcv_t$time),
-          "A trajectory decomposition needs either more measurement occasions per",
-          "stratum, or stratum_slope = FALSE, which models a time-constant",
-          "between-stratum variance and says so explicitly."), width = 80),
+          "A rank-deficient block is common with few strata even when the strata",
+          "diverge over time, so it does not show that they do not; it is rarer with",
+          "more strata, more people per stratum or more measurement occasions.",
+          "stratum_slope = FALSE models a time-constant between-stratum variance;",
+          "where the strata do diverge, it moves their slope differences to the",
+          "person level."), width = 80),
           collapse = "\n"), "\n")))
   }
   if (isTRUE(x$null_at_boundary)) {

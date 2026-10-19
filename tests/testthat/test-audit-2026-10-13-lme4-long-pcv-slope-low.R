@@ -187,7 +187,7 @@ test_that("print() names the times of the flagged blocks on the user's time scal
   # ... and the rest of the note is still there.
   expect_match(out, "reported as NA", fixed = TRUE)
   expect_match(out, "stratum_slope = FALSE", fixed = TRUE)
-  expect_match(out, "says so explicitly.", fixed = TRUE)
+  expect_match(out, "moves their slope differences to the person level.", fixed = TRUE)
   # What the two sentences say is true of the object's own variances.
   at <- function(S, t) maihda_var_at_time(S, t - x$time_center)
   expect_equal(at(Sn, 2000.3), 0)
@@ -261,8 +261,8 @@ test_that("print() keeps its sentence where a block has no single zero to name",
   expect_match(out3, "RANK-DEFICIENT", fixed = TRUE)
   expect_match(out3, paste0("PCV_intercept and PCV(wave) are still reported: they are ",
                             "carried by the intercept variance, which stays estimable. ",
-                            "A trajectory decomposition needs either more measurement ",
-                            "occasions per stratum, or stratum_slope = FALSE"),
+                            "A rank-deficient block is common with few strata even when ",
+                            "the strata diverge over time"),
                fixed = TRUE)
   expect_false(grepl("at one time", out3, fixed = TRUE))
 
