@@ -382,12 +382,20 @@ test_that("the package's own data: an adjusted logistic MAIHDA with age in years
     Obese ~ Gender + Race + Education + Age + (1 | Gender:Race:Education),
     data = hc, family = "binomial")))
   said <- m$model@optinfo$conv$lme4$messages
-  # The premise: lme4 calls it nearly unidentifiable for the units of Age alone.
+  # The premise: lme4 flags the fit. With Age in years an eigenvalue of the Hessian is
+  # about 1.6e6, over lme4's line of 1e6 (with Age in decades, about 1.6e4), so lme4
+  # calls the model nearly unidentifiable. Its gradient check is near its line of 0.002
+  # (on one machine 0.0018, and 0.0030 with Age standardised), so on some platforms
+  # lme4 also says the model failed to converge.
   expect_true(any(grepl("very large eigenvalue", said, fixed = TRUE)))
-  expect_false(any(grepl("failed to converge", said, fixed = TRUE)))
   expect_true(m$diagnostics$converged)
   expect_lt(m$diagnostics$stationary_distance, 0.01)
+  # print() says what lme4 warned of, a failure to converge first.
+  warned <- if (any(grepl("failed to converge", said, fixed = TRUE))) {
+    "lme4 warned that the model failed to converge"
+  } else {
+    "lme4 warned that the model is nearly unidentifiable"
+  }
   out <- utils::capture.output(print(m))
-  expect_true(any(grepl("lme4 warned that the model is nearly unidentifiable", out,
-                        fixed = TRUE)))
+  expect_true(any(grepl(warned, out, fixed = TRUE)))
 })
