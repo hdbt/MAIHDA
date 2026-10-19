@@ -12,6 +12,22 @@
 #'   other than "stratum" are provided in the random effect, \code{\link{make_strata}}
 #'   will be called internally to compute the strata and the formula will be
 #'   updated.
+#'   A random slope, such as \code{(1 + x | stratum)}, is fitted, but
+#'   \code{summary()}, the VPC, the PCV and the other MAIHDA summaries need
+#'   intercept-only random effects outside a longitudinal model (see \code{id}).
+#'   Fitted by \code{glmer()} (\code{glmer.nb()} for \code{family = "negbinomial"})
+#'   with \code{nAGQ} of 1 or more, a model with a random slope is refitted once when
+#'   its fit stops with the variance of a block's first term, usually its intercept,
+#'   at zero (in a block of three or more terms, also what is left of a later term's
+#'   variance after the terms before it): glmer's first stage can leave it there,
+#'   where the likelihood can still rise with the signs of that term's covariances
+#'   with the later terms reversed, and its second stage stops there too. The refit
+#'   starts from the other side of that bound, those signs reversed, and is made by
+#'   glmer's second stage with the \code{bobyqa} optimiser; it replaces the fit when
+#'   its -2 log-likelihood is lower by more than 1e-4. In a block of three or more
+#'   terms the likelihood can also rise across the bound in other directions, which
+#'   neither the refit nor the convergence record (see Value) tries. Pass
+#'   \code{start} through \code{...} to fit from your own starting values only.
 #' @param data A data frame containing the variables in the formula.
 #' @param engine Character string specifying which engine to use: "lme4"
 #'   (default), "brms", "wemix" (design-weighted pseudo-maximum-likelihood via
@@ -318,11 +334,14 @@
 #'     tenth of a standard error of a stationary point of its likelihood, measured
 #'     with the fixed effects in centred and scaled units; the distance is
 #'     \code{stationary_distance}, and lme4's messages are kept in
-#'     \code{lme4_overruled} when the fit converged by it. A glmer growth fit with a
-#'     block's intercept variance at zero (or, in a quadratic block, its slope
-#'     perfectly correlated with its intercept), where the likelihood still rises
-#'     across that bound, has stopped at a bound of lme4's parametrisation and counts
-#'     as not converged; those blocks are in \code{boundary_traps}. An lme4 fit also
+#'     \code{lme4_overruled} when the fit converged by it. A glmer fit (\code{nAGQ}
+#'     of 1 or more) with the variance of a random-effect block's first term, usually
+#'     its intercept, at zero (or, in a block of three or more terms, what is left of
+#'     a later term's variance after the terms before it, such as a quadratic growth
+#'     block's slope perfectly correlated with its intercept), where the likelihood
+#'     still rises with the signs of that term's covariances with the later terms
+#'     reversed, has stopped at a bound of lme4's parametrisation and counts as not
+#'     converged; those blocks are in \code{boundary_traps}. An lme4 fit also
 #'     carries likelihood-adequacy caveats -- count overdispersion and zero
 #'     inflation, stratum random-effect non-normality and longitudinal residual
 #'     autocorrelation -- reported only when a conservative threshold is crossed,
@@ -1124,6 +1143,10 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
     # can stop at (see maihda_fit_glmer_growth()).
     if (maihda_glmer_growth_applies(fit_fun, longitudinal_info, dot_vals)) {
       maihda_fit_glmer_growth(fit_call, fit_env, longitudinal_info$id)
+    } else if (maihda_glmer_bound_applies(fit_fun, longitudinal_info, dot_vals)) {
+      # Any other glmer fit is refitted once from across such a bound, which only a
+      # random-effect block with a slope can stop at (see maihda_fit_glmer_bound()).
+      maihda_fit_glmer_bound(fit_call, fit_env)
     } else {
       eval(fit_call, fit_env)
     }

@@ -921,17 +921,21 @@ maihda_fit_glmer_growth <- function(fit_call, fit_env, id, tol = 1e-4) {
   kept$value
 }
 
-# The refit of maihda_fit_glmer_growth() from the other side of a boundary trap: when the
-# fit in `kept` (a value / conditions pair of maihda_eval_holding_conditions()) has columns
-# where a trap can sit (maihda_lme4_trap_columns()), `fit_call` is evaluated once from its
-# estimates with each such column taken across its bound (maihda_lme4_mirror_theta(), the
-# diagonal entry at 0.05) and glmer's second stage only. The refit's pair when its
+# The refit of maihda_fit_glmer_growth() and maihda_fit_glmer_bound() from the other side
+# of a boundary trap: when the fit in `kept` (a value / conditions pair of
+# maihda_eval_holding_conditions()) has columns where a trap can sit
+# (maihda_lme4_trap_columns()), `fit_call` is evaluated once from its estimates with each
+# such column taken across its bound (maihda_lme4_mirror_theta(), the diagonal entry at
+# 0.05) and glmer's second stage only, by `optimizer` ("bobyqa") when one is named and
+# otherwise by the second-stage optimiser of the fit's control. The refit's pair when its
 # criterion is lower than the kept fit's by more than `tol`, else NULL. The refit does not
 # wait for the deviance to fall within a small step across the bound
 # (maihda_lme4_boundary_traps()): the maximum can lie further across, where such a step
 # does not reach (a Poisson growth fit in weeks: the deviance rose by 0.0002 at a step of
-# 0.001, and the refit gained 0.17 in log-likelihood).
-maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4) {
+# 0.001, and the refit gained 0.17 in log-likelihood). In a block of three or more terms
+# the reflection of the entries below is one way across the bound among many, and the
+# maximum can lie in another direction.
+maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4, optimizer = NULL) {
   model <- kept$value
   if (!isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))) {
     return(NULL)
@@ -949,6 +953,19 @@ maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4) {
     eval(fit_call$control, fit_env)
   }
   control$nAGQ0initStep <- FALSE
+  if (!is.null(optimizer)) {
+    # The second stage by bobyqa: settings of the control's own optimiser that bobyqa does
+    # not take are dropped, and its limit is 1e5 evaluations unless one is set (lme4's 1e4
+    # stopped the refit of a three-term block short, recorded as not converged).
+    if (!identical(control$optimizer[2], optimizer)) {
+      control$optCtrl <- control$optCtrl[names(control$optCtrl) %in%
+                                           c("npt", "rhobeg", "rhoend", "iprint", "maxfun")]
+    }
+    control$optimizer[2] <- optimizer
+    if (is.null(control$optCtrl$maxfun)) {
+      control$optCtrl$maxfun <- 1e5
+    }
+  }
   assign(".maihda_arg_refit_control", control, envir = fit_env)
   refit_call <- fit_call
   refit_call$start <- list(theta = unname(theta), fixef = lme4::fixef(kept$value))
@@ -959,6 +976,47 @@ maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4) {
   } else {
     NULL
   }
+}
+
+# ---- refits of other glmer fits --------------------------------------------------------
+
+# A glmer fit that is not a growth model stops at a boundary trap too, in a random-effect
+# block with a slope such as (1 + x | stratum): glmer's first stage takes the block's
+# intercept SD to its bound of 0 beside a non-zero intercept-slope entry
+# (maihda_lme4_boundary_traps()). It does so mostly where the intercept variance is small
+# next to the slope variance: an adjusted model on additive strata, strata that fan out
+# from x = 0. On ten cross-sectional Poisson and Bernoulli designs of 8 and 18 strata
+# (200 fits), 44 fits stopped at such a bound and 39 of them more than 0.01 below the
+# maximum, up to 23 log-likelihood units, all recorded converged. fit_maihda() therefore
+# refits such a fit once from the other side of the bound (maihda_fit_glmer_bound()), by
+# bobyqa: from there glmer's own second stage, Nelder-Mead, left 10 of the 44 more than
+# 0.01 short (up to 0.97), bobyqa none, in a median 0.39 times the evaluations (up to 5.4
+# times with a covariate in years). A block without a slope has no such column, so an
+# intercept-only fit is never refitted.
+
+# Whether fit_maihda() makes an lme4 fit by maihda_fit_glmer_bound(): a model fitted by
+# glmer() or glmer.nb() that is not a growth model, without starting values of the user's
+# own.
+maihda_glmer_bound_applies <- function(fit_fun, longitudinal_info, dot_vals) {
+  (identical(fit_fun, quote(lme4::glmer)) || identical(fit_fun, quote(lme4::glmer.nb))) &&
+    is.null(longitudinal_info) && !"start" %in% names(dot_vals)
+}
+
+# Fit a glmer model that is not a growth model (`fit_call`, evaluated in `fit_env`) and
+# refit it once from the other side of its boundary traps by bobyqa
+# (maihda_glmer_mirror_refit()), the refit kept when its criterion is lower by more than
+# `tol`. Only the kept fit's warnings and messages are signalled. A refit that fails is
+# passed over.
+maihda_fit_glmer_bound <- function(fit_call, fit_env, tol = 1e-4) {
+  kept <- maihda_eval_holding_conditions(fit_call, fit_env)
+  mirrored <- tryCatch(maihda_glmer_mirror_refit(kept, fit_call, fit_env, tol,
+                                                 optimizer = "bobyqa"),
+                       error = function(e) NULL)
+  if (!is.null(mirrored)) {
+    kept <- mirrored
+  }
+  maihda_signal_conditions(kept$conditions)
+  kept$value
 }
 
 # Posterior-mean ordered covariance block of a grouping factor (brms), for the

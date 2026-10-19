@@ -315,9 +315,14 @@ test_that("the record flags a fit stopped at a bound where the likelihood still 
   out <- maihda_format_fit_diagnostics(dg)
   expect_true("Convergence problems of the lme4 fit:" %in% out)
   expect_false("Convergence warnings reported by lme4:" %in% out)
-  # Growth fits only: the same fit read as a cross-sectional one is not looked at.
-  expect_true(maihda_fit_diagnostics(m$model)$converged)
-  expect_null(maihda_fit_diagnostics(m$model)$boundary_traps)
+  # The same fit read as one outside growth models is flagged too, its sentence naming the
+  # block's terms.
+  cs <- maihda_fit_diagnostics(m$model)
+  expect_false(cs$converged)
+  expect_identical(cs$boundary_traps$block, "id")
+  expect_true(any(grepl("The intercept variance of the 'id' block is at zero", cs$messages,
+                        fixed = TRUE)))
+  expect_false(any(grepl("with the slope reversed", cs$messages, fixed = TRUE)))
   expect_false(maihda_fit_diagnostics(m$model, m$longitudinal_info)$converged)
   # The traps themselves: the drop across the bound, and nothing at the maximum.
   tr <- maihda_lme4_boundary_traps(m$model)
