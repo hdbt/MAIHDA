@@ -17,6 +17,13 @@ jobs:
 
     name: ${{ matrix.config.os }} (${{ matrix.config.r }})
 
+    # A newer push to the same branch or pull request cancels this leg of the
+    # older run. The group is per leg, since legs sharing a group would cancel
+    # each other, and CRAN-brms-check has none, so a later push never cancels it.
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.config.os }}-${{ matrix.config.r }}
+      cancel-in-progress: true
+
     strategy:
       fail-fast: false
       matrix:
@@ -51,26 +58,25 @@ jobs:
         with:
           upload-snapshots: true
 
-  # Exercise the optional-backend and integration code paths that skip_on_cran()
-  # hides from the ordinary R-CMD-check job above -- WeMix (design weights), ordinal
-  # (cumulative), negative-binomial (MASS), the response-scale VPC, weighted counts,
-  # and the PCV/discriminatory-accuracy estimand regressions. Without this, the
-  # statistically riskiest backend-specific code runs only in the on-demand CRAN
-  # check. brms is intentionally NOT installed here (its Stan-compiling tests have
-  # their own workflow, brms-tests.yaml, and skip via skip_if_not_installed("brms")
-  # + the closed MAIHDA_TEST_BRMS gate), keeping this job fast.
-  integration-tests:
+  # R CMD check and covr run the tests from the installed package, which has no
+  # man/, README or vignettes, so the blocks that read the package's own files
+  # through test_path("..", "..") skip there. This job runs the test files that
+  # hold such blocks from the source tree. Every other test runs in the legs above.
+  source-tree-tests:
     runs-on: ubuntu-latest
-    name: integration-tests (WeMix / ordinal / MASS, NOT_CRAN)
+    name: tests that read the package tree
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-source-tree-tests
+      cancel-in-progress: true
+
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      NOT_CRAN: "true"   # run the skip_on_cran() backend/integration tests
+      NOT_CRAN: "true"   # the blocks start with skip_on_cran()
 
     steps:
       - uses: actions/checkout@v7
-
-      - uses: r-lib/actions/setup-pandoc@v2
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -79,18 +85,39 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: |
-            any::testthat
-            any::WeMix
-            any::ordinal
-            any::MASS
+          extra-packages: any::testthat
 
-      - name: Run the full non-brms test suite (NOT_CRAN = true)
+      - name: Run the test files that read the package tree
         run: |
-          # MAIHDA_TEST_BRMS intentionally left unset and brms not installed, so the
-          # Stan-backed tests skip here and run in brms-tests.yaml instead.
-          testthat::test_local(stop_on_failure = TRUE)
+          # Files are picked by the test_path("..", "..") call, so a new test of
+          # this kind runs here without editing the workflow.
+          dir <- "tests/testthat"
+          files <- list.files(dir, "^test-.*\\.R$")
+          reads_tree <- vapply(file.path(dir, files), function(f) {
+            any(grepl('test_path("..", ".."', readLines(f, warn = FALSE), fixed = TRUE))
+          }, logical(1))
+          if (!any(reads_tree)) {
+            stop("No test file calls test_path(\"..\", \"..\"); update the pattern.")
+          }
+          stems <- sub("^test-", "", sub("\\.R$", "", files[reads_tree]))
+          cat("Test files that read the package tree:\n",
+              paste0("  ", stems, "\n"), sep = "")
+          testthat::test_local(
+            filter = paste0("^(", paste(stems, collapse = "|"), ")$"),
+            stop_on_failure = TRUE
+          )
         shell: Rscript {0}
+
+  # Publish the bundled Shiny app once every check above has passed on a push to
+  # main. The steps live in shiny-deploy.yaml, which can also be run by hand to
+  # redeploy without the checks.
+  shiny-deploy:
+    needs: [R-CMD-check, source-tree-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/shiny-deploy.yaml
+    secrets:
+      SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
+      SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET }}
 
   CRAN-brms-check:
     if: >-

@@ -9,6 +9,11 @@ name: test-coverage.yaml
 
 permissions: read-all
 
+# A newer push to the same branch or pull request cancels the run in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-coverage:
     runs-on: ubuntu-latest
