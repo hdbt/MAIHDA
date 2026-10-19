@@ -282,9 +282,14 @@ test_that("a fit the restarts leave at a stratum bound is refitted from across i
   # Seed 30 in weeks: both restarts leave the stratum intercept SD at 0, 0.174 below the
   # maximum of -1021.05075. They tie to 4e-7, and for the one kept here a step of 0.001
   # across the bound raises the deviance; the refit from across the bound reaches the
-  # maximum whichever is kept.
+  # maximum whichever is kept. With other arithmetic (another platform, or the rows in
+  # another order) the first fit or a restart often reaches the maximum itself. At the
+  # maximum the stratum intercept and slope are perfectly correlated, and the likelihood is
+  # flat there: a correlation of -0.98 is 0.008 below it. lme4 also reports a glmer fit's
+  # log-likelihood up to 0.004 below its value at the estimates, as its PIRLS stops early.
+  # So the fit is held to 0.02 of the maximum, against the 0.174 of a fit left at the bound.
   m <- poisson_growth(growth_design(30, 7))
-  expect_lt(abs(as.numeric(stats::logLik(m$model)) - (-1021.05075)), 0.005)
+  expect_lt(abs(as.numeric(stats::logLik(m$model)) - (-1021.05075)), 0.02)
   expect_gt(lme4::getME(m$model, "theta")[["stratum.(Intercept)"]], 0.01)
   expect_true(m$diagnostics$converged)
 })
