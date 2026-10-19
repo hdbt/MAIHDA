@@ -51,8 +51,9 @@
 # the exact optimum; refitML() off in 360 of 376), and quadratic fits from a span of
 # about 12 (in days every one of 108, by a median of 719 units). On (t - c) / k with the
 # restarts below, the linear fits of that design reach the REML and ML optima (0 and 1
-# of 400 more than 0.01 above them); quadratic fits, which have no restarts, still miss
-# by a little in about one in ten fits at any scale.
+# of 400 more than 0.01 above them), and its quadratic fits, with restarts of their own,
+# reach the REML optimum (0 of 672 more than 0.01 above it at six time units, 2 more than
+# 0.001).
 # The stored fit stays on the internal time, so a refit made from it -- refitML() for
 # estimation = "ML", maihda_ic(), the bootstrap refits -- solves the well-conditioned
 # problem too; every quantity in units of time is converted back where it is read: the
@@ -734,6 +735,162 @@ maihda_growth_restart_starts <- function(theta, cnms, id, scale = 0.5) {
   })
 }
 
+# A growth model with a quadratic or higher time polynomial can stop at a boundary of
+# either block: on balanced 16-stratum designs lmer's default optimiser stopped more than
+# 0.01 above the REML optimum in 10 to 20 per cent of such fits (9 to 36 per cent by time
+# unit), with or without a stratum slope, mostly with the person-level block collapsed to
+# rank 2 where the optimum's is full rank -- which the starts above, made on the first
+# fit's person-level block, often cannot leave -- or with the stratum block on a boundary
+# the optimum does not have. lme4 checks no gradient on a singular fit
+# or on a model with ten or more covariance parameters (a quadratic model with a stratum
+# slope has twelve), so such a fit is mostly recorded as converged: all 132 misses with a
+# stratum slope, 25 of 33 without. fit_maihda() refits it from two more starts
+# (maihda_fit_lmer_growth()):
+#
+# - lmer's fit of the same model on time centred at the middle of its range, carried
+#   back to the model's own time (maihda_growth_centred_start()). Shifting time
+#   leaves the REML criterion unchanged, but on the centred time the criterion is better
+#   conditioned in lme4's parameters (median condition number of its Hessian at the
+#   optimum 244 against 615 on that design), and lmer reaches the optimum there far more
+#   often;
+# - when that refit and lmer's own fit differ by more than 0.01, both blocks diagonal
+#   (maihda_growth_diagonal_start()): every correlation starts at zero, away from every
+#   boundary. A smaller difference is mostly one of the two stopping a little short, which
+#   keeping the lower of them repairs: on 96 ordinary fits this start ran in 11, against
+#   40 with a threshold of 1e-4, for the same fits kept. Where both stop short together,
+#   about 0.01 above the optimum, it is not tried (1 of 314 fits on 14 other designs).
+#
+# On the balanced design the two leave 0 of 672 quadratic fits and 2 of 78 cubic ones more
+# than 0.01 above the exact REML optimum (lmer's own fit: 132 and 35), at about twice the
+# time of lmer's own fit.
+
+# Lower-triangular factor L, with a non-negative diagonal, of a symmetric positive
+# semi-definite matrix S = L L': lme4's form of a random-effect block. Where a pivot is
+# zero (to `tol` of its diagonal entry) the column is left at zero, as lme4 holds a
+# rank-deficient block.
+maihda_chol_psd <- function(S, tol = 1e-10) {
+  S <- (S + t(S)) / 2
+  q <- nrow(S)
+  L <- matrix(0, q, q)
+  for (j in seq_len(q)) {
+    prev <- seq_len(j - 1L)
+    d <- S[j, j] - sum(L[j, prev]^2)
+    if (!is.finite(d) || d <= tol * abs(S[j, j])) {
+      next
+    }
+    L[j, j] <- sqrt(d)
+    for (i in seq.int(j + 1L, length.out = q - j)) {
+      L[i, j] <- (S[i, j] - sum(L[i, prev] * L[j, prev])) / L[j, j]
+    }
+  }
+  L
+}
+
+# theta of a growth model fitted on `time` - `shift`, carried back to the same model on
+# `time`: random effects over the powers 0..d of (time - shift) are U b over the powers of
+# time, with U[j, i] = choose(i, j) (-shift)^(i - j) for powers counted from 0, so a
+# block's covariance becomes U Sigma U', factored again (maihda_chol_psd()). An
+# intercept-only block is unchanged. NULL when theta does not match the terms or a block
+# is not the polynomial's leading terms in order: (Intercept), time, I(time^2), ...
+maihda_growth_unshift_theta <- function(theta, cnms, time, time_degree, shift) {
+  if (!is.numeric(theta) || !is.list(cnms) || !is.numeric(shift) ||
+      length(shift) != 1L || !is.finite(shift)) {
+    return(NULL)
+  }
+  sizes <- vapply(cnms, function(cn) length(cn) * (length(cn) + 1) / 2, numeric(1))
+  if (sum(sizes) != length(theta)) {
+    return(NULL)
+  }
+  terms <- c("(Intercept)", maihda_time_terms(time, time_degree))
+  end <- cumsum(sizes)
+  beg <- end - sizes + 1
+  for (k in seq_along(cnms)) {
+    q <- length(cnms[[k]])
+    if (q > length(terms) || !identical(unname(as.character(cnms[[k]])), terms[seq_len(q)])) {
+      return(NULL)
+    }
+    if (q == 1L) {
+      next
+    }
+    idx <- seq.int(beg[k], end[k])
+    L <- matrix(0, q, q)
+    L[lower.tri(L, diag = TRUE)] <- theta[idx]
+    p <- seq_len(q) - 1L
+    U <- outer(p, p, function(j, i) choose(i, j) * (-shift)^pmax(i - j, 0))
+    L <- maihda_chol_psd(U %*% tcrossprod(L) %*% t(U))
+    theta[idx] <- L[lower.tri(L, diag = TRUE)]
+  }
+  theta
+}
+
+# The start carried back from the call `fit_call` (evaluated in `fit_env`) fitted with
+# its time variable `time` centred at the middle of its range: a list of one theta, or an
+# empty list when the call's data or that column cannot be found, time is centred there
+# already, or a block cannot be carried back (maihda_growth_unshift_theta()). The centred
+# fit's own warnings and messages are dropped; its errors pass through.
+maihda_growth_centred_start <- function(fit_call, fit_env, time, time_degree) {
+  data_name <- fit_call$data
+  if (!is.name(data_name) || !is.character(time) || length(time) != 1L) {
+    return(list())
+  }
+  data <- get0(as.character(data_name), envir = fit_env, inherits = FALSE)
+  if (!is.data.frame(data) || !is.numeric(data[[time]])) {
+    return(list())
+  }
+  t <- data[[time]][is.finite(data[[time]])]
+  if (!length(t)) {
+    return(list())
+  }
+  shift <- (min(t) + max(t)) / 2
+  if (shift == 0) {
+    return(list())
+  }
+  data[[time]] <- data[[time]] - shift
+  centred_env <- new.env(parent = fit_env)
+  assign(as.character(data_name), data, envir = centred_env)
+  fit <- maihda_eval_holding_conditions(fit_call, centred_env)$value
+  theta <- maihda_growth_unshift_theta(lme4::getME(fit, "theta"), lme4::getME(fit, "cnms"),
+                                       time, time_degree, shift)
+  if (is.null(theta)) list() else list(theta)
+}
+
+# The start with both growth blocks diagonal: the person-level block at the first fit's
+# person-level SDs and the stratum block at `scale` times them, so every correlation
+# starts at zero. An empty list when theta and the terms do not match, there is no
+# person-level or stratum block, the stratum block has more terms than the person-level
+# one, or a person-level SD is not positive and finite.
+maihda_growth_diagonal_start <- function(theta, cnms, id, scale = 0.5) {
+  if (!is.numeric(theta) || !is.list(cnms) || is.null(names(cnms))) {
+    return(list())
+  }
+  sizes <- vapply(cnms, function(cn) length(cn) * (length(cn) + 1) / 2, numeric(1))
+  if (sum(sizes) != length(theta)) {
+    return(list())
+  }
+  end <- cumsum(sizes)
+  beg <- end - sizes + 1
+  p <- which(names(cnms) == id)
+  s <- which(names(cnms) == "stratum")
+  if (length(p) != 1L || length(s) != 1L || length(cnms[[s]]) > length(cnms[[p]])) {
+    return(list())
+  }
+  q <- length(cnms[[p]])
+  L <- matrix(0, q, q)
+  L[lower.tri(L, diag = TRUE)] <- theta[seq.int(beg[p], end[p])]
+  sds <- sqrt(rowSums(L^2))
+  if (!all(is.finite(sds)) || any(sds <= 0)) {
+    return(list())
+  }
+  block <- function(v) {
+    D <- diag(v, length(v))
+    D[lower.tri(D, diag = TRUE)]
+  }
+  start <- theta
+  start[seq.int(beg[p], end[p])] <- block(sds)
+  start[seq.int(beg[s], end[s])] <- block(scale * sds[seq_along(cnms[[s]])])
+  list(start)
+}
+
 # The criterion lme4 minimised: the REML criterion of a REML fit, the deviance otherwise.
 maihda_lmer_criterion <- function(model) {
   if (lme4::isREML(model)) lme4::REMLcrit(model) else stats::deviance(model)
@@ -784,38 +941,69 @@ maihda_signal_conditions <- function(conditions) {
   invisible(NULL)
 }
 
-# Fit an lmer growth model (`fit_call`, evaluated in `fit_env`), refit it from the starts of
-# maihda_growth_restart_starts() and return the fit with the lowest criterion, signalling
-# that fit's warnings and messages only. A restart that fails is passed over.
-maihda_fit_lmer_growth <- function(fit_call, fit_env, id, tol = 1e-4) {
+# Fit an lmer growth model (`fit_call`, evaluated in `fit_env`), refit it from more starts
+# and return the fit with the lowest criterion, signalling that fit's warnings and messages
+# only. A linear model is refitted from the starts of maihda_growth_restart_starts(); a
+# model whose time polynomial (in the model's time variable `time`) has degree 2 or more
+# from the start of maihda_growth_centred_start() and, when that refit and lmer's fit
+# differ by more than `differ` or there is no such refit, from the start of
+# maihda_growth_diagonal_start(). A restart that fails is passed over.
+maihda_fit_lmer_growth <- function(fit_call, fit_env, id, tol = 1e-4, time = NULL,
+                                   time_degree = 1L, differ = 0.01) {
   first <- maihda_eval_holding_conditions(fit_call, fit_env)
   fits <- list(first)
-  starts <- tryCatch(
-    maihda_growth_restart_starts(lme4::getME(first$value, "theta"),
-                                 lme4::getME(first$value, "cnms"), id),
-    error = function(e) list())
-  for (start in starts) {
+  refit <- function(start) {
     restart_call <- fit_call
     restart_call$start <- start
-    fits[[length(fits) + 1L]] <- tryCatch(
-      maihda_eval_holding_conditions(restart_call, fit_env), error = function(e) NULL)
+    tryCatch(maihda_eval_holding_conditions(restart_call, fit_env), error = function(e) NULL)
   }
-  crit <- vapply(fits, function(f) {
+  criterion <- function(f) {
     if (is.null(f)) NA_real_ else tryCatch(maihda_lmer_criterion(f$value),
                                            error = function(e) NA_real_)
-  }, numeric(1))
+  }
+  theta <- tryCatch(lme4::getME(first$value, "theta"), error = function(e) NULL)
+  cnms <- tryCatch(lme4::getME(first$value, "cnms"), error = function(e) NULL)
+  if (isTRUE(time_degree >= 2)) {
+    centred <- tryCatch(maihda_growth_centred_start(fit_call, fit_env, time, time_degree),
+                        error = function(e) list())
+    for (start in centred) {
+      fits[[length(fits) + 1L]] <- refit(start)
+    }
+    c0 <- criterion(first)
+    c1 <- if (length(fits) > 1L) criterion(fits[[2L]]) else NA_real_
+    if (!is.finite(c0) || !is.finite(c1) || abs(c1 - c0) > differ) {
+      diagonal <- tryCatch(maihda_growth_diagonal_start(theta, cnms, id),
+                           error = function(e) list())
+      for (start in diagonal) {
+        fits[[length(fits) + 1L]] <- refit(start)
+      }
+    }
+  } else {
+    starts <- tryCatch(maihda_growth_restart_starts(theta, cnms, id),
+                       error = function(e) list())
+    for (start in starts) {
+      fits[[length(fits) + 1L]] <- refit(start)
+    }
+  }
+  crit <- vapply(fits, criterion, numeric(1))
   kept <- fits[[maihda_pick_lowest(crit, tol)]]
   maihda_signal_conditions(kept$conditions)
   kept$value
 }
 
-# Whether fit_maihda() restarts an lme4 fit: a growth model with a linear stratum slope,
-# fitted by lmer, without starting values of the user's own.
+# Whether fit_maihda() restarts an lme4 fit: a growth model fitted by lmer, without
+# starting values of the user's own, with a linear stratum slope or a time polynomial of
+# degree 2 or more (with or without a stratum slope).
 maihda_growth_restarts_apply <- function(fit_fun, longitudinal_info, dot_vals) {
-  identical(fit_fun, quote(lme4::lmer)) && !is.null(longitudinal_info) &&
-    !isFALSE(longitudinal_info$stratum_slope) &&
-    identical(as.integer(longitudinal_info$time_degree), 1L) &&
-    !"start" %in% names(dot_vals)
+  if (!identical(fit_fun, quote(lme4::lmer)) || is.null(longitudinal_info) ||
+      "start" %in% names(dot_vals)) {
+    return(FALSE)
+  }
+  degree <- suppressWarnings(as.integer(longitudinal_info$time_degree))
+  if (length(degree) != 1L || is.na(degree)) {
+    return(FALSE)
+  }
+  degree >= 2L || (degree == 1L && !isFALSE(longitudinal_info$stratum_slope))
 }
 
 # ---- refits of a glmer growth fit ------------------------------------------------------

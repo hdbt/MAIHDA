@@ -250,14 +250,18 @@ fits when the strata diverge too, and where they do, \code{FALSE} moves their
 slope differences into the person-level slope variance. The VPC still varies
 with time through the person-level slope
 variance and the residual, so this is a time-constant between-stratum
-\emph{variance}, not a time-constant VPC. For a Gaussian model fitted by
-\code{lmer()} with linear growth, the model is fitted from lme4's starting values
-and again from two starts scaled by the person-level block, with a positive and a
-negative stratum intercept-slope correlation, and a refit replaces lmer's fit when
-its REML criterion (deviance for a maximum-likelihood fit) is lower by more than
-1e-4: lme4's default optimiser can stop on the wrong side of the stratum block's
-boundary. Pass \code{start} through \code{...} to fit from your own starting values
-only; they are on the internal time when \code{time} is scaled (see \code{time}).}
+\emph{variance}, not a time-constant VPC. A Gaussian growth model fitted by
+\code{lmer()} with a stratum slope, or with quadratic or higher growth, is fitted
+from lme4's starting values and again from more starts, and a refit replaces lmer's
+fit when its REML criterion (deviance for a maximum-likelihood fit) is lower by more
+than 1e-4: lme4's default optimiser can stop at a boundary of a random-effect block
+away from the optimum. With linear growth the starts are scaled by the person-level
+block, with a positive and a negative stratum intercept-slope correlation; with
+quadratic or higher growth one start is lmer's fit of the same model on time
+centred at the middle of its range, and, when that refit and lmer's fit differ by
+more than 0.01, another has both covariance blocks diagonal. Pass \code{start}
+through \code{...} to fit from your own starting values only; they are on the
+internal time when \code{time} is scaled (see \code{time}).}
 
 \item{interactions}{Opt-in per-stratum interaction diagnostic
 (\code{\link{maihda_interactions}}), attached as the \code{interactions} slot
