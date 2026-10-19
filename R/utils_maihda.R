@@ -323,9 +323,21 @@ maihda_lme4_theta_columns <- function(cnms) {
   out
 }
 
+# The term names of the random-effect block of an lme4 fit whose Cholesky factor holds
+# theta index `index` (`cnms`: lme4::getME(, "cnms"), whose names can repeat).
+maihda_lme4_block_terms <- function(cnms, index) {
+  ends <- cumsum(lengths(cnms) * (lengths(cnms) + 1) / 2)
+  cnms[[which(index <= ends)[1L]]]
+}
+
 # The columns of maihda_lme4_theta_columns() that sit where a boundary trap can: the
-# diagonal entry at the bound of 0 (below `entry_tol`) and an entry below it not 0.
+# diagonal entry at the bound of 0 (below `entry_tol`) and an entry below it not 0. None
+# when theta does not hold a full Cholesky factor per block, as for lme4's structured
+# covariance terms such as diag().
 maihda_lme4_trap_columns <- function(theta, cnms, entry_tol = 1e-4) {
+  if (length(theta) != sum(lengths(cnms) * (lengths(cnms) + 1) / 2)) {
+    return(list())
+  }
   Filter(function(cl) abs(theta[cl$index]) < entry_tol && any(theta[cl$below] != 0),
          maihda_lme4_theta_columns(cnms))
 }
@@ -394,10 +406,32 @@ maihda_lme4_boundary_traps <- function(model, entry_tol = 1e-4, step = 1e-3) {
   out
 }
 
-# The record's sentence for a boundary trap (a row of maihda_lme4_boundary_traps()) of a
-# growth block with `n_terms` terms: its intercept column, or the linear one of a curve.
-maihda_lme4_trap_message <- function(block, term, n_terms) {
+# The record's sentence for a boundary trap (a row of maihda_lme4_boundary_traps()): with
+# `terms`, the block's term names in order, that of any block; without them, that of a
+# growth block with `n_terms` terms (its intercept column, or the linear one of a curve).
+maihda_lme4_trap_message <- function(block, term, n_terms, terms = NULL) {
   tail <- paste0(": the fit stopped at a bound of lme4's parametrisation, not at the maximum.")
+  at <- match(term, terms)
+  if (!is.na(at) && at < length(terms)) {
+    named <- function(x) ifelse(x == "(Intercept)", "the intercept", x)
+    later <- terms[-seq_len(at)]
+    rises <- sprintf(paste0("where the likelihood still rises with the sign%s of its ",
+                            "covariance%s with %s reversed"),
+                     if (length(later) > 1) "s" else "", if (length(later) > 1) "s" else "",
+                     maihda_and_list(named(later)))
+    if (at == 1L) {
+      what <- if (identical(term, "(Intercept)")) {
+        sprintf("The intercept variance of the '%s' block", block)
+      } else {
+        sprintf("The variance of %s in the '%s' block", term, block)
+      }
+      return(paste0(what, " is at zero, ", rises, tail))
+    }
+    # A later column at its bound: what is left of that term's variance after the terms
+    # before it is zero, not its variance.
+    return(sprintf("In the '%s' block the variance of %s left after %s is zero, %s%s", block,
+                   term, maihda_and_list(named(terms[seq_len(at - 1L)])), rises, tail))
+  }
   if (identical(term, "(Intercept)")) {
     return(sprintf(paste0("The intercept variance of the '%s' block is at zero, where the ",
                           "likelihood still rises with the sign of its covariance with %s ",
@@ -537,17 +571,23 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
     }
     # A glmer fit stopped at a boundary trap is not at the maximum, whatever lme4 recorded:
     # lme4 takes no derivatives at a bound, so it records such a fit as converged.
-    # Growth fits only, as decided; a cross-sectional random-slope fit is not looked at.
-    traps <- if (is.null(longitudinal_info)) NULL else
-      tryCatch(maihda_lme4_boundary_traps(model), error = function(e) NULL)
+    traps <- tryCatch(maihda_lme4_boundary_traps(model), error = function(e) NULL)
     if (!is.null(traps)) {
       traps <- traps[!is.na(traps$drop) & traps$drop > .maihda_lme4_trap_drop, , drop = FALSE]
       if (nrow(traps) > 0) {
         diagnostics$converged <- FALSE
         diagnostics$boundary_traps <- traps
+        # A growth block's sentence speaks of its time terms; any other block's names its
+        # terms.
+        terms <- if (is.null(longitudinal_info)) {
+          cnms <- lme4::getME(model, "cnms")
+          lapply(traps$index, function(i) maihda_lme4_block_terms(cnms, i))
+        } else {
+          vector("list", nrow(traps))
+        }
         diagnostics$messages <- c(diagnostics$messages,
-                                  mapply(maihda_lme4_trap_message, traps$block, traps$term,
-                                         traps$n_terms, USE.NAMES = FALSE))
+                                  unlist(Map(maihda_lme4_trap_message, traps$block, traps$term,
+                                             traps$n_terms, terms), use.names = FALSE))
       }
     }
   } else if (inherits(model, "WeMixResults")) {
