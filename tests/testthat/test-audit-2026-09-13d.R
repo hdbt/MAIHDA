@@ -259,6 +259,7 @@ test_that("the other clmm prediction consumers use the fitted coding", {
 
 test_that("wemix predictions reuse contrasts that options() set at fit time", {
   skip_on_cran()
+  skip_slow_test()
   skip_if_not_installed("WeMix")
   d <- a6_data()
   # WeMix's y - resid reproduces a default-coded rebuild, so it is a valid oracle.

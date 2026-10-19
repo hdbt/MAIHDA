@@ -242,6 +242,7 @@ test_that("the zero-inflation adequacy check survives na.exclude", {
 
 test_that("a growth count fit's count_vpc is not biased by na.exclude", {
   skip_on_cran()
+  skip_slow_test()
   # A random SLOPE is what makes the per-row latent variance v_i vary, and only then
   # does recycling eta against v move a number: lambda was 7.052 against 7.826.
   set.seed(21)

@@ -258,6 +258,7 @@ test_that("na.exclude draws are identical to the same fit's na.omit draws", {
 
 test_that("summary(bootstrap = TRUE) agrees under na.exclude for every family", {
   skip_on_cran()
+  skip_slow_test()
   fits <- audit0925_fits()
   for (nm in names(fits)) {
     set.seed(3)
@@ -276,6 +277,7 @@ test_that("summary(bootstrap = TRUE) agrees under na.exclude for every family", 
 
 test_that("df_method = 'bootstrap' agrees under na.exclude for every family", {
   skip_on_cran()
+  skip_slow_test()
   # A CONTROL, not a tooth: this block passes on the pre-fix tree too. The draws come
   # from the restricted NULL fit, not the fitted model -- on y ~ x that is
   # maihda_refit_reduced()'s refit of the reduced formula on the fit's own analytic
@@ -331,6 +333,7 @@ test_that("calculate_pcv(bootstrap = TRUE) agrees under na.exclude", {
 
 test_that("the longitudinal count VPC(t) band survives na.exclude", {
   skip_on_cran()
+  skip_slow_test()
   set.seed(31)
   nid <- 220; tt <- 4
   ld <- data.frame(id = rep(seq_len(nid), each = tt),

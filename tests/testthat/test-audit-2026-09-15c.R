@@ -112,6 +112,7 @@ test_that("count fits with both offsets refuse newdata (glmer and glmer.nb)", {
 
 test_that("a longitudinal count fit with both offsets refuses newdata and matches one total offset", {
   skip_on_cran()
+  skip_slow_test()
   set.seed(5)
   nid <- 130
   g1 <- sample(c("F", "M"), nid, TRUE)

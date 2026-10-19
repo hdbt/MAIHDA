@@ -270,6 +270,7 @@ test_that("longitudinal PCV recovers a mostly-additive trajectory split", {
 })
 
 test_that("longitudinal PCV: default 'fitted' uses REML, estimation = 'ML' refits", {
+  skip_slow_test()
   # The null and adjusted growth models differ in fixed effects (the dimensions'
   # main effects + dim:time), so their REML and ML covariance blocks differ.
   # estimation selects the basis (see calculate_pcv()): the default "fitted" keeps
@@ -638,6 +639,7 @@ test_that("maihda_ic works on a longitudinal lme4 fit", {
 })
 
 test_that("binomial longitudinal fit gives a latent-scale time-varying VPC", {
+  skip_slow_test()
   mb <- fit_maihda(low_wellbeing ~ wave + (1 | gender:ethnicity:education),
                    data = maihda_long_data, id = "id", time = "wave",
                    family = "binomial")
@@ -647,6 +649,7 @@ test_that("binomial longitudinal fit gives a latent-scale time-varying VPC", {
 })
 
 test_that("count longitudinal fit evaluates the level-1 variance at time-varying marginal means", {
+  skip_slow_test()
   # A Poisson growth model's marginal expected count carries a TIME-VARYING
   # lognormal correction: lambda(t) = exp(x'beta(t) + v(t)/2) with v(t) the stratum
   # plus individual growth-block variance a(t)' Sigma a(t) at time t. The level-1
@@ -788,6 +791,7 @@ test_that("a VPC-trajectory bootstrap survives singular bootstrap refits", {
 })
 
 test_that("quadratic growth is anchoring-invariant (regression: silent false convergence)", {
+  skip_slow_test()
   # THE original defect: before internal centering, a quadratic growth fit on an
   # offset time axis (waves 10..) silently converged ~128 log-likelihood units
   # below the true optimum WITHOUT any lme4 convergence warning, reporting a

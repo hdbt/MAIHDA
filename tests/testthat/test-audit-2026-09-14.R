@@ -153,6 +153,7 @@ test_that("centring in data reproduces WeMix's centred fit, as the error advises
 
 test_that("a saved fit that used WeMix's centring refuses to predict", {
   skip_on_cran()
+  skip_slow_test()
   skip_if_not_installed("WeMix")
   d <- a14_data()
   plain <- a14_wemix(y ~ x + (1 | stratum), d)
@@ -180,6 +181,7 @@ test_that("a saved fit that used WeMix's centring refuses to predict", {
 
 test_that("a saved binomial analysis whose WeMix fits used centring warns when shown", {
   skip_on_cran()
+  skip_slow_test()
   skip_if_not_installed("WeMix")
   d <- a14_data()
   d$stratum <- NULL

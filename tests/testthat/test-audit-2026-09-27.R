@@ -113,6 +113,7 @@ test_that("an expression response is evaluated, not refused", {
 
 test_that("the wemix fit is the same model however the outcome is spelled", {
   skip_on_cran()
+  skip_slow_test()
   skip_if_not_installed("WeMix")
   d <- audit_0927_frame()
   q <- audit_0927_q

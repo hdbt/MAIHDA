@@ -221,6 +221,7 @@ test_that("maihda_wemix_linpred uses the fitted transformation basis", {
 
 test_that("a longitudinal count VPC(t) is finite when the fit scales time", {
   skip_on_cran()
+  skip_slow_test()
   set.seed(107)
   nid <- 150
   d <- expand.grid(wave = 0:4, id = seq_len(nid))
@@ -351,6 +352,7 @@ test_that("a grid carrying every raw variable is untouched by the fallback", {
 
 test_that("a longitudinal fit with a transformed covariate no longer errors", {
   skip_on_cran()
+  skip_slow_test()
   set.seed(111)
   nid <- 120
   d <- expand.grid(wave = 0:4, id = seq_len(nid))

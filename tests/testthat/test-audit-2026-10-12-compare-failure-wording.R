@@ -298,6 +298,7 @@ test_that("a zero null variance is not blamed on a constant dimension", {
 
 test_that("wemix groups stopped at a zero variance share one copy of the message", {
   skip_on_cran()
+  skip_slow_test()
   skip_if_not_installed("WeMix")
   f <- y ~ 1 + (1 | d1:d2:d3)
 

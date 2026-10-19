@@ -185,6 +185,7 @@ test_that("maihda_negbin_theta_lme4 falls back to parsing the family label", {
 
 test_that("calculate_pcv works across two glmer.nb fits despite differing thetas", {
   skip_on_cran()
+  skip_slow_test()
 
   d <- make_nb_data()
   null_m <- fit_nb(d, y ~ age + (1 | gender:race:edu))
@@ -209,6 +210,7 @@ test_that("calculate_pcv still rejects a negbinomial vs poisson pair", {
 
 test_that("maihda() runs the two-model negbinomial decomposition end-to-end", {
   skip_on_cran()
+  skip_slow_test()
 
   d <- make_nb_data()
   a <- suppressWarnings(

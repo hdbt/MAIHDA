@@ -152,6 +152,7 @@ test_that("maihda_longitudinal_set_time moves the original time column too", {
 
 test_that("longitudinal count VPC(t) evaluates raw-time terms at the report time", {
   skip_on_cran()
+  skip_slow_test()
   set.seed(11)
   nid <- 160
   g1 <- sample(c("F", "M"), nid, TRUE)

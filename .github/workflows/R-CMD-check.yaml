@@ -24,19 +24,22 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.config.os }}-${{ matrix.config.r }}
       cancel-in-progress: true
 
+    # The slow test blocks (tests/testthat/helper-slow-tests.R) run on
+    # ubuntu-latest (release) only: skip-slow-tests skips them on the other legs.
     strategy:
       fail-fast: false
       matrix:
         config:
-          - {os: macOS-latest,   r: 'release'}
-          - {os: windows-latest, r: 'release'}
-          - {os: ubuntu-latest,  r: 'devel', http-user-agent: 'release'}
-          - {os: ubuntu-latest,  r: 'release'}
-          - {os: ubuntu-latest,  r: 'oldrel-1'}
+          - {os: macOS-latest,   r: 'release',  skip-slow-tests: 'true'}
+          - {os: windows-latest, r: 'release',  skip-slow-tests: 'true'}
+          - {os: ubuntu-latest,  r: 'devel',    skip-slow-tests: 'true', http-user-agent: 'release'}
+          - {os: ubuntu-latest,  r: 'release',  skip-slow-tests: 'false'}
+          - {os: ubuntu-latest,  r: 'oldrel-1', skip-slow-tests: 'true'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      MAIHDA_SKIP_SLOW_TESTS: ${{ matrix.config.skip-slow-tests }}
 
     steps:
       - uses: actions/checkout@v7
@@ -74,6 +77,8 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
       NOT_CRAN: "true"   # the blocks start with skip_on_cran()
+      # The ubuntu-latest (release) leg above runs the slow blocks of these files.
+      MAIHDA_SKIP_SLOW_TESTS: "true"
 
     steps:
       - uses: actions/checkout@v7
