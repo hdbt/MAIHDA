@@ -27,21 +27,25 @@ Simulated; see \code{data-raw/maihda_sparse_data.R}.
 maihda_sparse_data
 }
 \description{
-A simulated cross-sectional dataset built to showcase **Bayesian (brms) MAIHDA
-for sparse intersections** -- the regime where many intersectional strata each
-hold only a handful of individuals. There the maximum-likelihood (lme4) fit of
-the *interaction* between-stratum variance can be singular, so the
-additive-vs-interaction split is both unstable and falsely precise;
-weakly-informative priors (`engine = "brms"`) regularise the variance off the
-boundary and return a credible interval.
+A simulated cross-sectional dataset in which many intersectional strata hold
+only a handful of individuals, built with a known intersectional interaction.
+With strata this small the split of the between-stratum variance into additive
+and interaction parts is weakly identified. An lme4 fit of the crossed-dimensions
+decomposition can be singular; a brms fit of it (\code{engine = "brms"}) gives
+the split a posterior median and a credible interval, both of which depend on
+the prior on the standard deviations.
 }
 \details{
-The data carry a **known, non-trivial interaction** so the vignette can claim
-*recovery* rather than merely report numbers: 4 dimensions form 36 intersectional
-strata with deliberately skewed sizes (median 6 individuals, 12 of 36 cells below
-5, two singletons), and the true interaction accounts for **40% of the
-between-stratum variance** on both outcomes. On the binary outcome a genuine 40%
-interaction is read by lme4 as roughly 3% -- a spurious "fully additive" result.
+Four dimensions form 36 intersectional strata with deliberately skewed sizes
+(median 6 individuals, 12 of 36 cells below 5, two singletons). The stratum
+effects were generated with the interaction at 40\% of the between-stratum
+variance on both outcomes, on the latent scale for \code{event}. In
+\code{vignette("bayesian_sparse_maihda")} neither engine recovers it. Both lme4
+fits are singular through a dimension's variance, not
+the interaction's, and put the interaction share at about 23\% on \code{y} and
+3\% on \code{event}. The brms posterior medians are below 40\% as well; under
+the priors the vignette sets on the standard deviations, their credible
+intervals run from near zero to past 40\%.
 }
 \note{
 A purely illustrative dataset. The dimension labels are arbitrary and the
@@ -53,11 +57,11 @@ A purely illustrative dataset. The dimension labels are arbitrary and the
 data(maihda_sparse_data)
 attr(maihda_sparse_data, "truth")$gaussian$interaction_share  # 0.40
 
-# ML over-shrinks the interaction under sparse cells (often a singular fit):
+# lme4: the interaction share as a point estimate, from a fit that is singular here:
 # m_lme4 <- maihda(y ~ 1 + (1 | gender:ethnicity:education:age_group),
 #                  data = maihda_sparse_data, decomposition = "crossed-dimensions")
 #
-# Weakly-informative priors regularise it and report an interval:
+# brms: a posterior median and a credible interval, both resting on the prior:
 # m_brms <- maihda(y ~ 1 + (1 | gender:ethnicity:education:age_group),
 #                  data = maihda_sparse_data, decomposition = "crossed-dimensions",
 #                  engine = "brms",
