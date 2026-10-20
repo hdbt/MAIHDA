@@ -1207,6 +1207,197 @@ maihda_fit_glmer_bound <- function(fit_call, fit_env, tol = 1e-4) {
   kept$value
 }
 
+# ---- refits of other lmer fits ---------------------------------------------------------
+
+# An lmer fit that is not a growth model stops short of the REML optimum in two ways when a
+# random-effect block has a slope, such as (1 + x | stratum). lmer's optimiser can stop with
+# the block's intercept SD at its bound of 0 beside a non-zero intercept-slope entry
+# (maihda_lme4_boundary_traps()), mostly where the intercept variance is small next to the
+# slope variance, as in an adjusted model on additive strata; and with a slope covariate far
+# from zero or in large units, such as age in years or a birth year, it stops short without
+# the intercept at its bound. On twelve designs of 8 to 36 strata (720 fits, half null and
+# half adjusted), 64 of 480 fits with a covariate on a scale of about 1 (normal with mean 0 or
+# 3, or uniform on (0, 1)) ended more than 0.01 above the optimum, up to 6.4, all but one
+# recorded as converged; with age in years 121 of 180, up to 20.6, and with a birth year 55
+# of 60. fit_maihda() therefore refits such a fit (maihda_fit_lmer_slopes()) once from the
+# other side of a bound it stopped at, and once from a start carried back from the same model
+# with its random-effect terms centred and scaled (maihda_lmer_standardised_start()), where
+# lmer's optimiser reaches the optimum far more often; the fit with the lowest criterion is
+# kept. That left 1 of the 720 more than 0.01 above the optimum (by 0.016), at about three
+# times the time of lmer's own fit.
+
+# Whether fit_maihda() makes an lme4 fit by maihda_fit_lmer_slopes(): a model fitted by lmer()
+# that is not a growth model, has a random-effect term with more than an intercept, and is
+# fitted without starting values of the user's own (under any spelling lmer() binds to
+# `start`).
+maihda_lmer_slopes_apply <- function(fit_fun, longitudinal_info, dot_vals, formula) {
+  if (!identical(fit_fun, quote(lme4::lmer)) || !is.null(longitudinal_info)) {
+    return(FALSE)
+  }
+  bound <- names(maihda_resolve_dot_names(dot_vals, lme4::lmer, c("formula", "data"),
+                                          watch = "start"))
+  if ("start" %in% bound) {
+    return(FALSE)
+  }
+  bars <- tryCatch(reformulas::findbars(formula), error = function(e) NULL)
+  any(vapply(bars, function(b) !identical(b[[2]], 1), logical(1)))
+}
+
+# theta of a model fitted with standardised random-effect terms, carried back to the model on
+# the terms as given. In a block with terms (Intercept), x1, x2, ... the random effects
+# on z = (x - centre) / scale are b = T a on the given columns, with T[j, j] = 1 / scale and,
+# for the intercept row, T[1, j] = -centre / scale (identity rows for the terms not
+# standardised), so the block's covariance becomes T Sigma T', factored again
+# (maihda_chol_psd()). `centre` and `scale` are named by column. NULL when theta does not hold
+# a full Cholesky factor per block.
+maihda_lmer_unstandardise_theta <- function(theta, cnms, centre, scale) {
+  sizes <- lengths(cnms) * (lengths(cnms) + 1) / 2
+  if (!is.numeric(theta) || length(theta) != sum(sizes)) {
+    return(NULL)
+  }
+  end <- cumsum(sizes)
+  beg <- end - sizes + 1
+  for (k in seq_along(cnms)) {
+    terms <- unname(as.character(cnms[[k]]))
+    if (!any(terms %in% names(scale))) {
+      next
+    }
+    q <- length(terms)
+    idx <- seq.int(beg[k], end[k])
+    L <- matrix(0, q, q)
+    L[lower.tri(L, diag = TRUE)] <- theta[idx]
+    Tm <- diag(1, q)
+    int <- match("(Intercept)", terms)
+    for (j in which(terms %in% names(scale))) {
+      Tm[j, j] <- 1 / scale[[terms[j]]]
+      if (!is.na(int)) {
+        Tm[int, j] <- -centre[[terms[j]]] / scale[[terms[j]]]
+      }
+    }
+    L <- maihda_chol_psd(Tm %*% tcrossprod(L) %*% t(Tm))
+    theta[idx] <- L[lower.tri(L, diag = TRUE)]
+  }
+  theta
+}
+
+# `theta` with every column at a boundary trap (maihda_lme4_trap_columns()) taken across its
+# bound, the diagonal entry at 0.05 and the entries below negated
+# (maihda_lme4_mirror_theta()); NULL when there is no such column.
+maihda_lmer_across_bound <- function(theta, cnms) {
+  cols <- maihda_lme4_trap_columns(theta, cnms)
+  if (!length(cols)) {
+    return(NULL)
+  }
+  maihda_lme4_mirror_theta(theta, cnms, vapply(cols, `[[`, integer(1), "index"), 0.05)
+}
+
+# How each random-effect term of an lmer fit is standardised, from `values`, the term
+# columns of each block over the fitted rows (lme4::getME(, "mmList"), one matrix per block
+# of `cnms`): every term but the intercept that is not constant is divided by its standard
+# deviation and, when every block holding it has an intercept, first centred at its mean (in a
+# block without one, centring would change the model). A list of `centre` and `scale`, named
+# by term, or NULL when no term is standardised or `values` does not match `cnms`.
+maihda_lmer_term_scales <- function(values, cnms) {
+  if (!is.list(values) || length(values) != length(cnms)) {
+    return(NULL)
+  }
+  for (k in seq_along(cnms)) {
+    if (!is.matrix(values[[k]]) ||
+        !identical(unname(colnames(values[[k]])), unname(as.character(cnms[[k]])))) {
+      return(NULL)
+    }
+  }
+  terms <- unique(unlist(lapply(cnms, function(cn) setdiff(cn, "(Intercept)")), use.names = FALSE))
+  centre <- scale <- numeric(0)
+  for (v in terms) {
+    holding <- vapply(cnms, function(cn) v %in% cn, logical(1))
+    x <- values[[which(holding)[1L]]][, v]
+    x <- x[is.finite(x)]
+    s <- if (length(x) > 1L) stats::sd(x) else NA_real_
+    if (!is.finite(s) || s <= 0) {
+      next
+    }
+    with_int <- vapply(cnms[holding], function(cn) "(Intercept)" %in% cn, logical(1))
+    centre[v] <- if (all(with_int)) mean(x) else 0
+    scale[v] <- s
+  }
+  if (!length(scale)) NULL else list(centre = centre, scale = scale)
+}
+
+# The start carried back from the lmer fit `model` refitted with its random-effect terms
+# standardised (maihda_lmer_term_scales()). The model with the terms standardised is the same
+# model, with its random effects re-expressed: its REML criterion (deviance for a
+# maximum-likelihood fit) at a theta is the fit's own deviance function at that theta carried
+# back (maihda_lmer_unstandardise_theta()), for the same rows, weights and offset whatever the
+# formula's spelling of the terms. That criterion is minimised as lmer() minimises its own, by
+# `optimiser` (lmer's default, lme4::nloptwrap()) from lme4's starting values and within its
+# bounds, once more from across a bound it stopped at (maihda_lmer_across_bound()), the lower
+# kept, and the minimum carried back. A list of one theta, or an empty list when no term is
+# standardised or the deviance function does not reproduce the fit's criterion.
+maihda_lmer_standardised_start <- function(model, optimiser = lme4::nloptwrap) {
+  cnms <- lme4::getME(model, "cnms")
+  std <- maihda_lmer_term_scales(lme4::getME(model, "mmList"), cnms)
+  if (is.null(std)) {
+    return(list())
+  }
+  # Rebuilt from a copy: lme4 writes into vectors the deviance function shares with the fit.
+  deviance <- lme4::getME(maihda_lme4_detached_copy(model), "devfun")
+  target <- maihda_lmer_criterion(model)
+  at_fit <- deviance(unname(lme4::getME(model, "theta")))
+  if (!is.finite(at_fit) || abs(at_fit - target) > 1e-5 * max(1, abs(target))) {
+    return(list())
+  }
+  carry <- function(th) maihda_lmer_unstandardise_theta(th, cnms, std$centre, std$scale)
+  criterion <- function(th) deviance(carry(th))
+  lower <- unname(lme4::getME(model, "lower"))
+  upper <- rep(Inf, length(lower))
+  best <- optimiser(ifelse(lower == 0, 1, 0), criterion, lower = lower, upper = upper)
+  across <- maihda_lmer_across_bound(best$par, cnms)
+  if (!is.null(across)) {
+    refit <- tryCatch(optimiser(across, criterion, lower = lower, upper = upper),
+                      error = function(e) NULL)
+    if (!is.null(refit) && is.finite(refit$fval) && refit$fval < best$fval) {
+      best <- refit
+    }
+  }
+  back <- carry(best$par)
+  if (is.null(back)) list() else list(back)
+}
+
+# The starts maihda_fit_lmer_slopes() refits the lmer fit `model` from: its theta taken across
+# a bound it stopped at (maihda_lmer_across_bound()), and the start of
+# maihda_lmer_standardised_start(). A start that cannot be made is left out.
+maihda_lmer_refit_starts <- function(model) {
+  theta <- unname(lme4::getME(model, "theta"))
+  cnms <- lme4::getME(model, "cnms")
+  Filter(Negate(is.null),
+         c(list(maihda_lmer_across_bound(theta, cnms)),
+           tryCatch(maihda_lmer_standardised_start(model), error = function(e) list())))
+}
+
+# Fit an lmer model that is not a growth model (`fit_call`, evaluated in `fit_env`), refit it
+# from each start of maihda_lmer_refit_starts() and keep the fit with the lowest criterion
+# (maihda_pick_lowest()), signalling that fit's warnings and messages only. A refit that fails
+# is passed over.
+maihda_fit_lmer_slopes <- function(fit_call, fit_env, tol = 1e-4) {
+  first <- maihda_eval_holding_conditions(fit_call, fit_env)
+  fits <- list(first)
+  starts <- tryCatch(maihda_lmer_refit_starts(first$value), error = function(e) list())
+  for (start in starts) {
+    restart_call <- fit_call
+    restart_call$start <- start
+    fits[[length(fits) + 1L]] <- tryCatch(maihda_eval_holding_conditions(restart_call, fit_env),
+                                          error = function(e) NULL)
+  }
+  crit <- vapply(fits, function(f) {
+    if (is.null(f)) NA_real_ else tryCatch(maihda_lmer_criterion(f$value),
+                                           error = function(e) NA_real_)
+  }, numeric(1))
+  kept <- fits[[maihda_pick_lowest(crit, tol)]]
+  maihda_signal_conditions(kept$conditions)
+  kept$value
+}
+
 # Posterior-mean ordered covariance block of a grouping factor (brms), for the
 # components table and the blocks a longitudinal PCV stores. The PCV itself does not
 # read its variances off this block: it compares per-draw posterior medians (see

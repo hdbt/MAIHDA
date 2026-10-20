@@ -297,9 +297,11 @@ maihda_lme4_detached_copy <- function(model) {
   unserialize(serialize(model, NULL))
 }
 
-# A glmer fit is at a boundary trap when the deviance falls by more than this at the
+# A glmer or lmer fit is at a boundary trap when the deviance falls by more than this at the
 # mirrored point of maihda_lme4_boundary_traps(): 0 of 631 growth fits at the maximum and
-# 164 of 250 more than 0.01 below it fell by more (Poisson and Bernoulli growth designs).
+# 164 of 250 more than 0.01 below it fell by more (Poisson and Bernoulli growth designs); of
+# cross-sectional lmer fits stopped at such a bound, 0 of 15 within 0.01 of the REML
+# optimum and 56 of 68 more than 0.01 above it.
 .maihda_lme4_trap_drop <- 1e-3
 
 # Every column of an lme4 fit's random-effect Cholesky factors that has entries below its
@@ -354,27 +356,30 @@ maihda_lme4_mirror_theta <- function(theta, cnms, index, value) {
   theta
 }
 
-# The boundary traps of a glmer fit: columns of its random-effect Cholesky factors whose
-# diagonal entry is at the bound of 0 (below `entry_tol`) while an entry below it is not,
-# such as a growth block's intercept SD at 0 beside a non-zero intercept-slope entry. The
-# covariance matrix there is the same as with the entries below negated; moving the
+# The boundary traps of a glmer or lmer fit: columns of its random-effect Cholesky factors
+# whose diagonal entry is at the bound of 0 (below `entry_tol`) while an entry below it is
+# not, such as a growth block's intercept SD at 0 beside a non-zero intercept-slope entry.
+# The covariance matrix there is the same as with the entries below negated; moving the
 # diagonal entry off 0 changes the covariances of that term with the later ones to first
 # order, with opposite signs on the two sides, so unless the likelihood is flat in them it
 # is higher on one side, which lme4's optimisers cannot reach across the bound. glmer's
-# first stage (nAGQ = 0) often stops a growth fit there and the second stops with it.
-# `drop` is the deviance (-2 log-likelihood) at the fit minus the deviance at the mirrored
+# first stage (nAGQ = 0) often stops a growth fit there and the second stops with it; lmer
+# stops a block with a slope there too.
+# `drop` is the deviance (-2 log-likelihood; for an lmer fit its REML criterion, or the
+# deviance when fitted by maximum likelihood) at the fit minus the deviance at the mirrored
 # point with the diagonal entry at `step`: positive where the likelihood is higher on the
 # other side (.maihda_lme4_trap_drop says how much counts). A data frame with a row per
 # such column (block, term, index of the diagonal entry in theta, drop, the number of
 # terms of the block); no rows for a fit
-# with none, or that is not a glmer fit with its fixed effects among the optimised
-# parameters (nAGQ 0); drop NA when the deviance function does not reproduce the fit's
-# log-likelihood.
+# with none, or that is neither an lmer fit nor a glmer fit with its fixed effects among the
+# optimised parameters (nAGQ 0); drop NA when the deviance function does not reproduce the
+# fit's criterion.
 maihda_lme4_boundary_traps <- function(model, entry_tol = 1e-4, step = 1e-3) {
   none <- data.frame(block = character(0), term = character(0), index = integer(0),
                      drop = numeric(0), n_terms = integer(0), stringsAsFactors = FALSE)
-  if (!inherits(model, "glmerMod") ||
-      !isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))) {
+  lmm <- inherits(model, "lmerMod")
+  if (!lmm && (!inherits(model, "glmerMod") ||
+      !isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE)))) {
     return(none)
   }
   theta <- lme4::getME(model, "theta")
@@ -394,10 +399,11 @@ maihda_lme4_boundary_traps <- function(model, entry_tol = 1e-4, step = 1e-3) {
   if (!is.function(deviance)) {
     return(out)
   }
-  beta <- unname(lme4::fixef(model))
+  # An lmer fit's deviance function takes theta alone, its fixed effects profiled out.
+  beta <- if (lmm) NULL else unname(lme4::fixef(model))
   at <- function(th) tryCatch(deviance(c(unname(th), beta)), error = function(e) NA_real_)
   d0 <- at(theta)
-  target <- -2 * as.numeric(stats::logLik(model))
+  target <- if (lmm) maihda_lmer_criterion(model) else -2 * as.numeric(stats::logLik(model))
   if (!is.finite(d0) || abs(d0 - target) > 1e-5 * max(1, abs(target))) {
     return(out)
   }
@@ -569,9 +575,14 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
         }
       }
     }
-    # A glmer fit stopped at a boundary trap is not at the maximum, whatever lme4 recorded:
-    # lme4 takes no derivatives at a bound, so it records such a fit as converged.
-    traps <- tryCatch(maihda_lme4_boundary_traps(model), error = function(e) NULL)
+    # A glmer fit, or an lmer fit outside a growth model, stopped at a boundary trap is not at
+    # the maximum, whatever lme4 recorded: lme4 takes no derivatives at a bound, so it
+    # records such a fit as converged.
+    traps <- if (inherits(model, "lmerMod") && !is.null(longitudinal_info)) {
+      NULL
+    } else {
+      tryCatch(maihda_lme4_boundary_traps(model), error = function(e) NULL)
+    }
     if (!is.null(traps)) {
       traps <- traps[!is.na(traps$drop) & traps$drop > .maihda_lme4_trap_drop, , drop = FALSE]
       if (nrow(traps) > 0) {
