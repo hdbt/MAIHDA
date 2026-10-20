@@ -4,7 +4,7 @@
 \alias{maihda_bootstrap_fixef}
 \title{Null-restricted parametric-bootstrap fixed effects for an lme4 fit}
 \usage{
-maihda_bootstrap_fixef(model, n_boot, conf_level)
+maihda_bootstrap_fixef(model, n_boot, conf_level, longitudinal = NULL)
 }
 \arguments{
 \item{model}{An lme4 model object (\code{lmerMod} or \code{glmerMod}).}
@@ -12,6 +12,10 @@ maihda_bootstrap_fixef(model, n_boot, conf_level)
 \item{n_boot}{Number of bootstrap replicates \emph{per tested coefficient}.}
 
 \item{conf_level}{Interval level.}
+
+\item{longitudinal}{The model object's \code{longitudinal_info}: for a growth fit
+the null-restricted fits and the refits of the draws are made as
+\code{fit_maihda()} fits the model. \code{NULL} for any other fit.}
 }
 \value{
 A data frame with \code{term}, \code{estimate}, \code{se},
