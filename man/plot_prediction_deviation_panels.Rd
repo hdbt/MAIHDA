@@ -14,17 +14,19 @@ plot_prediction_deviation_panels(
 )
 }
 \arguments{
-\item{model}{A fitted model object (e.g., from `lm()`, `glm()`, `MASS::polr()`, or `lme4::glmer()`).}
+\item{model}{A fitted model object (e.g., from \code{lm()}, \code{glm()},
+\code{MASS::polr()}, or \code{lme4::glmer()}).}
 
-\item{data}{The original data frame used to fit the model. If `NULL`, attempts
-to extract from the model. When supplied, everything is computed for its own
-rows: their predictions, their binomial residuals (from their own outcomes and
-trial counts) and their weights in the stratum summaries. A row's weight is
-read from its column in `data` -- the sampling-weight column, or the column a
-bare model's `weights =` argument names (`glm()`, `lmer()`, `MASS::polr()`,
-...) -- or else from the fitted row with the same row name and prediction (a
-`fit_maihda()` model stores its weights as values). If any plotted row's
-weight cannot be found, every row is weighted equally, with a warning.}
+\item{data}{The original data frame used to fit the model. If \code{NULL},
+attempts to extract from the model. When supplied, everything is computed for
+its own rows: their predictions, their binomial residuals (from their own
+outcomes and trial counts) and their weights in the stratum summaries. A row's
+weight is read from its column in \code{data} -- the sampling-weight column, or
+the column a bare model's \code{weights =} argument names (\code{glm()},
+\code{lmer()}, \code{MASS::polr()}, ...) -- or else from the fitted row with
+the same row name and prediction (a \code{fit_maihda()} model stores its
+weights as values). If any plotted row's weight cannot be found, every row is
+weighted equally, with a warning.}
 
 \item{type}{Model type: "auto" (default), "gaussian", "poisson", "binomial", or "ordinal".}
 
@@ -36,10 +38,10 @@ prediction for Gaussian/Poisson and the ordinal expected-score mode, absolute
 deviance residual for binomial, and surprise for the ordinal surprise mode.
 Default is 5.}
 
-\item{strata_info}{Optional data frame of strata labels, generally extracted from `maihda_model` objects.}
+\item{strata_info}{Optional data frame of strata labels, generally extracted from \code{maihda_model} objects.}
 }
 \value{
-A `patchwork` object containing two `ggplot2` panels.
+A \pkg{patchwork} object containing two \pkg{ggplot2} panels.
 }
 \description{
 Creates an advanced, publication-ready two-panel dashboard for

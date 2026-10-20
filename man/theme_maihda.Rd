@@ -7,15 +7,16 @@
 theme_maihda(base_size = 11, base_family = NULL)
 }
 \arguments{
-\item{base_size}{Base font size in points. Default `11`.}
+\item{base_size}{Base font size in points. Default \code{11}.}
 
 \item{base_family}{Base font family. Defaults to
-`getOption("maihda.font", "")`, i.e. the graphics device default unless you
-have opted into a brand font globally. Pass a string to force a family for
-a single plot.}
+\code{getOption("maihda.font", "")}, i.e. the graphics device default unless
+you have opted into a brand font globally. Pass a string to force a family
+for a single plot.}
 }
 \value{
-A \pkg{ggplot2} theme object that can be added to a plot with `+`.
+A \pkg{ggplot2} theme object that can be added to a plot with
+  \code{+}.
 }
 \description{
 A \pkg{ggplot2} theme that applies the MAIHDA brand identity to plot
@@ -24,19 +25,21 @@ It encodes no data: the colourblind-safe data palettes used by the package's
 plotting functions are left untouched.
 }
 \details{
-Built on [ggplot2::theme_minimal()], so it composes with additional
-`+ theme()` calls in the usual way (later settings win).
+Built on \code{\link[ggplot2:ggtheme]{ggplot2::theme_minimal()}}, so it
+composes with additional \code{+ theme()} calls in the usual way (later
+settings win).
 }
 \section{Fonts}{
 
 By default the theme uses the graphics device's default font, which is safe
-on every device (including the PostScript/PDF devices used by `R CMD check`
-and many rendering back-ends). To render figures in the brand font
-(Montserrat) -- matching the hex logo -- set `options(maihda.font =
-"Montserrat")` or pass `base_family = "Montserrat"`, and use a graphics
-device that can resolve that family (e.g. \pkg{ragg} or \pkg{showtext}).
-Forcing a font that the active device cannot find produces "invalid font
-type" errors, which is why it is opt-in rather than automatic.
+on every device (including the PostScript/PDF devices used by
+\command{R CMD check} and many rendering back-ends). To render figures in the
+brand font (Montserrat) -- matching the hex logo -- set
+\code{options(maihda.font = "Montserrat")} or pass
+\code{base_family = "Montserrat"}, and use a graphics device that can resolve
+that family (e.g. \pkg{ragg} or \pkg{showtext}). Forcing a font that the
+active device cannot find produces "invalid font type" errors, which is why it
+is opt-in rather than automatic.
 }
 
 \examples{
