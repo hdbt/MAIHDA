@@ -346,14 +346,16 @@
 #'   \item{diagnostics}{Fit-quality diagnostics, surfaced by the print and
 #'     summary methods: singular fit / convergence for lme4, WeMix and ordinal
 #'     (clmm) fits, and MCMC convergence (maximum Rhat, divergent transitions)
-#'     for brms. lme4 checks a \code{glmer()} fit in the units of its covariates,
-#'     so its checks can fire at the maximum when a covariate is far from zero or
-#'     in large units, as a calendar year or an income is. When they fire and the
-#'     optimiser reports success, the fit counts as converged if it lies within a
-#'     tenth of a standard error of a stationary point of its likelihood, measured
-#'     with the fixed effects in centred and scaled units; the distance is
-#'     \code{stationary_distance}, and lme4's messages are kept in
-#'     \code{lme4_overruled} when the fit converged by it. A glmer fit (\code{nAGQ}
+#'     for brms. lme4 checks a fit in the units of its covariates (a \code{glmer()}
+#'     fit in those of its fixed effects, an \code{lmer()} fit in those of its random
+#'     slopes), so its checks can fire at the maximum when such a covariate is far
+#'     from zero or in large units, as a calendar year or an income is. When they
+#'     fire and the optimiser reports success, the fit counts as converged if it lies
+#'     within a tenth of a standard error of a stationary point of its likelihood (the
+#'     restricted likelihood for an lmer fit by REML), measured with those covariates
+#'     centred and scaled; the distance is \code{stationary_distance}, and lme4's
+#'     messages are kept in \code{lme4_overruled} when the fit converged by it.
+#'     A glmer fit (\code{nAGQ}
 #'     of 1 or more), or an lmer fit outside a longitudinal model, with the variance
 #'     of a random-effect block's first term, usually
 #'     its intercept, at zero (or, in a block of three or more terms, what is left of

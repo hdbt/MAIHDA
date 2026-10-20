@@ -193,9 +193,9 @@ maihda_singular_terms_lme4 <- function(model, tol = 1e-4) {
   unique(names(comps)[vapply(comps, any, logical(1))])
 }
 
-# A glmer fit counts as at a stationary point of its likelihood when it is less than
-# this many standard errors from one (maihda_lme4_stationary_distance()), the line
-# ordinal fits are judged by.
+# A glmer or lmer fit counts as at a stationary point of its likelihood when it is less
+# than this many standard errors from one (maihda_lme4_stationary_distance(),
+# maihda_lmer_stationary_distance()), the line ordinal fits are judged by.
 .maihda_lme4_stationary_within <- 0.1
 
 # The matrix A with beta = A %*% gamma, where beta are the coefficients of the
@@ -472,7 +472,14 @@ maihda_lme4_distance_with <- function(model, deviance) {
     return(NA_real_)
   }
   lower <- c(lme4::getME(model, "lower"), rep(-Inf, length(beta)))
-  d <- maihda_central_derivatives(f, at, lower = lower, fx = f_at)
+  maihda_newton_distance(maihda_central_derivatives(f, at, lower = lower, fx = f_at))
+}
+
+# sqrt(g' H^-1 g / 2) for `d`, the gradient g and Hessian H of a deviance from
+# maihda_central_derivatives(): the distance in standard errors from the stationary point
+# of the deviance's quadratic at the fit. NA without derivatives, with a value that is not
+# finite, or with a Hessian that is not positive definite.
+maihda_newton_distance <- function(d) {
   if (is.null(d) || !all(is.finite(d$gradient)) || !all(is.finite(d$hessian))) {
     return(NA_real_)
   }
@@ -482,6 +489,119 @@ maihda_lme4_distance_with <- function(model, deviance) {
   }
   squared <- sum(d$gradient * solve(d$hessian, d$gradient)) / 2
   if (is.finite(squared) && squared >= 0) sqrt(squared) else NA_real_
+}
+
+# How far an lmer fit is from a stationary point of its REML criterion (its deviance when
+# fitted by maximum likelihood), in standard errors: sqrt(g' H^-1 g / 2) for the gradient g
+# and the Hessian H of the criterion in the variance parameters, the fixed effects and the
+# residual variance profiled out as lmer() has them. They are taken by
+# maihda_central_derivatives() with each random-effect block's terms centred and scaled
+# (maihda_lmer_block_scales()): the same model with its random effects re-expressed, whose
+# criterion at a theta is the fit's own deviance function at that theta carried back
+# (maihda_lmer_transform_theta()). lme4 takes its checks in theta as the formula has it,
+# where a step along a slope's entry moves the random-effect variance of each observation
+# by an amount that grows with the square of its covariate, so that for a covariate far from
+# zero or in large units, such as a birth year, its checks can fire at the optimum itself.
+# The criterion depends on theta through the blocks' covariance matrices alone, which exist
+# on either side of a variance bound, so the differences may cross one. NA when the fit
+# cannot say: not an lmer fit, a deviance function that does not reproduce the fit's
+# criterion, or a Hessian that is not positive definite.
+maihda_lmer_stationary_distance <- function(model) {
+  if (!inherits(model, "lmerMod")) {
+    return(NA_real_)
+  }
+  # Rebuilt from a copy: lme4 writes into vectors the deviance function shares with the fit.
+  deviance <- tryCatch(lme4::getME(maihda_lme4_detached_copy(model), "devfun"),
+                       error = function(e) NULL)
+  if (!is.function(deviance)) {
+    return(NA_real_)
+  }
+  tryCatch(maihda_lmer_distance_with(model, deviance), error = function(e) NA_real_)
+}
+
+# The work of maihda_lmer_stationary_distance(), with `deviance` the fit's criterion as a
+# function of theta (lme4::getME(, "devfun") of an lmer fit).
+maihda_lmer_distance_with <- function(model, deviance) {
+  theta <- unname(lme4::getME(model, "theta"))
+  cnms <- lme4::getME(model, "cnms")
+  scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), cnms)
+  if (is.null(scales)) {
+    return(NA_real_)
+  }
+  # theta of the re-expressed blocks, and the criterion as a function of it.
+  phi <- maihda_lmer_transform_theta(theta, cnms, lapply(scales, solve))
+  if (is.null(phi)) {
+    return(NA_real_)
+  }
+  criterion <- function(p) deviance(maihda_lmer_transform_theta(p, cnms, scales))
+  at <- criterion(phi)
+  target <- maihda_lmer_criterion(model)
+  if (!is.finite(at) || abs(at - target) > 1e-5 * max(1, abs(target))) {
+    return(NA_real_)
+  }
+  maihda_newton_distance(maihda_central_derivatives(criterion, phi, fx = at))
+}
+
+# How maihda_lmer_stationary_distance() re-expresses each random-effect block of an lmer fit,
+# from `values`, the term columns of each block over the fitted rows (lme4::getME(, "mmList"),
+# one matrix per block of `cnms`): a matrix T per block, with b = T a for the block's random
+# effects b on its columns as given and a on the re-expressed ones. In a block with an intercept
+# every other term that is not constant is centred at its mean and divided by its standard
+# deviation; in a block without one it is divided by its root mean square, which leaves that
+# block the same model where centring would not. A term in several blocks is re-expressed in
+# each by that block's rule. NULL when `values` does not match `cnms`.
+maihda_lmer_block_scales <- function(values, cnms) {
+  if (!is.list(values) || length(values) != length(cnms)) {
+    return(NULL)
+  }
+  out <- vector("list", length(cnms))
+  for (k in seq_along(cnms)) {
+    terms <- unname(as.character(cnms[[k]]))
+    X <- values[[k]]
+    if (!is.matrix(X) || !identical(unname(colnames(X)), terms)) {
+      return(NULL)
+    }
+    Tm <- diag(1, length(terms))
+    int <- match("(Intercept)", terms)
+    for (j in seq_along(terms)) {
+      if (!is.na(int) && j == int) {
+        next
+      }
+      v <- X[, j]
+      v <- v[is.finite(v)]
+      s <- if (length(v) < 2L) NA_real_ else if (is.na(int)) sqrt(mean(v^2)) else stats::sd(v)
+      if (!is.finite(s) || s <= 0) {
+        next
+      }
+      Tm[j, j] <- 1 / s
+      if (!is.na(int)) {
+        Tm[int, j] <- -mean(v) / s
+      }
+    }
+    out[[k]] <- Tm
+  }
+  out
+}
+
+# `theta` with the covariance matrix of each random-effect block k carried to
+# T_k Sigma_k T_k' and factored again (maihda_chol_psd()), for `Ts`, one matrix per block of
+# `cnms`. NULL when theta does not hold a full Cholesky factor per block.
+maihda_lmer_transform_theta <- function(theta, cnms, Ts) {
+  sizes <- lengths(cnms) * (lengths(cnms) + 1) / 2
+  if (!is.numeric(theta) || length(theta) != sum(sizes) || length(Ts) != length(cnms)) {
+    return(NULL)
+  }
+  end <- cumsum(sizes)
+  beg <- end - sizes + 1
+  for (k in seq_along(cnms)) {
+    q <- length(cnms[[k]])
+    idx <- seq.int(beg[k], end[k])
+    L <- matrix(0, q, q)
+    L[lower.tri(L, diag = TRUE)] <- theta[idx]
+    L <- maihda_chol_psd(Ts[[k]] %*% tcrossprod(L) %*% t(Ts[[k]]))
+    theta[idx] <- L[lower.tri(L, diag = TRUE)]
+  }
+  theta
 }
 
 # Capture fit-quality diagnostics (singular fit, non-convergence) so they can be
@@ -558,14 +678,20 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
     msgs <- unique(c(lme4_msgs, opt_msg))
     diagnostics$messages <- msgs
     diagnostics$converged <- length(msgs) == 0
-    # lme4's checks of a glmer fit are taken in the coefficients as the formula has
-    # them and can fire at the maximum when a covariate is far from zero or in large
-    # units (maihda_lme4_stationary_distance()). When they fire on a fit whose
-    # optimiser reported no failure, the fit is measured in centred and scaled units:
-    # less than .maihda_lme4_stationary_within standard errors from a stationary point
-    # it counts as converged, and lme4's messages are kept for the report.
+    # lme4 takes its checks in the parameters as the formula has them: a glmer fit's
+    # fixed effects among them, and an lmer fit's variance parameters, whose entries for
+    # a random slope are in the units of its covariate. They can fire at the maximum when
+    # a covariate is far from zero or in large units (maihda_lme4_stationary_distance(),
+    # maihda_lmer_stationary_distance()). When they fire on a fit whose optimiser
+    # reported no failure, the fit is measured in centred and scaled units: less than
+    # .maihda_lme4_stationary_within standard errors from a stationary point it counts
+    # as converged, and lme4's messages are kept for the report.
     if (!opt_failed && length(lme4_msgs) > 0) {
-      distance <- maihda_lme4_stationary_distance(model)
+      distance <- if (inherits(model, "lmerMod")) {
+        maihda_lmer_stationary_distance(model)
+      } else {
+        maihda_lme4_stationary_distance(model)
+      }
       if (!is.na(distance)) {
         diagnostics$stationary_distance <- distance
         if (distance < .maihda_lme4_stationary_within) {
@@ -1250,10 +1376,10 @@ maihda_crossed_singular_lines <- function(diagnostics, cc_info, width = 88) {
   paste0("  ", unlist(lapply(sentences, strwrap, width = width), use.names = FALSE))
 }
 
-# A distance from maihda_lme4_stationary_distance() as printed: with two decimals from
-# a tenth of a standard error up; below that to two significant digits rounded down, so
-# that a distance under the line never prints as the line; "less than 0.0001" below
-# 0.0001.
+# A distance from maihda_lme4_stationary_distance() or maihda_lmer_stationary_distance()
+# as printed: with two decimals from a tenth of a standard error up; below that to two
+# significant digits rounded down, so that a distance under the line never prints as the
+# line; "less than 0.0001" below 0.0001.
 maihda_format_stationary_distance <- function(distance) {
   if (distance >= 0.1) {
     return(format(round(distance, 2), nsmall = 2))
@@ -1265,12 +1391,12 @@ maihda_format_stationary_distance <- function(distance) {
   formatC(floor(distance / unit + 1e-9) * unit, format = "fg", digits = 2)
 }
 
-# The report lines of an lme4 fit measured by maihda_lme4_stationary_distance() because
-# lme4's checks fired: for a fit that converged by that measure, what lme4 warned of and
-# how far the fit is from the maximum; for one that did not, how far its gradient and
-# Hessian put it from a stationary point, to follow lme4's messages. Each sentence
-# starts a line and goes on indented by two spaces. Empty for a fit that was not
-# measured.
+# The report lines of an lme4 fit measured by maihda_lme4_stationary_distance() or
+# maihda_lmer_stationary_distance() because lme4's checks fired: for a fit that converged
+# by that measure, what lme4 warned of and how far the fit is from the maximum; for one
+# that did not, how far its gradient and Hessian put it from a stationary point, to
+# follow lme4's messages. Each sentence starts a line and goes on indented by two spaces.
+# Empty for a fit that was not measured.
 maihda_lme4_distance_lines <- function(diagnostics, width = 80) {
   distance <- diagnostics$stationary_distance
   if (!identical(diagnostics$engine, "lme4") || !is.numeric(distance) ||
