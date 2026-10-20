@@ -94,6 +94,7 @@
 * The longitudinal vignette and `?fit_maihda` no longer present a rank-deficient stratum block as evidence that the strata do not diverge: with few strata it is common when they do. They say what `stratum_slope = FALSE` does to diverging strata, and the vignette that the AIC comparison has little power with few strata.
 * `?pcv_importance` no longer calls the exact methods deterministic: the `bootstrap = TRUE` intervals and `engine = "brms"` fits are random draws and need `set.seed()`.
 * `?maihda_sparse_data` no longer drops the text after each `%` or shows Markdown markup, and no longer says the vignette recovers the true interaction share.
+* `?plot_prediction_deviation_panels`, `?stepwise_pcv` and `?theme_maihda` no longer show Markdown markup.
 
 ## Performance
 

@@ -1185,16 +1185,18 @@ maihda_prediction_panel_attach_ci <- function(df, aggregated, strat_ci,
 #'     warning.
 #' }
 #'
-#' @param model A fitted model object (e.g., from `lm()`, `glm()`, `MASS::polr()`, or `lme4::glmer()`).
-#' @param data The original data frame used to fit the model. If `NULL`, attempts
-#'   to extract from the model. When supplied, everything is computed for its own
-#'   rows: their predictions, their binomial residuals (from their own outcomes and
-#'   trial counts) and their weights in the stratum summaries. A row's weight is
-#'   read from its column in `data` -- the sampling-weight column, or the column a
-#'   bare model's `weights =` argument names (`glm()`, `lmer()`, `MASS::polr()`,
-#'   ...) -- or else from the fitted row with the same row name and prediction (a
-#'   `fit_maihda()` model stores its weights as values). If any plotted row's
-#'   weight cannot be found, every row is weighted equally, with a warning.
+#' @param model A fitted model object (e.g., from \code{lm()}, \code{glm()},
+#'   \code{MASS::polr()}, or \code{lme4::glmer()}).
+#' @param data The original data frame used to fit the model. If \code{NULL},
+#'   attempts to extract from the model. When supplied, everything is computed for
+#'   its own rows: their predictions, their binomial residuals (from their own
+#'   outcomes and trial counts) and their weights in the stratum summaries. A row's
+#'   weight is read from its column in \code{data} -- the sampling-weight column, or
+#'   the column a bare model's \code{weights =} argument names (\code{glm()},
+#'   \code{lmer()}, \code{MASS::polr()}, ...) -- or else from the fitted row with
+#'   the same row name and prediction (a \code{fit_maihda()} model stores its
+#'   weights as values). If any plotted row's weight cannot be found, every row is
+#'   weighted equally, with a warning.
 #' @param type Model type: "auto" (default), "gaussian", "poisson", "binomial", or "ordinal".
 #' @param ordinal_mode For ordinal models: "surprise" (default, based on observation probability) or "expected_score".
 #' @param top_n_labels Number of points to label on the plot. The ranking metric
@@ -1202,9 +1204,9 @@ maihda_prediction_panel_attach_ci <- function(df, aggregated, strat_ci,
 #'   prediction for Gaussian/Poisson and the ordinal expected-score mode, absolute
 #'   deviance residual for binomial, and surprise for the ordinal surprise mode.
 #'   Default is 5.
-#' @param strata_info Optional data frame of strata labels, generally extracted from `maihda_model` objects.
+#' @param strata_info Optional data frame of strata labels, generally extracted from \code{maihda_model} objects.
 #'
-#' @return A `patchwork` object containing two `ggplot2` panels.
+#' @return A \pkg{patchwork} object containing two \pkg{ggplot2} panels.
 #' @importFrom rlang check_installed .data
 #' @importFrom stats predict formula residuals model.frame
 #' @importFrom utils head

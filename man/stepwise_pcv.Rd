@@ -16,8 +16,8 @@ stepwise_pcv(
 )
 }
 \arguments{
-\item{data}{Data frame with observations. Ensure `make_strata()` was run first
-so the `stratum` variable exists.}
+\item{data}{Data frame with observations. Ensure \code{\link{make_strata}} was
+run first so the \code{stratum} variable exists.}
 
 \item{outcome}{Character string; the dependent variable.}
 
@@ -99,9 +99,9 @@ sequential it is order-dependent: it reflects each variable's marginal,
 model-dependent change, not an order-invariant \dQuote{unique} contribution.
 }
 \details{
-All models are fit on the complete cases for `outcome`, `stratum`, and all
-variables in `vars` so that each sequential variance comparison uses the same
-analytic sample.
+All models are fit on the complete cases for \code{outcome}, \code{stratum},
+and all variables in \code{vars} so that each sequential variance comparison
+uses the same analytic sample.
 
 For a binary (or ordinal) outcome the sequential between-stratum variances
 live on the latent scale, whose level-1 variance is fixed by the link: a step
