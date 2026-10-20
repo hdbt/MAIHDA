@@ -50,6 +50,30 @@ lme4_g <- maihda(stats::update(form, y ~ .), data = d,
 lme4_b <- maihda(stats::update(form, event ~ .), data = d,
                  decomposition = "crossed-dimensions", engine = "lme4", family = "binomial")
 
+## ---- lme4 with every stratum large ------------------------------------------
+# The same 36 stratum effects (attr(d, "truth")) with 1,000 individuals in every
+# stratum: the share the fits above estimate, without the sparse cells.
+large_n_data <- function(n = 1000) {
+  cells <- do.call(rbind, strsplit(names(tr$gaussian$stratum_effects), ":", fixed = TRUE))
+  who <- rep(seq_len(nrow(cells)), each = n)
+  out <- data.frame(gender    = factor(cells[who, 1], levels = levels(d$gender)),
+                    ethnicity = factor(cells[who, 2], levels = levels(d$ethnicity)),
+                    education = factor(cells[who, 3], levels = levels(d$education)),
+                    age_group = factor(cells[who, 4], levels = levels(d$age_group)))
+  out$y <- tr$gaussian$intercept + unname(tr$gaussian$stratum_effects[who]) +
+    stats::rnorm(length(who), 0, sqrt(tr$gaussian$residual_var))
+  eta <- tr$binary_latent$intercept + unname(tr$binary_latent$stratum_effects[who])
+  out$event <- factor(ifelse(stats::runif(length(who)) < stats::plogis(eta), "Yes", "No"),
+                      levels = c("No", "Yes"))
+  out
+}
+set.seed(1)
+big <- large_n_data()
+lme4_large_g <- maihda(stats::update(form, y ~ .), data = big,
+                       decomposition = "crossed-dimensions", engine = "lme4")
+lme4_large_b <- maihda(stats::update(form, event ~ .), data = big,
+                       decomposition = "crossed-dimensions", engine = "lme4", family = "binomial")
+
 ## ---- brms fits --------------------------------------------------------------
 # A brms fit without a seed takes its sampler seed from R's random-number stream,
 # so set.seed() before each fit reproduces it.
@@ -77,6 +101,11 @@ precomp <- list(
     gaussian = pack(lme4_g),
     binary   = pack(lme4_b)
   ),
+  lme4_large = list(
+    gaussian = pack(lme4_large_g),
+    binary   = pack(lme4_large_b),
+    n_per_stratum = 1000
+  ),
   brms = list(
     gaussian = pack(brms_g, with_diag = TRUE),
     binary   = pack(brms_b, with_diag = TRUE)
@@ -94,6 +123,8 @@ cat(sprintf("TRUE interaction share: gaussian=%.1f%%  binary=%.1f%%\n",
 cat(sprintf("lme4 gaussian=%.1f%% (sing=%s) | binary=%.1f%% (sing=%s)\n",
             100 * precomp$lme4$gaussian$share, precomp$lme4$gaussian$singular,
             100 * precomp$lme4$binary$share, precomp$lme4$binary$singular))
+cat(sprintf("lme4, 1,000 per stratum: gaussian=%.1f%% | binary=%.1f%%\n",
+            100 * precomp$lme4_large$gaussian$share, 100 * precomp$lme4_large$binary$share))
 cat(sprintf("brms gaussian=%.1f%% CI[%.1f,%.1f] rhat=%.3f div=%d\n",
             100 * precomp$brms$gaussian$share, 100 * precomp$brms$gaussian$ci[1],
             100 * precomp$brms$gaussian$ci[2], precomp$brms$gaussian$diag$max_rhat,

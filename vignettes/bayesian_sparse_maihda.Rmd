@@ -40,10 +40,10 @@ cells like these is hard.
 ## A dataset with a known interaction
 
 `maihda_sparse_data` is simulated for exactly that: 4 dimensions form 36 intersectional strata,
-and the interaction is constructed to account for **`r pct(pc$truth$gaussian$interaction_share)`
-of the between-stratum variance** -- on a Gaussian outcome `y` and on the latent scale of
-a binary outcome `event`. Individuals are allocated to strata unevenly, reproducing the
-skewed cell sizes of real survey data.
+and the interaction accounts for **`r pct(pc$truth$gaussian$interaction_share)` of the
+variance between the 36 stratum effects** -- on a Gaussian outcome `y` and on the latent
+scale of a binary outcome `event` (`?maihda_sparse_data` gives the split). Individuals are
+allocated to strata unevenly, reproducing the skewed cell sizes of real survey data.
 
 ```{r data}
 data(maihda_sparse_data)
@@ -52,7 +52,7 @@ d <- maihda_sparse_data
 cells <- table(interaction(d$gender, d$ethnicity, d$education, d$age_group, drop = TRUE))
 summary(as.numeric(cells))                    # cell-size distribution
 sum(cells < 5)                                # how many strata have < 5 people
-attr(d, "truth")$gaussian$interaction_share   # the true interaction share: 0.40
+attr(d, "truth")$gaussian$interaction_share   # the true interaction share: 0.41
 ```
 
 A third of the strata hold fewer than five individuals. This is not an unusual case, as it is often the situation
@@ -80,9 +80,21 @@ Both fits are singular: maximum likelihood has placed a dimension's variance at 
 (gender's in the Gaussian fit; gender's and ethnicity's in the binary one), and the
 interaction variance is positive in both. The interaction share is understated all
 the same, at `r pct(pc$lme4$gaussian$share)` for the Gaussian outcome and
-`r pct(pc$lme4$binary$share)` for the binary one --
-against a true 40%, the binary fit reports a substantial interaction as effectively
-absent. Crucially, neither estimate carries an interval. The estimate is not only biased
+`r pct(pc$lme4$binary$share)` for the binary one, against a true
+`r pct(pc$truth$gaussian$interaction_share)`.
+
+Only part of that gap is the sparse cells. The share is the interaction variance over
+the sum of the four dimension variances and its own, and a dimension's variance,
+estimated from two or three levels, describes the population its levels come from:
+together the four are larger than the spread of the main effects among the 36 strata.
+Fitted to the same stratum effects with 1,000 individuals in every stratum, lme4 puts
+the share at `r pct(pc$lme4_large$gaussian$share)` for the Gaussian outcome and
+`r pct(pc$lme4_large$binary$share)` for the binary one. The two outcomes' effects differ
+only in scale: the gap between these two is that of REML (Gaussian) and maximum
+likelihood (binary). The Gaussian `r pct(pc$lme4$gaussian$share)` is close to
+`r pct(pc$lme4_large$gaussian$share)`; on the binary outcome the sparse cells make a
+substantial interaction look absent.
+Crucially, neither estimate carries an interval. The estimate is not only biased
 but reported with unwarranted precision, because the model has no way to express how
 little the sparse cells determine.
 
@@ -123,9 +135,10 @@ data.frame(
 )
 ```
 
-The posterior point remains low: the interaction is weakly identified at this
-density, so `brms` does not recover the 40% either, and we should not expect it to.
-The credible interval, however, runs from near zero to past the true value, reflecting
+The posterior median is low as well: `brms` reports the same ratio of variance
+parameters, which is not the `r pct(pc$truth$gaussian$interaction_share)` of the drawn
+strata, and with two or three levels its value depends on the prior on the dimensions'
+standard deviations. The credible interval, however, runs from near zero to past the true value, reflecting
 posterior uncertainty about the interaction share. This is the substantive difference.
 Maximum likelihood reported a singular point as if it were certain; `brms` reports an
 interval that includes the true share in this simulation and makes the uncertainty
@@ -138,37 +151,44 @@ dimensions has two or three levels, and the variance of such a dimension follows
 prior (see the caveats in `vignette("cross_classified", package = "MAIHDA")`).
 Refitted under brms's default prior instead, the interaction share is about 3% for
 both outcomes, and the intervals end between 25% and 31% (the upper limit moves with
-the sampler's seed), short of the true 40%.
+the sampler's seed), short of the true `r pct(pc$truth$gaussian$interaction_share)`.
 
 ## Comparison
 
 ```{r fig-share, fig.height = 3.8}
 fig <- data.frame(
   outcome = factor(rep(c("Gaussian", "Binary"), each = 2), levels = c("Gaussian", "Binary")),
-  method  = rep(c("lme4 (ML)", "brms (Bayesian)"), 2),
+  method  = rep(c("lme4", "brms (Bayesian)"), 2),
   share   = c(pc$lme4$gaussian$share, pc$brms$gaussian$share,
               pc$lme4$binary$share,   pc$brms$binary$share),
   lo      = c(NA, pc$brms$gaussian$ci[1], NA, pc$brms$binary$ci[1]),
   hi      = c(NA, pc$brms$gaussian$ci[2], NA, pc$brms$binary$ci[2])
 )
 truth <- pc$truth$gaussian$interaction_share
+large <- data.frame(
+  outcome = factor(c("Gaussian", "Binary"), levels = c("Gaussian", "Binary")),
+  method  = "lme4",
+  share   = c(pc$lme4_large$gaussian$share, pc$lme4_large$binary$share)
+)
 
 ggplot(fig, aes(method, share, colour = method)) +
   geom_hline(yintercept = truth, linetype = "dashed") +
   geom_pointrange(aes(ymin = lo, ymax = hi), na.rm = TRUE, linewidth = 0.8) +
   geom_point(size = 2.5) +
+  geom_point(data = large, shape = 1, size = 3.5) +
   facet_wrap(~ outcome) +
   scale_y_continuous("Interaction share of between-stratum variance",
                      labels = function(x) paste0(round(100 * x), "%")) +
   labs(x = NULL, colour = NULL,
        title = "A singular ML point estimate vs. a brms posterior interval",
-       subtitle = "Dashed line: true interaction share (40%)") +
+       subtitle = paste0("Dashed line: true interaction share (", pct(truth),
+                         "); open circle: lme4 with 1,000 per stratum")) +
   theme_minimal() + theme(legend.position = "none")
 ```
 
-Both point estimates fall below the true value; neither engine can locate an interaction
-the sparse data do not pin down. They differ in what is reported alongside the point. The
-`brms` credible interval spans the true 40%, whereas `lme4` provides a single value with
+Both point estimates fall below the true value and below lme4's share with ample data
+(the open circles). They differ in what is reported alongside the point. The
+`brms` credible interval spans the true `r pct(truth)`, whereas `lme4` provides a single value with
 no uncertainty. Reading the `lme4` point at face value (an interaction of roughly
 3--23%) is the error the singular fit invites.
 
