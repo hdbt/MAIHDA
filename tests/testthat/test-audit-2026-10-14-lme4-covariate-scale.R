@@ -17,9 +17,11 @@
 # 2 x rows x mean count, passes 1e6 (a mean count of about 50 on 9,600 rows), and on
 # maihda_health_data
 # Obese ~ Gender + Race + Education + Age + (1 | Gender:Race:Education) was recorded as
-# not converged 0.0002 standard errors from its maximum. lmer fits are not affected (the
-# fixed effects are not among the optimised parameters), and lme4 runs no derivative
-# check from 10,000 rows on.
+# not converged 0.0002 standard errors from its maximum. lmer fits are not affected by a
+# fixed-effect covariate's units (the fixed effects are not among the optimised
+# parameters; a random slope's covariate is another matter, see
+# test-audit-2026-10-20-lmer-optimum-messages.R), and lme4 runs no derivative check from
+# 10,000 rows on.
 #
 # Per the user, when lme4's checks fire on a glmer fit whose optimiser reports success,
 # the fit is measured with the fixed effects as coefficients of centred and scaled
