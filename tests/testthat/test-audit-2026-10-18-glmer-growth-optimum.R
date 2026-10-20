@@ -387,7 +387,7 @@ test_that("the record's sentence says what is at the bound", {
   expect_match(two, "The intercept variance of the 'id' block is at zero", fixed = TRUE)
   expect_match(two, "covariance with the slope reversed", fixed = TRUE)
   expect_match(maihda_lme4_trap_message("stratum", "(Intercept)", 3L),
-               "covariance with the time terms reversed", fixed = TRUE)
+               "covariances with the time terms move off zero", fixed = TRUE)
   # The linear column of a quadratic block: the slope is a multiple of the intercept, its
   # variance is not zero.
   slope <- maihda_lme4_trap_message("id", ".maihda_ctime", 3L)

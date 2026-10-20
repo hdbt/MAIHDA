@@ -297,11 +297,17 @@ maihda_lme4_detached_copy <- function(model) {
   unserialize(serialize(model, NULL))
 }
 
-# A glmer or lmer fit is at a boundary trap when the deviance falls by more than this at the
-# mirrored point of maihda_lme4_boundary_traps(): 0 of 631 growth fits at the maximum and
-# 164 of 250 more than 0.01 below it fell by more (Poisson and Bernoulli growth designs); of
-# cross-sectional lmer fits stopped at such a bound, 0 of 15 within 0.01 of the REML
-# optimum and 56 of 68 more than 0.01 above it.
+# A glmer or lmer fit is at a boundary trap when the deviance falls by more than this across
+# the bound in maihda_lme4_boundary_traps(). Measured by the reflection of the entries
+# below, 0 of 631 growth fits at the maximum and 164 of 250 more than 0.01 below it fell by
+# more (Poisson and Bernoulli growth designs), and of cross-sectional lmer fits stopped at
+# such a bound, 0 of 15 within 0.01 of the REML optimum and 56 of 68 more than 0.01 above
+# it; measured by the larger of that fall and the fall along the first-order direction
+# (maihda_lme4_column_drop()), 0 of 8 of lme4's own glmer fits at the maximum and 66 of 70
+# more than 0.01 below it (60 by the reflection alone), on cross-sectional blocks of two to
+# four terms and quadratic growth blocks. A fit within 0.0005 of the maximum (or of the
+# REML optimum) cannot fall by more: no step across the bound gains more than the fit is
+# short of it.
 .maihda_lme4_trap_drop <- 1e-3
 
 # Every column of an lme4 fit's random-effect Cholesky factors that has entries below its
@@ -356,22 +362,125 @@ maihda_lme4_mirror_theta <- function(theta, cnms, index, value) {
   theta
 }
 
+# A lower-triangular M with M M' = S for a symmetric positive semi-definite S: Cholesky
+# without pivoting, a column whose pivot is not positive (relative to the largest diagonal
+# entry) left at 0.
+maihda_lower_chol_psd <- function(S) {
+  n <- nrow(S)
+  M <- matrix(0, n, n)
+  tiny <- 1e-12 * max(abs(diag(S)), .Machine$double.xmin)
+  for (j in seq_len(n)) {
+    k <- seq_len(j - 1L)
+    d <- S[j, j] - sum(M[j, k]^2)
+    if (d <= tiny) {
+      next
+    }
+    M[j, j] <- sqrt(d)
+    i <- seq.int(j + 1L, length.out = n - j)
+    M[i, j] <- (S[i, j] - drop(M[i, k, drop = FALSE] %*% M[j, k])) / M[j, j]
+  }
+  M
+}
+
+# `theta` with the column whose diagonal entry has theta index `index` rebuilt from the
+# vector `q` (|q| <= 1): the diagonal entry set to `value`, the entries below set to R q and
+# the columns after it to a lower factor of R R' - (R q)(R q)' (maihda_lower_chol_psd()),
+# with R the block's rows below that column, from that column on. With the diagonal entry
+# at 0 every unit q gives the same covariance matrix, as every re-factoring L Q of the block
+# with Q orthogonal does; moving the diagonal entry off 0 then changes that term's
+# covariances with the later terms in the direction R q. q = (-1, 0, ...) is the reflection
+# of maihda_lme4_mirror_theta(). A unit q in the span of R's rows leaves R R' - (R q)(R q)'
+# singular; a shorter q does not.
+maihda_lme4_refactor_theta <- function(theta, cnms, index, q, value) {
+  sizes <- lengths(cnms) * (lengths(cnms) + 1) / 2
+  b <- which(index <= cumsum(sizes))[1L]
+  n <- length(cnms[[b]])
+  at <- sum(sizes[seq_len(b - 1L)]) + seq_len(sizes[b])
+  L <- matrix(0, n, n)
+  L[lower.tri(L, diag = TRUE)] <- theta[at]
+  # The block's diagonal entries sit at 1, 1 + n, 1 + n + (n - 1), ... of its entries.
+  j <- match(index - at[1L] + 1L, cumsum(c(1L, rev(seq_len(n))[-n])))
+  rows <- seq.int(j + 1L, length.out = n - j)
+  R <- L[rows, j:n, drop = FALSE]
+  m <- drop(R %*% q)
+  L[j, j] <- value
+  L[rows, j] <- m
+  L[rows, rows] <- maihda_lower_chol_psd(tcrossprod(R) - tcrossprod(m))
+  theta[at] <- L[lower.tri(L, diag = TRUE)]
+  theta
+}
+
+# `theta` with the column whose diagonal entry has theta index `index` (at its bound of 0)
+# taken across the bound to diagonal entry `value` along the direction in which
+# `deviance`, a function of theta, falls fastest at first order: q = -fraction * h / |h|
+# (maihda_lme4_refactor_theta()), h_i the central difference of `deviance` between q = e_i
+# and q = -e_i with the diagonal entry at `step`, two evaluations per entry of the column.
+# `fraction` is the share of the length the block allows; at 1 the later terms' block is
+# left singular. For a column with one entry below this is the reflection's side whenever
+# the likelihood rises across the bound at all; with two or more it can be any direction.
+# NULL when a difference is not finite or all are 0.
+maihda_lme4_first_order_theta <- function(theta, cnms, index, value, deviance, step = 1e-3,
+                                          fraction = 1) {
+  col <- Filter(function(cl) cl$index == index, maihda_lme4_theta_columns(cnms))
+  if (length(col) != 1L) {
+    return(NULL)
+  }
+  k <- length(col[[1L]]$below) + 1L
+  h <- vapply(seq_len(k), function(i) {
+    e <- numeric(k)
+    e[i] <- 1
+    (deviance(maihda_lme4_refactor_theta(theta, cnms, index, e, step)) -
+       deviance(maihda_lme4_refactor_theta(theta, cnms, index, -e, step))) / (2 * step)
+  }, numeric(1))
+  if (!all(is.finite(h)) || all(h == 0)) {
+    return(NULL)
+  }
+  maihda_lme4_refactor_theta(theta, cnms, index, -fraction * h / sqrt(sum(h^2)), value)
+}
+
+# The deviance of the glmer or lmer fit `model` as a function of its variance parameters
+# theta: -2 log-likelihood at its fixed effects for a glmer fit; for an lmer fit, whose
+# deviance function takes theta alone with the fixed effects profiled out, its REML
+# criterion (the deviance when fitted by maximum likelihood). NA where it cannot be
+# evaluated. Rebuilt from a copy: lme4 writes into vectors the deviance function shares
+# with the fit. NULL when it cannot be built or does not give the fit's own criterion at its
+# estimates.
+maihda_lme4_theta_deviance <- function(model) {
+  deviance <- tryCatch(lme4::getME(maihda_lme4_detached_copy(model), "devfun"),
+                       error = function(e) NULL)
+  if (!is.function(deviance)) {
+    return(NULL)
+  }
+  lmm <- inherits(model, "lmerMod")
+  beta <- if (lmm) NULL else unname(lme4::fixef(model))
+  at <- function(th) tryCatch(deviance(c(unname(th), beta)), error = function(e) NA_real_)
+  d0 <- at(lme4::getME(model, "theta"))
+  target <- if (lmm) maihda_lmer_criterion(model) else -2 * as.numeric(stats::logLik(model))
+  if (!is.finite(d0) || abs(d0 - target) > 1e-5 * max(1, abs(target))) {
+    return(NULL)
+  }
+  at
+}
+
 # The boundary traps of a glmer or lmer fit: columns of its random-effect Cholesky factors
 # whose diagonal entry is at the bound of 0 (below `entry_tol`) while an entry below it is
 # not, such as a growth block's intercept SD at 0 beside a non-zero intercept-slope entry.
-# The covariance matrix there is the same as with the entries below negated; moving the
-# diagonal entry off 0 changes the covariances of that term with the later ones to first
-# order, with opposite signs on the two sides, so unless the likelihood is flat in them it
-# is higher on one side, which lme4's optimisers cannot reach across the bound. glmer's
-# first stage (nAGQ = 0) often stops a growth fit there and the second stops with it; lmer
-# stops a block with a slope there too.
-# `drop` is the deviance (-2 log-likelihood; for an lmer fit its REML criterion, or the
-# deviance when fitted by maximum likelihood) at the fit minus the deviance at the mirrored
-# point with the diagonal entry at `step`: positive where the likelihood is higher on the
-# other side (.maihda_lme4_trap_drop says how much counts). A data frame with a row per
-# such column (block, term, index of the diagonal entry in theta, drop, the number of
-# terms of the block); no rows for a fit
-# with none, or that is neither an lmer fit nor a glmer fit with its fixed effects among the
+# The covariance matrix there is the same for every re-factoring of the block's rows below
+# that column (maihda_lme4_refactor_theta()); moving the diagonal entry off 0 changes the
+# covariances of that term with the later ones to first order, in a direction that
+# depends on the factoring, so unless the likelihood is flat in them it rises in some
+# direction, which lme4's optimisers cannot reach across the bound. With one later term
+# the directions are the two signs of its covariance; with two or more they are many, and
+# the reflection of the entries below can miss the one where the likelihood rises. glmer's
+# first stage (nAGQ = 0) often stops a fit there and the second stops with it; lmer stops
+# a block with a slope there too. `drop` is the deviance (maihda_lme4_theta_deviance(): for
+# an lmer fit its REML criterion) at the fit minus the deviance across the bound with the
+# diagonal entry at `step`, along the direction in which the deviance falls fastest at
+# first order or by the reflection, whichever falls further (maihda_lme4_column_drop()):
+# positive where the likelihood rises across the bound (.maihda_lme4_trap_drop says how
+# much counts). A data frame with a row per such column (block, term, index of the
+# diagonal entry in theta, drop, the number of terms of the block); no rows for a fit with
+# none, or that is neither an lmer fit nor a glmer fit with its fixed effects among the
 # optimised parameters (nAGQ 0); drop NA when the deviance function does not reproduce the
 # fit's criterion.
 maihda_lme4_boundary_traps <- function(model, entry_tol = 1e-4, step = 1e-3) {
@@ -393,38 +502,47 @@ maihda_lme4_boundary_traps <- function(model, entry_tol = 1e-4, step = 1e-3) {
                     index = vapply(cols, `[[`, integer(1), "index"),
                     drop = NA_real_, stringsAsFactors = FALSE)
   out$n_terms <- unname(lengths(cnms)[out$block])
-  # Rebuilt from a copy: lme4 writes into vectors the deviance function shares with the fit.
-  deviance <- tryCatch(lme4::getME(maihda_lme4_detached_copy(model), "devfun"),
-                       error = function(e) NULL)
-  if (!is.function(deviance)) {
+  at <- maihda_lme4_theta_deviance(model)
+  if (is.null(at)) {
     return(out)
   }
-  # An lmer fit's deviance function takes theta alone, its fixed effects profiled out.
-  beta <- if (lmm) NULL else unname(lme4::fixef(model))
-  at <- function(th) tryCatch(deviance(c(unname(th), beta)), error = function(e) NA_real_)
-  d0 <- at(theta)
-  target <- if (lmm) maihda_lmer_criterion(model) else -2 * as.numeric(stats::logLik(model))
-  if (!is.finite(d0) || abs(d0 - target) > 1e-5 * max(1, abs(target))) {
-    return(out)
-  }
-  out$drop <- vapply(out$index, function(i) d0 - at(maihda_lme4_mirror_theta(theta, cnms, i, step)),
+  out$drop <- vapply(out$index, function(i) maihda_lme4_column_drop(theta, cnms, i, at, step),
                      numeric(1))
   out
+}
+
+# The fall of `deviance` (a function of theta) across the bound of the column whose
+# diagonal entry has theta index `index`, with that entry at `step`: the larger of the falls
+# along the first-order direction (maihda_lme4_first_order_theta()) and by the reflection
+# (maihda_lme4_mirror_theta()). The first-order direction at its full length can overshoot
+# where the deviance curves fast in it, as with a covariate in large units, and the
+# reflection can then fall further. NA when neither can be evaluated.
+maihda_lme4_column_drop <- function(theta, cnms, index, deviance, step = 1e-3) {
+  d0 <- deviance(theta)
+  across <- maihda_lme4_first_order_theta(theta, cnms, index, step, deviance, step)
+  drops <- c(d0 - deviance(maihda_lme4_mirror_theta(theta, cnms, index, step)),
+             if (!is.null(across)) d0 - deviance(across))
+  if (all(is.na(drops))) NA_real_ else max(drops, na.rm = TRUE)
 }
 
 # The record's sentence for a boundary trap (a row of maihda_lme4_boundary_traps()): with
 # `terms`, the block's term names in order, that of any block; without them, that of a
 # growth block with `n_terms` terms (its intercept column, or the linear one of a curve).
+# With one later term the likelihood rises with the sign of their covariance reversed;
+# with two or more, in a direction of their covariances that need not reverse their signs.
 maihda_lme4_trap_message <- function(block, term, n_terms, terms = NULL) {
   tail <- paste0(": the fit stopped at a bound of lme4's parametrisation, not at the maximum.")
   at <- match(term, terms)
   if (!is.na(at) && at < length(terms)) {
     named <- function(x) ifelse(x == "(Intercept)", "the intercept", x)
     later <- terms[-seq_len(at)]
-    rises <- sprintf(paste0("where the likelihood still rises with the sign%s of its ",
-                            "covariance%s with %s reversed"),
-                     if (length(later) > 1) "s" else "", if (length(later) > 1) "s" else "",
-                     maihda_and_list(named(later)))
+    rises <- if (length(later) > 1) {
+      sprintf(paste0("where the likelihood still rises when that variance and its ",
+                     "covariances with %s move off zero"), maihda_and_list(named(later)))
+    } else {
+      sprintf("where the likelihood still rises with the sign of its covariance with %s reversed",
+              named(later))
+    }
     if (at == 1L) {
       what <- if (identical(term, "(Intercept)")) {
         sprintf("The intercept variance of the '%s' block", block)
@@ -439,10 +557,13 @@ maihda_lme4_trap_message <- function(block, term, n_terms, terms = NULL) {
                    term, maihda_and_list(named(terms[seq_len(at - 1L)])), rises, tail))
   }
   if (identical(term, "(Intercept)")) {
+    rises <- if (n_terms > 2) {
+      "when that variance and its covariances with the time terms move off zero"
+    } else {
+      "with the sign of its covariance with the slope reversed"
+    }
     return(sprintf(paste0("The intercept variance of the '%s' block is at zero, where the ",
-                          "likelihood still rises with the sign of its covariance with %s ",
-                          "reversed%s"), block,
-                   if (n_terms > 2) "the time terms" else "the slope", tail))
+                          "likelihood still rises %s%s"), block, rises, tail))
   }
   # A later column at its bound: that term is a multiple of the earlier ones, not zero.
   sprintf(paste0("In the '%s' block the slope is perfectly correlated with the intercept, ",

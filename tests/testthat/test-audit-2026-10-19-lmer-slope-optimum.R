@@ -396,10 +396,14 @@ test_that("the record flags a cross-sectional lmer fit left at such a bound, not
   expect_true(sentence %in% dg$messages)
   printed <- utils::capture.output(print(m))
   expect_true(any(grepl("Convergence problems of the lme4 fit:", printed, fixed = TRUE)))
-  # The drop is the REML criterion's, a step of 1e-3 across the bound.
+  # The drop is the REML criterion's, a step of 1e-3 across the bound, by the reflection or
+  # along the first-order direction, whichever falls further.
   th <- unname(lme4::getME(m$model, "theta"))
   dev <- lme4::lmer(adjusted, data = d, devFunOnly = TRUE)
-  expect_equal(dg$boundary_traps$drop, dev(th) - dev(c(1e-3, -th[2], th[3])), tolerance = 1e-8)
+  reflected <- dev(th) - dev(c(1e-3, -th[2], th[3]))
+  first <- dev(th) - dev(maihda_lme4_first_order_theta(th, lme4::getME(m$model, "cnms"), 1L,
+                                                       1e-3, dev))
+  expect_equal(dg$boundary_traps$drop, max(reflected, first), tolerance = 1e-8)
   expect_gt(dg$boundary_traps$drop, .maihda_lme4_trap_drop)
   # Measuring leaves the fit where it is.
   before <- lme4::getME(m$model, "theta")
