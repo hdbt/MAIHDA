@@ -343,9 +343,9 @@ test_that("the bootstrap VPC band of a scaled fit is in the user's time", {
                tolerance = 1e-3)
   # A count model's bootstrap draws evaluate their level-1 variance on the internal time,
   # as the estimate does: with every draw the fitted model itself, the band is the
-  # estimate. (Refits of a glmer growth model differ between time scales by more than the
-  # conversions could show.)
-  local_mocked_bindings(maihda_refit_draw = function(model, newresp) model)
+  # estimate. (The stand-in skips the refits; test-audit-2026-10-19-bootstrap-growth-refits.R
+  # tests those.)
+  local_mocked_bindings(maihda_refit_growth_draw = function(model, newresp, spec) model)
   pd <- quiet(fit_maihda(n ~ wave + (1 | A:B:C:D), data = growth_design(31, k = 365),
                          id = "id", time = "wave", family = "poisson"))
   expect_identical(pd$longitudinal_info$time_scale, 1000)

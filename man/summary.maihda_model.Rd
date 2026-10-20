@@ -22,9 +22,15 @@
 confidence intervals for VPC/ICC. Default is FALSE. Supported for lme4
 models only; \code{brms} models always return a posterior credible interval
 (see Details), so \code{bootstrap = TRUE} is rejected for them.
-For a negative-binomial model (\code{glmer.nb}) the bootstrap refits via
-\code{lme4::refit()}, which holds the dispersion parameter theta fixed at
-its original estimate, so the interval is conditional on the estimated
+Each simulated response is refitted from the fitted model's estimates
+(\code{lme4::refit()}); for a growth fit (\code{fit_maihda(id =, time =)}) it is
+then refitted as \code{fit_maihda()} fits the model, from the further starting
+values and, for a \code{glmer} fit, across a variance bound (see
+\code{\link{fit_maihda}}, arguments \code{time} and \code{stratum_slope}), and
+the best fit is kept, at two to five times the time of one refit.
+For a negative-binomial model (\code{glmer.nb}) the bootstrap refits hold
+the dispersion parameter theta fixed at its original estimate, as
+\code{lme4::refit()} does, so the interval is conditional on the estimated
 theta (theta's own sampling uncertainty is not propagated). The
 \code{ordinal} (clmm) engine has no simulate/refit machinery, so
 \code{bootstrap = TRUE} is rejected there (use \code{engine = "brms"} for
@@ -241,7 +247,11 @@ strata are few. For each fixed-effect coefficient the model is refitted with
 that coefficient \emph{constrained to zero}, \code{n_boot} responses are
 simulated from the restricted fit, the full model is refitted on each, and the
 observed Wald statistic is referred to the resulting distribution of
-\eqn{|t^*|}. The estimate and standard error are unchanged. The p-value is
+\eqn{|t^*|}. The restricted fit of a growth model is made as \code{fit_maihda()}
+makes the model's own fit, with the same refits from further starting values
+(\code{\link{fit_maihda}}, arguments \code{time} and \code{stratum_slope}), and so
+is the full model's refit on each draw (see \code{bootstrap}). The
+estimate and standard error are unchanged. The p-value is
 \eqn{(1 + \#\{|t^*| \ge |t|\}) / (B + 1)}{(1 + #{|t*| >= |t|}) / (B + 1)}
 over the \eqn{B} refits that succeeded, and the interval is the estimate plus
 or minus a critical value read from the same draws, times the standard error,

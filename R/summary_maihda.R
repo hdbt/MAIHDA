@@ -149,9 +149,15 @@ maihda_tag_role <- function(s, role) {
 #'   confidence intervals for VPC/ICC. Default is FALSE. Supported for lme4
 #'   models only; \code{brms} models always return a posterior credible interval
 #'   (see Details), so \code{bootstrap = TRUE} is rejected for them.
-#'   For a negative-binomial model (\code{glmer.nb}) the bootstrap refits via
-#'   \code{lme4::refit()}, which holds the dispersion parameter theta fixed at
-#'   its original estimate, so the interval is conditional on the estimated
+#'   Each simulated response is refitted from the fitted model's estimates
+#'   (\code{lme4::refit()}); for a growth fit (\code{fit_maihda(id =, time =)}) it is
+#'   then refitted as \code{fit_maihda()} fits the model, from the further starting
+#'   values and, for a \code{glmer} fit, across a variance bound (see
+#'   \code{\link{fit_maihda}}, arguments \code{time} and \code{stratum_slope}), and
+#'   the best fit is kept, at two to five times the time of one refit.
+#'   For a negative-binomial model (\code{glmer.nb}) the bootstrap refits hold
+#'   the dispersion parameter theta fixed at its original estimate, as
+#'   \code{lme4::refit()} does, so the interval is conditional on the estimated
 #'   theta (theta's own sampling uncertainty is not propagated). The
 #'   \code{ordinal} (clmm) engine has no simulate/refit machinery, so
 #'   \code{bootstrap = TRUE} is rejected there (use \code{engine = "brms"} for
@@ -315,7 +321,11 @@ maihda_tag_role <- function(s, role) {
 #' that coefficient \emph{constrained to zero}, \code{n_boot} responses are
 #' simulated from the restricted fit, the full model is refitted on each, and the
 #' observed Wald statistic is referred to the resulting distribution of
-#' \eqn{|t^*|}. The estimate and standard error are unchanged. The p-value is
+#' \eqn{|t^*|}. The restricted fit of a growth model is made as \code{fit_maihda()}
+#' makes the model's own fit, with the same refits from further starting values
+#' (\code{\link{fit_maihda}}, arguments \code{time} and \code{stratum_slope}), and so
+#' is the full model's refit on each draw (see \code{bootstrap}). The
+#' estimate and standard error are unchanged. The p-value is
 #' \eqn{(1 + \#\{|t^*| \ge |t|\}) / (B + 1)}{(1 + #{|t*| >= |t|}) / (B + 1)}
 #' over the \eqn{B} refits that succeeded, and the interval is the estimate plus
 #' or minus a critical value read from the same draws, times the standard error,
@@ -563,7 +573,7 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
     # option that repairs a GLMM's few-stratum standard error rather than only its
     # reference distribution.
     if (identical(df_method, "bootstrap")) {
-      fixed_effects <- maihda_bootstrap_fixef(model, n_boot, conf_level)
+      fixed_effects <- maihda_bootstrap_fixef(model, n_boot, conf_level, longitudinal = lng)
       fe_method <- "bootstrap"
     } else {
       fe_coef <- stats::coef(model_summary)
@@ -1971,6 +1981,174 @@ maihda_frame_refit_safe <- function(red_form, fr) {
   length(nms) > 0 && all(nms %in% names(fr))
 }
 
+# The growth structure of an lme4 fit fit_maihda() made for a longitudinal MAIHDA, from
+# the tag it put on the model (`longitudinal`, the object's $longitudinal_info): the
+# person-level grouping factor, the model's time variable, the degree of its time
+# polynomial, whether the stratum level has the slope, and the tag itself. NULL without a
+# tag, so a cross-sectional fit is refitted as before even when its random-effect terms
+# have a growth model's form, and NULL for a fit made from starting values of the user's
+# own (fit_maihda() binds them as `.maihda_arg_start`, a name in the call), which
+# fit_maihda() does not restart either. A numeric start in the call is the start of the
+# restart whose fit was kept, not the user's.
+maihda_lme4_growth_spec <- function(model, longitudinal = NULL) {
+  if (is.null(longitudinal) ||
+      is.name(tryCatch(stats::getCall(model)$start, error = function(e) NULL))) {
+    return(NULL)
+  }
+  degree <- suppressWarnings(as.integer(longitudinal$time_degree))
+  if (!is.character(longitudinal$id) || length(degree) != 1L || is.na(degree)) {
+    return(NULL)
+  }
+  list(id = longitudinal$id, time = maihda_lng_time_term(longitudinal),
+       time_degree = degree, stratum_slope = !isFALSE(longitudinal$stratum_slope),
+       longitudinal = longitudinal)
+}
+
+# Evaluate `fit_call` in `fit_env` as fit_maihda() fits a growth model of the structure
+# `spec` (maihda_lme4_growth_spec()): with the restarts of maihda_fit_lmer_growth() for an
+# lmer fit fit_maihda() restarts (maihda_growth_restarts_apply()), through
+# maihda_fit_glmer_growth() for a glmer fit, and by evaluating the call otherwise.
+# Refitted without them, the null-restricted model stopped more than 0.01 above the lowest
+# criterion found in 14 of 110 refits of quadratic growth fits on a balanced 16-stratum
+# design (up to 1.95 REML units; linear growth: 2 of 60), and at a variance bound in 4 of
+# 18 refits of Poisson growth fits (up to 16.3 in -2 log-likelihood). `first`, a value /
+# conditions pair of maihda_eval_holding_conditions(), is taken as the first fit instead of
+# evaluating `fit_call`, and is returned, its conditions signalled, where no refits apply.
+maihda_refit_growth_call <- function(model, fit_call, fit_env, spec, first = NULL) {
+  if (lme4::isLMM(model)) {
+    if (maihda_growth_restarts_apply(quote(lme4::lmer), spec$longitudinal, list())) {
+      return(maihda_fit_lmer_growth(fit_call, fit_env, spec$id, time = spec$time,
+                                    time_degree = spec$time_degree, first = first))
+    }
+  } else if (lme4::isGLMM(model)) {
+    return(maihda_fit_glmer_growth(fit_call, fit_env, spec$id, first = first))
+  }
+  if (is.null(first)) {
+    return(eval(fit_call, fit_env))
+  }
+  maihda_signal_conditions(first$conditions)
+  first$value
+}
+
+# `call`, a call fit_maihda() made for a growth fit or update() made from it, without the
+# start of the restart whose fit was kept, and with the user's own control (or none) in
+# place of the control of glmer's refit across a bound (`.maihda_arg_refit_control`, which
+# skips glmer's first stage); `env` is the environment the call's names are bound in.
+maihda_growth_fresh_call <- function(call, env) {
+  call$start <- NULL
+  if (identical(call$control, as.name(".maihda_arg_refit_control"))) {
+    call$control <- if (exists(".maihda_arg_control", envir = env, inherits = FALSE)) {
+      as.name(".maihda_arg_control")
+    } else {
+      NULL
+    }
+  }
+  call
+}
+
+# The call and environment that fit the bootstrap draw `newresp` of the growth fit `model`
+# as fit_maihda() fitted the model: the fit's own call (maihda_growth_fresh_call()) on its
+# own data, with the draw written into a reserved column, aligned to the model frame's rows
+# by name, that the formula's left-hand side names. A two-column draw of a binomial count
+# matrix is written as one matrix column. The call is evaluated in a child of the formula's
+# environment, so the weights, offset, subset and control bound there are the fit's own; a
+# negative-binomial fit's call is glmer() with its fitted theta, held fixed as
+# lme4::refit() holds it. NULL when the call's data is not found by name or its rows do not
+# hold the model frame's.
+maihda_growth_draw_call <- function(model, newresp) {
+  fenv <- environment(stats::formula(model))
+  call <- maihda_growth_fresh_call(stats::getCall(model), fenv)
+  if (!is.name(call$data)) {
+    return(NULL)
+  }
+  data <- get0(as.character(call$data), envir = fenv, inherits = FALSE)
+  column <- ".maihda_boot_y"
+  if (!is.data.frame(data) || column %in% names(data)) {
+    return(NULL)
+  }
+  newresp <- maihda_unpad_fit_rows(newresp, model, "bootstrap draw")
+  # A binomial draw of a factor response (relevel(f, ...) ~ ...) as 0 / 1, as glmer() reads
+  # a factor: its first level is a failure.
+  if (is.factor(newresp)) {
+    newresp <- as.numeric(newresp != levels(newresp)[1L])
+  }
+  rows <- match(rownames(model@frame), rownames(data))
+  if (anyNA(rows) || NROW(newresp) != length(rows)) {
+    return(NULL)
+  }
+  y <- if (is.matrix(newresp)) {
+    matrix(NA_real_, nrow(data), ncol(newresp))
+  } else {
+    rep(NA_real_, nrow(data))
+  }
+  if (is.matrix(newresp)) y[rows, ] <- newresp else y[rows] <- as.numeric(newresp)
+  data[[column]] <- y
+  formula <- stats::formula(model)
+  formula[[2L]] <- as.name(column)
+  environment(formula) <- fenv
+  call$formula <- formula
+  env <- new.env(parent = fenv)
+  assign(as.character(call$data), data, envir = env)
+  list(call = call, env = env)
+}
+
+# Refit the growth fit `model` on the bootstrap draw `newresp`: from the fitted model's
+# estimates (maihda_refit_draw()), and then, with that refit as the first fit, as
+# fit_maihda() fits the model (maihda_refit_growth_call()) -- from further starts and, for
+# glmer, across a variance bound -- keeping the best. Refitted once from the fitted model,
+# 12 to 19 of 100 Poisson growth draws per time unit stopped more than 0.01 short of their
+# maximum (up to 1.9 in log-likelihood), an adjusted model's draw in 20 of 20, and an lmer
+# draw on the wrong side of the stratum block's boundary; none was recorded as failed. As at
+# fit time, a refit replaces the first fit when lower by more than 1e-4: an lmer draw at its
+# optimum keeps its refit, while for glmer that tolerance is within the optimiser's noise,
+# so most draws keep a restart less than 0.01 in log-likelihood above the refit (their
+# VPC(t) moved by a median of 6e-5). `spec` is maihda_lme4_growth_spec() of the model; NULL,
+# or a call that cannot be replayed (maihda_growth_draw_call()), gives the refit alone.
+maihda_refit_growth_draw <- function(model, newresp, spec) {
+  if (is.null(spec)) {
+    return(maihda_refit_draw(model, newresp))
+  }
+  first <- maihda_eval_holding_conditions(quote(maihda_refit_draw(model, newresp)),
+                                          environment())
+  replay <- tryCatch(maihda_growth_draw_call(model, newresp), error = function(e) NULL)
+  if (is.null(replay)) {
+    maihda_signal_conditions(first$conditions)
+    return(first$value)
+  }
+  maihda_refit_growth_call(model, replay$call, replay$env, spec, first = first)
+}
+
+# The criterion a growth fit is compared on: lmer's REML criterion (deviance for an ML
+# fit), -2 log-likelihood for a glmer fit (maihda_glmer_criterion()).
+maihda_growth_fit_criterion <- function(fit) {
+  if (lme4::isLMM(fit)) maihda_lmer_criterion(fit) else maihda_glmer_criterion(fit)
+}
+
+# The null-restricted refit of a growth fit under `red_form`: the reduced call refitted as
+# fit_maihda() fits the model (maihda_refit_growth_call()), from lme4's own start and with
+# the user's own control -- not with the start of the restart whose fit was kept, nor the
+# control of glmer's refit across a bound (`.maihda_arg_refit_control`, which skips glmer's
+# first stage), both of which update() carries over -- and, when the kept fit has such a
+# start, the reduced call with them as well, as before. The fit with the lowest criterion
+# is kept (maihda_pick_lowest()), so the null is never fitted worse than update() alone
+# fits it.
+maihda_refit_reduced_growth <- function(model, red_form, spec) {
+  env <- environment(stats::formula(model))
+  carried <- stats::update(model, formula. = red_form, evaluate = FALSE)
+  fresh <- maihda_growth_fresh_call(carried, env)
+  fits <- list(tryCatch(suppressMessages(suppressWarnings(
+    maihda_refit_growth_call(model, fresh, env, spec))), error = function(e) NULL))
+  if (!is.null(carried$start)) {
+    fits[[2L]] <- tryCatch(suppressMessages(suppressWarnings(eval(carried, env))),
+                           error = function(e) NULL)
+  }
+  crit <- vapply(fits, function(f) {
+    if (is.null(f)) NA_real_ else tryCatch(maihda_growth_fit_criterion(f),
+                                           error = function(e) NA_real_)
+  }, numeric(1))
+  fits[[maihda_pick_lowest(crit)]]
+}
+
 # Refit `model` under a reduced fixed-effect formula. stats::update() is tried
 # first because it handles transformed terms correctly, and it reaches the data
 # through the formula environment even for a model fitted inside a function.
@@ -1984,7 +2162,11 @@ maihda_frame_refit_safe <- function(red_form, fr) {
 # caught by requiring the reduced fit to cover exactly the full model's rows and
 # response; otherwise fall through to the frame, which IS the full model's
 # complete-case data and so cannot disagree with it.
-maihda_refit_reduced <- function(model, red_form) {
+#
+# `longitudinal` is the model object's $longitudinal_info. With it, a growth fit is
+# refitted as fit_maihda() fits it (maihda_refit_reduced_growth()); without it, every fit
+# is refitted by update().
+maihda_refit_reduced <- function(model, red_form, longitudinal = NULL) {
   fr <- tryCatch(model@frame, error = function(e) NULL)
   same_data <- function(red) {
     if (is.null(red)) return(FALSE)
@@ -1995,8 +2177,14 @@ maihda_refit_reduced <- function(model, red_form) {
                               stats::model.response(fr))),
              error = function(e) FALSE)
   }
+  # A growth fit is refitted as fit_maihda() fits it (maihda_refit_reduced_growth()).
+  spec <- maihda_lme4_growth_spec(model, longitudinal)
   red <- tryCatch(suppressMessages(suppressWarnings(
-    stats::update(model, formula. = red_form))), error = function(e) NULL)
+    if (is.null(spec)) {
+      stats::update(model, formula. = red_form)
+    } else {
+      maihda_refit_reduced_growth(model, red_form, spec)
+    })), error = function(e) NULL)
   if (same_data(red)) return(red)
 
   if (!is.data.frame(fr) || !maihda_frame_refit_safe(red_form, fr)) return(NULL)
@@ -2016,8 +2204,24 @@ maihda_refit_reduced <- function(model, red_form) {
     args$family <- stats::family(model)
     lme4::glmer
   }
-  tryCatch(suppressMessages(suppressWarnings(do.call(fun, args))),
-           error = function(e) NULL)
+  maihda_refit_args(model, fun, args, spec)
+}
+
+# do.call(fun, args) for a reduced fit, with its messages and warnings dropped and NULL
+# for an error; a growth fit (`spec` not NULL) through maihda_refit_growth_call() instead,
+# on a call whose data the restarts can find by name.
+maihda_refit_args <- function(model, fun, args, spec) {
+  if (is.null(spec)) {
+    return(tryCatch(suppressMessages(suppressWarnings(do.call(fun, args))),
+                    error = function(e) NULL))
+  }
+  env <- new.env()
+  env$data <- args$data
+  args$data <- quote(data)
+  fun_name <- if (lme4::isLMM(model)) quote(lme4::lmer) else quote(lme4::glmer)
+  fit_call <- as.call(c(list(fun_name), args))
+  tryCatch(suppressMessages(suppressWarnings(
+    maihda_refit_growth_call(model, fit_call, env, spec))), error = function(e) NULL)
 }
 
 # TRUE when two fixed-effect designs span the SAME column space -- equal ranks,
@@ -2056,8 +2260,9 @@ maihda_same_column_space <- function(A, B) {
 # Working from the design matrix sidesteps formula algebra entirely: the retained
 # columns are carried as data under generated names, never re-evaluated, so
 # transformed terms (poly(), log(), I()) need no special handling. The random
-# effects, prior weights and offset are taken from the fit unchanged.
-maihda_restrict_fixef <- function(model, drop_cols) {
+# effects, prior weights and offset are taken from the fit unchanged. A growth fit
+# (`longitudinal`, as for maihda_refit_reduced()) is refitted as fit_maihda() fits it.
+maihda_restrict_fixef <- function(model, drop_cols, longitudinal = NULL) {
   X <- tryCatch(lme4::getME(model, "X"), error = function(e) NULL)
   fr <- tryCatch(model@frame, error = function(e) NULL)
   if (is.null(X) || !is.data.frame(fr)) return(NULL)
@@ -2107,8 +2312,7 @@ maihda_restrict_fixef <- function(model, drop_cols) {
     args$family <- stats::family(model)
     lme4::glmer
   }
-  tryCatch(suppressMessages(suppressWarnings(do.call(fun, args))),
-           error = function(e) NULL)
+  maihda_refit_args(model, fun, args, maihda_lme4_growth_spec(model, longitudinal))
 }
 
 #' Null-restricted parametric-bootstrap fixed effects for an lme4 fit
@@ -2153,6 +2357,9 @@ maihda_restrict_fixef <- function(model, drop_cols) {
 #' @param model An lme4 model object (\code{lmerMod} or \code{glmerMod}).
 #' @param n_boot Number of bootstrap replicates \emph{per tested coefficient}.
 #' @param conf_level Interval level.
+#' @param longitudinal The model object's \code{longitudinal_info}: for a growth fit
+#'   the null-restricted fits and the refits of the draws are made as
+#'   \code{fit_maihda()} fits the model. \code{NULL} for any other fit.
 #' @return A data frame with \code{term}, \code{estimate}, \code{se},
 #'   \code{statistic}, \code{df}, \code{p_value}, \code{lower} and \code{upper},
 #'   carrying \code{n_boot_ok}, \code{n_boot_nonconverged} and
@@ -2161,7 +2368,10 @@ maihda_restrict_fixef <- function(model, drop_cols) {
 #'   bootstraps (\code{maihda_report_nonconvergence}).
 #' @keywords internal
 #' @importFrom lme4 refit fixef
-maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
+maihda_bootstrap_fixef <- function(model, n_boot, conf_level, longitudinal = NULL) {
+  # A growth fit's null-restricted fits and its draws are refitted as fit_maihda() fits
+  # the model (maihda_refit_reduced(), maihda_restrict_fixef(), maihda_refit_growth_draw()).
+  spec <- maihda_lme4_growth_spec(model, longitudinal)
   est <- lme4::fixef(model)
   nm <- names(est)
   se <- sqrt(diag(as.matrix(stats::vcov(model))))
@@ -2226,7 +2436,7 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
         X_null <- X[, setdiff(seq_len(ncol(X)), j), drop = FALSE]
         red_form <- stats::update(stats::formula(model),
                                   paste(". ~ . -", term_labels[k]))
-        red <- maihda_refit_reduced(model, red_form)
+        red <- maihda_refit_reduced(model, red_form, longitudinal)
         # Dropping the term from the formula usually IS that null -- but R's
         # marginality recoding can hand back a design spanning the full model's
         # own column space, restricting nothing (see maihda_restrict_fixef).
@@ -2239,7 +2449,7 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
           red <- NULL
         }
       }
-      if (is.null(red)) red <- maihda_restrict_fixef(model, j)
+      if (is.null(red)) red <- maihda_restrict_fixef(model, j, longitudinal)
       if (is.null(red)) {
         stop("The model with '", nm[j], "' constrained to zero could not be ",
              "refitted, so no null distribution can be simulated for that ",
@@ -2257,7 +2467,7 @@ maihda_bootstrap_fixef <- function(model, n_boot, conf_level) {
       t_star <- rep(NA_real_, n_boot)
       for (i in seq_len(n_boot)) {
         tryCatch({
-          boot_model <- maihda_refit_draw(model, sim_data[[i]])
+          boot_model <- maihda_refit_growth_draw(model, sim_data[[i]], spec)
           bi <- lme4::fixef(boot_model)
           si <- sqrt(diag(as.matrix(stats::vcov(boot_model))))
           jb <- match(nm[j], names(bi))

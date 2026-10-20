@@ -947,10 +947,14 @@ maihda_signal_conditions <- function(conditions) {
 # model whose time polynomial (in the model's time variable `time`) has degree 2 or more
 # from the start of maihda_growth_centred_start() and, when that refit and lmer's fit
 # differ by more than `differ` or there is no such refit, from the start of
-# maihda_growth_diagonal_start(). A restart that fails is passed over.
+# maihda_growth_diagonal_start(). A restart that fails is passed over. `first`, a value /
+# conditions pair of maihda_eval_holding_conditions(), is taken as lmer's fit instead of
+# evaluating `fit_call` (a bootstrap draw's refit from the fitted model).
 maihda_fit_lmer_growth <- function(fit_call, fit_env, id, tol = 1e-4, time = NULL,
-                                   time_degree = 1L, differ = 0.01) {
-  first <- maihda_eval_holding_conditions(fit_call, fit_env)
+                                   time_degree = 1L, differ = 0.01, first = NULL) {
+  if (is.null(first)) {
+    first <- maihda_eval_holding_conditions(fit_call, fit_env)
+  }
   fits <- list(first)
   refit <- function(start) {
     restart_call <- fit_call
@@ -1081,9 +1085,12 @@ maihda_glmer_criterion <- function(model) {
 # maihda_glmer_growth_starts() and keep the fit with the lowest criterion
 # (maihda_pick_lowest()); then refit that fit once from the other side of its boundary
 # traps (maihda_glmer_mirror_refit()). Only the kept fit's warnings and messages are
-# signalled. A refit that fails is passed over.
-maihda_fit_glmer_growth <- function(fit_call, fit_env, id, tol = 1e-4) {
-  first <- maihda_eval_holding_conditions(fit_call, fit_env)
+# signalled. A refit that fails is passed over. `first` is taken as the first fit instead
+# of evaluating `fit_call`, as for maihda_fit_lmer_growth().
+maihda_fit_glmer_growth <- function(fit_call, fit_env, id, tol = 1e-4, first = NULL) {
+  if (is.null(first)) {
+    first <- maihda_eval_holding_conditions(fit_call, fit_env)
+  }
   fits <- list(first)
   starts <- tryCatch(
     maihda_glmer_growth_starts(lme4::getME(first$value, "theta"),
@@ -1568,9 +1575,11 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
     boot <- matrix(NA_real_, nrow = n_boot, ncol = length(grid))
     ref_boot <- rep(NA_real_, n_boot)
     sim <- maihda_simulate_lme4(model, nsim = n_boot)
+    # Each draw is refitted as fit_maihda() fits the model (maihda_refit_growth_draw()).
+    spec <- maihda_lme4_growth_spec(model, lng)
     for (i in seq_len(n_boot)) {
       tryCatch({
-        bm <- maihda_refit_draw(model, sim[[i]])
+        bm <- maihda_refit_growth_draw(model, sim[[i]], spec)
         Ss <- maihda_re_block_lme4(bm, "stratum", time_term, stratum_deg, scale = scale)
         Si <- maihda_re_block_lme4(bm, lng$id, time_term, lng$time_degree, scale = scale)
         vs <- maihda_var_at_time(Ss, grid_c); vi <- maihda_var_at_time(Si, grid_c)
