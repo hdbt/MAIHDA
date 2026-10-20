@@ -26,8 +26,18 @@
 #'   glmer's second stage with the \code{bobyqa} optimiser; it replaces the fit when
 #'   its -2 log-likelihood is lower by more than 1e-4. In a block of three or more
 #'   terms the likelihood can also rise across the bound in other directions, which
-#'   neither the refit nor the convergence record (see Value) tries. Pass
-#'   \code{start} through \code{...} to fit from your own starting values only.
+#'   neither the refit nor the convergence record (see Value) tries.
+#'   Fitted by \code{lmer()} outside a longitudinal model, a model with a random
+#'   slope is refitted from the other side of such a bound when lmer's fit stops at
+#'   one, and from a start carried back from the same model with the columns of its
+#'   random-effect terms, other than an intercept, divided by their standard deviations
+#'   and, where every random-effect term holding one has an intercept, centred at their
+#'   means. Besides stopping at the bound, lmer can stop short of the optimum when a
+#'   slope covariate is far from zero or in large units, such as age in years or a
+#'   calendar year. A refit replaces lmer's fit when its REML criterion (deviance for a
+#'   maximum-likelihood fit) is lower by more than 1e-4, the lowest of them kept; this
+#'   takes about three times as long as one fit.
+#'   Pass \code{start} through \code{...} to fit from your own starting values only.
 #' @param data A data frame containing the variables in the formula.
 #' @param engine Character string specifying which engine to use: "lme4"
 #'   (default), "brms", "wemix" (design-weighted pseudo-maximum-likelihood via
@@ -342,7 +352,8 @@
 #'     with the fixed effects in centred and scaled units; the distance is
 #'     \code{stationary_distance}, and lme4's messages are kept in
 #'     \code{lme4_overruled} when the fit converged by it. A glmer fit (\code{nAGQ}
-#'     of 1 or more) with the variance of a random-effect block's first term, usually
+#'     of 1 or more), or an lmer fit outside a longitudinal model, with the variance
+#'     of a random-effect block's first term, usually
 #'     its intercept, at zero (or, in a block of three or more terms, what is left of
 #'     a later term's variance after the terms before it, such as a quadratic growth
 #'     block's slope perfectly correlated with its intercept), where the likelihood
@@ -1183,6 +1194,11 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       # Any other glmer fit is refitted once from across such a bound, which only a
       # random-effect block with a slope can stop at (see maihda_fit_glmer_bound()).
       maihda_fit_glmer_bound(fit_call, fit_env)
+    } else if (maihda_lmer_slopes_apply(fit_fun, longitudinal_info, dot_vals, formula)) {
+      # An lmer fit with a random slope is refitted from across such a bound and from a
+      # start carried back from its random-effect terms centred and scaled (see
+      # maihda_fit_lmer_slopes()).
+      maihda_fit_lmer_slopes(fit_call, fit_env)
     } else {
       eval(fit_call, fit_env)
     }

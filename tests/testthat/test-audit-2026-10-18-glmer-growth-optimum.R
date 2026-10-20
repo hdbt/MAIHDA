@@ -339,7 +339,7 @@ test_that("the record flags a fit stopped at a bound where the likelihood still 
   ok <- poisson_growth(d)
   expect_identical(nrow(maihda_lme4_boundary_traps(ok$model)), 0L)
   expect_true(ok$diagnostics$converged)
-  # Not a glmer fit with its fixed effects optimised: nothing to look at.
+  # An lmer fit away from any bound: no column to look at.
   lm_fit <- quiet(lme4::lmer(n ~ wave + (wave | id), data = d))
   expect_identical(nrow(maihda_lme4_boundary_traps(lm_fit)), 0L)
   # An nAGQ = 0 fit at the same bound: its fixed effects are not among the optimised
