@@ -216,7 +216,7 @@ test_that("the refit starts across the bound and recovers a fit stopped there", 
   expect_gt(lme4::getME(m2, "theta")[[1]], 1e-4)
 })
 
-test_that("the refit is made by bobyqa with the settings it takes; growth refits keep their own", {
+test_that("the refit is made by bobyqa with the settings it takes, or else by the control's own", {
   skip_on_cran()
   env <- new.env()
   env$data <- slope_design(7)
@@ -253,7 +253,7 @@ test_that("the refit is made by bobyqa with the settings it takes; growth refits
   expect_identical(r$control$optCtrl, list(maxfun = 1e5))
   r <- refit_with(lme4::glmerControl(optimizer = "bobyqa", optCtrl = list(rhoend = 1e-8)))
   expect_identical(r$control$optCtrl, list(rhoend = 1e-8, maxfun = 1e5))
-  # Without an optimiser named, the refit keeps the control's own: the growth refits.
+  # Without an optimiser named, the refit keeps the control's own.
   r <- refit_with(lme4::glmerControl(optimizer = "Nelder_Mead", optCtrl = list(FtolAbs = 1e-8)),
                   optimizer = NULL)
   expect_identical(r$control$optimizer, c("Nelder_Mead", "Nelder_Mead"))

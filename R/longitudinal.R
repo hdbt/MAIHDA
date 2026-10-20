@@ -1028,6 +1028,25 @@ maihda_growth_restarts_apply <- function(fit_fun, longitudinal_info, dot_vals) {
 # 12 persons with 4 waves; 32 strata of 4 persons with 8 waves and a fifth of the
 # occasions missing), and in 24 negative-binomial fits; 2 of 48 adjusted fits stayed 0.011
 # short of a stratum block at 0, and those are recorded as not converged.
+#
+# The refit across the bound is made by bobyqa, as for other glmer fits
+# (maihda_fit_glmer_bound()), and a refit that is kept is refitted once more
+# (maihda_glmer_refit_pass()): across the bound again when it stopped at one, otherwise
+# from where it stopped. Where the maximum has the stratum block at rank one, its intercept
+# and slope perfectly correlated, the likelihood is flat along that block and Nelder-Mead,
+# glmer's own second stage, can stop short of it: of 20 Poisson growth fits kept at a
+# bound, one stopped 0.023 below (recorded as not converged), and from that fit's estimates
+# rounded to six digits 0.005 below on every order of the rows tried (recorded as
+# converged). bobyqa reached the maximum from all of them, in 0.26 to 0.5 times the
+# evaluations; on quadratic growth it can take up to about three times as many. From
+# points made by setting a block's intercept entry to 0 at the maximum (Poisson, binomial
+# and fixed-size negative-binomial outcomes; linear and quadratic growth), 20 of 48 split
+# the refits: Nelder-Mead stopped more than 0.001 short from 16 of them (from all 8
+# quadratic ones, by up to 2.0), bobyqa from 5. bobyqa can stop on the bound of a rank-one
+# block beside a maximum just inside it (0.0016 and 0.020 below, recorded as converged) or
+# stop at a bound again (0.17 to 6.9 below, recorded as not converged); the second refit
+# reached the maximum from all 5. Where nothing is left to gain it takes a median of about
+# 35 evaluations on linear growth and 100 on quadratic growth, at times a few hundred.
 
 # Whether fit_maihda() makes an lme4 fit by maihda_fit_glmer_growth(): a growth model
 # fitted by glmer() or glmer.nb(), without starting values of the user's own.
@@ -1081,10 +1100,33 @@ maihda_glmer_criterion <- function(model) {
   -2 * as.numeric(stats::logLik(model))
 }
 
+# The second refit of maihda_fit_glmer_growth(), from `refit`, a refit across a bound that
+# maihda_glmer_mirror_refit() returned (a value / conditions pair): when `refit` stopped at
+# a bound again, across that bound once more by bobyqa (maihda_glmer_mirror_refit());
+# otherwise glmer's second stage from its estimates with its control
+# (`.maihda_arg_refit_control` in `fit_env`). The second refit's pair when its criterion is
+# lower than the first's by more than `tol`, else NULL.
+maihda_glmer_refit_pass <- function(refit, fit_call, fit_env, tol = 1e-4) {
+  theta <- lme4::getME(refit$value, "theta")
+  if (length(maihda_lme4_trap_columns(theta, lme4::getME(refit$value, "cnms")))) {
+    return(maihda_glmer_mirror_refit(refit, fit_call, fit_env, tol, optimizer = "bobyqa"))
+  }
+  pass_call <- fit_call
+  pass_call$start <- list(theta = unname(theta), fixef = lme4::fixef(refit$value))
+  pass_call$control <- as.name(".maihda_arg_refit_control")
+  pass <- maihda_eval_holding_conditions(pass_call, fit_env)
+  if (maihda_glmer_criterion(pass$value) < maihda_glmer_criterion(refit$value) - tol) {
+    pass
+  } else {
+    NULL
+  }
+}
+
 # Fit a glmer growth model (`fit_call`, evaluated in `fit_env`), refit it from the starts of
 # maihda_glmer_growth_starts() and keep the fit with the lowest criterion
 # (maihda_pick_lowest()); then refit that fit once from the other side of its boundary
-# traps (maihda_glmer_mirror_refit()). Only the kept fit's warnings and messages are
+# traps by bobyqa (maihda_glmer_mirror_refit()) and, when that refit is kept, once more
+# (maihda_glmer_refit_pass()). Only the kept fit's warnings and messages are
 # signalled. A refit that fails is passed over. `first` is taken as the first fit instead
 # of evaluating `fit_call`, as for maihda_fit_lmer_growth().
 maihda_fit_glmer_growth <- function(fit_call, fit_env, id, tol = 1e-4, first = NULL) {
@@ -1107,10 +1149,13 @@ maihda_fit_glmer_growth <- function(fit_call, fit_env, id, tol = 1e-4, first = N
                                            error = function(e) NA_real_)
   }, numeric(1))
   kept <- fits[[maihda_pick_lowest(crit, tol)]]
-  mirrored <- tryCatch(maihda_glmer_mirror_refit(kept, fit_call, fit_env, tol),
+  mirrored <- tryCatch(maihda_glmer_mirror_refit(kept, fit_call, fit_env, tol,
+                                                 optimizer = "bobyqa"),
                        error = function(e) NULL)
   if (!is.null(mirrored)) {
-    kept <- mirrored
+    passed <- tryCatch(maihda_glmer_refit_pass(mirrored, fit_call, fit_env, tol),
+                       error = function(e) NULL)
+    kept <- if (is.null(passed)) mirrored else passed
   }
   maihda_signal_conditions(kept$conditions)
   kept$value

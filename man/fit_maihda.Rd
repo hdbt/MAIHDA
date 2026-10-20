@@ -248,11 +248,13 @@ starts, which reset the person-level block and start the stratum block at half t
 person-level intercept SD and 0.71 times its slope SD, with an intercept-slope
 correlation of 0.71 or -0.71; a refit replaces the fit when its -2 log-likelihood
 is lower by more than 1e-4. Then any glmer growth fit that still has a block's
-intercept variance at zero is refitted once from the other side of that bound, and
-the refit is kept on the same terms. This takes about three times as long as one
-fit. Pass \code{start} through \code{...} to fit from your own starting values
-only; they are on the internal time when \code{time} is scaled. All results (the
-time-varying VPC, the PCV, the fixed effects in \code{summary()}, plots,
+intercept variance at zero is refitted from the other side of that bound by glmer's
+second stage with the \code{bobyqa} optimiser and, when that refit is kept, once more:
+across the bound again if it stops at one, otherwise from where it stops; each refit
+is kept on the same terms. This takes about three times as long as one fit. Pass
+\code{start} through \code{...} to fit from your own starting values only; they are
+on the internal time when \code{time} is scaled. All results (the time-varying VPC,
+the PCV, the fixed effects in \code{summary()}, plots,
 predictions) are reported on the original \code{time} scale; the lme4 fit stored
 in the result's \code{model} element is on the internal time. The column name
 \code{.maihda_ctime} is reserved for the internal time variable. Default
