@@ -106,6 +106,7 @@
 * `?pcv_importance` no longer calls the exact methods deterministic: the `bootstrap = TRUE` intervals and `engine = "brms"` fits are random draws and need `set.seed()`.
 * `?maihda_sparse_data` no longer drops the text after each `%` or shows Markdown markup, and no longer says the vignette recovers the true interaction share.
 * `?plot_prediction_deviation_panels`, `?stepwise_pcv` and `?theme_maihda` no longer show Markdown markup.
+* The sparse-intersections vignette no longer says that `lme4` cannot give the shares an interval (`bootstrap = TRUE` gives one) or that the brms prior keeps the standard deviations off zero, and it prints the fits' variances instead of their singular flags.
 
 ## Performance
 
