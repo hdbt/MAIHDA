@@ -1161,21 +1161,47 @@ maihda_fit_glmer_growth <- function(fit_call, fit_env, id, tol = 1e-4, first = N
   kept$value
 }
 
+# The start of maihda_glmer_mirror_refit(): `theta` with each column of `cols`
+# (maihda_lme4_trap_columns()) taken across its bound to diagonal entry `value`, in theta
+# order. A column is reflected (maihda_lme4_mirror_theta()), or, given `deviance` (a
+# function of theta) and two or more entries below, taken along the direction in which the
+# deviance falls fastest (maihda_lme4_first_order_theta()), as no reflection need reach the
+# side where the likelihood rises, to 0.9 of the length the block allows, so that the later
+# terms' block is not singular; a column that taking an earlier one of its block across
+# moved off its bound is left.
+maihda_lme4_cross_start <- function(theta, cnms, cols, value, deviance = NULL) {
+  for (cl in cols) {
+    if (abs(theta[cl$index]) >= 1e-4) {
+      next
+    }
+    across <- if (!is.null(deviance) && length(cl$below) > 1L) {
+      maihda_lme4_first_order_theta(theta, cnms, cl$index, value, deviance, fraction = 0.9)
+    }
+    theta <- if (is.null(across)) {
+      maihda_lme4_mirror_theta(theta, cnms, cl$index, value)
+    } else {
+      across
+    }
+  }
+  theta
+}
+
 # The refit of maihda_fit_glmer_growth() and maihda_fit_glmer_bound() from the other side
 # of a boundary trap: when the fit in `kept` (a value / conditions pair of
 # maihda_eval_holding_conditions()) has columns where a trap can sit
 # (maihda_lme4_trap_columns()), `fit_call` is evaluated once from its estimates with each
-# such column taken across its bound (maihda_lme4_mirror_theta(), the diagonal entry at
-# 0.05) and glmer's second stage only, by `optimizer` ("bobyqa") when one is named and
-# otherwise by the second-stage optimiser of the fit's control. The refit's pair when its
+# such column taken across its bound by maihda_lme4_cross_start(), the diagonal entry at
+# 0.05, and glmer's second stage only, by `optimizer` ("bobyqa") when one is named and
+# otherwise by the second-stage optimiser of the fit's control. With `first_order`, a
+# column with two or more entries below is taken across along the first-order direction
+# of the fit's deviance; otherwise every column is reflected. The refit's pair when its
 # criterion is lower than the kept fit's by more than `tol`, else NULL. The refit does not
 # wait for the deviance to fall within a small step across the bound
 # (maihda_lme4_boundary_traps()): the maximum can lie further across, where such a step
 # does not reach (a Poisson growth fit in weeks: the deviance rose by 0.0002 at a step of
-# 0.001, and the refit gained 0.17 in log-likelihood). In a block of three or more terms
-# the reflection of the entries below is one way across the bound among many, and the
-# maximum can lie in another direction.
-maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4, optimizer = NULL) {
+# 0.001, and the refit gained 0.17 in log-likelihood).
+maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4, optimizer = NULL,
+                                      first_order = FALSE) {
   model <- kept$value
   if (!isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))) {
     return(NULL)
@@ -1186,7 +1212,10 @@ maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4, optim
   if (!length(cols)) {
     return(NULL)
   }
-  theta <- maihda_lme4_mirror_theta(theta, cnms, vapply(cols, `[[`, integer(1), "index"), 0.05)
+  deviance <- if (first_order && any(lengths(lapply(cols, `[[`, "below")) > 1L)) {
+    maihda_lme4_theta_deviance(model)
+  }
+  theta <- maihda_lme4_cross_start(theta, cnms, cols, 0.05, deviance)
   control <- if (is.null(fit_call$control)) {
     lme4::glmerControl()
   } else {
@@ -1232,7 +1261,21 @@ maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4, optim
 # bobyqa: from there glmer's own second stage, Nelder-Mead, left 10 of the 44 more than
 # 0.01 short (up to 0.97), bobyqa none, in a median 0.39 times the evaluations (up to 5.4
 # times with a covariate in years). A block without a slope has no such column, so an
-# intercept-only fit is never refitted.
+# intercept-only fit is never refitted. In a block of three or more terms the bound can be
+# crossed in many directions, and the reflection of the entries below is only one. On five
+# designs with such blocks (104 fits, among them a four-term block and a covariate in
+# years), 57 stopped in a column with two or more entries below, and the refit from the
+# reflection left 10 of them more than 0.01 short (up to 1.78), 5 recorded converged. Such
+# a column is therefore taken across along the direction in which the deviance falls
+# fastest at first order, to 0.9 of the length the block allows. Measured on 57 fits from
+# eight designs, 28 of them chosen as hard, that start left none more than 0.01 short but
+# one that no start reached, which the reflection left short along with 13 others, in a
+# median 0.96 times the reflection's evaluations on ordinary designs and 1.64 times on the
+# hard ones, up to 72,000 with a covariate in large units. At the full length the later terms' block starts
+# singular, and one fit, with a covariate from 10 to 100, stopped 0.86 short where the
+# reflection reached the maximum. The reflection stays for a column with one entry below,
+# where it is the other side. Growth refits keep the reflection: there the direction did
+# not help, the optimiser did.
 
 # Whether fit_maihda() makes an lme4 fit by maihda_fit_glmer_bound(): a model fitted by
 # glmer() or glmer.nb() that is not a growth model, without starting values of the user's
@@ -1243,14 +1286,15 @@ maihda_glmer_bound_applies <- function(fit_fun, longitudinal_info, dot_vals) {
 }
 
 # Fit a glmer model that is not a growth model (`fit_call`, evaluated in `fit_env`) and
-# refit it once from the other side of its boundary traps by bobyqa
+# refit it once from the other side of its boundary traps by bobyqa, a column with two or
+# more entries below taken across along the first-order direction
 # (maihda_glmer_mirror_refit()), the refit kept when its criterion is lower by more than
 # `tol`. Only the kept fit's warnings and messages are signalled. A refit that fails is
 # passed over.
 maihda_fit_glmer_bound <- function(fit_call, fit_env, tol = 1e-4) {
   kept <- maihda_eval_holding_conditions(fit_call, fit_env)
   mirrored <- tryCatch(maihda_glmer_mirror_refit(kept, fit_call, fit_env, tol,
-                                                 optimizer = "bobyqa"),
+                                                 optimizer = "bobyqa", first_order = TRUE),
                        error = function(e) NULL)
   if (!is.null(mirrored)) {
     kept <- mirrored

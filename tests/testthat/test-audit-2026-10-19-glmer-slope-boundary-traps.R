@@ -92,8 +92,9 @@ test_that("fit_maihda() sends every glmer fit outside growth models through the 
 test_that("a fit is refitted once across a bound, and the refit kept only when it is returned", {
   across <- NULL
   local_mocked_bindings(
-    maihda_glmer_mirror_refit = function(kept, fit_call, fit_env, tol = 1e-4, optimizer = NULL) {
-      across <<- list(kept$value$crit, tol, optimizer)
+    maihda_glmer_mirror_refit = function(kept, fit_call, fit_env, tol = 1e-4, optimizer = NULL,
+                                         first_order = FALSE) {
+      across <<- list(kept$value$crit, tol, optimizer, first_order)
       if (kept$value$crit > 9) list(value = list(crit = 6), conditions = list(simpleMessage("across\n"))) else NULL
     }
   )
@@ -103,10 +104,11 @@ test_that("a fit is refitted once across a bound, and the refit kept only when i
     warning("first fit warns")
     list(crit = crit)
   }
-  # The refit is made from the first fit, by bobyqa with the tolerance given, and speaks
+  # The refit is made from the first fit, by bobyqa with the tolerance given, a column
+  # followed by two or more terms taken across along the first-order direction, and speaks
   # alone.
   h <- heard(maihda_fit_glmer_bound(quote(fake_fit(10)), env, tol = 0.5))
-  expect_identical(across, list(10, 0.5, "bobyqa"))
+  expect_identical(across, list(10, 0.5, "bobyqa", TRUE))
   expect_identical(h$value$crit, 6)
   expect_identical(h$seen, "across\n")
   expect_identical(formals(maihda_fit_glmer_bound)$tol, 1e-4)
@@ -132,7 +134,8 @@ test_that("the record's sentence names the terms of a block outside growth model
     paste0("The intercept variance of the 'stratum' block is at zero, where the likelihood ",
            "still rises with the sign of its covariance with x reversed", tail))
   expect_match(maihda_lme4_trap_message("stratum", "(Intercept)", 3L, c("(Intercept)", "x", "z")),
-               "rises with the signs of its covariances with x and z reversed:", fixed = TRUE)
+               "rises when that variance and its covariances with x and z move off zero:",
+               fixed = TRUE)
   # A later column at its bound: what is left of its variance after the terms before it.
   expect_identical(
     maihda_lme4_trap_message("stratum", "x", 3L, c("(Intercept)", "x", "z")),

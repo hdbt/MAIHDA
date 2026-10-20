@@ -37,13 +37,13 @@ with \code{nAGQ} of 1 or more, a model with a random slope is refitted once when
 its fit stops with the variance of a block's first term, usually its intercept,
 at zero (in a block of three or more terms, also what is left of a later term's
 variance after the terms before it): glmer's first stage can leave it there,
-where the likelihood can still rise with the signs of that term's covariances
-with the later terms reversed, and its second stage stops there too. The refit
-starts from the other side of that bound, those signs reversed, and is made by
-glmer's second stage with the \code{bobyqa} optimiser; it replaces the fit when
-its -2 log-likelihood is lower by more than 1e-4. In a block of three or more
-terms the likelihood can also rise across the bound in other directions, which
-neither the refit nor the convergence record (see Value) tries.
+where the likelihood can still rise as that variance and the term's covariances
+with the later terms move off zero, and its second stage stops there too. The
+refit starts from the other side of that bound: with one later term, the sign of
+their covariance reversed; with two or more, along the direction in which the
+likelihood rises fastest. It is made by glmer's second stage with the
+\code{bobyqa} optimiser and replaces the fit when its -2 log-likelihood is lower
+by more than 1e-4.
 Fitted by \code{lmer()} outside a longitudinal model, a model with a random
 slope is refitted from the other side of such a bound when lmer's fit stops at
 one, and from a start carried back from the same model with the columns of its
@@ -392,9 +392,9 @@ A maihda_model object containing:
     its intercept, at zero (or, in a block of three or more terms, what is left of
     a later term's variance after the terms before it, such as a quadratic growth
     block's slope perfectly correlated with its intercept), where the likelihood
-    still rises with the signs of that term's covariances with the later terms
-    reversed, has stopped at a bound of lme4's parametrisation and counts as not
-    converged; those blocks are in \code{boundary_traps}. An lme4 fit also
+    still rises as that variance and the term's covariances with the later terms
+    move off zero, has stopped at a bound of lme4's parametrisation and counts as
+    not converged; those blocks are in \code{boundary_traps}. An lme4 fit also
     carries likelihood-adequacy caveats -- count overdispersion and zero
     inflation, stratum random-effect non-normality and longitudinal residual
     autocorrelation -- reported only when a conservative threshold is crossed,
