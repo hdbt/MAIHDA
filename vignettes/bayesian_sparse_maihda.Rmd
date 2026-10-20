@@ -72,26 +72,33 @@ m_b <- maihda(event ~ 1 + (1 | gender:ethnicity:education:age_group),
 
 c(gaussian = m_g$decomposition$interaction_share,
   binary   = m_b$decomposition$interaction_share)
-c(gaussian_singular = isTRUE(m_g$model$diagnostics$singular),
-  binary_singular   = isTRUE(m_b$model$diagnostics$singular))
+# The variance of each dimension and of the interaction
+round(rbind(
+  gaussian = c(m_g$decomposition$per_dim, interaction = m_g$decomposition$interaction_var),
+  binary   = c(m_b$decomposition$per_dim, interaction = m_b$decomposition$interaction_var)
+), 3)
 ```
 
-Both fits are singular: maximum likelihood has placed a dimension's variance at zero
+In both fits maximum likelihood has placed a dimension's variance at zero
 (gender's in the Gaussian fit; gender's and ethnicity's in the binary one), and the
 interaction variance is positive in both. The interaction share is understated all
 the same, at `r pct(pc$lme4$gaussian$share)` for the Gaussian outcome and
 `r pct(pc$lme4$binary$share)` for the binary one --
 against a true 40%, the binary fit reports a substantial interaction as effectively
-absent. Crucially, neither estimate carries an interval. The estimate is not only biased
-but reported with unwarranted precision, because the model has no way to express how
-little the sparse cells determine.
+absent. Neither estimate comes with an interval in this output. Asked for one
+(`bootstrap = TRUE`), `maihda()` simulates outcomes from the fitted model and refits it;
+the interval for the interaction share then runs from 0% to about 90% on the Gaussian
+outcome and over the whole range on the binary one. The sparse cells barely constrain
+the split. The draws are simulated from the fit itself, so none of them has a gender
+effect.
 
 ## What brms adds: posterior uncertainty
 
 Refitting with `engine = "brms"` and a weakly-informative prior on the random-effect
-standard deviations changes the output in one important respect. The prior regularises
-the between-stratum standard deviations away from the boundary (so the fit is not
-singular) and the posterior yields a credible interval in place of a single number.
+standard deviations changes the output in one important respect: the posterior yields a
+credible interval in place of a single number. No standard deviation is reported at
+zero, since each is a posterior median, which is above zero whatever the prior; the
+`normal(0, 0.5)` prior has its mode at zero and pulls the standard deviations toward it.
 The call is shown but not evaluated here (`brms` requires Stan and several minutes; see
 the note on precomputation below).
 
@@ -127,7 +134,7 @@ The posterior point remains low: the interaction is weakly identified at this
 density, so `brms` does not recover the 40% either, and we should not expect it to.
 The credible interval, however, runs from near zero to past the true value, reflecting
 posterior uncertainty about the interaction share. This is the substantive difference.
-Maximum likelihood reported a singular point as if it were certain; `brms` reports an
+Maximum likelihood's default output is a single point; `brms` reports an
 interval that includes the true share in this simulation and makes the uncertainty
 explicit. The diagnostics (`max_rhat` close to 1, no divergent transitions) suggest
 the posterior is well-sampled.
@@ -168,8 +175,8 @@ ggplot(fig, aes(method, share, colour = method)) +
 
 Both point estimates fall below the true value; neither engine can locate an interaction
 the sparse data do not pin down. They differ in what is reported alongside the point. The
-`brms` credible interval spans the true 40%, whereas `lme4` provides a single value with
-no uncertainty. Reading the `lme4` point at face value (an interaction of roughly
+`brms` credible interval spans the true 40%, whereas `lme4` reports a single value unless
+it is bootstrapped. Reading the `lme4` point at face value (an interaction of roughly
 3--23%) is the error the singular fit invites.
 
 ## Why the interval, not the point, is what changes
@@ -177,8 +184,8 @@ no uncertainty. Reading the `lme4` point at face value (an interaction of roughl
 The per-stratum effects (the stratum random intercepts) are similar under the two
 engines as both apply partial pooling, shrinking thinly-estimated strata toward the
 additive prediction. What differs is the treatment of uncertainty. Maximum likelihood
-commits to a single variance decomposition and, at the boundary, reports it without a
-standard error. `brms` propagates the full posterior, so the interaction share is
+commits to a single variance decomposition and gives no interval for it unless one is
+bootstrapped from that decomposition. `brms` propagates the full posterior, so the interaction share is
 accompanied by an interval whose width reflects how little the sparse cells constrain it. Summarising
 the posterior by its point discards exactly the information that matters: the degree of
 uncertainty. When intersectional cells are sparse,

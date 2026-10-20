@@ -98,6 +98,7 @@
 * The sparse-intersections vignette no longer says that its `lme4` fits put the interaction variance at the boundary: they put a dimension's variance at zero (two in the binary fit), and the interaction variance is positive in both.
 * `?pcv_importance` no longer calls the exact methods deterministic: the `bootstrap = TRUE` intervals and `engine = "brms"` fits are random draws and need `set.seed()`.
 * `?maihda_sparse_data` no longer drops the text after each `%` or shows Markdown markup, and no longer says the vignette recovers the true interaction share.
+* The sparse-intersections vignette no longer says that `lme4` cannot give the shares an interval (`bootstrap = TRUE` gives one) or that the brms prior keeps the standard deviations off zero, and it prints the fits' variances instead of their singular flags.
 
 ## Performance
 

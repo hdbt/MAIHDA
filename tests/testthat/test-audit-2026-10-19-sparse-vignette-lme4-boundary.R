@@ -68,7 +68,7 @@ test_that("the sparse vignette says which variance the lme4 fits put at zero", {
     expect_false(grepl(old, v, fixed = TRUE), info = old)
   }
   expect_true(grepl(paste0(
-    "Both fits are singular: maximum likelihood has placed a dimension's variance at ",
+    "In both fits maximum likelihood has placed a dimension's variance at ",
     "zero (gender's in the Gaussian fit; gender's and ethnicity's in the binary one), ",
     "and the interaction variance is positive in both."), v, fixed = TRUE))
   expect_true(grepl("The interaction share is understated all the same", v, fixed = TRUE))
