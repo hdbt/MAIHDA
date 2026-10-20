@@ -193,7 +193,7 @@ test_that("the growth fitters take a draw's refit as their first fit", {
     maihda_growth_restart_starts = function(theta, cnms, id, scale = 0.5) list(c(a = 0.5), c(a = 2)),
     maihda_glmer_criterion = function(model) model$crit,
     maihda_lmer_criterion = function(model) model$crit,
-    maihda_glmer_mirror_refit = function(kept, fit_call, fit_env, tol = 1e-4) NULL)
+    maihda_glmer_mirror_refit = function(kept, fit_call, fit_env, tol = 1e-4, optimizer = NULL) NULL)
   # glmer: only the two restarts are fitted; a lower restart replaces the refit, and only the
   # kept fit speaks.
   env <- fake_fits(list("0.5" = 9.5, "2" = 8))

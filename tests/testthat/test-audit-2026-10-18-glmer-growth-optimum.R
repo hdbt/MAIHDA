@@ -166,7 +166,7 @@ test_that("the fit with the lowest criterion is kept, and only it speaks", {
   local_mocked_bindings(
     maihda_glmer_growth_starts = function(theta, cnms, id, scale = 0.5) list(c(a = 0.5), c(a = 2)),
     maihda_glmer_criterion = function(model) model$crit,
-    maihda_glmer_mirror_refit = function(kept, fit_call, fit_env, tol = 1e-4) NULL
+    maihda_glmer_mirror_refit = function(kept, fit_call, fit_env, tol = 1e-4, optimizer = NULL) NULL
   )
   env <- fake_fits(10, list("0.5" = 9.5, "2" = 8))
   h <- heard(maihda_fit_glmer_growth(quote(fake_fit()), env, id = "pid"))
@@ -201,10 +201,11 @@ test_that("the kept fit is refitted across a bound, and the refit kept only when
   local_mocked_bindings(
     maihda_glmer_growth_starts = function(theta, cnms, id, scale = 0.5) list(c(a = 0.5), c(a = 2)),
     maihda_glmer_criterion = function(model) model$crit,
-    maihda_glmer_mirror_refit = function(kept, fit_call, fit_env, tol = 1e-4) {
+    maihda_glmer_mirror_refit = function(kept, fit_call, fit_env, tol = 1e-4, optimizer = NULL) {
       across <<- kept$value$crit
       if (kept$value$crit < 9) list(value = list(crit = 6), conditions = list(simpleMessage("across\n"))) else NULL
-    }
+    },
+    maihda_glmer_refit_pass = function(refit, fit_call, fit_env, tol = 1e-4) NULL
   )
   # The step is taken from the fit the restarts kept, and its refit speaks alone.
   env <- fake_fits(10, list("0.5" = 9.5, "2" = 8))
@@ -277,18 +278,47 @@ test_that("a glmer growth fit reaches the maximum in every unit of time", {
   expect_equal(vpc$days, vpc$waves, tolerance = 1e-3)
 })
 
-test_that("a fit the restarts leave at a stratum bound is refitted from across it", {
+test_that("a fit kept at a stratum bound is refitted from across it", {
   skip_on_cran()
-  # Seed 30 in weeks: both restarts leave the stratum intercept SD at 0, 0.174 below the
-  # maximum of -1021.05075. They tie to 4e-7, and for the one kept here a step of 0.001
-  # across the bound raises the deviance; the refit from across the bound reaches the
-  # maximum whichever is kept. With other arithmetic (another platform, or the rows in
-  # another order) the first fit or a restart often reaches the maximum itself. At the
-  # maximum the stratum intercept and slope are perfectly correlated, and the likelihood is
-  # flat there: a correlation of -0.98 is 0.008 below it. lme4 also reports a glmer fit's
-  # log-likelihood up to 0.004 below its value at the estimates, as its PIRLS stops early.
-  # So the fit is held to 0.02 of the maximum, against the 0.174 of a fit left at the bound.
+  # Seed 30 in weeks: lme4's restarts can stop with the stratum intercept SD at 0, at the
+  # point below, 0.173 under the maximum of -1021.05075. With the rows in most other orders,
+  # or other arithmetic, the first fit or a restart reaches the maximum itself, and a first
+  # fit started at that point can stop beside the bound instead. So the first fit is placed
+  # at the point, by an optimiser that returns its start, and not restarted: the fit kept for
+  # the refit is at the bound on every platform. At the maximum the stratum intercept and
+  # slope are perfectly correlated and the likelihood is flat there: a correlation of -0.98
+  # is 0.008 below it. lme4 also reports a glmer fit's log-likelihood up to 0.004 below its
+  # value at the estimates, as its PIRLS stops early. So the fit is held to 0.02 of the
+  # maximum, against the 0.173 of the fit at the bound.
+  at_bound <- list(theta = c(0.412581, -0.030526, 0.139232, 0, 0.055931, 0.051393),
+                   fixef = c(0.420019, 0.090793))
+  stay <- function(par, fn, lower, upper, control = list(), ...) {
+    list(par = par, fval = fn(par), conv = 0, message = "the start", feval = 1)
+  }
+  kept <- NULL
+  real_growth <- maihda_fit_glmer_growth
+  real_refit <- maihda_glmer_mirror_refit
+  local_mocked_bindings(
+    maihda_glmer_growth_starts = function(...) list(),
+    maihda_fit_glmer_growth = function(fit_call, fit_env, id, ...) {
+      first_call <- fit_call
+      first_call$start <- at_bound
+      first_call$control <- lme4::glmerControl(optimizer = list(stay, stay), nAGQ0initStep = FALSE)
+      real_growth(fit_call, fit_env, id, first = maihda_eval_holding_conditions(first_call, fit_env), ...)
+    },
+    maihda_glmer_mirror_refit = function(kept_fit, ...) {
+      kept <<- kept_fit$value
+      real_refit(kept_fit, ...)
+    }
+  )
   m <- poisson_growth(growth_design(30, 7))
+  # The premise: the fit kept for the refit is that point, at the stratum bound.
+  th <- lme4::getME(kept, "theta")
+  expect_identical(unname(th), at_bound$theta)
+  expect_identical(vapply(maihda_lme4_trap_columns(th, lme4::getME(kept, "cnms")), `[[`,
+                          character(1), "block"), "stratum")
+  expect_lt(as.numeric(stats::logLik(kept)), -1021.05075 - 0.1)
+  # The refit from across the bound reaches the maximum.
   expect_lt(abs(as.numeric(stats::logLik(m$model)) - (-1021.05075)), 0.02)
   expect_gt(lme4::getME(m$model, "theta")[["stratum.(Intercept)"]], 0.01)
   expect_true(m$diagnostics$converged)
