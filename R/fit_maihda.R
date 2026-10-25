@@ -29,14 +29,20 @@
 #'   by more than 1e-4.
 #'   Fitted by \code{lmer()} outside a longitudinal model, a model with a random
 #'   slope is refitted from the other side of such a bound when lmer's fit stops at
-#'   one, and from a start carried back from the same model with the columns of its
-#'   random-effect terms, other than an intercept, divided by their standard deviations
-#'   and, where every random-effect term holding one has an intercept, centred at their
-#'   means. Besides stopping at the bound, lmer can stop short of the optimum when a
-#'   slope covariate is far from zero or in large units, such as age in years or a
-#'   calendar year. A refit replaces lmer's fit when its REML criterion (deviance for a
-#'   maximum-likelihood fit) is lower by more than 1e-4, the lowest of them kept; this
-#'   takes about three times as long as one fit.
+#'   one, and from a start carried back from the same model with each random-effect
+#'   block's terms, other than an intercept, centred at their means and divided by their
+#'   standard deviations in a block with an intercept, and divided by their root mean
+#'   squares in a block without one, such as \code{(0 + x | ctx)} or the slope of
+#'   \code{(1 + x || stratum)}. Besides stopping at the bound, lmer can stop short of
+#'   the optimum when a slope covariate is far from zero or in large units, such as age
+#'   in years or a calendar year, and where what is left of the variance of a block's
+#'   last term after the terms before it is zero while the criterion still falls as that
+#'   variance moves off zero; the fit kept and lmer's own fit are then refitted once
+#'   more from that variance moved to the lowest criterion along it. A refit replaces
+#'   lmer's fit when its REML criterion (deviance for a maximum-likelihood fit) is lower
+#'   by more than 1e-4, the lowest of them kept; this takes about four times as long as
+#'   one fit, and up to about nine times where lmer's own fit stops with a variance at
+#'   zero.
 #'   Pass \code{start} through \code{...} to fit from your own starting values only.
 #' @param data A data frame containing the variables in the formula.
 #' @param engine Character string specifying which engine to use: "lme4"
@@ -363,7 +369,15 @@
 #'     block's slope perfectly correlated with its intercept), where the likelihood
 #'     still rises as that variance and the term's covariances with the later terms
 #'     move off zero, has stopped at a bound of lme4's parametrisation and counts as
-#'     not converged; those blocks are in \code{boundary_traps}. An lme4 fit also
+#'     not converged; those blocks are in \code{boundary_traps}. An lmer fit outside a
+#'     longitudinal model that lme4 calls singular, which lme4 does not check further,
+#'     counts as not converged when a search of the same model, from lme4's starting
+#'     values with each random-effect block's terms centred and scaled and from a
+#'     variance at zero moved off it, reaches a REML criterion (deviance for a
+#'     maximum-likelihood fit) 0.01 or more below the fit's; that amount is
+#'     \code{search_gain}. A fit refitted as described under \code{formula} has been
+#'     through those searches already, so this concerns a fit made from your own
+#'     \code{start} or one without a random slope. An lme4 fit also
 #'     carries likelihood-adequacy caveats -- count overdispersion and zero
 #'     inflation, stratum random-effect non-normality and longitudinal residual
 #'     autocorrelation -- reported only when a conservative threshold is crossed,
@@ -1006,6 +1020,9 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # longer depends on the (now recoded) response. The formula's environment is
   # pointed at this env so that lme4/brms, which evaluate `weights`/`subset` against
   # the formula's environment, find the bound values (and the `data` symbol).
+  # TRUE once maihda_fit_lmer_slopes() has made the fit from its searches, which
+  # maihda_fit_diagnostics() otherwise runs on a singular lmer fit.
+  lmer_searched <- FALSE
   if (engine == "wemix") {
     # Design-weighted pseudo-ML fit. The guard above bans data-masked engine
     # arguments (weights/subset/offset) for wemix, so the remaining dots are plain
@@ -1199,9 +1216,10 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       # random-effect block with a slope can stop at (see maihda_fit_glmer_bound()).
       maihda_fit_glmer_bound(fit_call, fit_env)
     } else if (maihda_lmer_slopes_apply(fit_fun, longitudinal_info, dot_vals, formula)) {
-      # An lmer fit with a random slope is refitted from across such a bound and from a
-      # start carried back from its random-effect terms centred and scaled (see
-      # maihda_fit_lmer_slopes()).
+      # An lmer fit with a random slope is refitted from across such a bound, from a start
+      # carried back from its random-effect blocks' terms centred and scaled, and from a
+      # variance at zero where the criterion falls off zero (see maihda_fit_lmer_slopes()).
+      lmer_searched <- TRUE
       maihda_fit_lmer_slopes(fit_call, fit_env)
     } else {
       eval(fit_call, fit_env)
@@ -1214,7 +1232,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # adequacy caveats so they can be reported by print()/summary(); lme4 surfaces the
   # convergence warnings only once at fit time. longitudinal_info (id / time) lets the
   # adequacy pass compute within-unit residual autocorrelation.
-  diagnostics <- maihda_fit_diagnostics(model, longitudinal_info)
+  diagnostics <- maihda_fit_diagnostics(model, longitudinal_info, searched = lmer_searched)
 
   # Store the actual analytic model frame so downstream calculations use the
   # same rows as lme4/brms after their NA handling. The wemix and ordinal paths

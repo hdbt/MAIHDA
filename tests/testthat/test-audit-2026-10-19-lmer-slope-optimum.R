@@ -112,42 +112,20 @@ test_that("fit_maihda() sends lmer fits with a random slope through the refit, a
 
 # ---- the standardised spelling ------------------------------------------------------------
 
-test_that("random-effect terms are scaled, and centred where every block holding them has an intercept", {
-  x <- c(1, 2, 4, 8, 16, 32)
-  w <- c(10, 20, 30, 40, 50, 70)
-  fb <- c(0, 1, 0, 1, 0, 1)
-  values <- list(stratum = cbind(`(Intercept)` = 1, x = x), school = cbind(w = w),
-                 other = cbind(`(Intercept)` = 1, fb = fb, k = 5))
-  cnms <- lapply(values, colnames)
-  s <- maihda_lmer_term_scales(values, cnms)
-  # w sits in a block without an intercept, so it is only scaled; a constant term is left out.
-  expect_equal(s$centre, c(x = mean(x), w = 0, fb = 0.5))
-  expect_equal(s$scale, c(x = stats::sd(x), w = stats::sd(w), fb = stats::sd(fb)))
-  # A term in a block without an intercept as well is only scaled.
-  both <- list(a = cbind(`(Intercept)` = 1, x = x), g = cbind(x = x))
-  expect_identical(maihda_lmer_term_scales(both, lapply(both, colnames))$centre, c(x = 0))
-  # Nothing to standardise, or values that do not match the blocks.
-  expect_null(maihda_lmer_term_scales(list(cbind(`(Intercept)` = rep(1, 4))), list(stratum = "(Intercept)")))
-  expect_null(maihda_lmer_term_scales(list(cbind(`(Intercept)` = 1, z = 1:4)),
-                                      list(stratum = c("(Intercept)", "x"))))
-  expect_null(maihda_lmer_term_scales(values[1:2], cnms))
-  # Missing values do not enter the mean or the SD.
-  values$stratum[2, "x"] <- NA
-  s3 <- maihda_lmer_term_scales(values, cnms)
-  expect_equal(s3$centre[["x"]], mean(x[-2]))
-  expect_equal(s3$scale[["x"]], stats::sd(x[-2]))
-})
-
 test_that("the theta carried back gives every observation the random-effect variance it had", {
   # A block (Intercept), x, w fitted on z = (x - 49) / 18 and v = (w - 2) / 3, and an
-  # intercept-only block, which is unchanged.
+  # intercept-only block, which is unchanged: b = T a for the random effects b on the columns as
+  # given and a on z and v.
   L <- matrix(0, 3, 3)
   L[lower.tri(L, diag = TRUE)] <- c(0.5, 0.2, -0.1, 0.3, 0.05, 0.2)
   cnms <- list(stratum = c("(Intercept)", "x", "w"), school = "(Intercept)")
   theta_z <- c(L[lower.tri(L, diag = TRUE)], 0.7)
   centre <- c(x = 49, w = 2)
   scale <- c(x = 18, w = 3)
-  back <- maihda_lmer_unstandardise_theta(theta_z, cnms, centre, scale)
+  Tm <- diag(c(1, 1 / scale))
+  Tm[1, 2:3] <- -centre / scale
+  Ts <- list(Tm, diag(1, 1))
+  back <- maihda_lmer_transform_theta(theta_z, cnms, Ts)
   Lx <- matrix(0, 3, 3)
   Lx[lower.tri(Lx, diag = TRUE)] <- back[1:6]
   expect_true(all(diag(Lx) >= 0))
@@ -156,16 +134,16 @@ test_that("the theta carried back gives every observation the random-effect vari
     zrow <- c(1, (p - centre) / scale)
     expect_equal(drop(xrow %*% tcrossprod(Lx) %*% xrow), drop(zrow %*% tcrossprod(L) %*% zrow))
   }
-  expect_identical(back[7], 0.7)
+  expect_equal(back[7], 0.7)
   # A rank-1 block (correlation -1) stays rank 1.
-  r1 <- maihda_lmer_unstandardise_theta(c(0.4, -0.2, 0), list(stratum = c("(Intercept)", "x")),
-                                        c(x = 49), c(x = 18))
+  r1 <- maihda_lmer_transform_theta(c(0.4, -0.2, 0), list(stratum = c("(Intercept)", "x")),
+                                    list(matrix(c(1, 0, -49 / 18, 1 / 18), 2)))
   expect_lt(abs(r1[3]), 1e-8)
   expect_equal(drop(c(1, 80) %*% tcrossprod(matrix(c(r1[1], r1[2], 0, r1[3]), 2)) %*% c(1, 80)),
                (0.4 - 0.2 * (80 - 49) / 18)^2)
   # A block without an intercept is only rescaled; a theta of another layout gives NULL.
-  expect_equal(maihda_lmer_unstandardise_theta(0.6, list(g = "x"), c(x = 0), c(x = 2)), 0.3)
-  expect_null(maihda_lmer_unstandardise_theta(c(0.1, 0.2), cnms, centre, scale))
+  expect_equal(maihda_lmer_transform_theta(0.6, list(g = "x"), list(matrix(1 / 2))), 0.3)
+  expect_null(maihda_lmer_transform_theta(c(0.1, 0.2), cnms, Ts))
 })
 
 # ---- the refit, with stand-in fits --------------------------------------------------------
@@ -257,8 +235,8 @@ test_that("the standardised minimum is taken across its bound only when that is 
   skip_on_cran()
   first <- quiet(lme4::lmer(adjusted, data = slope_data(3)))
   cnms <- lme4::getME(first, "cnms")
-  std <- maihda_lmer_term_scales(lme4::getME(first, "mmList"), cnms)
-  carry <- function(th) maihda_lmer_unstandardise_theta(th, cnms, std$centre, std$scale)
+  Ts <- maihda_lmer_block_scales(lme4::getME(first, "mmList"), cnms)
+  carry <- function(th) maihda_lmer_transform_theta(th, cnms, Ts)
   # A stand-in optimiser: its first minimum stops at the bound, its second, from across the
   # bound, is `across`.
   calls <- list()

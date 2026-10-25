@@ -725,13 +725,58 @@ maihda_lmer_transform_theta <- function(theta, cnms, Ts) {
   theta
 }
 
+# An lmer fit outside a growth model that lme4 calls singular, which lme4 takes no convergence
+# check on, counts as not converged when a search of the same model reaches a criterion this far
+# below its own (maihda_lmer_search_gain()): 0.01 in the REML criterion (the deviance for a fit
+# by maximum likelihood) is what a fit 0.1 standard errors from the optimum is short of it
+# (.maihda_lme4_stationary_within).
+.maihda_lmer_search_within <- 0.01
+
+# How far below the criterion of the lmer fit `model` (its REML criterion; the deviance for a
+# fit by maximum likelihood) the searches that maihda_fit_lmer_slopes() refits from reach: from
+# lme4's starting values with each random-effect block's terms re-expressed
+# (maihda_lmer_standardised_start()), and from a variance at zero where the criterion falls as
+# it moves off zero (maihda_lmer_zero_column_start()), each end evaluated by the fit's own
+# deviance function. No search ends below the optimum, so the value is at most what the fit is
+# short of it, and 0 or less where the searches reach nothing lower. NA when neither search can
+# be made.
+maihda_lmer_search_gain <- function(model) {
+  ends <- c(tryCatch(maihda_lmer_standardised_start(model), error = function(e) list()),
+            tryCatch(maihda_lmer_zero_column_start(model), error = function(e) list()))
+  deviance <- if (length(ends)) maihda_lme4_theta_deviance(model)
+  if (is.null(deviance)) {
+    return(NA_real_)
+  }
+  reached <- vapply(ends, deviance, numeric(1))
+  if (!any(is.finite(reached))) {
+    return(NA_real_)
+  }
+  deviance(lme4::getME(model, "theta")) - min(reached, na.rm = TRUE)
+}
+
+# The record's sentence for the lmer fit `model`, which lme4 calls singular and which a search
+# reaches `gain` below (maihda_lmer_search_gain()).
+maihda_lmer_search_message <- function(model, gain) {
+  what <- if (isFALSE(tryCatch(lme4::isREML(model), error = function(e) TRUE))) {
+    "deviance"
+  } else {
+    "REML criterion"
+  }
+  sprintf(paste0("lme4 runs no convergence check on a singular fit, and a search of the same ",
+                 "model with each random-effect block's terms centred and scaled reaches a %s %s ",
+                 "lower: the fit stopped short of the optimum."), what,
+          trimws(formatC(signif(gain, 2), format = "fg", digits = 2)))
+}
+
 # Capture fit-quality diagnostics (singular fit, non-convergence) so they can be
 # surfaced on demand. lme4 returns singular fits silently and only warns about
 # convergence once, at fit time, so we re-read both from the fitted object for
 # reporting in print()/summary(). A brmsfit is never recorded as singular; its
 # `converged` is FALSE for a largest Rhat above 1.01 or a divergent transition, TRUE
-# for a finite Rhat with neither, and NA when Rhat cannot be read.
-maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
+# for a finite Rhat with neither, and NA when Rhat cannot be read. `searched`: the lmer fit
+# was kept by maihda_fit_lmer_slopes(), which refits from the searches a singular fit is
+# otherwise checked by.
+maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = FALSE) {
   diagnostics <- list(
     engine = NA_character_,
     singular = NA,
@@ -846,6 +891,20 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL) {
         diagnostics$messages <- c(diagnostics$messages,
                                   unlist(Map(maihda_lme4_trap_message, traps$block, traps$term,
                                              traps$n_terms, terms), use.names = FALSE))
+      }
+    }
+    # lme4 takes no convergence check on a fit it calls singular. Such an lmer fit outside a
+    # growth model, not found short above, is searched (maihda_lmer_search_gain()) unless
+    # fit_maihda() kept it from refits from the same searches (`searched`): a search that
+    # reaches .maihda_lmer_search_within below it shows that it stopped short of the optimum.
+    if (inherits(model, "lmerMod") && is.null(longitudinal_info) && !isTRUE(searched) &&
+        isTRUE(diagnostics$converged) &&
+        isTRUE(tryCatch(lme4::isSingular(model), error = function(e) FALSE))) {
+      gain <- tryCatch(maihda_lmer_search_gain(model), error = function(e) NA_real_)
+      if (is.finite(gain) && gain >= .maihda_lmer_search_within) {
+        diagnostics$converged <- FALSE
+        diagnostics$search_gain <- gain
+        diagnostics$messages <- c(diagnostics$messages, maihda_lmer_search_message(model, gain))
       }
     }
   } else if (inherits(model, "WeMixResults")) {
@@ -1604,9 +1663,10 @@ maihda_format_fit_diagnostics <- function(diagnostics,
         out <- c(out, paste0("  The between-stratum variance and any VPC/PCV derived ",
                              "from it may be unreliable."))
       } else if (isFALSE(diagnostics$stratum_singular) &&
-                 NROW(diagnostics$boundary_traps) == 0) {
-        # Not said of a fit stopped at a boundary trap: that fit is not at the maximum, so
-        # every variance in it can be off, the between-stratum one included.
+                 NROW(diagnostics$boundary_traps) == 0 && is.null(diagnostics$search_gain)) {
+        # Not said of a fit stopped at a boundary trap or found short by a search: that fit is
+        # not at the maximum, so every variance in it can be off, the between-stratum one
+        # included.
         out <- c(out, paste0("  The 'stratum' block is NOT at the boundary, so the ",
                              "between-stratum variance and"),
                  "  the VPC/PCV are unaffected by this.")
@@ -1626,8 +1686,8 @@ maihda_format_fit_diagnostics <- function(diagnostics,
       as.character(diagnostics$engine),
       brms = "MCMC convergence diagnostics (brms):",
       ordinal = "Convergence problems of the ordinal::clmm fit:",
-      # A boundary trap is the package's finding, not one of lme4's warnings.
-      lme4 = if (NROW(diagnostics$boundary_traps) > 0) {
+      # A boundary trap or a search's finding is the package's, not one of lme4's warnings.
+      lme4 = if (NROW(diagnostics$boundary_traps) > 0 || !is.null(diagnostics$search_gain)) {
         "Convergence problems of the lme4 fit:"
       } else {
         "Convergence warnings reported by lme4:"
