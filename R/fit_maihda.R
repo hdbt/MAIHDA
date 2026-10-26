@@ -27,6 +27,16 @@
 #'   likelihood rises fastest. It is made by glmer's second stage with the
 #'   \code{bobyqa} optimiser and replaces the fit when its -2 log-likelihood is lower
 #'   by more than 1e-4.
+#'   Such a model is then searched with each random-effect block's terms re-expressed
+#'   as described for \code{lmer()} below and the fixed effects as the coefficients of
+#'   centred and scaled columns, from lme4's starting values of the variance parameters
+#'   with the fit's fixed effects and from the fit's own estimates, and refitted from the
+#'   lower end by glmer's second stage with \code{bobyqa} when its -2 log-likelihood is
+#'   lower by more than 1e-4: with a slope covariate far from zero or in large units,
+#'   such as a birth or calendar year, glmer's own second stage cannot resolve the
+#'   slope's variance and can stop short of the maximum, often with what is left of that
+#'   variance at zero, where lme4 calls the fit singular. Fitting then takes about one
+#'   and a half times as long, and up to about four times.
 #'   Fitted by \code{lmer()} outside a longitudinal model, a model with a random
 #'   slope is refitted from the other side of such a bound when lmer's fit stops at
 #'   one, and from a start carried back from the same model with each random-effect
@@ -399,7 +409,9 @@
 #'     \code{cs()} or \code{ar1()} block, that lme4 calls singular
 #'     is searched from the fit with its random-effect terms and fixed effects centred
 #'     and scaled, and counts as not converged when the search reaches a deviance 0.01
-#'     or more below the fit's (\code{search_gain}). An lme4 fit also
+#'     or more below the fit's (\code{search_gain}); such a fit refitted as described
+#'     under \code{formula} has been through such searches already and is not searched
+#'     again. An lme4 fit also
 #'     carries likelihood-adequacy caveats -- count overdispersion and zero
 #'     inflation, stratum random-effect non-normality and longitudinal residual
 #'     autocorrelation -- reported only when a conservative threshold is crossed,
@@ -1042,9 +1054,10 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # longer depends on the (now recoded) response. The formula's environment is
   # pointed at this env so that lme4/brms, which evaluate `weights`/`subset` against
   # the formula's environment, find the bound values (and the `data` symbol).
-  # TRUE once maihda_fit_lmer_slopes() has made the fit from its searches, which
-  # maihda_fit_diagnostics() otherwise runs on a singular lmer fit.
-  lmer_searched <- FALSE
+  # TRUE once maihda_fit_lmer_slopes(), or maihda_fit_glmer_bound() for a model with a
+  # random slope, has made the fit from its searches, which maihda_fit_diagnostics()
+  # otherwise runs on such a fit when lme4 calls it singular.
+  searched <- FALSE
   if (engine == "wemix") {
     # Design-weighted pseudo-ML fit. The guard above bans data-masked engine
     # arguments (weights/subset/offset) for wemix, so the remaining dots are plain
@@ -1235,13 +1248,17 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       maihda_fit_glmer_growth(fit_call, fit_env, longitudinal_info$id)
     } else if (maihda_glmer_bound_applies(fit_fun, longitudinal_info, dot_vals)) {
       # Any other glmer fit is refitted once from across such a bound, which only a
-      # random-effect block with a slope can stop at (see maihda_fit_glmer_bound()).
-      maihda_fit_glmer_bound(fit_call, fit_env)
+      # random-effect block with a slope can stop at, and a fit with a slope from searches
+      # with its random effects and fixed effects re-expressed (see
+      # maihda_fit_glmer_bound()).
+      bound_fit <- maihda_fit_glmer_bound(fit_call, fit_env)
+      searched <- isTRUE(tryCatch(maihda_lme4_has_slope(bound_fit), error = function(e) FALSE))
+      bound_fit
     } else if (maihda_lmer_slopes_apply(fit_fun, longitudinal_info, dot_vals, formula)) {
       # An lmer fit with a random slope is refitted from across such a bound, from a start
       # carried back from its random-effect blocks' terms centred and scaled, and from a
       # variance at zero where the criterion falls off zero (see maihda_fit_lmer_slopes()).
-      lmer_searched <- TRUE
+      searched <- TRUE
       maihda_fit_lmer_slopes(fit_call, fit_env)
     } else {
       eval(fit_call, fit_env)
@@ -1254,7 +1271,7 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # adequacy caveats so they can be reported by print()/summary(); lme4 surfaces the
   # convergence warnings only once at fit time. longitudinal_info (id / time) lets the
   # adequacy pass compute within-unit residual autocorrelation.
-  diagnostics <- maihda_fit_diagnostics(model, longitudinal_info, searched = lmer_searched)
+  diagnostics <- maihda_fit_diagnostics(model, longitudinal_info, searched = searched)
 
   # Store the actual analytic model frame so downstream calculations use the
   # same rows as lme4/brms after their NA handling. The wemix and ordinal paths

@@ -44,6 +44,16 @@ their covariance reversed; with two or more, along the direction in which the
 likelihood rises fastest. It is made by glmer's second stage with the
 \code{bobyqa} optimiser and replaces the fit when its -2 log-likelihood is lower
 by more than 1e-4.
+Such a model is then searched with each random-effect block's terms re-expressed
+as described for \code{lmer()} below and the fixed effects as the coefficients of
+centred and scaled columns, from lme4's starting values of the variance parameters
+with the fit's fixed effects and from the fit's own estimates, and refitted from the
+lower end by glmer's second stage with \code{bobyqa} when its -2 log-likelihood is
+lower by more than 1e-4: with a slope covariate far from zero or in large units,
+such as a birth or calendar year, glmer's own second stage cannot resolve the
+slope's variance and can stop short of the maximum, often with what is left of that
+variance at zero, where lme4 calls the fit singular. Fitting then takes about one
+and a half times as long, and up to about four times.
 Fitted by \code{lmer()} outside a longitudinal model, a model with a random
 slope is refitted from the other side of such a bound when lmer's fit stops at
 one, and from a start carried back from the same model with each random-effect
@@ -430,7 +440,9 @@ A maihda_model object containing:
     \code{cs()} or \code{ar1()} block, that lme4 calls singular
     is searched from the fit with its random-effect terms and fixed effects centred
     and scaled, and counts as not converged when the search reaches a deviance 0.01
-    or more below the fit's (\code{search_gain}). An lme4 fit also
+    or more below the fit's (\code{search_gain}); such a fit refitted as described
+    under \code{formula} has been through such searches already and is not searched
+    again. An lme4 fit also
     carries likelihood-adequacy caveats -- count overdispersion and zero
     inflation, stratum random-effect non-normality and longitudinal residual
     autocorrelation -- reported only when a conservative threshold is crossed,
