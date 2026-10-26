@@ -374,14 +374,22 @@ test_that("the record flags a cross-sectional lmer fit left at such a bound, not
   expect_true(sentence %in% dg$messages)
   printed <- utils::capture.output(print(m))
   expect_true(any(grepl("Convergence problems of the lme4 fit:", printed, fixed = TRUE)))
-  # The drop is the REML criterion's, a step of 1e-3 across the bound, by the reflection or
-  # along the first-order direction, whichever falls further.
+  # The drop is the REML criterion's: the largest fall from the fit across the bound, by the
+  # reflection or along the first-order direction with the diagonal entry at 0.001, 0.01 or
+  # 0.1, and along a Newton step in the block, which here reaches the optimum.
   th <- unname(lme4::getME(m$model, "theta"))
+  cnms <- lme4::getME(m$model, "cnms")
   dev <- lme4::lmer(adjusted, data = d, devFunOnly = TRUE)
   reflected <- dev(th) - dev(c(1e-3, -th[2], th[3]))
-  first <- dev(th) - dev(maihda_lme4_first_order_theta(th, lme4::getME(m$model, "cnms"), 1L,
-                                                       1e-3, dev))
-  expect_equal(dg$boundary_traps$drop, max(reflected, first), tolerance = 1e-8)
+  first <- dev(th) - dev(maihda_lme4_first_order_theta(th, cnms, 1L, 1e-3, dev))
+  falls <- vapply(c(1e-3, 0.01, 0.1), function(s) maihda_lme4_column_falls(th, cnms, 1L, dev, s),
+                  numeric(2))
+  expect_equal(unname(falls[, 1]), c(reflected, first), tolerance = 1e-8)
+  expect_equal(dg$boundary_traps$reflected, max(falls["reflection", ]), tolerance = 1e-8)
+  expect_equal(dg$boundary_traps$across, max(falls), tolerance = 1e-8)
+  gap <- lme4::REMLcrit(m$model) - optimum_3
+  expect_gt(dg$boundary_traps$drop, 0.9 * gap)
+  expect_lte(dg$boundary_traps$drop, gap + 1e-6)
   expect_gt(dg$boundary_traps$drop, .maihda_lme4_trap_drop)
   # Measuring leaves the fit where it is.
   before <- lme4::getME(m$model, "theta")
