@@ -1382,7 +1382,7 @@ maihda_glmer_reexpressed <- function(model) {
     return(NULL)
   }
   cnms <- lme4::getME(model, "cnms")
-  scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), cnms)
+  scales <- maihda_lmer_block_scales(maihda_lme4_block_columns(model), cnms)
   beta <- lme4::fixef(model)
   X <- lme4::getME(model, "X")
   if (is.null(scales) || length(beta) == 0L || ncol(X) != length(beta)) {
@@ -1430,7 +1430,8 @@ maihda_glmer_search <- function(model, from = c("standardised", "estimates"),
                                 optimiser = lme4::nloptwrap) {
   from <- match.arg(from)
   if (from == "standardised") {
-    scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), lme4::getME(model, "cnms"))
+    scales <- maihda_lmer_block_scales(maihda_lme4_block_columns(model),
+                                       lme4::getME(model, "cnms"))
     if (is.null(scales) || all(vapply(scales, function(Tm) all(Tm == diag(1, nrow(Tm))),
                                       logical(1)))) {
       return(NULL)

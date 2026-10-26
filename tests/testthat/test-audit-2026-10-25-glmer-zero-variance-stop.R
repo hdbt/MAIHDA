@@ -179,6 +179,69 @@ test_that("searched from glmer's stuck fit, the deviance reaches the maximum", {
   expect_lt(maihda_glmer_search(placed(max_1, d), "estimates")$gain, 1e-4)
 })
 
+# The counts of test-audit-2026-10-26-tied-block-order.R's glmer check: 600 rows, a slope on a
+# birth year in the block of g1, beside g2 with as many levels and gbig with 30. lme4 lists the
+# term columns of such tied blocks, and of the two blocks (1 + yr || g1) makes behind gbig's, in
+# another order than their variance parameters.
+tied_counts <- function() {
+  with_seed(11, {
+    n <- 600
+    d <- data.frame(g1 = factor(sample(8, n, TRUE)), g2 = factor(sample(8, n, TRUE)),
+                    gbig = factor(sample(30, n, TRUE)), x = round(stats::rnorm(n), 2))
+    zlev <- stats::rnorm(8)
+    d$z <- zlev[d$g1]
+    d$yr <- round(stats::runif(n, 1940, 2000))
+    u1 <- stats::rnorm(8, 0, 0.5)
+    v1 <- stats::rnorm(8, 0, 0.3)
+    u2 <- stats::rnorm(8, 0, 0.4)
+    ub <- stats::rnorm(30, 0, 0.3)
+    d$y <- 1 + 0.5 * d$x + 0.3 * d$z + u1[d$g1] + v1[d$g1] * d$x + u2[d$g2] + ub[d$gbig] +
+      stats::rnorm(n)
+    d$cnt <- stats::rpois(n, exp(0.2 + 0.2 * d$z + 0.4 * u1[d$g1] + 0.004 * (d$yr - 1970) +
+                                   stats::rnorm(8, 0, 0.003)[d$g1] * (d$yr - 1970) +
+                                   0.3 * u2[d$g2] + 0.3 * ub[d$gbig]))
+    d
+  })
+}
+
+test_that("a glmer fit whose blocks lme4 lists in another order is searched as the sorted spelling is", {
+  skip_on_cran()
+  d <- tied_counts()
+  blocks <- function(model) {
+    cnms <- lme4::getME(model, "cnms")
+    paste(names(cnms), vapply(cnms, paste, character(1), collapse = " + "))
+  }
+  # Each pair placed at lme4's own fit of its first spelling (to seven digits), theta in the
+  # order of each spelling's blocks.
+  pairs <- list(
+    list(spelt = cnt ~ yr + z + (1 + yr | g1) + (1 | g2) + (1 | gbig),
+         sorted = cnt ~ yr + z + (1 | gbig) + (1 | g2) + (1 + yr | g1),
+         theta = c(0, 0.1587222, 9.296477, -0.004574353, 0),
+         theta_sorted = c(0, 0.1587222, 9.296477, -0.004574353, 0),
+         beta = c(-3.587002, 0.001972961, 0.3291751)),
+    list(spelt = cnt ~ yr + z + (1 + yr || g1) + (1 | gbig),
+         sorted = cnt ~ yr + z + (1 | gbig) + (1 | g1) + (0 + yr | g1),
+         theta = c(0.05508204, 0, 0.262959),
+         theta_sorted = c(0.05508204, 0.262959, 0),
+         beta = c(-1.025796, 0.0006771691, 0.3432832)))
+  for (pair in pairs) {
+    m <- placed(list(theta = pair$theta, beta = pair$beta), d, formula = pair$spelt)
+    s <- placed(list(theta = pair$theta_sorted, beta = pair$beta), d, formula = pair$sorted)
+    expect_lt(abs(deviance_of(m) - deviance_of(s)), 1e-6)
+    # Paired by position, the term columns do not fit the blocks.
+    expect_null(maihda_lmer_block_scales(lme4::getME(m, "mmList"), lme4::getME(m, "cnms")))
+    # Each block re-expressed as in the sorted spelling, and both searches made.
+    re <- maihda_glmer_reexpressed(m)
+    expect_false(is.null(re))
+    expect_equal(unname(re$scales),
+                 unname(maihda_glmer_reexpressed(s)$scales[match(blocks(m), blocks(s))]))
+    stand_in <- function(par, fn, lower, upper) list(par = par, fval = fn(par))
+    expect_false(is.null(maihda_glmer_search(m, "standardised", optimiser = stand_in)))
+    expect_lt(abs(maihda_glmer_search(m, "estimates")$deviance -
+                    maihda_glmer_search(s, "estimates")$deviance), 1e-6)
+  }
+})
+
 # ---- the refit -----------------------------------------------------------------------------
 
 test_that("the refit's first step lies below the smallest positive variance entry where the search ended", {
