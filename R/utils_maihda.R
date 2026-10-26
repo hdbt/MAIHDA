@@ -193,6 +193,87 @@ maihda_singular_terms_lme4 <- function(model, tol = 1e-4) {
   unique(names(comps)[vapply(comps, any, logical(1))])
 }
 
+# A diagonal entry of a random-effect block's factor with its terms centred and scaled
+# (maihda_re_boundary_components_scaled_lme4()) below this puts the block at the boundary.
+# lme4's line, 1e-4, is narrower than where its optimisers stop at a boundary optimum in those
+# terms: on the screens such stops sat up to 6.1e-3 off the bound (glmer; 9.3e-4 for lmer),
+# and interior optima at 0.0265 or more.
+.maihda_scaled_singular_within <- 0.01
+
+# TRUE when the theta of the lme4 fit `model` holds every random-effect block as a full
+# Cholesky factor, read from its bounds (lme4::getME(, "lower")): 0 on each diagonal entry and
+# none (-Inf) on the entries below. Not so for a block lme4 holds otherwise, as for diag(),
+# cs() or ar1(), whose theta holds standard deviations and, for cs() and ar1(), a correlation.
+maihda_lme4_full_factors <- function(model) {
+  isTRUE(tryCatch({
+    full <- unlist(lapply(lme4::getME(model, "cnms"), function(terms) {
+      bound <- matrix(-Inf, length(terms), length(terms))
+      diag(bound) <- 0
+      bound[lower.tri(bound, diag = TRUE)]
+    }), use.names = FALSE)
+    identical(unname(as.numeric(lme4::getME(model, "lower"))), full)
+  }, error = function(e) FALSE))
+}
+
+# The per-component flags of maihda_re_boundary_components_lme4() with each random-effect
+# block that holds a slope re-expressed first, as maihda_lmer_stationary_distance()
+# re-expresses it (maihda_lmer_block_scales(): in a block with an intercept every other term
+# centred at its mean and divided by its standard deviation, in one without divided by its
+# root mean square), and that block's factor in those terms tested against `scaled_tol`. lme4
+# takes its test in theta as the formula has it, where the entry of a slope's column is the
+# slope's standard deviation given the earlier terms at zero, per unit of its covariate: for a
+# covariate far from zero, such as a birth year, the intercept at zero makes the entry tiny
+# though the block is not at the boundary, and in large units it is small by the unit alone.
+# A block that holds no such term keeps lme4's entries at `tol`. NULL when no block holds one,
+# a block is held as other than a full Cholesky factor (maihda_lme4_full_factors()), or theta
+# or the term columns cannot be read.
+maihda_re_boundary_components_scaled_lme4 <- function(model, tol = 1e-4,
+                                                       scaled_tol = .maihda_scaled_singular_within) {
+  cnms <- tryCatch(lme4::getME(model, "cnms"), error = function(e) NULL)
+  if (!length(cnms) || all(unlist(cnms, use.names = FALSE) == "(Intercept)") ||
+      !maihda_lme4_full_factors(model)) {
+    return(NULL)
+  }
+  comps <- maihda_re_boundary_components_lme4(model, tol = tol)
+  if (is.null(comps)) {
+    return(NULL)
+  }
+  tryCatch({
+    scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), cnms)
+    if (is.null(scales)) {
+      return(NULL)
+    }
+    moved <- !vapply(seq_along(cnms), function(k) {
+      identical(scales[[k]], diag(1, length(cnms[[k]])))
+    }, logical(1))
+    if (!any(moved)) {
+      return(NULL)
+    }
+    theta <- unname(lme4::getME(model, "theta"))
+    sizes <- lengths(cnms) * (lengths(cnms) + 1) / 2
+    end <- cumsum(sizes)
+    for (k in which(moved)) {
+      L <- matrix(0, length(cnms[[k]]), length(cnms[[k]]))
+      L[lower.tri(L, diag = TRUE)] <- theta[seq.int(end[k] - sizes[k] + 1, end[k])]
+      factor <- maihda_reexpress_block_factor(L, solve(scales[[k]]))
+      comps[[k]] <- stats::setNames(abs(diag(factor)) < scaled_tol, names(comps[[k]]))
+    }
+    comps
+  }, error = function(e) NULL)
+}
+
+# A lower-triangular factor, with a non-negative diagonal, of the covariance of M b for random
+# effects b whose covariance has the lower-triangular factor L: from an unpivoted QR
+# decomposition of (M L)', without forming the covariance. Factoring the covariance again
+# leaves an error of the order of the square root of machine precision times the block's
+# scale in the later diagonal entries, which for a covariate far from zero can lift an entry
+# that is exactly zero above lme4's line of 1e-4; here a block of lower rank keeps a diagonal
+# entry at zero to within rounding of its entries.
+maihda_reexpress_block_factor <- function(L, M) {
+  R <- qr.R(qr(t(M %*% L), tol = 0))
+  t(R * ifelse(diag(R) < 0, -1, 1))
+}
+
 # A glmer or lmer fit counts as at a stationary point of its likelihood when it is less
 # than this many standard errors from one (maihda_lme4_stationary_distance(),
 # maihda_lmer_stationary_distance()), the line ordinal fits are judged by.
@@ -768,6 +849,101 @@ maihda_lmer_search_message <- function(model, gain) {
           trimws(formatC(signif(gain, 2), format = "fg", digits = 2)))
 }
 
+# TRUE for a glmer fit whose fixed effects are among the optimised parameters (nAGQ of 1 or
+# more), the fits maihda_glmer_search_gain() can search and whose singular verdict is taken in
+# each random-effect block's centred and scaled terms (maihda_fit_diagnostics()).
+maihda_glmer_quadrature <- function(model) {
+  inherits(model, "glmerMod") &&
+    isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))
+}
+
+# `theta` with each random-effect block's factor carried to the terms M_k b of `Ms`, one
+# matrix per block of `cnms` (maihda_reexpress_block_factor()).
+maihda_reexpress_theta <- function(theta, cnms, Ms) {
+  sizes <- lengths(cnms) * (lengths(cnms) + 1) / 2
+  end <- cumsum(sizes)
+  for (k in seq_along(cnms)) {
+    idx <- seq.int(end[k] - sizes[k] + 1, end[k])
+    L <- matrix(0, length(cnms[[k]]), length(cnms[[k]]))
+    L[lower.tri(L, diag = TRUE)] <- theta[idx]
+    factor <- maihda_reexpress_block_factor(L, Ms[[k]])
+    theta[idx] <- factor[lower.tri(factor, diag = TRUE)]
+  }
+  theta
+}
+
+# How far below the deviance of the glmer fit `model` (nAGQ of 1 or more) a search of the same
+# model reaches: bobyqa (lme4::nloptwrap()) with each random-effect block's
+# terms re-expressed (maihda_lmer_block_scales(), the factors carried by
+# maihda_reexpress_theta()) and the fixed effects centred and scaled (maihda_centre_scale_map()),
+# from the fit with each diagonal entry of those factors raised to at least 0.05, stopped once it
+# is `within` below. The deviance is the fit's own deviance function, from a detached copy, whose
+# warnings (such as the binomial family's on non-integer successes, as the copy rebuilds its
+# response) were given when the model was fitted. No search ends below the maximum, so the value
+# is at most what the fit is short of it, and 0 where the search reaches nothing lower. NA when
+# the search cannot be made, as for a block held as other than a full Cholesky factor
+# (maihda_lme4_full_factors()), or the deviance function does not reproduce the fit's deviance.
+maihda_glmer_search_gain <- function(model, within = .maihda_lmer_search_within) {
+  if (!maihda_glmer_quadrature(model) || !maihda_lme4_full_factors(model)) {
+    return(NA_real_)
+  }
+  deviance <- tryCatch(suppressWarnings(lme4::getME(maihda_lme4_detached_copy(model), "devfun")),
+                       error = function(e) NULL)
+  if (!is.function(deviance)) {
+    return(NA_real_)
+  }
+  tryCatch(suppressWarnings(maihda_glmer_search_with(model, deviance, within)),
+           error = function(e) NA_real_)
+}
+
+# The work of maihda_glmer_search_gain(), with `deviance` the fit's deviance as a function of its
+# variance parameters and fixed effects (lme4::getME(, "devfun")).
+maihda_glmer_search_with <- function(model, deviance, within) {
+  theta <- unname(lme4::getME(model, "theta"))
+  beta <- unname(lme4::fixef(model))
+  cnms <- lme4::getME(model, "cnms")
+  X <- lme4::getME(model, "X")
+  scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), cnms)
+  if (is.null(scales) || length(beta) == 0L || ncol(X) != length(beta)) {
+    return(NA_real_)
+  }
+  d0 <- deviance(c(theta, beta))
+  target <- -2 * as.numeric(stats::logLik(model))
+  if (!is.finite(d0) || abs(d0 - target) > 1e-5 * max(1, abs(target))) {
+    return(NA_real_)
+  }
+  k <- length(theta)
+  A <- maihda_centre_scale_map(X)
+  lower <- c(unname(lme4::getME(model, "lower")), rep(-Inf, length(beta)))
+  start <- c(maihda_reexpress_theta(theta, cnms, lapply(scales, solve)), solve(A, beta))
+  diagonal <- which(is.finite(lower) & lower == 0)
+  start[diagonal] <- pmax(start[diagonal], 0.05)
+  best <- d0
+  criterion <- function(p) {
+    value <- tryCatch(deviance(c(maihda_reexpress_theta(p[seq_len(k)], cnms, scales),
+                                 drop(A %*% p[-seq_len(k)]))), error = function(e) NA_real_)
+    if (!is.finite(value)) {
+      return(d0 + 1e6)
+    }
+    best <<- min(best, value)
+    value
+  }
+  tryCatch(lme4::nloptwrap(start, criterion, lower = lower, upper = rep(Inf, length(lower)),
+                           control = list(stopval = d0 - within, ftol_abs = 1e-5,
+                                          xtol_abs = 1e-7, maxeval = 1000)),
+           error = function(e) NULL)
+  d0 - best
+}
+
+# The record's sentence for a glmer fit lme4 calls singular, which a search reaches `gain`
+# below (maihda_glmer_search_gain()).
+maihda_glmer_search_message <- function(gain) {
+  sprintf(paste0("lme4 runs no convergence check on a singular fit, and a search of the same ",
+                 "model with its random-effect terms and fixed effects centred and scaled reaches ",
+                 "a deviance %s lower: the fit stopped short of the maximum."),
+          trimws(formatC(signif(gain, 2), format = "fg", digits = 2)))
+}
+
 # Capture fit-quality diagnostics (singular fit, non-convergence) so they can be
 # surfaced on demand. lme4 returns singular fits silently and only warns about
 # convergence once, at fit time, so we re-read both from the fitted object for
@@ -789,12 +965,33 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = F
 
   if (inherits(model, "merMod")) {
     diagnostics$engine <- "lme4"
-    diagnostics$singular <- tryCatch(isTRUE(lme4::isSingular(model)),
-                                     error = function(e) NA)
-    # WHICH random-effects block is at the boundary. Only meaningful when the fit is
-    # singular at all; a per-term scan of a healthy fit returns character(0) anyway,
-    # but skipping it keeps the common path free of the getME() round-trip.
-    if (isTRUE(diagnostics$singular)) {
+    lme4_singular <- tryCatch(isTRUE(lme4::isSingular(model)), error = function(e) NA)
+    diagnostics$singular <- lme4_singular
+    # An lmer fit, or a glmer fit with nAGQ of 1 or more, outside a growth model whose random
+    # effects hold a slope is judged with each block's terms centred and scaled
+    # (maihda_re_boundary_components_scaled_lme4()): lme4's test in the formula's units fires on
+    # blocks that are not at the boundary when a covariate is far from zero or in large units.
+    # A growth fit's time is centred and scaled by fit_maihda() already, and a glmer fit with
+    # nAGQ 0 is not searched below. lme4's own verdict is kept in `lme4_singular` where the two
+    # differ.
+    scaled <- if ((inherits(model, "lmerMod") || maihda_glmer_quadrature(model)) &&
+                  is.null(longitudinal_info)) {
+      maihda_re_boundary_components_scaled_lme4(model)
+    }
+    if (!is.null(scaled)) {
+      terms <- unique(names(scaled)[vapply(scaled, any, logical(1))])
+      diagnostics$singular <- length(terms) > 0
+      if (!identical(diagnostics$singular, lme4_singular)) {
+        diagnostics$lme4_singular <- lme4_singular
+      }
+      if (diagnostics$singular) {
+        diagnostics$singular_terms <- terms
+        diagnostics$stratum_singular <- "stratum" %in% terms
+      }
+    } else if (isTRUE(diagnostics$singular)) {
+      # WHICH random-effects block is at the boundary. Only meaningful when the fit is
+      # singular at all; a per-term scan of a healthy fit returns character(0) anyway,
+      # but skipping it keeps the common path free of the getME() round-trip.
       diagnostics$singular_terms <- maihda_singular_terms_lme4(model)
       # NA (not FALSE) when the per-term scan could not read theta: "not known to be
       # the stratum block" is not the same as "known not to be", and the report must
@@ -826,9 +1023,10 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = F
     # -- once correctly as "Singular fit", once under a "Convergence warnings"
     # header (which is also what led users to diagnose a boundary estimate as an
     # optimizer problem and go looking for the wrong fix). Drop it here: it is already
-    # carried, with the right wording, by `singular`/`singular_terms`. Only when the
-    # fit is KNOWN singular, so a stray message is never silently swallowed.
-    if (isTRUE(diagnostics$singular)) {
+    # carried, with the right wording, by `singular`/`singular_terms`, or by
+    # `lme4_singular` where the package's verdict differs. Only when lme4's own test
+    # fired, so a stray message is never silently swallowed.
+    if (isTRUE(lme4_singular)) {
       lme4_msgs <- lme4_msgs[!grepl("boundary (singular)", lme4_msgs, fixed = TRUE)]
     }
     opt_code <- tryCatch(model@optinfo$conv$opt, error = function(e) NA_integer_)
@@ -905,6 +1103,20 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = F
         diagnostics$converged <- FALSE
         diagnostics$search_gain <- gain
         diagnostics$messages <- c(diagnostics$messages, maihda_lmer_search_message(model, gain))
+      }
+    }
+    # The same for a glmer fit with nAGQ of 1 or more outside a growth model whose random
+    # effects hold a slope (maihda_glmer_search_gain()). A glmer fit whose random effects are
+    # intercepts only is not searched: a screen found none of them short, and a search takes
+    # seconds on large data.
+    if (maihda_glmer_quadrature(model) && is.null(longitudinal_info) &&
+        isTRUE(diagnostics$converged) && isTRUE(lme4_singular) &&
+        !all(unlist(lme4::getME(model, "cnms"), use.names = FALSE) == "(Intercept)")) {
+      gain <- maihda_glmer_search_gain(model)
+      if (is.finite(gain) && gain >= .maihda_lmer_search_within) {
+        diagnostics$converged <- FALSE
+        diagnostics$search_gain <- gain
+        diagnostics$messages <- c(diagnostics$messages, maihda_glmer_search_message(gain))
       }
     }
   } else if (inherits(model, "WeMixResults")) {
@@ -1680,6 +1892,15 @@ maihda_format_fit_diagnostics <- function(diagnostics,
         "  The between-stratum variance and any VPC/PCV derived from it may be unreliable."
       )
     }
+  }
+  # lme4's own test fired on a fit the package does not judge singular (see
+  # maihda_fit_diagnostics()); lme4's message reached the console at fit time.
+  if (!isTRUE(diagnostics$singular) && isTRUE(diagnostics$lme4_singular)) {
+    out <- c(out, strwrap(paste0(
+      "lme4 reports a singular fit, taking its test in the units of the formula; with each ",
+      "random-effects block's terms scaled, and centred where the block has an intercept, no ",
+      "block is at the boundary."),
+      width = 80, exdent = 2))
   }
   if (isFALSE(diagnostics$converged) && length(diagnostics$messages) > 0) {
     header <- switch(
