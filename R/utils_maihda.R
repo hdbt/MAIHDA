@@ -1219,8 +1219,9 @@ maihda_glmer_search_message <- function(gain) {
 # reporting in print()/summary(). A brmsfit is never recorded as singular; its
 # `converged` is FALSE for a largest Rhat above 1.01 or a divergent transition, TRUE
 # for a finite Rhat with neither, and NA when Rhat cannot be read. `searched`: the lmer fit
-# was kept by maihda_fit_lmer_slopes(), which refits from the searches a singular fit is
-# otherwise checked by.
+# was kept by maihda_fit_lmer_slopes(), or the glmer fit with a random slope by
+# maihda_fit_glmer_bound(), which refit from searches of the kind a singular fit is otherwise
+# checked by.
 maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = FALSE) {
   diagnostics <- list(
     engine = NA_character_,
@@ -1387,10 +1388,11 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = F
       }
     }
     # The same for a glmer fit with nAGQ of 1 or more outside a growth model whose random
-    # effects hold a slope (maihda_glmer_search_gain()). A glmer fit whose random effects are
-    # intercepts only is not searched: a screen found none of them short, and a search takes
-    # seconds on large data.
-    if (maihda_glmer_quadrature(model) && is.null(longitudinal_info) &&
+    # effects hold a slope (maihda_glmer_search_gain()), unless fit_maihda() kept it from refits
+    # from its own searches (maihda_fit_glmer_bound(), `searched`). A glmer fit whose random
+    # effects are intercepts only is not searched: a screen found none of them short, and a
+    # search takes seconds on large data.
+    if (maihda_glmer_quadrature(model) && is.null(longitudinal_info) && !isTRUE(searched) &&
         isTRUE(diagnostics$converged) && isTRUE(lme4_singular) &&
         !all(unlist(lme4::getME(model, "cnms"), use.names = FALSE) == "(Intercept)")) {
       gain <- maihda_glmer_search_gain(model)

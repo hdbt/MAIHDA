@@ -1276,6 +1276,29 @@ maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4, optim
 # reflection reached the maximum. The reflection stays for a column with one entry below,
 # where it is the other side. Growth refits keep the reflection: there the direction did
 # not help, the optimiser did.
+#
+# glmer's second stage, Nelder-Mead, takes its first steps 0.02 from where the first stage
+# stopped in every entry of theta. A slope on a covariate far from zero or in large units, such
+# as a birth or calendar year, has entries of about 1e-4 in its column, which such steps cannot
+# resolve: the fit stops where the first stage left them, often with what is left of the slope's
+# variance after the terms before it at zero, where lme4 calls the fit singular and runs no
+# convergence check, and at times short of the maximum without a variance at zero. On 133 fits of
+# 64 designs (Poisson and binomial; a birth year, a calendar year, an age and a covariate on a
+# scale of 1; blocks of one to three terms, with and without a slope by context; null and
+# adjusted; 18 strata of 80 rows, and 400 in four designs), 37 ended more than 0.01 below the
+# maximum, by up to 37, 27 of them recorded as converged, every one with a calendar or birth
+# year. fit_maihda() therefore searches such a fit with each random-effect block's terms
+# re-expressed on their own and the fixed effects centred and scaled (maihda_glmer_search()), from
+# lme4's starting values and from the fit's estimates, and refits from the lower end when it is
+# lower by more than 1e-4 (maihda_glmer_search_refit()). That left none of the 37 more than
+# 0.001 below the maximum, at a median 1.45 times the time of the fit before (quartiles 1.2 and
+# 2.0, up to 4.2); from lme4's starting values alone one fit stopped 0.061 short, and from a
+# variance at zero moved to the lowest deviance along it (as lmer fits are refitted,
+# maihda_lmer_zero_column_start()) 18 did. Of 16 negative-binomial fits with a slope on a year,
+# the four glmer.nb left singular were refitted 0.002 to 20 lower. A fit whose maximum has a block of lower
+# rank can end just beside it, where lme4 no longer calls it singular and its checks fire on a
+# Hessian that is not positive definite, and is then recorded as not converged (1 of the 133,
+# 6e-6 below the maximum).
 
 # Whether fit_maihda() makes an lme4 fit by maihda_fit_glmer_bound(): a model fitted by
 # glmer() or glmer.nb() that is not a growth model, without starting values of the user's
@@ -1289,8 +1312,9 @@ maihda_glmer_bound_applies <- function(fit_fun, longitudinal_info, dot_vals) {
 # refit it once from the other side of its boundary traps by bobyqa, a column with two or
 # more entries below taken across along the first-order direction
 # (maihda_glmer_mirror_refit()), the refit kept when its criterion is lower by more than
-# `tol`. Only the kept fit's warnings and messages are signalled. A refit that fails is
-# passed over.
+# `tol`; then refit a model with a random slope from searches with its random-effect blocks
+# and fixed effects re-expressed (maihda_glmer_search_refit()), kept on the same terms. Only
+# the kept fit's warnings and messages are signalled. A refit that fails is passed over.
 maihda_fit_glmer_bound <- function(fit_call, fit_env, tol = 1e-4) {
   kept <- maihda_eval_holding_conditions(fit_call, fit_env)
   mirrored <- tryCatch(maihda_glmer_mirror_refit(kept, fit_call, fit_env, tol,
@@ -1299,8 +1323,209 @@ maihda_fit_glmer_bound <- function(fit_call, fit_env, tol = 1e-4) {
   if (!is.null(mirrored)) {
     kept <- mirrored
   }
+  searched <- tryCatch(maihda_glmer_search_refit(kept, fit_call, fit_env, tol),
+                       error = function(e) NULL)
+  if (!is.null(searched)) {
+    kept <- searched
+  }
   maihda_signal_conditions(kept$conditions)
   kept$value
+}
+
+# Whether the lme4 fit `model` has a random-effect term other than an intercept.
+maihda_lme4_has_slope <- function(model) {
+  any(vapply(lme4::getME(model, "cnms"), function(terms) any(terms != "(Intercept)"),
+             logical(1)))
+}
+
+# `theta` with the factor L of each random-effect block carried to a factor of the
+# covariance of T b, for `Ts`, one matrix T per block of `cnms`: the lower-triangular factor
+# with a non-negative diagonal from an unpivoted QR decomposition of (T L)'. A block of lower
+# rank keeps its zero diagonal entries to within rounding. Factoring the covariance again
+# (maihda_lmer_transform_theta()) takes the square root of the rounding error of its largest
+# products there: a zero beside an intercept entry of 6.7 for a birth year came back at 3.7e-4,
+# and a search of a three-term block carried that way stopped 0.014 below a maximum of rank one
+# that it reached carried by this. NULL when theta does not hold a full Cholesky factor per
+# block.
+maihda_glmer_carry_theta <- function(theta, cnms, Ts) {
+  sizes <- lengths(cnms) * (lengths(cnms) + 1) / 2
+  if (!is.numeric(theta) || length(theta) != sum(sizes) || length(Ts) != length(cnms)) {
+    return(NULL)
+  }
+  end <- cumsum(sizes)
+  for (k in seq_along(cnms)) {
+    q <- length(cnms[[k]])
+    idx <- seq.int(end[k] - sizes[k] + 1, end[k])
+    L <- matrix(0, q, q)
+    L[lower.tri(L, diag = TRUE)] <- theta[idx]
+    R <- qr.R(qr(t(Ts[[k]] %*% L), tol = 0))
+    L <- t(R * ifelse(diag(R) < 0, -1, 1))
+    theta[idx] <- L[lower.tri(L, diag = TRUE)]
+  }
+  theta
+}
+
+# The glmer fit `model` with each random-effect block's terms re-expressed on their own
+# (maihda_lmer_block_scales()) and its fixed effects as the coefficients of centred and scaled
+# columns (maihda_centre_scale_map()). The model so re-expressed is the same model: its
+# deviance (-2 log-likelihood, Laplace or quadrature as fitted) at a point p, the re-expressed
+# theta followed by the re-expressed coefficients, is the fit's own deviance function at p
+# carried back (maihda_glmer_carry_theta() and the map). A list of the blocks' names and
+# scales, the map `A`, the length `k` of theta, the fit's own `p` and its deviance `at`,
+# `carry` (p to theta and the fixed effects), `deviance` (of p) and lme4's bounds `lower`, the
+# coefficients free; NULL when the fit's fixed effects were not optimised with its variances
+# (nAGQ 0), a block cannot be re-expressed (lme4's diag() and other structured blocks hold no
+# full Cholesky factor in theta) or the deviance function does not reproduce the fit's
+# -2 log-likelihood.
+maihda_glmer_reexpressed <- function(model) {
+  if (!isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))) {
+    return(NULL)
+  }
+  cnms <- lme4::getME(model, "cnms")
+  scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), cnms)
+  beta <- lme4::fixef(model)
+  X <- lme4::getME(model, "X")
+  if (is.null(scales) || length(beta) == 0L || ncol(X) != length(beta)) {
+    return(NULL)
+  }
+  phi <- maihda_glmer_carry_theta(unname(lme4::getME(model, "theta")), cnms,
+                                  lapply(scales, solve))
+  if (is.null(phi)) {
+    return(NULL)
+  }
+  A <- maihda_centre_scale_map(X)
+  k <- length(phi)
+  carry <- function(p) {
+    list(theta = maihda_glmer_carry_theta(p[seq_len(k)], cnms, scales),
+         fixef = stats::setNames(drop(A %*% p[-seq_len(k)]), names(beta)))
+  }
+  # Rebuilt from a copy: lme4 writes into vectors the deviance function shares with the fit.
+  devfun <- lme4::getME(maihda_lme4_detached_copy(model), "devfun")
+  deviance <- function(p) {
+    at <- carry(p)
+    devfun(c(at$theta, unname(at$fixef)))
+  }
+  p <- c(phi, drop(solve(A, unname(beta))))
+  at <- deviance(p)
+  target <- maihda_glmer_criterion(model)
+  if (!is.finite(at) || abs(at - target) > 1e-5 * max(1, abs(target))) {
+    return(NULL)
+  }
+  list(cnms = cnms, scales = scales, A = A, k = k, p = p, at = at, carry = carry,
+       deviance = deviance,
+       lower = c(unname(lme4::getME(model, "lower")), rep(-Inf, length(beta))))
+}
+
+# A search of the glmer fit `model` re-expressed (maihda_glmer_reexpressed()): its deviance
+# minimised by `optimiser` (lme4::nloptwrap()) within lme4's bounds, from lme4's starting
+# values of theta with the fit's fixed effects (`from = "standardised"`; nothing is searched
+# when no term of a block is re-expressed) or from the fit's own estimates
+# (`from = "estimates"`), then once more from across a bound a column of theta stopped at
+# (maihda_lmer_across_bound()) and once more from where it stopped, the lower end kept each
+# time. A list of where the search ended, carried back (`start`: theta and the fixed effects),
+# the deviance there (`deviance`) and how far below the fit's that is (`gain`), both by the
+# fit's own deviance function, with lme4's bounds of theta (`lower`); NULL when no search is
+# made or none ends where the deviance can be evaluated.
+maihda_glmer_search <- function(model, from = c("standardised", "estimates"),
+                                optimiser = lme4::nloptwrap) {
+  from <- match.arg(from)
+  if (from == "standardised") {
+    scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), lme4::getME(model, "cnms"))
+    if (is.null(scales) || all(vapply(scales, function(Tm) all(Tm == diag(1, nrow(Tm))),
+                                      logical(1)))) {
+      return(NULL)
+    }
+  }
+  re <- maihda_glmer_reexpressed(model)
+  if (is.null(re)) {
+    return(NULL)
+  }
+  start <- re$p
+  if (from == "standardised") {
+    th <- seq_len(re$k)
+    start[th] <- ifelse(re$lower[th] == 0, 1, 0)
+  }
+  # A point where the deviance cannot be evaluated (PIRLS fails far from the fit) counts as
+  # far above every other, so the search turns back from it.
+  objective <- function(p) {
+    v <- tryCatch(re$deviance(p), error = function(e) NA_real_)
+    if (is.finite(v)) v else 1e100
+  }
+  upper <- rep(Inf, length(re$lower))
+  run <- function(p, best = NULL) {
+    found <- tryCatch(optimiser(p, objective, lower = re$lower, upper = upper),
+                      error = function(e) NULL)
+    if (!is.null(found) && (is.null(best) || isTRUE(found$fval < best$fval))) found else best
+  }
+  best <- run(start)
+  if (is.null(best)) {
+    return(NULL)
+  }
+  across <- maihda_lmer_across_bound(best$par[seq_len(re$k)], re$cnms)
+  if (!is.null(across)) {
+    best <- run(c(across, best$par[-seq_len(re$k)]), best)
+  }
+  best <- run(best$par, best)
+  if (!is.finite(best$fval) || best$fval >= 1e100) {
+    return(NULL)
+  }
+  list(start = re$carry(best$par), deviance = best$fval, gain = re$at - best$fval,
+       lower = re$lower[seq_len(re$k)])
+}
+
+# The first step, bobyqa's `rhobeg`, of a refit from `theta` (lme4's bounds `lower`): half the
+# smallest positive diagonal entry, at most the 2e-4 of glmer's own second stage. bobyqa moves an
+# entry within its first step of a bound onto the bound or to that step before it starts, and a
+# slope on a year has entries of about 1e-4: from the end of a search 0.0068 below the maximum,
+# a refit with a first step of 2e-4 stopped 0.27 below, and one with half the smallest entry
+# kept the end.
+maihda_glmer_first_step <- function(theta, lower) {
+  min(2e-4, 0.5 * theta[lower == 0 & theta > 0])
+}
+
+# The refit of maihda_fit_glmer_bound() from a search: when the fit in `kept` (a value /
+# conditions pair of maihda_eval_holding_conditions()) has a random slope, it is searched
+# (maihda_glmer_search()) from lme4's starting values and from its estimates, and when the
+# lower end is lower than the fit's criterion by more than `tol`, `fit_call` is evaluated from
+# there by glmer's second stage only, by bobyqa with its first step below the end's smallest
+# positive variance entry (maihda_glmer_first_step()), with the call's own control otherwise.
+# The refit's pair when its criterion is lower than the kept fit's by more than `tol`, else
+# NULL.
+maihda_glmer_search_refit <- function(kept, fit_call, fit_env, tol = 1e-4) {
+  model <- kept$value
+  if (!maihda_lme4_has_slope(model)) {
+    return(NULL)
+  }
+  found <- Filter(Negate(is.null), lapply(c("standardised", "estimates"), function(from) {
+    tryCatch(maihda_glmer_search(model, from), error = function(e) NULL)
+  }))
+  if (!length(found)) {
+    return(NULL)
+  }
+  best <- found[[which.min(vapply(found, `[[`, numeric(1), "deviance"))]]
+  if (!isTRUE(best$gain > tol)) {
+    return(NULL)
+  }
+  control <- if (is.null(fit_call$control)) {
+    lme4::glmerControl()
+  } else {
+    eval(fit_call$control, fit_env)
+  }
+  control$nAGQ0initStep <- FALSE
+  # Settings of the fit's own optimiser are not those of this refit.
+  step <- maihda_glmer_first_step(unname(best$start$theta), best$lower)
+  control$optimizer[2] <- "bobyqa"
+  control$optCtrl <- list(rhobeg = step, rhoend = step * 1e-3, maxfun = 1e5)
+  assign(".maihda_arg_search_control", control, envir = fit_env)
+  refit_call <- fit_call
+  refit_call$start <- list(theta = unname(best$start$theta), fixef = best$start$fixef)
+  refit_call$control <- as.name(".maihda_arg_search_control")
+  refit <- maihda_eval_holding_conditions(refit_call, fit_env)
+  if (maihda_glmer_criterion(refit$value) < maihda_glmer_criterion(model) - tol) {
+    refit
+  } else {
+    NULL
+  }
 }
 
 # ---- refits of other lmer fits ---------------------------------------------------------
