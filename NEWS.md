@@ -128,6 +128,10 @@
 
 * A glmer fit whose optimiser reports success now counts as converged when lme4's convergence checks fire but the fit lies within a tenth of a standard error of a stationary point, measured with the fixed effects centred and scaled: lme4 takes its checks in the covariates' own units, where a calendar year, an income or an age in years on a few thousand rows can trip them at the maximum, so such fits were recorded as not converged and `compare_maihda_groups()` named their groups. `print()` says what lme4 warned of and how far the fit is.
 
+* A glmer fit with a random slope, as in `(1 + x | stratum)`, is now judged with its random-effect terms centred and scaled as well as its fixed effects: lme4 takes its checks in the units of the slope's covariate, so fits with a slope on a birth year were recorded as not converged at the maximum (6 of 12 simulated fits).
+
+* A glmer or lmer fit with a `diag()` random-effect block is judged with that block's terms divided by their root mean square, as the same model written with `||` is: glmer fits with a `diag()` slope on a birth year were recorded as not converged at the maximum (4 of 8 simulated Poisson fits), and an lmer fit with such a block kept lme4's verdict.
+
 * An lmer fit is judged the same way, with its random-effect terms centred and scaled: lme4 takes its checks in the units of a random slope's covariate, so fits with a slope on a birth year, an age in years or an income in thousands were recorded as not converged at the REML optimum (17 of 60, 47 of 180 and 24 of 60 simulated fits).
 
 * `compare_maihda_groups()` now gives a failure reason shared by several groups once, in one warning for failed fits and one for failed PCV decompositions, names a one-level stratum dimension as the cause only for the groups where it is, and keeps the first line of an error message in `status`.
