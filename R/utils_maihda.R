@@ -252,16 +252,25 @@ maihda_central_derivatives <- function(fun, x, lower = rep(-Inf, length(x)),
 # sqrt(g' H^-1 g / 2) for the gradient g and the Hessian H of its deviance (-2
 # log-likelihood, Laplace or quadrature as fitted), taken by
 # maihda_central_derivatives() with the fixed effects as the coefficients of centred
-# and scaled columns (maihda_centre_scale_map()). Half its square is the log-likelihood
-# the fit is short of that point by. The distance is the same in any linear
-# parametrisation; the differences it is computed from are not. lme4 takes them in the
-# coefficients as the formula has them, where a step along the coefficient of a
+# and scaled columns (maihda_centre_scale_map()) and each random-effect block's terms
+# centred and scaled (maihda_lmer_block_scales()), only scaled in a block held as a
+# diagonal, as for diag(1 + x | g) (maihda_lme4_diagonal_blocks()), the variance parameters
+# those of the blocks so re-expressed (maihda_lmer_transform_theta()). Half its square is the
+# log-likelihood the fit is short of that point by. The distance is the same in any
+# linear parametrisation; the differences it is computed from are not. lme4 takes them
+# in the parameters as the formula has them, where a step along the coefficient of a
 # covariate far from zero or in large units moves every observation's linear predictor
-# by the step times the covariate, so that its checks can fire at the maximum itself.
-# NA when the fit cannot say: not a glmer fit whose fixed effects were optimised with
-# the variances (nAGQ = 0), a deviance function that does not reproduce the fit's
-# log-likelihood, a variance parameter within a step of its bound, or a Hessian that is
-# not positive definite.
+# by the step times the covariate, and a step along a random slope's entry moves each
+# observation's random-effect variance by an amount that grows with the square of its
+# covariate, so that its checks can fire at the maximum itself. The deviance depends on
+# the variance parameters through the blocks' covariance matrices alone, which exist on
+# either side of a variance bound, so the differences may cross one. A fit with a block
+# that lme4 holds as neither a full Cholesky factor nor a diagonal is measured in theta as
+# fitted, without crossing a bound. NA when the fit cannot say: not a glmer fit whose fixed
+# effects were optimised with the variances (nAGQ = 0), a deviance function that does not
+# reproduce the fit's log-likelihood (as for cs() and ar1(), whose deviance function takes
+# other parameters than theta), a variance parameter of a fit measured in theta as fitted
+# within a step of its bound, or a Hessian that is not positive definite.
 maihda_lme4_stationary_distance <- function(model) {
   if (!inherits(model, "glmerMod") ||
       !isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))) {
@@ -585,14 +594,30 @@ maihda_lme4_distance_with <- function(model, deviance) {
   }
   k <- length(theta)
   A <- maihda_centre_scale_map(X)
-  f <- function(p) deviance(c(p[seq_len(k)], drop(A %*% p[-seq_len(k)])))
-  at <- c(theta, solve(A, beta))
+  # theta of the re-expressed blocks, or theta as fitted, kept on its side of the bound, when
+  # a block is held as neither a full Cholesky factor nor a diagonal.
+  cnms <- lme4::getME(model, "cnms")
+  diagonal <- maihda_lme4_diagonal_blocks(cnms, lme4::getME(model, "lower"))
+  values <- tryCatch(lme4::getME(model, "mmList"), error = function(e) NULL)
+  scales <- if (!is.null(diagonal)) maihda_lmer_block_scales(values, cnms, diagonal)
+  phi <- if (!is.null(scales)) {
+    maihda_lmer_transform_theta(theta, cnms, lapply(scales, solve), diagonal)
+  }
+  if (is.null(phi)) {
+    phi <- theta
+    as_fitted <- function(p) p
+    lower <- c(lme4::getME(model, "lower"), rep(-Inf, length(beta)))
+  } else {
+    as_fitted <- function(p) maihda_lmer_transform_theta(p, cnms, scales, diagonal)
+    lower <- rep(-Inf, k + length(beta))
+  }
+  f <- function(p) deviance(c(as_fitted(p[seq_len(k)]), drop(A %*% p[-seq_len(k)])))
+  at <- c(phi, solve(A, beta))
   f_at <- f(at)
   target <- -2 * as.numeric(stats::logLik(model))
   if (!is.finite(f_at) || abs(f_at - target) > 1e-5 * max(1, abs(target))) {
     return(NA_real_)
   }
-  lower <- c(lme4::getME(model, "lower"), rep(-Inf, length(beta)))
   maihda_newton_distance(maihda_central_derivatives(f, at, lower = lower, fx = f_at))
 }
 
@@ -617,16 +642,19 @@ maihda_newton_distance <- function(d) {
 # and the Hessian H of the criterion in the variance parameters, the fixed effects and the
 # residual variance profiled out as lmer() has them. They are taken by
 # maihda_central_derivatives() with each random-effect block's terms centred and scaled
-# (maihda_lmer_block_scales()): the same model with its random effects re-expressed, whose
-# criterion at a theta is the fit's own deviance function at that theta carried back
-# (maihda_lmer_transform_theta()). lme4 takes its checks in theta as the formula has it,
-# where a step along a slope's entry moves the random-effect variance of each observation
-# by an amount that grows with the square of its covariate, so that for a covariate far from
-# zero or in large units, such as a birth year, its checks can fire at the optimum itself.
+# (maihda_lmer_block_scales()), only scaled in a block held as a diagonal, as for
+# diag(1 + x | g) (maihda_lme4_diagonal_blocks()): the same model with its random effects
+# re-expressed, whose criterion at a theta is the fit's own deviance function at that theta
+# carried back (maihda_lmer_transform_theta()). lme4 takes its checks in theta as the formula
+# has it, where a step along a slope's entry moves the random-effect variance of each
+# observation by an amount that grows with the square of its covariate, so that for a
+# covariate far from zero or in large units, such as a birth year, its checks can fire at the
+# optimum itself.
 # The criterion depends on theta through the blocks' covariance matrices alone, which exist
 # on either side of a variance bound, so the differences may cross one. NA when the fit
-# cannot say: not an lmer fit, a deviance function that does not reproduce the fit's
-# criterion, or a Hessian that is not positive definite.
+# cannot say: not an lmer fit, a block held as neither a full Cholesky factor nor a diagonal
+# (cs(), ar1()), a deviance function that does not reproduce the fit's criterion, or a
+# Hessian that is not positive definite.
 maihda_lmer_stationary_distance <- function(model) {
   if (!inherits(model, "lmerMod")) {
     return(NA_real_)
@@ -645,16 +673,19 @@ maihda_lmer_stationary_distance <- function(model) {
 maihda_lmer_distance_with <- function(model, deviance) {
   theta <- unname(lme4::getME(model, "theta"))
   cnms <- lme4::getME(model, "cnms")
-  scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), cnms)
+  diagonal <- maihda_lme4_diagonal_blocks(cnms, lme4::getME(model, "lower"))
+  scales <- if (!is.null(diagonal)) {
+    maihda_lmer_block_scales(lme4::getME(model, "mmList"), cnms, diagonal)
+  }
   if (is.null(scales)) {
     return(NA_real_)
   }
   # theta of the re-expressed blocks, and the criterion as a function of it.
-  phi <- maihda_lmer_transform_theta(theta, cnms, lapply(scales, solve))
+  phi <- maihda_lmer_transform_theta(theta, cnms, lapply(scales, solve), diagonal)
   if (is.null(phi)) {
     return(NA_real_)
   }
-  criterion <- function(p) deviance(maihda_lmer_transform_theta(p, cnms, scales))
+  criterion <- function(p) deviance(maihda_lmer_transform_theta(p, cnms, scales, diagonal))
   at <- criterion(phi)
   target <- maihda_lmer_criterion(model)
   if (!is.finite(at) || abs(at - target) > 1e-5 * max(1, abs(target))) {
@@ -663,15 +694,44 @@ maihda_lmer_distance_with <- function(model, deviance) {
   maihda_newton_distance(maihda_central_derivatives(criterion, phi, fx = at))
 }
 
-# How maihda_lmer_stationary_distance() re-expresses each random-effect block of an lmer fit,
-# from `values`, the term columns of each block over the fitted rows (lme4::getME(, "mmList"),
-# one matrix per block of `cnms`): a matrix T per block, with b = T a for the block's random
-# effects b on its columns as given and a on the re-expressed ones. In a block with an intercept
-# every other term that is not constant is centred at its mean and divided by its standard
-# deviation; in a block without one it is divided by its root mean square, which leaves that
-# block the same model where centring would not. A term in several blocks is re-expressed in
-# each by that block's rule. NULL when `values` does not match `cnms`.
-maihda_lmer_block_scales <- function(values, cnms) {
+# Which random-effect blocks of an lme4 fit theta holds as a diagonal, as for diag(1 + x | g):
+# a logical per block of `cnms`, read from `lower`, the fit's bounds on theta
+# (lme4::getME(, "lower")). A block held as a full Cholesky factor has a bound of 0 on each
+# diagonal entry and none (-Inf) on the entries below; a diagonal block holds its terms'
+# standard deviations, each bounded at 0. NULL when some block is held in neither form, as
+# for cs() or ar1(), which bound a correlation below zero.
+maihda_lme4_diagonal_blocks <- function(cnms, lower) {
+  lower <- unname(as.numeric(lower))
+  diagonal <- logical(length(cnms))
+  at <- 0L
+  for (k in seq_along(cnms)) {
+    q <- length(cnms[[k]])
+    full <- matrix(-Inf, q, q)
+    diag(full) <- 0
+    full <- full[lower.tri(full, diag = TRUE)]
+    if (identical(lower[at + seq_along(full)], full)) {
+      at <- at + length(full)
+    } else if (q > 1L && identical(lower[at + seq_len(q)], numeric(q))) {
+      diagonal[k] <- TRUE
+      at <- at + q
+    } else {
+      return(NULL)
+    }
+  }
+  if (at != length(lower)) NULL else diagonal
+}
+
+# How maihda_lmer_stationary_distance() and maihda_lme4_stationary_distance() re-express each
+# random-effect block of an lme4 fit, from `values`, the term columns of each block over the
+# fitted rows (lme4::getME(, "mmList"), one matrix per block of `cnms`): a matrix T per block,
+# with b = T a for the block's random effects b on its columns as given and a on the
+# re-expressed ones. In a block with an intercept every other term that is not constant is
+# centred at its mean and divided by its standard deviation; in a block without one, and in a
+# block that `diagonal` marks as held as a diagonal (maihda_lme4_diagonal_blocks()), it is
+# divided by its root mean square, which leaves that block the same model where centring would
+# not. A term in several blocks is re-expressed in each by that block's rule. NULL when
+# `values` does not match `cnms`.
+maihda_lmer_block_scales <- function(values, cnms, diagonal = NULL) {
   if (!is.list(values) || length(values) != length(cnms)) {
     return(NULL)
   }
@@ -683,7 +743,8 @@ maihda_lmer_block_scales <- function(values, cnms) {
       return(NULL)
     }
     Tm <- diag(1, length(terms))
-    int <- match("(Intercept)", terms)
+    # A diagonal block cannot hold the covariances centring adds: its terms are only scaled.
+    int <- if (isTRUE(diagonal[k])) NA_integer_ else match("(Intercept)", terms)
     for (j in seq_along(terms)) {
       if (!is.na(int) && j == int) {
         next
@@ -706,10 +767,18 @@ maihda_lmer_block_scales <- function(values, cnms) {
 
 # `theta` with the covariance matrix of each random-effect block k carried to
 # T_k Sigma_k T_k' and factored again (maihda_chol_psd()), for `Ts`, one matrix per block of
-# `cnms`. NULL when theta does not hold a full Cholesky factor per block.
-maihda_lmer_transform_theta <- function(theta, cnms, Ts) {
-  sizes <- lengths(cnms) * (lengths(cnms) + 1) / 2
-  if (!is.numeric(theta) || length(theta) != sum(sizes) || length(Ts) != length(cnms)) {
+# `cnms`. A block that `diagonal` marks as held as a diagonal (maihda_lme4_diagonal_blocks())
+# holds its terms' standard deviations, carried by the diagonal of its T. NULL when theta does
+# not hold a full Cholesky factor or, where marked, a diagonal per block, or when a diagonal
+# block's T is not diagonal.
+maihda_lmer_transform_theta <- function(theta, cnms, Ts, diagonal = NULL) {
+  if (is.null(diagonal)) {
+    diagonal <- logical(length(cnms))
+  }
+  n_terms <- lengths(cnms)
+  sizes <- ifelse(diagonal, n_terms, n_terms * (n_terms + 1) / 2)
+  if (!is.numeric(theta) || length(theta) != sum(sizes) || length(Ts) != length(cnms) ||
+      length(diagonal) != length(cnms)) {
     return(NULL)
   }
   end <- cumsum(sizes)
@@ -717,6 +786,14 @@ maihda_lmer_transform_theta <- function(theta, cnms, Ts) {
   for (k in seq_along(cnms)) {
     q <- length(cnms[[k]])
     idx <- seq.int(beg[k], end[k])
+    if (diagonal[k]) {
+      Tk <- Ts[[k]]
+      if (any(Tk[row(Tk) != col(Tk)] != 0)) {
+        return(NULL)
+      }
+      theta[idx] <- abs(diag(Tk) * theta[idx])
+      next
+    }
     L <- matrix(0, q, q)
     L[lower.tri(L, diag = TRUE)] <- theta[idx]
     L <- maihda_chol_psd(Ts[[k]] %*% tcrossprod(L) %*% t(Ts[[k]]))
@@ -845,8 +922,8 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = F
     diagnostics$messages <- msgs
     diagnostics$converged <- length(msgs) == 0
     # lme4 takes its checks in the parameters as the formula has them: a glmer fit's
-    # fixed effects among them, and an lmer fit's variance parameters, whose entries for
-    # a random slope are in the units of its covariate. They can fire at the maximum when
+    # fixed effects among them, and the variance parameters of either fit, whose entries
+    # for a random slope are in the units of its covariate. They can fire at the maximum when
     # a covariate is far from zero or in large units (maihda_lme4_stationary_distance(),
     # maihda_lmer_stationary_distance()). When they fire on a fit whose optimiser
     # reported no failure, the fit is measured in centred and scaled units: less than

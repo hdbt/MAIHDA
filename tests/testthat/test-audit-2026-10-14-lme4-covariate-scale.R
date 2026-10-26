@@ -25,8 +25,10 @@
 #
 # Per the user, when lme4's checks fire on a glmer fit whose optimiser reports success,
 # the fit is measured with the fixed effects as coefficients of centred and scaled
-# columns: within 0.1 standard errors of a stationary point (sqrt(g' H^-1 g / 2) of the
-# deviance, the line ordinal fits are judged by) it counts as converged, lme4's
+# columns (and its random-effect terms centred and scaled, see
+# test-audit-2026-10-20-glmer-slope-scale.R): within 0.1 standard errors of a
+# stationary point (sqrt(g' H^-1 g / 2) of the deviance, the line ordinal fits are
+# judged by) it counts as converged, lme4's
 # messages are kept in `lme4_overruled`, and print() says what lme4 warned of and how
 # far the fit is. Measured on 53 bobyqa stops with optimiser code 0, the distance
 # agrees with the log-likelihood shortfall (sqrt(2 * shortfall); quartiles of the ratio
