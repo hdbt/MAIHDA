@@ -363,6 +363,15 @@
 #'     centred and scaled (a slope in a \code{diag()} block only scaled); the distance is
 #'     \code{stationary_distance}, and lme4's
 #'     messages are kept in \code{lme4_overruled} when the fit converged by it.
+#'     lme4's singular-fit test, a diagonal entry of a random-effect block's relative
+#'     Cholesky factor below 1e-4, is taken in the same units and can fire on a block
+#'     with a slope on such a covariate that is not at the boundary: in an lmer fit, or a
+#'     glmer fit with \code{nAGQ} of 1 or more, outside a longitudinal model, a block with
+#'     a slope is at the boundary when a diagonal entry of its factor with the terms
+#'     centred and scaled (in a block without an intercept, divided by their root mean
+#'     square) is below 0.01, and lme4's own verdict is \code{lme4_singular} where the
+#'     two differ. A fit with a \code{diag()}, \code{cs()} or \code{ar1()} block keeps
+#'     lme4's test.
 #'     A glmer fit (\code{nAGQ}
 #'     of 1 or more), or an lmer fit outside a longitudinal model, with the variance
 #'     of a random-effect block's first term, usually
@@ -379,7 +388,12 @@
 #'     maximum-likelihood fit) 0.01 or more below the fit's; that amount is
 #'     \code{search_gain}. A fit refitted as described under \code{formula} has been
 #'     through those searches already, so this concerns a fit made from your own
-#'     \code{start} or one without a random slope. An lme4 fit also
+#'     \code{start} or one without a random slope. A glmer fit with \code{nAGQ} of 1 or
+#'     more and a random slope, outside a longitudinal model and with no \code{diag()},
+#'     \code{cs()} or \code{ar1()} block, that lme4 calls singular
+#'     is searched from the fit with its random-effect terms and fixed effects centred
+#'     and scaled, and counts as not converged when the search reaches a deviance 0.01
+#'     or more below the fit's (\code{search_gain}). An lme4 fit also
 #'     carries likelihood-adequacy caveats -- count overdispersion and zero
 #'     inflation, stratum random-effect non-normality and longitudinal residual
 #'     autocorrelation -- reported only when a conservative threshold is crossed,
