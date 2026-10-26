@@ -239,7 +239,7 @@ maihda_re_boundary_components_scaled_lme4 <- function(model, tol = 1e-4,
     return(NULL)
   }
   tryCatch({
-    scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), cnms)
+    scales <- maihda_lmer_block_scales(maihda_lme4_block_columns(model), cnms)
     if (is.null(scales)) {
       return(NULL)
     }
@@ -395,9 +395,15 @@ maihda_lme4_detached_copy <- function(model) {
 # it; measured by the larger of that fall and the fall along the first-order direction
 # (maihda_lme4_column_drop()), 0 of 8 of lme4's own glmer fits at the maximum and 66 of 70
 # more than 0.01 below it (60 by the reflection alone), on cross-sectional blocks of two to
-# four terms and quadratic growth blocks. A fit within 0.0005 of the maximum (or of the
-# REML optimum) cannot fall by more: no step across the bound gains more than the fit is
-# short of it.
+# four terms and quadratic growth blocks. Measured by the largest of those falls at steps of
+# 0.001, 0.01 and 0.1 and the fall of a Newton step in the block
+# (maihda_lme4_block_newton_fall()), 296 of 298 fits stopped at such a bound more than 0.01
+# below the maximum fell by more (213 by the two falls at 0.001 alone), most of the
+# difference with a slope covariate in large units, and none of 30 fits at the maximum, on
+# cross-sectional lmer and glmer designs with age in years, an income or a covariate in
+# thousands, and glmer growth in days. A fit within 0.0005 of the maximum (or of the REML
+# optimum) cannot fall by more: no step across the bound gains more than the fit is short of
+# it.
 .maihda_lme4_trap_drop <- 1e-3
 
 # Every column of an lme4 fit's random-effect Cholesky factors that has entries below its
@@ -563,19 +569,33 @@ maihda_lme4_theta_deviance <- function(model) {
 # the directions are the two signs of its covariance; with two or more they are many, and
 # the reflection of the entries below can miss the one where the likelihood rises. glmer's
 # first stage (nAGQ = 0) often stops a fit there and the second stops with it; lmer stops
-# a block with a slope there too. `drop` is the deviance (maihda_lme4_theta_deviance(): for
-# an lmer fit its REML criterion) at the fit minus the deviance across the bound with the
-# diagonal entry at `step`, along the direction in which the deviance falls fastest at
-# first order or by the reflection, whichever falls further (maihda_lme4_column_drop()):
-# positive where the likelihood rises across the bound (.maihda_lme4_trap_drop says how
-# much counts). A data frame with a row per such column (block, term, index of the
-# diagonal entry in theta, drop, the number of terms of the block); no rows for a fit with
-# none, or that is neither an lmer fit nor a glmer fit with its fixed effects among the
-# optimised parameters (nAGQ 0); drop NA when the deviance function does not reproduce the
-# fit's criterion.
-maihda_lme4_boundary_traps <- function(model, entry_tol = 1e-4, step = 1e-3) {
+# a block with a slope there too. Each fall is of the deviance (maihda_lme4_theta_deviance():
+# for an lmer fit its REML criterion) from the fit, positive where the likelihood rises
+# (.maihda_lme4_trap_drop says how much counts). `reflected` is the largest fall across the
+# bound by the reflection with the diagonal entry at each of `step`, `across` the largest by
+# the reflection or along the direction in which the deviance falls fastest at first order
+# (maihda_lme4_column_falls()), and `drop` the larger of `across` and the fall of a Newton
+# step in the block's entries with its terms centred and scaled
+# (maihda_lme4_block_newton_fall()). A fixed step of 0.001 can be far too long: next to the
+# entries of a slope on age in years, an income or a covariate in thousands the deviance
+# falls only over a much shorter step and has risen above the fit's by 0.001. And the fall
+# along one column's entries can be small where the likelihood rises by much more as the
+# block's other entries move with them. The Newton step is taken in units that do not depend
+# on the covariates' and lets every entry of the block move. A deviance that falls only
+# further across (a saddle, where it falls with the square of the step) is left to the steps
+# of 0.01 and 0.1. Where the blocks cannot be re-expressed (maihda_lmer_block_scales() NULL)
+# only the falls at the steps count. A slope's entry can lie below `entry_tol` at its
+# natural size, with its covariate in large units; `at_bound` says whether the column is at
+# its bound in units that do not depend on its term's (maihda_lme4_column_at_bound()). A
+# data frame with a row per such column (block, term, index of the diagonal entry in theta,
+# drop, across, reflected, at_bound, the number of terms of the block); no rows for a fit
+# with none, or that is neither an lmer fit nor a glmer fit with its fixed effects among the
+# optimised parameters (nAGQ 0); the falls NA when the deviance function does not reproduce
+# the fit's criterion.
+maihda_lme4_boundary_traps <- function(model, entry_tol = 1e-4, step = c(1e-3, 0.01, 0.1)) {
   none <- data.frame(block = character(0), term = character(0), index = integer(0),
-                     drop = numeric(0), n_terms = integer(0), stringsAsFactors = FALSE)
+                     drop = numeric(0), across = numeric(0), reflected = numeric(0),
+                     at_bound = logical(0), n_terms = integer(0), stringsAsFactors = FALSE)
   lmm <- inherits(model, "lmerMod")
   if (!lmm && (!inherits(model, "glmerMod") ||
       !isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE)))) {
@@ -587,48 +607,157 @@ maihda_lme4_boundary_traps <- function(model, entry_tol = 1e-4, step = 1e-3) {
   if (!length(cols)) {
     return(none)
   }
+  scales <- maihda_lmer_block_scales(maihda_lme4_block_columns(model), cnms)
   out <- data.frame(block = vapply(cols, `[[`, character(1), "block"),
                     term = vapply(cols, `[[`, character(1), "term"),
                     index = vapply(cols, `[[`, integer(1), "index"),
-                    drop = NA_real_, stringsAsFactors = FALSE)
+                    drop = NA_real_, across = NA_real_, reflected = NA_real_,
+                    stringsAsFactors = FALSE)
+  out$at_bound <- vapply(out$index, function(i) {
+    maihda_lme4_column_at_bound(theta, cnms, i, scales)
+  }, logical(1))
   out$n_terms <- unname(lengths(cnms)[out$block])
   at <- maihda_lme4_theta_deviance(model)
   if (is.null(at)) {
     return(out)
   }
-  out$drop <- vapply(out$index, function(i) maihda_lme4_column_drop(theta, cnms, i, at, step),
-                     numeric(1))
+  largest <- function(x) if (all(is.na(x))) NA_real_ else max(x, na.rm = TRUE)
+  falls <- lapply(out$index, function(i) {
+    vapply(step, function(s) maihda_lme4_column_falls(theta, cnms, i, at, s), numeric(2))
+  })
+  out$reflected <- vapply(falls, function(f) largest(f["reflection", ]), numeric(1))
+  out$across <- vapply(falls, largest, numeric(1))
+  out$drop <- out$across
+  if (is.null(scales)) {
+    return(out)
+  }
+  ends <- cumsum(lengths(cnms) * (lengths(cnms) + 1) / 2)
+  blocks <- vapply(out$index, function(i) which(i <= ends)[1L], integer(1))
+  for (b in unique(blocks)) {
+    fall <- tryCatch(maihda_lme4_block_newton_fall(theta, cnms, b, at, scales),
+                     error = function(e) NA_real_)
+    if (!is.na(fall)) {
+      out$drop[blocks == b] <- pmax(out$drop[blocks == b], fall, na.rm = TRUE)
+    }
+  }
   out
+}
+
+# The fall of `deviance` (a function of theta) from `theta` along a Newton step in the entries
+# of random-effect block `block`, its terms re-expressed by the block's matrix in `scales`
+# (one per block, from maihda_lmer_block_scales()), the other blocks held: the gradient and
+# Hessian of the deviance in the re-expressed entries by maihda_central_derivatives(), the
+# step taken with the Hessian's eigenvalues replaced by their absolute values, and the fall
+# the largest of those at the step and at its halvings down to 2^-20 of it. The deviance
+# depends on theta through the blocks' covariance matrices alone, which exist on either side
+# of a bound, so the step may take a diagonal entry across one. A block with a diagonal entry
+# at its bound has a covariance matrix of lower rank; re-expressed, its zero diagonal entry
+# usually falls in the last column, beside no entry below. NA when the deviance or a
+# derivative is not finite or the Hessian is 0.
+maihda_lme4_block_newton_fall <- function(theta, cnms, block, deviance, scales) {
+  sizes <- lengths(cnms) * (lengths(cnms) + 1) / 2
+  at <- sum(sizes[seq_len(block - 1L)]) + seq_len(sizes[block])
+  Ts <- lapply(seq_along(cnms), function(k) {
+    if (k == block) scales[[k]] else diag(1, length(cnms[[k]]))
+  })
+  phi <- maihda_lmer_transform_theta(theta, cnms, lapply(Ts, solve))
+  if (is.null(phi)) {
+    return(NA_real_)
+  }
+  f <- function(p) {
+    x <- phi
+    x[at] <- p
+    deviance(maihda_lmer_transform_theta(x, cnms, Ts))
+  }
+  p0 <- phi[at]
+  f0 <- f(p0)
+  if (!is.finite(f0)) {
+    return(NA_real_)
+  }
+  d <- maihda_central_derivatives(f, p0, fx = f0)
+  if (!all(is.finite(d$gradient)) || !all(is.finite(d$hessian))) {
+    return(NA_real_)
+  }
+  e <- eigen(d$hessian, symmetric = TRUE)
+  size <- max(abs(e$values))
+  if (!is.finite(size) || size == 0) {
+    return(NA_real_)
+  }
+  newton <- -drop(e$vectors %*% (drop(crossprod(e$vectors, d$gradient)) /
+                                   pmax(abs(e$values), 1e-8 * size)))
+  falls <- vapply(2^-(0:20), function(a) f0 - f(p0 + a * newton), numeric(1))
+  if (all(is.na(falls))) NA_real_ else max(falls, na.rm = TRUE)
+}
+
+# Whether the column of a random-effect Cholesky factor whose diagonal entry has theta index
+# `index` is at its bound in units that do not depend on its term's: a later column when that
+# entry carries no more than 1e-4 of its term's variance (the sum of squares of the term's row
+# of the block's factor), the block's first column when the entry times its term's scale is
+# below lme4's 1e-4 (1 for an intercept; in a block without one the root mean square of the
+# term's column, from the block's matrix in `scales`, maihda_lmer_block_scales(); 1 without
+# `scales`). With a covariate in large units, as a covariate in thousands is, a slope's entry
+# lies below lme4's 1e-4 at its natural size.
+maihda_lme4_column_at_bound <- function(theta, cnms, index, scales = NULL) {
+  sizes <- lengths(cnms) * (lengths(cnms) + 1) / 2
+  b <- which(index <= cumsum(sizes))[1L]
+  n <- length(cnms[[b]])
+  at <- sum(sizes[seq_len(b - 1L)]) + seq_len(sizes[b])
+  L <- matrix(0, n, n)
+  L[lower.tri(L, diag = TRUE)] <- theta[at]
+  j <- match(index - at[1L] + 1L, cumsum(c(1L, rev(seq_len(n))[-n])))
+  if (j > 1L) {
+    return(L[j, j]^2 <= 1e-4 * sum(L[j, seq_len(j)]^2))
+  }
+  scale <- if (is.null(scales)) 1 else 1 / scales[[b]][1L, 1L]
+  abs(L[1L, 1L]) * scale < 1e-4
 }
 
 # The fall of `deviance` (a function of theta) across the bound of the column whose
 # diagonal entry has theta index `index`, with that entry at `step`: the larger of the falls
 # along the first-order direction (maihda_lme4_first_order_theta()) and by the reflection
-# (maihda_lme4_mirror_theta()). The first-order direction at its full length can overshoot
-# where the deviance curves fast in it, as with a covariate in large units, and the
-# reflection can then fall further. NA when neither can be evaluated.
+# (maihda_lme4_mirror_theta()), from maihda_lme4_column_falls(). The first-order direction at
+# its full length can overshoot where the deviance curves fast in it, as with a covariate in
+# large units, and the reflection can then fall further. NA when neither can be evaluated.
 maihda_lme4_column_drop <- function(theta, cnms, index, deviance, step = 1e-3) {
+  falls <- maihda_lme4_column_falls(theta, cnms, index, deviance, step)
+  if (all(is.na(falls))) NA_real_ else max(falls, na.rm = TRUE)
+}
+
+# The two falls of maihda_lme4_column_drop(), by the reflection and along the first-order
+# direction (named so), each NA where it cannot be evaluated.
+maihda_lme4_column_falls <- function(theta, cnms, index, deviance, step = 1e-3) {
   d0 <- deviance(theta)
   across <- maihda_lme4_first_order_theta(theta, cnms, index, step, deviance, step)
-  drops <- c(d0 - deviance(maihda_lme4_mirror_theta(theta, cnms, index, step)),
-             if (!is.null(across)) d0 - deviance(across))
-  if (all(is.na(drops))) NA_real_ else max(drops, na.rm = TRUE)
+  c(reflection = d0 - deviance(maihda_lme4_mirror_theta(theta, cnms, index, step)),
+    first_order = if (is.null(across)) NA_real_ else d0 - deviance(across))
 }
 
 # The record's sentence for a boundary trap (a row of maihda_lme4_boundary_traps()): with
 # `terms`, the block's term names in order, that of any block; without them, that of a
 # growth block with `n_terms` terms (its intercept column, or the linear one of a curve).
-# With one later term the likelihood rises with the sign of their covariance reversed;
-# with two or more, in a direction of their covariances that need not reverse their signs.
-maihda_lme4_trap_message <- function(block, term, n_terms, terms = NULL) {
+# `shown` says what showed the likelihood rising: "reflection", the reflection across the
+# bound, which for one later term is the sign of their covariance reversed; "across", a step
+# across the bound along the first-order direction, a direction of the term's covariances
+# that need not reverse their signs; "newton", only the Newton step in the block's entries,
+# which moves its other variances and covariances as well. "interior" is for a column that
+# is not at its bound (maihda_lme4_column_at_bound()): the sentence names no bound.
+maihda_lme4_trap_message <- function(block, term, n_terms, terms = NULL, shown = "reflection") {
+  if (identical(shown, "interior")) {
+    return(sprintf(paste0("The '%s' block is not at the maximum: the likelihood still rises as ",
+                          "its variances and covariances move."), block))
+  }
   tail <- paste0(": the fit stopped at a bound of lme4's parametrisation, not at the maximum.")
+  moved <- "and the likelihood still rises as the block's variances and covariances move"
   at <- match(term, terms)
   if (!is.na(at) && at < length(terms)) {
     named <- function(x) ifelse(x == "(Intercept)", "the intercept", x)
     later <- terms[-seq_len(at)]
-    rises <- if (length(later) > 1) {
+    rises <- if (identical(shown, "newton")) {
+      moved
+    } else if (length(later) > 1 || identical(shown, "across")) {
       sprintf(paste0("where the likelihood still rises when that variance and its ",
-                     "covariances with %s move off zero"), maihda_and_list(named(later)))
+                     "%s with %s move off zero"),
+              if (length(later) > 1) "covariances" else "covariance", maihda_and_list(named(later)))
     } else {
       sprintf("where the likelihood still rises with the sign of its covariance with %s reversed",
               named(later))
@@ -647,18 +776,32 @@ maihda_lme4_trap_message <- function(block, term, n_terms, terms = NULL) {
                    term, maihda_and_list(named(terms[seq_len(at - 1L)])), rises, tail))
   }
   if (identical(term, "(Intercept)")) {
-    rises <- if (n_terms > 2) {
-      "when that variance and its covariances with the time terms move off zero"
+    rises <- if (identical(shown, "newton")) {
+      moved
+    } else if (n_terms > 2) {
+      paste0("where the likelihood still rises when that variance and its covariances with the ",
+             "time terms move off zero")
+    } else if (identical(shown, "across")) {
+      paste0("where the likelihood still rises when that variance and its covariance with the ",
+             "slope move off zero")
     } else {
-      "with the sign of its covariance with the slope reversed"
+      "where the likelihood still rises with the sign of its covariance with the slope reversed"
     }
-    return(sprintf(paste0("The intercept variance of the '%s' block is at zero, where the ",
-                          "likelihood still rises %s%s"), block, rises, tail))
+    return(sprintf("The intercept variance of the '%s' block is at zero, %s%s", block, rises,
+                   tail))
   }
   # A later column at its bound: that term is a multiple of the earlier ones, not zero.
-  sprintf(paste0("In the '%s' block the slope is perfectly correlated with the intercept, ",
-                 "where the likelihood still rises with the sign of its covariance with the ",
-                 "curvature reversed%s"), block, tail)
+  rises <- if (identical(shown, "newton")) {
+    moved
+  } else if (identical(shown, "across")) {
+    paste0("where the likelihood still rises when what is left of its variance and its ",
+           "covariance with the curvature move off zero")
+  } else {
+    paste0("where the likelihood still rises with the sign of its covariance with the ",
+           "curvature reversed")
+  }
+  sprintf("In the '%s' block the slope is perfectly correlated with the intercept, %s%s", block,
+          rises, tail)
 }
 
 # The work of maihda_lme4_stationary_distance(), with `deviance` the fit's deviance as a
@@ -679,7 +822,7 @@ maihda_lme4_distance_with <- function(model, deviance) {
   # a block is held as neither a full Cholesky factor nor a diagonal.
   cnms <- lme4::getME(model, "cnms")
   diagonal <- maihda_lme4_diagonal_blocks(cnms, lme4::getME(model, "lower"))
-  values <- tryCatch(lme4::getME(model, "mmList"), error = function(e) NULL)
+  values <- maihda_lme4_block_columns(model)
   scales <- if (!is.null(diagonal)) maihda_lmer_block_scales(values, cnms, diagonal)
   phi <- if (!is.null(scales)) {
     maihda_lmer_transform_theta(theta, cnms, lapply(scales, solve), diagonal)
@@ -756,7 +899,7 @@ maihda_lmer_distance_with <- function(model, deviance) {
   cnms <- lme4::getME(model, "cnms")
   diagonal <- maihda_lme4_diagonal_blocks(cnms, lme4::getME(model, "lower"))
   scales <- if (!is.null(diagonal)) {
-    maihda_lmer_block_scales(lme4::getME(model, "mmList"), cnms, diagonal)
+    maihda_lmer_block_scales(maihda_lme4_block_columns(model), cnms, diagonal)
   }
   if (is.null(scales)) {
     return(NA_real_)
@@ -802,9 +945,58 @@ maihda_lme4_diagonal_blocks <- function(cnms, lower) {
   if (at != length(lower)) NULL else diagonal
 }
 
+# The term columns of each random-effect block of the lme4 fit `model` over its fitted rows,
+# one matrix per block in the order of lme4::getME(model, "cnms"). lme4::getME(model,
+# "mmList") holds them in an order of its own, which differs from cnms's where lme4 sorts the
+# blocks by their number of levels (a block written after one with fewer) and two of them have
+# as many levels: lme4 keeps such tied blocks in the formula's order and reformulas, which
+# orders cnms, reverses them. Each block is therefore
+# found by its grouping factor (the right-hand side of the bar mmList names it by) and its
+# terms (maihda_lme4_match_blocks()). NULL when a block cannot be found.
+maihda_lme4_block_columns <- function(model) {
+  values <- tryCatch(lme4::getME(model, "mmList"), error = function(e) NULL)
+  maihda_lme4_match_blocks(values, lme4::getME(model, "cnms"))
+}
+
+# `values`, term-column matrices named by their random-effect bars as lme4's mmList names them
+# ("1 + x | g"), put in the order of `cnms` (named by grouping factor): each block of cnms takes
+# the first unused matrix with its grouping factor and its terms as column names. `values` as
+# given when it carries no such names; NULL when a block finds no matrix or the counts differ.
+maihda_lme4_match_blocks <- function(values, cnms) {
+  if (!is.list(values) || length(values) != length(cnms)) {
+    return(NULL)
+  }
+  factor_of <- vapply(names(values), function(nm) {
+    bar <- tryCatch(str2lang(nm), error = function(e) NULL)
+    if (is.call(bar) && identical(bar[[1L]], as.name("|")) && length(bar) == 3L) {
+      deparse1(bar[[3L]])
+    } else {
+      NA_character_
+    }
+  }, character(1))
+  if (is.null(names(values)) || anyNA(factor_of)) {
+    return(values)
+  }
+  used <- logical(length(values))
+  out <- vector("list", length(cnms))
+  for (k in seq_along(cnms)) {
+    terms <- unname(as.character(cnms[[k]]))
+    hit <- which(!used & factor_of == names(cnms)[k] & vapply(values, function(X) {
+      is.matrix(X) && identical(unname(colnames(X)), terms)
+    }, logical(1)))
+    if (!length(hit)) {
+      return(NULL)
+    }
+    used[hit[1L]] <- TRUE
+    out[[k]] <- values[[hit[1L]]]
+  }
+  names(out) <- names(cnms)
+  out
+}
+
 # How maihda_lmer_stationary_distance() and maihda_lme4_stationary_distance() re-express each
 # random-effect block of an lme4 fit, from `values`, the term columns of each block over the
-# fitted rows (lme4::getME(, "mmList"), one matrix per block of `cnms`): a matrix T per block,
+# fitted rows in the order of `cnms` (maihda_lme4_block_columns()): a matrix T per block,
 # with b = T a for the block's random effects b on its columns as given and a on the
 # re-expressed ones. In a block with an intercept every other term that is not constant is
 # centred at its mean and divided by its standard deviation; in a block without one, and in a
@@ -980,7 +1172,7 @@ maihda_glmer_search_with <- function(model, deviance, within) {
   beta <- unname(lme4::fixef(model))
   cnms <- lme4::getME(model, "cnms")
   X <- lme4::getME(model, "X")
-  scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), cnms)
+  scales <- maihda_lmer_block_scales(maihda_lme4_block_columns(model), cnms)
   if (is.null(scales) || length(beta) == 0L || ncol(X) != length(beta)) {
     return(NA_real_)
   }
@@ -1163,9 +1355,21 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = F
         } else {
           vector("list", nrow(traps))
         }
+        # The sentence says what showed the likelihood rising (maihda_lme4_trap_message()),
+        # and names a bound only for a column at one. A record without those columns reads
+        # as one where the reflection showed it at a bound.
+        column <- function(name, default) {
+          if (is.null(traps[[name]])) rep(default, nrow(traps)) else traps[[name]]
+        }
+        shows <- function(x) !is.na(x) & x > .maihda_lme4_trap_drop
+        at_bound <- column("at_bound", TRUE)
+        shown <- ifelse(!is.na(at_bound) & !at_bound, "interior",
+                        ifelse(shows(column("reflected", Inf)), "reflection",
+                               ifelse(shows(column("across", Inf)), "across", "newton")))
         diagnostics$messages <- c(diagnostics$messages,
-                                  unlist(Map(maihda_lme4_trap_message, traps$block, traps$term,
-                                             traps$n_terms, terms), use.names = FALSE))
+                                  unique(unlist(Map(maihda_lme4_trap_message, traps$block,
+                                                    traps$term, traps$n_terms, terms, shown),
+                                                use.names = FALSE)))
       }
     }
     # lme4 takes no convergence check on a fit it calls singular. Such an lmer fit outside a
@@ -7303,13 +7507,13 @@ maihda_containment_df <- function(model) {
 
   X <- tryCatch(lme4::getME(model, "X"), error = function(e) NULL)
   fl <- tryCatch(lme4::getME(model, "flist"), error = function(e) NULL)
-  re_list <- tryCatch(lme4::getME(model, "mmList"), error = function(e) NULL)
+  re_list <- maihda_lme4_block_columns(model)
   if (is.null(X) || is.null(fl) || is.null(re_list) ||
       !ncol(X) || !length(fl) || !length(re_list)) {
     return(NULL)
   }
-  # mmList has one entry per random-effect TERM; flist's "assign" attribute maps
-  # each term to its grouping factor (several terms may share one factor).
+  # One matrix per random-effect TERM, in the order flist's "assign" attribute maps to
+  # grouping factors (several terms may share one factor; maihda_lme4_block_columns()).
   assign_g <- attr(fl, "assign")
   if (is.null(assign_g) || length(assign_g) != length(re_list)) return(NULL)
 

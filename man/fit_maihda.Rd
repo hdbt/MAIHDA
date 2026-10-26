@@ -409,9 +409,15 @@ A maihda_model object containing:
     its intercept, at zero (or, in a block of three or more terms, what is left of
     a later term's variance after the terms before it, such as a quadratic growth
     block's slope perfectly correlated with its intercept), where the likelihood
-    still rises as that variance and the term's covariances with the later terms
+    still rises as the block's variances and covariances move, or as that variance
+    and the term's covariances with the later terms
     move off zero, has stopped at a bound of lme4's parametrisation and counts as
-    not converged; those blocks are in \code{boundary_traps}. An lmer fit outside a
+    not converged; those blocks are in \code{boundary_traps}. A slope's entry can lie
+    within lme4's 1e-4 of that bound at its natural size when its covariate is in
+    large units, as a covariate in thousands is; such a column is not at a bound
+    (\code{at_bound} is \code{FALSE}), and the fit counts as not converged when the
+    likelihood still rises as the block's variances and covariances move. An lmer fit
+    outside a
     longitudinal model that lme4 calls singular, which lme4 does not check further,
     counts as not converged when a search of the same model, from lme4's starting
     values with each random-effect block's terms centred and scaled and from a

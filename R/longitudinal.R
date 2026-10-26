@@ -1381,7 +1381,7 @@ maihda_lmer_across_bound <- function(theta, cnms) {
 # criterion.
 maihda_lmer_reexpressed <- function(model) {
   cnms <- lme4::getME(model, "cnms")
-  scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), cnms)
+  scales <- maihda_lmer_block_scales(maihda_lme4_block_columns(model), cnms)
   if (is.null(scales)) {
     return(NULL)
   }
@@ -1430,7 +1430,7 @@ maihda_lmer_minimise <- function(criterion, start, cnms, lower, optimiser) {
 # from the optimum. A list of one theta, or an empty list when no term is re-expressed or the
 # deviance function does not reproduce the fit's criterion.
 maihda_lmer_standardised_start <- function(model, optimiser = lme4::nloptwrap) {
-  scales <- maihda_lmer_block_scales(lme4::getME(model, "mmList"), lme4::getME(model, "cnms"))
+  scales <- maihda_lmer_block_scales(maihda_lme4_block_columns(model), lme4::getME(model, "cnms"))
   if (is.null(scales) || all(vapply(scales, function(Tm) all(Tm == diag(1, nrow(Tm))),
                                     logical(1)))) {
     return(list())
