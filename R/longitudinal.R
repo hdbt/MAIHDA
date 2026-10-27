@@ -1047,6 +1047,25 @@ maihda_growth_restarts_apply <- function(fit_fun, longitudinal_info, dot_vals) {
 # stop at a bound again (0.17 to 6.9 below, recorded as not converged); the second refit
 # reached the maximum from all 5. Where nothing is left to gain it takes a median of about
 # 35 evaluations on linear growth and 100 on quadratic growth, at times a few hundred.
+#
+# A quadratic growth fit gets no restarts, and its maximum often has the quadratic term's
+# variance at or near zero, which glmer's second stage approaches slowly: on 240 quadratic
+# growth fits (Poisson, binomial and Bernoulli outcomes; four designs of 8 to 32 strata;
+# time in five units; null and adjusted), 47 ended more than 0.01 below the maximum after
+# the refits above, by up to 21, and the 11 of them recorded as converged were all singular,
+# which lme4 does not check. Adjusted linear Poisson growth fits ended up to 0.022 below (4
+# of 30 more than 0.01). Every glmer growth fit is therefore also searched as other glmer
+# fits with a random slope are, and refitted from the lower end when that lies at least 0.001
+# below (maihda_glmer_search_refit()); from the fits of the refits above, the search and its
+# refit reached the maximum on each of the 46 it was tried on that had stopped more than
+# 0.001 short (28 of them more than 0.01 short). The searches added a median 23% to the
+# fitting time on 11 fits at their maximum (-8% to 52%), and with a refit the fit took 1.65 to
+# 4.8 times as long (8 fits 0.39 to 15.7 short); refits gaining less than 0.001, now not
+# made, had taken half of the time the searches added on 48 other fits, one 72,732
+# evaluations of bobyqa for a gain below 0.001. The searches' deviance function starts its
+# penalised least squares from the same point at every evaluation and, at lme4's tolerance,
+# stopped 0.022 above a Bernoulli growth fit's own -2 log-likelihood, where re-expressing
+# the fit is refused; the search of a growth fit runs it to a relative tolerance of 1e-10.
 
 # Whether fit_maihda() makes an lme4 fit by maihda_fit_glmer_growth(): a growth model
 # fitted by glmer() or glmer.nb(), without starting values of the user's own.
@@ -1126,9 +1145,12 @@ maihda_glmer_refit_pass <- function(refit, fit_call, fit_env, tol = 1e-4) {
 # maihda_glmer_growth_starts() and keep the fit with the lowest criterion
 # (maihda_pick_lowest()); then refit that fit once from the other side of its boundary
 # traps by bobyqa (maihda_glmer_mirror_refit()) and, when that refit is kept, once more
-# (maihda_glmer_refit_pass()). Only the kept fit's warnings and messages are
-# signalled. A refit that fails is passed over. `first` is taken as the first fit instead
-# of evaluating `fit_call`, as for maihda_fit_lmer_growth().
+# (maihda_glmer_refit_pass()); then refit the kept fit from searches with its random-effect
+# blocks and fixed effects re-expressed (maihda_glmer_search_refit()), their deviance
+# function's penalised least squares run to a relative tolerance of 1e-10, when they reach a
+# criterion at least 0.001 lower. Only the kept fit's warnings and messages are signalled. A
+# refit that fails is passed over. `first` is taken as the first fit instead of evaluating
+# `fit_call`, as for maihda_fit_lmer_growth().
 maihda_fit_glmer_growth <- function(fit_call, fit_env, id, tol = 1e-4, first = NULL) {
   if (is.null(first)) {
     first <- maihda_eval_holding_conditions(fit_call, fit_env)
@@ -1156,6 +1178,12 @@ maihda_fit_glmer_growth <- function(fit_call, fit_env, id, tol = 1e-4, first = N
     passed <- tryCatch(maihda_glmer_refit_pass(mirrored, fit_call, fit_env, tol),
                        error = function(e) NULL)
     kept <- if (is.null(passed)) mirrored else passed
+  }
+  searched <- tryCatch(maihda_glmer_search_refit(kept, fit_call, fit_env, tol,
+                                                 tolerance = 1e-10, gain = 1e-3),
+                       error = function(e) NULL)
+  if (!is.null(searched)) {
+    kept <- searched
   }
   maihda_signal_conditions(kept$conditions)
   kept$value
@@ -1411,8 +1439,10 @@ maihda_glmer_carry_theta <- function(theta, cnms, Ts) {
 # coefficients free; NULL when the fit's fixed effects were not optimised with its variances
 # (nAGQ 0), a block cannot be re-expressed (lme4's diag() and other structured blocks hold no
 # full Cholesky factor in theta) or the deviance function does not reproduce the fit's
-# -2 log-likelihood.
-maihda_glmer_reexpressed <- function(model) {
+# -2 log-likelihood. `tolerance`, when given, is the relative tolerance to which the deviance
+# function runs its penalised iteratively reweighted least squares (lme4's `tolPwrss`, 1e-7),
+# which it starts from the same point at every evaluation.
+maihda_glmer_reexpressed <- function(model, tolerance = NULL) {
   if (!isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))) {
     return(NULL)
   }
@@ -1436,6 +1466,9 @@ maihda_glmer_reexpressed <- function(model) {
   }
   # Rebuilt from a copy: lme4 writes into vectors the deviance function shares with the fit.
   devfun <- lme4::getME(maihda_lme4_detached_copy(model), "devfun")
+  if (!is.null(tolerance)) {
+    environment(devfun)$tolPwrss <- tolerance
+  }
   deviance <- function(p) {
     at <- carry(p)
     devfun(c(at$theta, unname(at$fixef)))
@@ -1460,9 +1493,10 @@ maihda_glmer_reexpressed <- function(model) {
 # time. A list of where the search ended, carried back (`start`: theta and the fixed effects),
 # the deviance there (`deviance`) and how far below the fit's that is (`gain`), both by the
 # fit's own deviance function, with lme4's bounds of theta (`lower`); NULL when no search is
-# made or none ends where the deviance can be evaluated.
+# made or none ends where the deviance can be evaluated. `tolerance` is that of the deviance
+# function (maihda_glmer_reexpressed()).
 maihda_glmer_search <- function(model, from = c("standardised", "estimates"),
-                                optimiser = lme4::nloptwrap) {
+                                optimiser = lme4::nloptwrap, tolerance = NULL) {
   from <- match.arg(from)
   if (from == "standardised") {
     scales <- maihda_lmer_block_scales(maihda_lme4_block_columns(model),
@@ -1472,7 +1506,7 @@ maihda_glmer_search <- function(model, from = c("standardised", "estimates"),
       return(NULL)
     }
   }
-  re <- maihda_glmer_reexpressed(model)
+  re <- maihda_glmer_reexpressed(model, tolerance)
   if (is.null(re)) {
     return(NULL)
   }
@@ -1519,27 +1553,31 @@ maihda_glmer_first_step <- function(theta, lower) {
   min(2e-4, 0.5 * theta[lower == 0 & theta > 0])
 }
 
-# The refit of maihda_fit_glmer_bound() from a search: when the fit in `kept` (a value /
-# conditions pair of maihda_eval_holding_conditions()) has a random slope, it is searched
+# The refit of maihda_fit_glmer_bound() and maihda_fit_glmer_growth() from a search: when
+# the fit in `kept` (a value / conditions pair of maihda_eval_holding_conditions()) has a
+# random slope, it is searched
 # (maihda_glmer_search()) from lme4's starting values and from its estimates, and when the
 # lower end is lower than the fit's criterion by more than `tol`, `fit_call` is evaluated from
 # there by glmer's second stage only, by bobyqa with its first step below the end's smallest
 # positive variance entry (maihda_glmer_first_step()), with the call's own control otherwise.
 # The refit's pair when its criterion is lower than the kept fit's by more than `tol`, else
-# NULL.
-maihda_glmer_search_refit <- function(kept, fit_call, fit_env, tol = 1e-4) {
+# NULL. `tolerance` is that of the searches' deviance function (maihda_glmer_reexpressed());
+# `gain`, when given, is how far at least the lower end must lie below the fit's criterion for
+# the refit to be made.
+maihda_glmer_search_refit <- function(kept, fit_call, fit_env, tol = 1e-4, tolerance = NULL,
+                                      gain = NULL) {
   model <- kept$value
   if (!maihda_lme4_has_slope(model)) {
     return(NULL)
   }
   found <- Filter(Negate(is.null), lapply(c("standardised", "estimates"), function(from) {
-    tryCatch(maihda_glmer_search(model, from), error = function(e) NULL)
+    tryCatch(maihda_glmer_search(model, from, tolerance = tolerance), error = function(e) NULL)
   }))
   if (!length(found)) {
     return(NULL)
   }
   best <- found[[which.min(vapply(found, `[[`, numeric(1), "deviance"))]]
-  if (!isTRUE(best$gain > tol)) {
+  if (!isTRUE(best$gain > tol) || (!is.null(gain) && !isTRUE(best$gain >= gain))) {
     return(NULL)
   }
   control <- if (is.null(fit_call$control)) {
