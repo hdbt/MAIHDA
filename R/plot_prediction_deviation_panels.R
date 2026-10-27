@@ -709,16 +709,17 @@ maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALS
   # does not implement se.fit (returning 0 produced ci_lower == ci_upper == fitted,
   # i.e. fake zero-width "95% CI" bars; NA instead propagates through fitted +/-
   # 1.96 * se and ggplot drops the geom_errorbar layer, honestly communicating "no
-  # SE available"). Where predict.merMod DOES return an (approximate) se.fit it is
-  # used only for case-level bars; the per-stratum panels never average these row
-  # SEs into a stratum SE (that is not a valid SE of a weighted mean) -- see
-  # maihda_prediction_panel_attach_ci() / maihda_prediction_stratum_interval_brms().
+  # SE available"). An lme4 fit is not asked for predict.merMod's se.fit, whose joint
+  # covariance leaves out the sparse factor's permutation: its bars come from
+  # maihda_lme4_panel_interval(), and no panel averages row SEs into a stratum SE --
+  # see maihda_prediction_panel_attach_ci().
+  want_se <- !inherits(model, "merMod")
   if (type == "binomial" || type == "poisson") {
     # Count and binary models are summarised on the response scale (expected count
     # / probability), not the link scale that predict() returns by default for a
     # GLM(M).
     preds <- tryCatch(
-      predict(model, newdata = data, type = "response", se.fit = TRUE),
+      predict(model, newdata = data, type = "response", se.fit = want_se),
       error = function(e) list(
         fit = predict(model, newdata = data, type = "response"),
         se.fit = rep(NA_real_, nrow(data))
@@ -726,7 +727,7 @@ maihda_prediction_panel_fitted <- function(model, data, type, fitted_data = FALS
     )
   } else {
     preds <- tryCatch(
-      predict(model, newdata = data, se.fit = TRUE),
+      predict(model, newdata = data, se.fit = want_se),
       error = function(e) list(
         fit = predict(model, newdata = data),
         se.fit = rep(NA_real_, nrow(data))
@@ -1126,14 +1127,191 @@ maihda_prediction_stratum_interval_brms <- function(model, data, weight = NULL,
   maihda_stratum_interval_from_epred(ep, data$stratum, weight, level = level)
 }
 
+# Delta-method interval for a mean `m` with standard error `se`, built on the scale on
+# which a mean of that kind is unbounded -- logit for a probability, log for a count,
+# identity otherwise -- and mapped back, so a bar stays inside the response's range and
+# is asymmetric near its edge. NA where `m` sits on the edge of that range.
+maihda_delta_interval <- function(m, se, scale = c("identity", "logit", "log"),
+                                  level = 0.95) {
+  scale <- match.arg(scale)
+  z <- stats::qnorm(1 - (1 - level) / 2)
+  if (scale == "identity") {
+    return(list(lower = m - z * se, upper = m + z * se))
+  }
+  ok <- is.finite(m) & m > 0 & (scale == "log" | m < 1)
+  centre <- half <- rep(NA_real_, length(m))
+  if (scale == "logit") {
+    centre[ok] <- stats::qlogis(m[ok])
+    half[ok] <- z * se[ok] / (m[ok] * (1 - m[ok]))
+    return(list(lower = stats::plogis(centre - half), upper = stats::plogis(centre + half)))
+  }
+  centre[ok] <- log(m[ok])
+  half[ok] <- z * se[ok] / m[ok]
+  list(lower = exp(centre - half), upper = exp(centre + half))
+}
+
+# Variance of linear combinations of an lme4 fit's random and fixed effects, given its
+# variance parameters. For column k of `Db` (q rows: the random effects b in lme4's
+# order) and of `Dbeta` (p rows: the fixed effects) it returns d_k' C d_k, where C is
+# the joint covariance of (b, beta) from Henderson's mixed-model equations, written
+# with lme4's factorisation (Bates et al. 2015) as C = sigma^2 M'M,
+#   M = [ L^-1 P Lambdat                 0      ]
+#       [ -RX'^-1 RZX' L^-1 P Lambdat    RX'^-1 ].
+# P is the sparse factor's fill-reducing permutation, which is not the identity once a
+# fit has several grouping terms (crossed dimensions, a context, an individual). For a
+# glmer fit C is the Laplace approximation at the working weights stored with the
+# factor, those of lme4's last weight update. Columns are taken in blocks so memory
+# stays bounded when every row is its own combination.
+maihda_lme4_combination_var <- function(model, Db, Dbeta, block = 2000L) {
+  k <- ncol(Dbeta)
+  out <- numeric(k)
+  if (k == 0L) {
+    return(out)
+  }
+  L <- lme4::getME(model, "L")
+  RX <- lme4::getME(model, "RX")
+  RZX <- lme4::getME(model, "RZX")
+  Lambdat <- lme4::getME(model, "Lambdat")
+  s2 <- stats::sigma(model)^2
+  for (start in seq(1L, k, by = block)) {
+    idx <- start:min(k, start + block - 1L)
+    U <- Matrix::solve(L, Matrix::solve(L, Lambdat %*% Db[, idx, drop = FALSE],
+                                        system = "P"),
+                       system = "L")
+    V <- backsolve(RX, as.matrix(Dbeta[, idx, drop = FALSE] - Matrix::crossprod(RZX, U)),
+                   transpose = TRUE)
+    out[idx] <- s2 * (Matrix::colSums(U^2) + colSums(V^2))
+  }
+  out
+}
+
+# Keys of an lme4 fit's random effects b in lme4's order: term by term, and within a
+# term level by level, with that term's coefficients innermost.
+maihda_lme4_b_keys <- function(flist, cnms, assign) {
+  unlist(lapply(seq_along(cnms), function(t) {
+    lv <- levels(flist[[assign[t]]])
+    paste(names(flist)[assign[t]], rep(lv, each = length(cnms[[t]])),
+          rep(cnms[[t]], times = length(lv)), sep = "\r")
+  }), use.names = FALSE)
+}
+
+# Fixed- and random-effects design rows (X, Z) of the rows a prediction panel plots,
+# aligned with fixef() and with the fitted random effects b. The fitted rows take the
+# fit's own X and Z. Supplied rows are rebuilt as lme4's predict() rebuilds new data:
+# the fit's fixed terms, factor levels and contrasts for X, and mkNewReTrms() for Z,
+# whose rows are placed by grouping factor, level and coefficient. NULL when supplied
+# rows cannot be placed: a grouping factor that carries several random-effect terms.
+maihda_lme4_panel_design <- function(model, data, fitted_data) {
+  if (isTRUE(fitted_data)) {
+    return(list(X = lme4::getME(model, "X"), Z = lme4::getME(model, "Z")))
+  }
+  cnms <- lme4::getME(model, "cnms")
+  if (anyDuplicated(names(cnms))) {
+    return(NULL)
+  }
+  tt <- stats::delete.response(stats::terms(model, fixed.only = TRUE))
+  mfr <- stats::model.frame(model)
+  discrete <- vapply(mfr, function(v) is.factor(v) || is.character(v), logical(1))
+  vars <- intersect(names(mfr)[discrete], all.vars(tt))
+  xlev <- lapply(mfr[vars], function(v) if (is.factor(v)) levels(v) else sort(unique(v)))
+  mf <- stats::model.frame(tt, data, na.action = stats::na.pass, xlev = xlev)
+  X <- stats::model.matrix(tt, mf,
+                           contrasts.arg = attr(lme4::getME(model, "X"), "contrasts"))
+  beta_names <- names(lme4::fixef(model))
+  if (!all(beta_names %in% colnames(X))) {
+    return(NULL)
+  }
+  re <- lme4::mkNewReTrms(model, data, re.form = NULL, na.action = stats::na.pass,
+                          allow.new.levels = FALSE)
+  flist <- lme4::getME(model, "flist")
+  fit_keys <- maihda_lme4_b_keys(flist, cnms, attr(flist, "assign"))
+  new_assign <- attr(re$flist, "assign")
+  new_keys <- maihda_lme4_b_keys(re$flist, cnms[names(re$flist)[new_assign]], new_assign)
+  pos <- match(new_keys, fit_keys)
+  if (anyNA(pos) || length(pos) != nrow(re$Zt)) {
+    return(NULL)
+  }
+  place <- Matrix::sparseMatrix(i = pos, j = seq_along(pos), x = 1,
+                                dims = c(length(fit_keys), length(pos)))
+  list(X = X[, beta_names, drop = FALSE], Z = Matrix::t(place %*% re$Zt))
+}
+
+# 95% bars for an lme4 prediction panel. With `strata` NULL there is one bar per row (a
+# case-level panel); otherwise one per stratum, for the stratum's `weight`-weighted mean
+# of the plotted values, the point the panel draws. The plotted value is the linear
+# predictor on a Gaussian panel and the mean on a binomial or count panel. Its variance
+# is d' C d with d the derivative of the plotted value in (b, beta)
+# (maihda_lme4_combination_var()), and the bar is a delta-method interval on the
+# identity, logit or log scale (maihda_delta_interval()). The variance parameters are
+# taken as known. NULL when the rows' design cannot be rebuilt, so the panel draws no
+# bars rather than wrong ones.
+maihda_lme4_panel_interval <- function(model, data, fitted_data, type, strata = NULL,
+                                       weight = NULL, level = 0.95) {
+  if (!inherits(model, "merMod")) {
+    return(NULL)
+  }
+  if (!isTRUE(fitted_data)) {
+    data <- maihda_lme4_grouping_newdata(model, data)
+  }
+  des <- tryCatch(maihda_lme4_panel_design(model, data, fitted_data),
+                  error = function(e) NULL)
+  eta <- tryCatch(as.numeric(if (isTRUE(fitted_data)) {
+    maihda_fit_rows_predict(model, type = "link")
+  } else {
+    stats::predict(model, newdata = data, type = "link")
+  }), error = function(e) NULL)
+  n <- if (is.null(des)) 0L else nrow(des$X)
+  if (is.null(des) || is.null(eta) || length(eta) != n || n == 0L) {
+    return(NULL)
+  }
+  on_response <- type %in% c("binomial", "poisson")
+  fam <- stats::family(model)
+  value <- if (on_response) fam$linkinv(eta) else eta
+  slope <- if (on_response) fam$mu.eta(eta) else rep(1, n)
+  scale <- switch(type, binomial = "logit", poisson = "log", "identity")
+
+  if (is.null(strata)) {
+    rows <- which(is.finite(eta))
+    lower <- upper <- rep(NA_real_, n)
+    if (length(rows)) {
+      S <- Matrix::Diagonal(x = slope[rows])
+      v <- maihda_lme4_combination_var(
+        model, Matrix::t(S %*% des$Z[rows, , drop = FALSE]),
+        t(slope[rows] * des$X[rows, , drop = FALSE]))
+      ci <- maihda_delta_interval(value[rows], sqrt(v), scale, level)
+      lower[rows] <- ci$lower
+      upper[rows] <- ci$upper
+    }
+    return(data.frame(ci_lower = lower, ci_upper = upper))
+  }
+
+  strat <- as.character(strata)
+  w <- if (is.null(weight) || length(weight) != n) rep(1, n) else as.numeric(weight)
+  use <- is.finite(eta) & is.finite(w) & w > 0
+  groups <- sort(unique(strat))
+  g <- match(strat, groups)
+  w_sum <- as.numeric(tapply(w[use], factor(g[use], levels = seq_along(groups)), sum))
+  A <- Matrix::sparseMatrix(i = which(use), j = g[use], x = w[use] / w_sum[g[use]],
+                            dims = c(n, length(groups)))
+  centre <- as.numeric(Matrix::crossprod(A, ifelse(use, value, 0)))
+  AS <- Matrix::Diagonal(x = ifelse(use, slope, 0)) %*% A
+  v <- maihda_lme4_combination_var(model, Matrix::crossprod(des$Z, AS),
+                                   as.matrix(Matrix::crossprod(des$X, AS)))
+  ci <- maihda_delta_interval(centre, sqrt(v), scale, level)
+  empty <- is.na(w_sum) | w_sum <= 0
+  data.frame(stratum = groups, fitted = ifelse(empty, NA_real_, centre),
+             ci_lower = ifelse(empty, NA_real_, ci$lower),
+             ci_upper = ifelse(empty, NA_real_, ci$upper), stringsAsFactors = FALSE)
+}
+
 # Attach `ci_lower`/`ci_upper` to a prediction-panel data frame, clamped to
-# [lower, upper]. For a stratum-aggregated panel the interval comes from the
-# draw-based `strat_ci` (brms) or is omitted as NA (frequentist) -- never from a
-# weighted mean of row-level SEs. For a case-level panel it is the symmetric normal
-# interval `fitted +/- 1.96 * se`, NA where the model exposes no se.fit (so ggplot
-# drops those bars).
+# [lower, upper]. For a stratum-aggregated panel the interval comes from `strat_ci`
+# (posterior draws for brms, the joint covariance for lme4) or is omitted as NA --
+# never from a weighted mean of row-level SEs. For a case-level panel it is `row_ci`
+# (lme4) or the symmetric normal interval `fitted +/- 1.96 * se`, NA where the model
+# exposes no se.fit (so ggplot drops those bars).
 maihda_prediction_panel_attach_ci <- function(df, aggregated, strat_ci,
-                                              lower = -Inf, upper = Inf) {
+                                              lower = -Inf, upper = Inf, row_ci = NULL) {
   n <- nrow(df)
   if (aggregated) {
     if (!is.null(strat_ci)) {
@@ -1144,6 +1322,9 @@ maihda_prediction_panel_attach_ci <- function(df, aggregated, strat_ci,
       ci_lower <- rep(NA_real_, n)
       ci_upper <- rep(NA_real_, n)
     }
+  } else if (!is.null(row_ci)) {
+    ci_lower <- row_ci$ci_lower
+    ci_upper <- row_ci$ci_upper
   } else {
     ci_lower <- df$fitted - 1.96 * df$se
     ci_upper <- df$fitted + 1.96 * df$se
@@ -1185,6 +1366,19 @@ maihda_prediction_panel_attach_ci <- function(df, aggregated, strat_ci,
 #'     warning.
 #' }
 #'
+#' @details The vertical bars are 95\% intervals for the plotted values. On a stratum
+#' panel each bar is an interval for the stratum's weighted mean prediction, the point
+#' drawn: posterior quantiles of that mean for a \pkg{brms} fit, and for an \pkg{lme4}
+#' fit a delta-method interval from the joint covariance of the fixed and random
+#' effects (Henderson's mixed-model equations), formed on the logit scale for a
+#' probability and the log scale for a count, so that a bar stays inside the range of
+#' the response. A case-level panel of an \pkg{lme4} fit draws the same interval for
+#' each row. The \pkg{lme4} interval treats the variance parameters as known: it runs
+#' narrow when strata are few or small or an outcome is rare, and a random effect whose
+#' variance is estimated at zero adds no uncertainty to it. Other models draw
+#' case-level bars from the standard errors of their \code{predict()} method and no
+#' stratum bars; \pkg{WeMix} and ordinal fits draw none.
+#'
 #' @param model A fitted model object (e.g., from \code{lm()}, \code{glm()},
 #'   \code{MASS::polr()}, or \code{lme4::glmer()}).
 #' @param data The original data frame used to fit the model. If \code{NULL},
@@ -1207,6 +1401,20 @@ maihda_prediction_panel_attach_ci <- function(df, aggregated, strat_ci,
 #' @param strata_info Optional data frame of strata labels, generally extracted from \code{maihda_model} objects.
 #'
 #' @return A \pkg{patchwork} object containing two \pkg{ggplot2} panels.
+#'
+#' @references
+#' Henderson, C. R. (1975). Best linear unbiased estimation and prediction under a
+#' selection model. \emph{Biometrics}, 31(2), 423-447. \doi{10.2307/2529430}
+#'
+#' Bates, D., Maechler, M., Bolker, B., & Walker, S. (2015). Fitting linear
+#' mixed-effects models using lme4. \emph{Journal of Statistical Software}, 67(1),
+#' 1-48. \doi{10.18637/jss.v067.i01}
+#'
+#' Kackar, R. N., & Harville, D. A. (1984). Approximations for standard errors of
+#' estimators of fixed and random effects in mixed linear models. \emph{Journal of the
+#' American Statistical Association}, 79(388), 853-862.
+#' \doi{10.1080/01621459.1984.10477102}
+#'
 #' @importFrom rlang check_installed .data
 #' @importFrom stats predict formula residuals model.frame
 #' @importFrom utils head
@@ -1309,12 +1517,19 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
 
     aggregated <- "stratum" %in% names(df)
     strat_ci <- NULL
+    row_ci <- NULL
     if (aggregated) {
       # Aggregate only the point estimate. Row-level SEs are NOT averaged into a
       # stratum SE (the SE of a weighted mean is a'Sigma a, not the weighted mean
-      # of the component SEs); the stratum interval is computed correctly from the
-      # posterior draws for brms and omitted otherwise.
-      strat_ci <- maihda_prediction_stratum_interval_brms(model, pred_data, prior_w)
+      # of the component SEs); the stratum interval comes from the posterior draws
+      # for brms and from the joint covariance of the fixed and random effects for
+      # lme4, and is omitted otherwise.
+      strat_ci <- if (inherits(model, "merMod")) {
+        maihda_lme4_panel_interval(model, pred_data, !data_supplied, type,
+                                   strata = df$stratum, weight = prior_w)
+      } else {
+        maihda_prediction_stratum_interval_brms(model, pred_data, prior_w)
+      }
       df <- maihda_weighted_stratum_aggregate(df, "fitted")
 
       if (!is.null(strata_info) && "label" %in% names(strata_info)) {
@@ -1325,11 +1540,12 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       }
       x_label <- "Stratum Rank"
     } else {
+      row_ci <- maihda_lme4_panel_interval(model, pred_data, !data_supplied, type)
       x_label <- "Case Rank"
     }
 
     df <- maihda_prediction_panel_attach_ci(
-      df, aggregated, strat_ci, lower = if (is_count) 0 else -Inf
+      df, aggregated, strat_ci, lower = if (is_count) 0 else -Inf, row_ci = row_ci
     )
 
     df <- df |>
@@ -1470,14 +1686,21 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
 
     is_aggregated <- "stratum" %in% names(df)
     strat_ci <- NULL
+    row_ci <- NULL
 
     if (is_aggregated) {
       # Aggregate the point estimate and the absolute deviance residual (a genuine
       # per-stratum mean diagnostic). Row-level SEs are NOT averaged into a stratum
-      # SE; the stratum probability interval is computed correctly from the
-      # posterior draws for brms and omitted otherwise.
-      strat_ci <- maihda_prediction_stratum_interval_brms(model, pred_data, prior_w,
-                                                          trials = trials)
+      # SE; the stratum probability interval comes from the posterior draws for brms
+      # and from the joint covariance of the fixed and random effects for lme4, and
+      # is omitted otherwise.
+      strat_ci <- if (inherits(model, "merMod")) {
+        maihda_lme4_panel_interval(model, pred_data, !data_supplied, "binomial",
+                                   strata = df$stratum, weight = prior_w)
+      } else {
+        maihda_prediction_stratum_interval_brms(model, pred_data, prior_w,
+                                                trials = trials)
+      }
       df <- maihda_weighted_stratum_aggregate(
         df, c("fitted", "abs_res_dev")
       )
@@ -1490,11 +1713,12 @@ plot_prediction_deviation_panels <- function(model, data = NULL,
       }
       x_label <- "Stratum Rank"
     } else {
+      row_ci <- maihda_lme4_panel_interval(model, pred_data, !data_supplied, "binomial")
       x_label <- "Case Rank"
     }
 
     df <- maihda_prediction_panel_attach_ci(
-      df, is_aggregated, strat_ci, lower = 0, upper = 1
+      df, is_aggregated, strat_ci, lower = 0, upper = 1, row_ci = row_ci
     )
 
     df <- df |>

@@ -74,3 +74,30 @@ What "notable" means depends on the model type, and the labelled points are
     warning.
 }
 }
+\details{
+The vertical bars are 95\% intervals for the plotted values. On a stratum
+panel each bar is an interval for the stratum's weighted mean prediction, the point
+drawn: posterior quantiles of that mean for a \pkg{brms} fit, and for an \pkg{lme4}
+fit a delta-method interval from the joint covariance of the fixed and random
+effects (Henderson's mixed-model equations), formed on the logit scale for a
+probability and the log scale for a count, so that a bar stays inside the range of
+the response. A case-level panel of an \pkg{lme4} fit draws the same interval for
+each row. The \pkg{lme4} interval treats the variance parameters as known: it runs
+narrow when strata are few or small or an outcome is rare, and a random effect whose
+variance is estimated at zero adds no uncertainty to it. Other models draw
+case-level bars from the standard errors of their \code{predict()} method and no
+stratum bars; \pkg{WeMix} and ordinal fits draw none.
+}
+\references{
+Henderson, C. R. (1975). Best linear unbiased estimation and prediction under a
+selection model. \emph{Biometrics}, 31(2), 423-447. \doi{10.2307/2529430}
+
+Bates, D., Maechler, M., Bolker, B., & Walker, S. (2015). Fitting linear
+mixed-effects models using lme4. \emph{Journal of Statistical Software}, 67(1),
+1-48. \doi{10.18637/jss.v067.i01}
+
+Kackar, R. N., & Harville, D. A. (1984). Approximations for standard errors of
+estimators of fixed and random effects in mixed linear models. \emph{Journal of the
+American Statistical Association}, 79(388), 853-862.
+\doi{10.1080/01621459.1984.10477102}
+}
