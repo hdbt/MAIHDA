@@ -341,14 +341,25 @@ fit_maihda(
   maximum, often near a zero variance of the quadratic term, where lme4
   calls the fit singular. This takes about three times as long as one
   fit; the searches add about a fifth to that, and a refit from them
-  about as much again. Pass `start` through `...` to fit from your own
-  starting values only; they are on the internal time when `time` is
-  scaled. All results (the time-varying VPC, the PCV, the fixed effects
-  in [`summary()`](https://rdrr.io/r/base/summary.html), plots,
-  predictions) are reported on the original `time` scale; the lme4 fit
-  stored in the result's `model` element is on the internal time. The
-  column name `.maihda_ctime` is reserved for the internal time
-  variable. Default `NULL`.
+  about as much again. A fit any of these refits replaced is then
+  refitted once more from its estimates by glmer's second stage with the
+  optimiser your control names for that stage, as described for
+  `formula`, which adds about a twentieth.
+  [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html) of a glmer
+  growth fit on a simulated response
+  ([`lme4::bootMer()`](https://rdrr.io/pkg/lme4/man/bootMer.html) makes
+  one for each draw) runs the optimiser the fit records from the fit's
+  estimates, and `Nelder_Mead`, the default, often stops short of the
+  response's maximum there; the bootstraps of
+  [`summary()`](https://rdrr.io/r/base/summary.html) refit each draw as
+  `fit_maihda()` fits the model. Pass `start` through `...` to fit from
+  your own starting values only; they are on the internal time when
+  `time` is scaled. All results (the time-varying VPC, the PCV, the
+  fixed effects in [`summary()`](https://rdrr.io/r/base/summary.html),
+  plots, predictions) are reported on the original `time` scale; the
+  lme4 fit stored in the result's `model` element is on the internal
+  time. The column name `.maihda_ctime` is reserved for the internal
+  time variable. Default `NULL`.
 
 - time_degree:
 

@@ -525,6 +525,28 @@
   than 0.01 above it on 18 of 43 simulated fits (it failed on 15), by up
   to 188 in -2 log-likelihood.
 
+- glmer growth fits that a refit replaced, and their bootstrap and
+  null-model refits, are refitted once more the same way and so record
+  Nelder-Mead: recorded as bobyqa,
+  [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html) stopped at
+  minqa’s limit of evaluations on 19 of 87 responses simulated from 29
+  such fits, most within 0.001 of the maximum, where a bootstrap draw’s
+  refit keeps such a stop and counts it as not converged (2 of 20 draws
+  of one fit, with bobyqa’s warning), and it ended up to 1.8 above 2 of
+  the 29 fits. On a simulated response,
+  [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html) of such a
+  fit, which
+  [`lme4::bootMer()`](https://rdrr.io/pkg/lme4/man/bootMer.html) now
+  runs, stops short of the maximum more often (80 of the 87, against
+  13); the bootstraps of
+  [`summary()`](https://rdrr.io/r/base/summary.html) reach it either
+  way.
+
+- The last pass of a `glmer.nb()` fit, which searches the dispersion
+  again, is kept only when its -2 log-likelihood at its own dispersion
+  is not higher: compared at the new dispersion alone, a growth fit’s
+  pass that ended 1.36 higher was kept.
+
 - The searches of glmer fits with a random slope outside growth models
   run their deviance function to a relative tolerance of 1e-10, and
   every glmer search, growth models’ included, takes a fit when that
