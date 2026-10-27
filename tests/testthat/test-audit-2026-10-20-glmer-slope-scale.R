@@ -73,9 +73,11 @@ placed <- function(point, data, formula = slope, family = stats::binomial) {
 }
 deviance_of <- function(m) -2 * as.numeric(stats::logLik(m))
 
-# The measure with the fixed effects centred and scaled and theta as fitted.
+# The measure with the fixed effects centred and scaled and theta as fitted, on the deviance
+# function run to the measure's relative tolerance of 1e-10.
 fitted_theta_distance <- function(m) {
   dev <- lme4::getME(maihda_lme4_detached_copy(m), "devfun")
+  environment(dev)$tolPwrss <- 1e-10
   theta <- lme4::getME(m, "theta")
   beta <- lme4::fixef(m)
   k <- length(theta)

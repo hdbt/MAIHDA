@@ -347,11 +347,16 @@ maihda_central_derivatives <- function(fun, x, lower = rep(-Inf, length(x)),
 # the variance parameters through the blocks' covariance matrices alone, which exist on
 # either side of a variance bound, so the differences may cross one. A fit with a block
 # that lme4 holds as neither a full Cholesky factor nor a diagonal is measured in theta as
-# fitted, without crossing a bound. NA when the fit cannot say: not a glmer fit whose fixed
-# effects were optimised with the variances (nAGQ = 0), a deviance function that does not
-# reproduce the fit's log-likelihood (as for cs() and ar1(), whose deviance function takes
-# other parameters than theta), a variance parameter of a fit measured in theta as fitted
-# within a step of its bound, or a Hessian that is not positive definite.
+# fitted, without crossing a bound. The deviance function, rebuilt from a copy of the fit,
+# starts its penalised least squares from the same point at every evaluation and runs them to
+# a relative tolerance of 1e-10, as the searches of maihda_glmer_reexpressed() do: before lme4
+# 2.1-0, which takes the Laplace deviance at the converged step, its value at lme4's 1e-7 lies
+# up to about 1e-4 relative above the converged deviance, by amounts that differ between nearby
+# points. NA when the fit cannot say: not a glmer fit whose fixed effects were optimised with
+# the variances (nAGQ = 0), a deviance function that does not reproduce the fit's
+# log-likelihood at theta (maihda_lme4_distance_with(); as for cs() and ar1(), whose deviance
+# function takes other parameters than theta), a variance parameter of a fit measured in theta
+# as fitted within a step of its bound, or a Hessian that is not positive definite.
 maihda_lme4_stationary_distance <- function(model) {
   if (!inherits(model, "glmerMod") ||
       !isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))) {
@@ -365,6 +370,7 @@ maihda_lme4_stationary_distance <- function(model) {
   if (!is.function(deviance)) {
     return(NA_real_)
   }
+  environment(deviance)$tolPwrss <- 1e-10
   tryCatch(maihda_lme4_distance_with(model, deviance), error = function(e) NA_real_)
 }
 
@@ -385,6 +391,18 @@ maihda_lme4_detached_copy <- function(model) {
   model@frame <- frame
   model@call <- call("glmer")
   unserialize(serialize(model, NULL))
+}
+
+# The variance parameters the deviance function of the lme4 fit `model` takes, at the fit
+# (lme4::getME(, "par")): theta, except for a block lme4 holds in other parameters, as cs() and
+# ar1() hold a correlation among theirs. theta where lme4 does not report them.
+maihda_lme4_parameters <- function(model) {
+  par <- tryCatch(unname(lme4::getME(model, "par")), error = function(e) NULL)
+  if (is.numeric(par) && length(par) == length(lme4::getME(model, "lower"))) {
+    par
+  } else {
+    unname(lme4::getME(model, "theta"))
+  }
 }
 
 # A glmer or lmer fit is at a boundary trap when the deviance falls by more than this across
@@ -539,8 +557,13 @@ maihda_lme4_first_order_theta <- function(theta, cnms, index, value, deviance, s
 # deviance function takes theta alone with the fixed effects profiled out, its REML
 # criterion (the deviance when fitted by maximum likelihood). NA where it cannot be
 # evaluated. Rebuilt from a copy: lme4 writes into vectors the deviance function shares
-# with the fit. NULL when it cannot be built or does not give the fit's own criterion at its
-# estimates.
+# with the fit. A glmer fit's function starts its penalised least squares from the same point
+# at every evaluation and runs them to a relative tolerance of 1e-10, as that of
+# maihda_lme4_stationary_distance() does. NULL when it cannot be built or does not give the
+# fit's own criterion at its estimates: for an lmer fit its REML criterion (deviance) within
+# 1e-5 relative; for a glmer fit the function at theta within 1e-5 relative of the function at
+# the fit's own variance parameters (maihda_lme4_parameters()), and that within 1e-3 relative of
+# lme4's -2 log-likelihood, which comes from the last step of lme4's own penalised least squares.
 maihda_lme4_theta_deviance <- function(model) {
   deviance <- tryCatch(lme4::getME(maihda_lme4_detached_copy(model), "devfun"),
                        error = function(e) NULL)
@@ -548,11 +571,23 @@ maihda_lme4_theta_deviance <- function(model) {
     return(NULL)
   }
   lmm <- inherits(model, "lmerMod")
+  if (!lmm) {
+    environment(deviance)$tolPwrss <- 1e-10
+  }
   beta <- if (lmm) NULL else unname(lme4::fixef(model))
   at <- function(th) tryCatch(deviance(c(unname(th), beta)), error = function(e) NA_real_)
   d0 <- at(lme4::getME(model, "theta"))
-  target <- if (lmm) maihda_lmer_criterion(model) else -2 * as.numeric(stats::logLik(model))
-  if (!is.finite(d0) || abs(d0 - target) > 1e-5 * max(1, abs(target))) {
+  if (lmm) {
+    target <- maihda_lmer_criterion(model)
+    if (!is.finite(d0) || abs(d0 - target) > 1e-5 * max(1, abs(target))) {
+      return(NULL)
+    }
+    return(at)
+  }
+  own <- at(maihda_lme4_parameters(model))
+  target <- -2 * as.numeric(stats::logLik(model))
+  if (!is.finite(d0) || !is.finite(own) || abs(d0 - own) > 1e-5 * max(1, abs(own)) ||
+      abs(own - target) > 1e-3 * max(1, abs(target))) {
     return(NULL)
   }
   at
@@ -805,7 +840,14 @@ maihda_lme4_trap_message <- function(block, term, n_terms, terms = NULL, shown =
 }
 
 # The work of maihda_lme4_stationary_distance(), with `deviance` the fit's deviance as a
-# function of its variance parameters and fixed effects (lme4::getME(, "devfun")).
+# function of its variance parameters and fixed effects (lme4::getME(, "devfun")). NA when the
+# deviance at the fit's estimates re-expressed and carried back differs from `deviance` at the
+# fit's own variance parameters (maihda_lme4_parameters()) and fixed effects by more than 1e-5
+# relative, as it does for a block whose function takes other parameters than theta, or that
+# differs from lme4's -2 log-likelihood by more than 1e-3 relative (a function that is not the
+# fit's, such as one rebuilt without its offset or weights). lme4's -2 log-likelihood comes
+# from the last step of its own penalised least squares and before lme4 2.1-0 can lie more than
+# 1e-5 relative from the deviance function at the same estimates.
 maihda_lme4_distance_with <- function(model, deviance) {
   if (!isTRUE(model@devcomp$dims[["nAGQ"]] >= 1)) {
     return(NA_real_)
@@ -838,8 +880,10 @@ maihda_lme4_distance_with <- function(model, deviance) {
   f <- function(p) deviance(c(as_fitted(p[seq_len(k)]), drop(A %*% p[-seq_len(k)])))
   at <- c(phi, solve(A, beta))
   f_at <- f(at)
+  own <- deviance(c(maihda_lme4_parameters(model), unname(beta)))
   target <- -2 * as.numeric(stats::logLik(model))
-  if (!is.finite(f_at) || abs(f_at - target) > 1e-5 * max(1, abs(target))) {
+  if (!is.finite(f_at) || !is.finite(own) || abs(f_at - own) > 1e-5 * max(1, abs(own)) ||
+      abs(own - target) > 1e-3 * max(1, abs(target))) {
     return(NA_real_)
   }
   maihda_newton_distance(maihda_central_derivatives(f, at, lower = lower, fx = f_at))

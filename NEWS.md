@@ -145,6 +145,8 @@
 
 * A glmer fit with a random slope, as in `(1 + x | stratum)`, is now judged with its random-effect terms centred and scaled as well as its fixed effects: lme4 takes its checks in the units of the slope's covariate, so fits with a slope on a birth year were recorded as not converged at the maximum (6 of 12 simulated fits).
 
+* That measure and the record of a stop at a variance bound run their deviance function to a relative tolerance of 1e-10 and take a glmer fit whose -2 log-likelihood lies within 1e-3 (relative) of the function: with lme4 before 2.1-0, their 1e-5 check at lme4's tolerance left 17 of 135 simulated 0 / 1 fits with strata far apart on the logit scale and a birth year unmeasured and recorded as not converged, all within 0.07 standard errors of the maximum, and 7 of 26 stops at a bound beside a block with a large variance unmeasured.
+
 * A glmer or lmer fit with a `diag()` random-effect block is judged with that block's terms divided by their root mean square, as the same model written with `||` is: glmer fits with a `diag()` slope on a birth year were recorded as not converged at the maximum (4 of 8 simulated Poisson fits), and an lmer fit with such a block kept lme4's verdict.
 
 * An lmer fit is judged the same way, with its random-effect terms centred and scaled: lme4 takes its checks in the units of a random slope's covariate, so fits with a slope on a birth year, an age in years or an income in thousands were recorded as not converged at the REML optimum (17 of 60, 47 of 180 and 24 of 60 simulated fits).
