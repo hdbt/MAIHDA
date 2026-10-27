@@ -289,6 +289,12 @@
   expected-score panel no longer changes between calls, and a category
   that no draw happened to produce no longer gets probability 0.
 
+- The prediction-deviation panels draw 95% bars for lme4 fits from the
+  joint covariance of the fixed and random effects: a stratum’s bar is
+  no longer the average of its rows’ SEs, and bars of fits with several
+  grouping terms apply the sparse factor’s permutation that lme4’s own
+  `predict(se.fit = TRUE)` leaves out (off several-fold there).
+
 - [`summary()`](https://rdrr.io/r/base/summary.html) on a
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
   analysis now errors when passed `df_method`, `bootstrap`, `n_boot`,
