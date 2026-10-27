@@ -1075,10 +1075,11 @@ maihda_lmer_transform_theta <- function(theta, cnms, Ts, diagonal = NULL) {
   theta
 }
 
-# An lmer fit outside a growth model that lme4 calls singular, which lme4 takes no convergence
-# check on, counts as not converged when a search of the same model reaches a criterion this far
-# below its own (maihda_lmer_search_gain()): 0.01 in the REML criterion (the deviance for a fit
-# by maximum likelihood) is what a fit 0.1 standard errors from the optimum is short of it
+# An lmer fit outside a growth model that lme4 takes no convergence check on -- one it calls
+# singular, or one with a random slope that it leaves without a check (maihda_lme4_unchecked()) --
+# counts as not converged when a search of the same model reaches a criterion this far below its
+# own (maihda_lmer_search_gain()): 0.01 in the REML criterion (the deviance for a fit by maximum
+# likelihood) is what a fit 0.1 standard errors from the optimum is short of it
 # (.maihda_lme4_stationary_within).
 .maihda_lmer_search_within <- 0.01
 
@@ -1104,18 +1105,49 @@ maihda_lmer_search_gain <- function(model) {
   deviance(lme4::getME(model, "theta")) - min(reached, na.rm = TRUE)
 }
 
-# The record's sentence for the lmer fit `model`, which lme4 calls singular and which a search
-# reaches `gain` below (maihda_lmer_search_gain()).
+# The record's sentence for the lmer fit `model`, which lme4 calls singular or did not check
+# (maihda_lme4_unchecked()) and which a search reaches `gain` below (maihda_lmer_search_gain()).
 maihda_lmer_search_message <- function(model, gain) {
   what <- if (isFALSE(tryCatch(lme4::isREML(model), error = function(e) TRUE))) {
     "deviance"
   } else {
     "REML criterion"
   }
-  sprintf(paste0("lme4 runs no convergence check on a singular fit, and a search of the same ",
-                 "model with each random-effect block's terms centred and scaled reaches a %s %s ",
-                 "lower: the fit stopped short of the optimum."), what,
-          trimws(formatC(signif(gain, 2), format = "fg", digits = 2)))
+  why <- if (isTRUE(tryCatch(lme4::isSingular(model), error = function(e) FALSE))) {
+    "lme4 runs no convergence check on a singular fit"
+  } else {
+    maihda_lme4_unchecked_clause(model)
+  }
+  sprintf(paste0("%s, and a search of the same model with each random-effect block's terms ",
+                 "centred and scaled reaches a %s %s lower: the fit stopped short of the optimum."),
+          why, what, trimws(formatC(signif(gain, 2), format = "fg", digits = 2)))
+}
+
+# What the record says of an lme4 fit that lme4 ran no convergence check on
+# (maihda_lme4_unchecked()), with lme4's default limits for the kind of fit it is.
+maihda_lme4_unchecked_clause <- function(model) {
+  limit <- if (inherits(model, "glmerMod")) {
+    "20 parameters on, fixed effects included"
+  } else {
+    "10 variance parameters on"
+  }
+  sprintf(paste0("lme4 ran no convergence check on this fit (by default it runs none from 10,000 ",
+                 "rows or %s)"), limit)
+}
+
+# Whether lme4 ran no convergence check on the lmer or glmer fit `model`. A fit lme4 checked, or
+# called singular within its limits, carries a convergence entry. lme4 leaves none on a fit it
+# computes no derivatives for because of its size -- by default one of 10,000 rows or more (the
+# controls' check.conv.nobsmax), or with as many parameters as check.conv.nparmax: 10 variance
+# parameters for lmer(), 20 parameters for glmer(), which counts the fixed effects with them and
+# then skips its singular test too, so a singular glmer fit can carry none -- nor on one whose
+# derivatives it was told not to compute (calc.derivs = FALSE), nor, with the derivatives computed
+# all the same (calc.derivs = TRUE), on a fit with more rows or parameters than those. A fit whose
+# checks the user turned off (check.conv.grad and check.conv.hess "ignore") carries an empty entry
+# and is not counted here.
+maihda_lme4_unchecked <- function(model) {
+  inherits(model, "merMod") &&
+    is.null(tryCatch(model@optinfo$conv$lme4, error = function(e) NA))
 }
 
 # TRUE for a glmer fit whose fixed effects are among the optimised parameters (nAGQ of 1 or
@@ -1204,13 +1236,15 @@ maihda_glmer_search_with <- function(model, deviance, within) {
   d0 - best
 }
 
-# The record's sentence for a glmer fit lme4 calls singular, which a search reaches `gain`
-# below (maihda_glmer_search_gain()).
-maihda_glmer_search_message <- function(gain) {
-  sprintf(paste0("lme4 runs no convergence check on a singular fit, and a search of the same ",
-                 "model with its random-effect terms and fixed effects centred and scaled reaches ",
-                 "a deviance %s lower: the fit stopped short of the maximum."),
-          trimws(formatC(signif(gain, 2), format = "fg", digits = 2)))
+# The record's sentence for a glmer fit lme4 calls singular, or did not check (`why`:
+# maihda_lme4_unchecked_clause()), which a search reaches `gain` below
+# (maihda_glmer_search_gain()).
+maihda_glmer_search_message <- function(gain,
+                                        why = "lme4 runs no convergence check on a singular fit") {
+  sprintf(paste0("%s, and a search of the same model with its random-effect terms and fixed ",
+                 "effects centred and scaled reaches a deviance %s lower: the fit stopped short of ",
+                 "the maximum."),
+          why, trimws(formatC(signif(gain, 2), format = "fg", digits = 2)))
 }
 
 # Capture fit-quality diagnostics (singular fit, non-convergence) so they can be
@@ -1220,8 +1254,8 @@ maihda_glmer_search_message <- function(gain) {
 # `converged` is FALSE for a largest Rhat above 1.01 or a divergent transition, TRUE
 # for a finite Rhat with neither, and NA when Rhat cannot be read. `searched`: the lmer fit
 # was kept by maihda_fit_lmer_slopes(), or the glmer fit with a random slope by
-# maihda_fit_glmer_bound(), which refit from searches of the kind a singular fit is otherwise
-# checked by.
+# maihda_fit_glmer_bound(), which refit from searches of the kind a singular or unchecked fit is
+# otherwise checked by.
 maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = FALSE) {
   diagnostics <- list(
     engine = NA_character_,
@@ -1335,6 +1369,26 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = F
         }
       }
     }
+    # A glmer fit with nAGQ of 1 or more outside a growth model, with a random slope, that lme4
+    # ran no check on (maihda_lme4_unchecked(): by default from 10,000 rows or 20 parameters,
+    # fixed effects included, on) and does not call singular, whose optimiser reported no failure,
+    # is measured as one whose checks fired: .maihda_lme4_stationary_within standard errors or
+    # more from a stationary point it counts as not converged, recorded in `lme4_unchecked`. Far
+    # from a stationary point the measure cannot be taken; such a fit is searched as a singular
+    # one is (below).
+    unmeasured <- FALSE
+    if (!opt_failed && maihda_glmer_quadrature(model) && is.null(longitudinal_info) &&
+        maihda_lme4_unchecked(model) && maihda_lme4_has_slope(model) && isFALSE(lme4_singular)) {
+      distance <- maihda_lme4_stationary_distance(model)
+      unmeasured <- is.na(distance)
+      if (!unmeasured && distance >= .maihda_lme4_stationary_within) {
+        diagnostics$converged <- FALSE
+        diagnostics$stationary_distance <- distance
+        diagnostics$lme4_unchecked <- TRUE
+        diagnostics$messages <- c(diagnostics$messages,
+                                  paste0(maihda_lme4_unchecked_clause(model), "."))
+      }
+    }
     # A glmer fit, or an lmer fit outside a growth model, stopped at a boundary trap is not at
     # the maximum, whatever lme4 recorded: lme4 takes no derivatives at a bound, so it
     # records such a fit as converged.
@@ -1373,13 +1427,16 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = F
                                                 use.names = FALSE)))
       }
     }
-    # lme4 takes no convergence check on a fit it calls singular. Such an lmer fit outside a
-    # growth model, not found short above, is searched (maihda_lmer_search_gain()) unless
-    # fit_maihda() kept it from refits from the same searches (`searched`): a search that
-    # reaches .maihda_lmer_search_within below it shows that it stopped short of the optimum.
+    # lme4 takes no convergence check on a fit it calls singular, nor on one it leaves without a
+    # check for its size (maihda_lme4_unchecked(): by default from 10,000 rows or 10 variance
+    # parameters on). Such an lmer fit outside a growth model -- one lme4 did not check only with
+    # a random slope -- not found short above, is searched (maihda_lmer_search_gain()) unless
+    # fit_maihda() kept it from refits from the same searches (`searched`): a search that reaches
+    # .maihda_lmer_search_within below it shows that it stopped short of the optimum.
     if (inherits(model, "lmerMod") && is.null(longitudinal_info) && !isTRUE(searched) &&
         isTRUE(diagnostics$converged) &&
-        isTRUE(tryCatch(lme4::isSingular(model), error = function(e) FALSE))) {
+        (isTRUE(tryCatch(lme4::isSingular(model), error = function(e) FALSE)) ||
+         (maihda_lme4_unchecked(model) && maihda_lme4_has_slope(model)))) {
       gain <- tryCatch(maihda_lmer_search_gain(model), error = function(e) NA_real_)
       if (is.finite(gain) && gain >= .maihda_lmer_search_within) {
         diagnostics$converged <- FALSE
@@ -1388,18 +1445,25 @@ maihda_fit_diagnostics <- function(model, longitudinal_info = NULL, searched = F
       }
     }
     # The same for a glmer fit with nAGQ of 1 or more outside a growth model whose random
-    # effects hold a slope (maihda_glmer_search_gain()), unless fit_maihda() kept it from refits
+    # effects hold a slope (maihda_glmer_search_gain()), and for such a fit lme4 did not check that
+    # the measure above could not judge (`unmeasured`), unless fit_maihda() kept it from refits
     # from its own searches (maihda_fit_glmer_bound(), `searched`). A glmer fit whose random
     # effects are intercepts only is not searched: a screen found none of them short, and a
     # search takes seconds on large data.
     if (maihda_glmer_quadrature(model) && is.null(longitudinal_info) && !isTRUE(searched) &&
-        isTRUE(diagnostics$converged) && isTRUE(lme4_singular) &&
+        isTRUE(diagnostics$converged) && (isTRUE(lme4_singular) || unmeasured) &&
         !all(unlist(lme4::getME(model, "cnms"), use.names = FALSE) == "(Intercept)")) {
       gain <- maihda_glmer_search_gain(model)
       if (is.finite(gain) && gain >= .maihda_lmer_search_within) {
         diagnostics$converged <- FALSE
         diagnostics$search_gain <- gain
-        diagnostics$messages <- c(diagnostics$messages, maihda_glmer_search_message(gain))
+        sentence <- if (unmeasured) {
+          diagnostics$lme4_unchecked <- TRUE
+          maihda_glmer_search_message(gain, maihda_lme4_unchecked_clause(model))
+        } else {
+          maihda_glmer_search_message(gain)
+        }
+        diagnostics$messages <- c(diagnostics$messages, sentence)
       }
     }
   } else if (inherits(model, "WeMixResults")) {
@@ -2191,7 +2255,8 @@ maihda_format_fit_diagnostics <- function(diagnostics,
       brms = "MCMC convergence diagnostics (brms):",
       ordinal = "Convergence problems of the ordinal::clmm fit:",
       # A boundary trap or a search's finding is the package's, not one of lme4's warnings.
-      lme4 = if (NROW(diagnostics$boundary_traps) > 0 || !is.null(diagnostics$search_gain)) {
+      lme4 = if (NROW(diagnostics$boundary_traps) > 0 || !is.null(diagnostics$search_gain) ||
+                 isTRUE(diagnostics$lme4_unchecked)) {
         "Convergence problems of the lme4 fit:"
       } else {
         "Convergence warnings reported by lme4:"

@@ -423,20 +423,28 @@
 #'     likelihood still rises as the block's variances and covariances move. An lmer fit
 #'     outside a
 #'     longitudinal model that lme4 calls singular, which lme4 does not check further,
+#'     or one with a random slope that lme4 does not check because of its size (by
+#'     default one of 10,000 rows or more, or with 10 or more variance parameters),
 #'     counts as not converged when a search of the same model, from lme4's starting
 #'     values with each random-effect block's terms centred and scaled and from a
 #'     variance at zero moved off it, reaches a REML criterion (deviance for a
 #'     maximum-likelihood fit) 0.01 or more below the fit's; that amount is
 #'     \code{search_gain}. A fit refitted as described under \code{formula} has been
 #'     through those searches already, so this concerns a fit made from your own
-#'     \code{start} or one without a random slope. A glmer fit with \code{nAGQ} of 1 or
+#'     \code{start} or a singular one without a random slope. A glmer fit with \code{nAGQ} of 1 or
 #'     more and a random slope, outside a longitudinal model and with no \code{diag()},
 #'     \code{cs()} or \code{ar1()} block, that lme4 calls singular
 #'     is searched from the fit with its random-effect terms and fixed effects centred
 #'     and scaled, and counts as not converged when the search reaches a deviance 0.01
 #'     or more below the fit's (\code{search_gain}); such a fit refitted as described
 #'     under \code{formula} has been through such searches already and is not searched
-#'     again. An lme4 fit also
+#'     again. A glmer fit with \code{nAGQ} of 1 or more and a random slope, outside a
+#'     longitudinal model, that lme4 does not check because of its size (by default one
+#'     of 10,000 rows or more, or with 20 or more parameters, fixed effects included)
+#'     and does not call singular is measured as one whose checks fired, and counts as
+#'     not converged, with \code{lme4_unchecked} TRUE, a tenth of a standard error or
+#'     more from a stationary point; where that cannot be measured it is searched in the
+#'     same way. An lme4 fit also
 #'     carries likelihood-adequacy caveats -- count overdispersion and zero
 #'     inflation, stratum random-effect non-normality and longitudinal residual
 #'     autocorrelation -- reported only when a conservative threshold is crossed,
