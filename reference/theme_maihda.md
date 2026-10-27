@@ -15,34 +15,36 @@ theme_maihda(base_size = 11, base_family = NULL)
 
 - base_size:
 
-  Base font size in points. Default \`11\`.
+  Base font size in points. Default `11`.
 
 - base_family:
 
-  Base font family. Defaults to \`getOption("maihda.font", "")\`, i.e.
-  the graphics device default unless you have opted into a brand font
+  Base font family. Defaults to `getOption("maihda.font", "")`, i.e. the
+  graphics device default unless you have opted into a brand font
   globally. Pass a string to force a family for a single plot.
 
 ## Value
 
-A ggplot2 theme object that can be added to a plot with \`+\`.
+A ggplot2 theme object that can be added to a plot with `+`.
 
 ## Details
 
-Built on \[ggplot2::theme_minimal()\], so it composes with additional
-\`+ theme()\` calls in the usual way (later settings win).
+Built on
+[`ggplot2::theme_minimal()`](https://ggplot2.tidyverse.org/reference/ggtheme.html),
+so it composes with additional `+ theme()` calls in the usual way (later
+settings win).
 
 ## Fonts
 
 By default the theme uses the graphics device's default font, which is
-safe on every device (including the PostScript/PDF devices used by \`R
-CMD check\` and many rendering back-ends). To render figures in the
+safe on every device (including the PostScript/PDF devices used by
+`R CMD check` and many rendering back-ends). To render figures in the
 brand font (Montserrat) – matching the hex logo – set
-\`options(maihda.font = "Montserrat")\` or pass \`base_family =
-"Montserrat"\`, and use a graphics device that can resolve that family
-(e.g. ragg or showtext). Forcing a font that the active device cannot
-find produces "invalid font type" errors, which is why it is opt-in
-rather than automatic.
+`options(maihda.font = "Montserrat")` or pass
+`base_family = "Montserrat"`, and use a graphics device that can resolve
+that family (e.g. ragg or showtext). Forcing a font that the active
+device cannot find produces "invalid font type" errors, which is why it
+is opt-in rather than automatic.
 
 ## Examples
 

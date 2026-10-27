@@ -352,8 +352,11 @@ dispersion parameter fixed at its original estimate.</p>
 
 
 <p><code>approx = "montecarlo"</code> draws random permutations with the session RNG;
-call <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> first for reproducible results. The exact methods are
-deterministic.</p>
+call <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> first for reproducible results. The exact methods give
+the same contributions on every run of a likelihood engine, but the
+<code>bootstrap = TRUE</code> intervals come from simulated responses and an
+<code>engine = "brms"</code> fit is an MCMC draw, so call <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> first for
+those as well.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

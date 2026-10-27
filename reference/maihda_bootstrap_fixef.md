@@ -14,7 +14,7 @@ not a \\t\\.
 ## Usage
 
 ``` r
-maihda_bootstrap_fixef(model, n_boot, conf_level)
+maihda_bootstrap_fixef(model, n_boot, conf_level, longitudinal = NULL)
 ```
 
 ## Arguments
@@ -30,6 +30,13 @@ maihda_bootstrap_fixef(model, n_boot, conf_level)
 - conf_level:
 
   Interval level.
+
+- longitudinal:
+
+  The model object's `longitudinal_info`: for a growth fit the
+  null-restricted fits and the refits of the draws are made as
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  fits the model. `NULL` for any other fit.
 
 ## Value
 

@@ -429,6 +429,35 @@
   wrong side of the stratum block’s boundary; pass `start` to fit from
   your own values only.
 
+- Gaussian growth models fitted by lme4 with quadratic or higher growth,
+  with or without a stratum slope, are refitted from lmer’s fit of the
+  same model on time centred at the middle of its range, and, when that
+  refit and lmer’s fit differ by more than 0.01, from a start with both
+  covariance blocks diagonal; a refit replaces lmer’s fit when its
+  criterion is lower by more than 1e-4. lmer’s default optimiser stopped
+  above the REML optimum in 10 to 20 per cent of such fits, recorded as
+  converged.
+
+- `summary(df_method = "bootstrap")` on a growth model fitted by lme4
+  refits each null-restricted model as
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  fits the model, with the same refits from further starting values, and
+  keeps the lower of that fit and the former refit. Refitted without
+  them, the null model of a quadratic growth fit stopped above its
+  optimum in 14 of 110 refits on a balanced design, by up to 1.95 REML
+  units.
+
+- `summary(bootstrap = TRUE)` and `summary(df_method = "bootstrap")` on
+  a growth model fitted by lme4 refit each draw from the fitted model’s
+  estimates and then as
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  fits the model, from its further starting values and, for glmer,
+  across a variance bound, at two to five times the time. Refitted once,
+  12 to 19 of 100 draws of a Poisson growth model stopped short of their
+  maximum, the VPC(t) band’s upper limit ran up to 25 per cent low at
+  early times, and draws stopped beside a variance bound gave bootstrap
+  statistics up to 53 from standard errors about 60 times too small.
+
 - Gaussian growth models fitted by lme4 whose time span is not between 1
   and 10 are fitted on time divided by a power of ten (days over five
   years by 1000), with a message; results are reported on the original
@@ -446,14 +475,143 @@
 
 - glmer growth models with a linear stratum slope are refitted from two
   more starts, and any glmer growth fit with a block’s intercept
-  variance at zero is refitted once from the other side of that bound,
-  at about three times the fitting time; glmer stopped more than 0.01
-  below the maximum in about a third of 120 Poisson growth fits, by up
-  to 32 log-likelihood units.
+  variance at zero is refitted from the other side of that bound by
+  bobyqa and, when that refit is kept, once more (across the bound again
+  if it stops at one), at about three times the fitting time; glmer
+  stopped more than 0.01 below the maximum in about a third of 120
+  Poisson growth fits, by up to 32 log-likelihood units.
 
 - A glmer growth fit stopped with a block’s intercept variance at zero
   where the likelihood still rises is recorded as not converged, the
   blocks in `diagnostics$boundary_traps`.
+
+- glmer fits with a random slope outside growth models, such as
+  `(1 + x | stratum)`, whose fit stops with a block’s intercept variance
+  at zero are refitted once from the other side of that bound, by
+  glmer’s second stage with bobyqa; on simulated cross-sectional designs
+  39 of 200 fits had stopped there more than 0.01 below the maximum, by
+  up to 23 log-likelihood units.
+
+- The convergence record flags such a stop in any glmer fit with `nAGQ`
+  of 1 or more, not only in a growth fit, when the likelihood rises with
+  the signs of the intercept’s covariances reversed; the sentence names
+  the block’s terms.
+
+- glmer fits with a random slope outside growth models are also searched
+  with each random-effect block’s terms re-expressed as for lmer fits
+  and the fixed effects centred and scaled, from lme4’s starting values
+  of the variance parameters and from the fit’s estimates, and refitted
+  from the lower end. With a slope on a calendar or birth year, glmer’s
+  own second stage stopped more than 0.01 short of the maximum in 37 of
+  133 simulated fits, by up to 37 in -2 log-likelihood, often with the
+  slope’s variance at zero, where lme4 calls the fit singular; 27 were
+  recorded as converged. Fitting takes about one and a half times as
+  long, up to about four times.
+
+- glmer growth models, and their bootstrap and null-model refits, are
+  searched the same way and refitted from the lower end when it is at
+  least 0.001 lower in -2 log-likelihood: about a fifth more fitting
+  time, about twice as long where a refit is made. Quadratic growth fits
+  had stopped more than 0.01 below the maximum in 47 of 240 simulated
+  fits, by up to 21, 11 of them singular and recorded as converged.
+
+- A glmer fit outside growth models that either refit replaced is
+  refitted once more from its estimates by the second stage of the
+  call’s own control (Nelder-Mead by default) and so records that
+  optimiser, as glmer’s own fits do: recorded as bobyqa,
+  [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html) refitted
+  such a fit by bobyqa with minqa’s default first step and ended more
+  than 0.01 above it on 18 of 43 simulated fits (it failed on 15), by up
+  to 188 in -2 log-likelihood.
+
+- The searches of glmer fits with a random slope outside growth models
+  run their deviance function to a relative tolerance of 1e-10, and
+  every glmer search, growth models’ included, takes a fit when that
+  function at its estimates lies within 1e-3 (relative) of lme4’s -2
+  log-likelihood: the 1e-5 check at lme4’s tolerance had left some
+  simulated binomial null models with strata far apart on the logit
+  scale unsearched, up to 13.6 below the maximum and some recorded as
+  converged. The singular-fit record’s search does the same.
+
+- A glmer fit outside growth models stopped where the variance of a term
+  followed by two or more others in its random-effect block is at zero,
+  such as the intercept of `(1 + x + z | stratum)`, is refitted from
+  across that bound along the direction in which the likelihood rises
+  fastest instead of with the signs of the term’s covariances reversed;
+  on simulated designs the reflection had left 10 of 57 such fits more
+  than 0.01 below the maximum, by up to 1.78 log-likelihood units, 5 of
+  them recorded as converged.
+
+- The convergence record measures each such stop along the direction in
+  which the likelihood rises fastest as well as by the reflection, which
+  alone missed stops of fits up to 1.03 log-likelihood units short; for
+  a term followed by two or more others its sentence says the likelihood
+  rises when that variance and its covariances move off zero.
+
+- The convergence record measures a stop at a variance bound at steps of
+  0.01 and 0.1 as well as 0.001, and by a Newton step in the block’s
+  variance parameters with its terms centred and scaled; the step of
+  0.001 alone called 30 of 65 simulated lme4 fits stopped there more
+  than 0.01 below the maximum converged, most with a slope covariate in
+  large units such as age in years or a covariate in thousands. Its
+  sentence says what showed the likelihood rising and names a bound only
+  for a column at one: a slope’s entry on a covariate in thousands lies
+  within lme4’s 1e-4 of the bound at its natural size. `boundary_traps`
+  gains the falls `across` the bound and `reflected`, and `at_bound`.
+
+- lmer fits with a random slope outside growth models are refitted from
+  the other side of a bound their fit stops at and from a start carried
+  back from their random-effect terms centred and scaled, keeping the
+  lowest REML criterion, at about three times the fitting time; lmer
+  stopped more than 0.01 above the optimum in 64 of 480 simulated fits
+  with a covariate on a scale of about 1, 121 of 180 with age in years
+  and 55 of 60 with a birth year.
+
+- The convergence record flags a stop at such a bound in an lmer fit
+  outside growth models too.
+
+- lmer fits with a random slope outside growth models take that start
+  with each random-effect block’s terms re-expressed on their own, a
+  term in a block without an intercept, as in `(0 + x | ctx)` or
+  `(1 + x || stratum)`, divided by its root mean square; the fit kept
+  and lmer’s own fit are also refitted from a variance at zero where the
+  criterion still falls off zero. Of 570 simulated fits, 57 had stopped
+  more than 0.01 above the REML optimum, by up to 12.8, all recorded as
+  converged, and all but one had a calendar or birth-year slope in such
+  a block; fitting takes about four times as long as lmer’s own fit, up
+  to about nine times where lmer’s own fit stops with a variance at
+  zero.
+
+- The convergence record flags an lmer fit outside growth models that
+  lme4 calls singular, which lme4 does not check, when a search of the
+  same model reaches a REML criterion 0.01 or more below it, in
+  `diagnostics$search_gain`.
+
+- It searches an lmer fit with a random slope outside growth models that
+  lme4 does not check because of its size, by default one of 10,000 rows
+  or more or with 10 or more variance parameters, in the same way,
+  unless
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  refitted it; in simulations such fits made from a `start` had been
+  recorded as converged by up to 1,236 above the REML optimum.
+
+- It flags a glmer fit with a random slope and `nAGQ` of 1 or more
+  outside growth models the same way, searched from the fit with its
+  random-effect terms and fixed effects centred and scaled, when the
+  deviance falls 0.01 or more; of 119 simulated such fits lme4 called
+  singular, with a slope on a birth year, an age, an N(0, 1) covariate
+  or an income in currency units, 37 were 0.01 to 23 short of the
+  maximum, and 36 of them were recorded converged.
+
+- A glmer fit with a random slope and `nAGQ` of 1 or more outside growth
+  models that lme4 does not check because of its size, by default one of
+  10,000 rows or more or with 20 or more parameters, fixed effects
+  included, and does not call singular, is measured as one whose checks
+  fired, and counts as not converged 0.1 standard errors or more from a
+  stationary point, with `diagnostics$lme4_unchecked`; where that cannot
+  be measured it is searched as a singular one is. In simulations such
+  fits made from a `start` on 10,000 to 20,016 rows had been recorded as
+  converged 0.017 to 14.3 log-likelihood units below the maximum.
 
 - The rank-deficiency verdict for a linear stratum block, behind
   `PCV_slope`’s `NA` and the longitudinal PCV’s note, no longer depends
@@ -549,6 +707,15 @@
   differences with a fixed step, were wrong for a covariate far from
   zero or on a large scale (for a birth year between 0.01 and 1.8 times
   the right value on simulated data).
+
+- `attr(maihda_sparse_data, "truth")` now holds what the 36 drawn
+  stratum effects carry, and the effects themselves: VPC 0.24 on `y` and
+  0.29 on `event`, interaction share 41%, where it held the generator’s
+  targets (0.26, 0.31, 40%).
+  [`?maihda_sparse_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sparse_data.md)
+  and the sparse-intersections vignette quote these, and the vignette
+  adds lme4’s share with 1,000 individuals in every stratum (28% and
+  35%).
 
 ### Documentation
 
@@ -688,6 +855,26 @@
   strata do not diverge: with few strata it is common when they do. They
   say what `stratum_slope = FALSE` does to diverging strata, and the
   vignette that the AIC comparison has little power with few strata.
+- The sparse-intersections vignette no longer says that its `lme4` fits
+  put the interaction variance at the boundary: they put a dimension’s
+  variance at zero (two in the binary fit), and the interaction variance
+  is positive in both.
+- [`?pcv_importance`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  no longer calls the exact methods deterministic: the
+  `bootstrap = TRUE` intervals and `engine = "brms"` fits are random
+  draws and need [`set.seed()`](https://rdrr.io/r/base/Random.html).
+- [`?maihda_sparse_data`](https://hdbt.github.io/MAIHDA/reference/maihda_sparse_data.md)
+  no longer drops the text after each `%` or shows Markdown markup, and
+  no longer says the vignette recovers the true interaction share.
+- [`?plot_prediction_deviation_panels`](https://hdbt.github.io/MAIHDA/reference/plot_prediction_deviation_panels.md),
+  [`?stepwise_pcv`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
+  and
+  [`?theme_maihda`](https://hdbt.github.io/MAIHDA/reference/theme_maihda.md)
+  no longer show Markdown markup.
+- The sparse-intersections vignette no longer says that `lme4` cannot
+  give the shares an interval (`bootstrap = TRUE` gives one) or that the
+  brms prior keeps the standard deviations off zero, and it prints the
+  fits’ variances instead of their singular flags.
 
 ### Performance
 
@@ -697,6 +884,36 @@
   roughly halves the fitting cost (most noticeable for `brms`).
 
 ### Bug fixes
+
+- [`lme4::bootMer()`](https://rdrr.io/pkg/lme4/man/bootMer.html) and
+  `confint(method = "boot")` run on lme4 fits made with
+  `control = lmerControl()` / `glmerControl()`, and on glmer fits that a
+  refit replaced and Nelder-Mead finished with its own first steps: the
+  call gives the control as
+  [`lme4::lmerControl()`](https://rdrr.io/pkg/lme4/man/lmerControl.html)
+  /
+  [`lme4::glmerControl()`](https://rdrr.io/pkg/lme4/man/lmerControl.html),
+  not as a name bound in the formula’s environment. They still stop on a
+  glmer fit last refitted by bobyqa or with first steps of the package’s
+  own.
+
+- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  now gives an lme4 fit the refits and convergence checks it gives the
+  same model with its random-effect blocks written in another order.
+  Where lme4 sorts the blocks by their number of levels and two have as
+  many levels, as `(x || stratum)` before a factor with more does, the
+  standardised refit start, the lmer convergence re-check, the searches
+  of singular lmer and glmer fits and the trap record’s Newton step were
+  skipped silently, so that 12 of 12 simulated fits with a slope on a
+  birth year stopped 7 to 44 log-likelihood units below the optimum, 9
+  of them recorded converged; the glmer re-check was taken in lme4’s own
+  units, where a slope in large units gives none, and the singular
+  verdict by lme4’s own test.
+
+- [`set.seed()`](https://rdrr.io/r/base/Random.html) now reproduces
+  `engine = "brms"` fits whose chains run in parallel (`cores > 1`): an
+  unseeded fit takes its sampler seed from R’s random-number stream, as
+  a serial fit does, instead of each chain’s process drawing its own.
 
 - [`print()`](https://rdrr.io/r/base/print.html) on a longitudinal PCV
   now shows a variance below 1e-4, such as a slope variance with time
@@ -739,6 +956,37 @@
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   named their groups. [`print()`](https://rdrr.io/r/base/print.html)
   says what lme4 warned of and how far the fit is.
+
+- A glmer fit with a random slope, as in `(1 + x | stratum)`, is now
+  judged with its random-effect terms centred and scaled as well as its
+  fixed effects: lme4 takes its checks in the units of the slope’s
+  covariate, so fits with a slope on a birth year were recorded as not
+  converged at the maximum (6 of 12 simulated fits).
+
+- A glmer or lmer fit with a
+  [`diag()`](https://rdrr.io/r/base/diag.html) random-effect block is
+  judged with that block’s terms divided by their root mean square, as
+  the same model written with `||` is: glmer fits with a
+  [`diag()`](https://rdrr.io/r/base/diag.html) slope on a birth year
+  were recorded as not converged at the maximum (4 of 8 simulated
+  Poisson fits), and an lmer fit with such a block kept lme4’s verdict.
+
+- An lmer fit is judged the same way, with its random-effect terms
+  centred and scaled: lme4 takes its checks in the units of a random
+  slope’s covariate, so fits with a slope on a birth year, an age in
+  years or an income in thousands were recorded as not converged at the
+  REML optimum (17 of 60, 47 of 180 and 24 of 60 simulated fits).
+
+- In an lmer fit, or a glmer fit with `nAGQ` of 1 or more, outside
+  growth models, a random-effect block with a slope is judged singular
+  when a diagonal entry of its factor with the terms centred and scaled
+  is below 0.01: lme4’s test in the formula’s units read a slope on a
+  birth year or an income in currency units as singular in blocks that
+  are not at the boundary (14 of the 88 simulated birth-year lmer fits
+  lme4 calls singular at the REML optimum). lme4’s own verdict is kept
+  in `diagnostics$lme4_singular` where the two differ, and
+  [`print()`](https://rdrr.io/r/base/print.html) says when lme4 reports
+  a singular fit that the package does not.
 
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   now gives a failure reason shared by several groups once, in one

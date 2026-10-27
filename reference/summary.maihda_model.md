@@ -31,11 +31,20 @@ summary(
   Logical indicating whether to compute parametric bootstrap confidence
   intervals for VPC/ICC. Default is FALSE. Supported for lme4 models
   only; `brms` models always return a posterior credible interval (see
-  Details), so `bootstrap = TRUE` is rejected for them. For a
-  negative-binomial model (`glmer.nb`) the bootstrap refits via
-  [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html), which
-  holds the dispersion parameter theta fixed at its original estimate,
-  so the interval is conditional on the estimated theta (theta's own
+  Details), so `bootstrap = TRUE` is rejected for them. Each simulated
+  response is refitted from the fitted model's estimates
+  ([`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html)); for a
+  growth fit (`fit_maihda(id =, time =)`) it is then refitted as
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  fits the model, from the further starting values and, for a `glmer`
+  fit, across a variance bound (see
+  [`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+  arguments `time` and `stratum_slope`), and the best fit is kept, at
+  two to five times the time of one refit. For a negative-binomial model
+  (`glmer.nb`) the bootstrap refits hold the dispersion parameter theta
+  fixed at its original estimate, as
+  [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html) does, so
+  the interval is conditional on the estimated theta (theta's own
   sampling uncertainty is not propagated). The `ordinal` (clmm) engine
   has no simulate/refit machinery, so `bootstrap = TRUE` is rejected
   there (use `engine = "brms"` for interval estimates). For a Gaussian
@@ -315,7 +324,14 @@ when the strata are few. For each fixed-effect coefficient the model is
 refitted with that coefficient *constrained to zero*, `n_boot` responses
 are simulated from the restricted fit, the full model is refitted on
 each, and the observed Wald statistic is referred to the resulting
-distribution of \\\|t^\*\|\\. The estimate and standard error are
+distribution of \\\|t^\*\|\\. The restricted fit of a growth model is
+made as
+[`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+makes the model's own fit, with the same refits from further starting
+values
+([`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md),
+arguments `time` and `stratum_slope`), and so is the full model's refit
+on each draw (see `bootstrap`). The estimate and standard error are
 unchanged. The p-value is \\(1 + \\\\\|t^\*\| \ge \|t\|\\) / (B + 1)\\
 over the \\B\\ refits that succeeded, and the interval is the estimate
 plus or minus a critical value read from the same draws, times the

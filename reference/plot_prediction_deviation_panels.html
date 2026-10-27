@@ -153,19 +153,21 @@ What "notable" means depends on the model type, and the labelled points are
 
 
 <dl><dt id="arg-model">model<a class="anchor" aria-label="anchor" href="#arg-model"></a></dt>
-<dd><p>A fitted model object (e.g., from `lm()`, `glm()`, `MASS::polr()`, or `lme4::glmer()`).</p></dd>
+<dd><p>A fitted model object (e.g., from <code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm()</a></code>, <code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm()</a></code>,
+<code><a href="https://rdrr.io/pkg/MASS/man/polr.html" class="external-link">MASS::polr()</a></code>, or <code><a href="https://rdrr.io/pkg/lme4/man/glmer.html" class="external-link">lme4::glmer()</a></code>).</p></dd>
 
 
 <dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
-<dd><p>The original data frame used to fit the model. If `NULL`, attempts
-to extract from the model. When supplied, everything is computed for its own
-rows: their predictions, their binomial residuals (from their own outcomes and
-trial counts) and their weights in the stratum summaries. A row's weight is
-read from its column in `data` – the sampling-weight column, or the column a
-bare model's `weights =` argument names (`glm()`, `lmer()`, `MASS::polr()`,
-...) – or else from the fitted row with the same row name and prediction (a
-`fit_maihda()` model stores its weights as values). If any plotted row's
-weight cannot be found, every row is weighted equally, with a warning.</p></dd>
+<dd><p>The original data frame used to fit the model. If <code>NULL</code>,
+attempts to extract from the model. When supplied, everything is computed for
+its own rows: their predictions, their binomial residuals (from their own
+outcomes and trial counts) and their weights in the stratum summaries. A row's
+weight is read from its column in <code>data</code> – the sampling-weight column, or
+the column a bare model's <code>weights =</code> argument names (<code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm()</a></code>,
+<code>lmer()</code>, <code><a href="https://rdrr.io/pkg/MASS/man/polr.html" class="external-link">MASS::polr()</a></code>, ...) – or else from the fitted row with
+the same row name and prediction (a <code><a href="fit_maihda.html">fit_maihda()</a></code> model stores its
+weights as values). If any plotted row's weight cannot be found, every row is
+weighted equally, with a warning.</p></dd>
 
 
 <dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
@@ -185,12 +187,12 @@ Default is 5.</p></dd>
 
 
 <dt id="arg-strata-info">strata_info<a class="anchor" aria-label="anchor" href="#arg-strata-info"></a></dt>
-<dd><p>Optional data frame of strata labels, generally extracted from `maihda_model` objects.</p></dd>
+<dd><p>Optional data frame of strata labels, generally extracted from <code>maihda_model</code> objects.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A `patchwork` object containing two `ggplot2` panels.</p>
+    <p>A <span class="pkg">patchwork</span> object containing two <span class="pkg">ggplot2</span> panels.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

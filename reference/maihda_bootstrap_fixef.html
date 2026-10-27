@@ -81,7 +81,7 @@ the reference is an empirical distribution, not a \(t\).</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">maihda_bootstrap_fixef</span><span class="op">(</span><span class="va">model</span>, <span class="va">n_boot</span>, <span class="va">conf_level</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">maihda_bootstrap_fixef</span><span class="op">(</span><span class="va">model</span>, <span class="va">n_boot</span>, <span class="va">conf_level</span>, longitudinal <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -98,6 +98,12 @@ the reference is an empirical distribution, not a \(t\).</p>
 
 <dt id="arg-conf-level">conf_level<a class="anchor" aria-label="anchor" href="#arg-conf-level"></a></dt>
 <dd><p>Interval level.</p></dd>
+
+
+<dt id="arg-longitudinal">longitudinal<a class="anchor" aria-label="anchor" href="#arg-longitudinal"></a></dt>
+<dd><p>The model object's <code>longitudinal_info</code>: for a growth fit
+the null-restricted fits and the refits of the draws are made as
+<code><a href="fit_maihda.html">fit_maihda()</a></code> fits the model. <code>NULL</code> for any other fit.</p></dd>
 
 </dl></div>
     <div class="section level2">

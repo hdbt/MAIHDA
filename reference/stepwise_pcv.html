@@ -89,8 +89,8 @@ model-dependent change, not an order-invariant “unique” contribution.</p>
 
 
 <dl><dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
-<dd><p>Data frame with observations. Ensure `make_strata()` was run first
-so the `stratum` variable exists.</p></dd>
+<dd><p>Data frame with observations. Ensure <code><a href="make_strata.html">make_strata</a></code> was
+run first so the <code>stratum</code> variable exists.</p></dd>
 
 
 <dt id="arg-outcome">outcome<a class="anchor" aria-label="anchor" href="#arg-outcome"></a></dt>
@@ -179,9 +179,9 @@ compared across steps, <code>"fitted"</code> (default) or <code>"ML"</code>; see
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>All models are fit on the complete cases for `outcome`, `stratum`, and all
-variables in `vars` so that each sequential variance comparison uses the same
-analytic sample.</p>
+    <p>All models are fit on the complete cases for <code>outcome</code>, <code>stratum</code>,
+and all variables in <code>vars</code> so that each sequential variance comparison
+uses the same analytic sample.</p>
 <p>For a binary (or ordinal) outcome the sequential between-stratum variances
 live on the latent scale, whose level-1 variance is fixed by the link: a step
 that adds an <em>individual-level</em> variable (one varying within strata)

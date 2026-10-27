@@ -50,22 +50,26 @@ plot_prediction_deviation_panels(
 
 - model:
 
-  A fitted model object (e.g., from \`lm()\`, \`glm()\`,
-  \`MASS::polr()\`, or \`lme4::glmer()\`).
+  A fitted model object (e.g., from
+  [`lm()`](https://rdrr.io/r/stats/lm.html),
+  [`glm()`](https://rdrr.io/r/stats/glm.html),
+  [`MASS::polr()`](https://rdrr.io/pkg/MASS/man/polr.html), or
+  [`lme4::glmer()`](https://rdrr.io/pkg/lme4/man/glmer.html)).
 
 - data:
 
-  The original data frame used to fit the model. If \`NULL\`, attempts
-  to extract from the model. When supplied, everything is computed for
-  its own rows: their predictions, their binomial residuals (from their
-  own outcomes and trial counts) and their weights in the stratum
-  summaries. A row's weight is read from its column in \`data\` – the
-  sampling-weight column, or the column a bare model's \`weights =\`
-  argument names (\`glm()\`, \`lmer()\`, \`MASS::polr()\`, ...) – or
+  The original data frame used to fit the model. If `NULL`, attempts to
+  extract from the model. When supplied, everything is computed for its
+  own rows: their predictions, their binomial residuals (from their own
+  outcomes and trial counts) and their weights in the stratum summaries.
+  A row's weight is read from its column in `data` – the sampling-weight
+  column, or the column a bare model's `weights =` argument names
+  ([`glm()`](https://rdrr.io/r/stats/glm.html), `lmer()`,
+  [`MASS::polr()`](https://rdrr.io/pkg/MASS/man/polr.html), ...) – or
   else from the fitted row with the same row name and prediction (a
-  \`fit_maihda()\` model stores its weights as values). If any plotted
-  row's weight cannot be found, every row is weighted equally, with a
-  warning.
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  model stores its weights as values). If any plotted row's weight
+  cannot be found, every row is weighted equally, with a warning.
 
 - type:
 
@@ -88,8 +92,8 @@ plot_prediction_deviation_panels(
 - strata_info:
 
   Optional data frame of strata labels, generally extracted from
-  \`maihda_model\` objects.
+  `maihda_model` objects.
 
 ## Value
 
-A \`patchwork\` object containing two \`ggplot2\` panels.
+A patchwork object containing two ggplot2 panels.

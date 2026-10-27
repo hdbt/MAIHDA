@@ -27,8 +27,9 @@ stepwise_pcv(
 
 - data:
 
-  Data frame with observations. Ensure \`make_strata()\` was run first
-  so the \`stratum\` variable exists.
+  Data frame with observations. Ensure
+  [`make_strata`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
+  was run first so the `stratum` variable exists.
 
 - outcome:
 
@@ -126,9 +127,9 @@ unaffected, since it divides by the null model's variance.
 
 ## Details
 
-All models are fit on the complete cases for \`outcome\`, \`stratum\`,
-and all variables in \`vars\` so that each sequential variance
-comparison uses the same analytic sample.
+All models are fit on the complete cases for `outcome`, `stratum`, and
+all variables in `vars` so that each sequential variance comparison uses
+the same analytic sample.
 
 For a binary (or ordinal) outcome the sequential between-stratum
 variances live on the latent scale, whose level-1 variance is fixed by

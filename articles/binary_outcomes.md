@@ -99,45 +99,45 @@ print(summary_null)
 #> 
 #> Variance Components:
 #>                  component variance     sd proportion
-#>   Between-stratum (random)   0.2227 0.4719    0.06339
-#>  Within-stratum (residual)   3.2899 1.8138    0.93661
-#>                      Total   3.5125 1.8742    1.00000
+#>   Between-stratum (random)   0.2227 0.4719     0.0634
+#>  Within-stratum (residual)   3.2899 1.8138     0.9366
+#>                      Total   3.5125 1.8742     1.0000
 #> 
 #> Discriminatory accuracy (binomial MAIHDA)
 #>   AUC (C-statistic): 0.626
-#>   Median Odds Ratio: 1.568
+#>   Median Odds Ratio: 1.569
 #>   Cases / controls:  1077 / 1923
 #>   (AUC is apparent / in-sample: scored on the same rows used to fit the
 #>   model, so it is optimistically biased -- more so with sparse strata. It
 #>   is a descriptive measure, not cross-validated out-of-sample discrimination.)
 #> 
 #> Fixed Effects (Wald z, 95% intervals):
-#>         term estimate      se statistic  p_value   lower   upper
-#>  (Intercept)   -0.616 0.09022    -6.828 8.61e-12 -0.7928 -0.4392
+#>         term estimate      se statistic p_value  lower   upper
+#>  (Intercept)   -0.616 0.09028    -6.823 8.9e-12 -0.793 -0.4391
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id                           label random_effect     se
-#>        1          1  male × Hispanic × Some College     -0.075834 0.3155
-#>        2          2     male × Black × College Grad     -0.001524 0.3325
-#>        3          3   female × White × College Grad     -0.360949 0.1186
-#>        4          4     male × Hispanic × 8th Grade      0.218443 0.3808
-#>        5          5    female × Mexican × 8th Grade      0.437816 0.2809
-#>        6          6     male × White × College Grad     -0.293351 0.1187
-#>        7          7    female × White × High School     -0.006285 0.1322
-#>        8          8     male × White × Some College      0.502977 0.1077
-#>        9          9 female × White × 9 - 11th Grade      0.259733 0.1835
-#>       10         10 female × Hispanic × High School     -0.006773 0.3208
+#>        1          1  male × Hispanic × Some College     -0.075830 0.3155
+#>        2          2     male × Black × College Grad     -0.001519 0.3325
+#>        3          3   female × White × College Grad     -0.360940 0.1186
+#>        4          4     male × Hispanic × 8th Grade      0.218455 0.3808
+#>        5          5    female × Mexican × 8th Grade      0.437831 0.2809
+#>        6          6     male × White × College Grad     -0.293341 0.1187
+#>        7          7    female × White × High School     -0.006275 0.1322
+#>        8          8     male × White × Some College      0.502989 0.1077
+#>        9          9 female × White × 9 - 11th Grade      0.259744 0.1835
+#>       10         10 female × Hispanic × High School     -0.006767 0.3208
 #>  lower_95 upper_95
-#>   -0.6941  0.54246
-#>   -0.6533  0.65025
-#>   -0.5935 -0.12843
-#>   -0.5280  0.96489
-#>   -0.1127  0.98833
-#>   -0.5259 -0.06076
-#>   -0.2654  0.25283
-#>    0.2919  0.71405
-#>   -0.1000  0.61948
-#>   -0.6355  0.62197
+#>   -0.6941  0.54247
+#>   -0.6533  0.65027
+#>   -0.5935 -0.12842
+#>   -0.5280  0.96491
+#>   -0.1127  0.98835
+#>   -0.5259 -0.06075
+#>   -0.2654  0.25284
+#>    0.2919  0.71406
+#>   -0.1000  0.61950
+#>   -0.6355  0.62199
 #>   ... and 40 more strata
 ```
 
@@ -216,9 +216,9 @@ print(pcv)
 #> Variance basis: as fitted (maximum likelihood)
 #> 
 #> Between-stratum variance:
-#>   Model 1: 0.222667
-#>   Model 2: 0.218941
-#>   Change:  0.003726 (1.67%)
+#>   Model 1: 0.222680
+#>   Model 2: 0.218955
+#>   Change:  0.003725 (1.67%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
 #> variance between the models):
@@ -260,7 +260,7 @@ calculate_pcv(model_null2, model_adj, estimation = "REML")
 #>   Model 1: 0.232744
 #>   Model 2: 0.229367
 #>   Change:  0.003377 (1.45%)
-#>   As fitted (maximum likelihood): 0.222667 -> 0.218941, PCV 0.0167
+#>   As fitted (maximum likelihood): 0.222680 -> 0.218955, PCV 0.0167
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
 #> variance between the models):
@@ -300,6 +300,8 @@ model_int <- fit_maihda(
   data = health_complete, family = "binomial"
 )
 #> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.
+#> Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00300493 (tol = 0.002, component 1)
+#>   See ?lme4::convergence and ?lme4::troubleshooting.
 
 maihda_interactions(model_int)
 #> ── Intersectional interactions ─────────────────────────────────────────────────
@@ -311,9 +313,9 @@ maihda_interactions(model_int)
 #>   scale = "response" returns it with its interval.
 #> 
 #>  stratum                       label   n interaction prob_diff     se  lower
-#>        8 male × White × Some College 328      0.3713    0.0896 0.0993 0.1766
-#>   upper  p_value p_adjusted flagged direction
-#>  0.5659 0.000185   0.009248    TRUE     above
+#>        8 male × White × Some College 328      0.3713   0.08962 0.0993 0.1767
+#>  upper   p_value p_adjusted flagged direction
+#>  0.566 0.0001844   0.009222    TRUE     above
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.
@@ -414,10 +416,10 @@ maihda_interactions(model_int, scale = "response")
 #>   interaction carried onto the outcome scale; flags match the
 #>   log-odds scale.
 #> 
-#>  stratum                       label   n interaction   lower  upper  p_value
-#>        8 male × White × Some College 328      0.0896 0.04188 0.1381 0.000185
+#>  stratum                       label   n interaction  lower  upper   p_value
+#>        8 male × White × Some College 328     0.08962 0.0419 0.1382 0.0001844
 #>  p_adjusted flagged direction
-#>    0.009248    TRUE     above
+#>    0.009222    TRUE     above
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.
@@ -491,7 +493,7 @@ da_adj  <- maihda_discriminatory_accuracy(model_adj)
 da_null
 #> Discriminatory accuracy (binomial MAIHDA)
 #>   AUC (C-statistic): 0.626
-#>   Median Odds Ratio: 1.568
+#>   Median Odds Ratio: 1.569
 #>   Cases / controls:  1077 / 1923
 #>   (AUC is apparent / in-sample: scored on the same rows used to fit the
 #>   model, so it is optimistically biased -- more so with sparse strata. It

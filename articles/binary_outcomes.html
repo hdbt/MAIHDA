@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-10-19</h4>
+            <h4 data-toc-skip class="date">2026-10-27</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/binary_outcomes.Rmd" class="external-link"><code>vignettes/binary_outcomes.Rmd</code></a></small>
       <div class="d-none name"><code>binary_outcomes.Rmd</code></div>
@@ -180,45 +180,45 @@ underlying latent scale, not on the probability scale.</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Variance Components:</span></span></span>
 <span><span class="co">#&gt;                  component variance     sd proportion</span></span>
-<span><span class="co">#&gt;   Between-stratum (random)   0.2227 0.4719    0.06339</span></span>
-<span><span class="co">#&gt;  Within-stratum (residual)   3.2899 1.8138    0.93661</span></span>
-<span><span class="co">#&gt;                      Total   3.5125 1.8742    1.00000</span></span>
+<span><span class="co">#&gt;   Between-stratum (random)   0.2227 0.4719     0.0634</span></span>
+<span><span class="co">#&gt;  Within-stratum (residual)   3.2899 1.8138     0.9366</span></span>
+<span><span class="co">#&gt;                      Total   3.5125 1.8742     1.0000</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Discriminatory accuracy (binomial MAIHDA)</span></span></span>
 <span><span class="co">#&gt;   AUC (C-statistic): <span style="color: #D78700;">0.626</span></span></span>
-<span><span class="co">#&gt;   Median Odds Ratio: <span style="color: #D78700;">1.568</span></span></span>
+<span><span class="co">#&gt;   Median Odds Ratio: <span style="color: #D78700;">1.569</span></span></span>
 <span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span>
 <span><span class="co">#&gt; <span style="color: #555555;">  (AUC is apparent / in-sample: scored on the same rows used to fit the</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   model, so it is optimistically biased -- more so with sparse strata. It</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   is a descriptive measure, not cross-validated out-of-sample discrimination.)</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Fixed Effects (Wald z, 95% intervals):</span></span></span>
-<span><span class="co">#&gt;         term estimate      se statistic  p_value   lower   upper</span></span>
-<span><span class="co">#&gt;  (Intercept)   -0.616 0.09022    -6.828 8.61e-12 -0.7928 -0.4392</span></span>
+<span><span class="co">#&gt;         term estimate      se statistic p_value  lower   upper</span></span>
+<span><span class="co">#&gt;  (Intercept)   -0.616 0.09028    -6.823 8.9e-12 -0.793 -0.4391</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Stratum Estimates (first 10):</span></span>
 <span><span class="co">#&gt;  stratum stratum_id                           label random_effect     se</span></span>
-<span><span class="co">#&gt;        1          1  male × Hispanic × Some College     -0.075834 0.3155</span></span>
-<span><span class="co">#&gt;        2          2     male × Black × College Grad     -0.001524 0.3325</span></span>
-<span><span class="co">#&gt;        3          3   female × White × College Grad     -0.360949 0.1186</span></span>
-<span><span class="co">#&gt;        4          4     male × Hispanic × 8th Grade      0.218443 0.3808</span></span>
-<span><span class="co">#&gt;        5          5    female × Mexican × 8th Grade      0.437816 0.2809</span></span>
-<span><span class="co">#&gt;        6          6     male × White × College Grad     -0.293351 0.1187</span></span>
-<span><span class="co">#&gt;        7          7    female × White × High School     -0.006285 0.1322</span></span>
-<span><span class="co">#&gt;        8          8     male × White × Some College      0.502977 0.1077</span></span>
-<span><span class="co">#&gt;        9          9 female × White × 9 - 11th Grade      0.259733 0.1835</span></span>
-<span><span class="co">#&gt;       10         10 female × Hispanic × High School     -0.006773 0.3208</span></span>
+<span><span class="co">#&gt;        1          1  male × Hispanic × Some College     -0.075830 0.3155</span></span>
+<span><span class="co">#&gt;        2          2     male × Black × College Grad     -0.001519 0.3325</span></span>
+<span><span class="co">#&gt;        3          3   female × White × College Grad     -0.360940 0.1186</span></span>
+<span><span class="co">#&gt;        4          4     male × Hispanic × 8th Grade      0.218455 0.3808</span></span>
+<span><span class="co">#&gt;        5          5    female × Mexican × 8th Grade      0.437831 0.2809</span></span>
+<span><span class="co">#&gt;        6          6     male × White × College Grad     -0.293341 0.1187</span></span>
+<span><span class="co">#&gt;        7          7    female × White × High School     -0.006275 0.1322</span></span>
+<span><span class="co">#&gt;        8          8     male × White × Some College      0.502989 0.1077</span></span>
+<span><span class="co">#&gt;        9          9 female × White × 9 - 11th Grade      0.259744 0.1835</span></span>
+<span><span class="co">#&gt;       10         10 female × Hispanic × High School     -0.006767 0.3208</span></span>
 <span><span class="co">#&gt;  lower_95 upper_95</span></span>
-<span><span class="co">#&gt;   -0.6941  0.54246</span></span>
-<span><span class="co">#&gt;   -0.6533  0.65025</span></span>
-<span><span class="co">#&gt;   -0.5935 -0.12843</span></span>
-<span><span class="co">#&gt;   -0.5280  0.96489</span></span>
-<span><span class="co">#&gt;   -0.1127  0.98833</span></span>
-<span><span class="co">#&gt;   -0.5259 -0.06076</span></span>
-<span><span class="co">#&gt;   -0.2654  0.25283</span></span>
-<span><span class="co">#&gt;    0.2919  0.71405</span></span>
-<span><span class="co">#&gt;   -0.1000  0.61948</span></span>
-<span><span class="co">#&gt;   -0.6355  0.62197</span></span>
+<span><span class="co">#&gt;   -0.6941  0.54247</span></span>
+<span><span class="co">#&gt;   -0.6533  0.65027</span></span>
+<span><span class="co">#&gt;   -0.5935 -0.12842</span></span>
+<span><span class="co">#&gt;   -0.5280  0.96491</span></span>
+<span><span class="co">#&gt;   -0.1127  0.98835</span></span>
+<span><span class="co">#&gt;   -0.5259 -0.06075</span></span>
+<span><span class="co">#&gt;   -0.2654  0.25284</span></span>
+<span><span class="co">#&gt;    0.2919  0.71406</span></span>
+<span><span class="co">#&gt;   -0.1000  0.61950</span></span>
+<span><span class="co">#&gt;   -0.6355  0.62199</span></span>
 <span><span class="co">#&gt;   ... and 40 more strata</span></span></code></pre></div>
 <p>Read from this null model, the VPC is the <strong>total</strong>
 between-stratum share of latent variation in the odds of obesity. As in
@@ -286,9 +286,9 @@ sample:</p>
 <span><span class="co">#&gt; <span style="color: #555555;">Variance basis: as fitted (maximum likelihood)</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span><span style="font-weight: bold;">Between-stratum variance:</span></span></span>
-<span><span class="co">#&gt;   Model 1: 0.222667</span></span>
-<span><span class="co">#&gt;   Model 2: 0.218941</span></span>
-<span><span class="co">#&gt;   Change:  0.003726 (1.67%)</span></span>
+<span><span class="co">#&gt;   Model 1: 0.222680</span></span>
+<span><span class="co">#&gt;   Model 2: 0.218955</span></span>
+<span><span class="co">#&gt;   Change:  0.003725 (1.67%)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; variance between the models):</span></span></span>
@@ -324,7 +324,7 @@ their own estimates to be precise (see <code><a href="../reference/calculate_pcv
 <span><span class="co">#&gt;   Model 1: 0.232744</span></span>
 <span><span class="co">#&gt;   Model 2: 0.229367</span></span>
 <span><span class="co">#&gt;   Change:  0.003377 (1.45%)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">  As fitted (maximum likelihood): 0.222667 -&gt; 0.218941, PCV 0.0167</span></span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">  As fitted (maximum likelihood): 0.222680 -&gt; 0.218955, PCV 0.0167</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; variance between the models):</span></span></span>
@@ -360,6 +360,8 @@ credibly non-zero:</p>
 <span>  data <span class="op">=</span> <span class="va">health_complete</span>, family <span class="op">=</span> <span class="st">"binomial"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.</span></span>
+<span><span class="co">#&gt; Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00300493 (tol = 0.002, component 1)</span></span>
+<span><span class="co">#&gt;   See ?lme4::convergence and ?lme4::troubleshooting.</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">model_int</span><span class="op">)</span></span>
 <span><span class="co">#&gt; ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span></span>
@@ -371,9 +373,9 @@ credibly non-zero:</p>
 <span><span class="co"><span style="color: #555555;">#&gt;   scale = "response" returns it with its interval.</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="co">#&gt;  stratum                       label   n interaction prob_diff     se  lower</span></span>
-<span><span class="co">#&gt;        8 male × White × Some College 328      0.3713    0.0896 0.0993 0.1766</span></span>
-<span><span class="co">#&gt;   upper  p_value p_adjusted flagged direction</span></span>
-<span><span class="co">#&gt;  0.5659 0.000185   0.009248    TRUE     above</span></span>
+<span><span class="co">#&gt;        8 male × White × Some College 328      0.3713   0.08962 0.0993 0.1767</span></span>
+<span><span class="co">#&gt;  upper   p_value p_adjusted flagged direction</span></span>
+<span><span class="co">#&gt;  0.566 0.0001844   0.009222    TRUE     above</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   exploratory. See ?maihda_interactions.</span></span></span>
@@ -474,10 +476,10 @@ Ask for it with <code>scale = "response"</code>:</p>
 <span><span class="co"><span style="color: #555555;">#&gt;   interaction carried onto the outcome scale; flags match the</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   log-odds scale.</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
-<span><span class="co">#&gt;  stratum                       label   n interaction   lower  upper  p_value</span></span>
-<span><span class="co">#&gt;        8 male × White × Some College 328      0.0896 0.04188 0.1381 0.000185</span></span>
+<span><span class="co">#&gt;  stratum                       label   n interaction  lower  upper   p_value</span></span>
+<span><span class="co">#&gt;        8 male × White × Some College 328     0.08962 0.0419 0.1382 0.0001844</span></span>
 <span><span class="co">#&gt;  p_adjusted flagged direction</span></span>
-<span><span class="co">#&gt;    0.009248    TRUE     above</span></span>
+<span><span class="co">#&gt;    0.009222    TRUE     above</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   exploratory. See ?maihda_interactions.</span></span></span>
@@ -550,7 +552,7 @@ membership sharpens classification:</p>
 <span><span class="va">da_null</span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Discriminatory accuracy (binomial MAIHDA)</span></span></span>
 <span><span class="co">#&gt;   AUC (C-statistic): <span style="color: #D78700;">0.626</span></span></span>
-<span><span class="co">#&gt;   Median Odds Ratio: <span style="color: #D78700;">1.568</span></span></span>
+<span><span class="co">#&gt;   Median Odds Ratio: <span style="color: #D78700;">1.569</span></span></span>
 <span><span class="co">#&gt;   Cases / controls:  1077 / 1923</span></span>
 <span><span class="co">#&gt; <span style="color: #555555;">  (AUC is apparent / in-sample: scored on the same rows used to fit the</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   model, so it is optimistically biased -- more so with sparse strata. It</span></span></span>

@@ -74,37 +74,40 @@ plotting functions are left untouched.</p>
 
 
 <dl><dt id="arg-base-size">base_size<a class="anchor" aria-label="anchor" href="#arg-base-size"></a></dt>
-<dd><p>Base font size in points. Default `11`.</p></dd>
+<dd><p>Base font size in points. Default <code>11</code>.</p></dd>
 
 
 <dt id="arg-base-family">base_family<a class="anchor" aria-label="anchor" href="#arg-base-family"></a></dt>
 <dd><p>Base font family. Defaults to
-`getOption("maihda.font", "")`, i.e. the graphics device default unless you
-have opted into a brand font globally. Pass a string to force a family for
-a single plot.</p></dd>
+<code>getOption("maihda.font", "")</code>, i.e. the graphics device default unless
+you have opted into a brand font globally. Pass a string to force a family
+for a single plot.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A <span class="pkg">ggplot2</span> theme object that can be added to a plot with `+`.</p>
+    <p>A <span class="pkg">ggplot2</span> theme object that can be added to a plot with
+  <code>+</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>Built on [ggplot2::theme_minimal()], so it composes with additional
-`+ theme()` calls in the usual way (later settings win).</p>
+    <p>Built on <code><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">ggplot2::theme_minimal()</a></code>, so it
+composes with additional <code>+ theme()</code> calls in the usual way (later
+settings win).</p>
     </div>
     <div class="section level2">
     <h2 id="fonts">Fonts<a class="anchor" aria-label="anchor" href="#fonts"></a></h2>
 
 
 <p>By default the theme uses the graphics device's default font, which is safe
-on every device (including the PostScript/PDF devices used by `R CMD check`
-and many rendering back-ends). To render figures in the brand font
-(Montserrat) – matching the hex logo – set `options(maihda.font =
-"Montserrat")` or pass `base_family = "Montserrat"`, and use a graphics
-device that can resolve that family (e.g. <span class="pkg">ragg</span> or <span class="pkg">showtext</span>).
-Forcing a font that the active device cannot find produces "invalid font
-type" errors, which is why it is opt-in rather than automatic.</p>
+on every device (including the PostScript/PDF devices used by
+<code class="command">R CMD check</code> and many rendering back-ends). To render figures in the
+brand font (Montserrat) – matching the hex logo – set
+<code>options(maihda.font = "Montserrat")</code> or pass
+<code>base_family = "Montserrat"</code>, and use a graphics device that can resolve
+that family (e.g. <span class="pkg">ragg</span> or <span class="pkg">showtext</span>). Forcing a font that the
+active device cannot find produces "invalid font type" errors, which is why it
+is opt-in rather than automatic.</p>
     </div>
 
     <div class="section level2">

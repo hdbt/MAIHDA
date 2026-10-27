@@ -38,7 +38,64 @@ fit_maihda(
   other than "stratum" are provided in the random effect,
   [`make_strata`](https://hdbt.github.io/MAIHDA/reference/make_strata.md)
   will be called internally to compute the strata and the formula will
-  be updated.
+  be updated. A random slope, such as `(1 + x | stratum)`, is fitted,
+  but [`summary()`](https://rdrr.io/r/base/summary.html), the VPC, the
+  PCV and the other MAIHDA summaries need intercept-only random effects
+  outside a longitudinal model (see `id`). Fitted by `glmer()`
+  (`glmer.nb()` for `family = "negbinomial"`) with `nAGQ` of 1 or more,
+  a model with a random slope is refitted once when its fit stops with
+  the variance of a block's first term, usually its intercept, at zero
+  (in a block of three or more terms, also what is left of a later
+  term's variance after the terms before it): glmer's first stage can
+  leave it there, where the likelihood can still rise as that variance
+  and the term's covariances with the later terms move off zero, and its
+  second stage stops there too. The refit starts from the other side of
+  that bound: with one later term, the sign of their covariance
+  reversed; with two or more, along the direction in which the
+  likelihood rises fastest. It is made by glmer's second stage with the
+  `bobyqa` optimiser and replaces the fit when its -2 log-likelihood is
+  lower by more than 1e-4. Such a model is then searched with each
+  random-effect block's terms re-expressed as described for `lmer()`
+  below and the fixed effects as the coefficients of centred and scaled
+  columns, from lme4's starting values of the variance parameters with
+  the fit's fixed effects and from the fit's own estimates, and refitted
+  from the lower end by glmer's second stage with `bobyqa` when its -2
+  log-likelihood is lower by more than 1e-4: with a slope covariate far
+  from zero or in large units, such as a birth or calendar year, glmer's
+  own second stage cannot resolve the slope's variance and can stop
+  short of the maximum, often with what is left of that variance at
+  zero, where lme4 calls the fit singular. Fitting then takes about one
+  and a half times as long, and up to about four times. A fit refitted
+  either way is refitted once more from its estimates by glmer's second
+  stage with the optimiser your control names for that stage
+  (`Nelder_Mead` by default; where Nelder-Mead's own first steps fail,
+  or it stops without converging, its first steps are 0.1% of each
+  estimate, at least 1e-6). This adds up to about three quarters to the
+  time of a `glmer()` fit so refitted, and about doubles that of a
+  `glmer.nb()` fit. Kept unless it ends higher than the refit or its
+  optimiser reports a failure, the fit then records that optimiser, as
+  glmer's own fits do;
+  [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html) of a fit
+  without a control runs the optimiser the fit records, at its package's
+  defaults. Fitted by `lmer()` outside a longitudinal model, a model
+  with a random slope is refitted from the other side of such a bound
+  when lmer's fit stops at one, and from a start carried back from the
+  same model with each random-effect block's terms, other than an
+  intercept, centred at their means and divided by their standard
+  deviations in a block with an intercept, and divided by their root
+  mean squares in a block without one, such as `(0 + x | ctx)` or the
+  slope of `(1 + x || stratum)`. Besides stopping at the bound, lmer can
+  stop short of the optimum when a slope covariate is far from zero or
+  in large units, such as age in years or a calendar year, and where
+  what is left of the variance of a block's last term after the terms
+  before it is zero while the criterion still falls as that variance
+  moves off zero; the fit kept and lmer's own fit are then refitted once
+  more from that variance moved to the lowest criterion along it. A
+  refit replaces lmer's fit when its REML criterion (deviance for a
+  maximum-likelihood fit) is lower by more than 1e-4, the lowest of them
+  kept; this takes about four times as long as one fit, and up to about
+  nine times where lmer's own fit stops with a variance at zero. Pass
+  `start` through `...` to fit from your own starting values only.
 
 - data:
 
@@ -272,12 +329,22 @@ fit_maihda(
   intercept-slope correlation of 0.71 or -0.71; a refit replaces the fit
   when its -2 log-likelihood is lower by more than 1e-4. Then any glmer
   growth fit that still has a block's intercept variance at zero is
-  refitted once from the other side of that bound, and the refit is kept
-  on the same terms. This takes about three times as long as one fit.
-  Pass `start` through `...` to fit from your own starting values only;
-  they are on the internal time when `time` is scaled. All results (the
-  time-varying VPC, the PCV, the fixed effects in
-  [`summary()`](https://rdrr.io/r/base/summary.html), plots,
+  refitted from the other side of that bound by glmer's second stage
+  with the `bobyqa` optimiser and, when that refit is kept, once more:
+  across the bound again if it stops at one, otherwise from where it
+  stops; each refit is kept on the same terms. Every glmer growth fit is
+  then searched as a glmer model with a random slope is (see `formula`),
+  with the penalised least squares inside each likelihood evaluation run
+  to a relative tolerance of 1e-10 (lme4's is 1e-7), and refitted from
+  the lower end when its -2 log-likelihood is lower by 0.001 or more:
+  glmer's own second stage stops quadratic growth fits short of the
+  maximum, often near a zero variance of the quadratic term, where lme4
+  calls the fit singular. This takes about three times as long as one
+  fit; the searches add about a fifth to that, and a refit from them
+  about as much again. Pass `start` through `...` to fit from your own
+  starting values only; they are on the internal time when `time` is
+  scaled. All results (the time-varying VPC, the PCV, the fixed effects
+  in [`summary()`](https://rdrr.io/r/base/summary.html), plots,
   predictions) are reported on the original `time` scale; the lme4 fit
   stored in the result's `model` element is on the internal time. The
   column name `.maihda_ctime` is reserved for the internal time
@@ -306,13 +373,18 @@ fit_maihda(
   slope differences into the person-level slope variance. The VPC still
   varies with time through the person-level slope variance and the
   residual, so this is a time-constant between-stratum *variance*, not a
-  time-constant VPC. For a Gaussian model fitted by `lmer()` with linear
-  growth, the model is fitted from lme4's starting values and again from
-  two starts scaled by the person-level block, with a positive and a
-  negative stratum intercept-slope correlation, and a refit replaces
-  lmer's fit when its REML criterion (deviance for a maximum-likelihood
-  fit) is lower by more than 1e-4: lme4's default optimiser can stop on
-  the wrong side of the stratum block's boundary. Pass `start` through
+  time-constant VPC. A Gaussian growth model fitted by `lmer()` with a
+  stratum slope, or with quadratic or higher growth, is fitted from
+  lme4's starting values and again from more starts, and a refit
+  replaces lmer's fit when its REML criterion (deviance for a
+  maximum-likelihood fit) is lower by more than 1e-4: lme4's default
+  optimiser can stop at a boundary of a random-effect block away from
+  the optimum. With linear growth the starts are scaled by the
+  person-level block, with a positive and a negative stratum
+  intercept-slope correlation; with quadratic or higher growth one start
+  is lmer's fit of the same model on time centred at the middle of its
+  range, and, when that refit and lmer's fit differ by more than 0.01,
+  another has both covariance blocks diagonal. Pass `start` through
   `...` to fit from your own starting values only; they are on the
   internal time when `time` is scaled (see `time`).
 
@@ -382,7 +454,10 @@ fit_maihda(
   Write an exposure as `+ offset(log(expo))` rather than `rate(expo)`:
   for a Poisson model the same model, which they do (for a negative
   binomial, brms's `rate()` also scales the shape by the exposure, which
-  the offset does not).
+  the offset does not). An `engine = "brms"` fit without a `seed` takes
+  its sampler seed from R's random-number stream, so
+  [`set.seed()`](https://rdrr.io/r/base/Random.html) before the call
+  reproduces it, with the chains run in parallel (`cores > 1`) as well.
 
 ## Value
 
@@ -399,7 +474,20 @@ A maihda_model object containing:
   large or tiny scale can stall the optimiser, and is returned in the
   formula's own terms with the gradient and Hessian of that fit, which
   give its standard errors; a fit given a `start` is made as the formula
-  stands
+  stands. An lme4 fit's call gives its control as a call to
+  [`lme4::lmerControl()`](https://rdrr.io/pkg/lme4/man/lmerControl.html)
+  or
+  [`lme4::glmerControl()`](https://rdrr.io/pkg/lme4/man/lmerControl.html),
+  so [`lme4::bootMer()`](https://rdrr.io/pkg/lme4/man/bootMer.html) and
+  `confint(method = "boot")` refit it as they refit lme4's own fits. A
+  glmer fit that `fit_maihda()` last refitted by bobyqa, or by
+  Nelder-Mead with first steps of its own where Nelder-Mead's own fail,
+  names that refit's control instead, bound in the formula's
+  environment, and both stop on it: a draw refitted from the fit with
+  those steps can stop short of its maximum. A control whose optimiser
+  is a function is named the same way, as
+  [`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html) does not
+  take one
 
 - engine:
 
@@ -446,27 +534,75 @@ A maihda_model object containing:
   Fit-quality diagnostics, surfaced by the print and summary methods:
   singular fit / convergence for lme4, WeMix and ordinal (clmm) fits,
   and MCMC convergence (maximum Rhat, divergent transitions) for brms.
-  lme4 checks a `glmer()` fit in the units of its covariates, so its
-  checks can fire at the maximum when a covariate is far from zero or in
-  large units, as a calendar year or an income is. When they fire and
-  the optimiser reports success, the fit counts as converged if it lies
-  within a tenth of a standard error of a stationary point of its
-  likelihood, measured with the fixed effects in centred and scaled
-  units; the distance is `stationary_distance`, and lme4's messages are
-  kept in `lme4_overruled` when the fit converged by it. A glmer growth
-  fit with a block's intercept variance at zero (or, in a quadratic
-  block, its slope perfectly correlated with its intercept), where the
-  likelihood still rises across that bound, has stopped at a bound of
-  lme4's parametrisation and counts as not converged; those blocks are
-  in `boundary_traps`. An lme4 fit also carries likelihood-adequacy
-  caveats – count overdispersion and zero inflation, stratum
-  random-effect non-normality and longitudinal residual autocorrelation
-  – reported only when a conservative threshold is crossed, since the
-  VPC/PCV and interaction estimates are conditional on the likelihood
-  holding. Every one of those checks is lme4-only, so a cumulative
-  (clmm) fit raises no adequacy caveat at all: it stores a single
-  descriptive fixed-only proportional-odds proxy statistic, never
-  flagged because it cannot be separated from stratum heterogeneity; use
+  lme4 checks a fit in the units of its covariates (a `glmer()` fit in
+  those of its fixed effects and random slopes, an `lmer()` fit in those
+  of its random slopes), so its checks can fire at the maximum when such
+  a covariate is far from zero or in large units, as a calendar year or
+  an income is. When they fire and the optimiser reports success, the
+  fit counts as converged if it lies within a tenth of a standard error
+  of a stationary point of its likelihood (the restricted likelihood for
+  an lmer fit by REML), measured with those covariates centred and
+  scaled (a slope in a [`diag()`](https://rdrr.io/r/base/diag.html)
+  block only scaled); the distance is `stationary_distance`, and lme4's
+  messages are kept in `lme4_overruled` when the fit converged by it.
+  lme4's singular-fit test, a diagonal entry of a random-effect block's
+  relative Cholesky factor below 1e-4, is taken in the same units and
+  can fire on a block with a slope on such a covariate that is not at
+  the boundary: in an lmer fit, or a glmer fit with `nAGQ` of 1 or more,
+  outside a longitudinal model, a block with a slope is at the boundary
+  when a diagonal entry of its factor with the terms centred and scaled
+  (in a block without an intercept, divided by their root mean square)
+  is below 0.01, and lme4's own verdict is `lme4_singular` where the two
+  differ. A fit with a [`diag()`](https://rdrr.io/r/base/diag.html),
+  `cs()` or `ar1()` block keeps lme4's test. A glmer fit (`nAGQ` of 1 or
+  more), or an lmer fit outside a longitudinal model, with the variance
+  of a random-effect block's first term, usually its intercept, at zero
+  (or, in a block of three or more terms, what is left of a later term's
+  variance after the terms before it, such as a quadratic growth block's
+  slope perfectly correlated with its intercept), where the likelihood
+  still rises as the block's variances and covariances move, or as that
+  variance and the term's covariances with the later terms move off
+  zero, has stopped at a bound of lme4's parametrisation and counts as
+  not converged; those blocks are in `boundary_traps`. A slope's entry
+  can lie within lme4's 1e-4 of that bound at its natural size when its
+  covariate is in large units, as a covariate in thousands is; such a
+  column is not at a bound (`at_bound` is `FALSE`), and the fit counts
+  as not converged when the likelihood still rises as the block's
+  variances and covariances move. An lmer fit outside a longitudinal
+  model that lme4 calls singular, which lme4 does not check further, or
+  one with a random slope that lme4 does not check because of its size
+  (by default one of 10,000 rows or more, or with 10 or more variance
+  parameters), counts as not converged when a search of the same model,
+  from lme4's starting values with each random-effect block's terms
+  centred and scaled and from a variance at zero moved off it, reaches a
+  REML criterion (deviance for a maximum-likelihood fit) 0.01 or more
+  below the fit's; that amount is `search_gain`. A fit refitted as
+  described under `formula` has been through those searches already, so
+  this concerns a fit made from your own `start` or a singular one
+  without a random slope. A glmer fit with `nAGQ` of 1 or more and a
+  random slope, outside a longitudinal model and with no
+  [`diag()`](https://rdrr.io/r/base/diag.html), `cs()` or `ar1()` block,
+  that lme4 calls singular is searched from the fit with its
+  random-effect terms and fixed effects centred and scaled, and counts
+  as not converged when the search reaches a deviance 0.01 or more below
+  the fit's (`search_gain`); such a fit refitted as described under
+  `formula` has been through such searches already and is not searched
+  again. A glmer fit with `nAGQ` of 1 or more and a random slope,
+  outside a longitudinal model, that lme4 does not check because of its
+  size (by default one of 10,000 rows or more, or with 20 or more
+  parameters, fixed effects included) and does not call singular is
+  measured as one whose checks fired, and counts as not converged, with
+  `lme4_unchecked` TRUE, a tenth of a standard error or more from a
+  stationary point; where that cannot be measured it is searched in the
+  same way. An lme4 fit also carries likelihood-adequacy caveats – count
+  overdispersion and zero inflation, stratum random-effect non-normality
+  and longitudinal residual autocorrelation – reported only when a
+  conservative threshold is crossed, since the VPC/PCV and interaction
+  estimates are conditional on the likelihood holding. Every one of
+  those checks is lme4-only, so a cumulative (clmm) fit raises no
+  adequacy caveat at all: it stores a single descriptive fixed-only
+  proportional-odds proxy statistic, never flagged because it cannot be
+  separated from stratum heterogeneity; use
   [`maihda_proportional_odds_test`](https://hdbt.github.io/MAIHDA/reference/maihda_proportional_odds_test.md)
   to test that assumption
 

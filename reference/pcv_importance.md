@@ -284,7 +284,11 @@ estimate.
 
 `approx = "montecarlo"` draws random permutations with the session RNG;
 call [`set.seed()`](https://rdrr.io/r/base/Random.html) first for
-reproducible results. The exact methods are deterministic.
+reproducible results. The exact methods give the same contributions on
+every run of a likelihood engine, but the `bootstrap = TRUE` intervals
+come from simulated responses and an `engine = "brms"` fit is an MCMC
+draw, so call [`set.seed()`](https://rdrr.io/r/base/Random.html) first
+for those as well.
 
 ## References
 
