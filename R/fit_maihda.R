@@ -242,7 +242,14 @@
 #'   intercept variance at zero is refitted from the other side of that bound by glmer's
 #'   second stage with the \code{bobyqa} optimiser and, when that refit is kept, once more:
 #'   across the bound again if it stops at one, otherwise from where it stops; each refit
-#'   is kept on the same terms. This takes about three times as long as one fit. Pass
+#'   is kept on the same terms. Every glmer growth fit is then searched as a glmer model
+#'   with a random slope is (see \code{formula}), with the penalised least squares inside
+#'   each likelihood evaluation run to a relative tolerance of 1e-10 (lme4's is 1e-7), and
+#'   refitted from the lower end when its -2 log-likelihood is lower by 0.001 or more:
+#'   glmer's own second stage stops quadratic growth fits short of the maximum, often near
+#'   a zero variance of the quadratic term, where lme4 calls the fit singular. This takes
+#'   about three times as long as one fit; the searches add about a fifth to that, and a
+#'   refit from them about as much again. Pass
 #'   \code{start} through \code{...} to fit from your own starting values only; they are
 #'   on the internal time when \code{time} is scaled. All results (the time-varying VPC,
 #'   the PCV, the fixed effects in \code{summary()}, plots,
