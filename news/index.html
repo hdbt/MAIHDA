@@ -344,7 +344,7 @@
 <h3 id="testing-and-ci-0-3-0">Testing and CI<a class="anchor" aria-label="anchor" href="#testing-and-ci-0-3-0"></a></h3>
 <ul><li>Added an <code>integration-tests</code> CI job for optional non-brms backends and expanded regression coverage for PCV, weighting, AUC, offsets, longitudinal models, and crossed-dimensions models.</li>
 <li>Added <code>test-audit-2026-07-13.R</code> for the latest regression fixes.</li>
-<li>Tests that pinned lme4 behaviour changed in lme4 2.1-0 (<code>refit()</code> on incomplete cases, the Laplace deviance at the converged step, <code>bootMer()</code>’s control lookup) check either version.</li>
+<li>Tests that pinned lme4 behaviour changed in lme4 2.1-0 (<code>refit()</code> on incomplete cases, the Laplace deviance at the converged step, <code>bootMer()</code>’s control lookup, where glmer stops a quadratic growth fit) check either version.</li>
 <li>Tests that held on one platform’s optimiser stops or simulated draws (the lmer zero-column start, the trap record’s Newton fall, the growth bootstrap draws, a raw-calendar-year <code>glmer.nb()</code> fit) hold on every CI platform.</li>
 </ul></div>
 </div>

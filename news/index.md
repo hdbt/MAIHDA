@@ -2229,7 +2229,8 @@
 - Added `test-audit-2026-07-13.R` for the latest regression fixes.
 - Tests that pinned lme4 behaviour changed in lme4 2.1-0 (`refit()` on
   incomplete cases, the Laplace deviance at the converged step,
-  `bootMer()`’s control lookup) check either version.
+  `bootMer()`’s control lookup, where glmer stops a quadratic growth
+  fit) check either version.
 - Tests that held on one platform’s optimiser stops or simulated draws
   (the lmer zero-column start, the trap record’s Newton fall, the growth
   bootstrap draws, a raw-calendar-year `glmer.nb()` fit) hold on every
