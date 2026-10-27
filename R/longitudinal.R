@@ -1328,6 +1328,26 @@ maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4, optim
 # Hessian that is not positive definite, and is then recorded as not converged (1 of the 133,
 # 6e-6 below the maximum).
 #
+# The searches' deviance function, rebuilt from a copy of the fit, starts its penalised least
+# squares from the same point at every evaluation, and lme4 takes the deviance with the
+# log-determinant of the weights before the last step, so its value is off by about the size of
+# that step: at lme4's relative tolerance of 1e-7 it lay up to 1e-4 relative above the converged
+# deviance at a fit's estimates. lme4's own -2 log-likelihood, from the last step of its fit, lay
+# up to 7.4e-5 relative from that. Where the two differed by more than 1e-5 relative the fit was
+# not re-expressed and not searched: in two sets of simulated null models, 0 / 1 and three-trial
+# binomial outcomes with strata spread on the logit scale with an SD of 2 or more, 23 of 254 and
+# 30 of 192 fits, up to 13.6 below the maximum and some recorded as converged; none of 204 with
+# an SD of about 0.5 and none of 32 adjusted models. The searches therefore run that function to
+# 1e-10, and a fit is re-expressed when its deviance at the fit's own estimates carried back
+# matches that function at the estimates and that lies within 1e-3 relative of lme4's
+# -2 log-likelihood: a function rebuilt without the fit's offset or weights lay 18% or more from
+# it. All of those fits were then searched and none ended further below the maximum, though 5
+# stayed up to 2.2e-3 below it where lme4's -2 log-likelihood of the refit did not show the gain;
+# with lme4's -2 log-likelihood kept as the target at 1e-10, 11 of the 254 were refused, 2 of them
+# searched before and 0.60 and 1.99 short. Of 162 fits searched either way, 3 ended higher and one
+# 0.022 lower, where the search from lme4's starting values on the less precise function had
+# reached another maximum; the time was unchanged (a median 0.99 times).
+#
 # lme4 records the optimiser that made a fit, and lme4::refit() of a fit without a control, as a
 # parametric bootstrap written by hand or another package calls it, runs that optimiser at its
 # package's defaults: for bobyqa, a first step of min(0.95, 0.2 max |theta, beta|), which moves
@@ -1364,7 +1384,8 @@ maihda_glmer_bound_applies <- function(fit_fun, longitudinal_info, dot_vals) {
 # more entries below taken across along the first-order direction
 # (maihda_glmer_mirror_refit()), the refit kept when its criterion is lower by more than
 # `tol`; then refit a model with a random slope from searches with its random-effect blocks
-# and fixed effects re-expressed (maihda_glmer_search_refit()), kept on the same terms; and
+# and fixed effects re-expressed, their deviance function's penalised least squares run to a
+# relative tolerance of 1e-10 (maihda_glmer_search_refit()), kept on the same terms; and
 # when either refit replaced the fit, refit it once more from its estimates by the second stage
 # of the call's own control (maihda_glmer_finish()). Only the kept fit's warnings and messages
 # are signalled. A refit that fails is passed over.
@@ -1378,7 +1399,8 @@ maihda_fit_glmer_bound <- function(fit_call, fit_env, tol = 1e-4) {
     kept <- mirrored
     refitted <- TRUE
   }
-  searched <- tryCatch(maihda_glmer_search_refit(kept, fit_call, fit_env, tol),
+  searched <- tryCatch(maihda_glmer_search_refit(kept, fit_call, fit_env, tol,
+                                                 tolerance = 1e-10),
                        error = function(e) NULL)
   if (!is.null(searched)) {
     kept <- searched
@@ -1438,10 +1460,14 @@ maihda_glmer_carry_theta <- function(theta, cnms, Ts) {
 # `carry` (p to theta and the fixed effects), `deviance` (of p) and lme4's bounds `lower`, the
 # coefficients free; NULL when the fit's fixed effects were not optimised with its variances
 # (nAGQ 0), a block cannot be re-expressed (lme4's diag() and other structured blocks hold no
-# full Cholesky factor in theta) or the deviance function does not reproduce the fit's
-# -2 log-likelihood. `tolerance`, when given, is the relative tolerance to which the deviance
-# function runs its penalised iteratively reweighted least squares (lme4's `tolPwrss`, 1e-7),
-# which it starts from the same point at every evaluation.
+# full Cholesky factor in theta), the deviance at the fit's `p` differs from the deviance function
+# at the fit's own estimates by more than 1e-5 relative, or that differs from lme4's
+# -2 log-likelihood by more than 1e-3 relative (a deviance function that is not the fit's).
+# lme4's -2 log-likelihood comes from the last step of its own penalised least squares and can
+# lie more than 1e-5 relative from the deviance function at the same estimates. `tolerance`, when
+# given, is the relative tolerance to which the deviance function runs its penalised iteratively
+# reweighted least squares (lme4's `tolPwrss`, 1e-7), which it starts from the same point at
+# every evaluation.
 maihda_glmer_reexpressed <- function(model, tolerance = NULL) {
   if (!isTRUE(tryCatch(model@devcomp$dims[["nAGQ"]] >= 1, error = function(e) FALSE))) {
     return(NULL)
@@ -1475,8 +1501,10 @@ maihda_glmer_reexpressed <- function(model, tolerance = NULL) {
   }
   p <- c(phi, drop(solve(A, unname(beta))))
   at <- deviance(p)
+  own <- devfun(c(unname(lme4::getME(model, "theta")), unname(beta)))
   target <- maihda_glmer_criterion(model)
-  if (!is.finite(at) || abs(at - target) > 1e-5 * max(1, abs(target))) {
+  if (!is.finite(at) || !is.finite(own) || abs(at - own) > 1e-5 * max(1, abs(own)) ||
+      abs(own - target) > 1e-3 * max(1, abs(target))) {
     return(NULL)
   }
   list(cnms = cnms, scales = scales, A = A, k = k, p = p, at = at, carry = carry,

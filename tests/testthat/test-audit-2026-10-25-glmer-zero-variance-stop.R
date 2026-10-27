@@ -116,7 +116,7 @@ test_that("the re-expressed glmer fit is the same model", {
   m0 <- quiet(lme4::glmer(slope, data = d, family = stats::poisson, nAGQ = 0))
   expect_null(maihda_glmer_reexpressed(m0))
   local_mocked_bindings(maihda_glmer_criterion = function(model) {
-    -2 * as.numeric(stats::logLik(model)) + 1
+    -2 * as.numeric(stats::logLik(model)) + 10
   })
   expect_null(maihda_glmer_reexpressed(m))
 })
