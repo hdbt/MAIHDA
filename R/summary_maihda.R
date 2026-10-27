@@ -2032,18 +2032,16 @@ maihda_refit_growth_call <- function(model, fit_call, fit_env, spec, first = NUL
 
 # `call`, a call fit_maihda() made for a growth fit or update() made from it, without the
 # start of the restart whose fit was kept, and with the user's own control (or none) in
-# place of the control of glmer's refit across a bound (`.maihda_arg_refit_control`) or from
-# a search (`.maihda_arg_search_control`), both of which skip glmer's first stage; `env` is
-# the environment the call's names are bound in.
+# place of whatever control the call names: the controls of glmer's refit across a bound
+# (`.maihda_arg_refit_control`), from a search (`.maihda_arg_search_control`) and of its last
+# pass (`.maihda_arg_finish_control`) all skip glmer's first stage; `env` is the environment
+# the call's names are bound in.
 maihda_growth_fresh_call <- function(call, env) {
   call$start <- NULL
-  if (identical(call$control, as.name(".maihda_arg_refit_control")) ||
-      identical(call$control, as.name(".maihda_arg_search_control"))) {
-    call$control <- if (exists(".maihda_arg_control", envir = env, inherits = FALSE)) {
-      as.name(".maihda_arg_control")
-    } else {
-      NULL
-    }
+  call$control <- if (exists(".maihda_arg_control", envir = env, inherits = FALSE)) {
+    as.name(".maihda_arg_control")
+  } else {
+    NULL
   }
   call
 }
@@ -2129,17 +2127,21 @@ maihda_growth_fit_criterion <- function(fit) {
 # The null-restricted refit of a growth fit under `red_form`: the reduced call refitted as
 # fit_maihda() fits the model (maihda_refit_growth_call()), from lme4's own start and with
 # the user's own control -- not with the start of the restart whose fit was kept, nor the
-# control of glmer's refit across a bound or from a search (maihda_growth_fresh_call()),
-# which update() carries over -- and, when the kept fit has such a start, the reduced call
-# with them as well, as before, except that a refit from a search's control is replaced by the
-# user's own: its first step and last are fractions of the kept fit's smallest variance entry,
-# and from the kept fit's start bobyqa took up to 35,000 evaluations to reach the null fit the
-# other refit reaches. A glmer fit's refits are evaluated in a child of the fit's environment,
-# so the controls they bind there do not replace those the fit's own call names (a refit from
-# a search binds one with a first step of its own); an lmer fit's, whose centred-time start
-# finds the data by name in the environment itself, in the fit's. The fit with the lowest
-# criterion is kept (maihda_pick_lowest()), so the null is never fitted worse than update()
-# alone fits it.
+# control of one of glmer's refits (maihda_growth_fresh_call()), which update() carries
+# over -- and, when the kept fit has such a start, the reduced call with that start as well,
+# with the control of glmer's refit across a bound when the kept fit's call names it and the
+# user's own otherwise. A refit from a search's control has its first step and last as
+# fractions of the kept fit's smallest variance entry, and from the kept fit's start bobyqa
+# took up to 35,000 evaluations to reach the null fit the other refit reaches. The control of
+# glmer's last pass (maihda_glmer_finish()) runs Nelder-Mead's second stage alone, which from
+# the kept fit's estimates stopped up to 0.89 above the null's maximum on 4 growth fits; picked
+# over the other refit on lme4's criteria, which differ by the precision of its penalised
+# least squares, it left the null 0.002 above where the other refit was within 1e-4 of it. A
+# glmer fit's refits are evaluated in a child of the fit's environment, so the controls they
+# bind there do not replace those the fit's own call names (a refit from a search binds one
+# with a first step of its own); an lmer fit's, whose centred-time start finds the data by
+# name in the environment itself, in the fit's. The fit with the lowest criterion is kept
+# (maihda_pick_lowest()), so the null is never fitted worse than that reduced call fits it.
 maihda_refit_reduced_growth <- function(model, red_form, spec) {
   env <- environment(stats::formula(model))
   carried <- stats::update(model, formula. = red_form, evaluate = FALSE)
@@ -2148,7 +2150,7 @@ maihda_refit_reduced_growth <- function(model, red_form, spec) {
   fits <- list(tryCatch(suppressMessages(suppressWarnings(
     maihda_refit_growth_call(model, fresh, refit_env, spec))), error = function(e) NULL))
   if (!is.null(carried$start)) {
-    if (identical(carried$control, as.name(".maihda_arg_search_control"))) {
+    if (!identical(carried$control, as.name(".maihda_arg_refit_control"))) {
       carried$control <- fresh$control
     }
     fits[[2L]] <- tryCatch(suppressMessages(suppressWarnings(eval(carried, env))),

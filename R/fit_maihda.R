@@ -258,7 +258,14 @@
 #'   glmer's own second stage stops quadratic growth fits short of the maximum, often near
 #'   a zero variance of the quadratic term, where lme4 calls the fit singular. This takes
 #'   about three times as long as one fit; the searches add about a fifth to that, and a
-#'   refit from them about as much again. Pass
+#'   refit from them about as much again. A fit any of these refits replaced is then
+#'   refitted once more from its estimates by glmer's second stage with the optimiser your
+#'   control names for that stage, as described for \code{formula}, which adds about a
+#'   twentieth. \code{lme4::refit()} of a glmer growth fit on a simulated response
+#'   (\code{lme4::bootMer()} makes one for each draw) runs the optimiser the fit records
+#'   from the fit's estimates, and \code{Nelder_Mead}, the default, often stops short of
+#'   the response's maximum there; the bootstraps of \code{summary()} refit each draw as
+#'   \code{fit_maihda()} fits the model. Pass
 #'   \code{start} through \code{...} to fit from your own starting values only; they are
 #'   on the internal time when \code{time} is scaled. All results (the time-varying VPC,
 #'   the PCV, the fixed effects in \code{summary()}, plots,

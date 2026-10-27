@@ -211,8 +211,9 @@ test_that("the former refit is kept when it is the lower", {
 test_that("a glmer null refit does not keep the control of glmer's refit across a bound", {
   skip_on_cran()
   skip_slow_test()
-  # A Poisson quadratic growth fit whose kept fit is glmer's refit across a variance bound,
-  # made with glmer's second stage only (`.maihda_arg_refit_control`). Refitted with that
+  # A Poisson quadratic growth fit whose kept fit is glmer's refit across a variance bound
+  # followed by its last pass, both made with glmer's second stage only (the call gives the
+  # pass's control, which skips glmer's first stage). Refitted with the refit's
   # control and from lme4's start, the null for B1 stopped 80 log-likelihood units on the
   # -2 scale above the lowest found, 999.9206 (bobyqa, Nelder_Mead and nlminb from lme4's
   # start and a polish from the refit's estimates).
@@ -234,7 +235,7 @@ test_that("a glmer null refit does not keep the control of glmer's refit across 
   })
   m <- quiet(fit_maihda(cnt ~ wave + A + B + C + B:wave + (1 | A:B:C), data = d, id = "id",
                         time = "wave", time_degree = 2, family = "poisson"))
-  expect_identical(stats::getCall(m$model)$control, as.name(".maihda_arg_refit_control"))
+  expect_identical(stats::getCall(m$model)$control, quote(lme4::glmerControl(nAGQ0initStep = FALSE)))
   controls <- list()
   real <- maihda_fit_glmer_growth
   local_mocked_bindings(maihda_fit_glmer_growth = function(fit_call, fit_env, id, ...) {
@@ -251,7 +252,7 @@ test_that("a glmer null refit does not keep the control of glmer's refit across 
   mu <- quiet(fit_maihda(cnt ~ wave + A + B + C + B:wave + (1 | A:B:C), data = d, id = "id",
                          time = "wave", time_degree = 2, family = "poisson",
                          control = lme4::glmerControl()))
-  expect_identical(stats::getCall(mu$model)$control, as.name(".maihda_arg_refit_control"))
+  expect_identical(stats::getCall(mu$model)$control, quote(lme4::glmerControl(nAGQ0initStep = FALSE)))
   controls <- list()
   red <- maihda_refit_reduced(mu$model, stats::update(stats::formula(mu$model), ". ~ . - B"),
                               mu$longitudinal_info)
