@@ -244,24 +244,39 @@ test_that("where fit_maihda() makes no refits, the draw's refit is returned as i
 test_that("a Poisson growth draw stopped short reaches its maximum; one at it keeps its refit", {
   skip_on_cran()
   skip_slow_test()
-  # Time in days, 100 draws simulated with seed 11. Refitted once, draw 99 stopped 1.88 below
-  # its maximum in log-likelihood, -2 logLik 2208.2049 (the best of the refit, a second refit,
-  # the refit across a bound, the two restarts and the same fits in waves and weeks); draw 4
-  # was at its maximum.
+  # Time in days, 100 draws simulated with seed 11 from the fit's estimates as lme4 2.1-0 makes
+  # them on Windows, written out: the fit's near-zero entry (5e-4) moves with the platform and the
+  # lme4 version, and 2e-3 there changes 97 of draw 99's 576 counts. Refitted once from those
+  # estimates, draw 99 stopped 1.88 below its maximum in log-likelihood, -2 logLik 2208.2049 (the
+  # best of the refit, a second refit, the refit across a bound, the two restarts and the same
+  # fits in waves and weeks; 61 searches from random starts found none lower); draw 4 was at its
+  # maximum, 2156.0861. Where the fit's estimates are others, the refits start elsewhere.
   m <- quiet(fit_maihda(n ~ wave + (1 | A:B:C:D), data = growth_design(2, 365), id = "id",
                         time = "wave", family = "poisson"))
   expect_identical(m$longitudinal_info$time_scale, 1000)
-  sim <- with_seed(11, maihda_simulate_lme4(m$model, nsim = 100))
+  estimates <- list(theta = c(0.323128458, 0.0345750579, 0.219021977, 0.0501899232,
+                              -0.200851056, 0.000544115668),
+                    beta = c(0.4183902, 0.383956752))
+  sim <- with_seed(11, stats::simulate(m$model, nsim = 100, newparams = estimates))
+  same_start <- isTRUE(all.equal(unname(lme4::getME(m$model, "theta")), estimates$theta,
+                                 tolerance = 1e-8))
   spec <- maihda_lme4_growth_spec(m$model, m$longitudinal_info)
   old <- quiet(maihda_refit_draw(m$model, sim[[99]]))
   new <- quiet(maihda_refit_growth_draw(m$model, sim[[99]], spec))
-  expect_gt(maihda_glmer_criterion(old) - 2208.2049, 3.5)
+  if (same_start) {
+    expect_gt(maihda_glmer_criterion(old) - 2208.2049, 3.5)
+  }
   expect_lt(abs(maihda_glmer_criterion(new) - 2208.2049), 0.01)
-  # Draw 4: the refit is kept, bit for bit.
+  # Draw 4: the refit is kept, bit for bit, at its maximum; a refit replaces it only from lower.
   old <- quiet(maihda_refit_draw(m$model, sim[[4]]))
   new <- quiet(maihda_refit_growth_draw(m$model, sim[[4]], spec))
-  expect_identical(lme4::getME(new, "theta"), lme4::getME(old, "theta"))
-  expect_identical(lme4::fixef(new), lme4::fixef(old))
+  if (same_start || identical(lme4::getME(new, "theta"), lme4::getME(old, "theta"))) {
+    expect_identical(lme4::getME(new, "theta"), lme4::getME(old, "theta"))
+    expect_identical(lme4::fixef(new), lme4::fixef(old))
+  } else {
+    expect_lt(maihda_glmer_criterion(new), maihda_glmer_criterion(old))
+    expect_lt(abs(maihda_glmer_criterion(new) - 2156.0861), 0.01)
+  }
 })
 
 test_that("an lmer growth draw on the wrong side of the stratum block's bound reaches the optimum", {

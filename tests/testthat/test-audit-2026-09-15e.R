@@ -15,6 +15,10 @@
 #    1351.6 AIC apart, and the Poisson-vs-negative-binomial delta that finding 7 made
 #    reportable would have read 751.4 instead of 256.5 under quadrature (theta fixed
 #    at 1.6). Per the user the term is restored, from lme4's own response module.
+#    lme4 2.1-0 includes it in a quadrature fit's deviance (its NEWS: "normalizing
+#    constants are now included ... with nAGQ>1"), so maihda_ic() restores it only
+#    for a fit made by lme4 before 2.1-0: added again, the Poisson fit's logLik() ran
+#    675.8 below the integrated likelihood.
 # 3. glmer.nb() chooses theta on that incomplete likelihood, so family = "negbinomial"
 #    with nAGQ > 1 silently returned theta 0.087 (1.62 at nAGQ = 1) and a stratum SD
 #    of 0, lme4 itself giving no warning. Per the user fit_maihda() refuses it.
@@ -103,20 +107,41 @@ test_that("maihda_ic() restores the saturated log-likelihood glmer leaves out un
   m1 <- e_fit(cnt ~ x + (1 | stratum), data = d, family = "poisson")
   m5 <- e_fit(cnt ~ x + (1 | stratum), data = d, family = "poisson", nAGQ = 5)
   saturated <- sum(stats::dpois(d$cnt, d$cnt, log = TRUE))
+  # An lme4 before 2.1-0 leaves the term out of the fit's logLik(); 2.1-0 and later keep it in.
+  left_out <- utils::packageVersion("lme4") < "2.1-0"
+  expect_identical(maihda_glmer_quadrature_complete(m5$model), !left_out)
+  restored <- if (left_out) saturated else 0
 
   ic5 <- maihda_ic(m5)
-  expect_equal(ic5$logLik, as.numeric(stats::logLik(m5$model)) + saturated, tolerance = 1e-12)
-  expect_equal(ic5$AIC, stats::AIC(m5$model) - 2 * saturated, tolerance = 1e-12)
-  expect_equal(ic5$BIC, stats::BIC(m5$model) - 2 * saturated, tolerance = 1e-12)
+  expect_equal(ic5$logLik, as.numeric(stats::logLik(m5$model)) + restored, tolerance = 1e-12)
+  expect_equal(ic5$AIC, stats::AIC(m5$model) - 2 * restored, tolerance = 1e-12)
+  expect_equal(ic5$BIC, stats::BIC(m5$model) - 2 * restored, tolerance = 1e-12)
 
-  # The restored value is the likelihood: it matches the integrated oracle to
-  # quadrature error, where lme4's own value is hundreds of units away.
+  # The reported value is the likelihood: it matches the integrated oracle to
+  # quadrature error, where lme4's own value, without the term, is hundreds of units away.
   tau <- sqrt(as.numeric(lme4::VarCorr(m5$model)$stratum[1, 1]))
   eta <- as.numeric(stats::predict(m5$model, re.form = NA, type = "link"))
   oracle <- e_marginal_loglik(d$cnt, eta, d$stratum, tau,
                               function(y, e) stats::dpois(y, exp(e), log = TRUE))
   expect_lt(abs(ic5$logLik - oracle), 1e-3)
-  expect_gt(abs(as.numeric(stats::logLik(m5$model)) - oracle), 600)
+  if (left_out) {
+    expect_gt(abs(as.numeric(stats::logLik(m5$model)) - oracle), 600)
+  } else {
+    expect_lt(abs(as.numeric(stats::logLik(m5$model)) - oracle), 1e-3)
+  }
+  # A fit made by the other lme4, whichever is loaded: the same fit with that version's marker
+  # and stored deviance (2 * saturated apart).
+  other <- m5
+  dims <- other$model@devcomp$dims
+  if (left_out) {
+    other$model@devcomp$dims <- c(dims, dispProfile = 1L)
+    other$model@devcomp$cmp[["dev"]] <- other$model@devcomp$cmp[["dev"]] - 2 * saturated
+  } else {
+    other$model@devcomp$dims <- dims[names(dims) != "dispProfile"]
+    other$model@devcomp$cmp[["dev"]] <- other$model@devcomp$cmp[["dev"]] + 2 * saturated
+  }
+  expect_identical(maihda_glmer_quadrature_complete(other$model), left_out)
+  expect_equal(maihda_ic(other)$logLik, ic5$logLik, tolerance = 1e-9)
 
   # A Laplace and a quadrature fit of the same model now agree to approximation error.
   expect_no_warning(ic <- maihda_ic(m1, m5))
@@ -124,10 +149,12 @@ test_that("maihda_ic() restores the saturated log-likelihood glmer leaves out un
 
   # Aggregated binomial: the saturated term of the binomial mass function.
   mb5 <- e_fit(cbind(succ, fail) ~ x + (1 | stratum), data = d, family = "binomial", nAGQ = 5)
-  expect_equal(maihda_ic(mb5)$logLik,
-               as.numeric(stats::logLik(mb5$model)) +
-                 sum(stats::dbinom(d$succ, d$trials, d$succ / d$trials, log = TRUE)),
+  restored_b <- if (left_out) sum(stats::dbinom(d$succ, d$trials, d$succ / d$trials, log = TRUE)) else 0
+  expect_equal(maihda_ic(mb5)$logLik, as.numeric(stats::logLik(mb5$model)) + restored_b,
                tolerance = 1e-12)
+  # Either way it is the likelihood a Laplace fit of the same model reports, to approximation error.
+  mb1 <- e_fit(cbind(succ, fail) ~ x + (1 | stratum), data = d, family = "binomial")
+  expect_lt(abs(maihda_ic(mb5)$logLik - maihda_ic(mb1)$logLik), 0.05)
 
   # Bernoulli outcomes have a saturated likelihood of 1: criteria exactly lme4's.
   mbb5 <- e_fit(yb ~ x + (1 | stratum), data = d, family = "binomial", nAGQ = 5)

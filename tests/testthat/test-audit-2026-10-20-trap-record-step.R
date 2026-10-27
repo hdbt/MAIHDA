@@ -238,7 +238,9 @@ test_that("the record's fall is the first-order one where that falls furthest", 
   newton <- maihda_lme4_block_newton_fall(trap_largest_first, cnms, 1L,
                                           maihda_lme4_theta_deviance(m$model),
                                           maihda_lmer_block_scales(lme4::getME(m$model, "mmList"), cnms))
-  expect_gt(tr$across, newton + 0.01)
+  # The step across falls 0.796 on every platform; the Newton step's fall depends on it (0.738
+  # on Windows, 0.791 on macOS).
+  expect_gt(tr$across, newton)
   expect_lt(tr$reflected, 0)
   expect_identical(tr$drop, tr$across)
   expect_lte(tr$drop, lme4::REMLcrit(m$model) - optimum_largest_first + 1e-6)

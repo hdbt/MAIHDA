@@ -56,15 +56,14 @@
 #' family the same way. A \code{family = "negbinomial"} fit estimates theta and
 #' counts it.
 #'
-#' \strong{lme4 GLMM likelihoods.} With \code{nAGQ > 1}, \code{lme4}'s
-#' \code{logLik()} leaves out the saturated log-likelihood (\code{?merMod}: it is
-#' \dQuote{only proportional} to the likelihood); \code{maihda_ic()} adds it back, so
-#' a quadrature fit's criteria are the complete likelihood and compare with a
-#' Laplace fit's. A \code{glmer} fit of a family with a scale parameter -- a Gaussian
-#' with a non-identity link, Gamma, inverse Gaussian -- reports \code{NA} criteria
-#' (estimator \code{"ML (glmer scale family: no likelihood)"}): \code{lme4}'s
-#' \code{logLik()} for those families is not the marginal likelihood, and on test
-#' fits it exceeded the largest value that likelihood attains.
+#' \strong{lme4 GLMM likelihoods.} The criteria of a quadrature fit (\code{nAGQ > 1})
+#' are the complete likelihood and compare with a Laplace fit's: where \code{lme4}'s
+#' \code{logLik()} of such a fit leaves out the saturated log-likelihood,
+#' \code{maihda_ic()} adds it back. A \code{glmer} fit of a family with a scale
+#' parameter -- a Gaussian with a non-identity link, Gamma, inverse Gaussian -- reports
+#' \code{NA} criteria (estimator \code{"ML (glmer scale family: no likelihood)"}):
+#' \code{lme4}'s \code{logLik()} for those families is not the marginal likelihood, and
+#' on test fits it exceeded the largest value that likelihood attains.
 #'
 #' \strong{Predictive target of the Bayesian criteria.} \code{brms::waic()} and
 #' \code{brms::loo()} are computed from pointwise log-likelihoods
@@ -320,12 +319,14 @@ maihda_ic_one <- function(model, ml = FALSE) {
     row$AIC <- tryCatch(as.numeric(stats::AIC(fit_for_ic)), error = function(e) na_real)
     row$BIC <- tryCatch(as.numeric(stats::BIC(fit_for_ic)), error = function(e) na_real)
     completed <- FALSE
-    # Under adaptive quadrature (nAGQ > 1) glmer's logLik() leaves out the saturated
-    # log-likelihood (see maihda_glmer_saturated_loglik); add it back so the criteria
-    # are the complete likelihood that a Laplace fit, and every other engine, reports.
+    # Under adaptive quadrature (nAGQ > 1) the logLik() of a glmer fit that lme4 made
+    # without the normalising constants leaves out the saturated log-likelihood (see
+    # maihda_glmer_saturated_loglik); add it back so the criteria are the complete
+    # likelihood that a Laplace fit, and every other engine, reports.
     nagq <- tryCatch(lme4::getME(fit_for_ic, "devcomp")$dims[["nAGQ"]],
                      error = function(e) NA_integer_)
-    if (!is.null(ll) && isTRUE(lme4::isGLMM(fit_for_ic)) && isTRUE(nagq > 1)) {
+    if (!is.null(ll) && isTRUE(lme4::isGLMM(fit_for_ic)) && isTRUE(nagq > 1) &&
+        !maihda_glmer_quadrature_complete(fit_for_ic)) {
       saturated <- maihda_glmer_saturated_loglik(fit_for_ic)
       if (is.na(saturated)) {
         row$logLik <- row$df <- row$AIC <- row$BIC <- na_real
@@ -440,8 +441,19 @@ maihda_glmer_has_scale <- function(fit) {
     error = function(e) FALSE))
 }
 
+# TRUE when the glmer fit `fit` was made by an lme4 that includes the normalising
+# constants in the deviance under adaptive quadrature (nAGQ > 1), so that its logLik() is
+# the complete likelihood. lme4 2.1-0 and later do, and they write dispProfile into a
+# fit's devcomp$dims, which lme4 before 2.1-0 does not; lme4's own refit() tells the two
+# apart by that entry. The deviance is stored when the model is fitted, so this depends
+# on the lme4 that made the fit, not on the one loaded.
+maihda_glmer_quadrature_complete <- function(fit) {
+  isTRUE(tryCatch("dispProfile" %in% names(fit@devcomp$dims), error = function(e) FALSE))
+}
+
 # The saturated log-likelihood sum(log p(y | mu = y)) that glmer's logLik() leaves out
-# under adaptive quadrature: with nAGQ > 1 lme4 evaluates the likelihood relative to
+# under adaptive quadrature for a fit made by lme4 before 2.1-0 (see
+# maihda_glmer_quadrature_complete()): with nAGQ > 1 such a fit's likelihood is relative to
 # the saturated model (?merMod: "only proportional" to the likelihood), and the gap to
 # a direct integration equals this term to 2e-4 for Poisson, aggregated binomial and
 # negative-binomial fits. It does not depend on mu, and lme4's own response module
@@ -482,8 +494,9 @@ maihda_ic_primary <- function(df) {
 # log-likelihoods of the same observations, so it needs a common response measure
 # and complete normalising constants, not a common parametric family; lme4,
 # ordinal and brms evaluate each of these as the full mass function (lme4 under
-# adaptive quadrature once maihda_ic_one() restores the saturated term). NA for every
-# other family, which keeps the strict family/link equality: a density is not
+# adaptive quadrature with the saturated term, which maihda_ic_one() restores where a
+# fit leaves it out). NA for every other family, which keeps the strict family/link
+# equality: a density is not
 # comparable with a probability, and the continuous families are not checked for a
 # common normalisation (lme4 reports no likelihood for its glmer scale families at
 # all; see maihda_glmer_has_scale()).

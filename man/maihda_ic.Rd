@@ -72,15 +72,14 @@ family, so its \code{AIC} is 2 and its \code{BIC} \code{log(n)} below
 family the same way. A \code{family = "negbinomial"} fit estimates theta and
 counts it.
 
-\strong{lme4 GLMM likelihoods.} With \code{nAGQ > 1}, \code{lme4}'s
-\code{logLik()} leaves out the saturated log-likelihood (\code{?merMod}: it is
-\dQuote{only proportional} to the likelihood); \code{maihda_ic()} adds it back, so
-a quadrature fit's criteria are the complete likelihood and compare with a
-Laplace fit's. A \code{glmer} fit of a family with a scale parameter -- a Gaussian
-with a non-identity link, Gamma, inverse Gaussian -- reports \code{NA} criteria
-(estimator \code{"ML (glmer scale family: no likelihood)"}): \code{lme4}'s
-\code{logLik()} for those families is not the marginal likelihood, and on test
-fits it exceeded the largest value that likelihood attains.
+\strong{lme4 GLMM likelihoods.} The criteria of a quadrature fit (\code{nAGQ > 1})
+are the complete likelihood and compare with a Laplace fit's: where \code{lme4}'s
+\code{logLik()} of such a fit leaves out the saturated log-likelihood,
+\code{maihda_ic()} adds it back. A \code{glmer} fit of a family with a scale
+parameter -- a Gaussian with a non-identity link, Gamma, inverse Gaussian -- reports
+\code{NA} criteria (estimator \code{"ML (glmer scale family: no likelihood)"}):
+\code{lme4}'s \code{logLik()} for those families is not the marginal likelihood, and
+on test fits it exceeded the largest value that likelihood attains.
 
 \strong{Predictive target of the Bayesian criteria.} \code{brms::waic()} and
 \code{brms::loo()} are computed from pointwise log-likelihoods

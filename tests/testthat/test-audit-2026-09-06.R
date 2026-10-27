@@ -302,8 +302,14 @@ test_that("maihda_refit_draw() survives a fit whose data carried NAs", {
   expect_false(is.null(attr(m@frame, "na.action")))
   sim <- maihda_simulate_lme4(m, nsim = 1)
   expect_identical(length(sim[[1]]), nrow(m@frame))
-  # The bug, pinned: lme4 truncates an untagged draw by the fit's own na.action.
-  expect_error(lme4::refit(m, newresp = sim[[1]]))
+  # The bug, pinned: lme4 before 2.1-0 truncates an untagged draw by the fit's own
+  # na.action; 2.1-0 and later take a draw of the fit's length as aligned.
+  if (utils::packageVersion("lme4") < "2.1-0") {
+    expect_error(lme4::refit(m, newresp = sim[[1]]))
+  } else {
+    expect_equal(lme4::fixef(maihda_refit_draw(m, sim[[1]])),
+                 lme4::fixef(lme4::refit(m, newresp = sim[[1]])))
+  }
   # The fix: tagged with that na.action, the draw is taken as already aligned.
   expect_s4_class(maihda_refit_draw(m, sim[[1]]), "lmerMod")
 })

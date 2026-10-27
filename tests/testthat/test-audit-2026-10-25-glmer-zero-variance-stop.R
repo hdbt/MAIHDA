@@ -384,7 +384,15 @@ test_that("a negative-binomial fit is refitted the same way", {
     eta <- 0.5 + add[st] + (0.01 + v[st] / 2) * xc
     data.frame(y = stats::rnbinom(length(st), mu = exp(eta), size = 20), x = x, stratum = factor(st))
   })
-  m <- quiet(fit_maihda(slope, data = d, family = "negbinomial"))
+  m <- tryCatch(quiet(fit_maihda(slope, data = d, family = "negbinomial")), error = function(e) e)
+  # lme4's own glmer.nb() does not converge on these data everywhere (lme4 2.1-0 on Linux: its
+  # penalised least squares stops at its iteration limit in the search for theta), and
+  # fit_maihda() passes that error on.
+  if (inherits(m, "error") &&
+      inherits(tryCatch(quiet(lme4::glmer.nb(slope, data = d)), error = function(e) e), "error")) {
+    skip("lme4::glmer.nb() does not converge on these data here")
+  }
+  expect_s3_class(m, "maihda_model")
   expect_lt(deviance_of(m$model), 5216)
   expect_identical(m$model@optinfo$optimizer, "Nelder_Mead")
   expect_output(print(m))

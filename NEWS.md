@@ -39,7 +39,7 @@
 * `predict_maihda()` on the training rows now returns one value per analytic row for a fit made with `na.action = na.exclude`, matching `nrow(object$data)` and every other `predict_maihda()` return, rather than base R's vector over the original input rows with an `NA` at each dropped position. The padded vector could not be bound to `object$data`, which is what produced the misalignment fixed below. Unchanged under the default `na.action = na.omit`.
 
 * `maihda_ic()` reports `NA` criteria, with estimator `"ML (glmer scale family: no likelihood)"`, for a glmer fit of a family with a scale parameter: a Gaussian with a non-identity link, Gamma, inverse Gaussian. lme4's `logLik()` for those fits is not the marginal likelihood -- it exceeded the achievable maximum by up to 15.4 on test fits -- and nested AIC differences were off by 4 to 45.
-* `maihda_ic()` adds back the saturated log-likelihood that lme4 leaves out of `logLik()` for a glmer fit with `nAGQ > 1`, so a quadrature fit's criteria are the complete likelihood and compare with a Laplace fit's. The two differed by 1351.6 AIC units on a 720-row Poisson fit; Bernoulli outcomes, whose term is zero, are unchanged.
+* `maihda_ic()` adds back the saturated log-likelihood that lme4 before 2.1-0 leaves out of `logLik()` for a glmer fit with `nAGQ > 1` (a fit made by lme4 2.1-0 or later already holds it), so a quadrature fit's criteria are the complete likelihood and compare with a Laplace fit's. The two differed by 1351.6 AIC units on a 720-row Poisson fit; Bernoulli outcomes, whose term is zero, are unchanged.
 * `fit_maihda()` now refuses `family = "negbinomial"` with `nAGQ > 1` on the lme4 engine. `lme4::glmer.nb()` estimates theta on that incomplete likelihood and silently returned theta 0.087 instead of 1.62 and a stratum SD of 0; use `nAGQ = 1`, or fix theta with `family = MASS::negative.binomial(theta)`.
 * `maihda_ic()`, and the criteria `compare_maihda()` appends, now count only the estimated parameters of an lme4 negative-binomial fit with a fixed theta (`family = MASS::negative.binomial(theta)`): `df` is one lower, and AIC 2 and BIC `log(n)` lower, than `AIC()` and `BIC()` on the fitted model, which count theta for every negative-binomial family. `glm()` counts that family the same way; `family = "negbinomial"` fits estimate theta and are unchanged.
 * `plot_prediction_deviation_panels()` on an `engine = "brms"` ordinal fit now draws the posterior-mean category probabilities from `fitted()`, the ones `predict_maihda()` uses, instead of tabulating responses simulated by `predict()`. The expected-score panel no longer changes between calls, and a category that no draw happened to produce no longer gets probability 0.
@@ -346,6 +346,8 @@
 
 * Added an `integration-tests` CI job for optional non-brms backends and expanded regression coverage for PCV, weighting, AUC, offsets, longitudinal models, and crossed-dimensions models.
 * Added `test-audit-2026-07-13.R` for the latest regression fixes.
+* Tests that pinned lme4 behaviour changed in lme4 2.1-0 (`refit()` on incomplete cases, the Laplace deviance at the converged step, `bootMer()`'s control lookup) check either version.
+* Tests that held on one platform's optimiser stops or simulated draws (the lmer zero-column start, the trap record's Newton fall, the growth bootstrap draws, a raw-calendar-year `glmer.nb()` fit) hold on every CI platform.
 
 # MAIHDA 0.2.1
 

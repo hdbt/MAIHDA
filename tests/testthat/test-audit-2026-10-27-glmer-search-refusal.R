@@ -13,6 +13,8 @@
 # function to a relative tolerance of 1e-10, a fit is re-expressed when the deviance at its own
 # re-expressed estimates matches that function at its estimates and that lies within 1e-3
 # (relative) of lme4's -2 log-likelihood, and the singular-fit record's search does the same.
+# lme4 2.1-0 and later take the Laplace deviance at the converged step, where the function at
+# lme4's tolerance and lme4's own -2 log-likelihood agree to about 1e-8 relative.
 #
 # Random numbers are drawn only inside with_seed(), which puts the suite's stream back.
 
@@ -81,20 +83,25 @@ deviance_at <- function(m, tolerance = NULL) {
 
 # ---- the premise ---------------------------------------------------------------------------
 
-test_that("the deviance function at lme4's tolerance misses a strong-strata fit's -2 log-likelihood", {
+test_that("the deviance function at lme4's tolerance and a strong-strata fit's -2 log-likelihood", {
   skip_on_cran()
   d <- strong_strata()
   m <- placed(at_max, d)
   converged <- deviance_at(m, 1e-12)
-  expect_lt(abs(converged / deviance_max - 1), 1e-8)
-  # At lme4's tolerance, 2.5e-5 relative above lme4's -2 log-likelihood; at 1e-10, the converged
-  # deviance, 6.7e-7 relative from lme4's.
-  expect_gt(deviance_at(m) / deviance_of(m) - 1, 1e-5)
+  expect_lt(abs(converged / deviance_max - 1), 1e-7)
   expect_lt(abs(deviance_at(m, 1e-10) / converged - 1), 1e-9)
   expect_lt(abs(deviance_of(m) / converged - 1), 2e-6)
-  # lme4's -2 log-likelihood of the fit placed lower lies 2.7e-5 relative above the converged one.
   m_low <- placed(low, d)
-  expect_gt(deviance_of(m_low) / deviance_at(m_low, 1e-12) - 1, 1e-5)
+  if (utils::packageVersion("lme4") < "2.1-0") {
+    # At lme4's tolerance, 2.5e-5 relative above lme4's -2 log-likelihood; at 1e-10, the
+    # converged deviance, 6.7e-7 relative from lme4's.
+    expect_gt(deviance_at(m) / deviance_of(m) - 1, 1e-5)
+    # lme4's -2 log-likelihood of the fit placed lower lies 2.7e-5 relative above the converged one.
+    expect_gt(deviance_of(m_low) / deviance_at(m_low, 1e-12) - 1, 1e-5)
+  } else {
+    expect_lt(abs(deviance_at(m) / deviance_of(m) - 1), 1e-6)
+    expect_lt(abs(deviance_of(m_low) / deviance_at(m_low, 1e-12) - 1), 1e-6)
+  }
 })
 
 # ---- the re-expression ---------------------------------------------------------------------

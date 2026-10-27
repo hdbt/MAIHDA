@@ -9,7 +9,8 @@
 # pass took Nelder-Mead's own first steps -- as lme4 writes a control given in the call, a call to
 # lmerControl() or glmerControl(); a control with first steps of the package's own keeps its name,
 # since bootMer() would refit each draw from the fit with those steps and stop short, as does a
-# control whose optimiser is a function.
+# control whose optimiser is a function. lme4 2.1-0's bootMer() also looks the control up in the
+# formula's environment, so there it finds a control kept by its name and refits each draw with it.
 #
 # Random numbers are drawn only inside with_seed(), which puts the suite's stream back.
 
@@ -228,8 +229,15 @@ test_that("a refitted glmer fit's last control is written with the user's steps,
                     list(".maihda_arg_refit_control", bobyqa_control()))) {
     s <- fit_by(kept[[1]], kept[[2]])
     expect_identical(stats::getCall(s)$control, as.name(kept[[1]]))
-    expect_error(with_seed(1, lme4::bootMer(s, estimates_of, nsim = 1, seed = 3)), kept[[1]],
-                 fixed = TRUE)
+    if (utils::packageVersion("lme4") < "2.1-0") {
+      expect_error(with_seed(1, lme4::bootMer(s, estimates_of, nsim = 1, seed = 3)), kept[[1]],
+                   fixed = TRUE)
+    } else {
+      b <- with_seed(1, quiet(lme4::bootMer(s, estimates_of, nsim = 1, seed = 3)))
+      draw <- with_seed(1, stats::simulate(s, nsim = 1, seed = 3))[[1]]
+      expect_equal(unname(b$t[1, ]),
+                   unname(estimates_of(quiet(lme4::refit(s, draw, control = kept[[2]])))))
+    }
     expect_identical(estimates_of(stats::update(s)), estimates_of(s))
   }
 })

@@ -277,8 +277,13 @@ test_that("the searches' deviance function is run to the tolerance asked for", {
   }
   # The premise: from the point it starts at, the deviance function at lme4's tolerance stops
   # 0.022 above the -2 log-likelihood at the fit's estimates, which 1e-10 reaches (1e-12 agrees).
+  # lme4 2.1-0 and later take the Laplace deviance at the converged step, and stop within 1e-5.
   precise <- at(1e-10)
-  expect_gt(at() - precise, 0.015)
+  if (utils::packageVersion("lme4") < "2.1-0") {
+    expect_gt(at() - precise, 0.015)
+  } else {
+    expect_lt(abs(at() - precise), 1e-4)
+  }
   expect_lt(abs(at(1e-12) - precise), 1e-6)
   # A fit whose -2 log-likelihood is that value, as glmer's own fit's is at the end of its
   # optimisation, is re-expressed at either tolerance, its deviance at the fit the function's own
