@@ -360,7 +360,16 @@
 #'     \code{threshold = "symmetric2"}), since a covariate far from zero or on a large
 #'     or tiny scale can stall the optimiser, and is returned in the formula's own
 #'     terms with the gradient and Hessian of that fit, which give its standard
-#'     errors; a fit given a \code{start} is made as the formula stands}
+#'     errors; a fit given a \code{start} is made as the formula stands. An lme4
+#'     fit's call gives its control as a call to \code{lme4::lmerControl()} or
+#'     \code{lme4::glmerControl()}, so \code{lme4::bootMer()} and
+#'     \code{confint(method = "boot")} refit it as they refit lme4's own fits. A
+#'     glmer fit that \code{fit_maihda()} last refitted by bobyqa, or by Nelder-Mead
+#'     with first steps of its own where Nelder-Mead's own fail, names that refit's
+#'     control instead, bound in the formula's environment, and both stop on it: a
+#'     draw refitted from the fit with those steps can stop short of its maximum. A
+#'     control whose optimiser is a function is named the same way, as
+#'     \code{lme4::refit()} does not take one}
 #'   \item{engine}{The engine used ("lme4", "brms", "wemix", or "ordinal")}
 #'   \item{sampling_weights}{The sampling-weight column name when supplied,
 #'     NULL otherwise}
@@ -1280,6 +1289,11 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       eval(fit_call, fit_env)
     }
   }
+  if (engine == "lme4") {
+    # The call names its control by a binding of `fit_env`, where lme4::bootMer() and
+    # confint(method = "boot") do not look (see maihda_lme4_call_control()).
+    model@call$control <- maihda_lme4_call_control(model@call$control, fit_env)
+  }
 
   }
 
@@ -1397,6 +1411,70 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   }
 
   return(result)
+}
+
+# The control of an lme4 fit's call, `control`, which fit_maihda() gives as a name bound in `env`
+# (the formula's environment), written as lme4 writes a control given in the call: a call to
+# lmerControl() or glmerControl() with each setting that differs from that function's default.
+# lme4::bootMer(), which confint(method = "boot") calls, evaluates the call's control where it is
+# called, so a name bound in `env` stops it, and then refits each draw from the fit by
+# lme4::refit() with that control. Written so is a control with the user's own optimiser settings:
+# the user's (`.maihda_arg_control`), and that of the last pass of a glmer fit a refit replaced
+# (`.maihda_arg_finish_control`, maihda_glmer_finish()) when the pass took Nelder-Mead's own first
+# steps. Controls with first steps of the package's own keep their names, so bootMer() stops on
+# such a fit rather than refit its draws short: those of the refits by bobyqa
+# (`.maihda_arg_refit_control`, `.maihda_arg_search_control`; with the search's, 36 of 36 draws
+# of four Poisson fits with a slope on a birth year ended more than 0.01 short of their maximum
+# in -2 log-likelihood, 24 by more than 1), and that of a last pass with first steps of 0.1% of
+# each estimate (11 of 12 draws of two adjusted fits with a slope on a calendar or a birth year
+# ended more than 0.01 short, by up to 2.2, where Nelder-Mead's own first steps failed on all 12).
+# `control` is returned as it is when it is not such a name, when its optimiser is a function, or
+# when the call does not give back the bound control exactly.
+maihda_lme4_call_control <- function(control, env) {
+  name <- if (is.name(control)) as.character(control) else ""
+  if (!name %in% c(".maihda_arg_control", ".maihda_arg_finish_control")) {
+    return(control)
+  }
+  value <- get0(name, envir = env, inherits = FALSE)
+  glmm <- inherits(value, "glmerControl")
+  if (!glmm && !inherits(value, "lmerControl")) {
+    return(control)
+  }
+  default <- if (glmm) lme4::glmerControl() else lme4::lmerControl()
+  user <- get0(".maihda_arg_control", envir = env, inherits = FALSE)
+  if (is.null(user)) {
+    user <- default
+  }
+  own <- c("optimizer", "optCtrl")
+  if (!identical(unclass(value)[own], unclass(user)[own])) {
+    return(control)
+  }
+  # An optimiser given as a function would be written into the call as its source, and
+  # lme4::refit() does not take one.
+  optimizer <- value$optimizer
+  if (is.function(optimizer) ||
+      (is.list(optimizer) && any(vapply(optimizer, is.function, logical(1))))) {
+    return(control)
+  }
+  args <- list()
+  for (field in names(value)) {
+    # The checks are arguments of their own (check.rankX = , check.conv.grad = ).
+    nested <- field %in% c("checkControl", "checkConv")
+    settings <- if (nested) value[[field]] else value[field]
+    defaults <- if (nested) default[[field]] else default[field]
+    for (nm in names(settings)) {
+      if (!identical(settings[[nm]], if (nm %in% names(defaults)) defaults[[nm]])) {
+        args[nm] <- list(settings[[nm]])
+      }
+    }
+  }
+  written <- as.call(c(list(if (glmm) quote(lme4::glmerControl) else quote(lme4::lmerControl)),
+                       args))
+  if (identical(tryCatch(eval(written, baseenv()), error = function(e) NULL), value)) {
+    written
+  } else {
+    control
+  }
 }
 
 # Resolve the intersectional-strata shorthand in a MAIHDA formula. Automatic

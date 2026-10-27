@@ -121,6 +121,8 @@
 
 ## Bug fixes
 
+* `lme4::bootMer()` and `confint(method = "boot")` run on lme4 fits made with `control = lmerControl()` / `glmerControl()`, and on glmer fits that a refit replaced and Nelder-Mead finished with its own first steps: the call gives the control as `lme4::lmerControl()` / `lme4::glmerControl()`, not as a name bound in the formula's environment. They still stop on a glmer fit last refitted by bobyqa or with first steps of the package's own.
+
 * `fit_maihda()` now gives an lme4 fit the refits and convergence checks it gives the same model with its random-effect blocks written in another order. Where lme4 sorts the blocks by their number of levels and two have as many levels, as `(x || stratum)` before a factor with more does, the standardised refit start, the lmer convergence re-check, the searches of singular lmer and glmer fits and the trap record's Newton step were skipped silently, so that 12 of 12 simulated fits with a slope on a birth year stopped 7 to 44 log-likelihood units below the optimum, 9 of them recorded converged; the glmer re-check was taken in lme4's own units, where a slope in large units gives none, and the singular verdict by lme4's own test.
 
 * `set.seed()` now reproduces `engine = "brms"` fits whose chains run in parallel (`cores > 1`): an unseeded fit takes its sampler seed from R's random-number stream, as a serial fit does, instead of each chain's process drawing its own.
