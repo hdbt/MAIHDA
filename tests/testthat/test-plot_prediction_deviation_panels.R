@@ -225,7 +225,7 @@ test_that("maihda_stratum_interval_from_epred aggregates draws then takes quanti
                "one label per column")
 })
 
-test_that("frequentist (lme4) stratum panels omit error bars rather than averaging SEs", {
+test_that("frequentist (lme4) stratum panels draw joint-covariance bars, never averaged SEs", {
   set.seed(404)
   n <- 900
   d <- data.frame(
@@ -240,20 +240,23 @@ test_that("frequentist (lme4) stratum panels omit error bars rather than averagi
 
   mb <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ (1 | stratum), data = d, family = "binomial")))
-  # suppressWarnings: predict.merMod(se.fit = TRUE) emits an "approximation"
-  # notice; the point of the fix is precisely that this row-level SE is NOT
-  # aggregated into a (statistically invalid) stratum SE -- the stratum interval
-  # is omitted for a frequentist fit, so ci is NA rather than fabricated.
-  pb <- suppressWarnings(plot_prediction_deviation_panels(mb, type = "binomial"))
+  # The row-level SEs are NOT aggregated into a (statistically invalid) stratum SE:
+  # the stratum interval comes from the joint covariance of the fixed and random
+  # effects (test-lme4-deviation-panel-intervals.R checks it against its definition),
+  # and lme4's own se.fit, with its "approximation" warning, is never asked for.
+  pb <- plot_prediction_deviation_panels(mb, type = "binomial")
   expect_s3_class(pb, "patchwork")
-  expect_true(all(is.na(pb[[2]]$data$ci_lower)))
-  expect_true(all(is.na(pb[[2]]$data$ci_upper)))
+  pdb <- pb[[2]]$data
+  expect_true(all(is.finite(pdb$ci_lower) & is.finite(pdb$ci_upper)))
+  expect_true(all(pdb$ci_lower > 0 & pdb$ci_lower < pdb$fitted &
+                    pdb$fitted < pdb$ci_upper & pdb$ci_upper < 1))
 
   mg <- suppressWarnings(suppressMessages(
     fit_maihda(yc ~ (1 | stratum), data = d, family = "gaussian")))
-  pg <- suppressWarnings(plot_prediction_deviation_panels(mg, type = "gaussian"))
-  expect_true(all(is.na(pg[[2]]$data$ci_lower)))
-  expect_true(all(is.na(pg[[2]]$data$ci_upper)))
+  pg <- plot_prediction_deviation_panels(mg, type = "gaussian")
+  pdg <- pg[[2]]$data
+  expect_true(all(is.finite(pdg$ci_lower) & is.finite(pdg$ci_upper)))
+  expect_true(all(pdg$ci_lower < pdg$fitted & pdg$fitted < pdg$ci_upper))
 })
 
 test_that("Poisson prediction panels use response-scale (count) fitted values", {
