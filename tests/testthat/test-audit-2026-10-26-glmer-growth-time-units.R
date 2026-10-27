@@ -214,11 +214,12 @@ test_that("a growth fit's call is replayed without the control of a refit from a
   expect_null(fresh$control)
   env$.maihda_arg_control <- lme4::glmerControl()
   expect_identical(maihda_growth_fresh_call(call, env)$control, as.name(".maihda_arg_control"))
-  # The control of a refit across a bound as before; a control of the user's own is kept.
+  # The control of a refit across a bound as before. fit_maihda() binds a control of the user's
+  # own as `.maihda_arg_control`, and any other control the call names gives way to it.
   call$control <- as.name(".maihda_arg_refit_control")
   expect_identical(maihda_growth_fresh_call(call, env)$control, as.name(".maihda_arg_control"))
   call$control <- quote(my_control)
-  expect_identical(maihda_growth_fresh_call(call, env)$control, quote(my_control))
+  expect_identical(maihda_growth_fresh_call(call, env)$control, as.name(".maihda_arg_control"))
 })
 
 test_that("a glmer growth fit's null-restricted refit leaves the fit's own controls alone", {
@@ -317,11 +318,14 @@ test_that("a quadratic glmer growth fit stopped short and called converged reach
   expect_true(before$diagnostics$converged)
   expect_gt(deviance_of(before$model) - deviance_max_days, 9.3)
   # With it: from that fit, the maximum (lme4's -2 log-likelihood about 3e-4 above the value its
-  # deviance function reaches at 1e-12), made by glmer's second stage from the search.
+  # deviance function reaches at 1e-12), made by glmer's second stage from the search and then
+  # its last pass by Nelder-Mead.
   out <- fit_from_point(d, form, "poisson", stuck_days)
   expect_gt(deviance_of(out$given) - deviance_max_days, 9.3)
   expect_lt(deviance_of(out$fit$model) - deviance_max_days, 1e-3)
-  expect_identical(stats::getCall(out$fit$model)$control, as.name(".maihda_arg_search_control"))
+  expect_identical(stats::getCall(out$fit$model)$control,
+                   quote(lme4::glmerControl(nAGQ0initStep = FALSE)))
+  expect_identical(out$fit$model@optinfo$optimizer, "Nelder_Mead")
   expect_true(out$fit$diagnostics$converged)
 })
 
