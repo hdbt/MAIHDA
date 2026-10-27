@@ -2084,8 +2084,8 @@ plot_stratum_trajectories <- function(object, summary_obj, n_strata = 50, select
     geom_line(alpha = 0.8, linewidth = 0.7) +
     labs(
       title = "Predicted stratum trajectories",
-      subtitle = paste("Each stratum's own fixed-part trajectory + its random",
-                       "intercept & slope; other covariates at the reference profile"),
+      subtitle = paste("Each stratum's own fixed-part trajectory + its random intercept & slope;",
+                       "other covariates at the reference profile", sep = "\n"),
       x = lng$time, y = "Predicted outcome (link scale)", color = "Stratum",
       caption = cap
     ) +
