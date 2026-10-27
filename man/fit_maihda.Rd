@@ -384,7 +384,16 @@ A maihda_model object containing:
     \code{threshold = "symmetric2"}), since a covariate far from zero or on a large
     or tiny scale can stall the optimiser, and is returned in the formula's own
     terms with the gradient and Hessian of that fit, which give its standard
-    errors; a fit given a \code{start} is made as the formula stands}
+    errors; a fit given a \code{start} is made as the formula stands. An lme4
+    fit's call gives its control as a call to \code{lme4::lmerControl()} or
+    \code{lme4::glmerControl()}, so \code{lme4::bootMer()} and
+    \code{confint(method = "boot")} refit it as they refit lme4's own fits. A
+    glmer fit that \code{fit_maihda()} last refitted by bobyqa, or by Nelder-Mead
+    with first steps of its own where Nelder-Mead's own fail, names that refit's
+    control instead, bound in the formula's environment, and both stop on it: a
+    draw refitted from the fit with those steps can stop short of its maximum. A
+    control whose optimiser is a function is named the same way, as
+    \code{lme4::refit()} does not take one}
   \item{engine}{The engine used ("lme4", "brms", "wemix", or "ordinal")}
   \item{sampling_weights}{The sampling-weight column name when supplied,
     NULL otherwise}

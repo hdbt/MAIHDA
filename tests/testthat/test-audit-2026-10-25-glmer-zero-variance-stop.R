@@ -358,7 +358,7 @@ test_that("fit_maihda() reaches the maximum of a birth-year slope fit glmer leav
   # The fit kept is a glmer fit of the formula, refitted by bobyqa from the search's end and then
   # by glmer's own second stage from there: it prints, update() makes it again, and refit() with
   # glmer's default control stays there.
-  expect_identical(m$model@call$control, as.name(".maihda_arg_finish_control"))
+  expect_identical(m$model@call$control, quote(lme4::glmerControl(nAGQ0initStep = FALSE)))
   expect_identical(m$model@optinfo$optimizer, "Nelder_Mead")
   expect_output(print(m))
   expect_output(print(m$model))

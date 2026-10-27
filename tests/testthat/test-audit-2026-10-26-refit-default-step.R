@@ -319,7 +319,7 @@ test_that("lme4::refit() of a fit fit_maihda() refitted from its searches stays 
   expect_lt(abs(deviance_of(m$model) - 4935.556312), 1e-4)
   # Recorded as glmer's own fit records its second stage; refit() without a control runs it.
   expect_identical(m$model@optinfo$optimizer, "Nelder_Mead")
-  expect_identical(m$model@call$control, as.name(".maihda_arg_finish_control"))
+  expect_identical(m$model@call$control, quote(lme4::glmerControl(nAGQ0initStep = FALSE)))
   expect_lt(abs(deviance_of(quiet(lme4::refit(m$model))) - deviance_of(m$model)), 1e-3)
   expect_lt(abs(deviance_of(quiet(lme4::refit(m$model, control = lme4::glmerControl()))) -
                   deviance_of(m$model)), 1e-3)
