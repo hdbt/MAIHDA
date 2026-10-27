@@ -281,14 +281,15 @@ test_that("the searches' deviance function is run to the tolerance asked for", {
   expect_gt(at() - precise, 0.015)
   expect_lt(abs(at(1e-12) - precise), 1e-6)
   # A fit whose -2 log-likelihood is that value, as glmer's own fit's is at the end of its
-  # optimisation: re-expressing it is refused at lme4's tolerance, so it is not searched, and
-  # made at 1e-10.
+  # optimisation, is re-expressed at either tolerance, its deviance at the fit the function's own
+  # at the fit's estimates (test-audit-2026-10-27-glmer-search-refusal.R): at lme4's tolerance
+  # 0.022 above, at 1e-10 that value.
   local_mocked_bindings(maihda_glmer_criterion = function(model) precise)
-  expect_null(maihda_glmer_reexpressed(m))
+  expect_lt(abs(maihda_glmer_reexpressed(m)$at - at()), 1e-9)
   re <- maihda_glmer_reexpressed(m, tolerance = 1e-10)
   expect_lt(abs(re$at - precise), 1e-6)
   stand_in <- function(par, fn, lower, upper) list(par = par, fval = fn(par))
-  expect_null(maihda_glmer_search(m, "estimates", optimiser = stand_in))
+  expect_lt(abs(maihda_glmer_search(m, "estimates", optimiser = stand_in)$gain), 1e-6)
   expect_lt(abs(maihda_glmer_search(m, "estimates", optimiser = stand_in, tolerance = 1e-10)$gain),
             1e-6)
 })

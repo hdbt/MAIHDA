@@ -1180,10 +1180,13 @@ maihda_reexpress_theta <- function(theta, cnms, Ms) {
 # from the fit with each diagonal entry of those factors raised to at least 0.05, stopped once it
 # is `within` below. The deviance is the fit's own deviance function, from a detached copy, whose
 # warnings (such as the binomial family's on non-integer successes, as the copy rebuilds its
-# response) were given when the model was fitted. No search ends below the maximum, so the value
+# response) were given when the model was fitted; it starts its penalised least squares from the
+# same point at every evaluation and runs them to a relative tolerance of 1e-10, as the searches
+# of maihda_glmer_reexpressed() do. No search ends below the maximum, so the value
 # is at most what the fit is short of it, and 0 where the search reaches nothing lower. NA when
 # the search cannot be made, as for a block held as other than a full Cholesky factor
-# (maihda_lme4_full_factors()), or the deviance function does not reproduce the fit's deviance.
+# (maihda_lme4_full_factors()), or the deviance function at the fit's estimates lies more than
+# 1e-3 relative from lme4's -2 log-likelihood (a function that is not the fit's).
 maihda_glmer_search_gain <- function(model, within = .maihda_lmer_search_within) {
   if (!maihda_glmer_quadrature(model) || !maihda_lme4_full_factors(model)) {
     return(NA_real_)
@@ -1193,6 +1196,7 @@ maihda_glmer_search_gain <- function(model, within = .maihda_lmer_search_within)
   if (!is.function(deviance)) {
     return(NA_real_)
   }
+  environment(deviance)$tolPwrss <- 1e-10
   tryCatch(suppressWarnings(maihda_glmer_search_with(model, deviance, within)),
            error = function(e) NA_real_)
 }
@@ -1209,8 +1213,10 @@ maihda_glmer_search_with <- function(model, deviance, within) {
     return(NA_real_)
   }
   d0 <- deviance(c(theta, beta))
+  # lme4's -2 log-likelihood comes from the last step of its own penalised least squares and can
+  # lie more than 1e-5 relative from the deviance function at the same estimates.
   target <- -2 * as.numeric(stats::logLik(model))
-  if (!is.finite(d0) || abs(d0 - target) > 1e-5 * max(1, abs(target))) {
+  if (!is.finite(d0) || abs(d0 - target) > 1e-3 * max(1, abs(target))) {
     return(NA_real_)
   }
   k <- length(theta)
