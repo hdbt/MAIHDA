@@ -84,14 +84,13 @@ family, so its `AIC` is 2 and its `BIC` `log(n)` below
 [`glm()`](https://rdrr.io/r/stats/glm.html) counts that family the same
 way. A `family = "negbinomial"` fit estimates theta and counts it.
 
-**lme4 GLMM likelihoods.** With `nAGQ > 1`, `lme4`'s
-[`logLik()`](https://rdrr.io/r/stats/logLik.html) leaves out the
-saturated log-likelihood (`?merMod`: it is “only proportional” to the
-likelihood); `maihda_ic()` adds it back, so a quadrature fit's criteria
-are the complete likelihood and compare with a Laplace fit's. A `glmer`
-fit of a family with a scale parameter – a Gaussian with a non-identity
-link, Gamma, inverse Gaussian – reports `NA` criteria (estimator
-`"ML (glmer scale family: no likelihood)"`): `lme4`'s
+**lme4 GLMM likelihoods.** The criteria of a quadrature fit (`nAGQ > 1`)
+are the complete likelihood and compare with a Laplace fit's: where
+`lme4`'s [`logLik()`](https://rdrr.io/r/stats/logLik.html) of such a fit
+leaves out the saturated log-likelihood, `maihda_ic()` adds it back. A
+`glmer` fit of a family with a scale parameter – a Gaussian with a
+non-identity link, Gamma, inverse Gaussian – reports `NA` criteria
+(estimator `"ML (glmer scale family: no likelihood)"`): `lme4`'s
 [`logLik()`](https://rdrr.io/r/stats/logLik.html) for those families is
 not the marginal likelihood, and on test fits it exceeded the largest
 value that likelihood attains.

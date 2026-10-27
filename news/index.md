@@ -249,11 +249,12 @@
   to 15.4 on test fits – and nested AIC differences were off by 4 to 45.
 
 - [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
-  adds back the saturated log-likelihood that lme4 leaves out of
-  [`logLik()`](https://rdrr.io/r/stats/logLik.html) for a glmer fit with
-  `nAGQ > 1`, so a quadrature fit’s criteria are the complete likelihood
-  and compare with a Laplace fit’s. The two differed by 1351.6 AIC units
-  on a 720-row Poisson fit; Bernoulli outcomes, whose term is zero, are
+  adds back the saturated log-likelihood that lme4 before 2.1-0 leaves
+  out of [`logLik()`](https://rdrr.io/r/stats/logLik.html) for a glmer
+  fit with `nAGQ > 1` (a fit made by lme4 2.1-0 or later already holds
+  it), so a quadrature fit’s criteria are the complete likelihood and
+  compare with a Laplace fit’s. The two differed by 1351.6 AIC units on
+  a 720-row Poisson fit; Bernoulli outcomes, whose term is zero, are
   unchanged.
 
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
@@ -2204,6 +2205,13 @@
   expanded regression coverage for PCV, weighting, AUC, offsets,
   longitudinal models, and crossed-dimensions models.
 - Added `test-audit-2026-07-13.R` for the latest regression fixes.
+- Tests that pinned lme4 behaviour changed in lme4 2.1-0 (`refit()` on
+  incomplete cases, the Laplace deviance at the converged step,
+  `bootMer()`’s control lookup) check either version.
+- Tests that held on one platform’s optimiser stops or simulated draws
+  (the lmer zero-column start, the trap record’s Newton fall, the growth
+  bootstrap draws, a raw-calendar-year `glmer.nb()` fit) hold on every
+  CI platform.
 
 ## MAIHDA 0.2.1
 
