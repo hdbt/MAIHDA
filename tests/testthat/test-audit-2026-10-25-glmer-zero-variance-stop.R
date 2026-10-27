@@ -355,11 +355,11 @@ test_that("fit_maihda() reaches the maximum of a birth-year slope fit glmer leav
   expect_lt(abs(deviance_of(m$model) - deviance_max_1), 1e-4)
   expect_false(m$diagnostics$singular)
   expect_true(m$diagnostics$converged)
-  # The fit kept is a glmer fit of the formula, refitted by bobyqa from the search's end: it
-  # prints, update() makes it again, and refit() with the fit's own settings (a control given to
-  # refit() without optimiser settings takes them from the fit) stays there.
-  expect_identical(m$model@call$control, as.name(".maihda_arg_search_control"))
-  expect_identical(m$model@optinfo$optimizer, "bobyqa")
+  # The fit kept is a glmer fit of the formula, refitted by bobyqa from the search's end and then
+  # by glmer's own second stage from there: it prints, update() makes it again, and refit() with
+  # glmer's default control stays there.
+  expect_identical(m$model@call$control, as.name(".maihda_arg_finish_control"))
+  expect_identical(m$model@optinfo$optimizer, "Nelder_Mead")
   expect_output(print(m))
   expect_output(print(m$model))
   expect_equal(deviance_of(quiet(stats::update(m$model))), deviance_of(m$model), tolerance = 1e-8)
@@ -386,7 +386,7 @@ test_that("a negative-binomial fit is refitted the same way", {
   })
   m <- quiet(fit_maihda(slope, data = d, family = "negbinomial"))
   expect_lt(deviance_of(m$model), 5216)
-  expect_identical(m$model@optinfo$optimizer, "bobyqa")
+  expect_identical(m$model@optinfo$optimizer, "Nelder_Mead")
   expect_output(print(m))
 })
 

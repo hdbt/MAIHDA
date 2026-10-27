@@ -54,6 +54,15 @@ such as a birth or calendar year, glmer's own second stage cannot resolve the
 slope's variance and can stop short of the maximum, often with what is left of that
 variance at zero, where lme4 calls the fit singular. Fitting then takes about one
 and a half times as long, and up to about four times.
+A fit refitted either way is refitted once more from its estimates by glmer's
+second stage with the optimiser your control names for that stage
+(\code{Nelder_Mead} by default; where Nelder-Mead's own first steps fail, or it
+stops without converging, its first steps are 0.1\% of each estimate, at least
+1e-6). This adds up to about three quarters to the time of a \code{glmer()} fit so
+refitted, and about doubles that of a \code{glmer.nb()} fit. Kept unless it ends
+higher than the refit or its optimiser reports a failure, the fit then records
+that optimiser, as glmer's own fits do; \code{lme4::refit()} of a fit without a
+control runs the optimiser the fit records, at its package's defaults.
 Fitted by \code{lmer()} outside a longitudinal model, a model with a random
 slope is refitted from the other side of such a bound when lmer's fit stops at
 one, and from a start carried back from the same model with each random-effect

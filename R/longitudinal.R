@@ -1299,6 +1299,29 @@ maihda_glmer_mirror_refit <- function(kept, fit_call, fit_env, tol = 1e-4, optim
 # rank can end just beside it, where lme4 no longer calls it singular and its checks fire on a
 # Hessian that is not positive definite, and is then recorded as not converged (1 of the 133,
 # 6e-6 below the maximum).
+#
+# lme4 records the optimiser that made a fit, and lme4::refit() of a fit without a control, as a
+# parametric bootstrap written by hand or another package calls it, runs that optimiser at its
+# package's defaults: for bobyqa, a first step of min(0.95, 0.2 max |theta, beta|), which moves
+# every entry within it of its bound up to it before it starts. (lme4::bootMer() passes the call's
+# control instead, which names a binding of the fit's environment that it does not find.) Of 104
+# fits of such designs (seeds 1 and 2), 43 were refitted by bobyqa; refit() failed on 15 of them
+# and ended more than 0.01 above 18 of the other 28, by up to 188, every one with a birth or
+# calendar year, and of 88 simulated responses of 24 of them it failed on 22 and fell short of the
+# maximum of 49 of the other 66, 38 by more than 1, by up to 276. A refitted fit is therefore
+# refitted once more from its estimates by the second stage of the call's own control
+# (maihda_glmer_finish()), and records that optimiser, as lme4's own fits do. Refitted by
+# Nelder-Mead, the 43 stayed at the fit (21) or failed (22), as lme4's own fits of those designs
+# fail, and the 88 responses failed on 37 and fell short of the maximum on 27 of the other 51, 8
+# by more than 1. Nelder-Mead's own first steps (0.02 in theta) fail in PIRLS from 14 of the 43,
+# Poisson fits on a birth or calendar year; first steps of 0.1% of each estimate do not. The pass
+# never ended higher than the refit by its criterion and moved no estimate by more than 0.14% of
+# the larger of its size and 1; on glmer fits it added up to about three quarters of the fit's
+# processor time, and on a glmer.nb fit, whose dispersion is searched again, about as much as the
+# fit took. Two fits at one maximum can differ in their criteria by the precision of lme4's
+# PIRLS, so the pass is measured against the refit on one deviance function (maihda_glmer_rise()).
+# Growth fits refitted by bobyqa (maihda_fit_glmer_growth()) keep that record: refit() moved the 2
+# of 13 weekly Poisson growth fits so refitted by 0.009 at most, by bobyqa or by Nelder-Mead.
 
 # Whether fit_maihda() makes an lme4 fit by maihda_fit_glmer_bound(): a model fitted by
 # glmer() or glmer.nb() that is not a growth model, without starting values of the user's
@@ -1313,20 +1336,32 @@ maihda_glmer_bound_applies <- function(fit_fun, longitudinal_info, dot_vals) {
 # more entries below taken across along the first-order direction
 # (maihda_glmer_mirror_refit()), the refit kept when its criterion is lower by more than
 # `tol`; then refit a model with a random slope from searches with its random-effect blocks
-# and fixed effects re-expressed (maihda_glmer_search_refit()), kept on the same terms. Only
-# the kept fit's warnings and messages are signalled. A refit that fails is passed over.
+# and fixed effects re-expressed (maihda_glmer_search_refit()), kept on the same terms; and
+# when either refit replaced the fit, refit it once more from its estimates by the second stage
+# of the call's own control (maihda_glmer_finish()). Only the kept fit's warnings and messages
+# are signalled. A refit that fails is passed over.
 maihda_fit_glmer_bound <- function(fit_call, fit_env, tol = 1e-4) {
   kept <- maihda_eval_holding_conditions(fit_call, fit_env)
+  refitted <- FALSE
   mirrored <- tryCatch(maihda_glmer_mirror_refit(kept, fit_call, fit_env, tol,
                                                  optimizer = "bobyqa", first_order = TRUE),
                        error = function(e) NULL)
   if (!is.null(mirrored)) {
     kept <- mirrored
+    refitted <- TRUE
   }
   searched <- tryCatch(maihda_glmer_search_refit(kept, fit_call, fit_env, tol),
                        error = function(e) NULL)
   if (!is.null(searched)) {
     kept <- searched
+    refitted <- TRUE
+  }
+  if (refitted) {
+    finished <- tryCatch(maihda_glmer_finish(kept, fit_call, fit_env, tol),
+                         error = function(e) NULL)
+    if (!is.null(finished)) {
+      kept <- finished
+    }
   }
   maihda_signal_conditions(kept$conditions)
   kept$value
@@ -1524,6 +1559,67 @@ maihda_glmer_search_refit <- function(kept, fit_call, fit_env, tol = 1e-4) {
   refit <- maihda_eval_holding_conditions(refit_call, fit_env)
   if (maihda_glmer_criterion(refit$value) < maihda_glmer_criterion(model) - tol) {
     refit
+  } else {
+    NULL
+  }
+}
+
+# The rise in -2 log-likelihood from the estimates of the glmer fit `from` to those of the glmer
+# fit `to`, both evaluated on `to`'s deviance function (taken from a detached copy, so the fits are
+# left as they were), or the difference of their criteria where that function cannot be evaluated.
+# The criteria of two fits at one point differ by the precision of lme4's PIRLS: 8e-4 apart, about
+# 1e-3 below what the function gives there, for two fits of 12 groups of 25 rows.
+maihda_glmer_rise <- function(to, from) {
+  at <- function(m) c(unname(lme4::getME(m, "theta")), unname(lme4::fixef(m)))
+  rise <- tryCatch({
+    devfun <- lme4::getME(maihda_lme4_detached_copy(to), "devfun")
+    devfun(at(to)) - devfun(at(from))
+  }, error = function(e) NA_real_)
+  if (is.finite(rise)) rise else maihda_glmer_criterion(to) - maihda_glmer_criterion(from)
+}
+
+# The last refit of maihda_fit_glmer_bound(), of a fit a refit replaced (`kept`, a value /
+# conditions pair of maihda_eval_holding_conditions()): `fit_call` evaluated from the fit's
+# estimates by glmer's second stage only, by the second-stage optimiser of the call's own control
+# (Nelder-Mead unless the user set another), so that the fit records the optimiser glmer() would.
+# Where Nelder-Mead's own first steps fail, or it stops without converging, its first steps are
+# 0.1% of each estimate, and 1e-6 for an estimate below 1e-3 in size. The pass's pair unless it
+# ends higher than the fit by more than `tol` (maihda_glmer_rise()); NULL when the fit records
+# that optimiser already, when the control names a function, or when the pass fails or its
+# optimiser reports a failure.
+maihda_glmer_finish <- function(kept, fit_call, fit_env, tol = 1e-4) {
+  model <- kept$value
+  control <- if (is.null(fit_call$control)) {
+    lme4::glmerControl()
+  } else {
+    eval(fit_call$control, fit_env)
+  }
+  own <- control$optimizer[[length(control$optimizer)]]
+  if (!is.character(own) || identical(model@optinfo$optimizer, own)) {
+    return(NULL)
+  }
+  control$nAGQ0initStep <- FALSE
+  finish_call <- fit_call
+  finish_call$start <- list(theta = unname(lme4::getME(model, "theta")), fixef = lme4::fixef(model))
+  finish_call$control <- as.name(".maihda_arg_finish_control")
+  run <- function(ctrl) {
+    assign(".maihda_arg_finish_control", ctrl, envir = fit_env)
+    tryCatch(maihda_eval_holding_conditions(finish_call, fit_env), error = function(e) NULL)
+  }
+  # A pass counts only when its optimiser reports success: one stopped by an evaluation limit of
+  # the user's own would replace a refit that converged with one that did not.
+  done <- function(pass) {
+    !is.null(pass) && identical(as.integer(pass$value@optinfo$conv$opt), 0L)
+  }
+  finished <- run(control)
+  if (!done(finished) && identical(own, "Nelder_Mead")) {
+    par <- c(unname(lme4::getME(model, "theta")), unname(lme4::fixef(model)))
+    control$optCtrl$xst <- 1e-3 * pmax(abs(par), 1e-3)
+    control$optCtrl$xt <- control$optCtrl$xst * 5e-4
+    finished <- run(control)
+  }
+  if (done(finished) && isTRUE(maihda_glmer_rise(finished$value, model) <= tol)) {
+    finished
   } else {
     NULL
   }
