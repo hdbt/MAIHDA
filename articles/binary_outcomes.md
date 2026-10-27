@@ -112,8 +112,8 @@ print(summary_null)
 #>   is a descriptive measure, not cross-validated out-of-sample discrimination.)
 #> 
 #> Fixed Effects (Wald z, 95% intervals):
-#>         term estimate      se statistic p_value  lower   upper
-#>  (Intercept)   -0.616 0.09028    -6.823 8.9e-12 -0.793 -0.4391
+#>         term estimate      se statistic  p_value  lower   upper
+#>  (Intercept)   -0.616 0.09028    -6.823 8.91e-12 -0.793 -0.4391
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id                           label random_effect     se
@@ -300,7 +300,7 @@ model_int <- fit_maihda(
   data = health_complete, family = "binomial"
 )
 #> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.
-#> Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00300493 (tol = 0.002, component 1)
+#> Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00300498 (tol = 0.002, component 1)
 #>   See ?lme4::convergence and ?lme4::troubleshooting.
 
 maihda_interactions(model_int)

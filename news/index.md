@@ -986,6 +986,15 @@
   covariate, so fits with a slope on a birth year were recorded as not
   converged at the maximum (6 of 12 simulated fits).
 
+- That measure and the record of a stop at a variance bound run their
+  deviance function to a relative tolerance of 1e-10 and take a glmer
+  fit whose -2 log-likelihood lies within 1e-3 (relative) of the
+  function: with lme4 before 2.1-0, their 1e-5 check at lme4’s tolerance
+  left 17 of 135 simulated 0 / 1 fits with strata far apart on the logit
+  scale and a birth year unmeasured and recorded as not converged, all
+  within 0.07 standard errors of the maximum, and 7 of 26 stops at a
+  bound beside a block with a large variance unmeasured.
+
 - A glmer or lmer fit with a
   [`diag()`](https://rdrr.io/r/base/diag.html) random-effect block is
   judged with that block’s terms divided by their root mean square, as
