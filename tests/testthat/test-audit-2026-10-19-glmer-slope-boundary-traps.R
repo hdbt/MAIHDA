@@ -197,7 +197,7 @@ test_that("the refit starts across the bound and recovers a fit stopped there", 
   })
   m <- maihda_fit_glmer_bound(trapped_call, env)
   # The first fit stays at the bound, 0.80 below the maximum ...
-  expect_length(seen, 2L)
+  expect_length(seen, 3L)
   first <- quiet(real(trapped_call, env))$value
   expect_lt(lme4::getME(first, "theta")[[1]], 1e-4)
   expect_lt(as.numeric(stats::logLik(first)), -982.1)
@@ -210,6 +210,11 @@ test_that("the refit starts across the bound and recovers a fit stopped there", 
   expect_identical(eval(seen[[2]]$control, env)$optimizer, c("bobyqa", "bobyqa"))
   expect_identical(eval(seen[[2]]$control, env)$optCtrl, list(maxfun = 1e5))
   expect_lt(abs(as.numeric(stats::logLik(m)) - (-981.32970)), 0.005)
+  # The refit kept, it is refitted once more from its estimates by glmer's own second stage,
+  # which the fit then records.
+  expect_identical(seen[[3]]$control, as.name(".maihda_arg_finish_control"))
+  expect_identical(eval(seen[[3]]$control, env)$optimizer, c("bobyqa", "Nelder_Mead"))
+  expect_identical(m@optinfo$optimizer, "Nelder_Mead")
   # A fit not at a bound is not refitted.
   seen <- list()
   inside <- new.env()
