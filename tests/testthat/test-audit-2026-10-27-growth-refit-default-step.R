@@ -187,8 +187,9 @@ test_that("a growth fit's call is replayed with the user's own control, whatever
 
 # ---- a fit ----------------------------------------------------------------------------------
 
-# The 0 / 1 design with 10 waves in days of the growth search's tests: glmer's quadratic growth
-# fit stops below the maximum (1274.712102), where the refit from a search takes it.
+# The 0 / 1 design with 10 waves in days of the growth search's tests: under lme4 before 2.1-0
+# glmer's quadratic growth fit stops 0.72 below the maximum (1274.712102), where the refit from a
+# search takes it; lme4 2.1-0 fits it to the maximum.
 growth_binary <- function(seed = 1, waves = 10, k = 365, s = c(0.2, 0.06, 0.012),
                           p = c(0.5, 0.15, 0.02)) {
   with_seed(seed, {
@@ -209,6 +210,32 @@ growth_binary <- function(seed = 1, waves = 10, k = 365, s = c(0.2, 0.06, 0.012)
   })
 }
 deviance_max_binary <- 1274.712102
+# Where glmer's fit of it stops under lme4 before 2.1-0, rounded to seven digits (the stuck_binary
+# of test-audit-2026-10-26-glmer-growth-time-units.R).
+stuck_binary <- list(
+  theta = c(0.5826776, -0.1972564, -0.1441493, 0.7696946, -0.2160046, 0.04805291, 0.3684006,
+            -0.827052, 0.1727089, 0.2053519, -0.03951521, 0.008997533),
+  fixef = c(-0.1853592, 0.2882030, -0.0790065))
+
+# fit_maihda() on a quadratic growth design with glmer's first fit placed at `point` (theta and
+# fixef on the internal time) by optimisers that return their start; the refits run as they do.
+fit_from_point <- function(d, formula, family, point) {
+  stay <- function(par, fn, lower, upper, control = list(), ...) {
+    list(par = par, fval = fn(par), conv = 0, message = "the start", feval = 1)
+  }
+  real_growth <- maihda_fit_glmer_growth
+  local_mocked_bindings(
+    maihda_fit_glmer_growth = function(fit_call, fit_env, id, ...) {
+      first_call <- fit_call
+      first_call$start <- point
+      first_call$control <- lme4::glmerControl(optimizer = list(stay, stay),
+                                               nAGQ0initStep = FALSE, boundary.tol = 0)
+      real_growth(fit_call, fit_env, id, first = maihda_eval_holding_conditions(first_call, fit_env),
+                  ...)
+    }
+  )
+  quiet(fit_maihda(formula, data = d, id = "id", time = "wave", family = family, time_degree = 2))
+}
 
 test_that("a null-restricted refit carries the user's control in place of the last pass's", {
   skip_on_cran()
@@ -252,9 +279,16 @@ test_that("a glmer growth fit refitted from a search records Nelder-Mead and lme
   d <- growth_binary()
   searched <- NULL
   real_finish <- maihda_glmer_finish
+  # glmer's own fit before lme4 2.1-0; from 2.1-0, which fits the design to its maximum, the first
+  # fit placed where the earlier glmer stops.
+  own_stop <- utils::packageVersion("lme4") < "2.1-0"
   m <- with_mocked_bindings(
-    quiet(fit_maihda(y ~ wave + (1 | A:B:C:D), data = d, id = "id", time = "wave",
-                     family = "binomial", time_degree = 2))$model,
+    if (own_stop) {
+      quiet(fit_maihda(y ~ wave + (1 | A:B:C:D), data = d, id = "id", time = "wave",
+                       family = "binomial", time_degree = 2))$model
+    } else {
+      fit_from_point(d, y ~ wave + (1 | A:B:C:D), "binomial", stuck_binary)$model
+    },
     maihda_glmer_finish = function(kept, ...) {
       searched <<- kept$value
       real_finish(kept, ...)
@@ -265,11 +299,14 @@ test_that("a glmer growth fit refitted from a search records Nelder-Mead and lme
   environment(devfun)$tolPwrss <- 1e-10
   at <- function(fit) devfun(c(unname(lme4::getME(fit, "theta")), unname(lme4::fixef(fit))))
   # The fit the last pass is given, the refit from the search, is at the maximum and records
-  # bobyqa; lme4::refit() runs bobyqa at minqa's defaults from it and ends 0.27 above it.
+  # bobyqa; from the search that glmer's own stop leads to, lme4::refit() runs bobyqa at minqa's
+  # defaults and ends 0.27 above it (from the placed stop's search, it stays).
   expect_identical(searched@optinfo$optimizer, "bobyqa")
   expect_identical(stats::getCall(searched)$control, as.name(".maihda_arg_search_control"))
-  expect_lt(at(searched) - deviance_max_binary, 1e-3)
-  expect_gt(at(quiet(lme4::refit(searched))) - at(searched), 0.1)
+  expect_lt(abs(at(searched) - deviance_max_binary), 1e-3)
+  if (own_stop) {
+    expect_gt(at(quiet(lme4::refit(searched))) - at(searched), 0.1)
+  }
   # After it: the same maximum, recorded as glmer's own fits are, and lme4::refit() stays there
   # (within 4e-4).
   expect_identical(m@optinfo$optimizer, "Nelder_Mead")
