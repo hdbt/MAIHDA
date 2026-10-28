@@ -29,7 +29,8 @@ was run first so the \code{stratum} variable exists.}
 
 \item{vars}{Character vector of predictors (stratum dimensions and/or
 covariates) among which the PCV is apportioned. Their order does not affect
-the result.}
+the exact attribution; a Monte-Carlo attribution depends on it only through
+its sampling error.}
 
 \item{method}{Attribution method: \code{"shapley"} (default; order-invariant
 Shapley values) or \code{"dominance"} (Budescu dominance analysis: general
