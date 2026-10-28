@@ -345,26 +345,6 @@ plot.maihda_comparison <- function(x, ...) {
   return(p)
 }
 
-#' Plot Model Comparison (deprecated)
-#'
-#' Deprecated. Use \code{plot()} on the \code{\link{compare_maihda}} result
-#' instead, e.g. \code{plot(compare_maihda(...))}.
-#'
-#' @param comparison_df A data frame from \code{compare_maihda()}.
-#' @return A ggplot2 object.
-#' @keywords internal
-#' @export
-plot_comparison <- function(comparison_df) {
-  .Deprecated("plot", msg = paste(
-    "'plot_comparison()' is deprecated.",
-    "Use plot() on the compare_maihda() result, e.g. plot(compare_maihda(...))."
-  ))
-  if (is.data.frame(comparison_df) && !inherits(comparison_df, "maihda_comparison")) {
-    class(comparison_df) <- c("maihda_comparison", class(comparison_df))
-  }
-  plot(comparison_df)
-}
-
 #' Compare MAIHDA Metrics Across Levels of a Grouping Variable
 #'
 #' Fits a separate random-intercept MAIHDA model (intercept-only \emph{random}
@@ -444,8 +424,7 @@ plot_comparison <- function(comparison_df) {
 #'   binning of numeric grouping variables. Default TRUE.
 #' @param decomposition Per-group additive-vs-interaction decomposition: the two-model
 #'   null -> adjusted PCV (\code{"two-model"}, default) or the single crossed-dimensions
-#'   model (\code{"crossed-dimensions"}; \code{"cross-classified"} is a deprecated
-#'   alias that warns). The crossed-dimensions form requires
+#'   model (\code{"crossed-dimensions"}). The crossed-dimensions form requires
 #'   \code{shared_strata = TRUE} and at least two stratum dimensions, and adds the
 #'   \code{var_additive}, \code{var_interaction}, \code{additive_share} and
 #'   \code{interaction_share} columns (in place of \code{pcv} /
@@ -2191,23 +2170,4 @@ plot.maihda_group_comparison <- function(x, type = c("vpc", "components", "betwe
       plot.caption = element_text(hjust = 0.5, face = "italic", size = 9),
       axis.text.x = element_text(angle = 45, hjust = 1)
     )
-}
-
-#' Plot a MAIHDA Group Comparison (deprecated)
-#'
-#' Deprecated. Use \code{plot()} on the \code{\link{compare_maihda_groups}}
-#' result instead, e.g. \code{plot(cmp, type = "vpc")}.
-#'
-#' @param x A \code{maihda_group_comparison} object.
-#' @param type One of "vpc" (default), "components", "between_variance", "pcv", or
-#'   "additive_share".
-#' @return A ggplot2 object.
-#' @keywords internal
-#' @export
-plot_group_comparison <- function(x, type = c("vpc", "components", "between_variance", "pcv", "additive_share")) {
-  .Deprecated("plot", msg = paste(
-    "'plot_group_comparison()' is deprecated.",
-    "Use plot() on the compare_maihda_groups() result, e.g. plot(cmp, type = 'vpc')."
-  ))
-  plot(x, type = match.arg(type))
 }

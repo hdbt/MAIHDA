@@ -8,7 +8,7 @@ pcv_importance(
   data,
   outcome,
   vars,
-  method = c("shapley", "sequential", "dominance"),
+  method = c("shapley", "dominance"),
   approx = c("exact", "montecarlo"),
   n_perm = 2000,
   engine = "lme4",
@@ -28,27 +28,20 @@ was run first so the \code{stratum} variable exists.}
 \item{outcome}{Character string; the dependent variable.}
 
 \item{vars}{Character vector of predictors (stratum dimensions and/or
-covariates) among which the PCV is apportioned. Order does not affect the
-\code{"shapley"} and \code{"dominance"} results; it defines the path for
-\code{"sequential"}.}
+covariates) among which the PCV is apportioned. Their order does not affect
+the result.}
 
 \item{method}{Attribution method: \code{"shapley"} (default; order-invariant
 Shapley values) or \code{"dominance"} (Budescu dominance analysis: general
 dominance -- equal to the Shapley values -- plus the conditional and
-complete dominance detail). \code{"sequential"} (the order-dependent
-one-at-a-time path) is \strong{deprecated} and will be removed in a future
-release: it still runs but warns, and \code{\link{stepwise_pcv}} is the
-supported sequential decomposition -- it additionally reports the
-step-specific \code{Step_PCV} and, for a binary outcome, the
-discriminatory-accuracy trajectory (AUC, MOR).}
+complete dominance detail).}
 
 \item{approx}{For \code{method = "shapley"} only: \code{"exact"} fits all
 \eqn{2^k - 1} non-empty variable subsets (plus the null); \code{"montecarlo"}
 samples \code{n_perm} random entry orders instead. When \code{approx} is
 not supplied it defaults to \code{"exact"} for up to 10 variables and
 switches to \code{"montecarlo"} (with a message) beyond.
-\code{"sequential"} needs only the \eqn{k} path models and ignores
-\code{approx}; \code{"dominance"} requires every subset, so it errors if
+\code{"dominance"} requires every subset, so it errors if
 \code{approx = "montecarlo"} is requested.}
 
 \item{n_perm}{Number of random permutations for
@@ -141,11 +134,9 @@ time -- so each variable's contribution depends on its entry order --
 subsets and attributes it \emph{fairly}: the flagship \code{"shapley"}
 method averages each variable's marginal PCV over every possible entry
 order, and \code{"dominance"} adds Budescu's pairwise dominance detail (its
-general dominance weights coincide with the Shapley values). All methods
+general dominance weights coincide with the Shapley values). Both methods
 satisfy the \strong{efficiency} identity: the contributions sum exactly to
-the full model's total PCV. (The order-dependent \code{"sequential"} method
-is \strong{deprecated}; use \code{\link{stepwise_pcv}} for the sequential
-path -- see the \code{method} argument.)
+the full model's total PCV.
 
 Two attribution targets are useful in a MAIHDA. Passing the \emph{stratum
 dimensions} (e.g. \code{c("gender", "race", "education")}) splits the
@@ -172,17 +163,6 @@ to \eqn{v(N)}, the contributions of \emph{every} method here (including the
 Monte-Carlo approximation, for any \code{n_perm}) sum exactly to the
 full-model total PCV. This is the multilevel-PCV analogue of the LMG /
 Shorrocks-Shapley decomposition of \eqn{R^2} (Groemping 2006; Shorrocks 2013).
-
-\strong{Sequential method (deprecated) vs. \code{stepwise_pcv()}.} The
-\code{"sequential"} method is \strong{deprecated} in favour of
-\code{\link{stepwise_pcv}}, which owns the sequential trajectory and also
-reports the \code{Step_PCV} column and the discriminatory-accuracy path.
-While it remains, its contributions are the \emph{increments in total PCV}
-along the entry order, \eqn{v(\{x_1..x_i\}) - v(\{x_1..x_{i-1}\})} -- i.e.
-\code{diff(c(0, Total_PCV))} of the \code{\link{stepwise_pcv}} table, so
-they sum to the same total. They are \emph{not} the \code{Step_PCV} column,
-which normalises each step by the \emph{previous} step's variance rather
-than by \eqn{V_0}.
 
 \strong{Exact vs. Monte-Carlo cost.} The exact attribution fits
 \eqn{2^k - 1} non-empty subset models plus the null -- \eqn{2^k} fits in

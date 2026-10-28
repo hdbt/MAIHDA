@@ -213,7 +213,8 @@ test_that("estimation = \"REML\" compares the REML-type variances and keeps the 
   expect_identical(reml$var_model2,
                    MAIHDA:::maihda_restricted_variance_lme4(fits$adjusted$model))
   expect_identical(reml$pcv, (reml$var_model1 - reml$var_model2) / reml$var_model1)
-  expect_identical(reml$pvc, reml$pcv)
+  expect_s3_class(tryCatch(reml$pvc, warning = function(w) w), "deprecatedWarning")
+  expect_identical(unclass(reml)$pvc, reml$pcv)
   expect_lt(abs(reml$pcv - 0.883971), 1e-4)
   expect_false(reml$adjusted_at_boundary)
   expect_false(reml$ml_variances)

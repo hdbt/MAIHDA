@@ -21,12 +21,6 @@ test_that("compare_maihda output is a maihda_comparison and plots via plot()", {
   expect_s3_class(plot(cmp), "ggplot")
 })
 
-test_that("plot_comparison() is deprecated but still works", {
-  df <- data.frame(model = c("A", "B"), vpc = c(0.1, 0.2))
-  expect_warning(p <- plot_comparison(df), "deprecated")
-  expect_s3_class(p, "ggplot")
-})
-
 test_that("compare_maihda warns when models use different families", {
   set.seed(2202)
   d <- data.frame(stratum = rep(seq_len(8), each = 25), x = rnorm(200))

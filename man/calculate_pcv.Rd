@@ -43,8 +43,8 @@ maximum-likelihood PCV is overstated in the same way. See Details.}
 \value{
 A list containing:
   \item{pcv}{The estimated proportional change in variance}
-  \item{pvc}{Deprecated duplicate of \code{pcv}; it will be removed in a future
-    release}
+  \item{pvc}{Deprecated duplicate of \code{pcv}; reading it warns, and it will be
+    removed in a future release}
   \item{var_model1}{Between-stratum variance from model1}
   \item{var_model2}{Between-stratum variance from model2}
   \item{estimation}{The variance-estimation basis requested (\code{"fitted"},

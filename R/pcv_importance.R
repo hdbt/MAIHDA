@@ -104,11 +104,9 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #' subsets and attributes it \emph{fairly}: the flagship \code{"shapley"}
 #' method averages each variable's marginal PCV over every possible entry
 #' order, and \code{"dominance"} adds Budescu's pairwise dominance detail (its
-#' general dominance weights coincide with the Shapley values). All methods
+#' general dominance weights coincide with the Shapley values). Both methods
 #' satisfy the \strong{efficiency} identity: the contributions sum exactly to
-#' the full model's total PCV. (The order-dependent \code{"sequential"} method
-#' is \strong{deprecated}; use \code{\link{stepwise_pcv}} for the sequential
-#' path -- see the \code{method} argument.)
+#' the full model's total PCV.
 #'
 #' Two attribution targets are useful in a MAIHDA. Passing the \emph{stratum
 #' dimensions} (e.g. \code{c("gender", "race", "education")}) splits the
@@ -123,25 +121,18 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #'   was run first so the \code{stratum} variable exists.
 #' @param outcome Character string; the dependent variable.
 #' @param vars Character vector of predictors (stratum dimensions and/or
-#'   covariates) among which the PCV is apportioned. Order does not affect the
-#'   \code{"shapley"} and \code{"dominance"} results; it defines the path for
-#'   \code{"sequential"}.
+#'   covariates) among which the PCV is apportioned. Their order does not affect
+#'   the result.
 #' @param method Attribution method: \code{"shapley"} (default; order-invariant
 #'   Shapley values) or \code{"dominance"} (Budescu dominance analysis: general
 #'   dominance -- equal to the Shapley values -- plus the conditional and
-#'   complete dominance detail). \code{"sequential"} (the order-dependent
-#'   one-at-a-time path) is \strong{deprecated} and will be removed in a future
-#'   release: it still runs but warns, and \code{\link{stepwise_pcv}} is the
-#'   supported sequential decomposition -- it additionally reports the
-#'   step-specific \code{Step_PCV} and, for a binary outcome, the
-#'   discriminatory-accuracy trajectory (AUC, MOR).
+#'   complete dominance detail).
 #' @param approx For \code{method = "shapley"} only: \code{"exact"} fits all
 #'   \eqn{2^k - 1} non-empty variable subsets (plus the null); \code{"montecarlo"}
 #'   samples \code{n_perm} random entry orders instead. When \code{approx} is
 #'   not supplied it defaults to \code{"exact"} for up to 10 variables and
 #'   switches to \code{"montecarlo"} (with a message) beyond.
-#'   \code{"sequential"} needs only the \eqn{k} path models and ignores
-#'   \code{approx}; \code{"dominance"} requires every subset, so it errors if
+#'   \code{"dominance"} requires every subset, so it errors if
 #'   \code{approx = "montecarlo"} is requested.
 #' @param n_perm Number of random permutations for
 #'   \code{approx = "montecarlo"}. Default 2000. Distinct subset fits are
@@ -233,17 +224,6 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #' full-model total PCV. This is the multilevel-PCV analogue of the LMG /
 #' Shorrocks-Shapley decomposition of \eqn{R^2} (Groemping 2006; Shorrocks 2013).
 #'
-#' \strong{Sequential method (deprecated) vs. \code{stepwise_pcv()}.} The
-#' \code{"sequential"} method is \strong{deprecated} in favour of
-#' \code{\link{stepwise_pcv}}, which owns the sequential trajectory and also
-#' reports the \code{Step_PCV} column and the discriminatory-accuracy path.
-#' While it remains, its contributions are the \emph{increments in total PCV}
-#' along the entry order, \eqn{v(\{x_1..x_i\}) - v(\{x_1..x_{i-1}\})} -- i.e.
-#' \code{diff(c(0, Total_PCV))} of the \code{\link{stepwise_pcv}} table, so
-#' they sum to the same total. They are \emph{not} the \code{Step_PCV} column,
-#' which normalises each step by the \emph{previous} step's variance rather
-#' than by \eqn{V_0}.
-#'
 #' \strong{Exact vs. Monte-Carlo cost.} The exact attribution fits
 #' \eqn{2^k - 1} non-empty subset models plus the null -- \eqn{2^k} fits in
 #' total, with every fit cached and reused across all marginal differences:
@@ -328,7 +308,7 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #'
 #' @export
 pcv_importance <- function(data, outcome, vars,
-                           method = c("shapley", "sequential", "dominance"),
+                           method = c("shapley", "dominance"),
                            approx = c("exact", "montecarlo"),
                            n_perm = 2000,
                            engine = "lme4", family = "gaussian",
@@ -336,14 +316,6 @@ pcv_importance <- function(data, outcome, vars,
                            bootstrap = FALSE, n_boot = 1000, conf_level = 0.95,
                            estimation = c("fitted", "ML")) {
   method <- match.arg(method)
-  if (identical(method, "sequential")) {
-    warning("pcv_importance(method = \"sequential\") is deprecated and will be ",
-            "removed in a future release. Use stepwise_pcv() for the sequential ",
-            "(order-dependent) path -- it also reports the step-specific PCV ",
-            "and, for a binary outcome, the discriminatory-accuracy trajectory ",
-            "(AUC, MOR); or use method = \"shapley\" for an order-invariant ",
-            "split of the same total PCV.", call. = FALSE)
-  }
   approx_missing <- missing(approx)
   approx <- match.arg(approx)
   estimation <- match.arg(estimation)
@@ -390,13 +362,10 @@ pcv_importance <- function(data, outcome, vars,
   sampling_weights <- setup$sampling_weights
 
   # Resolve the attribution route. 'approx' only ever means anything for the
-  # Shapley method: sequential fits just the k path models, and dominance needs
-  # every subset (its conditional/complete tables average and compare over ALL
-  # adjustment sets), so a Monte-Carlo dominance request is rejected rather
-  # than silently degraded.
-  if (method == "sequential") {
-    approx <- "exact"
-  } else if (method == "dominance") {
+  # Shapley method: dominance needs every subset (its conditional/complete
+  # tables average and compare over ALL adjustment sets), so a Monte-Carlo
+  # dominance request is rejected rather than silently degraded.
+  if (method == "dominance") {
     if (!approx_missing && approx == "montecarlo") {
       stop("pcv_importance(): dominance analysis needs every subset model ",
            "(approx = \"exact\"); for a large 'vars' use method = \"shapley\" ",
@@ -410,7 +379,7 @@ pcv_importance <- function(data, outcome, vars,
             "attribution; using approx = \"montecarlo\" with n_perm = ",
             n_perm, ". Pass approx = \"exact\" to force the exact computation.")
   }
-  if (approx == "exact" && method != "sequential" && k > 15) {
+  if (approx == "exact" && k > 15) {
     stop("pcv_importance(): the exact attribution over ", k, " variables needs ",
          "2^", k, " - 1 subset model fits, which is not feasible. Use ",
          "method = \"shapley\" with approx = \"montecarlo\".", call. = FALSE)
@@ -440,10 +409,8 @@ pcv_importance <- function(data, outcome, vars,
 
   # Message-only fit-count bound; computed in doubles so a large n_perm * k
   # cannot overflow integer arithmetic.
-  n_subsets_planned <- if (approx == "exact" && method != "sequential") {
+  n_subsets_planned <- if (approx == "exact") {
     2^k - 1
-  } else if (method == "sequential") {
-    k
   } else {
     min(2^k - 1, as.numeric(n_perm) * max(k - 1, 1) + k)
   }
@@ -452,7 +419,7 @@ pcv_importance <- function(data, outcome, vars,
             "the null model and each distinct predictor subset (up to ",
             n_subsets_planned, " subsets here); this can be very slow. ",
             "Exact Shapley on brms is discouraged -- see ?pcv_importance.")
-  } else if (approx == "exact" && method != "sequential" && k >= 8) {
+  } else if (approx == "exact" && k >= 8) {
     message("pcv_importance(): fitting all ", n_subsets_planned,
             " non-empty subsets of the ", k, " variables (plus the null model).")
   }
@@ -549,15 +516,8 @@ pcv_importance <- function(data, outcome, vars,
     mc_perms <- t(vapply(seq_len(n_perm), function(p) sample.int(k),
                          integer(k)))
   }
-  # Prefix masks for the sequential path: the first i variables occupy bits
-  # 0..i-1, so the i-th prefix mask is 2^i - 1.
-  seq_masks <- if (method == "sequential") bitwShiftL(1L, seq_len(k)) - 1L else NULL
 
   compute_phi <- function(vfun) {
-    if (method == "sequential") {
-      v_path <- vapply(seq_masks, vfun, numeric(1))
-      return(diff(c(0, v_path)))
-    }
     if (approx == "montecarlo") {
       marg <- matrix(NA_real_, nrow = n_perm, ncol = k)
       for (p in seq_len(n_perm)) {
@@ -590,7 +550,7 @@ pcv_importance <- function(data, outcome, vars,
   # strata (a full additive model leaves ~0 interaction variance), so it is carried as a
   # silent status attribute (full_at_boundary, attached to the result below) for
   # programmatic inspection and the print method, NOT raised as a per-call warning.
-  # compute_phi() has fit the full model on every path (its mask is the last prefix /
+  # compute_phi() has fit the full model on every path (its mask is the last
   # permutation step / subset).
   full_entry <- cache[[as.character(full_mask)]]
   full_at_boundary <- !is.null(full_entry) && isTRUE(full_entry$at_boundary)
@@ -792,7 +752,6 @@ print.maihda_pcv_importance <- function(x, digits = 4, ...) {
     } else {
       "Shapley values (exact)"
     },
-    sequential = "Sequential increments (order-dependent)",
     dominance = "Dominance analysis (general dominance = Shapley)"
   )
 
@@ -848,12 +807,6 @@ print.maihda_pcv_importance <- function(x, digits = 4, ...) {
   cat(pal$muted(paste0(
     "\nContributions are shares of the null model's between-stratum variance\n",
     "explained (the PCV scale) and sum to the full-model Total PCV (efficiency).\n")))
-  if (identical(x$method, "sequential")) {
-    cat(pal$muted(paste0(
-      "Order-dependent: each value is the increment in Total PCV when the\n",
-      "variable enters IN THE ORDER GIVEN (= diff of stepwise_pcv()'s Total_PCV,\n",
-      "not its Step_PCV). Use method = \"shapley\" for an order-invariant split.\n")))
-  }
   if (x$bootstrap && !is.null(x$n_boot_ok)) {
     cat(pal$muted(sprintf(
       "Parametric bootstrap intervals from %d successful draws of %d.\n",
@@ -928,14 +881,9 @@ plot.maihda_pcv_importance <- function(x, ...) {
          call. = FALSE)
   }
   df <- x$importance
-  # Ascending order + coord_flip puts the largest contribution on top. The
-  # sequential method keeps its (meaningful) entry order, top-down.
-  if (identical(x$method, "sequential")) {
-    df$Variable <- factor(df$Variable, levels = rev(df$Variable))
-  } else {
-    df <- df[order(df$Contribution), , drop = FALSE]
-    df$Variable <- factor(df$Variable, levels = df$Variable)
-  }
+  # Ascending order + coord_flip puts the largest contribution on top.
+  df <- df[order(df$Contribution), , drop = FALSE]
+  df$Variable <- factor(df$Variable, levels = df$Variable)
   has_ci <- all(c("CI_lower", "CI_upper") %in% names(df))
 
   subtitle <- switch(x$method,
@@ -944,7 +892,6 @@ plot.maihda_pcv_importance <- function(x, ...) {
     } else {
       "Shapley values (exact, order-invariant)"
     },
-    sequential = "Sequential increments in the order given (order-dependent)",
     dominance = "General dominance (= Shapley values)"
   )
   caption <- sprintf("Contributions sum to the full-model Total PCV = %.3f.",

@@ -72,54 +72,29 @@ test_that("Shapley contributions are invariant to the order of vars", {
   # optimizer-level noise only.
   expect_equal(c1[names(c2)], c2, tolerance = 1e-6)
   expect_equal(imp1$total_pcv, imp2$total_pcv, tolerance = 1e-8)
-
-  # The sequential method, by design, is NOT order-invariant on this data
-  # (gender and race are correlated with each other through the strata).
-  seq1 <- suppressWarnings(suppressMessages(
-    pcv_importance(d, "y", c("gender", "race"), method = "sequential")))
-  seq2 <- suppressWarnings(suppressMessages(
-    pcv_importance(d, "y", c("race", "gender"), method = "sequential")))
-  s1 <- setNames(seq1$importance$Contribution, seq1$importance$Variable)
-  s2 <- setNames(seq2$importance$Contribution, seq2$importance$Variable)
-  expect_false(isTRUE(all.equal(s1[names(s2)], s2, tolerance = 1e-4)))
-  # ... but both orders still sum to the same total (efficiency).
-  expect_equal(sum(s1), sum(s2), tolerance = 1e-8)
 })
 
-test_that("sequential contributions are the increments of stepwise_pcv()'s Total_PCV", {
+test_that("the Shapley subsets along the entry order are stepwise_pcv()'s models", {
   d <- make_imp_data()
   vars <- c("gender", "race", "age")
-  imp <- suppressWarnings(
-    suppressMessages(pcv_importance(d, "y", vars, method = "sequential")))
+  imp <- suppressMessages(pcv_importance(d, "y", vars))
   sw <- suppressMessages(stepwise_pcv(d, "y", vars))
 
   # Identical fits through the shared setup helper: exact agreement.
-  expect_equal(imp$importance$Contribution, diff(c(0, sw$Total_PCV[-1])),
-               tolerance = 1e-10)
+  expect_equal(imp$null_variance, sw$Variance[1], tolerance = 1e-10)
   expect_equal(imp$total_pcv, sw$Total_PCV[nrow(sw)], tolerance = 1e-10)
-  # Only the k path models plus the null are fit.
-  expect_identical(imp$n_fits, 4L)
-  # The path variances agree with the stepwise table.
+  # The prefix subsets' variances and PCVs are the stepwise table's.
   path <- imp$subsets[match(c("gender", "gender + race", "gender + race + age"),
                             imp$subsets$Variables), ]
   expect_equal(path$Variance, sw$Variance[-1], tolerance = 1e-10)
+  expect_equal(path$PCV, sw$Total_PCV[-1], tolerance = 1e-10)
 })
 
-test_that("method = 'sequential' is soft-deprecated: warns but still computes", {
+test_that("pcv_importance() offers the Shapley and dominance methods only", {
   d <- make_imp_data()
   vars <- c("gender", "race", "age")
-  # The deprecation warning fires and points to stepwise_pcv().
-  expect_warning(
-    imp <- pcv_importance(d, "y", vars, method = "sequential"),
-    "deprecated.*stepwise_pcv"
-  )
-  # It still returns a valid, correct result (increments of stepwise Total_PCV).
-  expect_s3_class(imp, "maihda_pcv_importance")
-  expect_identical(imp$method, "sequential")
-  sw <- suppressMessages(stepwise_pcv(d, "y", vars))
-  expect_equal(imp$importance$Contribution, diff(c(0, sw$Total_PCV[-1])),
-               tolerance = 1e-10)
-  # The supported order-invariant methods do NOT warn.
+  expect_error(pcv_importance(d, "y", vars, method = "sequential"))
+  # Both methods run without a warning on this data.
   expect_no_warning(suppressMessages(pcv_importance(d, "y", vars)))
   expect_no_warning(suppressMessages(
     pcv_importance(d, "y", c("gender", "race"), method = "dominance")))
@@ -230,21 +205,18 @@ test_that("pcv_importance reconstructs auto-binned dimensions like stepwise_pcv"
 
   expect_true("income" %in% names(attr(d, "strata_autobin_info")))
 
-  imp <- suppressWarnings(suppressMessages(
-    pcv_importance(d, "y", c("gender", "income"), method = "sequential")))
+  imp <- suppressMessages(pcv_importance(d, "y", c("gender", "income")))
   sw <- suppressMessages(stepwise_pcv(d, "y", c("gender", "income")))
 
   # Identical variances step-for-step proves income entered as the SAME
   # reconstructed tertile factor, not a raw linear term.
-  expect_equal(imp$importance$Contribution, diff(c(0, sw$Total_PCV[-1])),
-               tolerance = 1e-10)
   path <- imp$subsets[match(c("gender", "gender + income"),
                             imp$subsets$Variables), ]
   expect_equal(path$Variance, sw$Variance[-1], tolerance = 1e-10)
+  expect_equal(path$PCV, sw$Total_PCV[-1], tolerance = 1e-10)
 
-  # And the Shapley attribution runs on the same reconstructed terms.
-  sh <- suppressMessages(pcv_importance(d, "y", c("gender", "income")))
-  expect_equal(sum(sh$importance$Contribution), sh$total_pcv, tolerance = 1e-10)
+  # And the Shapley attribution on those terms sums to the total.
+  expect_equal(sum(imp$importance$Contribution), imp$total_pcv, tolerance = 1e-10)
 })
 
 test_that("bootstrap intervals cover each contribution and report the draw count", {
@@ -321,8 +293,6 @@ test_that("print and plot methods work for every attribution flavour", {
   imp <- suppressMessages(pcv_importance(d, "y", c("gender", "race", "age")))
   dm <- suppressMessages(
     pcv_importance(d, "y", c("gender", "race"), method = "dominance"))
-  sq <- suppressWarnings(suppressMessages(
-    pcv_importance(d, "y", c("gender", "race"), method = "sequential")))
   # n_perm = 60 is deliberately low (it keeps the print fixture cheap and pins the
   # "60 permutations" header below), which is few enough that the largest MC_SE
   # exceeds 0.01 -- so the package's own convergence warning fires. Assert it
@@ -340,13 +310,11 @@ test_that("print and plot methods work for every attribution flavour", {
   expect_output(print(imp), "efficiency")
   expect_output(print(dm), "Conditional dominance")
   expect_output(print(dm), "Complete dominance")
-  expect_output(print(sq), "Order-dependent")
   expect_output(print(mc), "Monte-Carlo, 60 permutations")
   expect_output(print(mc), "MC_SE")
 
   expect_s3_class(plot(imp), "ggplot")
   expect_s3_class(plot(dm), "ggplot")
-  expect_s3_class(plot(sq), "ggplot")
 
   # Signed contributions: this data yields a (small) negative age
   # contribution; the suppression note is printed and nothing is normalised

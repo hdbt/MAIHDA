@@ -509,10 +509,6 @@ test_that("plot() on a maihda_group_comparison returns ggplot objects for both t
 
   # the method's class guard (reachable via a direct call)
   expect_error(plot.maihda_group_comparison(mtcars), "maihda_group_comparison")
-
-  # deprecated alias still works but warns, including for the new type
-  expect_warning(plot_group_comparison(cmp, type = "vpc"), "deprecated")
-  expect_warning(plot_group_comparison(cmp, type = "between_variance"), "deprecated")
 })
 
 test_that("plot() notes omitted groups in the caption instead of dropping silently", {
