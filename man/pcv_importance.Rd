@@ -115,7 +115,7 @@ An object of class \code{maihda_pcv_importance}: a list with
     the pairwise complete-dominance matrix.}
   \item{method, approx, n_perm, n_fits, n_obs, engine, family, context,
     bootstrap, conf_level, n_boot_ok, n_boot_boundary, n_boot_nonconverged,
-    interval_reliable, estimation, estimation_used}{Metadata;
+    interval_reliable, estimation, estimation_used, ml_variances}{Metadata;
     \code{n_fits} counts the distinct models fit (including the null),
     \code{n_boot_ok} the number of successful bootstrap draws,
     \code{n_boot_boundary} the draws excluded because the null between-stratum
@@ -126,9 +126,12 @@ An object of class \code{maihda_pcv_importance}: a list with
     are still returned but flagged unreliable),
     \code{estimation} is the variance-estimation basis
     (\code{"fitted"}/\code{"ML"}) requested for every subset model's
-    between-stratum variance, and \code{estimation_used} is the basis actually used
+    between-stratum variance, \code{estimation_used} is the basis actually used
     (\code{"mixed"} when an ML refit was skipped at the boundary, leaving a subset
-    model on REML).}
+    model on REML), and \code{ml_variances} is \code{TRUE} when the compared
+    variances are maximum-likelihood estimates (\code{glmer}, wemix or ordinal fits,
+    or \code{lmer} fits refitted by maximum likelihood), which \code{print()} notes
+    under the default \code{estimation}, as \code{\link{calculate_pcv}} does.}
 }
 \description{
 Apportions the between-stratum variance reduction (the PCV) among a set of

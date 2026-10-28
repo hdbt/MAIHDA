@@ -460,10 +460,11 @@ maihda_pcv_basis_label <- function(basis) {
   )
 }
 
-# The basis line of a calculate_pcv() result. Two bases only that function produces
-# are worded here: the REML-type variances of a glmer pair, and as-fitted variances
-# that are maximum-likelihood estimates (a glmer, wemix or ordinal pair). Everything
-# else is maihda_pcv_basis_label()'s.
+# The basis line of a calculate_pcv() result, or of a series' basis record
+# (maihda_pcv_series_basis(), or a pcv_importance() result). Two bases are worded
+# here: the REML-type variances of a glmer pair (calculate_pcv() only), and as-fitted
+# variances that are maximum-likelihood estimates (glmer, wemix or ordinal fits).
+# Everything else is maihda_pcv_basis_label()'s.
 maihda_pcv_result_basis_label <- function(x) {
   basis <- x$estimation_used
   if (is.null(basis)) basis <- x$estimation
@@ -476,6 +477,17 @@ maihda_pcv_result_basis_label <- function(x) {
   maihda_pcv_basis_label(basis)
 }
 
+# The basis record that a stepwise_pcv() table or a compare_maihda_groups()
+# comparison keeps in its attributes, in the shape maihda_pcv_result_basis_label()
+# and maihda_pcv_show_ml_note() read. NULL when the object records no basis.
+maihda_pcv_series_basis <- function(x) {
+  estimation <- attr(x, "estimation")
+  estimation_used <- attr(x, "estimation_used")
+  if (is.null(estimation) && is.null(estimation_used)) return(NULL)
+  list(estimation = estimation, estimation_used = estimation_used,
+       ml_variances = attr(x, "ml_variances"))
+}
+
 # TRUE for a maihda_model holding a glmer fit (a generalised linear mixed model on the
 # lme4 engine).
 maihda_pcv_is_glmer <- function(model) {
@@ -483,10 +495,10 @@ maihda_pcv_is_glmer <- function(model) {
     isTRUE(tryCatch(lme4::isGLMM(model$model), error = function(e) FALSE))
 }
 
-# TRUE when the between-stratum variances a PCV compares are maximum-likelihood
+# TRUE when the between-stratum variances of any of the models are maximum-likelihood
 # estimates: a glmer fit, an lmer fit made (or refitted) by maximum likelihood, or the
 # wemix / ordinal engines. A brms fit is a posterior.
-maihda_pcv_ml_variances <- function(model1, model2) {
+maihda_pcv_ml_variances <- function(...) {
   one <- function(model) {
     switch(model$engine,
       lme4 = !isTRUE(tryCatch(lme4::isREML(model$model), error = function(e) FALSE)),
@@ -494,7 +506,7 @@ maihda_pcv_ml_variances <- function(model1, model2) {
       ordinal = TRUE,
       FALSE)
   }
-  one(model1) || one(model2)
+  any(vapply(list(...), one, logical(1)))
 }
 
 # Refuse estimation = "REML" where no REML or REML-type between-stratum variance
@@ -1646,7 +1658,10 @@ maihda_pcv_attribution_setup <- function(data, outcome, vars, engine, family,
 #'   \code{"estimation"} attribute on the returned table; the basis actually used is
 #'   recorded as \code{"estimation_used"} (\code{"mixed"} when \code{estimation = "ML"}
 #'   but a step's ML refit was skipped at the boundary, leaving it on REML). Both are
-#'   shown by \code{print()}.
+#'   shown by \code{print()}. An \code{"ml_variances"} attribute is \code{TRUE} when the
+#'   compared variances are maximum-likelihood estimates (\code{glmer}, wemix or
+#'   ordinal fits, or \code{lmer} fits refitted by maximum likelihood); \code{print()}
+#'   notes it under the default \code{estimation}, as \code{\link{calculate_pcv}} does.
 #'
 #'   \code{Step_PCV} is \code{NA} for any step whose \emph{preceding} model has a
 #'   between-stratum variance at the singularity boundary: that variance is the step's
@@ -1748,6 +1763,9 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   # practice this is driven by the step models.)
   ml_refit_skipped <- isTRUE(null_mod$ml_refit_skipped_boundary)
   ml_refit_failed_any <- isTRUE(null_mod$ml_refit_failed)
+  # Whether the compared variances are maximum-likelihood estimates, as calculate_pcv()
+  # records it, so print() can say so.
+  ml_variances <- maihda_pcv_ml_variances(null_mod)
 
   # Every Total_PCV divides by null_var and the first Step_PCV divides by it too,
   # so a boundary-level (effectively singular) null variance -- a strictly
@@ -1836,6 +1854,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
     curr_var <- maihda_pcv_between_variance(mod)
     if (isTRUE(mod$ml_refit_skipped_boundary)) ml_refit_skipped <- TRUE
     if (isTRUE(mod$ml_refit_failed)) ml_refit_failed_any <- TRUE
+    if (maihda_pcv_ml_variances(mod)) ml_variances <- TRUE
     curr_at_boundary <- maihda_pcv_null_at_boundary(mod)
     if (curr_at_boundary) {
       boundary_steps <- c(boundary_steps, vars[i])
@@ -1916,6 +1935,7 @@ stepwise_pcv <- function(data, outcome, vars, engine = "lme4", family = "gaussia
   attr(results, "estimation") <- estimation
   attr(results, "estimation_used") <- maihda_pcv_estimation_used(
     estimation, ml_refit_skipped || ml_refit_failed_any, engine = engine)
+  attr(results, "ml_variances") <- ml_variances
   attr(results, "boundary_steps") <- boundary_steps
   attr(results, "undefined_step_pcv") <- undefined_step_pcv
   class(results) <- c("maihda_stepwise", "data.frame")
@@ -1942,11 +1962,14 @@ print.maihda_stepwise <- function(x, ...) {
         "intercept held in every model; Context_Variance is that (summed)\n",
         "between-context variance at each step.\n")))
   }
-  est <- attr(x, "estimation_used")
-  if (is.null(est)) est <- attr(x, "estimation")
-  if (!is.null(est)) {
+  basis <- maihda_pcv_series_basis(x)
+  if (!is.null(basis)) {
     cat(maihda_palette()$muted(sprintf("\nVariance basis: %s\n",
-      maihda_pcv_basis_label(est))))
+      maihda_pcv_result_basis_label(basis))))
+    # stepwise_pcv() takes no estimation = "REML", so the note does not name it.
+    if (maihda_pcv_show_ml_note(basis)) {
+      cat(maihda_palette()$muted(maihda_pcv_ml_note()))
+    }
   }
   bstep <- attr(x, "boundary_steps")
   if (length(bstep) > 0) {

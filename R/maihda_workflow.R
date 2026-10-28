@@ -1250,7 +1250,14 @@ print.maihda_analysis <- function(x, ...) {
 
   if (!is.null(x$groups)) {
     cat(sprintf("\nGroup comparison by '%s':\n", x$group_var))
-    print(x$groups)
+    # The maximum-likelihood note is printed once: under the table only when the PCV
+    # block above has not printed it.
+    if (inherits(x$groups, "maihda_group_comparison")) {
+      maihda_print_group_comparison(
+        x$groups, ml_note = is.null(x$pcv) || !maihda_pcv_show_ml_note(x$pcv))
+    } else {
+      print(x$groups)
+    }
   }
 
   cat(pal$muted("\nUse summary() for variance components and plot(type = ...) for figures.\n"))

@@ -198,7 +198,7 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #'     the pairwise complete-dominance matrix.}
 #'   \item{method, approx, n_perm, n_fits, n_obs, engine, family, context,
 #'     bootstrap, conf_level, n_boot_ok, n_boot_boundary, n_boot_nonconverged,
-#'     interval_reliable, estimation, estimation_used}{Metadata;
+#'     interval_reliable, estimation, estimation_used, ml_variances}{Metadata;
 #'     \code{n_fits} counts the distinct models fit (including the null),
 #'     \code{n_boot_ok} the number of successful bootstrap draws,
 #'     \code{n_boot_boundary} the draws excluded because the null between-stratum
@@ -209,9 +209,12 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #'     are still returned but flagged unreliable),
 #'     \code{estimation} is the variance-estimation basis
 #'     (\code{"fitted"}/\code{"ML"}) requested for every subset model's
-#'     between-stratum variance, and \code{estimation_used} is the basis actually used
+#'     between-stratum variance, \code{estimation_used} is the basis actually used
 #'     (\code{"mixed"} when an ML refit was skipped at the boundary, leaving a subset
-#'     model on REML).}
+#'     model on REML), and \code{ml_variances} is \code{TRUE} when the compared
+#'     variances are maximum-likelihood estimates (\code{glmer}, wemix or ordinal fits,
+#'     or \code{lmer} fits refitted by maximum likelihood), which \code{print()} notes
+#'     under the default \code{estimation}, as \code{\link{calculate_pcv}} does.}
 #'
 #' @details
 #' \strong{Value function and efficiency.} Write \eqn{V_0} for the null model's
@@ -467,6 +470,9 @@ pcv_importance <- function(data, outcome, vars,
   # attribution's basis "mixed", not a pure ML comparison.
   ml_refit_skipped_any <- FALSE
   ml_refit_failed_any <- FALSE
+  # Set when any subset model's variance is a maximum-likelihood estimate, as
+  # calculate_pcv() records it, so print() can say so.
+  ml_variances_any <- FALSE
 
   fit_mask <- function(mask) {
     key <- as.character(mask)
@@ -486,6 +492,7 @@ pcv_importance <- function(data, outcome, vars,
       })
     if (isTRUE(mod$ml_refit_skipped_boundary)) ml_refit_skipped_any <<- TRUE
     if (isTRUE(mod$ml_refit_failed)) ml_refit_failed_any <<- TRUE
+    if (maihda_pcv_ml_variances(mod)) ml_variances_any <<- TRUE
     variance <- maihda_pcv_between_variance(mod)
     if (!is.finite(variance)) {
       stop("pcv_importance(): no finite between-stratum variance for the ",
@@ -654,6 +661,7 @@ pcv_importance <- function(data, outcome, vars,
     estimation = estimation,
     estimation_used = maihda_pcv_estimation_used(
       estimation, ml_refit_skipped_any || ml_refit_failed_any, engine = engine),
+    ml_variances = ml_variances_any,
     context = context,
     sampling_weights = sampling_weights,
     conditional = dominance$conditional,
@@ -794,10 +802,8 @@ print.maihda_pcv_importance <- function(x, digits = 4, ...) {
   cat(sprintf("Outcome: %s   Engine: %s (%s)\n", x$outcome, x$engine, x$family))
   cat(sprintf("Analytic sample: %d observations; %d models fit (incl. null).\n",
               x$n_obs, x$n_fits))
-  basis <- x$estimation_used
-  if (is.null(basis)) basis <- x$estimation
-  if (!is.null(basis)) {
-    cat(sprintf("Variance basis: %s\n", maihda_pcv_basis_label(basis)))
+  if (!is.null(x$estimation_used) || !is.null(x$estimation)) {
+    cat(sprintf("Variance basis: %s\n", maihda_pcv_result_basis_label(x)))
   }
   if (!is.null(x$context)) {
     cat(sprintf("Context: %s (contributions are net of the context random intercept).\n",
@@ -865,8 +871,15 @@ print.maihda_pcv_importance <- function(x, digits = 4, ...) {
       "Negative contributions flag suppression: the variable tends to RAISE the\n",
       "between-stratum variance; signed values are reported (no normalisation).\n")))
   }
-  if (!is.na(x$family_name) &&
-      !identical(x$family_name, "gaussian")) {
+  latent_caveat <- !is.na(x$family_name) && !identical(x$family_name, "gaussian")
+  if (maihda_pcv_show_ml_note(x)) {
+    # The note opens with a blank line, and one more sets the latent-scale caveat apart
+    # from it. pcv_importance() takes no estimation = "REML", so the note does not name
+    # it.
+    cat(pal$muted(maihda_pcv_ml_note()))
+    if (latent_caveat) cat("\n")
+  }
+  if (latent_caveat) {
     cat(pal$muted(paste0(
       "Latent-scale caveat: for this family, contributions of predictors that\n",
       "vary WITHIN strata mix explained variance with latent-scale rescaling\n",
