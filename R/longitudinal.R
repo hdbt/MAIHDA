@@ -2919,7 +2919,9 @@ maihda_longitudinal_pcv_variances <- function(object, Sigma, ref_c, t_c, has_slo
 #'   what \code{var_baseline_*}, \code{var_slope_*} and the variances in \code{pcv_t}
 #'   are (\code{"estimate"} for lme4, \code{"posterior median"} for brms), and
 #'   \code{Sigma_summary} what the two stored blocks are (\code{"estimate"} or
-#'   \code{"posterior mean"}).
+#'   \code{"posterior mean"}). \code{ml_variances} is \code{TRUE} when the compared
+#'   variances are maximum-likelihood estimates: a \code{glmer} growth pair, or
+#'   \code{lmer} growth fits made or refitted by maximum likelihood.
 #' @keywords internal
 maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
                                     estimation = c("fitted", "ML")) {
@@ -3112,6 +3114,7 @@ maihda_longitudinal_pcv <- function(null_model, adjusted_model, times = NULL,
       ml_refit = ml_refit,
       estimation = estimation,
       estimation_used = estimation_used,
+      ml_variances = maihda_pcv_ml_variances(null_model, adjusted_model),
       null_at_boundary = null_at_boundary,
       adjusted_at_boundary = adjusted_at_boundary,
       null_rank_deficient = null_rank_deficient,
@@ -3277,7 +3280,8 @@ print.maihda_long_pcv <- function(x, ...) {
               maihda_format_variance(x$var_baseline_adjusted)))
   cat(sprintf("  PCV_intercept: %s of the baseline between-stratum inequality is additive.\n",
               fmt(x$pcv_intercept)))
-  if (nrow(x$Sigma_stratum_null) >= 2) {
+  has_slope <- nrow(x$Sigma_stratum_null) >= 2
+  if (has_slope) {
     # Instantaneous-slope variance at the baseline (see maihda_slope_var_at_time);
     # objects stored by older package versions carry no var_slope_* fields, so
     # fall back to the slope-variance cell they reported.
@@ -3288,7 +3292,16 @@ print.maihda_long_pcv <- function(x, ...) {
     cat(sprintf("  PCV_slope:     %s of the *trajectory* between-stratum inequality is additive\n",
                 fmt(x$pcv_slope)))
     cat("                 (the remainder is the multiplicative/interaction part).\n")
-  } else if (isFALSE(x$stratum_slope)) {
+  }
+  # The basis in calculate_pcv()'s words, unless a note below names it: the mixed and
+  # ML-refit notes, and the brms note (a brms object stored without variance_summary
+  # holds posterior means, which the posterior label would misname). An object stored
+  # without estimation_used does not record its basis.
+  if (!is.null(x$estimation_used) && !isTRUE(x$ml_refit) &&
+      !isTRUE(x$estimation_used %in% c("mixed", "posterior"))) {
+    cat(pal$muted(maihda_pcv_basis_line(maihda_pcv_result_basis_label(x))))
+  }
+  if (!has_slope && isFALSE(x$stratum_slope)) {
     # stratum_slope = FALSE: the level-3 block is a random intercept only, so the
     # between-stratum variance does not vary with time and there is no trajectory
     # inequality to decompose. Say so rather than silently omitting the slope lines.

@@ -26,7 +26,9 @@ An object of class \code{maihda_long_pcv}. \code{variance_summary} names
   what \code{var_baseline_*}, \code{var_slope_*} and the variances in \code{pcv_t}
   are (\code{"estimate"} for lme4, \code{"posterior median"} for brms), and
   \code{Sigma_summary} what the two stored blocks are (\code{"estimate"} or
-  \code{"posterior mean"}).
+  \code{"posterior mean"}). \code{ml_variances} is \code{TRUE} when the compared
+  variances are maximum-likelihood estimates: a \code{glmer} growth pair, or
+  \code{lmer} growth fits made or refitted by maximum likelihood.
 }
 \description{
 Compares the stratum-level random-effect covariance block of the null growth

@@ -1030,6 +1030,15 @@ maihda_print_analysis_da <- function(summary_obj, summary_adjusted = NULL) {
   invisible(NULL)
 }
 
+# The "Variance basis: <label>" line of print.maihda_analysis() and
+# print.maihda_long_pcv(), wrapped at `width`, continuation lines two spaces deeper
+# than the first.
+maihda_pcv_basis_line <- function(label, indent = 0, width = 84) {
+  lines <- strwrap(paste("Variance basis:", label), width = width, indent = indent,
+                   exdent = indent + 2)
+  paste0(paste(lines, collapse = "\n"), "\n")
+}
+
 #' Print a MAIHDA Analysis
 #'
 #' @param x A \code{maihda_analysis} object from \code{\link{maihda}}.
@@ -1184,6 +1193,7 @@ print.maihda_analysis <- function(x, ...) {
 
   if (!is.null(x$pcv)) {
     pcv <- x$pcv
+    show_ml_note <- maihda_pcv_show_ml_note(pcv)
     if (isTRUE(pcv$bootstrap) && !is.null(pcv$ci_lower)) {
       cat(sprintf("PCV (null -> adjusted): %s [%.4f, %.4f]\n",
                   pal$accent(sprintf("%.4f", pcv$pcv)), pcv$ci_lower, pcv$ci_upper))
@@ -1197,6 +1207,11 @@ print.maihda_analysis <- function(x, ...) {
       # basis this pair of variances is on and keep the as-fitted pair in view.
       cat(pal$muted(sprintf("  REML-type variances (estimation = \"REML\").\n  %s\n",
                             maihda_pcv_fitted_line(pcv))))
+    } else if (!show_ml_note && !is.null(pcv$estimation)) {
+      # The basis in calculate_pcv()'s words, unless the maximum-likelihood note below
+      # names it. An object stored without `estimation` does not record its basis.
+      cat(pal$muted(maihda_pcv_basis_line(maihda_pcv_result_basis_label(pcv),
+                                          indent = 2)))
     }
     if (pcv$pcv >= 0) {
       cat(sprintf(paste0("  ~%.1f%% of the between-stratum variance is additive (the ",
@@ -1208,20 +1223,21 @@ print.maihda_analysis <- function(x, ...) {
       cat("  PCV < 0: the additive main effects do not account for the between-stratum\n",
           "  variance (possible suppression/rescaling).\n", sep = "")
     }
-    if (isTRUE(pcv$adjusted_at_boundary)) {
-      # Shared with print.pcv_result() (maihda_pcv_boundary_note): this branch formats
-      # the PCV inline instead of calling print(x$pcv), so the caveat never reached the
-      # default output even though calculate_pcv() had recorded it all along.
-      cat(pal$muted(maihda_pcv_boundary_note("the adjusted model")))
-      cat("\n")   # keep the note a distinct block, not run into the Strata line
-    }
-    if (maihda_pcv_show_ml_note(pcv)) {
-      # Named only where maihda() would accept it: not with a group comparison, and
-      # not beside a bootstrap interval.
-      cat(pal$muted(maihda_pcv_ml_note(
-        isTRUE(pcv$reml_available) && !isTRUE(pcv$bootstrap) && is.null(x$groups))))
-      cat("\n")
-    }
+    # The notes are print.pcv_result()'s: this branch formats the PCV inline instead of
+    # calling print(x$pcv). The maximum-likelihood note names estimation = "REML" only
+    # where maihda() would accept it: not with a group comparison, and not beside a
+    # bootstrap interval.
+    notes <- c(
+      if (isTRUE(pcv$adjusted_at_boundary)) maihda_pcv_boundary_note("the adjusted model"),
+      if (show_ml_note) {
+        maihda_pcv_ml_note(isTRUE(pcv$reml_available) && !isTRUE(pcv$bootstrap) &&
+                             is.null(x$groups))
+      })
+    for (note in notes) cat(pal$muted(note))
+    # Each note opens with a blank line. The last one closes with a blank line too, to
+    # keep it apart from the Strata line, unless the discriminatory-accuracy block
+    # follows: that block opens with its own.
+    if (length(notes) > 0 && is.null(x$summary$discriminatory_accuracy)) cat("\n")
   }
 
   maihda_print_analysis_da(x$summary, x$summary_adjusted)
