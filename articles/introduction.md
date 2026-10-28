@@ -100,6 +100,7 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> VPC/ICC (null): 0.0636
 #> PCV (null -> adjusted): 0.6615
 #> Between-stratum variance: 2.9319 (null) -> 0.9924 (adjusted)
+#>   Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #>   ~66.2% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
@@ -111,10 +112,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x55db76e73290>
+#> <environment: 0x559be47fb648>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x55db75099de8>
+#> <environment: 0x559be2a16eb0>
 ```
 
 The returned object carries everything: the full variance components,
@@ -438,7 +439,7 @@ calculate_pcv(model_null, model_cov)
 #> Between-stratum variance:
 #>   Model 1: 2.931928
 #>   Model 2: 2.687139
-#>   Change:  0.244790 (8.35%)
+#>   Change:  0.244789 (8.35%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
 #> variance between the models):
@@ -552,7 +553,7 @@ fits with permutation sampling
 for the costs and the latent-scale caveat for binary outcomes). For the
 order-dependent sequential path use
 [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
-(above); the `method = "sequential"` option is deprecated.
+(above).
 
 ### Discriminatory accuracy and the response-scale VPC
 

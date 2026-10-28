@@ -4,8 +4,6 @@
 
 - [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
   : Calculate Proportional Change in Between-Stratum Variance (PCV)
-- [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
-  : Deprecated: use calculate_pcv()
 - [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
   : Compare MAIHDA Models
 - [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)

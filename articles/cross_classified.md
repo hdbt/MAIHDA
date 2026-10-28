@@ -127,7 +127,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x55fccc1444d0>
+#> <environment: 0x563ee6b82478>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -444,6 +444,7 @@ a
 #> Context share (null): 0.1283 (between-country share of unexplained variance)
 #> PCV (null -> adjusted): 0.9978
 #> Between-stratum variance: 915.2323 (null) -> 1.9877 (adjusted)
+#>   Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #>   ~99.8% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity

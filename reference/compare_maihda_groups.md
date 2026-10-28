@@ -122,13 +122,12 @@ compare_maihda_groups(
 
   Per-group additive-vs-interaction decomposition: the two-model null
   -\> adjusted PCV (`"two-model"`, default) or the single
-  crossed-dimensions model (`"crossed-dimensions"`; `"cross-classified"`
-  is a deprecated alias that warns). The crossed-dimensions form
-  requires `shared_strata = TRUE` and at least two stratum dimensions,
-  and adds the `var_additive`, `var_interaction`, `additive_share` and
-  `interaction_share` columns (in place of `pcv` /
-  `var_between_adjusted`); `var_between` is then the total
-  between-strata variance (additive + interaction). See
+  crossed-dimensions model (`"crossed-dimensions"`). The
+  crossed-dimensions form requires `shared_strata = TRUE` and at least
+  two stratum dimensions, and adds the `var_additive`,
+  `var_interaction`, `additive_share` and `interaction_share` columns
+  (in place of `pcv` / `var_between_adjusted`); `var_between` is then
+  the total between-strata variance (additive + interaction). See
   [`maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md) for the
   underlying model and its caveats.
 
@@ -182,7 +181,15 @@ compare_maihda_groups(
   attribute on the returned comparison; the basis actually used is
   recorded as `"estimation_used"` (`"mixed"` when a group's ML refit was
   skipped at the boundary, leaving it on REML). Both are shown by
-  [`print()`](https://rdrr.io/r/base/print.html).
+  [`print()`](https://rdrr.io/r/base/print.html). An `"ml_variances"`
+  attribute is `TRUE` when the groups' fits estimate their variances by
+  maximum likelihood (`glmer`, wemix or ordinal fits, or `lmer` fits
+  made with `REML = FALSE`) or the PCVs compare maximum-likelihood
+  refits (`estimation = "ML"`); under the default `estimation`
+  [`print()`](https://rdrr.io/r/base/print.html) notes it below a table
+  with PCVs, as
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  does.
 
 - ...:
 

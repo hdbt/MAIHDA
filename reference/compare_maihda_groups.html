@@ -184,8 +184,7 @@ binning of numeric grouping variables. Default TRUE.</p></dd>
 <dt id="arg-decomposition">decomposition<a class="anchor" aria-label="anchor" href="#arg-decomposition"></a></dt>
 <dd><p>Per-group additive-vs-interaction decomposition: the two-model
 null -&gt; adjusted PCV (<code>"two-model"</code>, default) or the single crossed-dimensions
-model (<code>"crossed-dimensions"</code>; <code>"cross-classified"</code> is a deprecated
-alias that warns). The crossed-dimensions form requires
+model (<code>"crossed-dimensions"</code>). The crossed-dimensions form requires
 <code>shared_strata = TRUE</code> and at least two stratum dimensions, and adds the
 <code>var_additive</code>, <code>var_interaction</code>, <code>additive_share</code> and
 <code>interaction_share</code> columns (in place of <code>pcv</code> /
@@ -238,7 +237,13 @@ data.</p></dd>
 Affects Gaussian <code>lmer</code> fits only. Recorded as an <code>"estimation"</code>
 attribute on the returned comparison; the basis actually used is recorded as
 <code>"estimation_used"</code> (<code>"mixed"</code> when a group's ML refit was skipped at
-the boundary, leaving it on REML). Both are shown by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>.</p></dd>
+the boundary, leaving it on REML). Both are shown by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>. An
+<code>"ml_variances"</code> attribute is <code>TRUE</code> when the groups' fits estimate their
+variances by maximum likelihood (<code>glmer</code>, wemix or ordinal fits, or
+<code>lmer</code> fits made with <code>REML = FALSE</code>) or the PCVs compare
+maximum-likelihood refits (<code>estimation = "ML"</code>); under the default
+<code>estimation</code> <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> notes it below a table with PCVs, as
+<code><a href="calculate_pcv.html">calculate_pcv</a></code> does.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

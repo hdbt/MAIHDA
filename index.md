@@ -291,13 +291,12 @@ over all entry orders — exact up to ~10 variables (all subset models fit
 once and cached), Monte-Carlo permutation sampling with per-variable MC
 standard errors beyond; `method = "dominance"` adds Budescu’s
 conditional/complete dominance detail (general dominance = the Shapley
-values); `method = "sequential"` reproduces the order-dependent path.
-Contributions are signed (a suppressor shows up as negative) and always
-sum exactly to the full-model Total PCV (the Shapley efficiency
-property). Attribute among the stratum dimensions to split the additive
-share across dimensions, or among covariates as an order-free
-variance-importance measure; optional parametric-bootstrap CIs per
-contribution (`bootstrap = TRUE`, lme4 only).
+values). Contributions are signed (a suppressor shows up as negative)
+and always sum exactly to the full-model Total PCV (the Shapley
+efficiency property). Attribute among the stratum dimensions to split
+the additive share across dimensions, or among covariates as an
+order-free variance-importance measure; optional parametric-bootstrap
+CIs per contribution (`bootstrap = TRUE`, lme4 only).
 
 ### Longitudinal (growth-curve) MAIHDA
 
@@ -405,8 +404,7 @@ print(stepwise_results)
 step contributions depend on the order the variables enter.
 [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
 removes that dependence: it averages each variable’s marginal PCV over
-all entry orders, with dominance analysis and the sequential path
-available under the same roof.
+all entry orders, with dominance analysis available under the same roof.
 
 ``` r
 

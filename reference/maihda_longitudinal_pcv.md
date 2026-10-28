@@ -45,7 +45,9 @@ An object of class `maihda_long_pcv`. `variance_summary` names what
 `var_baseline_*`, `var_slope_*` and the variances in `pcv_t` are
 (`"estimate"` for lme4, `"posterior median"` for brms), and
 `Sigma_summary` what the two stored blocks are (`"estimate"` or
-`"posterior mean"`).
+`"posterior mean"`). `ml_variances` is `TRUE` when the compared
+variances are maximum-likelihood estimates: a `glmer` growth pair, or
+`lmer` growth fits made or refitted by maximum likelihood.
 
 ## Details
 

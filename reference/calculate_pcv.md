@@ -72,7 +72,8 @@ A list containing:
 
 - pvc:
 
-  Deprecated duplicate of `pcv`; it will be removed in a future release
+  Deprecated duplicate of `pcv`; reading it warns, and it will be
+  removed in a future release
 
 - var_model1:
 

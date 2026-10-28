@@ -4,6 +4,19 @@
 
 ### New features
 
+- Added
+  [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
+  for pre-model sample, strata, missingness, weighting, and outcome
+  summaries, with print and plot methods.
+
+- Added
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  for Shapley and dominance-based PCV attribution, with optional
+  bootstrap intervals.
+
+- Added a [`predict()`](https://rdrr.io/r/stats/predict.html) method for
+  `maihda_model` objects.
+
 - `plot(type = "upset")` now honours `order_by`, which it previously
   accepted and silently ignored. `order_by = "predicted_desc"` gives the
   ranked caterpillar of `type = "predicted"` with the UpSet category
@@ -181,6 +194,27 @@
 - [`print()`](https://rdrr.io/r/base/print.html) on a PCV built from
   maximum-likelihood variances (a glmer, wemix or ordinal fit) now says
   so; the numbers are unchanged.
+
+- [`print()`](https://rdrr.io/r/base/print.html) on a two-model
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
+  analysis and on a longitudinal PCV now names the variances the PCV
+  compares, as
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  does, where no note already names them; a longitudinal PCV records
+  `ml_variances`. The numbers are unchanged.
+
+- [`print()`](https://rdrr.io/r/base/print.html) on
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  results built from maximum-likelihood variances (a glmer, wemix or
+  ordinal fit, or an lmer fit made with `REML = FALSE`) now names them
+  as
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  does and notes that they run low with few or small strata, so the PCV
+  runs high; the results record `ml_variances`. The numbers are
+  unchanged.
 
 - [`print()`](https://rdrr.io/r/base/print.html) on a
   `maihda(decomposition = "crossed-dimensions")` analysis fitted with
@@ -402,11 +436,6 @@
   `decomposition = "longitudinal"` a user-written `gender * wave` put
   the `dim:time` term the adjusted growth model supplies into the null
   as well. Write the additive form.
-
-- `pcv_importance(method = "sequential")` is soft-deprecated. Use
-  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
-  for an order-dependent path or `method = "shapley"` for
-  order-invariant attribution.
 
 - [`maihda_mor()`](https://hdbt.github.io/MAIHDA/reference/maihda_mor.md)
   on a crossed-dimensions fit now returns the mixture MOR over pairs of
@@ -745,6 +774,30 @@
   and the sparse-intersections vignette quote these, and the vignette
   adds lme4’s share with 1,000 individuals in every stratum (28% and
   35%).
+
+- `calculate_pvc()`, deprecated since 0.2.1, is removed; use
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
+
+- `plot_comparison()`, deprecated since 0.1.11, is removed; use
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on the
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  result.
+
+- `plot_group_comparison()`, deprecated since 0.1.11, is removed; use
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on the
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  result.
+
+- `decomposition = "cross-classified"`, deprecated since 0.1.11, is
+  removed:
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  stop with an error that points to `"crossed-dimensions"` and to
+  `context =`.
+
+- Reading the deprecated `pvc` element of a
+  [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  result with `$` or `[[` now warns; read `pcv`.
 
 ### Documentation
 
@@ -2257,10 +2310,6 @@ CRAN release: 2026-07-09
 
 ### New features
 
-- Added
-  [`maihda_describe()`](https://hdbt.github.io/MAIHDA/reference/maihda_describe.md)
-  for pre-model sample, strata, missingness, weighting, and outcome
-  summaries, with print and plot methods.
 - [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   now support stratified contextual analyses using `group` and `context`
@@ -2271,18 +2320,10 @@ CRAN release: 2026-07-09
   adjusted model, or both.
 - Added contextual models to
   [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md).
-- Added
-  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
-  for Shapley and dominance-based PCV attribution, with optional
-  bootstrap intervals.
 
 ### API changes
 
-- Added a [`predict()`](https://rdrr.io/r/stats/predict.html) method for
-  `maihda_model` objects.
-- Renamed
-  [`calculate_pvc()`](https://hdbt.github.io/MAIHDA/reference/calculate_pvc.md)
-  to
+- Renamed `calculate_pvc()` to
   [`calculate_pcv()`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md).
   The old name and `$pvc` result element remain as deprecated aliases.
 
@@ -2491,9 +2532,8 @@ CRAN release: 2026-06-18
 - Added
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
   for VPC/ICC and variance comparisons across groups.
-- Added
-  [`plot_group_comparison()`](https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.md)
-  for forest and variance-composition plots.
+- Added `plot_group_comparison()` for forest and variance-composition
+  plots.
 
 ### Bug fixes
 

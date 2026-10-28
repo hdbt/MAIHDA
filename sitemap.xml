@@ -24,7 +24,7 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_pcv.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/bootstrap_vpc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/calculate_pcv.html</loc></url>
-<url><loc>https://hdbt.github.io/MAIHDA/reference/calculate_pvc.html</loc></url>
+<url><loc>https://hdbt.github.io/MAIHDA/reference/cash-.pcv_result.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/compare_maihda.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/extract_between_variance.html</loc></url>
@@ -108,10 +108,8 @@
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_group_comparison.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_model.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot.maihda_pcv_importance.html</loc></url>
-<url><loc>https://hdbt.github.io/MAIHDA/reference/plot_comparison.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_context_vpc.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_effect_decomposition.html</loc></url>
-<url><loc>https://hdbt.github.io/MAIHDA/reference/plot_group_comparison.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_obs_vs_shrunken.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_pcv_trajectory.html</loc></url>
 <url><loc>https://hdbt.github.io/MAIHDA/reference/plot_predicted_strata.html</loc></url>

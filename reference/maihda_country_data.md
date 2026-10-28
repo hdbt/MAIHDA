@@ -117,6 +117,7 @@ analysis
 #> VPC/ICC (null): 0.1493
 #> PCV (null -> adjusted): 1.0000
 #> Between-stratum variance: 1352.2436 (null) -> 0.0000 (adjusted)
+#>   Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #>   ~100.0% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity

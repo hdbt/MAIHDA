@@ -115,7 +115,14 @@ The variance-estimation basis chosen by `estimation` is recorded as an
 `"estimation"` attribute on the returned table; the basis actually used
 is recorded as `"estimation_used"` (`"mixed"` when `estimation = "ML"`
 but a step's ML refit was skipped at the boundary, leaving it on REML).
-Both are shown by [`print()`](https://rdrr.io/r/base/print.html).
+Both are shown by [`print()`](https://rdrr.io/r/base/print.html). An
+`"ml_variances"` attribute is `TRUE` when the compared variances are
+maximum-likelihood estimates (`glmer`, wemix or ordinal fits, or `lmer`
+fits refitted by maximum likelihood);
+[`print()`](https://rdrr.io/r/base/print.html) notes it under the
+default `estimation`, as
+[`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+does.
 
 `Step_PCV` is `NA` for any step whose *preceding* model has a
 between-stratum variance at the singularity boundary: that variance is

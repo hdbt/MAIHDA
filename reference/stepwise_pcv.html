@@ -169,7 +169,10 @@ compared across steps, <code>"fitted"</code> (default) or <code>"ML"</code>; see
   <code>"estimation"</code> attribute on the returned table; the basis actually used is
   recorded as <code>"estimation_used"</code> (<code>"mixed"</code> when <code>estimation = "ML"</code>
   but a step's ML refit was skipped at the boundary, leaving it on REML). Both are
-  shown by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>.</p>
+  shown by <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>. An <code>"ml_variances"</code> attribute is <code>TRUE</code> when the
+  compared variances are maximum-likelihood estimates (<code>glmer</code>, wemix or
+  ordinal fits, or <code>lmer</code> fits refitted by maximum likelihood); <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>
+  notes it under the default <code>estimation</code>, as <code><a href="calculate_pcv.html">calculate_pcv</a></code> does.</p>
 <p><code>Step_PCV</code> is <code>NA</code> for any step whose <em>preceding</em> model has a
   between-stratum variance at the singularity boundary: that variance is the step's
   denominator, and at the boundary it carries only optimizer noise, so the ratio is

@@ -171,24 +171,22 @@ maihda(
   that prior when each stratum has enough data, whatever the number of
   levels (see the section Realised strata). Otherwise prefer
   `"two-model"` (with few strata see `estimation`) unless every
-  dimension has about ten or more levels. See Details.
-  (`"cross-classified"` is accepted as a deprecated alias for
-  `"crossed-dimensions"`, with a warning: in the MAIHDA literature
-  “cross-classified” refers to the contextual stratum-by-place model,
-  which this package fits via `context`.) `"longitudinal"` fits a
-  3-level **growth-curve** MAIHDA (requires `id` and `time`; selected
-  automatically when they are supplied): a null and an adjusted growth
-  model, where the adjusted model adds the dimensions' main effects *and
-  their interactions with time* (`dim:time`). The between-stratum
-  variance is then time-varying and the PCV is reported separately for
-  the baseline (intercept) and the slope variance – the
-  additive-vs-multiplicative split of the intersectional trajectory
-  inequality (Bell, Evans, Holman & Leckie 2024). As with the two-model
-  PCV, the `estimation` argument sets the variance-estimation basis: the
-  default `"fitted"` keeps each REML `lmer` growth fit's own variance,
-  while `"ML"` refits them with maximum likelihood before the
-  null-vs-adjusted comparison, which overstates the PCV when strata are
-  few (see
+  dimension has about ten or more levels. See Details. (In the MAIHDA
+  literature “cross-classified” refers to the contextual
+  stratum-by-place model, which this package fits via `context`.)
+  `"longitudinal"` fits a 3-level **growth-curve** MAIHDA (requires `id`
+  and `time`; selected automatically when they are supplied): a null and
+  an adjusted growth model, where the adjusted model adds the
+  dimensions' main effects *and their interactions with time*
+  (`dim:time`). The between-stratum variance is then time-varying and
+  the PCV is reported separately for the baseline (intercept) and the
+  slope variance – the additive-vs-multiplicative split of the
+  intersectional trajectory inequality (Bell, Evans, Holman & Leckie
+  2024). As with the two-model PCV, the `estimation` argument sets the
+  variance-estimation basis: the default `"fitted"` keeps each REML
+  `lmer` growth fit's own variance, while `"ML"` refits them with
+  maximum likelihood before the null-vs-adjusted comparison, which
+  overstates the PCV when strata are few (see
   [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)).
   The reported time-varying VPC always keeps each fit's own (REML)
   estimate. See
@@ -626,6 +624,7 @@ a                              # VPC (null) and PCV (null -> adjusted)
 #> VPC/ICC (null): 0.0585
 #> PCV (null -> adjusted): 0.4963
 #> Between-stratum variance: 2.7383 (null) -> 1.3792 (adjusted)
+#>   Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #>   ~49.6% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
@@ -653,10 +652,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x557bd2b59f00>
+#> <environment: 0x557a6a0502b0>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x557bd5065490>
+#> <environment: 0x557a6ec97878>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -712,7 +711,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x557bd16d0668>
+#> <environment: 0x557a6ea5f980>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):
@@ -736,6 +735,7 @@ a2
 #> VPC/ICC (null): 0.1493
 #> PCV (null -> adjusted): 1.0000
 #> Between-stratum variance: 1352.2436 (null) -> 0.0000 (adjusted)
+#>   Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #>   ~100.0% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity
@@ -797,6 +797,7 @@ a3
 #> Context share (null): 0.1283 (between-country share of unexplained variance)
 #> PCV (null -> adjusted): 0.9978
 #> Between-stratum variance: 915.2323 (null) -> 1.9877 (adjusted)
+#>   Variance basis: as fitted (REML for Gaussian lmer, matching summary())
 #>   ~99.8% of the between-stratum variance is additive (the dimensions' main
 #>   effects); the remainder is the between-stratum variance remaining after the
 #>   additive main effects -- a model-dependent quantity

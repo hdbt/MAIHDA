@@ -114,7 +114,9 @@ null model's reporting grid.</p></dd>
   what <code>var_baseline_*</code>, <code>var_slope_*</code> and the variances in <code>pcv_t</code>
   are (<code>"estimate"</code> for lme4, <code>"posterior median"</code> for brms), and
   <code>Sigma_summary</code> what the two stored blocks are (<code>"estimate"</code> or
-  <code>"posterior mean"</code>).</p>
+  <code>"posterior mean"</code>). <code>ml_variances</code> is <code>TRUE</code> when the compared
+  variances are maximum-likelihood estimates: a <code>glmer</code> growth pair, or
+  <code>lmer</code> growth fits made or refitted by maximum likelihood.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

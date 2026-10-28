@@ -9,11 +9,8 @@ value function over variable subsets and attributes it *fairly*: the
 flagship `"shapley"` method averages each variable's marginal PCV over
 every possible entry order, and `"dominance"` adds Budescu's pairwise
 dominance detail (its general dominance weights coincide with the
-Shapley values). All methods satisfy the **efficiency** identity: the
-contributions sum exactly to the full model's total PCV. (The
-order-dependent `"sequential"` method is **deprecated**; use
-[`stepwise_pcv`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
-for the sequential path – see the `method` argument.)
+Shapley values). Both methods satisfy the **efficiency** identity: the
+contributions sum exactly to the full model's total PCV.
 
 Two attribution targets are useful in a MAIHDA. Passing the *stratum
 dimensions* (e.g. `c("gender", "race", "education")`) splits the
@@ -32,7 +29,7 @@ pcv_importance(
   data,
   outcome,
   vars,
-  method = c("shapley", "sequential", "dominance"),
+  method = c("shapley", "dominance"),
   approx = c("exact", "montecarlo"),
   n_perm = 2000,
   engine = "lme4",
@@ -61,22 +58,16 @@ pcv_importance(
 - vars:
 
   Character vector of predictors (stratum dimensions and/or covariates)
-  among which the PCV is apportioned. Order does not affect the
-  `"shapley"` and `"dominance"` results; it defines the path for
-  `"sequential"`.
+  among which the PCV is apportioned. Their order does not affect the
+  exact attribution; a Monte-Carlo attribution depends on it only
+  through its sampling error.
 
 - method:
 
   Attribution method: `"shapley"` (default; order-invariant Shapley
   values) or `"dominance"` (Budescu dominance analysis: general
   dominance – equal to the Shapley values – plus the conditional and
-  complete dominance detail). `"sequential"` (the order-dependent
-  one-at-a-time path) is **deprecated** and will be removed in a future
-  release: it still runs but warns, and
-  [`stepwise_pcv`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
-  is the supported sequential decomposition – it additionally reports
-  the step-specific `Step_PCV` and, for a binary outcome, the
-  discriminatory-accuracy trajectory (AUC, MOR).
+  complete dominance detail).
 
 - approx:
 
@@ -84,8 +75,7 @@ pcv_importance(
   non-empty variable subsets (plus the null); `"montecarlo"` samples
   `n_perm` random entry orders instead. When `approx` is not supplied it
   defaults to `"exact"` for up to 10 variables and switches to
-  `"montecarlo"` (with a message) beyond. `"sequential"` needs only the
-  \\k\\ path models and ignores `approx`; `"dominance"` requires every
+  `"montecarlo"` (with a message) beyond. `"dominance"` requires every
   subset, so it errors if `approx = "montecarlo"` is requested.
 
 - n_perm:
@@ -190,7 +180,8 @@ An object of class `maihda_pcv_importance`: a list with
 
 - method, approx, n_perm, n_fits, n_obs, engine, family, context,
   bootstrap, conf_level, n_boot_ok, n_boot_boundary,
-  n_boot_nonconverged, interval_reliable, estimation, estimation_used:
+  n_boot_nonconverged, interval_reliable, estimation, estimation_used,
+  ml_variances:
 
   Metadata; `n_fits` counts the distinct models fit (including the
   null), `n_boot_ok` the number of successful bootstrap draws,
@@ -201,9 +192,15 @@ An object of class `maihda_pcv_importance`: a list with
   when more than half the contributing draws did not converge (the
   intervals are still returned but flagged unreliable), `estimation` is
   the variance-estimation basis (`"fitted"`/`"ML"`) requested for every
-  subset model's between-stratum variance, and `estimation_used` is the
+  subset model's between-stratum variance, `estimation_used` is the
   basis actually used (`"mixed"` when an ML refit was skipped at the
-  boundary, leaving a subset model on REML).
+  boundary, leaving a subset model on REML), and `ml_variances` is
+  `TRUE` when the compared variances are maximum-likelihood estimates
+  (`glmer`, wemix or ordinal fits, or `lmer` fits refitted by maximum
+  likelihood), which [`print()`](https://rdrr.io/r/base/print.html)
+  notes under the default `estimation`, as
+  [`calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)
+  does.
 
 ## Details
 
@@ -225,20 +222,6 @@ here (including the Monte-Carlo approximation, for any `n_perm`) sum
 exactly to the full-model total PCV. This is the multilevel-PCV analogue
 of the LMG / Shorrocks-Shapley decomposition of \\R^2\\ (Groemping 2006;
 Shorrocks 2013).
-
-**Sequential method (deprecated) vs.
-[`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md).**
-The `"sequential"` method is **deprecated** in favour of
-[`stepwise_pcv`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
-which owns the sequential trajectory and also reports the `Step_PCV`
-column and the discriminatory-accuracy path. While it remains, its
-contributions are the *increments in total PCV* along the entry order,
-\\v(\\x_1..x_i\\) - v(\\x_1..x\_{i-1}\\)\\ – i.e.
-`diff(c(0, Total_PCV))` of the
-[`stepwise_pcv`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md)
-table, so they sum to the same total. They are *not* the `Step_PCV`
-column, which normalises each step by the *previous* step's variance
-rather than by \\V_0\\.
 
 **Exact vs. Monte-Carlo cost.** The exact attribution fits \\2^k - 1\\
 non-empty subset models plus the null – \\2^k\\ fits in total, with
