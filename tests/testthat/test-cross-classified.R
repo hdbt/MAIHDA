@@ -393,26 +393,22 @@ test_that("default compare_maihda_groups() keeps the two-model PCV schema", {
   expect_false("additive_share" %in% names(g))
 })
 
-# ---- deprecated alias --------------------------------------------------------
+# ---- the term "cross-classified" ---------------------------------------------
 
-test_that("decomposition = 'cross-classified' warns and maps to 'crossed-dimensions'", {
+test_that("decomposition = 'cross-classified' errors, naming both designs it can mean", {
   d <- make_cc_data()
-  # capture_warnings() so the deprecation warning can be asserted while incidental
-  # lme4 fit warnings (singular dimension REs) are tolerated.
-  w1 <- capture_warnings(
-    a <- suppressMessages(
-      maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "cross-classified")))
-  expect_true(any(grepl("renamed.*crossed-dimensions", w1)))
-  expect_identical(a$mode, "crossed-dimensions")
-  expect_false(is.null(a$decomposition))
-
-  w2 <- capture_warnings(
-    g <- suppressMessages(
-      compare_maihda_groups(y ~ x + (1 | a:b:cc), data = d, group = "grp",
-                            decomposition = "cross-classified")))
-  expect_true(any(grepl("renamed.*crossed-dimensions", w2)))
-  expect_identical(attr(g, "decomposition"), "crossed-dimensions")
-  expect_true("additive_share" %in% names(g))
+  # One helper raises the error for every entry point, before anything is fitted.
+  err <- function(expr) tryCatch(expr, error = function(e) e)
+  e0 <- err(maihda_resolve_decomposition("cross-classified"))
+  e1 <- err(maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "cross-classified"))
+  e2 <- err(compare_maihda_groups(y ~ x + (1 | a:b:cc), data = d, group = "grp",
+                                  decomposition = "cross-classified"))
+  for (e in list(e0, e1, e2)) expect_s3_class(e, "error")
+  expect_identical(conditionMessage(e1), conditionMessage(e0))
+  expect_identical(conditionMessage(e2), conditionMessage(e0))
+  expect_match(conditionMessage(e0), "decomposition = \"crossed-dimensions\"",
+               fixed = TRUE)
+  expect_match(conditionMessage(e0), "'context' argument", fixed = TRUE)
 })
 
 # ---- brms crossed-dimensions summary with a context (Stan-free) ---------------

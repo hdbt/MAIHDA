@@ -145,10 +145,8 @@
 #'   strata).
 #'   Otherwise prefer \code{"two-model"} (with few strata see \code{estimation})
 #'   unless every dimension has about ten or more levels. See Details.
-#'   (\code{"cross-classified"} is accepted as a deprecated alias for
-#'   \code{"crossed-dimensions"}, with a warning: in the MAIHDA literature
-#'   \dQuote{cross-classified} refers to the contextual stratum-by-place model,
-#'   which this package fits via \code{context}.)
+#'   (In the MAIHDA literature \dQuote{cross-classified} refers to the contextual
+#'   stratum-by-place model, which this package fits via \code{context}.)
 #'   \code{"longitudinal"} fits a 3-level \strong{growth-curve} MAIHDA (requires
 #'   \code{id} and \code{time}; selected automatically when they are supplied): a
 #'   null and an adjusted growth model, where the adjusted model adds the

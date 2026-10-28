@@ -308,7 +308,7 @@ conditional/complete dominance detail, and for many variables
 `approx = "montecarlo"` replaces the exponential number of exact subset fits
 with permutation sampling (`?pcv_importance` for the costs and the latent-scale
 caveat for binary outcomes). For the order-dependent sequential path use
-`stepwise_pcv()` (above); the `method = "sequential"` option is deprecated.
+`stepwise_pcv()` (above).
 
 ### Discriminatory accuracy and the response-scale VPC
 

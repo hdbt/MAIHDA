@@ -406,7 +406,7 @@ test_that("bootstrap_pcv rejects non-lme4 engines with honest per-engine guidanc
   )
 })
 
-test_that("calculate_pvc is a deprecated alias of calculate_pcv", {
+test_that("a PCV result keeps the deprecated pvc copy, and reading it warns", {
   set.seed(42)
   data <- data.frame(
     stratum = factor(rep(1:8, each = 20)),
@@ -417,16 +417,40 @@ test_that("calculate_pvc is a deprecated alias of calculate_pcv", {
 
   model1 <- fit_maihda(outcome ~ 1 + (1 | stratum), data = data)
   model2 <- fit_maihda(outcome ~ age + (1 | stratum), data = data)
-
   new <- calculate_pcv(model1, model2)
-  # Match on the condition class, not the message: .Deprecated()'s text is localized.
-  expect_warning(old <- calculate_pvc(model1, model2), class = "deprecatedWarning")
-  expect_identical(old, new)
+  plain <- unclass(new)
 
   # The result answers to both the new and the historical class/element names.
   expect_s3_class(new, "pcv_result")
   expect_s3_class(new, "pvc_result")
-  expect_identical(new$pvc, new$pcv)
+  expect_identical(plain$pvc, plain$pcv)
+
+  # Reading 'pvc' by name warns once, with a deprecatedWarning, through $, [[ and
+  # getElement(), and returns pcv. The class is checked on the caught condition:
+  # expect_warning() ignores 'class' in testthat's second edition, which this suite uses.
+  read_pvc <- function(expr) {
+    conds <- list()
+    value <- withCallingHandlers(expr, warning = function(w) {
+      conds[[length(conds) + 1L]] <<- w
+      invokeRestart("muffleWarning")
+    })
+    list(value = value, conds = conds)
+  }
+  for (r in list(read_pvc(new$pvc), read_pvc(new[["pvc"]]),
+                 read_pvc(getElement(new, "pvc")))) {
+    expect_length(r$conds, 1L)
+    expect_s3_class(r$conds[[1]], "deprecatedWarning")
+    expect_identical(r$value, plain$pcv)
+  }
+
+  # Every other read is a plain list's, with no warning; so are print() and str(),
+  # which walk the elements by position.
+  expect_no_warning(reads <- list(new$pcv, new[["pcv"]], new$var_model1, new[[3]],
+                                  new$estimation_used, new$nonexistent))
+  expect_identical(reads, list(plain$pcv, plain[["pcv"]], plain$var_model1, plain[[3]],
+                               plain$estimation_used, NULL))
+  expect_no_warning(utils::capture.output(print(new)))
+  expect_no_warning(utils::capture.output(utils::str(new)))
 })
 
 test_that("PCV bootstrap reports zero-null-variance boundary draws", {

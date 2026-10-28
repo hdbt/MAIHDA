@@ -28,8 +28,8 @@
 #'
 #' @return A list containing:
 #'   \item{pcv}{The estimated proportional change in variance}
-#'   \item{pvc}{Deprecated duplicate of \code{pcv}; it will be removed in a future
-#'     release}
+#'   \item{pvc}{Deprecated duplicate of \code{pcv}; reading it warns, and it will be
+#'     removed in a future release}
 #'   \item{var_model1}{Between-stratum variance from model1}
 #'   \item{var_model2}{Between-stratum variance from model2}
 #'   \item{estimation}{The variance-estimation basis requested (\code{"fitted"},
@@ -347,9 +347,8 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   # Calculate PCV
   pcv <- (var1 - var2) / var1
 
-  # Create result object. The 'pvc' element and the trailing "pvc_result" class
-  # duplicate 'pcv'/"pcv_result" for code written against the historical
-  # calculate_pvc() spelling.
+  # Create result object. The deprecated 'pvc' element (reading it warns: see
+  # `$.pcv_result`) and the trailing "pvc_result" class duplicate 'pcv'/"pcv_result".
   result <- list(
     pcv = pcv,
     pvc = pcv,
@@ -394,22 +393,36 @@ calculate_pcv <- function(model1, model2, bootstrap = FALSE,
   return(result)
 }
 
-#' Deprecated: use calculate_pcv()
+#' Read an element of a PCV result
 #'
-#' \code{calculate_pvc()} is a deprecated alias of \code{\link{calculate_pcv}}. It
-#' forwards to \code{calculate_pcv()} with a deprecation warning and will be removed
-#' in a future release.
+#' \code{$} and \code{[[} read a \code{\link{calculate_pcv}} result as a list.
+#' Reading its deprecated \code{pvc} element, a copy of \code{pcv}, warns; read
+#' \code{pcv} instead.
 #'
-#' @inheritParams calculate_pcv
-#' @return See \code{\link{calculate_pcv}}.
+#' @param x A \code{pcv_result} object from \code{\link{calculate_pcv}}.
+#' @param name,i The element's name (or, for \code{[[}, its position).
+#' @param ... Passed on to the list method.
+#' @return The element.
+#' @keywords internal
 #' @export
-calculate_pvc <- function(model1, model2, bootstrap = FALSE,
-                          n_boot = 1000, conf_level = 0.95,
-                          estimation = c("fitted", "ML", "REML")) {
-  .Deprecated("calculate_pcv")
-  calculate_pcv(model1, model2, bootstrap = bootstrap,
-                n_boot = n_boot, conf_level = conf_level,
-                estimation = match.arg(estimation))
+`$.pcv_result` <- function(x, name) {
+  if (identical(name, "pvc")) maihda_pvc_read_warning()
+  NextMethod()
+}
+
+#' @rdname cash-.pcv_result
+#' @export
+`[[.pcv_result` <- function(x, i, ...) {
+  if (identical(i, "pvc")) maihda_pvc_read_warning()
+  NextMethod()
+}
+
+# Classed like .Deprecated()'s warning, so a caller can catch or muffle it by class.
+maihda_pvc_read_warning <- function() {
+  warning(warningCondition(
+    paste0("The 'pvc' element of a calculate_pcv() result is deprecated and will be ",
+           "removed; read 'pcv' instead."),
+    class = "deprecatedWarning", call = NULL))
 }
 
 # Apply the requested variance-estimation basis before a cross-model PCV comparison.

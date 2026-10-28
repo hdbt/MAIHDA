@@ -80,8 +80,7 @@ binning of numeric grouping variables. Default TRUE.}
 
 \item{decomposition}{Per-group additive-vs-interaction decomposition: the two-model
 null -> adjusted PCV (\code{"two-model"}, default) or the single crossed-dimensions
-model (\code{"crossed-dimensions"}; \code{"cross-classified"} is a deprecated
-alias that warns). The crossed-dimensions form requires
+model (\code{"crossed-dimensions"}). The crossed-dimensions form requires
 \code{shared_strata = TRUE} and at least two stratum dimensions, and adds the
 \code{var_additive}, \code{var_interaction}, \code{additive_share} and
 \code{interaction_share} columns (in place of \code{pcv} /

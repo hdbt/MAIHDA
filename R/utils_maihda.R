@@ -4796,12 +4796,11 @@ maihda_context_components_table <- function(var_stratum, per_context,
   out
 }
 
-# Normalize the user-facing `decomposition` argument shared by maihda() and
-# compare_maihda_groups(). The value "cross-classified" historically named the
-# crossed-DIMENSIONS decomposition; it was renamed "crossed-dimensions" when the
-# contextual cross-classified model (fit_maihda(context = ), the literature's
-# cross-classified MAIHDA) was added, to free the term. The old value still works
-# as a deprecated alias, with a one-time warning per call.
+# Normalize the user-facing `decomposition` argument shared by maihda(),
+# compare_maihda_groups() and the app helpers. "cross-classified" can mean two
+# designs: the crossed-dimensions decomposition, or the literature's cross-classified
+# MAIHDA of strata crossed with places (fit_maihda(context = )). It is refused with an
+# error that names both.
 maihda_resolve_decomposition <- function(decomposition) {
   # A caller may pass its own multi-element formal default (e.g.
   # c("two-model", "crossed-dimensions")); take the first as the default, mirroring
@@ -4811,13 +4810,11 @@ maihda_resolve_decomposition <- function(decomposition) {
     decomposition <- decomposition[1]
   }
   if (identical(decomposition, "cross-classified")) {
-    warning("decomposition = \"cross-classified\" has been renamed ",
-            "\"crossed-dimensions\" (it crosses the stratum dimensions' main ",
-            "effects as random intercepts). The old value still works but is ",
-            "deprecated -- \"cross-classified MAIHDA\" now refers to the ",
-            "contextual stratum-by-place model fitted via the 'context' argument.",
-            call. = FALSE)
-    decomposition <- "crossed-dimensions"
+    stop("decomposition = \"cross-classified\" is not a decomposition. For the ",
+         "model that crosses the stratum dimensions' main effects as random ",
+         "intercepts, use decomposition = \"crossed-dimensions\"; for a ",
+         "cross-classified MAIHDA of strata crossed with places or institutions ",
+         "(e.g. schools, hospitals), use the 'context' argument.", call. = FALSE)
   }
   match.arg(decomposition, c("two-model", "crossed-dimensions", "longitudinal"))
 }

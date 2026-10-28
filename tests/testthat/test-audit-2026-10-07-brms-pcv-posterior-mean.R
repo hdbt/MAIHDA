@@ -107,7 +107,8 @@ test_that("calculate_pcv() compares posterior medians for two brms fits", {
   expect_identical(res$var_model1, stats::median(v0))
   expect_identical(res$var_model2, stats::median(v1))
   expect_equal(res$pcv, 1 - stats::median(v1) / stats::median(v0), tolerance = 1e-12)
-  expect_identical(res$pvc, res$pcv)
+  expect_s3_class(tryCatch(res$pvc, warning = function(w) w), "deprecatedWarning")
+  expect_identical(unclass(res)$pvc, res$pcv)
   expect_identical(res$estimation_used, "posterior")
   expect_false(res$adjusted_at_boundary)
 
@@ -199,8 +200,7 @@ test_that("stepwise_pcv() and pcv_importance() tabulate posterior medians for br
   # Nothing in this table is a posterior mean, so nothing is said about one.
   expect_false(any(grepl("posterior means", printed, fixed = TRUE)))
 
-  imp <- suppressMessages(suppressWarnings(
-    pcv_importance(d, "y", c("a", "b"), engine = "brms", method = "sequential")))
+  imp <- suppressMessages(pcv_importance(d, "y", c("a", "b"), engine = "brms"))
   expect_equal(imp$total_pcv, 1 - med[3] / med[1], tolerance = 1e-12)
 })
 

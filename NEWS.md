@@ -2,6 +2,9 @@
 
 ## New features
 
+* Added `maihda_describe()` for pre-model sample, strata, missingness, weighting, and outcome summaries, with print and plot methods.
+* Added `pcv_importance()` for Shapley and dominance-based PCV attribution, with optional bootstrap intervals.
+* Added a `predict()` method for `maihda_model` objects.
 * `plot(type = "upset")` now honours `order_by`, which it previously accepted and silently ignored. `order_by = "predicted_desc"` gives the ranked caterpillar of `type = "predicted"` with the UpSet category matrix in place of the long text labels. The default is unchanged (intersection size, largest first), and the panel caption now reports the order actually drawn.
 * `order_by` gained `"size"` (largest stratum first) on both `type = "predicted"` and `type = "upset"`.
 * `summary()` on a `maihda` analysis gained `which = "adjusted"`, matching `tidy()`. It returns the null model by default, whose fixed effects are the intercept and covariates only because the strata dimensions are its random-effect grouping -- easy to misread as the dimension main effects having gone missing. `print()` now names which of the two models it is showing.
@@ -55,7 +58,6 @@
 * Gaussian PCV calculations now use each model's fitted (REML) between-stratum variance by default. Use `estimation = "ML"` in `calculate_pcv()`, `stepwise_pcv()`, `pcv_importance()`, `compare_maihda_groups()`, or `maihda()` to restore the previous ML-refit behaviour.
 * `maihda()` and `compare_maihda_groups()` now reject a stratum dimension written in transformed form in the fixed part -- `y ~ factor(edu) + gender + (1 | edu:gender)`, and likewise `scale()`, `I()`, `poly()` or a spline. Only a bare column name was ever recognised as a dimension's main effect, so the transform was not removed when the null model was derived: the null already adjusted for that dimension, its between-stratum variance was deflated and the PCV was computed against the wrong baseline (in `decomposition = "crossed-dimensions"` the dimension entered as a fixed effect and a random intercept at once). Transform the column in `data` and write the bare name.
 * `maihda()` and `compare_maihda_groups()` now also reject a fixed interaction between a covariate and a stratum dimension -- `y ~ age * gender + race + (1 | gender:race)` -- in every decomposition mode. Only the dimension's bare main effect was removed when the null model was derived, so `age:gender` survived into the null, which then already adjusted for gender. With the main effect gone that term is a gender contrast scaled by age, so the PCV depended on age's arbitrary origin (re-centring moved it 2.3 percentage points on `maihda_health_data` while the adjusted fits were identical to 1e-9); for a categorical covariate the null's fixed part spanned the dimension's main effect exactly, leaving the PCV 6.5 points off the value a dimension-free null gives. In `decomposition = "crossed-dimensions"` the dimension entered as a fixed effect and a random intercept at once, competing for the same contrast, so its additive variance was not identified as intended; in `decomposition = "longitudinal"` a user-written `gender * wave` put the `dim:time` term the adjusted growth model supplies into the null as well. Write the additive form.
-* `pcv_importance(method = "sequential")` is soft-deprecated. Use `stepwise_pcv()` for an order-dependent path or `method = "shapley"` for order-invariant attribution.
 * `maihda_mor()` on a crossed-dimensions fit now returns the mixture MOR over pairs of distinct strata instead of applying the independent-strata closed form to the summed variance. Reported values fall, most where the variance sits in the additive dimensions.
 * `fit_maihda(engine = "wemix")` now rejects a `max_iteration` that is not a single whole number of at least 1.
 * The Poisson and negative-binomial level-1 variance behind the VPC is now evaluated at a single mean count, `log(1 + 1/mean(lambda))`, as Stryhn et al. (2006) and Nakagawa, Johnson & Schielzeth (2017) define it, instead of averaging `log(1 + 1/lambda_i)` over rows. Null-model count VPCs are unchanged; adjusted, offset, weighted, and longitudinal count VPCs rise.
@@ -98,6 +100,12 @@
 * `fit_maihda(engine = "ordinal")` now fits a model with fixed effects on its design with the columns centred and scaled and returns the `clmm` fit of the formula at that maximum: a covariate far from zero or on a large or tiny scale (a birth year, currency units, a squared age) could leave `ordinal::clmm()` at its starting values or short of the maximum. A fit given a `start` is made as the formula stands.
 * Standard errors of `engine = "ordinal"` fits now come from the Hessian of that rescaled fit, carried over exactly; `clmm()`'s own, taken by differences with a fixed step, were wrong for a covariate far from zero or on a large scale (for a birth year between 0.01 and 1.8 times the right value on simulated data).
 * `attr(maihda_sparse_data, "truth")` now holds what the 36 drawn stratum effects carry, and the effects themselves: VPC 0.24 on `y` and 0.29 on `event`, interaction share 41%, where it held the generator's targets (0.26, 0.31, 40%). `?maihda_sparse_data` and the sparse-intersections vignette quote these, and the vignette adds lme4's share with 1,000 individuals in every stratum (28% and 35%).
+
+* `calculate_pvc()`, deprecated since 0.2.1, is removed; use `calculate_pcv()`.
+* `plot_comparison()`, deprecated since 0.1.11, is removed; use `plot()` on the `compare_maihda()` result.
+* `plot_group_comparison()`, deprecated since 0.1.11, is removed; use `plot()` on the `compare_maihda_groups()` result.
+* `decomposition = "cross-classified"`, deprecated since 0.1.11, is removed: `maihda()` and `compare_maihda_groups()` stop with an error that points to `"crossed-dimensions"` and to `context =`.
+* Reading the deprecated `pvc` element of a `calculate_pcv()` result with `$` or `[[` now warns; read `pcv`.
 
 ## Documentation
 
@@ -359,16 +367,13 @@
 
 ## New features
 
-* Added `maihda_describe()` for pre-model sample, strata, missingness, weighting, and outcome summaries, with print and plot methods.
 * `maihda()` and `compare_maihda_groups()` now support stratified contextual analyses using `group` and `context` together.
 * `plot(type = "predicted")` now orders strata by predicted value by default and accepts `order_by`.
 * VPC plots for `maihda_analysis` objects can show the null model, adjusted model, or both.
 * Added contextual models to `stepwise_pcv()`.
-* Added `pcv_importance()` for Shapley and dominance-based PCV attribution, with optional bootstrap intervals.
 
 ## API changes
 
-* Added a `predict()` method for `maihda_model` objects.
 * Renamed `calculate_pvc()` to `calculate_pcv()`. The old name and `$pvc` result element remain as deprecated aliases.
 
 ## Bug fixes

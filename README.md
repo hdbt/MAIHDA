@@ -153,7 +153,7 @@ Calculates the proportional change in between-stratum variance (PCV) between two
 Evaluates multiple sequential models by iteratively adding covariates step-by-step. Each step's PCV is the change in between-stratum variance contributed by a predictor given the variables already in the model. For a binary outcome it also reports the discriminatory-accuracy trajectory (`AUC`, the step/total change in AUC, and `MOR`) alongside the PCV, so the strata's discriminatory accuracy can be tracked as covariates are added. Pass `context =` to run it as a contextual cross-classified model (a `(1 | context)` intercept held in every step, as in `maihda(context = )`): the reported PCV is then net of the context, and a `Context_Variance` column reports the absolute between-context variance component (not a share of the total).
 
 ### `pcv_importance()`
-The order-*invariant* counterpart of `stepwise_pcv()`: apportions the full-model PCV fairly across the predictors, so each variable's contribution no longer depends on its entry order. `method = "shapley"` (default) averages each variable's marginal PCV over all entry orders — exact up to ~10 variables (all subset models fit once and cached), Monte-Carlo permutation sampling with per-variable MC standard errors beyond; `method = "dominance"` adds Budescu's conditional/complete dominance detail (general dominance = the Shapley values); `method = "sequential"` reproduces the order-dependent path. Contributions are signed (a suppressor shows up as negative) and always sum exactly to the full-model Total PCV (the Shapley efficiency property). Attribute among the stratum dimensions to split the additive share across dimensions, or among covariates as an order-free variance-importance measure; optional parametric-bootstrap CIs per contribution (`bootstrap = TRUE`, lme4 only).
+The order-*invariant* counterpart of `stepwise_pcv()`: apportions the full-model PCV fairly across the predictors, so each variable's contribution no longer depends on its entry order. `method = "shapley"` (default) averages each variable's marginal PCV over all entry orders — exact up to ~10 variables (all subset models fit once and cached), Monte-Carlo permutation sampling with per-variable MC standard errors beyond; `method = "dominance"` adds Budescu's conditional/complete dominance detail (general dominance = the Shapley values). Contributions are signed (a suppressor shows up as negative) and always sum exactly to the full-model Total PCV (the Shapley efficiency property). Attribute among the stratum dimensions to split the additive share across dimensions, or among covariates as an order-free variance-importance measure; optional parametric-bootstrap CIs per contribution (`bootstrap = TRUE`, lme4 only).
 
 ### Longitudinal (growth-curve) MAIHDA
 Supply `id` and `time` to `fit_maihda()`/`maihda()` for a 3-level growth-curve MAIHDA (occasions within individuals within strata, with random intercept *and* slope on time at both levels), the life-course extension of Bell, Evans, Holman & Leckie (2024). The between-stratum VPC is then time-varying, and `maihda(decomposition = "longitudinal")` reports the PCV separately for the baseline (intercept) and the slope variance — the additive-vs-multiplicative split of the intersectional *trajectory* inequality.
@@ -242,8 +242,8 @@ print(stepwise_results)
 
 `stepwise_pcv()`'s step contributions depend on the order the variables enter.
 `pcv_importance()` removes that dependence: it averages each variable's marginal
-PCV over all entry orders, with dominance analysis and the
-sequential path available under the same roof.
+PCV over all entry orders, with dominance analysis available under the same
+roof.
 
 ```r
 imp <- pcv_importance(
