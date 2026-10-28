@@ -16,6 +16,7 @@
 # ---- #1 P1: offsets retained in prediction paths ----------------------------
 
 test_that("maihda_fitted_offset recovers external and formula offsets", {
+  skip_on_cran()
   set.seed(1); n <- 250
   d <- data.frame(g1 = factor(sample(c("F", "M"), n, TRUE)),
                   g2 = factor(sample(c("A", "B", "C"), n, TRUE)),
@@ -58,6 +59,7 @@ test_that("maihda_lme4_fixed_link matches predict(re.form=NA) and adds the offse
 })
 
 test_that("lme4 stratum expected counts retain the offset (external and formula agree)", {
+  skip_on_cran()
   set.seed(3); n <- 600
   d <- data.frame(g1 = factor(sample(c("F", "M"), n, TRUE)),
                   g2 = factor(sample(c("A", "B", "C"), n, TRUE)),
@@ -87,6 +89,7 @@ test_that("lme4 stratum expected counts retain the offset (external and formula 
 })
 
 test_that("prediction-deviation panels retain the offset and reject external-offset newdata", {
+  skip_on_cran()
   skip_if_not_installed("ggplot2"); skip_if_not_installed("patchwork")
   skip_if_not_installed("dplyr"); skip_if_not_installed("ggrepel")
   skip_if_not_installed("tidyr")
@@ -114,6 +117,7 @@ test_that("prediction-deviation panels retain the offset and reject external-off
 })
 
 test_that("longitudinal count VPC retains the offset (external and formula agree)", {
+  skip_on_cran()
   skip_slow_test()
   set.seed(5); nid <- 130
   g1 <- sample(c("F", "M"), nid, TRUE); g2 <- sample(c("A", "B", "C"), nid, TRUE)
@@ -147,6 +151,7 @@ test_that("longitudinal count VPC retains the offset (external and formula agree
 # ---- #2 P1: shared binning uses the analytic sample -------------------------
 
 test_that("compare_maihda_groups shared binning: subset= matches prefiltered input", {
+  skip_on_cran()
   set.seed(11); N <- 900
   dd <- data.frame(country = sample(c("A", "B"), N, TRUE),
                    gender = sample(c("F", "M"), N, TRUE),
@@ -167,6 +172,7 @@ test_that("compare_maihda_groups shared binning: subset= matches prefiltered inp
 # ---- #3 P1: offset folded into compare/maihda family + analytic n -----------
 
 test_that("an offset=NA row does not flip family detection in maihda()/compare", {
+  skip_on_cran()
   set.seed(303); n <- 400
   d <- data.frame(country = sample(c("A", "B"), n, TRUE),
                   g1 = sample(c("F", "M"), n, TRUE),
@@ -195,6 +201,7 @@ test_that("an offset=NA row does not flip family detection in maihda()/compare",
 # ---- #4 P2: a failed ML refit is surfaced, not silently kept as REML ---------
 
 test_that("a failed lme4::refitML() warns and is flagged, not labelled ML", {
+  skip_on_cran()
   set.seed(41); n <- 400
   d <- data.frame(g1 = sample(c("F", "M"), n, TRUE),
                   g2 = sample(c("A", "B", "C"), n, TRUE), x = rnorm(n))
@@ -222,6 +229,7 @@ test_that("a failed lme4::refitML() warns and is flagged, not labelled ML", {
 # ---- #5 P2: adjusted boundary flagged under any estimation basis -------------
 
 test_that("calculate_pcv flags an adjusted boundary fit under the default (fitted) basis", {
+  skip_on_cran()
   # Small-n additive strata (no interaction): the null (1 | stratum) has clear between-
   # stratum variance, but the additive full model leaves ~0 residual interaction
   # variance -> a singular (boundary) adjusted fit with PCV ~ 100%.

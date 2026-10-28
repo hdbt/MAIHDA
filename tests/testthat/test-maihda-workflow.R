@@ -27,6 +27,7 @@ test_that("maihda() returns a consistent bundle; groups NULL without group", {
 })
 
 test_that("the formula builders quote non-syntactic dimension names safely", {
+  skip_on_cran()
   # Regression: maihda_adjusted_formula() (two-model path) and remove_terms()
   # (crossed-dimensions path) built RHS terms with sprintf("`%s`", .), which breaks
   # a legal name containing a backtick. maihda_quote_name() escapes it correctly.
@@ -57,6 +58,7 @@ test_that("the formula builders quote non-syntactic dimension names safely", {
 })
 
 test_that("maihda() with group attaches a comparison equal to compare_maihda_groups()", {
+  skip_on_cran()
   d <- make_workflow_data(4002)
   a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d, group = "country"))
 
@@ -69,6 +71,7 @@ test_that("maihda() with group attaches a comparison equal to compare_maihda_gro
 })
 
 test_that("maihda() forwards comparison-only args without leaking them into lmer", {
+  skip_on_cran()
   d <- make_workflow_data(4007)
   # min_group_n and shared_strata are compare_maihda_groups args, not lmer args;
   # they must not be passed through to the model fitter.
@@ -80,6 +83,7 @@ test_that("maihda() forwards comparison-only args without leaking them into lmer
 })
 
 test_that("maihda() auto-detects a binary outcome consistently for model and groups", {
+  skip_on_cran()
   d <- make_workflow_data(4003)
   expect_warning(
     a <- suppressMessages(maihda(bin ~ age + (1 | gender:race), data = d, group = "country")),
@@ -91,6 +95,7 @@ test_that("maihda() auto-detects a binary outcome consistently for model and gro
 })
 
 test_that("print and summary methods work for maihda_analysis", {
+  skip_on_cran()
   d <- make_workflow_data(4004)
   a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d, group = "country"))
 
@@ -104,6 +109,7 @@ test_that("print and summary methods work for maihda_analysis", {
 })
 
 test_that("plot.maihda_analysis dispatches to model and group plots", {
+  skip_on_cran()
   d <- make_workflow_data(4005)
   a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d, group = "country"))
 
@@ -118,6 +124,7 @@ test_that("plot.maihda_analysis dispatches to model and group plots", {
 })
 
 test_that("plot(type = 'vpc') honours model = null / adjusted / both", {
+  skip_on_cran()
   d <- make_workflow_data(4006)
   a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
   expect_true(is.finite(a$pcv$pcv))
@@ -151,6 +158,7 @@ test_that("plot(type = 'vpc') honours model = null / adjusted / both", {
 })
 
 test_that("plot(type = 'vpc', model = ) on a crossed-dimensions analysis", {
+  skip_on_cran()
   set.seed(4211)
   n <- 900
   d <- data.frame(
@@ -216,6 +224,7 @@ test_that("maihda() print and summary surface the PCV and adjusted model", {
 # random-effect grouping rather than fixed effects -- easy to misread as "the
 # dimension main effects are missing". which= selects, print() says which.
 test_that("summary.maihda_analysis selects the null vs adjusted model", {
+  skip_on_cran()
   d <- make_workflow_data(4102)
   a <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d))
 
@@ -351,6 +360,7 @@ test_that("maihda() errors when the stratum dimensions are unidentifiable", {
 })
 
 test_that("plot.maihda_analysis routes decomposition types to the adjusted model", {
+  skip_on_cran()
   d <- make_workflow_data(4105)
   a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
 
@@ -377,6 +387,7 @@ maihda_capture_messages <- function(expr) {
 }
 
 test_that("maihda() accepts the dimensions' main effects in the formula (no PCV-of-0 bug)", {
+  skip_on_cran()
   d <- make_workflow_data(4201)
   # Fully-specified adjusted form: the dimensions are written as additive fixed
   # effects. This must NOT collapse the null and adjusted into the same model (the old
@@ -400,6 +411,7 @@ test_that("maihda() accepts the dimensions' main effects in the formula (no PCV-
 })
 
 test_that("maihda() rejects a fixed interaction among the stratum dimensions", {
+  skip_on_cran()
   d <- make_workflow_data(4205)
   # `gender * race` is R shorthand for gender + race + gender:race. The fixed
   # gender:race interaction duplicates the (1 | gender:race) stratum random
@@ -512,6 +524,7 @@ test_that("maihda() handles a partially-specified formula (some dimensions prese
 })
 
 test_that("maihda() group decomposition is the same with or without dims in the formula", {
+  skip_on_cran()
   d <- make_workflow_data(4204)
   g_dims   <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d,
                                       group = "country", min_group_n = 10))

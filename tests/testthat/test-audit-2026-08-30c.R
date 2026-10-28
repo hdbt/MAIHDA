@@ -35,6 +35,7 @@ audit_0830c_fit <- function(w) {
 }
 
 test_that("only a weighted Gaussian LMM is diverted off lme4's simulate()", {
+  skip_on_cran()
   n <- 240L
   ones <- rep(1, n)
 

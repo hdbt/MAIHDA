@@ -44,6 +44,7 @@ maihda_a728_series_df <- function(seed = 21) {
 }
 
 test_that("a healthy stepwise series keeps every Step_PCV (no spurious NA)", {
+  skip_on_cran()
   d <- maihda_a728_series_df()
   sw <- suppressWarnings(suppressMessages(stepwise_pcv(d, "y", c("x1", "x2"))))
   expect_true(all(is.finite(sw$Step_PCV)))

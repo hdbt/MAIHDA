@@ -200,6 +200,7 @@ test_that("a contextual brms summary tabulates posterior medians that add up", {
 })
 
 test_that("a crossed-dimensions brms summary tabulates posterior medians that add up", {
+  skip_on_cran()
   skip_if_not_installed("brms")
   mvt_mock_brms()
   m <- mvt_stub(

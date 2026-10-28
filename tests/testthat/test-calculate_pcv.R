@@ -40,6 +40,7 @@ test_that("calculate_pcv works with basic models", {
 })
 
 test_that("calculate_pcv works with bootstrap", {
+  skip_on_cran()
   # Create test data with actual stratum effects
   set.seed(456)
   n_strata <- 10
@@ -254,6 +255,7 @@ test_that("calculate_pcv print method works", {
 })
 
 test_that("calculate_pcv handles binomial models", {
+  skip_on_cran()
   # Create test data for binomial with stratum effects on logit scale
   set.seed(444)
   n_strata <- 10

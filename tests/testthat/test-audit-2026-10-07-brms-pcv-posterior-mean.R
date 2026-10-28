@@ -142,6 +142,7 @@ test_that("the PCV and the MOR read one between-stratum variance, the posterior 
 })
 
 test_that("the PCV variance of an lme4 or ordinal fit is the fitted one, exactly", {
+  skip_on_cran()
   fits <- pcv_with_seed(20261007, {
     d <- data.frame(g = sample(c("a", "b"), 400, replace = TRUE),
                     r = sample(c("x", "y", "z"), 400, replace = TRUE),
@@ -174,6 +175,7 @@ test_that("the PCV variance of an lme4 or ordinal fit is the fitted one, exactly
 })
 
 test_that("stepwise_pcv() and pcv_importance() tabulate posterior medians for brms", {
+  skip_on_cran()
   skip_if_not_installed("brms")
   pcv_mock_brms()
   # Stan-free stand-in for the fits: a stub whose draws depend on how many predictors

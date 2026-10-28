@@ -247,6 +247,7 @@ test_that("failed fits: the first line in status and one warning for all groups"
 })
 
 test_that("a one-level dimension is named as the cause, for its groups only", {
+  skip_on_cran()
   for (as_factor in c(FALSE, TRUE)) {
     d <- cf12_one_level_data(gender_factor = as_factor)
     obs <- cf12_observe(compare_maihda_groups(y ~ (1 | gender:ses), data = d,
@@ -275,6 +276,7 @@ test_that("a one-level dimension is named as the cause, for its groups only", {
 })
 
 test_that("a zero null variance is not blamed on a constant dimension", {
+  skip_on_cran()
   d <- cf12_zero_null_data()
   obs <- cf12_observe(compare_maihda_groups(y ~ (1 | gender:ses), data = d,
                                             group = "country"))

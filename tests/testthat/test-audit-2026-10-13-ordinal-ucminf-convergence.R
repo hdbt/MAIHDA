@@ -193,6 +193,7 @@ uc13_expect_fit_silent <- function(m) {
 }
 
 test_that("a return is read by the rules of the optimiser that made it", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   expect_true(maihda_is_ucminf_return(uc13_ucminf(1)))
   expect_true(maihda_is_ucminf_return(uc13_ucminf(4)))
@@ -374,6 +375,7 @@ test_that("how far a fit is from a stationary point, by its gradient and Hessian
 })
 
 test_that("which of ucminf()'s stops count as convergence", {
+  skip_on_cran()
   near <- uc13_record(NULL, distance = 0.01)
   far <- uc13_record(NULL, distance = 2.3)
   blind <- uc13_record(NULL)
@@ -445,6 +447,7 @@ test_that("which of ucminf()'s stops count as convergence", {
 })
 
 test_that("the fit record of a ucminf() fit", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   converged <- list(uc13_record(uc13_ucminf(1)),
                     uc13_record(uc13_ucminf(1), distance = 2.3),
@@ -599,6 +602,7 @@ test_that("the fit record of a ucminf() fit", {
 })
 
 test_that("a boundary fit takes the convergence of a first fit made by ucminf()", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   args <- list(formula = yo ~ (1 | stratum), data = quote(data), link = "logit",
                Hess = TRUE)

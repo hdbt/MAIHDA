@@ -83,6 +83,7 @@ test_that("engine = 'brms' refuses the addition terms the package does not model
 })
 
 test_that("the rate() refusal gives the offset() spelling, and when it is the same model", {
+  skip_on_cran()
   skip_if_not_installed("brms")
   msg <- a28f_message(a28f_fit(cnt | rate(expo) ~ x + (1 | stratum), "poisson"))
   expect_match(msg, "+ offset(log(expo))", fixed = TRUE)
@@ -104,6 +105,7 @@ test_that("the rate() refusal gives the offset() spelling, and when it is the sa
 })
 
 test_that("controls: trials(), weights() and the ordinal path are unchanged", {
+  skip_on_cran()
   skip_if_not_installed("brms")
   expect_s3_class(a28f_fit(y | trials(n) ~ x + (1 | stratum), "binomial"), "maihda_model")
   expect_s3_class(a28f_fit(g | weights(w) ~ x + (1 | stratum), "gaussian"), "maihda_model")

@@ -72,6 +72,7 @@ p2_long_pcv <- function(...) {
 reml_label <- "as fitted (REML for Gaussian lmer, matching summary())"
 
 test_that("each PCV note of the two-model print has one blank line either side", {
+  skip_on_cran()
   a <- p2_binomial()
   expect_true(isTRUE(a$pcv$ml_variances))
   expect_false(is.null(a$summary$discriminatory_accuracy))
@@ -111,6 +112,7 @@ test_that("each PCV note of the two-model print has one blank line either side",
 })
 
 test_that("the two-model print names the basis in calculate_pcv()'s words", {
+  skip_on_cran()
   a <- p2_gaussian()
   expect_identical(a$pcv$estimation_used, "fitted")
   out <- p2_lines(a)
@@ -151,6 +153,7 @@ test_that("the two-model print names the basis in calculate_pcv()'s words", {
 })
 
 test_that("a glmer pair's maximum-likelihood note or REML-type line stands alone", {
+  skip_on_cran()
   a <- p2_binomial()
   out <- p2_lines(a)
   expect_true(any(grepl("Note: these are maximum-likelihood variances", out,
@@ -234,6 +237,7 @@ test_that("print.maihda_long_pcv() leaves the basis to a note that names it", {
 })
 
 test_that("maihda_longitudinal_pcv() records whether the variances are maximum likelihood", {
+  skip_on_cran()
   d <- subset(maihda_long_data, id %in% unique(maihda_long_data$id)[1:150])
   a <- p2_keep_rng(suppressWarnings(suppressMessages(
     maihda(wellbeing ~ wave + (1 | gender:ethnicity:education), data = d, id = "id",

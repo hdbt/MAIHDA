@@ -139,6 +139,7 @@ test_that("maihda_delta_interval() maps the interval back from the identity, log
 })
 
 test_that("maihda_lme4_combination_var() equals the joint covariance of the mixed-model equations", {
+  skip_on_cran()
   d <- ldp_data()
   fits <- list(
     single = lme4::lmer(y ~ x + (1 | race), data = d),
@@ -170,6 +171,7 @@ test_that("maihda_lme4_combination_var() equals the joint covariance of the mixe
 })
 
 test_that("lme4 stratum bars are the joint-covariance interval of the plotted stratum mean", {
+  skip_on_cran()
   d <- ldp_data()
   mg <- suppressMessages(fit_maihda(y ~ x + (1 | gender:race:edu), data = d))
   pg <- ldp_warnings(plot_prediction_deviation_panels(mg))
@@ -205,6 +207,7 @@ test_that("lme4 stratum bars are the joint-covariance interval of the plotted st
 })
 
 test_that("prior weights weight the stratum mean and its interval alike", {
+  skip_on_cran()
   d <- ldp_data()
   mw <- suppressMessages(fit_maihda(y ~ x + (1 | gender:race:edu), data = d, weights = w))
   pd <- plot_prediction_deviation_panels(mw)[[2]]$data
@@ -215,6 +218,7 @@ test_that("prior weights weight the stratum mean and its interval alike", {
 })
 
 test_that("a crossed-dimensions analysis gets bars from the permuted factor", {
+  skip_on_cran()
   d <- ldp_data()
   an <- suppressMessages(suppressWarnings(
     maihda(y ~ x + (1 | gender:race:edu), data = d, decomposition = "crossed-dimensions")))
@@ -228,6 +232,7 @@ test_that("a crossed-dimensions analysis gets bars from the permuted factor", {
 })
 
 test_that("bars for supplied data follow the rows supplied", {
+  skip_on_cran()
   d <- ldp_data()
   mg <- suppressMessages(fit_maihda(y ~ x + (1 | gender:race:edu), data = d))
   mb <- suppressMessages(fit_maihda(yb ~ x + (1 | gender:race:edu), data = d,
@@ -253,6 +258,7 @@ test_that("bars for supplied data follow the rows supplied", {
 })
 
 test_that("supplied rows are rebuilt with the fit's levels, coefficients and grouping codes", {
+  skip_on_cran()
   d <- ldp_data()
   # a random slope: each level carries two coefficients, placed level by level
   fs <- suppressMessages(lme4::lmer(y ~ x + (1 + x | race), data = d))
@@ -275,6 +281,7 @@ test_that("supplied rows are rebuilt with the fit's levels, coefficients and gro
 })
 
 test_that("case-level bars of a bare lme4 fit come from the joint covariance, fitted or supplied rows", {
+  skip_on_cran()
   d <- ldp_data()
   f <- lme4::lmer(y ~ x + (1 | race) + (1 | edu), data = d)
   expect_false(identical(as.integer(lme4::getME(f, "L")@perm),
@@ -299,6 +306,7 @@ test_that("case-level bars of a bare lme4 fit come from the joint covariance, fi
 })
 
 test_that("supplied rows whose random effects cannot be placed draw no bars", {
+  skip_on_cran()
   d <- ldp_data()
   # one grouping factor carrying two random-effect terms
   f <- suppressMessages(lme4::lmer(y ~ x + (1 | race) + (0 + x | race), data = d))

@@ -69,6 +69,7 @@ test_that("audit 2026-07-22b #1: replicate-only ids (no within-person time varia
 })
 
 test_that("audit 2026-07-22b #1: fit_maihda rejects unidentified growth models end-to-end", {
+  skip_on_cran()
   set.seed(1)
   # Validation path: the finding's exact all-equal-times quadratic.
   d <- data.frame(pid = rep(1:12, each = 3), wave = 0,

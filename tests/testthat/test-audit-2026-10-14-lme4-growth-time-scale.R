@@ -55,6 +55,7 @@ growth_design <- function(seed, k = 1, deg = 1) {
 # ---- the rule ----------------------------------------------------------------------------
 
 test_that("the internal time scale is the power of ten that puts the span in [1, 10)", {
+  skip_on_cran()
   skip_slow_test()
   sc <- function(...) maihda_longitudinal_scale(c(...))
   # A span already between 1 and 10 is left alone, wherever the axis starts.

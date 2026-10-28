@@ -74,6 +74,7 @@ c28_no_unscored_warning <- function(w) {
 }
 
 test_that("a glm fit of a three-level factor is scored on its own rows", {
+  skip_on_cran()
   d <- c28_data()
   g <- stats::glm(y3 ~ x, data = d, family = stats::binomial)
   r <- c28_capture(plot_prediction_deviation_panels(g))
@@ -108,6 +109,7 @@ test_that("a glm fit of a three-level factor is scored on its own rows", {
 })
 
 test_that("glmer fits of one, at case and stratum level, and a fit_maihda() model", {
+  skip_on_cran()
   d <- c28_data()
   m <- c28_quiet(lme4::glmer(y3 ~ x + (1 | grp), data = d, family = stats::binomial))
   r <- c28_capture(plot_prediction_deviation_panels(m))
@@ -138,6 +140,7 @@ test_that("glmer fits of one, at case and stratum level, and a fit_maihda() mode
 })
 
 test_that("a weighted fit of one keeps its residuals and gains its coding", {
+  skip_on_cran()
   d <- c28_data()
   g <- stats::glm(y3 ~ x, data = d, family = stats::binomial, weights = w)
   pd <- c28_quiet(plot_prediction_deviation_panels(g))[[2]]$data
@@ -148,6 +151,7 @@ test_that("a weighted fit of one keeps its residuals and gains its coding", {
 })
 
 test_that("two-valued outcomes are coded as before (unchanged)", {
+  skip_on_cran()
   d <- c28_data()
   # A factor declared "yes" before "no": glm takes "yes" as the failure.
   g <- stats::glm(yr ~ x, data = d, family = stats::binomial)

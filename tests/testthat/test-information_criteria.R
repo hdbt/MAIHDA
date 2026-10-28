@@ -79,6 +79,7 @@ test_that("maihda_ic validates its arguments", {
 })
 
 test_that("maihda_ic withholds the delta (with a warning) across incomparable models", {
+  skip_on_cran()
   d <- make_ic_data()
   null_model <- fit_maihda(y ~ 1 + (1 | g1:g2), data = d)
   adj_model  <- fit_maihda(y ~ x + (1 | g1:g2), data = d)
@@ -106,6 +107,7 @@ test_that("maihda_ic withholds the delta (with a warning) across incomparable mo
 })
 
 test_that("compare_maihda appends information-criteria columns when ic = TRUE", {
+  skip_on_cran()
   d <- make_ic_data()
   m1 <- fit_maihda(y ~ 1 + (1 | g1:g2), data = d)
   m2 <- fit_maihda(y ~ x + (1 | g1:g2), data = d)

@@ -125,6 +125,7 @@ test_that("the note is printed for the term the interaction is read from", {
 })
 
 test_that("a crossed-dimensions table notes a zero interaction and nothing else", {
+  skip_on_cran()
   crossed <- function(d, ...) {
     is13_quiet(maihda(y ~ (1 | gender:ses), data = d,
                       decomposition = "crossed-dimensions", ...))
@@ -178,6 +179,7 @@ test_that("a crossed-dimensions table notes a zero interaction and nothing else"
 })
 
 test_that("a two-model table notes the adjusted model's zero stratum variance only", {
+  skip_on_cran()
   # A context at zero in both models: 16 of 20 strata are flagged, and no note.
   d <- is13_with_school(is13_g45(), is13_mu_additive() + is13_mu_departure())
   a <- is13_quiet(maihda(y ~ (1 | d1:d2), data = d, context = "school"))

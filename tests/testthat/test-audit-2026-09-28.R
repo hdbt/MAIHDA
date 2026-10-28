@@ -78,6 +78,7 @@ p28_counts <- function() {
 }
 
 test_that("a cbind() fit draws a point for every case", {
+  skip_on_cran()
   d <- p28_counts()
   g <- stats::glm(cbind(s, f) ~ x, data = d, family = stats::binomial)
   p <- p28_quiet(plot_prediction_deviation_panels(g))
@@ -98,6 +99,7 @@ test_that("a cbind() fit draws a point for every case", {
 })
 
 test_that("a proportion with trial weights draws every case on one shape", {
+  skip_on_cran()
   d <- p28_counts()
   expect_length(unique(d$p), 64L)
   g <- stats::glm(p ~ x, data = d, family = stats::binomial, weights = n)
@@ -152,6 +154,7 @@ test_that("a brms trials() fit draws a point for every case (Stan-free)", {
 })
 
 test_that("cases without an observed outcome are drawn: absent, or missing beside observed ones", {
+  skip_on_cran()
   set.seed(3)
   d <- data.frame(x = stats::rnorm(150))
   d$y <- stats::rbinom(150, 1, stats::plogis(0.8 * d$x))
@@ -183,6 +186,7 @@ test_that("cases without an observed outcome are drawn: absent, or missing besid
 })
 
 test_that("Bernoulli panels keep their outcome shapes (unchanged)", {
+  skip_on_cran()
   set.seed(3)
   d <- data.frame(x = stats::rnorm(150))
   d$y <- stats::rbinom(150, 1, stats::plogis(0.8 * d$x))

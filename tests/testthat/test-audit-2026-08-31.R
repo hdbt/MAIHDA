@@ -79,6 +79,7 @@ test_that("divergences alone can withhold the converged verdict", {
 # posterior every run. maihda() now warns; these pin that warning's scope.
 
 test_that("maihda() warns that 'seed' does not seed the brms sampler", {
+  skip_on_cran()
   skip_if_not_installed("brms")
 
   d <- data.frame(

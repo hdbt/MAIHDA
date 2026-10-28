@@ -151,6 +151,7 @@ test_that("without another grouping the decomposition still uses every random ef
 })
 
 test_that("the brms decomposition requests the intersectional scope (Stan-free)", {
+  skip_on_cran()
   skip_if_not_installed("brms")
 
   # posterior_linpred() stand-in: the posterior-mean linear predictor is the fixed part

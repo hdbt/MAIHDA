@@ -181,6 +181,7 @@ test_that("a brms crossed-dimensions summary carries the level counts and prints
 })
 
 test_that("print() of the analysis and of its summary show the note; an lme4 print has none", {
+  skip_on_cran()
   d <- cfl_gaussian_data()
   a <- cfl_with_seed(1, suppressWarnings(suppressMessages(
     maihda(y ~ 1 + (1 | d1:d2), data = d, decomposition = "crossed-dimensions"))))

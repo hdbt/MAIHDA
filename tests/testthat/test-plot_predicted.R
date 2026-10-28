@@ -64,6 +64,7 @@ test_that("plot_maihda predicted validates inputs", {
 })
 
 test_that("plot_maihda predicted order_by = 'stratum' preserves native order", {
+  skip_on_cran()
   # Create test data with stratum labels
   set.seed(999)
   data <- data.frame(
@@ -141,6 +142,7 @@ test_that("plot_maihda uses meaningful stratum labels from make_strata", {
 })
 
 test_that("observed vs shrunken handles binary factor outcomes", {
+  skip_on_cran()
   set.seed(556)
   strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
 
@@ -160,6 +162,7 @@ test_that("observed vs shrunken handles binary factor outcomes", {
 })
 
 test_that("observed vs shrunken handles two-column binomial outcomes", {
+  skip_on_cran()
   set.seed(558)
   data <- data.frame(
     stratum = factor(rep(seq_len(8), each = 25)),
@@ -190,6 +193,7 @@ test_that("observed vs shrunken handles two-column binomial outcomes", {
 })
 
 test_that("select = 'deviation' keeps the most extreme strata (both tails), not the first", {
+  skip_on_cran()
   set.seed(303)
   K <- 20L; per <- 30L
   stratum <- rep(seq_len(K), each = per)
@@ -220,6 +224,7 @@ test_that("select = 'deviation' keeps the most extreme strata (both tails), not 
 })
 
 test_that("select defaults to 'order' and is validated", {
+  skip_on_cran()
   set.seed(404)
   dat <- data.frame(stratum = rep(1:8, each = 10), outcome = rnorm(80))
   m <- fit_maihda(outcome ~ 1 + (1 | stratum), data = dat, engine = "lme4")
@@ -244,6 +249,7 @@ maihda_monotone_pred_model <- function(seed, K = 12L, per = 30L) {
 }
 
 test_that("order_by defaults to 'predicted_desc' (ranked caterpillar)", {
+  skip_on_cran()
   m <- maihda_monotone_pred_model(1201)
   p_default <- plot(m, type = "predicted")
   p_desc    <- plot(m, type = "predicted", order_by = "predicted_desc")
@@ -256,6 +262,7 @@ test_that("order_by defaults to 'predicted_desc' (ranked caterpillar)", {
 })
 
 test_that("order_by = 'predicted_asc' reverses the default order", {
+  skip_on_cran()
   m <- maihda_monotone_pred_model(1202)
   p_asc  <- plot(m, type = "predicted", order_by = "predicted_asc")
   p_desc <- plot(m, type = "predicted", order_by = "predicted_desc")
@@ -289,6 +296,7 @@ test_that("order_by = 'deviation' ranks by distance from the reference line", {
 })
 
 test_that("order_by is display-only: same strata and values, different order", {
+  skip_on_cran()
   m <- maihda_monotone_pred_model(1205, K = 20L, per = 25L)
 
   # cap so selection is exercised; select governs WHICH strata, order_by the order

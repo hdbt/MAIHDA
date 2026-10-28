@@ -1,4 +1,5 @@
 test_that("maihda_app_fit_models switches a binary factor outcome to binomial", {
+  skip_on_cran()
   set.seed(11)
   d <- data.frame(
     Obese = factor(sample(c("No", "Yes"), 240, replace = TRUE)),
@@ -20,6 +21,7 @@ test_that("maihda_app_fit_models switches a binary factor outcome to binomial", 
 })
 
 test_that("maihda_app_fit_models switches a numeric 0/1 outcome to binomial", {
+  skip_on_cran()
   set.seed(2115)
   n <- 600
   d <- data.frame(
@@ -179,11 +181,13 @@ maihda_source_app_for_test <- function() {
 }
 
 test_that("Shiny app stores previous future plan for restoration", {
+  skip_on_cran()
   app_env <- maihda_source_app_for_test()
   expect_true(exists("maihda_app_previous_future_plan", envir = app_env, inherits = FALSE))
 })
 
 test_that("Shiny server loads the selected built-in dataset", {
+  skip_on_cran()
   app_env <- maihda_source_app_for_test()
 
   shiny::testServer(app_env$server, {
@@ -196,6 +200,7 @@ test_that("Shiny server loads the selected built-in dataset", {
 })
 
 test_that("A single grouping variable triggers the non-intersectional hint", {
+  skip_on_cran()
   app_env <- maihda_source_app_for_test()
 
   shiny::testServer(app_env$server, {
@@ -210,6 +215,7 @@ test_that("A single grouping variable triggers the non-intersectional hint", {
 })
 
 test_that("Explorer module derives HUD plot data from real results", {
+  skip_on_cran()
   for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
   dat <- MAIHDA::maihda_sim_data[seq_len(120), ]
   res <- MAIHDA:::maihda_app_fit_models(
@@ -261,6 +267,7 @@ test_that("Explorer module derives HUD plot data from real results", {
 })
 
 test_that("Visualizations module produces a plot object from the fitted model", {
+  skip_on_cran()
   for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
   res <- suppressMessages(MAIHDA:::maihda_app_fit_models(
     MAIHDA::maihda_sim_data[seq_len(120), ],
@@ -280,6 +287,7 @@ test_that("Visualizations module produces a plot object from the fitted model", 
 })
 
 test_that("maihda_app_fit_models reports the resolved family and auto-switch flag", {
+  skip_on_cran()
   set.seed(11)
   d <- data.frame(
     Obese = factor(sample(c("No", "Yes"), 240, replace = TRUE)),
@@ -437,6 +445,7 @@ test_that("A fixed seed makes the bootstrap intervals reproducible across fits",
 })
 
 test_that("Model-comparison module renders the nested null-vs-adjusted comparison", {
+  skip_on_cran()
   for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
   res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
     MAIHDA::maihda_sim_data[seq_len(150), ],
@@ -467,6 +476,7 @@ test_that("Model-comparison module renders the nested null-vs-adjusted compariso
 })
 
 test_that("compare tab shows the crossed-dimensions empty state before a comparison", {
+  skip_on_cran()
   shiny::testServer(
     MAIHDA:::mod_compare_server,
     args = list(
@@ -512,6 +522,7 @@ test_that("maihda_app_default_vars gives dataset-aware defaults and a heuristic 
 })
 
 test_that("Selecting the NHANES dataset yields fittable defaults (outcome + 2 strata)", {
+  skip_on_cran()
   app_env <- maihda_source_app_for_test()
   shiny::testServer(app_env$server, {
     session$setInputs(dataset = "health")
@@ -574,6 +585,7 @@ test_that("Reproducible code mirrors the crossed-dimensions decomposition", {
 })
 
 test_that("Explorer renders in crossed-dimensions mode from the decomposition", {
+  skip_on_cran()
   for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
   dat <- MAIHDA::maihda_sim_data[seq_len(300), ]
   res <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
@@ -602,6 +614,7 @@ test_that("Explorer renders in crossed-dimensions mode from the decomposition", 
 })
 
 test_that("Full server renders the crossed-dimensions decomposition on the PCV tab", {
+  skip_on_cran()
   for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
   app_env <- maihda_source_app_for_test()
   dat <- MAIHDA::maihda_sim_data[seq_len(300), ]
@@ -631,6 +644,7 @@ test_that("Full server renders the crossed-dimensions decomposition on the PCV t
 })
 
 test_that("The reproducible-code output mirrors the last fit (Reproduce in R)", {
+  skip_on_cran()
   app_env <- maihda_source_app_for_test()
 
   shiny::testServer(app_env$server, {

@@ -75,6 +75,7 @@ maihda_kr_df <- function(m) {
 }
 
 test_that("containment df match Kenward-Roger for a BALANCED adjusted MAIHDA", {
+  skip_on_cran()
   skip_if_not_installed("pbkrtest")
   d <- maihda_df_test_data()                       # equal n per stratum
   m <- fit_maihda(y ~ d1 + d2 + d3 + x + (1 | stratum), data = d)$model
@@ -86,6 +87,7 @@ test_that("containment df match Kenward-Roger for a BALANCED adjusted MAIHDA", {
 })
 
 test_that("containment df still track Kenward-Roger under MILD imbalance", {
+  skip_on_cran()
   skip_if_not_installed("pbkrtest")
   set.seed(5)
   grid <- expand.grid(d1 = factor(1:2), d2 = factor(1:2), d3 = factor(1:3))
@@ -104,6 +106,7 @@ test_that("containment df still track Kenward-Roger under MILD imbalance", {
 })
 
 test_that("under SEVERE imbalance the single containment value sits inside the KR span", {
+  skip_on_cran()
   skip_if_not_installed("pbkrtest")
   # maihda_health_data's strata run from 1 to 349 observations (349x). Containment
   # is a design-level rule, so it reports ONE value for every stratum-level term
@@ -219,6 +222,7 @@ test_that("a singular stratum variance still tests against the strata, not n", {
 })
 
 test_that("engines without a finite-sample t keep the Wald z", {
+  skip_on_cran()
   d <- maihda_df_test_data()
   d$event <- stats::rbinom(nrow(d), 1, stats::plogis(-0.5 + 0.2 * d$x))
   fit <- fit_maihda(event ~ x + (1 | stratum), data = d, family = binomial())

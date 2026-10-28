@@ -81,6 +81,7 @@ ml_line <- "Variance basis: as fitted (maximum likelihood)"
 reml_line <- "Variance basis: as fitted (REML for Gaussian lmer, matching summary())"
 
 test_that("a glmer stepwise series names maximum-likelihood variances as calculate_pcv() does", {
+  skip_on_cran()
   d <- s28_strata()
   sw <- s28_quiet(stepwise_pcv(d, "y", c("a", "b"), family = "binomial"))
   expect_true(attr(sw, "ml_variances"))
@@ -125,6 +126,7 @@ test_that("a glmer stepwise series names maximum-likelihood variances as calcula
 })
 
 test_that("a glmer attribution names maximum-likelihood variances and notes them before the latent-scale caveat", {
+  skip_on_cran()
   d <- s28_strata()
   imp <- s28_quiet(pcv_importance(d, "y", c("a", "b"), family = "binomial"))
   expect_true(imp$ml_variances)
@@ -165,6 +167,7 @@ test_that("a glmer attribution names maximum-likelihood variances and notes them
 })
 
 test_that("REML lmer series keep their label and no note, and an ML refit is labelled as one", {
+  skip_on_cran()
   d <- s28_strata()
   sw <- s28_quiet(stepwise_pcv(d, "z", c("a", "b")))
   imp <- s28_quiet(pcv_importance(d, "z", c("a", "b")))
@@ -198,6 +201,7 @@ test_that("REML lmer series keep their label and no note, and an ML refit is lab
 })
 
 test_that("a group comparison names the basis and notes it below a table with PCVs", {
+  skip_on_cran()
   d <- s28_data()
   cmp <- s28_quiet(compare_maihda_groups(y ~ 1 + (1 | a:b), data = d, group = "grp",
                                          family = "binomial"))
@@ -243,6 +247,7 @@ test_that("a group comparison names the basis and notes it below a table with PC
 })
 
 test_that("crossed-dimensions, maximum-likelihood lmer and REML lmer comparisons", {
+  skip_on_cran()
   d <- s28_data()
   # No PCV in a crossed-dimensions table, so the line alone.
   cc <- s28_quiet(compare_maihda_groups(y ~ 1 + (1 | a:b), data = d, group = "grp",
@@ -310,6 +315,7 @@ test_that("crossed-dimensions, maximum-likelihood lmer and REML lmer comparisons
 })
 
 test_that("maihda(group =) prints the maximum-likelihood note once", {
+  skip_on_cran()
   d <- s28_data()
   an <- s28_quiet(maihda(y ~ a + b + (1 | a:b), data = d, family = "binomial",
                          group = "grp"))

@@ -22,6 +22,7 @@ test_that("compare_maihda output is a maihda_comparison and plots via plot()", {
 })
 
 test_that("compare_maihda warns when models use different families", {
+  skip_on_cran()
   set.seed(2202)
   d <- data.frame(stratum = rep(seq_len(8), each = 25), x = rnorm(200))
   u <- rnorm(8, sd = 0.7)[d$stratum]
@@ -96,6 +97,7 @@ test_that("compare_maihda warns for disjoint analytic samples with the same n an
 })
 
 test_that("compare_maihda includes interval columns only when an interval exists", {
+  skip_on_cran()
   set.seed(99)
   d <- data.frame(stratum = rep(seq_len(8), each = 12), x = rnorm(96))
   d$y <- 1 + d$x + rnorm(8, sd = 0.9)[d$stratum] + rnorm(96, sd = 0.4)

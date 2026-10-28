@@ -82,6 +82,7 @@ test_that("make_strata preserves original numeric grouping variables", {
 })
 
 test_that("numeric coded stratum dimensions warn instead of silently entering linearly (#56)", {
+  skip_on_cran()
   set.seed(1004)
   n <- 300
   d <- data.frame(
@@ -192,6 +193,7 @@ test_that("calculate_pcv rejects different outcomes and families", {
 })
 
 test_that("poisson summaries evaluate the level-1 variance at the marginal mean", {
+  skip_on_cran()
   set.seed(1005)
   d <- data.frame(
     stratum = factor(rep(seq_len(12), each = 25)),
@@ -237,6 +239,7 @@ test_that("poisson summaries evaluate the level-1 variance at the marginal mean"
 })
 
 test_that("binomial predict_maihda defaults to response scale and supports link scale", {
+  skip_on_cran()
   set.seed(1006)
   d <- data.frame(
     stratum = factor(rep(seq_len(10), each = 25)),
@@ -257,6 +260,7 @@ test_that("binomial predict_maihda defaults to response scale and supports link 
 })
 
 test_that("fit_maihda recodes two-level responses for glmer", {
+  skip_on_cran()
   set.seed(1010)
   n <- 240
   d <- data.frame(
@@ -358,6 +362,7 @@ test_that("stepwise_pcv errors when no complete analytic sample remains", {
 })
 
 test_that("stepwise_pcv auto-detects a binary outcome when family is the default", {
+  skip_on_cran()
   set.seed(910)
   base <- data.frame(
     g = sample(c("a", "b"), 240, replace = TRUE),
@@ -538,6 +543,7 @@ test_that("summary rejects random-slope models for VPC accounting", {
 })
 
 test_that("calculate_pcv rejects random-slope models for PCV accounting", {
+  skip_on_cran()
   set.seed(1017)
   d <- data.frame(
     stratum = factor(rep(seq_len(8), each = 25)),
@@ -560,6 +566,7 @@ test_that("calculate_pcv rejects random-slope models for PCV accounting", {
 })
 
 test_that("calculate_pcv refits with ML when a non-stratum RE is on the boundary", {
+  skip_on_cran()
   # A fit can be globally singular because an EXTRA grouping factor ((1 | site))
   # sits on the boundary while the stratum variance is comfortably nonzero. The ML
   # refit must still run there -- testing global isSingular() wrongly skipped it and
@@ -701,6 +708,7 @@ test_that("adjusted-model prediction works after numeric stratum auto-binning", 
 })
 
 test_that("maihda() resolves caller-local weights/subset through the data mask", {
+  skip_on_cran()
   # Reproduces the wrapper bug: from inside a function, weights/subset that name a
   # caller-local variable were lost because ... forwarding became ..1 promises.
   run <- function() {
@@ -790,6 +798,7 @@ test_that("weighted Gaussian VPC uses the mean conditional residual variance", {
 })
 
 test_that("PCV/comparison flag models that differ only in prior weights", {
+  skip_on_cran()
   set.seed(2401)
   d <- make_strata(maihda_sim_data, vars = c("gender", "race"))$data
   n <- nrow(d)
@@ -812,6 +821,7 @@ test_that("PCV/comparison flag models that differ only in prior weights", {
 })
 
 test_that("binary recoding records and reports the level -> 0/1 mapping", {
+  skip_on_cran()
   set.seed(2402)
   n <- 200
   d <- data.frame(stratum = factor(rep(seq_len(8), each = 25)), x = rnorm(n))
@@ -1112,6 +1122,7 @@ test_that("effect decomposition isolates the stratum random effect from other RE
 })
 
 test_that("bootstrap VPC reports Monte Carlo error", {
+  skip_on_cran()
   set.seed(2114)
   n <- 200
   d <- data.frame(stratum = factor(rep(seq_len(8), each = 25)), x = rnorm(n))

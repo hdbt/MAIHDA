@@ -64,6 +64,7 @@ make_po_audit_data <- function(seed, sigma, n_per = 100, beta = 0.8,
 # ---- the removed flag: deterministic, no model fitting ----------------------
 
 test_that("the fixed-only proportional-odds statistic carries no p-value or flag", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   d <- make_po_audit_data(1004, sigma = 3)
   m <- suppressMessages(suppressWarnings(
@@ -80,6 +81,7 @@ test_that("the fixed-only proportional-odds statistic carries no p-value or flag
 })
 
 test_that("the proportional-odds proxy is stored descriptively and never flagged", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   # tau = 3 with n = 1200: the exact regime in which the old chi-squared screen
   # false-flagged correctly specified models (3 of 10 seeds; this is one of them)
@@ -186,6 +188,7 @@ test_that("maihda_proportional_odds_test is reproducible and validates its input
 # ---- the shared statistic, so both consumers stay in step -------------------
 
 test_that("maihda_po_lrt is the single source of the nominal-effects statistic", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   d <- make_po_audit_data(1004, sigma = 3)
   m <- suppressMessages(suppressWarnings(

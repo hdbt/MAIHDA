@@ -72,6 +72,7 @@ test_that("the two adjusted codings really are the same model", {
 
 
 test_that("the derived null keeps the grand mean under cell-means coding", {
+  skip_on_cran()
   d <- maihda_a5_data()
   r_int <- maihda(y ~ x + a + b + (1 | a:b), data = d, autobin = FALSE)
   r_cell <- suppressMessages(
@@ -98,6 +99,7 @@ test_that("the derived null keeps the grand mean under cell-means coding", {
 
 
 test_that("the partial branch keeps the grand mean too", {
+  skip_on_cran()
   # Only one dimension written in the formula: maihda() fits a clean null and then
   # builds the adjusted from it, so the null's lost intercept propagates.
   d <- maihda_a5_data()
@@ -228,6 +230,7 @@ test_that("maihda_drop_fixed_terms() restores the mean only where it is lost", {
 
 
 test_that("an intercept-bearing decomposition is untouched", {
+  skip_on_cran()
   # Negative control: the formulas that were always right must not move, and the fix
   # must not blanket-add an intercept wherever `- 1` appears.
   d <- maihda_a5_data()

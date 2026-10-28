@@ -16,6 +16,7 @@ maihda_vpcr_fit <- function(seed = 7, n = 1500, sd_u = 1.2) {
 }
 
 test_that("maihda_gauss_hermite_normal integrates standard-normal moments exactly", {
+  skip_on_cran()
   gh <- MAIHDA:::maihda_gauss_hermite_normal(40)
   x <- gh$nodes
   w <- gh$weights
@@ -38,6 +39,7 @@ test_that("maihda_gauss_hermite_normal integrates standard-normal moments exactl
 })
 
 test_that("maihda_vpc_response returns a VPC in [0, 1] and is seed-reproducible", {
+  skip_on_cran()
   m <- maihda_vpcr_fit()
   r1 <- maihda_vpc_response(m, n_sim = 20000, seed = 42)
   r2 <- maihda_vpc_response(m, n_sim = 20000, seed = 42)
@@ -49,6 +51,7 @@ test_that("maihda_vpc_response returns a VPC in [0, 1] and is seed-reproducible"
 })
 
 test_that("maihda_vpc_response matches an independent Goldstein/Browne/Rasbash simulation", {
+  skip_on_cran()
   m <- maihda_vpcr_fit()
   r <- maihda_vpc_response(m, n_sim = 50000, seed = 1)
 
@@ -64,6 +67,7 @@ test_that("maihda_vpc_response matches an independent Goldstein/Browne/Rasbash s
 })
 
 test_that("response-scale VPC increases with between-stratum variance", {
+  skip_on_cran()
   low  <- maihda_vpcr_fit(seed = 3, sd_u = 0.3)
   high <- maihda_vpcr_fit(seed = 3, sd_u = 1.6)
   v_low  <- maihda_vpc_response(low,  n_sim = 50000, seed = 5)$estimate
@@ -72,6 +76,7 @@ test_that("response-scale VPC increases with between-stratum variance", {
 })
 
 test_that("maihda_vpc_response rejects non-binomial models and invalid n_sim", {
+  skip_on_cran()
   g <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
     MAIHDA::maihda_sim_data[seq_len(120), ],
     outcome_var = "health_outcome", grouping_vars = c("gender", "race"),

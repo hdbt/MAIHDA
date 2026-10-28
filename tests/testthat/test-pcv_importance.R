@@ -33,6 +33,7 @@ fitted_var <- function(m) {
 }
 
 test_that("exact Shapley contributions satisfy the efficiency identity", {
+  skip_on_cran()
   d <- make_imp_data()
   imp <- suppressMessages(pcv_importance(d, "y", c("gender", "race", "age")))
 
@@ -62,6 +63,7 @@ test_that("exact Shapley contributions satisfy the efficiency identity", {
 })
 
 test_that("Shapley contributions are invariant to the order of vars", {
+  skip_on_cran()
   d <- make_imp_data()
   imp1 <- suppressMessages(pcv_importance(d, "y", c("gender", "race", "age")))
   imp2 <- suppressMessages(pcv_importance(d, "y", c("age", "race", "gender")))
@@ -75,6 +77,7 @@ test_that("Shapley contributions are invariant to the order of vars", {
 })
 
 test_that("the Shapley subsets along the entry order are stepwise_pcv()'s models", {
+  skip_on_cran()
   d <- make_imp_data()
   vars <- c("gender", "race", "age")
   imp <- suppressMessages(pcv_importance(d, "y", vars))
@@ -91,6 +94,7 @@ test_that("the Shapley subsets along the entry order are stepwise_pcv()'s models
 })
 
 test_that("pcv_importance() offers the Shapley and dominance methods only", {
+  skip_on_cran()
   d <- make_imp_data()
   vars <- c("gender", "race", "age")
   expect_error(pcv_importance(d, "y", vars, method = "sequential"))
@@ -101,6 +105,7 @@ test_that("pcv_importance() offers the Shapley and dominance methods only", {
 })
 
 test_that("dominance analysis returns general == Shapley plus dominance tables", {
+  skip_on_cran()
   d <- make_imp_data()
   vars <- c("gender", "race", "age")
   dm <- suppressMessages(pcv_importance(d, "y", vars, method = "dominance"))
@@ -128,6 +133,7 @@ test_that("dominance analysis returns general == Shapley plus dominance tables",
 })
 
 test_that("Monte-Carlo approximation converges to the exact Shapley values", {
+  skip_on_cran()
   d <- make_imp_data()
   vars <- c("gender", "race", "age")
   exact <- suppressMessages(pcv_importance(d, "y", vars))
@@ -154,6 +160,7 @@ test_that("Monte-Carlo approximation converges to the exact Shapley values", {
 })
 
 test_that("pcv_importance works for a binary outcome and auto-detects the family", {
+  skip_on_cran()
   d <- make_imp_data(n = 300)
   set.seed(11)
   d$yb <- rbinom(nrow(d), 1,
@@ -192,6 +199,7 @@ test_that("pcv_importance shares one complete-case sample across every subset fi
 })
 
 test_that("pcv_importance reconstructs auto-binned dimensions like stepwise_pcv", {
+  skip_on_cran()
   set.seed(2026)
   n <- 240
   d <- data.frame(
@@ -220,6 +228,7 @@ test_that("pcv_importance reconstructs auto-binned dimensions like stepwise_pcv"
 })
 
 test_that("bootstrap intervals cover each contribution and report the draw count", {
+  skip_on_cran()
   d <- make_imp_data()
   set.seed(515)
   bs <- suppressWarnings(suppressMessages(
@@ -289,6 +298,7 @@ test_that("pcv_importance rejects invalid inputs and infeasible requests", {
 })
 
 test_that("print and plot methods work for every attribution flavour", {
+  skip_on_cran()
   d <- make_imp_data()
   imp <- suppressMessages(pcv_importance(d, "y", c("gender", "race", "age")))
   dm <- suppressMessages(
@@ -336,6 +346,7 @@ test_that("a single-variable attribution reduces to the total PCV", {
 })
 
 test_that("pcv_importance(context = ) attributes the PCV net of the context", {
+  skip_on_cran()
   set.seed(881)
   n <- 300
   d <- data.frame(

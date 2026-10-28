@@ -75,6 +75,7 @@ test_that("maihda_mor errors for a non-logit binomial link (probit)", {
 })
 
 test_that("maihda_discriminatory_accuracy reports AUC with mor = NA for a probit fit", {
+  skip_on_cran()
   m <- maihda_da_test_model(family = stats::binomial("probit"))
   da <- maihda_discriminatory_accuracy(m)
 
@@ -114,6 +115,7 @@ test_that("maihda_discriminatory_accuracy bundles AUC + MOR and reproduces the v
 })
 
 test_that("discriminatory accuracy flags the AUC as apparent / in-sample", {
+  skip_on_cran()
   m <- maihda_da_test_model()
   da <- maihda_discriminatory_accuracy(m)
   # The AUC is scored on the fitting rows, so it is apparent (optimistically biased).
@@ -123,6 +125,7 @@ test_that("discriminatory accuracy flags the AUC as apparent / in-sample", {
 })
 
 test_that("maihda_discriminatory_accuracy rejects non-binomial models", {
+  skip_on_cran()
   g <- suppressWarnings(suppressMessages(MAIHDA:::maihda_app_fit_models(
     MAIHDA::maihda_sim_data[seq_len(120), ],
     outcome_var = "health_outcome", grouping_vars = c("gender", "race"),
@@ -591,6 +594,7 @@ test_that("summary() attaches discriminatory accuracy for a binomial model", {
 })
 
 test_that("summary(response_vpc = TRUE) attaches a reproducible response-scale VPC", {
+  skip_on_cran()
   m <- maihda_da_test_model()
   s <- summary(m, response_vpc = TRUE, seed = 1)
 
@@ -703,6 +707,7 @@ maihda_da_stepwise_data <- function(seed = 321, n = 900) {
 }
 
 test_that("stepwise_pcv carries the DA trajectory for a binary outcome", {
+  skip_on_cran()
   d <- maihda_da_stepwise_data()
   out <- suppressWarnings(suppressMessages(
     stepwise_pcv(d, "y", c("gender", "race"), family = "binomial")

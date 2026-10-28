@@ -27,6 +27,7 @@ test_that("maihda_row_mask drops rows whose offset is NA", {
 })
 
 test_that("an offset=NA row does not flip automatic family detection", {
+  skip_on_cran()
   set.seed(101)
   n <- 400
   d <- data.frame(
@@ -55,6 +56,7 @@ test_that("an offset=NA row does not flip automatic family detection", {
 })
 
 test_that("an offset=NA baseline occasion does not mis-anchor longitudinal centering", {
+  skip_on_cran()
   set.seed(202)
   nid <- 120
   g1 <- sample(c("F", "M"), nid, replace = TRUE)
@@ -77,6 +79,7 @@ test_that("an offset=NA baseline occasion does not mis-anchor longitudinal cente
 # ---- #2 Medium: per-group PCV failure is surfaced, not silent ---------------
 
 test_that("a failed per-group PCV is flagged (pcv_status + warning), not silent", {
+  skip_on_cran()
   set.seed(303)
   mk <- function(country, genders, nn) data.frame(
     country = country,
@@ -111,6 +114,7 @@ test_that("a failed per-group PCV is flagged (pcv_status + warning), not silent"
 })
 
 test_that("pcv_status is dropped when no two-model decomposition runs", {
+  skip_on_cran()
   set.seed(404)
   d <- data.frame(
     country = sample(c("g1", "g2"), 400, replace = TRUE),
@@ -176,6 +180,7 @@ test_that("maihda_ic() warns and omits the delta for a mixed-scale (lme4 vs brms
 })
 
 test_that("an all-lme4 maihda_ic() table keeps its delta and warns about no scale mix", {
+  skip_on_cran()
   d <- make_audit_ic_data()
   m1 <- fit_maihda(y ~ x + (1 | g1:g2), data = d)
   m2 <- fit_maihda(y ~ 1 + (1 | g1:g2), data = d)

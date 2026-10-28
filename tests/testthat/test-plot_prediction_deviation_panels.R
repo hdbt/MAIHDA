@@ -1,4 +1,5 @@
 test_that("plot_prediction_deviation_panels works for gaussian", {
+  skip_on_cran()
   set.seed(123)
   df <- data.frame(
     x = rnorm(100),
@@ -37,6 +38,7 @@ test_that("plot_prediction_deviation_panels works for binomial", {
 })
 
 test_that("plot_prediction_deviation_panels aligns binomial predictions to supplied data", {
+  skip_on_cran()
   set.seed(125)
   df <- data.frame(
     x = rnorm(100),
@@ -112,6 +114,7 @@ test_that("plot_prediction_deviation_panels handles factor binomial outcomes wit
 })
 
 test_that("plot_prediction_deviation_panels aligns ordinal predictions to supplied data", {
+  skip_on_cran()
   skip_if_not_installed("MASS")
 
   set.seed(126)
@@ -162,6 +165,7 @@ test_that("prediction deviation auto-detects brmsfit families", {
 })
 
 test_that("ordinal stratum surprise averages per-observation surprise (log loss)", {
+  skip_on_cran()
   skip_if_not_installed("MASS")
   set.seed(2108)
   n <- 300
@@ -226,6 +230,7 @@ test_that("maihda_stratum_interval_from_epred aggregates draws then takes quanti
 })
 
 test_that("frequentist (lme4) stratum panels draw joint-covariance bars, never averaged SEs", {
+  skip_on_cran()
   set.seed(404)
   n <- 900
   d <- data.frame(
@@ -260,6 +265,7 @@ test_that("frequentist (lme4) stratum panels draw joint-covariance bars, never a
 })
 
 test_that("Poisson prediction panels use response-scale (count) fitted values", {
+  skip_on_cran()
   set.seed(2005)
   df <- data.frame(x = rnorm(150))
   df$y <- rpois(150, lambda = exp(1 + 0.3 * df$x))

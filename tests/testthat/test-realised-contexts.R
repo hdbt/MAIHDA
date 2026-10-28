@@ -251,6 +251,7 @@ test_that("each grouping factor's levels in the fitted data are read once, by na
 })
 
 test_that("a brms contextual summary carries the realised partition of its draws", {
+  skip_on_cran()
   skip_if_not_installed("brms")
   rcx_mock_brms()
   dr <- rcx_draws()
@@ -349,6 +350,7 @@ test_that("a failure to read the level effects warns and leaves the rest as it w
 })
 
 test_that("a crossed-dimensions summary with a context: one set of realised strata", {
+  skip_on_cran()
   skip_if_not_installed("brms")
   rcx_mock_brms()
   m <- rcx_cc_stub()

@@ -126,6 +126,7 @@ test_that("the warning text names no engine and explains only what it lists", {
 })
 
 test_that("an lme4 comparison with a flat group gets the engine-free sentence", {
+  skip_on_cran()
   d <- rbind(fq12_group("g1", fq12_flat), fq12_group("g2", fq12_s2))
   obs <- fq12_observe(compare_maihda_groups(y ~ (1 | gender:ses), data = d,
                                             group = "country"))
@@ -171,6 +172,7 @@ test_that("an optimiser cut short is listed without the singular-fit sentence", 
 })
 
 test_that("the engine that was used chooses the words, group by group", {
+  skip_on_cran()
   d <- fq12_one_column(rbind(fq12_group("g1", fq12_s2), fq12_group("g2", fq12_s3),
                              fq12_group("g3", rev(fq12_s2))))
   # Each group's fit is an lme4 fit whose diagnostics record is replaced, so the

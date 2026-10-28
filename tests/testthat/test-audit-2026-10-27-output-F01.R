@@ -26,6 +26,7 @@ subtitle_share <- function(p, width = 7, height = 4.5) {
 }
 
 test_that("the trajectories subtitle fits a 7 x 4.5 in figure", {
+  skip_on_cran()
   data(maihda_long_data, package = "MAIHDA", envir = environment())
   m <- suppressWarnings(suppressMessages(
     fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),

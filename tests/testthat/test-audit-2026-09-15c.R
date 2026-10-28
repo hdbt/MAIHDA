@@ -53,6 +53,7 @@ test_that("a fit with a formula offset() and an external offset refuses newdata"
 })
 
 test_that("the newdata guard follows the external offset alone, whatever the formula carries", {
+  skip_on_cran()
   d <- d15c_data()
   fits <- list(
     none = d15c_quiet(fit_maihda(y ~ x + (1 | stratum), data = d)),

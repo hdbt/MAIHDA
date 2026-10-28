@@ -91,6 +91,7 @@ test_that("audit 2026-07-23c: lme4 stratum extractor rejects slope columns", {
 })
 
 test_that("audit 2026-07-23c: predict_maihda(type = 'strata') errors on a non-longitudinal slope fit", {
+  skip_on_cran()
   d <- maihda_audit_0723c_data()
 
   fit <- suppressWarnings(suppressMessages(
@@ -115,6 +116,7 @@ test_that("audit 2026-07-23c: predict_maihda(type = 'strata') errors on a non-lo
 })
 
 test_that("audit 2026-07-23c: longitudinal trajectory predictions and summaries are untouched", {
+  skip_on_cran()
   set.seed(915)
   P <- 40; W <- 3; G <- 4
   pid <- rep(sprintf("p%02d", 1:P), each = W)

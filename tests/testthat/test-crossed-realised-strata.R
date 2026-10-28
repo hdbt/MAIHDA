@@ -282,6 +282,7 @@ test_that("the median odds ratio is taken over every pair, in blocks of draws", 
 })
 
 test_that("a brms crossed summary carries the realised strata of its draws", {
+  skip_on_cran()
   skip_if_not_installed("brms")
   crs_mock_brms()
   m <- crs_stub()
@@ -315,6 +316,7 @@ test_that("a brms crossed summary carries the realised strata of its draws", {
 })
 
 test_that("the VPC line and the median odds ratio follow the family and the context", {
+  skip_on_cran()
   skip_if_not_installed("brms")
   crs_mock_brms()
   dr <- crs_draws()

@@ -284,6 +284,7 @@ test_that("the fixed-effect bootstrap survives every supported response shape", 
 })
 
 test_that("a fixed-effect bootstrap validates n_boot without bootstrap = TRUE", {
+  skip_on_cran()
   d <- maihda_boot_fe_data()
   fit <- fit_maihda(y ~ d1 + d2 + d3 + (1 | stratum), data = d)
   # bootstrap = FALSE, so before this pass n_boot was never looked at on this path.
@@ -394,6 +395,7 @@ test_that("print() surfaces an unreliable fixed-effect reference", {
 })
 
 test_that("the fixed-effect bootstrap leaves the fitted model untouched", {
+  skip_on_cran()
   d <- maihda_boot_fe_data()
   m <- lme4::lmer(y ~ d1 + d2 + d3 + (1 | stratum), data = d)
   before <- list(fixef = lme4::fixef(m), theta = lme4::getME(m, "theta"),
@@ -410,6 +412,7 @@ test_that("the fixed-effect bootstrap leaves the fitted model untouched", {
 })
 
 test_that("the defaults are unchanged: Gaussian keeps the t, a GLMM keeps the z", {
+  skip_on_cran()
   d <- maihda_boot_fe_data()
   gauss <- summary(fit_maihda(y ~ d1 + d2 + d3 + (1 | stratum), data = d))
   expect_identical(gauss$df_method, "between-within")

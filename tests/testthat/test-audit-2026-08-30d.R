@@ -117,6 +117,7 @@ test_that("maihda_describe reports successes/trials for a brms `y | trials(n)` o
 })
 
 test_that("maihda_describe handles a constant trials() and the formula entry point", {
+  skip_on_cran()
   d <- audit_0830d_data()
 
   # Formula path (no fitted model at all): the same extraction must apply, since
@@ -142,6 +143,7 @@ test_that("maihda_describe handles a constant trials() and the formula entry poi
 })
 
 test_that("rows with unusable trial counts are excluded, and malformed rows warn", {
+  skip_on_cran()
   d <- audit_0830d_data()
 
   # A missing or zero trial count is no observed outcome -- the rule the matrix

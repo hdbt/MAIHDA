@@ -49,6 +49,7 @@ test_that("tidy.maihda_model returns broom-shaped strata / variance / fixed tibb
 # Regression (2026-08-09): the lme4 summary used to store term/estimate only, so
 # tidy(component = "fixed") returned an all-NA std.error and no interval.
 test_that("tidy(component = 'fixed') carries lme4 SEs, statistics and Wald intervals", {
+  skip_on_cran()
   d <- make_tidy_data()
   m <- fit_maihda(y ~ age + (1 | gender:race), data = d)
   fe <- tidy(m, component = "fixed")
@@ -165,6 +166,7 @@ test_that("tidy.maihda_analysis errors when the requested summary is absent", {
 })
 
 test_that("tidy/glance work for the wemix engine (design-weighted)", {
+  skip_on_cran()
   skip_if_not_installed("WeMix")
   d <- make_tidy_data()
   m <- suppressWarnings(suppressMessages(
@@ -183,6 +185,7 @@ test_that("tidy/glance work for the wemix engine (design-weighted)", {
 })
 
 test_that("tidy/glance work for the ordinal engine", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   d <- make_tidy_data()
   m <- suppressWarnings(suppressMessages(

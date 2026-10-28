@@ -107,6 +107,7 @@ test_that("the two-model context_vpc view keeps its bars, colours and caption", 
 })
 
 test_that("a crossed-dimensions table with several dimensions and contexts is drawn in the VPC colours", {
+  skip_on_cran()
   skip_if_not_installed("ggplot2")
   # The table shape both engines build (maihda_cc_summary_lme4() / _brms()).
   s <- list(

@@ -204,6 +204,7 @@ test_that("empty and small strata are enumerated and flagged, never dropped", {
 })
 
 test_that("a fitted maihda_model and a maihda_analysis are described post hoc", {
+  skip_on_cran()
   d <- make_describe_data(8006)
   d$y[1:6] <- NA
   desc_f <- maihda_describe(y ~ age + (1 | gender:race), data = d)
@@ -320,6 +321,7 @@ test_that("numeric dimensions are flagged: autobin, linear, and ID-like", {
 })
 
 test_that("print() renders the description and plot() returns ggplot objects", {
+  skip_on_cran()
   d <- make_describe_data(8010)
   d$y[1:10] <- NA
   desc <- maihda_describe(y ~ age + (1 | gender:race), data = d,

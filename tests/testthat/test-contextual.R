@@ -142,6 +142,7 @@ test_that("summary() partitions stratum vs. context vs. residual coherently", {
 })
 
 test_that("summary() of a binomial contextual fit attaches scoped discriminatory accuracy and response VPC", {
+  skip_on_cran()
   # Audit finding: the earlier skip was stale. maihda_discriminatory_accuracy()
   # now reports an intersectional-scope headline AUC that EXCLUDES the context
   # random effect (the all-effects value is auc_full), and maihda_vpc_response()
@@ -226,6 +227,7 @@ test_that("two context variables each get their own component and share", {
 })
 
 test_that("contextual bootstrap returns intervals for both shares", {
+  skip_on_cran()
   d <- make_context_data(n = 900, n_sites = 20)
   m <- fit_maihda(y ~ x + (1 | g1:g2), data = d, context = "site")
   sb <- suppressWarnings(summary(m, bootstrap = TRUE, n_boot = 25))
@@ -265,6 +267,7 @@ test_that("print methods surface the contextual partition", {
 # ---- maihda(context = ) --------------------------------------------------------
 
 test_that("maihda(context = ) carries the context through null and adjusted", {
+  skip_on_cran()
   d <- make_context_data()
   a <- suppressMessages(maihda(y ~ x + (1 | g1:g2), data = d, context = "site"))
   expect_identical(a$context_vars, "site")
@@ -279,6 +282,7 @@ test_that("maihda(context = ) carries the context through null and adjusted", {
 })
 
 test_that("plot(type = 'vpc', model = ) works for a contextual analysis", {
+  skip_on_cran()
   d <- make_context_data()
   a <- suppressMessages(maihda(y ~ x + (1 | g1:g2), data = d, context = "site"))
 
@@ -299,6 +303,7 @@ test_that("plot(type = 'vpc', model = ) works for a contextual analysis", {
 })
 
 test_that("the PCV is essentially unchanged by adding an orthogonal context", {
+  skip_on_cran()
   # The context RE sits in both the null and adjusted models, and site membership
   # is independent of the strata by construction, so the PCV (a ratio of
   # between-stratum variances) should match the no-context PCV closely.
@@ -311,6 +316,7 @@ test_that("the PCV is essentially unchanged by adding an orthogonal context", {
 # ---- group + context compose (stratified x contextual) -----------------------
 
 test_that("maihda(group, context) composes: per-group contextual fits", {
+  skip_on_cran()
   d <- make_context_data()
   a <- suppressWarnings(suppressMessages(
     maihda(y ~ x + (1 | g1:g2), data = d, group = "region", context = "site")))
@@ -330,6 +336,7 @@ test_that("maihda(group, context) composes: per-group contextual fits", {
 })
 
 test_that("compare_maihda_groups(context =) reports the per-group context partition", {
+  skip_on_cran()
   d <- make_context_data()
   cmp <- suppressWarnings(compare_maihda_groups(
     y ~ x + (1 | g1:g2), data = d, group = "region", context = "site"))
@@ -345,6 +352,7 @@ test_that("compare_maihda_groups(context =) reports the per-group context partit
 })
 
 test_that("per-group PCV is essentially unchanged by an orthogonal context", {
+  skip_on_cran()
   # site membership is independent of the strata by construction, so adding the
   # (1 | site) context RE to each per-group fit should barely move the between-
   # stratum PCV (which reads only the stratum variance component).
@@ -394,6 +402,7 @@ test_that("context may not name the group variable", {
 })
 
 test_that("group + context warns when a group has too few context levels", {
+  skip_on_cran()
   set.seed(11)
   n <- 600
   region <- sample(c("A", "B"), n, replace = TRUE)
@@ -418,6 +427,7 @@ test_that("group + context warns when a group has too few context levels", {
 })
 
 test_that("plot(type = 'components') gains a context slice that still sums to 1", {
+  skip_on_cran()
   d <- make_context_data()
   cmp <- suppressWarnings(compare_maihda_groups(
     y ~ x + (1 | g1:g2), data = d, group = "region", context = "site"))
@@ -429,6 +439,7 @@ test_that("plot(type = 'components') gains a context slice that still sums to 1"
 })
 
 test_that("a non-contextual group comparison keeps no context columns", {
+  skip_on_cran()
   d <- make_context_data()
   cmp <- suppressWarnings(compare_maihda_groups(
     y ~ x + (1 | g1:g2), data = d, group = "region"))
@@ -437,6 +448,7 @@ test_that("a non-contextual group comparison keeps no context columns", {
 })
 
 test_that("maihda(decomposition = 'crossed-dimensions', context = ) composes", {
+  skip_on_cran()
   d <- make_context_data()
   cc <- suppressWarnings(suppressMessages(
     maihda(y ~ x + (1 | g1:g2), data = d,
@@ -460,6 +472,7 @@ test_that("maihda(decomposition = 'crossed-dimensions', context = ) composes", {
 })
 
 test_that("crossed-dimensions + context: print, vpc plot, and bootstrap intervals", {
+  skip_on_cran()
   d <- make_context_data(n = 900, n_sites = 15)
   cc <- suppressWarnings(suppressMessages(
     maihda(y ~ x + (1 | g1:g2), data = d,
@@ -484,6 +497,7 @@ test_that("crossed-dimensions + context: print, vpc plot, and bootstrap interval
 # ---- plots ---------------------------------------------------------------------
 
 test_that("plot(type = 'all') includes the context_vpc view for a contextual fit", {
+  skip_on_cran()
   skip_if_not_installed("ggplot2")
   d <- make_context_data(n = 900, n_sites = 15)
   a <- suppressMessages(maihda(y ~ x + (1 | g1:g2), data = d, context = "site"))
@@ -496,6 +510,7 @@ test_that("plot(type = 'all') includes the context_vpc view for a contextual fit
 })
 
 test_that("contextual plots render", {
+  skip_on_cran()
   skip_if_not_installed("ggplot2")
   d <- make_context_data()
   m <- fit_maihda(y ~ x + (1 | g1:g2), data = d, context = "site")
@@ -508,6 +523,7 @@ test_that("contextual plots render", {
 })
 
 test_that("context_vpc errors without a contextual fit", {
+  skip_on_cran()
   d <- make_context_data()
   m <- fit_maihda(y ~ x + (1 | g1:g2), data = d)
   expect_error(plot(m, type = "context_vpc"), "No contextual partition")
@@ -706,6 +722,7 @@ test_that("contextual brms summary returns posterior shares with intervals", {
 # the shared complete-case sample, the Context_Variance column, and the engine guards.
 
 test_that("stepwise_pcv(context = ) isolates the between-stratum PCV net of context (lme4 gaussian)", {
+  skip_on_cran()
   d <- make_context_data()
   s <- make_strata(d, vars = c("g1", "g2"))
 
@@ -733,6 +750,7 @@ test_that("stepwise_pcv(context = ) isolates the between-stratum PCV net of cont
 })
 
 test_that("stepwise_pcv Context_Variance reports the between-context variance and leaves other tables unchanged", {
+  skip_on_cran()
   d <- make_context_data()
   s <- make_strata(d, vars = c("g1", "g2"))
 
@@ -761,6 +779,7 @@ test_that("stepwise_pcv Context_Variance reports the between-context variance an
 })
 
 test_that("stepwise_pcv(context = ) filters context to one shared complete-case sample", {
+  skip_on_cran()
   d <- make_context_data()
   d$site[1:50] <- NA
   s <- make_strata(d, vars = c("g1", "g2"))
@@ -779,6 +798,7 @@ test_that("stepwise_pcv(context = ) filters context to one shared complete-case 
 })
 
 test_that("stepwise_pcv reports the AUC/MOR trajectory for a binary contextual fit", {
+  skip_on_cran()
   set.seed(4242)
   d <- make_context_data(n = 1500, n_sites = 20)
   d$yb <- stats::rbinom(nrow(d), 1, stats::plogis(d$y - mean(d$y)))

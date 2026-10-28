@@ -155,6 +155,7 @@ test_that("the note names the contexts and says what follows", {
 })
 
 test_that("a brms contextual summary carries the level counts and its partition names the context", {
+  skip_on_cran()
   skip_if_not_installed("brms")
   draws <- cfc_draws()
   local_mocked_bindings(maihda_posterior_draws_brms = function(model) model$draws)
@@ -215,6 +216,7 @@ test_that("a brms crossed-dimensions summary with a context carries the counts t
 })
 
 test_that("print() of an analysis and of its summary show the note; an lme4 print has none", {
+  skip_on_cran()
   d <- cfc_gaussian_data()
   a <- cfc_with_seed(1, suppressWarnings(suppressMessages(
     maihda(y ~ 1 + (1 | d1:d2), data = d, context = "site"))))
@@ -246,6 +248,7 @@ test_that("print() of an analysis and of its summary show the note; an lme4 prin
 })
 
 test_that("the group-comparison warning says what the fitting engine does", {
+  skip_on_cran()
   cells <- c("A x site (3 levels)", "B x site (2 levels)")
   w_lme4 <- maihda_weak_context_message("lme4", cells)
   w_brms <- maihda_weak_context_message("brms", cells)
@@ -271,6 +274,7 @@ test_that("the group-comparison warning says what the fitting engine does", {
 })
 
 test_that("a brms comparison's warning is worded for brms", {
+  skip_on_cran()
   # Each group's fit is an lme4 fit made inside a brms comparison, so the comparison's
   # own engine reaches the warning without a sampler.
   real_fit <- fit_maihda

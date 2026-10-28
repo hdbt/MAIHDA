@@ -158,6 +158,7 @@ test_that("fit_maihda(engine = 'wemix') refuses a formula offset before fitting"
 })
 
 test_that("maihda() and compare_maihda_groups() refuse it once, before any fit", {
+  skip_on_cran()
   d <- b17_dim_data()
   local_mocked_bindings(fit_maihda = function(...) stop("a fit was attempted"))
   f <- y ~ x + offset(off) + (1 | a:b)
@@ -237,6 +238,7 @@ test_that("the refusal names every offset and a runnable recipe", {
 })
 
 test_that("the other engines still fit a formula offset", {
+  skip_on_cran()
   d <- b17_dim_data()
   m <- b17_quiet(fit_maihda(y ~ x + offset(off) + (1 | a:b), d))
   ref <- b17_quiet(lme4::lmer(y ~ x + offset(off) + (1 | stratum),

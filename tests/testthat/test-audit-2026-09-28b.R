@@ -140,6 +140,7 @@ test_that("predict_maihda() hands brms supplied rows without the recoded outcome
 })
 
 test_that("the deviation panel predicts brms rows and codes their outcome as fitted", {
+  skip_on_cran()
   skip_if_not_installed("brms")
   e <- a28b_data()
   m <- a28b_mock(e)
@@ -155,6 +156,7 @@ test_that("the deviation panel predicts brms rows and codes their outcome as fit
 })
 
 test_that("controls: the model's own rows, its stored frame, rows missing an outcome", {
+  skip_on_cran()
   # Right before the fix too: these rows carry the outcome already recoded to 0/1, or
   # (the last) an outcome column brms does not check.
   skip_if_not_installed("brms")

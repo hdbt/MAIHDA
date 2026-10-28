@@ -71,6 +71,7 @@ test_that("an ordinal top category confined to missing-predictor rows is rejecte
 })
 
 test_that("the brms ordinal path rejects the same case before any Stan compile", {
+  skip_on_cran()
   skip_if_not_installed("brms")
   set.seed(1)
   n <- 240
@@ -91,6 +92,7 @@ test_that("the brms ordinal path rejects the same case before any Stan compile",
 })
 
 test_that("a clean 3-category ordinal fit is unaffected", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   set.seed(2)
   n <- 300

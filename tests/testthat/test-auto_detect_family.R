@@ -56,6 +56,7 @@ test_that("fit_maihda detects binary on the post-transformation analytic frame",
 })
 
 test_that("the maihda() wrappers pick the engine from the analytic sample, not raw", {
+  skip_on_cran()
   # An ordered 3-level outcome subset to two observed levels is a BINARY analytic
   # sample. The wrappers must detect that on the post-subset frame (engine = lme4,
   # binomial) instead of pinning engine = "ordinal" from the raw 3-level column,

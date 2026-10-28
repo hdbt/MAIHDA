@@ -13,6 +13,7 @@ make_table_data <- function(seed = 7001, n = 400) {
 }
 
 test_that("maihda_table() on a two-model analysis assembles the canonical results table", {
+  skip_on_cran()
   d <- make_table_data()
   a <- suppressMessages(maihda(y ~ age + gender + race + (1 | gender:race), data = d))
 
@@ -62,6 +63,7 @@ test_that("maihda_table() on a two-model analysis assembles the canonical result
 })
 
 test_that("maihda_table() ranks every stratum by predicted value, descending", {
+  skip_on_cran()
   d <- make_table_data(7002)
   a <- suppressMessages(maihda(y ~ age + (1 | gender:race), data = d))
 
@@ -77,6 +79,7 @@ test_that("maihda_table() ranks every stratum by predicted value, descending", {
 })
 
 test_that("maihda_table() adds AUC and MOR rows for a binary outcome", {
+  skip_on_cran()
   d <- make_table_data(7003)
   a <- suppressWarnings(suppressMessages(
     maihda(bin ~ age + gender + race + (1 | gender:race), data = d, family = "binomial")))
@@ -119,6 +122,7 @@ test_that("maihda_table() reports additive/interaction shares for crossed-dimens
 })
 
 test_that("maihda_table() carries the VPC/PCV intervals when bootstrapped", {
+  skip_on_cran()
   d <- make_table_data(7006)
   a <- suppressWarnings(suppressMessages(
     maihda(y ~ age + (1 | gender:race), data = d, bootstrap = TRUE, n_boot = 20)))
@@ -178,6 +182,7 @@ test_that("maihda_table() rejects a non-finite, missing, or negative n_strata", 
 })
 
 test_that("maihda_table() reports the context share for a contextual fit", {
+  skip_on_cran()
   d <- make_table_data(7009)
   a <- suppressWarnings(suppressMessages(
     maihda(y ~ age + (1 | gender:race), data = d, context = "country")))
@@ -228,6 +233,7 @@ test_that("maihda_table() attaches no basis note under the default (fitted) PCV"
 })
 
 test_that("maihda_table() attaches no PCV note for single or crossed-dimensions fits", {
+  skip_on_cran()
   d <- make_table_data(7012)
 
   m <- suppressMessages(fit_maihda(y ~ age + (1 | gender:race), data = d))

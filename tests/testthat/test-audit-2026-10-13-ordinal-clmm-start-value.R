@@ -186,6 +186,7 @@ test_that("the second call changes the routine and nothing the caller chose", {
 })
 
 test_that("the optimiser's return is read as a verdict", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   expect_identical(maihda_nlminb_port_code("singular convergence (7)"), 7L)
   expect_identical(maihda_nlminb_port_code("relative convergence (4)"), 4L)

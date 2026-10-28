@@ -316,6 +316,7 @@ test_that("print says which summary the variances are, only for an object that s
 })
 
 test_that("an lme4 growth pair is read off its fitted blocks, as before", {
+  skip_on_cran()
   a <- long_pcv_keep_rng(suppressWarnings(suppressMessages(
     maihda(wellbeing ~ wave + (1 | gender:ethnicity:education), data = maihda_long_data,
            id = "id", time = "wave", decomposition = "longitudinal"))))

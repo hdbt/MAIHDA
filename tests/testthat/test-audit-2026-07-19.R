@@ -64,6 +64,7 @@ test_that("maihda_variance_at_boundary applies lme4's relative SD tolerance", {
 })
 
 test_that("ordinal PCV rejects a boundary (near-zero) between-stratum denominator", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   set.seed(101)
   G <- 40; npg <- 40
@@ -96,6 +97,7 @@ test_that("ordinal PCV rejects a boundary (near-zero) between-stratum denominato
 })
 
 test_that("a healthy ordinal fit is NOT flagged at the boundary", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   set.seed(202)
   G <- 40; npg <- 40
@@ -113,6 +115,7 @@ test_that("a healthy ordinal fit is NOT flagged at the boundary", {
 })
 
 test_that("wemix PCV flags a boundary between-stratum variance", {
+  skip_on_cran()
   skip_if_not_installed("WeMix")
   set.seed(3)
   G <- 30; npg <- 80
@@ -153,6 +156,7 @@ maihda_boundary_adjusted_df <- function(seed = 42) {
 }
 
 test_that("estimation='ML' with a boundary adjusted model reports a mixed basis", {
+  skip_on_cran()
   df <- maihda_boundary_adjusted_df()
   m0 <- fit_maihda(y ~ (1 | gender:race:edu), data = df)
   m1 <- fit_maihda(y ~ x + (1 | gender:race:edu), data = df)
@@ -220,6 +224,7 @@ test_that("stepwise_pcv reports a mixed basis when a step hits the boundary unde
 })
 
 test_that("pcv_importance reports a mixed basis when a subset is at the boundary under ML", {
+  skip_on_cran()
   d <- maihda_boundary_series_df()
   imp <- suppressWarnings(pcv_importance(d, "y", c("x", "x2"), estimation = "ML"))
   expect_true(isTRUE(imp$full_at_boundary))

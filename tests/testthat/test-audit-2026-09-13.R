@@ -38,6 +38,7 @@
 # 0.975, 0.98, 0.99, 0.995 and 0.999 are bit-identical.
 
 test_that("the bootstrap critical rank excludes zero exactly when p <= alpha", {
+  skip_on_cran()
   # Every attainable count c = #{|t*| >= |t|}: zero falls outside the interval
   # when the observed statistic beats the r-th largest draw, i.e. when
   # c <= r - 1, and that must be exactly p = (1 + c) / (B + 1) <= alpha with

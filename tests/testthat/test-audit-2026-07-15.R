@@ -15,6 +15,7 @@
 # ---- P1 #1: brms rejects lme4-style data-masked fitting arguments ------------
 
 test_that("engine = 'brms' rejects subset/weights/offset dots (audit P1 #1)", {
+  skip_on_cran()
   d <- data.frame(y = rnorm(20), x = rnorm(20),
                   stratum = factor(rep(letters[1:4], 5)))
   # The guard fires while arguments are handled, before brms/Stan is touched --
@@ -83,6 +84,7 @@ test_that("maihda_prepare_brms_sampling_weights re-prepares a derived fit (audit
 # ---- P2 #3: non-positive precision weights are dropped before the fit --------
 
 test_that("zero/negative precision weights are dropped before the lmer fit (audit P2 #3)", {
+  skip_on_cran()
   set.seed(11)
   n <- 120
   g <- factor(rep(1:12, each = 10))
@@ -128,6 +130,7 @@ test_that("maihda_check_known_strata rejects NA strata only for individual predi
 })
 
 test_that("missing strata are rejected for lme4 individual predictions (audit P2 #4)", {
+  skip_on_cran()
   set.seed(4)
   n <- 200
   d <- data.frame(
@@ -165,6 +168,7 @@ test_that("missing strata are rejected for lme4 individual predictions (audit P2
 })
 
 test_that("WeMix individual predictions reject a missing stratum (audit P2 #4)", {
+  skip_on_cran()
   skip_if_not_installed("WeMix")
   set.seed(41)
   n <- 300
@@ -186,6 +190,7 @@ test_that("WeMix individual predictions reject a missing stratum (audit P2 #4)",
 })
 
 test_that("ordinal individual predictions reject a missing stratum (audit P2 #4)", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   set.seed(42)
   n <- 240

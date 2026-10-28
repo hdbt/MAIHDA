@@ -327,6 +327,7 @@ test_that("the sentences name terms as the first line does and stay within the b
 })
 
 test_that("print() of a crossed-dimensions fit with additive strata says so", {
+  skip_on_cran()
   d <- cs13_cells(cs13_g45(), cs13_mu_additive())
   a <- cs13_crossed(y ~ (1 | d1:d2), d)
 
@@ -378,6 +379,7 @@ test_that("print() of a crossed-dimensions fit with additive strata says so", {
 })
 
 test_that("print() of a crossed-dimensions fit with a dimension at zero points to the shares", {
+  skip_on_cran()
   # Strata that are not additive at all: both dimensions at zero.
   d <- cs13_cells(cs13_g23(), cs13_shifts)
   a <- cs13_crossed(y ~ (1 | gender:ses), d)
@@ -426,6 +428,7 @@ test_that("print() of a crossed-dimensions fit with a dimension at zero points t
 })
 
 test_that("a context at zero beside the crossed terms is told from them", {
+  skip_on_cran()
   # The context alone: every crossed term is positive.
   d <- cs13_with_school(cs13_g45(), cs13_mu_additive() + cs13_mu_departure())
   a <- cs13_crossed(y ~ (1 | d1:d2), d, context = "school")

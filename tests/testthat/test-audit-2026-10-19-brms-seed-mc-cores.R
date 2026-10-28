@@ -39,6 +39,7 @@ bsm_data <- function() {
 }
 
 test_that("fit_maihda() hands brm() a seed from R's stream when the chains run in parallel", {
+  skip_on_cran()
   skip_if_not_installed("brms")
 
   d <- bsm_data()

@@ -13,18 +13,21 @@ make_binary_upset_model <- function(seed = 1, n = 1500) {
 }
 
 test_that("type = 'upset' returns a patchwork of binary-dimension strata", {
+  skip_on_cran()
   model <- make_binary_upset_model()
   p <- plot(model, type = "upset")
   expect_s3_class(p, "patchwork")
 })
 
 test_that("upset is offered by the dispatcher and honours n_strata", {
+  skip_on_cran()
   model <- make_binary_upset_model()
   # No error for a capped view, and it still composes.
   expect_s3_class(plot(model, type = "upset", n_strata = 6), "patchwork")
 })
 
 test_that("upset renders multi-level factor dimensions (category matrix)", {
+  skip_on_cran()
   set.seed(7)
   n <- 1800
   d <- data.frame(
@@ -41,6 +44,7 @@ test_that("upset renders multi-level factor dimensions (category matrix)", {
 })
 
 test_that("upset quantity toggles between predicted values and random effects", {
+  skip_on_cran()
   model <- make_binary_upset_model()
   expect_s3_class(plot(model, type = "upset", quantity = "predicted"), "patchwork")
   expect_s3_class(plot(model, type = "upset", quantity = "interaction"), "patchwork")
@@ -82,6 +86,7 @@ test_that("the predicted-strata refactor still carries n through prep", {
 })
 
 test_that("plot.maihda_analysis dispatches type = 'upset' and forwards rope", {
+  skip_on_cran()
   set.seed(3)
   n <- 1500
   d <- data.frame(
@@ -152,6 +157,7 @@ upset_est <- function(p) {
 predicted_rows <- function(p) rev(levels(p$data$display_label))
 
 test_that("upset honours order_by and defaults to intersection size", {
+  skip_on_cran()
   model <- make_binary_upset_model()
   base <- plot(model, type = "upset", n_strata = 8)
 
@@ -180,6 +186,7 @@ test_that("upset honours order_by and defaults to intersection size", {
 })
 
 test_that("upset order_by = 'predicted_desc' reproduces the predicted view's order", {
+  skip_on_cran()
   # The point of the feature request: the ranked caterpillar of type = "predicted"
   # drawn against the category matrix instead of long text labels. Both views share
   # maihda_prepare_predicted_strata(), so the two orders must agree exactly.
@@ -190,6 +197,7 @@ test_that("upset order_by = 'predicted_desc' reproduces the predicted view's ord
 })
 
 test_that("upset order_by is display-only: same strata, values and reference", {
+  skip_on_cran()
   model <- make_binary_upset_model()
   snapshot <- function(ob) {
     p <- plot(model, type = "upset", n_strata = 8, order_by = ob)
@@ -204,6 +212,7 @@ test_that("upset order_by is display-only: same strata, values and reference", {
 })
 
 test_that("upset value orders follow `quantity`, and the caption follows both", {
+  skip_on_cran()
   model <- make_binary_upset_model()
   # quantity = "interaction" draws the random effect, so the value orders sort on
   # it -- sorting on `predicted` would render as an unsorted panel.
@@ -231,6 +240,7 @@ test_that("predicted view gains order_by = 'size'", {
 })
 
 test_that("plot.maihda_analysis forwards order_by to the upset view", {
+  skip_on_cran()
   set.seed(1)
   n <- 1500
   d <- data.frame(

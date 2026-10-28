@@ -27,6 +27,7 @@ test_that("maihda_country_data is available and has correct structure", {
 })
 
 test_that("maihda_country_data showcases differing intersectional VPC across countries", {
+  skip_on_cran()
   data(maihda_country_data, envir = environment())
 
   # The PISA strata are (documented as) essentially additive, so several countries'

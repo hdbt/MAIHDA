@@ -1,4 +1,5 @@
 test_that("summary handles binomial and gaussian residual variance correctly", {
+  skip_on_cran()
   # Setup data
   strata_result <- make_strata(maihda_sim_data, vars = c("gender", "race"))
 
@@ -27,6 +28,7 @@ test_that("summary handles binomial and gaussian residual variance correctly", {
 })
 
 test_that("summary print reports requested bootstrap confidence level", {
+  skip_on_cran()
   set.seed(1101)
   d <- data.frame(
     stratum = rep(seq_len(8), each = 8),

@@ -232,6 +232,7 @@ test_that("the record calls that fit not singular and print() says what lme4 rep
 })
 
 test_that("the line in the centred and scaled terms is 0.01, and a block of rank one is singular", {
+  skip_on_cran()
   d <- birth_year_data(2)
   at <- placed(optimum_2, d)
   # The slope's scaled entry at 0.012, then at 0.008, 2.5e-4 and 5e-5 (lme4's entry from 7.3e-6
@@ -256,6 +257,7 @@ test_that("the line in the centred and scaled terms is 0.01, and a block of rank
 })
 
 test_that("a block of rank one is singular in its scaled terms, at the intercept's entry too", {
+  skip_on_cran()
   d <- birth_year_data(2)
   at <- placed(optimum_2, d)
   xbar <- mean(d$x)
@@ -298,6 +300,7 @@ test_that("a block lme4's test misses in large units is singular in its scaled t
 })
 
 test_that("a block without an intercept is scaled by its root mean square, each block on its own", {
+  skip_on_cran()
   d <- birth_year_data(2)
   # (1 | stratum) + (0 + x | stratum): lme4's entry for the slope is 3.8e-5 per year, 0.075
   # times the root mean square of the year.
@@ -349,6 +352,7 @@ test_that("a context block keeps lme4's entries beside a stratum block in its sc
 })
 
 test_that("intercept-only fits, glmer fits with nAGQ 0 and growth fits keep lme4's test", {
+  skip_on_cran()
   same <- data.frame(g = factor(rep(1:10, each = 10)), y = rep(seq(-1, 1, length.out = 10), times = 10))
   m <- quiet(lme4::lmer(y ~ 1 + (1 | g), data = same))
   expect_true(lme4::isSingular(m))
@@ -513,6 +517,7 @@ test_that("a glmer fit lme4 does not call singular is left to lme4's checks", {
 })
 
 test_that("fits with a diag() or cs() block keep lme4's test and are not searched", {
+  skip_on_cran()
   d <- birth_year_data(2)
   expect_true(maihda_lme4_full_factors(placed(optimum_2, d)))
   # A cs() block's theta is its Cholesky factor, but its bounds are those of its standard

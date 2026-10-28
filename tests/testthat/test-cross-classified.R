@@ -104,6 +104,7 @@ test_that("maihda_cross_classified_formula builds dimension REs + intersection R
 # ---- maihda() crossed-dimensions mode -----------------------------------------
 
 test_that("maihda(decomposition = 'crossed-dimensions') returns a coherent partition", {
+  skip_on_cran()
   d <- make_cc_data()
   cc <- suppressWarnings(suppressMessages(
     maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "crossed-dimensions")))
@@ -134,6 +135,7 @@ test_that("maihda(decomposition = 'crossed-dimensions') returns a coherent parti
 })
 
 test_that("the crossed-dimensions formula carries dimension REs + the intersection RE", {
+  skip_on_cran()
   d <- make_cc_data()
   cc <- suppressWarnings(suppressMessages(
     maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "crossed-dimensions")))
@@ -145,6 +147,7 @@ test_that("the crossed-dimensions formula carries dimension REs + the intersecti
 })
 
 test_that("the crossed-dimensions summary table has one row per dimension + interaction", {
+  skip_on_cran()
   d <- make_cc_data()
   cc <- suppressWarnings(suppressMessages(
     maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "crossed-dimensions")))
@@ -169,6 +172,7 @@ test_that("crossed-dimensions mode needs at least two dimensions", {
 # ---- bootstrap --------------------------------------------------------------
 
 test_that("crossed-dimensions bootstrap returns finite VPC and share intervals", {
+  skip_on_cran()
   d <- make_cc_data()
   cc <- suppressWarnings(suppressMessages(
     maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "crossed-dimensions")))
@@ -185,6 +189,7 @@ test_that("crossed-dimensions bootstrap returns finite VPC and share intervals",
 # ---- plots ------------------------------------------------------------------
 
 test_that("crossed-dimensions plots render", {
+  skip_on_cran()
   skip_if_not_installed("ggplot2")
   d <- make_cc_data()
   cc <- suppressWarnings(suppressMessages(
@@ -261,6 +266,7 @@ test_that("crossed-dimensions stratum predictions exclude a contextual random ef
 # ---- group comparison -------------------------------------------------------
 
 test_that("compare_maihda_groups(decomposition = 'crossed-dimensions') reports shares", {
+  skip_on_cran()
   d <- make_cc_data()
   g <- suppressWarnings(suppressMessages(
     compare_maihda_groups(y ~ x + (1 | a:b:cc), data = d, group = "grp",
@@ -276,6 +282,7 @@ test_that("compare_maihda_groups(decomposition = 'crossed-dimensions') reports s
 })
 
 test_that("plot(type = 'all') includes group_additive_share for a crossed-dimensions group analysis", {
+  skip_on_cran()
   skip_if_not_installed("ggplot2")
   d <- make_cc_data()
   a <- suppressWarnings(suppressMessages(
@@ -298,6 +305,7 @@ test_that("plot(type = 'all') includes group_additive_share for a crossed-dimens
 })
 
 test_that("plot(type = 'all') keeps group_pcv (not additive_share) for a two-model group analysis", {
+  skip_on_cran()
   skip_if_not_installed("ggplot2")
   d <- make_cc_data()
   a <- suppressWarnings(suppressMessages(
@@ -377,6 +385,7 @@ test_that("crossed-dimensions brms summary returns posterior shares with interva
 # ---- regression: the default two-model path is unchanged --------------------
 
 test_that("default maihda() stays two-model with a PCV and no decomposition", {
+  skip_on_cran()
   d <- make_cc_data()
   a <- suppressWarnings(suppressMessages(maihda(y ~ x + (1 | a:b:cc), data = d)))
   expect_identical(a$mode, "two-model")
@@ -386,6 +395,7 @@ test_that("default maihda() stays two-model with a PCV and no decomposition", {
 })
 
 test_that("default compare_maihda_groups() keeps the two-model PCV schema", {
+  skip_on_cran()
   d <- make_cc_data()
   g <- suppressWarnings(suppressMessages(
     compare_maihda_groups(y ~ x + (1 | a:b:cc), data = d, group = "grp")))
@@ -511,6 +521,7 @@ test_that("maihda_print_cc_decomposition prints shares, per-dim variances, and C
 # ---- per-group crossed-dimensions via maihda(group = ) --------------------------
 
 test_that("maihda(crossed-dimensions, group = ) attaches the per-group decomposition", {
+  skip_on_cran()
   d <- make_cc_data(n = 1200)
   cc <- suppressWarnings(suppressMessages(
     maihda(y ~ x + (1 | a:b), data = d, decomposition = "crossed-dimensions",
@@ -524,6 +535,7 @@ test_that("maihda(crossed-dimensions, group = ) attaches the per-group decomposi
 })
 
 test_that("plot(type = 'additive_share') errors on a two-model group comparison", {
+  skip_on_cran()
   d <- make_cc_data(n = 800)
   g <- suppressWarnings(suppressMessages(
     compare_maihda_groups(y ~ x + (1 | a:b), data = d, group = "grp")))

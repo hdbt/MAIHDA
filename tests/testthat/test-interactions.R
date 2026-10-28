@@ -240,6 +240,7 @@ test_that("a singular/boundary fit flags nothing and prints without error", {
 # ---- plot highlight option --------------------------------------------------
 
 test_that("highlight_interactions = FALSE is unchanged; TRUE applies the fade highlight", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
 
   p_off   <- plot(a, type = "effect_decomp")
@@ -263,6 +264,7 @@ test_that("highlight_interactions = FALSE is unchanged; TRUE applies the fade hi
 })
 
 test_that("a precomputed maihda_interactions object can drive the highlight", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   mi <- maihda_interactions(a, adjust = "BH")
   p <- plot(a, type = "effect_decomp", highlight_interactions = mi)
@@ -274,6 +276,7 @@ test_that("a precomputed maihda_interactions object can drive the highlight", {
 })
 
 test_that("plot labels can follow multiplicity-adjusted interaction flags", {
+  skip_on_cran()
   dat <- maihda_interaction_data(n_per = 30, d = 0.55)
   a <- suppressMessages(suppressWarnings(
     maihda(y ~ A + B + (1 | A:B), data = dat)))
@@ -314,6 +317,7 @@ test_that("an invalid highlight_interactions argument errors", {
 # ---- only_flagged: filter to the flagged strata -----------------------------
 
 test_that("only_flagged restricts the predicted view to the flagged strata", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   mi <- maihda_interactions(a)
   flagged <- as.character(mi$stratum[mi$flagged])
@@ -335,6 +339,7 @@ test_that("only_flagged restricts the predicted view to the flagged strata", {
 })
 
 test_that("only_flagged restricts the obs_vs_shrunken view too", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   mi <- maihda_interactions(a)
   flagged <- as.character(mi$stratum[mi$flagged])
@@ -346,6 +351,7 @@ test_that("only_flagged restricts the obs_vs_shrunken view too", {
 })
 
 test_that("only_flagged returns a captioned empty panel when nothing is flagged", {
+  skip_on_cran()
   d0 <- maihda_interaction_data(d = 0)
   a0 <- suppressMessages(suppressWarnings(maihda(y ~ A + B + (1 | A:B), data = d0)))
   expect_equal(attr(maihda_interactions(a0), "n_flagged"), 0L)
@@ -361,6 +367,7 @@ test_that("only_flagged returns a captioned empty panel when nothing is flagged"
 # ---- flag-aware truncation: the cap never drops a flagged stratum -----------
 
 test_that("the n_strata cap is flag-aware: flagged strata survive truncation", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()          # 9 strata, 4 flagged
   mi <- maihda_interactions(a)
   flagged <- as.character(mi$stratum[mi$flagged])
@@ -375,6 +382,7 @@ test_that("the n_strata cap is flag-aware: flagged strata survive truncation", {
 })
 
 test_that("flag-aware truncation fills the remaining slots with non-flagged strata", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()          # 9 strata, 4 flagged
   mi <- maihda_interactions(a)
   flagged <- as.character(mi$stratum[mi$flagged])
@@ -399,6 +407,7 @@ test_that("the unhighlighted cap is unchanged (plain head, captioned)", {
 # ---- effect_decomp stays highlighted in context -----------------------------
 
 test_that("only_flagged does not filter effect_decomp but says so", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   expect_message(
     p <- plot(a, type = "effect_decomp", only_flagged = TRUE),
@@ -416,6 +425,7 @@ test_that("an invalid only_flagged argument errors", {
 # ---- select composes with the flag-aware cap --------------------------------
 
 test_that("select governs the flag-aware fill while every flagged stratum is kept", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()          # 9 strata, 4 flagged
   mi <- maihda_interactions(a)
   flagged <- as.character(mi$stratum[mi$flagged])
@@ -429,6 +439,7 @@ test_that("select governs the flag-aware fill while every flagged stratum is kep
 })
 
 test_that("select picks which flagged strata survive an only_flagged cap", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()          # 4 flagged
   p <- plot(a, type = "predicted", only_flagged = TRUE,
             n_strata = 2, select = "deviation")
@@ -597,6 +608,7 @@ test_that("rope print reports the equivalence breakdown", {
 # ---- highlight_by = "rope": highlight the ROPE-relevant strata ---------------
 
 test_that("highlight_by = 'rope' highlights exactly the decision == 'relevant' strata", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   mi <- maihda_interactions(a, rope = 0.5)
   relevant <- sort(as.character(mi$stratum[mi$decision == "relevant"]))
@@ -619,6 +631,7 @@ test_that("highlight_by = 'rope' highlights exactly the decision == 'relevant' s
 })
 
 test_that("highlight_by = 'rope' marks the ROPE-relevant strata on effect_decomp", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   mi <- maihda_interactions(a, rope = 0.5)
   relevant <- sort(as.character(mi$stratum[mi$decision == "relevant"]))
@@ -631,6 +644,7 @@ test_that("highlight_by = 'rope' marks the ROPE-relevant strata on effect_decomp
 })
 
 test_that("highlight_by switches the set: a wide ROPE flags nothing where the zero-test flags four", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   # The zero-centred flag marks the 4 planted block cells...
   expect_equal(sum(maihda_interactions(a)$flagged), 4L)
@@ -653,6 +667,7 @@ test_that("highlight_by switches the set: a wide ROPE flags nothing where the ze
 })
 
 test_that("only_flagged + highlight_by = 'rope' restricts to the ROPE-relevant strata", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   mi <- maihda_interactions(a, rope = 0.5)
   relevant <- sort(as.character(mi$stratum[mi$decision == "relevant"]))
@@ -666,6 +681,7 @@ test_that("only_flagged + highlight_by = 'rope' restricts to the ROPE-relevant s
 })
 
 test_that("a precomputed maihda_interactions(rope=) drives the ROPE highlight without recomputing", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   mi <- maihda_interactions(a, rope = 0.5)
   relevant <- sort(as.character(mi$stratum[mi$decision == "relevant"]))
@@ -698,6 +714,7 @@ test_that("highlight_by = 'rope' without a usable rope errors with an actionable
 })
 
 test_that("highlight_by defaults to 'flag' and is validated", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   d_default <- plot(a, type = "predicted", highlight_interactions = TRUE)
   d_flag <- plot(a, type = "predicted", highlight_interactions = TRUE, highlight_by = "flag")
@@ -717,6 +734,7 @@ test_that("highlight_by defaults to 'flag' and is validated", {
 # is already in the outcome's units and nothing extra is said.
 
 test_that("maihda_interactions() records the model's link", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   expect_identical(attr(maihda_interactions(a), "link"), "identity")
 
@@ -729,6 +747,7 @@ test_that("maihda_interactions() records the model's link", {
 })
 
 test_that("print() names the link-scale departure only for a non-identity link", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   gaussian_out <- paste(utils::capture.output(print(maihda_interactions(a))),
                         collapse = "\n")
@@ -795,6 +814,7 @@ maihda_binomial_interaction_model <- function() {
 }
 
 test_that("scale = 'response' reproduces the Evans et al. (2024) definition", {
+  skip_on_cran()
   m <- maihda_binomial_interaction_model()
   link <- maihda_interactions(m)
   resp <- maihda_interactions(m, scale = "response")
@@ -820,6 +840,7 @@ test_that("scale = 'response' reproduces the Evans et al. (2024) definition", {
 })
 
 test_that("the response scale changes the units, not the evidence", {
+  skip_on_cran()
   m <- maihda_binomial_interaction_model()
   link <- maihda_interactions(m)
   resp <- maihda_interactions(m, scale = "response")
@@ -853,6 +874,7 @@ test_that("an identity link returns the same numbers on either scale", {
 })
 
 test_that("the ROPE is read on the requested scale", {
+  skip_on_cran()
   m <- maihda_binomial_interaction_model()
   # 0.02 probability points is a tight region the log-odds BLUPs would clear
   # trivially, so the two scales must classify differently.
@@ -867,6 +889,7 @@ test_that("the ROPE is read on the requested scale", {
 })
 
 test_that("print() names the response scale and the quantity", {
+  skip_on_cran()
   m <- maihda_binomial_interaction_model()
   out <- paste(utils::capture.output(print(maihda_interactions(m, scale = "response"))),
                collapse = "\n")
@@ -887,6 +910,7 @@ test_that("scale is validated", {
 # get the quantity (and its interval) as data.
 
 test_that("print() shows the outcome-scale column without changing the object", {
+  skip_on_cran()
   m <- maihda_binomial_interaction_model()
   x <- maihda_interactions(m)
 
@@ -902,6 +926,7 @@ test_that("print() shows the outcome-scale column without changing the object", 
 })
 
 test_that("the printed column is the same number scale = 'response' returns", {
+  skip_on_cran()
   m <- maihda_binomial_interaction_model()
   x <- maihda_interactions(m)
   resp <- maihda_interactions(m, scale = "response")
@@ -912,6 +937,7 @@ test_that("the printed column is the same number scale = 'response' returns", {
 })
 
 test_that("no outcome-scale column on an identity link or already-response result", {
+  skip_on_cran()
   a <- maihda_interaction_analysis()
   expect_null(attr(maihda_interactions(a), "response_interaction"))
   expect_false(grepl("resp_diff|prob_diff",
@@ -969,6 +995,7 @@ test_that("the response kind is read from the family, not the link alone", {
 })
 
 test_that("an ordinal fit is never labelled as probabilities", {
+  skip_on_cran()
   skip_if_not_installed("ordinal")
   d <- maihda_interaction_data()
   d$ord <- factor(cut(d$y, 3), ordered = TRUE)

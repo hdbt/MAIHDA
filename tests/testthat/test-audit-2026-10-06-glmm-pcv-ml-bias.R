@@ -107,6 +107,7 @@ audit_laplace_reml_variance <- function(X, y, trials = NULL, offset = 0,
 }
 
 test_that("the REML-type variance is the Laplace estimate with the fixed effects integrated out", {
+  skip_on_cran()
   grid <- audit_glmm_table()
   expect_equal(grid$s, c(26, 18, 38, 15, 29, 36, 18, 46, 26, 50, 18, 43))
   fits <- audit_glmm_fits(grid)
@@ -162,6 +163,7 @@ test_that("the one-parameter search finds a minimum next to zero, at zero, or fa
 })
 
 test_that("an interior minimum is found whatever maximum likelihood made of the variance", {
+  skip_on_cran()
   # Twelve strata of 300 with a small interaction. glmer puts the adjusted variance
   # at or next to zero here (a relative standard deviation of 5e-8 on the machine
   # this was written on), while the REML-type criterion has its minimum well inside:
@@ -184,6 +186,7 @@ test_that("an interior minimum is found whatever maximum likelihood made of the 
 })
 
 test_that("estimation = \"REML\" compares the REML-type variances and keeps the fitted ones", {
+  skip_on_cran()
   fits <- audit_glmm_fits()
   before <- list(lme4::getME(fits$null$model, "theta"), lme4::fixef(fits$adjusted$model),
                  lme4::VarCorr(fits$adjusted$model))
@@ -236,6 +239,7 @@ test_that("estimation = \"REML\" compares the REML-type variances and keeps the 
 })
 
 test_that("an aggregated cbind() fit gives the Bernoulli fit's REML-type variances", {
+  skip_on_cran()
   grid <- audit_glmm_table()
   fits <- audit_glmm_fits(grid)
   agg <- make_strata(grid, c("a", "b", "c"))$data
@@ -267,6 +271,7 @@ test_that("an aggregated cbind() fit gives the Bernoulli fit's REML-type varianc
 })
 
 test_that("a Poisson fit with an exposure offset is handled on its own rows", {
+  skip_on_cran()
   grid <- audit_glmm_table()
   grid$expo <- grid$n
   grid$cnt <- round(grid$expo * exp(
@@ -299,6 +304,7 @@ test_that("a Poisson fit with an exposure offset is handled on its own rows", {
 })
 
 test_that("an exactly additive table gives a REML-type adjusted variance of zero", {
+  skip_on_cran()
   fits <- audit_glmm_fits(audit_glmm_table(departures = FALSE))
   res <- audit_quiet(calculate_pcv(fits$null, fits$adjusted, estimation = "REML"))
   expect_identical(res$var_model2, 0)
@@ -309,6 +315,7 @@ test_that("an exactly additive table gives a REML-type adjusted variance of zero
 })
 
 test_that("REML lmer fits are compared as fitted under estimation = \"REML\"", {
+  skip_on_cran()
   data <- audit_glmm_fits()$data
   data$yg <- 0.5 * (data$a == "2") + 0.3 * as.integer(data$c) +
     0.4 * sin(as.integer(data$stratum) * 2.3) + sin(seq_len(nrow(data)) * 1.7)
@@ -346,6 +353,7 @@ test_that("REML lmer fits are compared as fitted under estimation = \"REML\"", {
 })
 
 test_that("estimation = \"REML\" is refused where no REML-type variance exists", {
+  skip_on_cran()
   fits <- audit_glmm_fits()
 
   # A bootstrap interval would be on the maximum-likelihood refits.
@@ -386,6 +394,7 @@ test_that("estimation = \"REML\" is refused where no REML-type variance exists",
 })
 
 test_that("print() names a maximum-likelihood basis and the REML-type one", {
+  skip_on_cran()
   fits <- audit_glmm_fits()
   def <- calculate_pcv(fits$null, fits$adjusted)
   reml <- calculate_pcv(fits$null, fits$adjusted, estimation = "REML")
@@ -433,6 +442,7 @@ test_that("print() names a maximum-likelihood basis and the REML-type one", {
 })
 
 test_that("maihda() takes estimation = \"REML\" in the two-model decomposition only", {
+  skip_on_cran()
   grid <- audit_glmm_table()
   rows <- audit_glmm_rows(grid)
   fits <- audit_glmm_fits(grid)

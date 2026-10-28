@@ -65,6 +65,7 @@ test_that("audit 2026-07-23b #1: lme4 per-group variance extractor rejects rando
 })
 
 test_that("audit 2026-07-23b #1: contextual summary errors on random slopes instead of silently dropping them", {
+  skip_on_cran()
   set.seed(2024)
   n <- 400
   d <- data.frame(
@@ -204,6 +205,7 @@ test_that("audit 2026-07-23b #2: crossed builder rejects random slopes on allowe
 })
 
 test_that("audit 2026-07-23b #2: maihda(crossed-dimensions) surfaces the slope error end-to-end", {
+  skip_on_cran()
   set.seed(2026)
   n <- 200
   d0 <- data.frame(

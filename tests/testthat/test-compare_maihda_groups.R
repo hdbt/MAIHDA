@@ -1,4 +1,5 @@
 test_that("compare_maihda_groups VPC matches a manual per-subset fit (shared strata)", {
+  skip_on_cran()
   set.seed(3001)
   n <- 480
   d <- data.frame(
@@ -113,6 +114,7 @@ test_that("compare_maihda_groups reports VPC 0 (not an error) for a singular gro
 })
 
 test_that("compare_maihda_groups warns and names groups with a singular fit", {
+  skip_on_cran()
   # "flat" carries the identical response pattern in every stratum -> zero
   # between-stratum variance -> a deterministically singular fit; "signal" has
   # real between-stratum variance and must NOT be named in the warning.
@@ -193,6 +195,7 @@ test_that("compare_maihda_groups accepts a data-column weights argument", {
 })
 
 test_that("compare_maihda_groups accepts a family function as well as a string/object", {
+  skip_on_cran()
   set.seed(4202)
   n <- 320
   d <- data.frame(
@@ -223,6 +226,7 @@ test_that("compare_maihda_groups accepts a family function as well as a string/o
 })
 
 test_that("compare_maihda_groups applies an external weights vector per group", {
+  skip_on_cran()
   set.seed(4202)
   n <- 320
   d <- data.frame(
@@ -341,6 +345,7 @@ test_that("compare_maihda_groups reports the analytic n after NA handling", {
 })
 
 test_that("compare_maihda_groups bootstrap returns ordered per-group CIs", {
+  skip_on_cran()
   set.seed(3005)
   n <- 300
   d <- data.frame(
@@ -460,6 +465,7 @@ test_that("compare_maihda_groups rejects shorthand formula when a stratum column
 })
 
 test_that("compare_maihda_groups captures other random-effect variance consistently", {
+  skip_on_cran()
   set.seed(3010)
   d <- expand.grid(
     country = c("A", "B"), gender = c("F", "M"), race = c("X", "Y"),
@@ -485,6 +491,7 @@ test_that("compare_maihda_groups captures other random-effect variance consisten
 })
 
 test_that("plot() on a maihda_group_comparison returns ggplot objects for both types", {
+  skip_on_cran()
   set.seed(3007)
   n <- 300
   d <- data.frame(
@@ -512,6 +519,7 @@ test_that("plot() on a maihda_group_comparison returns ggplot objects for both t
 })
 
 test_that("plot() notes omitted groups in the caption instead of dropping silently", {
+  skip_on_cran()
   set.seed(3201)
   # Two large groups (estimable) and one tiny group skipped below min_group_n, so the
   # plot must still flag that 'tiny' was dropped rather than omit it without trace.
@@ -542,6 +550,7 @@ test_that("plot() notes omitted groups in the caption instead of dropping silent
 })
 
 test_that("compare_maihda_groups reports a per-group PCV with >= 2 dimensions", {
+  skip_on_cran()
   set.seed(3301)
   n <- 480
   d <- data.frame(
@@ -591,6 +600,7 @@ test_that("compare_maihda_groups reports a per-group PCV with >= 2 dimensions", 
 })
 
 test_that("compare_maihda_groups strips supplied dimension main effects before the per-group PCV", {
+  skip_on_cran()
   # Regression: passing a fully-specified ADJUSTED formula (the dimensions' additive
   # main effects written out) directly to compare_maihda_groups() must give the SAME
   # per-group decomposition as the bare null shorthand. Previously the supplied
@@ -648,6 +658,7 @@ test_that("compare_maihda_groups omits the PCV columns with a single dimension",
 })
 
 test_that("plot.maihda_analysis dispatches group_between_variance", {
+  skip_on_cran()
   set.seed(3202)
   n <- 240
   d <- data.frame(

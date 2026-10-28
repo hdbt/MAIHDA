@@ -121,6 +121,7 @@ test_that("central differences give a quadratic's gradient and Hessian and stop 
 })
 
 test_that("the distance from a stationary point does not depend on the covariate's units", {
+  skip_on_cran()
   fits <- lapply(c(z = "z", age = "age", birth = "birth", income = "income"), lc14_fit)
   distance <- vapply(fits, function(m) maihda_lme4_stationary_distance(m$model), numeric(1))
   expect_true(all(distance < 1e-3))
@@ -139,6 +140,7 @@ test_that("the distance from a stationary point does not depend on the covariate
 })
 
 test_that("the distance is NA where the fit cannot say", {
+  skip_on_cran()
   m <- lc14_fit("birth")$model
   # An lmer fit, whose fixed effects are not among the optimised parameters.
   g <- suppressMessages(suppressWarnings(
@@ -168,6 +170,7 @@ test_that("the distance is NA where the fit cannot say", {
 })
 
 test_that("a glmer fit at its maximum is converged whatever the covariate's units", {
+  skip_on_cran()
   for (family in c("binomial", "poisson")) {
     for (x in c("birth", "income")) {
       m <- lc14_fit(x, family)
@@ -207,6 +210,7 @@ test_that("a fit short of a stationary point stays not converged, and says how f
 })
 
 test_that("the line is a tenth of a standard error, from both sides", {
+  skip_on_cran()
   at <- function(distance) {
     local_mocked_bindings(maihda_lme4_stationary_distance = function(model) distance)
     lc14_fit("birth")$diagnostics
@@ -249,6 +253,7 @@ test_that("a fit whose optimiser reports failure is not measured again", {
 })
 
 test_that("measuring the fit leaves it as lme4 made it", {
+  skip_on_cran()
   d <- lc14_strata()
   d$stratum <- interaction(d$gender, d$ses, drop = TRUE)
   m <- suppressWarnings(lme4::glmer(yb ~ birth + (1 | stratum), data = d, family = binomial))
@@ -366,6 +371,7 @@ test_that("print and the app say what lme4 warned of and how far the fit is", {
 })
 
 test_that("compare_maihda_groups() does not name groups whose fits are at their maximum", {
+  skip_on_cran()
   d <- rbind(cbind(country = "A", lc14_strata()),
              cbind(country = "B", lc14_strata(shift = c(0.6, -0.5, 0.1, 0.9, -0.7, 0.3))))
   obs <- lc14_observe(compare_maihda_groups(yb ~ birth + (1 | gender:ses), data = d,

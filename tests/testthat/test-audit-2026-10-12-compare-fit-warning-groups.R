@@ -180,6 +180,7 @@ test_that("a singular fit counts only when the between-stratum variance is the z
 })
 
 test_that("the warning text names the adjusted model and points to the right number", {
+  skip_on_cran()
   for (engine in c("lme4", "wemix", "ordinal")) {
     # Only adjusted models: the PCV, and no word about the VPC.
     adjusted_only <- paste0(fg12_open, "adjusted model did not converge: A, B). ",
@@ -247,6 +248,7 @@ test_that("the warning text names the adjusted model and points to the right num
 })
 
 test_that("a zero interaction, dimension or context variance names no group", {
+  skip_on_cran()
   real_fit <- fit_maihda
 
   # Exactly additive strata, crossed-dimensions: the interaction is the zero.
@@ -323,6 +325,7 @@ test_that("a zero interaction, dimension or context variance names no group", {
 })
 
 test_that("the package's own crossed-dimensions example raises no fit-quality warning", {
+  skip_on_cran()
   real_fit <- fit_maihda
   rec <- fg12_recorder(real_fit)
   local_mocked_bindings(fit_maihda = rec$fit)
@@ -344,6 +347,7 @@ test_that("the package's own crossed-dimensions example raises no fit-quality wa
 })
 
 test_that("a between-stratum variance of zero is still named, in every mode", {
+  skip_on_cran()
   real_fit <- fit_maihda
   d <- rbind(fg12_group("g1", fg12_flat), fg12_group("g2", fg12_s2))
   named <- paste0(fg12_open, "singular fit: g1). ", fg12_singular, fg12_vpc)
@@ -382,6 +386,7 @@ test_that("a between-stratum variance of zero is still named, in every mode", {
 })
 
 test_that("a group whose adjusted model did not converge is named for that model", {
+  skip_on_cran()
   d <- rbind(fg12_group("g2", fg12_s2), fg12_group("g3", fg12_s3))
   clean <- fg12_observe(compare_maihda_groups(y ~ (1 | gender:ses), data = d,
                                               group = "country"))

@@ -1,3 +1,7 @@
+## Resubmission
+
+The first submission of 0.3.0 had an overall check time of 13 min on r-devel-windows-x86_64. The slower tests now skip on CRAN, which cuts the local test time under `R CMD check --as-cran` from 271 s to 75 s; they still run on GitHub Actions and locally.
+
 ## Test environments
 
 * local: Windows 11 x64, R 4.5.1 (`R CMD check --as-cran`)
