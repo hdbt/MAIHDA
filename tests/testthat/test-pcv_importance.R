@@ -315,6 +315,10 @@ test_that("print and plot methods work for every attribution flavour", {
 
   expect_s3_class(plot(imp), "ggplot")
   expect_s3_class(plot(dm), "ggplot")
+  # Bars run from the smallest contribution to the largest, so coord_flip() puts the
+  # largest on top.
+  expect_identical(levels(plot(imp)$data$Variable),
+                   imp$importance$Variable[order(imp$importance$Contribution)])
 
   # Signed contributions: this data yields a (small) negative age
   # contribution; the suppression note is printed and nothing is normalised

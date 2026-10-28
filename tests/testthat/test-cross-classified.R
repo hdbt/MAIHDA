@@ -397,8 +397,19 @@ test_that("default compare_maihda_groups() keeps the two-model PCV schema", {
 
 test_that("decomposition = 'cross-classified' errors, naming both designs it can mean", {
   d <- make_cc_data()
-  # One helper raises the error for every entry point, before anything is fitted.
-  err <- function(expr) tryCatch(expr, error = function(e) e)
+  # One helper raises the error for every entry point, before anything is fitted (a
+  # fit would reach this stub and raise its message instead) and without a warning.
+  local_mocked_bindings(fit_maihda = function(...) stop("a model was fitted"))
+  err <- function(expr) {
+    n_warn <- 0L
+    e <- withCallingHandlers(tryCatch(expr, error = function(e) e),
+                             warning = function(w) {
+                               n_warn <<- n_warn + 1L
+                               invokeRestart("muffleWarning")
+                             })
+    expect_identical(n_warn, 0L)
+    e
+  }
   e0 <- err(maihda_resolve_decomposition("cross-classified"))
   e1 <- err(maihda(y ~ x + (1 | a:b:cc), data = d, decomposition = "cross-classified"))
   e2 <- err(compare_maihda_groups(y ~ x + (1 | a:b:cc), data = d, group = "grp",

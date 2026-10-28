@@ -443,8 +443,8 @@ test_that("a PCV result keeps the deprecated pvc copy, and reading it warns", {
     expect_identical(r$value, plain$pcv)
   }
 
-  # Every other read is a plain list's, with no warning; so are print() and str(),
-  # which walk the elements by position.
+  # Every other read is a plain list's, with no warning; so are print(), which reads
+  # its fields by name, and str(), which walks the elements by position.
   expect_no_warning(reads <- list(new$pcv, new[["pcv"]], new$var_model1, new[[3]],
                                   new$estimation_used, new$nonexistent))
   expect_identical(reads, list(plain$pcv, plain[["pcv"]], plain$var_model1, plain[[3]],

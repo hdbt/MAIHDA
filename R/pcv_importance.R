@@ -122,7 +122,8 @@ maihda_dominance_tables <- function(v, k, var_names) {
 #' @param outcome Character string; the dependent variable.
 #' @param vars Character vector of predictors (stratum dimensions and/or
 #'   covariates) among which the PCV is apportioned. Their order does not affect
-#'   the result.
+#'   the exact attribution; a Monte-Carlo attribution depends on it only through
+#'   its sampling error.
 #' @param method Attribution method: \code{"shapley"} (default; order-invariant
 #'   Shapley values) or \code{"dominance"} (Budescu dominance analysis: general
 #'   dominance -- equal to the Shapley values -- plus the conditional and
