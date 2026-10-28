@@ -28,6 +28,7 @@
 
 * `print()` on a PCV built from maximum-likelihood variances (a glmer, wemix or ordinal fit) now says so; the numbers are unchanged.
 * `print()` on a two-model `maihda()` analysis and on a longitudinal PCV now names the variances the PCV compares, as `calculate_pcv()` does, where no note already names them; a longitudinal PCV records `ml_variances`. The numbers are unchanged.
+* `print()` on `stepwise_pcv()`, `pcv_importance()` and `compare_maihda_groups()` results built from maximum-likelihood variances (a glmer, wemix or ordinal fit, or an lmer fit made with `REML = FALSE`) now names them as `calculate_pcv()` does and notes that they run low with few or small strata, so the PCV runs high; the results record `ml_variances`. The numbers are unchanged.
 * `print()` on a `maihda(decomposition = "crossed-dimensions")` analysis fitted with `engine = "brms"`, and on its `summary()`, now names the stratum dimensions with fewer than 10 levels: the variance of such a dimension depends on the prior on its standard deviation, and the VPC and the shares follow it. The level counts are in `decomposition$dim_levels`; the numbers are unchanged.
 * `print()` on a `maihda()` analysis fitted with `engine = "brms"`, and on the `summary()` of a brms fit, now names a `context` with fewer than 10 levels: its variance depends on the prior on its standard deviation, and the context share and the VPC depend on it. The level counts are in the contextual partition's `context_levels`; the numbers are unchanged.
 

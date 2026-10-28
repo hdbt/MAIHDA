@@ -486,7 +486,13 @@ plot_comparison <- function(comparison_df) {
 #'   Affects Gaussian \code{lmer} fits only. Recorded as an \code{"estimation"}
 #'   attribute on the returned comparison; the basis actually used is recorded as
 #'   \code{"estimation_used"} (\code{"mixed"} when a group's ML refit was skipped at
-#'   the boundary, leaving it on REML). Both are shown by \code{print()}.
+#'   the boundary, leaving it on REML). Both are shown by \code{print()}. An
+#'   \code{"ml_variances"} attribute is \code{TRUE} when the groups' fits estimate their
+#'   variances by maximum likelihood (\code{glmer}, wemix or ordinal fits, or
+#'   \code{lmer} fits made with \code{REML = FALSE}) or the PCVs compare
+#'   maximum-likelihood refits (\code{estimation = "ML"}); under the default
+#'   \code{estimation} \code{print()} notes it below a table with PCVs, as
+#'   \code{\link{calculate_pcv}} does.
 #' @param ... Additional arguments passed to \code{\link{fit_maihda}} (and on to
 #'   \code{lmer}/\code{glmer}). \code{weights}, \code{subset} and \code{offset} are
 #'   an error on the \code{wemix}, \code{brms} and \code{ordinal} engines.
@@ -1055,6 +1061,9 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # "ML" but a boundary model kept its REML fit), so the header does not claim a pure ML
   # comparison for the whole table when one group's comparison was partly REML.
   any_mixed_basis <- FALSE
+  # Set when any group's variances are maximum-likelihood estimates (its own fit, or
+  # the pair its PCV compares), as calculate_pcv() records it, so print() can say so.
+  any_ml_variances <- FALSE
 
   for (gi in seq_along(group_levels)) {
     g <- group_levels[gi]
@@ -1182,6 +1191,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
     row$n_strata <- length(group_strata)
     populated_strata[[g]] <- group_strata
     row$status <- "ok"
+    if (maihda_pcv_ml_variances(fit_obj$model)) any_ml_variances <- TRUE
 
     # Contextual partition (when context = ): summary()$context carries the summed
     # between-context variance and the contexts' total share of the unexplained
@@ -1265,6 +1275,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
           })
           if (!is.null(pcv_obj)) {
             if (identical(pcv_obj$estimation_used, "mixed")) any_mixed_basis <- TRUE
+            if (isTRUE(pcv_obj$ml_variances)) any_ml_variances <- TRUE
             row$pcv <- pcv_obj$pcv
             # Report the adjusted between-stratum variance on the SAME scale as
             # var_between / vpc (the REML single-model VPC variance), so the table stays
@@ -1468,6 +1479,7 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
   # the engine steers a brms comparison to "posterior" (never an ML-refit).
   attr(out, "estimation_used") <- maihda_pcv_estimation_used(
     estimation, any_mixed_basis, engine = engine)
+  attr(out, "ml_variances") <- any_ml_variances
   # The context variable name(s) and the per-group, per-context between-context
   # variances (a named list keyed by group). NULL when no context was supplied.
   attr(out, "context_var") <- context
@@ -1761,24 +1773,30 @@ maihda_failure_entries <- function(reasons, single_level = list()) {
 #' @return No return value, called for side effects.
 #' @export
 print.maihda_group_comparison <- function(x, ...) {
+  maihda_print_group_comparison(x)
+}
+
+# The body of print.maihda_group_comparison(). The two-model print of a maihda()
+# analysis passes ml_note = FALSE when its PCV block has printed the
+# maximum-likelihood note already.
+maihda_print_group_comparison <- function(x, ml_note = TRUE) {
   cat(maihda_palette()$bold("MAIHDA Group Comparison"), "\n", sep = "")
   cat("=======================\n\n")
   # `[.maihda_group_comparison` re-attaches the metadata attributes after a row/column
   # subset, but degrade gracefully if they are missing anyway (e.g. an object built by
   # some other path): print the bare data frame rather than blank header fields.
   group_var <- attr(x, "group_var")
+  basis <- maihda_pcv_series_basis(x)
   if (!is.null(group_var)) {
     cat("Group variable:", group_var, "\n")
     cat("Engine:", attr(x, "engine"),
         " | Family:", attr(x, "family"),
         " | Strata:", if (isTRUE(attr(x, "shared_strata"))) "shared/global" else "per-group",
         "\n")
-    est <- attr(x, "estimation_used")
-    if (is.null(est)) est <- attr(x, "estimation")
-    if (!is.null(est)) {
+    if (!is.null(basis)) {
       # The PCV's basis label. For a brms comparison it describes the variance columns
       # too: they are the posterior medians the PCV compares.
-      cat("Variance basis:", maihda_pcv_basis_label(est), "\n")
+      cat("Variance basis:", maihda_pcv_result_basis_label(basis), "\n")
     }
     # Contextual comparison: each per-group fit is a contextual cross-classified
     # model, so vpc/var_between are the between-stratum share NET of the context and
@@ -1792,6 +1810,12 @@ print.maihda_group_comparison <- function(x, ...) {
     cat("\n")
   }
   print(as.data.frame(x), row.names = FALSE, digits = 4)
+  # The note is about the PCV, so it follows a table that has PCVs.
+  # compare_maihda_groups() takes no estimation = "REML", so the note does not name it.
+  if (ml_note && !is.null(group_var) && !is.null(basis) &&
+      maihda_pcv_show_ml_note(basis) && any(is.finite(x[["pcv"]]))) {
+    cat(maihda_palette()$muted(maihda_pcv_ml_note()))
+  }
   invisible(x)
 }
 
@@ -1816,7 +1840,8 @@ print.maihda_group_comparison <- function(x, ...) {
   # method relies on.
   if (is.data.frame(out)) {
     for (a in c("group_var", "engine", "family", "shared_strata", "decomposition",
-                "context_var", "context_per", "estimation")) {
+                "context_var", "context_per", "estimation", "estimation_used",
+                "ml_variances")) {
       attr(out, a) <- attr(x, a)
     }
     class(out) <- class(x)

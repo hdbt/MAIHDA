@@ -81,7 +81,10 @@ A data.frame (class \code{maihda_stepwise}) showing the sequential
   \code{"estimation"} attribute on the returned table; the basis actually used is
   recorded as \code{"estimation_used"} (\code{"mixed"} when \code{estimation = "ML"}
   but a step's ML refit was skipped at the boundary, leaving it on REML). Both are
-  shown by \code{print()}.
+  shown by \code{print()}. An \code{"ml_variances"} attribute is \code{TRUE} when the
+  compared variances are maximum-likelihood estimates (\code{glmer}, wemix or
+  ordinal fits, or \code{lmer} fits refitted by maximum likelihood); \code{print()}
+  notes it under the default \code{estimation}, as \code{\link{calculate_pcv}} does.
 
   \code{Step_PCV} is \code{NA} for any step whose \emph{preceding} model has a
   between-stratum variance at the singularity boundary: that variance is the step's

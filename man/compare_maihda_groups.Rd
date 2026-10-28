@@ -126,7 +126,13 @@ data.}
 Affects Gaussian \code{lmer} fits only. Recorded as an \code{"estimation"}
 attribute on the returned comparison; the basis actually used is recorded as
 \code{"estimation_used"} (\code{"mixed"} when a group's ML refit was skipped at
-the boundary, leaving it on REML). Both are shown by \code{print()}.}
+the boundary, leaving it on REML). Both are shown by \code{print()}. An
+\code{"ml_variances"} attribute is \code{TRUE} when the groups' fits estimate their
+variances by maximum likelihood (\code{glmer}, wemix or ordinal fits, or
+\code{lmer} fits made with \code{REML = FALSE}) or the PCVs compare
+maximum-likelihood refits (\code{estimation = "ML"}); under the default
+\code{estimation} \code{print()} notes it below a table with PCVs, as
+\code{\link{calculate_pcv}} does.}
 
 \item{...}{Additional arguments passed to \code{\link{fit_maihda}} (and on to
 \code{lmer}/\code{glmer}). \code{weights}, \code{subset} and \code{offset} are
