@@ -1,6 +1,10 @@
 # Changelog
 
+## MAIHDA (development version)
+
 ## MAIHDA 0.3.0
+
+CRAN release: 2026-10-28
 
 ### New features
 
@@ -22,10 +26,14 @@
   ranked caterpillar of `type = "predicted"` with the UpSet category
   matrix in place of the long text labels. The default is unchanged
   (intersection size, largest first), and the panel caption now reports
-  the order actually drawn.
+  the order actually drawn
+  ([@larmarange](https://github.com/larmarange),
+  [\#68](https://github.com/hdbt/MAIHDA/issues/68)).
 
 - `order_by` gained `"size"` (largest stratum first) on both
-  `type = "predicted"` and `type = "upset"`.
+  `type = "predicted"` and `type = "upset"`
+  ([@larmarange](https://github.com/larmarange),
+  [\#68](https://github.com/hdbt/MAIHDA/issues/68)).
 
 - [`summary()`](https://rdrr.io/r/base/summary.html) on a `maihda`
   analysis gained `which = "adjusted"`, matching
@@ -120,7 +128,8 @@
 - [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
   now also returns the exact count-scale VPC of Leckie et al. (2020) for
   Poisson and negative-binomial lme4 fits whose only random effect is
-  the stratum intercept; `summary(response_vpc = TRUE)` attaches it.
+  the stratum intercept; `summary(response_vpc = TRUE)` attaches it
+  (thanks to George Leckie).
 
 - [`print()`](https://rdrr.io/r/base/print.html) on a
   [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md)
@@ -400,7 +409,10 @@
   [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md),
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md),
   or [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) to
-  restore the previous ML-refit behaviour.
+  restore the previous ML-refit behaviour
+  ([@pchan7-NYCDOHMH](https://github.com/pchan7-NYCDOHMH),
+  [\#72](https://github.com/hdbt/MAIHDA/issues/72); thanks to George
+  Leckie).
 
 - [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) and
   [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)

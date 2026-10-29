@@ -112,10 +112,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x55c92a61ce60>
+#> <environment: 0x560169218250>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x55c92884c468>
+#> <environment: 0x560167450f68>
 ```
 
 The returned object carries everything: the full variance components,
