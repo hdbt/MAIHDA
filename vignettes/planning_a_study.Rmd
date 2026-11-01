@@ -3,6 +3,7 @@ title: "Planning a MAIHDA analysis"
 author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
+bibliography: references.bib
 vignette: >
   %\VignetteIndexEntry{Planning a MAIHDA analysis}
   %\VignetteEngine{knitr::rmarkdown}
@@ -33,7 +34,8 @@ data("maihda_health_data")
 
 ## Is MAIHDA the right tool?
 
-MAIHDA is for questions of the form *"how much of the variation in an outcome lies
+MAIHDA [@evans2024tutorial] is for questions of the form *"how much of the variation
+in an outcome lies
 between people's intersectional social positions, and how much of that is more than
 the sum of its parts?"* It is well suited when:
 
@@ -64,9 +66,10 @@ sum(s3$strata_info$n < 10)             # how many strata have < 10 people
 ```
 
 Each extra dimension multiplies the number of strata and divides the people among
-them. Small cells are not fatal, (partial pooling shrinkage is exactly what
-protects MAIHDA against noisy small strata) but they have consequences (next
-section). A useful rule: choose the fewest dimensions that answer your
+them. Small cells are not fatal: partial pooling shrinks a small stratum's estimate
+toward the model's prediction for it, though less than it should when the fixed part
+of the model leaves out true main effects or interactions [@bell2019]. They do have
+consequences (next section). A useful rule: choose the fewest dimensions that answer your
 question, and look at the cell-size distribution before committing.
 
 ## One call: `maihda_describe()`
@@ -147,7 +150,7 @@ adds: its PCV is a point estimate without one, and with few strata it is underst
 
 The PCV of a binary or Poisson count outcome fitted with `lme4` compares
 maximum-likelihood variances. With few or small strata these run low, the adjusted
-model's most, so that PCV runs high. `maihda(estimation = "REML")` and
+model's most [@harville1977], so that PCV runs high. `maihda(estimation = "REML")` and
 `calculate_pcv(estimation = "REML")` compare REML-type variances instead, which
 corrects this when strata are few but not small (see `?calculate_pcv`).
 
@@ -176,8 +179,3 @@ For extensions beyond the cross-sectional case, see the
    survey weights, and [Bayesian / sparse](bayesian_sparse_maihda.html).
 
 ## References
-
-- Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J. (2024). A
-  tutorial for conducting intersectional multilevel analysis of individual
-  heterogeneity and discriminatory accuracy (MAIHDA). *SSM - Population Health*, 26,
-  101664.

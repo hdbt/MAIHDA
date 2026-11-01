@@ -3,6 +3,7 @@ title: "Crossed random effects in MAIHDA: dimensions and contexts"
 author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
+bibliography: references.bib
 vignette: >
   %\VignetteIndexEntry{Crossed random effects in MAIHDA: dimensions and contexts}
   %\VignetteEngine{knitr::rmarkdown}
@@ -34,10 +35,11 @@ term "cross-classified" that are easy to confuse:
    cross-classified by their intersectional stratum and a higher-level
    place or institution, patients within strata and hospitals, students within
    strata and schools. This is what the literature usually means by
-   "cross-classified MAIHDA" (e.g. hospital differences in patient survival, or
-   schools crossed with sociodemographic strata in student achievement). It
-   partitions the unexplained variance into between-stratum vs. between-context
-   vs. residual.
+   "cross-classified MAIHDA" [e.g. hospital differences in patient survival,
+   @rodriguezlopez2020; counties in the discontinuation of medication,
+   @khalaf2020; or schools crossed with sociodemographic strata in student
+   achievement, @prior2025]. It partitions the unexplained variance into
+   between-stratum vs. between-context vs. residual.
 
 The two answer different questions, "how much of the intersectional inequality
 is more than additive under this model?" vs. "how much of the unexplained
@@ -70,7 +72,10 @@ argument of `maihda()`:
   variance is treated as that dimension's additive contribution, and the full
   intersection (`stratum`) random-effect variance is the residual interaction
   beyond additive. The additive and interaction shares are therefore
-  model-implied shares of the between-strata variance from this one fit.
+  model-implied shares of the between-strata variance from this one fit. The
+  model is a multilevel analysis of variance [@gelman2005], with the dimensions
+  as its factors and the intersection term holding all their interactions
+  together.
 
 It is fit with ordinary multilevel software, `lme4` for a frequentist fit or `brms`
 for a Bayesian one, so it does not require any special toolchain.
@@ -152,7 +157,7 @@ have few levels, those shares and the VPC depend on the prior on the random-effe
 standard deviations (see the caveats below). A `brms` fit therefore also reports the
 *realised strata*: the VPC, the additive and interaction shares, the variances and,
 with a logit link, the median odds ratio of the effects of the strata and dimension
-levels in the data (finite-population summaries, Gelman 2005), which depend little on
+levels in the data [finite-population summaries, @gelman2005], which depend little on
 that prior when each stratum has enough data; with few observations per stratum they
 come out too high and move with the prior too. `print()` shows them in a second block
 and `decomposition$realised` holds them; `?maihda` defines each one.
@@ -180,12 +185,13 @@ cc_b$decomposition$realised$additive_share_ci
 2. Few-level dimensions are poorly identified. A dimension's additive variance is
    estimated from its handful of levels. A binary dimension (e.g. a two-level sex
    variable) contributes a variance estimated from just two groups, so `lme4` may
-   estimate one or more variance components at or near zero (a singular fit).
+   estimate one or more variance components at or near zero (a singular fit), as
+   maximum likelihood often does with few groups [@chung2013].
    This makes the additive and interaction shares unstable. Watch for the
    singular-fit note in the output. `engine = "brms"` does not repair this: the
    posterior of a few-level dimension's variance depends on the prior on its
-   standard deviation, with two levels roughly in proportion to that prior's
-   scale. Under the default prior the VPC and the additive share are overstated,
+   standard deviation [@gelman2006], with two levels roughly in proportion to that
+   prior's scale. Under the default prior the VPC and the additive share are overstated,
    most with two- to four-level dimensions, and with two- or three-level
    dimensions the additive share comes out high even where the dimensions have no
    additive effect. The output of a `brms` fit names the dimensions with fewer
@@ -213,7 +219,8 @@ and partitions the unexplained variance into
 
 - between-stratum, the intersectional clustering net of the shared context
   (the headline VPC/ICC),
-- between-context, the general contextual effect of the place/institution, and
+- between-context, the general contextual effect of the place/institution
+  [@merlo2018gce], and
 - residual, within-stratum, within-context individual heterogeneity.
 
 Pass the context column(s) via `context =`; everything else is unchanged:
@@ -283,8 +290,8 @@ Because they answer different questions, `maihda()` errors if you supply both.
 
 ### Notes
 
-- Few context levels identify the context variance weakly. The
-  `maihda_country_data` example has only 6 countries, so its country variance and
+- Few context levels identify the context variance weakly
+  [@stegmueller2013; @bryan2016]. The `maihda_country_data` example has only 6 countries, so its country variance and
   share are imprecise. `lme4` may estimate such a variance at zero (a singular fit),
   and `engine = "brms"` does not repair this: the posterior of a few-level context's
   variance depends on the prior on its standard deviation and, under the default
@@ -302,3 +309,5 @@ Because they answer different questions, `maihda()` errors if you supply both.
 - A manually written `+ (1 | school)` in the formula fits the same model, but is
   summarised generically as "Other random effects". Only `context =` activates the
   labelled stratum-vs-context partition.
+
+## References

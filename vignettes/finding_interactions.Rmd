@@ -3,6 +3,7 @@ title: "Finding interaction patterns"
 author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
+bibliography: references.bib
 vignette: >
   %\VignetteIndexEntry{Finding interaction patterns}
   %\VignetteEngine{knitr::rmarkdown}
@@ -25,7 +26,8 @@ additive expectation.
 
 For this exploratory diagnostic, `maihda()` can compute the adjusted-model
 stratum random effects, intervals, and flags. When you use `interactions = "BH"`,
-the flags use the Benjamini-Hochberg adjustment. The diagnostic is stored in the
+the flags use the Benjamini-Hochberg adjustment [@benjamini1995]. The diagnostic is
+stored in the
 analysis object and can be reused by the effect-decomposition and
 predicted-strata plots.
 
@@ -95,7 +97,8 @@ plot(model, type = "effect_decomp", highlight_interactions = "BH")
 A flag asks whether an interaction differs from zero. Often the more useful
 question is whether it is *large enough to matter*. Pass a region of practical
 equivalence (`rope`, on the model scale) and each stratum is classified from its
-interval as `relevant` (interval entirely outside the region), `negligible`
+interval [@schuirmann1987; @kruschke2018] as `relevant` (interval entirely outside
+the region), `negligible`
 (entirely inside it), or `inconclusive` (straddling a bound):
 
 ```{r rope}
@@ -114,15 +117,3 @@ substantive choice, made on the model's (link) scale.
   cells and uncertainty in variance components.
 
 ## References
-
-- Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V. (2018). A
-  multilevel approach to modeling health inequalities at the intersection of
-  multiple social identities. *Social Science & Medicine*, 203, 64-73.
-
-- Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
-  discriminatory accuracy (MAIHDA) within an intersectional framework. *Social
-  Science & Medicine*, 203, 74-80.
-
-- Schuirmann, D. J. (1987). A comparison of the two one-sided tests procedure and
-  the power approach for assessing the equivalence of average bioavailability.
-  *Journal of Pharmacokinetics and Biopharmaceutics*, 15(6), 657-680.

@@ -3,6 +3,7 @@ title: "Longitudinal MAIHDA: intersectional inequalities over time"
 author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
+bibliography: references.bib
 vignette: >
   %\VignetteIndexEntry{Longitudinal MAIHDA: intersectional inequalities over time}
   %\VignetteEngine{knitr::rmarkdown}
@@ -28,7 +29,7 @@ over time?"* -- and decompose those trajectory differences into an additive part
 (the dimensions' main effects and their interactions with time) and a
 multiplicative part (an intersectional trajectory beyond additive).
 
-This is the longitudinal MAIHDA of Bell, Evans, Holman & Leckie (2024). It is a
+This is the longitudinal MAIHDA of @bell2024. It is a
 3-level growth-curve model with measurement occasions (level 1) within individuals
 (level 2) within intersectional strata (level 3), with a random intercept and a
 slope on time at both the individual and stratum levels:
@@ -100,7 +101,7 @@ question of how much of an *observed measurement* a stratum accounts for:
 $$\operatorname{VPC}_S(t) = \frac{\operatorname{Var}_S(t)}
   {\operatorname{Var}_S(t) + \operatorname{Var}_I(t) + \sigma^2_e}.$$
 
-The **trajectory VPCs** drop this term, following Bell et al. (2024), equation (5):
+The **trajectory VPCs** drop this term, following @bell2024, equation (5):
 
 $$\operatorname{VPC}_{\text{intercept}} = \frac{\operatorname{Var}_S(t_0)}
   {\operatorname{Var}_S(t_0) + \operatorname{Var}_I(t_0)},
@@ -156,7 +157,7 @@ is well formed because $a(t)'\Sigma a(t)$ returns to $\text{outcome}^2$.) The
 intercept VPC drops it for symmetry with the slope.
 
 Both are evaluated at the baseline $t_0$; the intercept VPC depends on where time is
-zeroed and the slope VPC does not, as Bell et al. note. Their own examples centre on
+zeroed and the slope VPC does not, as @bell2024 note. Their own examples centre on
 mean age rather than the baseline, so an intercept VPC replicated from the paper will
 differ from the one reported here unless the reference points are aligned.
 
@@ -286,15 +287,9 @@ strata are added.
   and `calculate_pcv()` deliberately refuse a longitudinal model; use the
   longitudinal decomposition above.
 * **Which VPC.** `summary()` reports both the discriminatory-accuracy VPC(t) and the
-  Bell et al. trajectory VPCs, which use a different denominator; see
+  trajectory VPCs of @bell2024, which use a different denominator; see
   [Two VPCs, and which one to report](#two-vpcs-and-which-one-to-report).
 * **Out of scope (v1).** Design-weighted, contextual (stratum $\times$ place
   $\times$ time), and `wemix`/`ordinal` longitudinal models are not yet supported.
 
-## Reference
-
-Bell, A., Evans, C., Holman, D., & Leckie, G. (2024). Extending intersectional
-multilevel analysis of individual heterogeneity and discriminatory accuracy
-(MAIHDA) to study individual longitudinal trajectories, with application to mental
-health in the UK. *Social Science & Medicine*, 351, 116955.
-<doi:10.1016/j.socscimed.2024.116955>
+## References

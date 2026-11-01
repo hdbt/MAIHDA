@@ -3,6 +3,7 @@ title: "Introduction to MAIHDA"
 author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
+bibliography: references.bib
 vignette: >
   %\VignetteIndexEntry{Introduction to MAIHDA}
   %\VignetteEngine{knitr::rmarkdown}
@@ -20,7 +21,7 @@ knitr::opts_chunk$set(
 
 ## Introduction
 
-The MAIHDA package provides specialized tools for conducting Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy. This modern epidemiological approach is highly effective for investigating intersectional health inequalities and understanding how joint social categories (e.g., Race x Gender x Education) influence individual outcomes.
+The MAIHDA package provides specialized tools for conducting Multilevel Analysis of Individual Heterogeneity and Discriminatory Accuracy [@evans2018; @merlo2018]. This modern epidemiological approach is highly effective for investigating intersectional health inequalities and understanding how joint social categories (e.g., Race x Gender x Education) influence individual outcomes.
 
 By utilizing multilevel mixed-effects models (via `lme4` or `brms`), MAIHDA allows researchers to:
 1. Automatically construct intersectional strata.
@@ -103,9 +104,9 @@ tells us how much of that between-stratum variance is the additive sum of the
 dimensions' main effects: if the variance drops substantially (high PCV), the
 between-stratum differences are largely additive; what remains is often read as
 the *intersectional interaction*. The PCV is a model-dependent variance change, not a causal decomposition, and a low or negative
-value does not by itself automatically prove a true interaction (it can also reflect
-suppression, rescaling on the latent scale for non-Gaussian models, sample
-composition, or estimation uncertainty).
+value does not by itself automatically prove a true interaction: it can also reflect
+suppression, rescaling on the latent scale for non-Gaussian models
+[@bauer2009; @mood2010], sample composition, or estimation uncertainty.
 
 For publication-ready uncertainty, add `bootstrap = TRUE` (with `n_boot`) to attach
 parametric-bootstrap confidence intervals to the VPC and PCV. It refits the models
@@ -171,8 +172,9 @@ main effect as a random intercept rather than a fixed effect. See
 ### A contextual cross-classified model
 
 To model the strata *crossed with* a higher-level place or institution -- the
-literature's cross-classified MAIHDA (patients within strata and hospitals,
-students within strata and schools) -- pass `context = "school"` to `maihda()` or
+literature's cross-classified MAIHDA [patients within strata and hospitals,
+@rodriguezlopez2020; students within strata and schools, @prior2025] -- pass
+`context = "school"` to `maihda()` or
 `fit_maihda()`. The summary then partitions the unexplained variance into
 between-stratum vs. between-context vs. residual, and the headline VPC/ICC becomes
 the between-stratum share conditional on the context random effect. Also covered in
@@ -183,7 +185,7 @@ the between-stratum share conditional on the context random effect. Also covered
 For complex-survey data (NHANES, PISA, ...), pass the sampling-weight column via
 `sampling_weights`. Survey weights are not lme4's `weights=` (those are
 precision weights, which rescale the residual variance), so the fit routes through
-`WeMix::mix()` weighted pseudo-maximum-likelihood. The whole workflow
+`WeMix::mix()` weighted pseudo-maximum-likelihood [@rabehesketh2006]. The whole workflow
 (VPC/ICC, PCV, stratum summaries, prediction, plots, and the AUC for binary
 outcomes) is then design-weighted (see `?fit_maihda`):
 
@@ -197,9 +199,9 @@ The wemix engine covers  `gaussian(identity)` / `binomial(logit)`
 MAIHDA with the single `(1 | stratum)` intercept; crossed random effects
 (`context =`, `decomposition = "crossed-dimensions"`) and bootstrap intervals
 require lme4/brms. `engine = "brms"` also accepts `sampling_weights`, as
-likelihood weights (a pseudo-posterior whose point estimates target the
-population-weighted estimand, but with credible intervals that are not
-design-based).
+likelihood weights: a pseudo-posterior [@savitsky2016] whose point estimates target
+the population-weighted estimand, but with credible intervals that are not
+design-based.
 
 ### Comparing across groups
 
@@ -287,7 +289,8 @@ The stepwise table is order-dependent by construction: each step's PCV is a
 variable's contribution *given the variables already entered*, so reordering
 `vars` changes the answer. `pcv_importance()` removes that dependence. It
 treats the PCV as a value function over variable subsets and averages each
-variable's marginal PCV over all entry orders.
+variable's marginal PCV over all entry orders, as the Shapley value does
+[@shorrocks2013; @gromping2006].
 Passing the stratum dimensions splits the *additive share* fairly across them
 -- which dimension drives the additive between-stratum inequality:
 
@@ -303,8 +306,8 @@ plot(imp)
 
 The contributions are signed (a suppressor comes out negative, exactly as in
 the stepwise table) and always sum to the full-model Total PCV, so the
-attribution is exhaustive. `method = "dominance"` adds Budescu's
-conditional/complete dominance detail, and for many variables
+attribution is exhaustive. `method = "dominance"` adds the conditional/complete
+dominance detail of @budescu1993, and for many variables
 `approx = "montecarlo"` replaces the exponential number of exact subset fits
 with permutation sampling (`?pcv_importance` for the costs and the latent-scale
 caveat for binary outcomes). For the order-dependent sequential path use
@@ -377,8 +380,14 @@ You can upload your own data (CSV, SPSS `.sav`, Stata `.dta`), dynamically selec
 run_maihda_app()
 ```
 
+## Further reading
+
+- @evans2018 and @merlo2018 set out MAIHDA as an approach to intersectional
+  inequalities in health.
+- @jones2016 look for interactions with a multilevel model whose higher level is
+  the cells of a cross-tabulation, an early form of the approach.
+- @evans2024tutorial walk through a MAIHDA analysis step by step.
+- @evans2024clarifications give a conceptual guide to the approach and reply to a
+  critique of it.
+
 ## References
-
-- Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V. (2018). A multilevel approach to modeling health inequalities at the intersection of multiple social identities. *Social Science & Medicine*, 203, 64-73.
-
-- Merlo, J. (2018). Multilevel analysis of individual heterogeneity and discriminatory accuracy (MAIHDA) within an intersectional framework. *Social Science & Medicine*, 203, 74-80.

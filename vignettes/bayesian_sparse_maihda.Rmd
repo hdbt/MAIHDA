@@ -3,6 +3,7 @@ title: "Bayesian MAIHDA for sparse intersections"
 author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
+bibliography: references.bib
 vignette: >
   %\VignetteIndexEntry{Bayesian MAIHDA for sparse intersections}
   %\VignetteEngine{knitr::rmarkdown}
@@ -107,7 +108,8 @@ effect.
 ## What brms adds: posterior uncertainty
 
 Refitting with `engine = "brms"` and a weakly-informative prior on the random-effect
-standard deviations changes the output in one important respect: the posterior yields a
+standard deviations [@gelman2006] changes the output in one important respect: the
+posterior yields a
 credible interval in place of a single number. No standard deviation is reported at
 zero, since each is a posterior median, which is above zero whatever the prior; the
 `normal(0, 0.5)` prior has its mode at zero and pulls the standard deviations toward it.
@@ -203,7 +205,7 @@ it is bootstrapped. Reading the `lme4` point at face value (an interaction of ro
 
 The per-stratum effects (the stratum random intercepts) are similar under the two
 engines as both apply partial pooling, shrinking thinly-estimated strata toward the
-additive prediction. What differs is the treatment of uncertainty. Maximum likelihood
+additive prediction [@bell2019]. What differs is the treatment of uncertainty. Maximum likelihood
 commits to a single variance decomposition and gives no interval for it unless one is
 bootstrapped from that decomposition. `brms` propagates the full posterior, so the interaction share is
 accompanied by an interval whose width reflects how little the sparse cells constrain it. Summarising
@@ -218,3 +220,5 @@ there is no joint posterior to take a PCV interval from. The PCV it reports is a
 estimate, one minus the ratio of the two models' posterior-median between-stratum
 variances, and with few strata it is understated -- the reverse of the
 maximum-likelihood PCV, which is overstated (see `?calculate_pcv`).
+
+## References

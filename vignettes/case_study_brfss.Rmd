@@ -3,6 +3,7 @@ title: "Case study: BRFSS mental distress"
 author: "Hamid Bulut"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
+bibliography: references.bib
 vignette: >
   %\VignetteIndexEntry{Case study: BRFSS mental distress}
   %\VignetteEngine{knitr::rmarkdown}
@@ -30,7 +31,7 @@ pct  <- function(x, d = 1) paste0(formatC(100 * as.numeric(x), format = "f", dig
 big  <- function(x) format(as.numeric(x), big.mark = ",", trim = TRUE)
 ```
 
-This case uses the 2024 Behavioral Risk Factor Surveillance System (BRFSS), a U.S. health survey released by the Centers for Disease Control and Prevention. The outcome is frequent mental distress: 14 or more of the past 30 days when mental health was not good.
+This case uses the 2024 Behavioral Risk Factor Surveillance System (BRFSS), a U.S. health survey released by the Centers for Disease Control and Prevention [@cdc2024brfss]. The outcome is frequent mental distress: 14 or more of the past 30 days when mental health was not good.
 
 The intersectional strata combine respondent sex, race/ethnicity, age, education, income, and disability. The question is whether mental distress is concentrated in particular social strata, and whether any of these intersections remain once the additive main effects of the dimensions are included.
 
@@ -144,7 +145,7 @@ The complete-case recode yields **`r big(pc$analytic_n)` adults** in **`r pc$n_s
 
 ## Fit the MAIHDA
 
-The analysis is a single call, a binomial MAIHDA fitting a null model (strata only) and an adjusted model (the six dimensions additive main effects), on the full individual data:
+The analysis is a single call, a binomial MAIHDA [@evans2018; @merlo2018; @evans2024tutorial] fitting a null model (strata only) and an adjusted model (the six dimensions additive main effects), on the full individual data:
 
 ```{r fit-code, eval = FALSE}
 brfss_fit <- maihda(
@@ -201,7 +202,7 @@ knitr::kable(head(disp, 15), digits = 3,
 
 ### How many interactions actually matter? A ROPE
 
-Flagging asks only whether an interaction differs statistically significantly from zero. On the full data the FDR screen flags `r pc$n_flagged` of `r pc$n_interactions` strata. The more interesting question is whether a departure is *large enough to matter*. A **region of practical equivalence** (ROPE) sets a smallest intersectional effect of interest on the log-odds scale and classifies each stratum's interval as practically **relevant** (outside the ROPE), **negligible** (inside it), or **inconclusive** (Schuirmann 1987; Kruschke 2018). The `rope` argument of `maihda_interactions()` adds this `decision` column:
+Flagging asks only whether an interaction differs statistically significantly from zero. On the full data the FDR screen flags `r pc$n_flagged` of `r pc$n_interactions` strata. The more interesting question is whether a departure is *large enough to matter*. A **region of practical equivalence** (ROPE) sets a smallest intersectional effect of interest on the log-odds scale and classifies each stratum's interval as practically **relevant** (outside the ROPE), **negligible** (inside it), or **inconclusive** [@schuirmann1987; @kruschke2018]. The `rope` argument of `maihda_interactions()` adds this `decision` column:
 
 ```{r rope-code, eval = FALSE}
 maihda_interactions(brfss_fit, rope = 0.4)   # ROPE = +/- 0.4 log-odds (OR ~ 1.5)
@@ -246,9 +247,3 @@ After adding the additive main effects of the six dimensions, the between-stratu
 Per-stratum interaction effects were small (largest ≈ `r fmt(pc$max_abs_int, 2)` on the log-odds scale). The FDR screen flagged `r pc$n_flagged` of `r pc$n_interactions` strata; a region of practical equivalence (±0.4 log-odds) classified `r pc$rope_primary$relevant` strata as practically relevant, `r pc$rope_primary$negligible` as negligible, and `r pc$rope_primary$inconclusive` as inconclusive. The defensible conclusion is a predominantly additive structure, with a small number of intersections showing a practically meaningful departure from additivity.
 
 ## References
-
--   Centers for Disease Control and Prevention. Behavioral Risk Factor Surveillance System: 2024 Survey Data and Documentation.
--   Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J. (2024). A tutorial for conducting intersectional multilevel analysis of individual heterogeneity and discriminatory accuracy (MAIHDA). *SSM - Population Health*, 26, 101664.
--   Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V. (2018). A multilevel approach to modeling health inequalities at the intersection of multiple social identities. *Social Science & Medicine*, 203, 64-73.
--   Merlo, J. (2018). Multilevel analysis of individual heterogeneity and discriminatory accuracy (MAIHDA) within an intersectional framework. *Social Science & Medicine*, 203, 74-80.
-```
