@@ -3,11 +3,11 @@
 ## Introduction
 
 The MAIHDA package provides specialized tools for conducting Multilevel
-Analysis of Individual Heterogeneity and Discriminatory Accuracy. This
-modern epidemiological approach is highly effective for investigating
-intersectional health inequalities and understanding how joint social
-categories (e.g., Race x Gender x Education) influence individual
-outcomes.
+Analysis of Individual Heterogeneity and Discriminatory Accuracy (Evans
+et al. 2018; Merlo 2018). This modern epidemiological approach is highly
+effective for investigating intersectional health inequalities and
+understanding how joint social categories (e.g., Race x Gender x
+Education) influence individual outcomes.
 
 By utilizing multilevel mixed-effects models (via `lme4` or `brms`),
 MAIHDA allows researchers to: 1. Automatically construct intersectional
@@ -112,10 +112,10 @@ analysis                # VPC/ICC (null) and PCV (null -> adjusted)
 #> 
 analysis$formula        # null:     BMI ~ (1 | stratum)
 #> BMI ~ (1 | stratum)
-#> <environment: 0x560169218250>
+#> <environment: 0x5560d3c76df0>
 analysis$adjusted_formula  # adjusted: BMI ~ Gender + Race + Education + (1 | stratum)
 #> BMI ~ Gender + Race + Education + (1 | stratum)
-#> <environment: 0x560167450f68>
+#> <environment: 0x5560d1e92d68>
 ```
 
 The returned object carries everything: the full variance components,
@@ -193,9 +193,9 @@ variance drops substantially (high PCV), the between-stratum differences
 are largely additive; what remains is often read as the *intersectional
 interaction*. The PCV is a model-dependent variance change, not a causal
 decomposition, and a low or negative value does not by itself
-automatically prove a true interaction (it can also reflect suppression,
-rescaling on the latent scale for non-Gaussian models, sample
-composition, or estimation uncertainty).
+automatically prove a true interaction: it can also reflect suppression,
+rescaling on the latent scale for non-Gaussian models (Bauer 2009; Mood
+2010), sample composition, or estimation uncertainty.
 
 For publication-ready uncertainty, add `bootstrap = TRUE` (with
 `n_boot`) to attach parametric-bootstrap confidence intervals to the VPC
@@ -284,8 +284,8 @@ effect as a random intercept rather than a fixed effect. See
 
 To model the strata *crossed with* a higher-level place or institution –
 the literature’s cross-classified MAIHDA (patients within strata and
-hospitals, students within strata and schools) – pass
-`context = "school"` to
+hospitals, Rodriguez-Lopez et al. 2020; students within strata and
+schools, Prior and Leckie 2025) – pass `context = "school"` to
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) or
 [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md).
 The summary then partitions the unexplained variance into
@@ -301,9 +301,9 @@ column via `sampling_weights`. Survey weights are not lme4’s `weights=`
 (those are precision weights, which rescale the residual variance), so
 the fit routes through
 [`WeMix::mix()`](https://american-institutes-for-research.github.io/WeMix/reference/mix.html)
-weighted pseudo-maximum-likelihood. The whole workflow (VPC/ICC, PCV,
-stratum summaries, prediction, plots, and the AUC for binary outcomes)
-is then design-weighted (see
+weighted pseudo-maximum-likelihood (Rabe-Hesketh and Skrondal 2006). The
+whole workflow (VPC/ICC, PCV, stratum summaries, prediction, plots, and
+the AUC for binary outcomes) is then design-weighted (see
 [`?fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)):
 
 ``` r
@@ -317,9 +317,9 @@ The wemix engine covers `gaussian(identity)` / `binomial(logit)` MAIHDA
 with the single `(1 | stratum)` intercept; crossed random effects
 (`context =`, `decomposition = "crossed-dimensions"`) and bootstrap
 intervals require lme4/brms. `engine = "brms"` also accepts
-`sampling_weights`, as likelihood weights (a pseudo-posterior whose
-point estimates target the population-weighted estimand, but with
-credible intervals that are not design-based).
+`sampling_weights`, as likelihood weights: a pseudo-posterior (Savitsky
+and Toth 2016) whose point estimates target the population-weighted
+estimand, but with credible intervals that are not design-based.
 
 ### Comparing across groups
 
@@ -439,7 +439,7 @@ calculate_pcv(model_null, model_cov)
 #> Between-stratum variance:
 #>   Model 1: 2.931928
 #>   Model 2: 2.687139
-#>   Change:  0.244790 (8.35%)
+#>   Change:  0.244789 (8.35%)
 #> 
 #> Interpretation (PCV is the proportional change in between-stratum
 #> variance between the models):
@@ -504,9 +504,9 @@ reordering `vars` changes the answer.
 [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
 removes that dependence. It treats the PCV as a value function over
 variable subsets and averages each variable’s marginal PCV over all
-entry orders. Passing the stratum dimensions splits the *additive share*
-fairly across them – which dimension drives the additive between-stratum
-inequality:
+entry orders, as the Shapley value does (Shorrocks 2013; Grömping 2006).
+Passing the stratum dimensions splits the *additive share* fairly across
+them – which dimension drives the additive between-stratum inequality:
 
 ``` r
 
@@ -545,10 +545,10 @@ plot(imp)
 
 The contributions are signed (a suppressor comes out negative, exactly
 as in the stepwise table) and always sum to the full-model Total PCV, so
-the attribution is exhaustive. `method = "dominance"` adds Budescu’s
-conditional/complete dominance detail, and for many variables
-`approx = "montecarlo"` replaces the exponential number of exact subset
-fits with permutation sampling
+the attribution is exhaustive. `method = "dominance"` adds the
+conditional/complete dominance detail of Budescu (1993), and for many
+variables `approx = "montecarlo"` replaces the exponential number of
+exact subset fits with permutation sampling
 ([`?pcv_importance`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
 for the costs and the latent-scale caveat for binary outcomes). For the
 order-dependent sequential path use
@@ -642,13 +642,89 @@ prediction plots.
 run_maihda_app()
 ```
 
+## Further reading
+
+- Evans et al. (2018) and Merlo (2018) set out MAIHDA as an approach to
+  intersectional inequalities in health.
+- Jones et al. (2016) look for interactions with a multilevel model
+  whose higher level is the cells of a cross-tabulation, an early form
+  of the approach.
+- Evans, Leckie, et al. (2024) walk through a MAIHDA analysis step by
+  step.
+- Evans, Borrell, et al. (2024) give a conceptual guide to the approach
+  and reply to a critique of it.
+
 ## References
 
-- Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V.
-  (2018). A multilevel approach to modeling health inequalities at the
-  intersection of multiple social identities. *Social Science &
-  Medicine*, 203, 64-73.
+Bauer, Daniel J. 2009. “A Note on Comparing the Estimates of Models for
+Cluster-Correlated or Longitudinal Data with Binary or Ordinal
+Outcomes.” *Psychometrika* 74 (1): 97–105.
+<https://doi.org/10.1007/s11336-008-9080-1>.
 
-- Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
-  discriminatory accuracy (MAIHDA) within an intersectional framework.
-  *Social Science & Medicine*, 203, 74-80.
+Budescu, David V. 1993. “Dominance Analysis: A New Approach to the
+Problem of Relative Importance of Predictors in Multiple Regression.”
+*Psychological Bulletin* 114 (3): 542–51.
+<https://doi.org/10.1037/0033-2909.114.3.542>.
+
+Evans, Clare R., Luisa N. Borrell, Andrew Bell, Daniel Holman, S. V.
+Subramanian, and George Leckie. 2024. “Clarifications on the
+Intersectional MAIHDA Approach: A Conceptual Guide and Response to
+Wilkes and Karimi (2024).” *Social Science & Medicine* 350: 116898.
+<https://doi.org/10.1016/j.socscimed.2024.116898>.
+
+Evans, Clare R., George Leckie, S. V. Subramanian, Andrew Bell, and Juan
+Merlo. 2024. “A Tutorial for Conducting Intersectional Multilevel
+Analysis of Individual Heterogeneity and Discriminatory Accuracy
+(MAIHDA).” *SSM - Population Health* 26: 101664.
+<https://doi.org/10.1016/j.ssmph.2024.101664>.
+
+Evans, Clare R., David R. Williams, Jukka-Pekka Onnela, and S. V.
+Subramanian. 2018. “A Multilevel Approach to Modeling Health
+Inequalities at the Intersection of Multiple Social Identities.” *Social
+Science & Medicine* 203: 64–73.
+<https://doi.org/10.1016/j.socscimed.2017.11.011>.
+
+Grömping, Ulrike. 2006. “Relative Importance for Linear Regression in R:
+The Package relaimpo.” *Journal of Statistical Software* 17 (1): 1–27.
+<https://doi.org/10.18637/jss.v017.i01>.
+
+Jones, Kelvyn, Ron Johnston, and David Manley. 2016. “Uncovering
+Interactions in Multivariate Contingency Tables: A Multi-Level Modelling
+Exploratory Approach.” *Methodological Innovations* 9.
+<https://doi.org/10.1177/2059799116672874>.
+
+Merlo, Juan. 2018. “Multilevel Analysis of Individual Heterogeneity and
+Discriminatory Accuracy (MAIHDA) Within an Intersectional Framework.”
+*Social Science & Medicine* 203: 74–80.
+<https://doi.org/10.1016/j.socscimed.2017.12.026>.
+
+Mood, Carina. 2010. “Logistic Regression: Why We Cannot Do What We Think
+We Can Do, and What We Can Do about It.” *European Sociological Review*
+26 (1): 67–82. <https://doi.org/10.1093/esr/jcp006>.
+
+Prior, Lucy, and George Leckie. 2025. “Student Intersectional
+Sociodemographic and School Variation in GCSE Final Grades in England
+Following Covid-19 Examination Cancellations.” *Oxford Review of
+Education* 51 (5): 763–84.
+<https://doi.org/10.1080/03054985.2024.2407624>.
+
+Rabe-Hesketh, Sophia, and Anders Skrondal. 2006. “Multilevel Modelling
+of Complex Survey Data.” *Journal of the Royal Statistical Society:
+Series A (Statistics in Society)* 169 (4): 805–27.
+<https://doi.org/10.1111/j.1467-985X.2006.00426.x>.
+
+Rodriguez-Lopez, Merida, Juan Merlo, Raquel Perez-Vicente, Peter Austin,
+and George Leckie. 2020. “Cross-Classified Multilevel Analysis of
+Individual Heterogeneity and Discriminatory Accuracy (MAIHDA) to
+Evaluate Hospital Performance: The Case of Hospital Differences in
+Patient Survival After Acute Myocardial Infarction.” *BMJ Open* 10 (10):
+e036130. <https://doi.org/10.1136/bmjopen-2019-036130>.
+
+Savitsky, Terrance D., and Daniell Toth. 2016. “Bayesian Estimation
+Under Informative Sampling.” *Electronic Journal of Statistics* 10 (1):
+1677–708. <https://doi.org/10.1214/16-EJS1153>.
+
+Shorrocks, Anthony F. 2013. “Decomposition Procedures for Distributional
+Analysis: A Unified Framework Based on the Shapley Value.” *The Journal
+of Economic Inequality* 11 (1): 99–126.
+<https://doi.org/10.1007/s10888-011-9214-z>.

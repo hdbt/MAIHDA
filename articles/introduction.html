@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-10-29</h4>
+            <h4 data-toc-skip class="date">2026-11-01</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
@@ -93,7 +93,8 @@ Bulut</h4>
 </h2>
 <p>The MAIHDA package provides specialized tools for conducting
 Multilevel Analysis of Individual Heterogeneity and Discriminatory
-Accuracy. This modern epidemiological approach is highly effective for
+Accuracy <span class="citation">(Evans et al. 2018; Merlo 2018)</span>.
+This modern epidemiological approach is highly effective for
 investigating intersectional health inequalities and understanding how
 joint social categories (e.g., Race x Gender x Education) influence
 individual outcomes.</p>
@@ -187,10 +188,10 @@ deriving the null by dropping them. (Omit them –
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">formula</span>        <span class="co"># null:     BMI ~ (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x560169218250&gt;</span></span>
+<span><span class="co">#&gt; &lt;environment: 0x5560d3c76df0&gt;</span></span>
 <span><span class="va">analysis</span><span class="op">$</span><span class="va">adjusted_formula</span>  <span class="co"># adjusted: BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
 <span><span class="co">#&gt; BMI ~ Gender + Race + Education + (1 | stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x560167450f68&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x5560d1e92d68&gt;</span></span></code></pre></div>
 <p>The returned object carries everything: the full variance components,
 the PCV decomposition, and both fitted models.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -263,9 +264,9 @@ PCV), the between-stratum differences are largely additive; what remains
 is often read as the <em>intersectional interaction</em>. The PCV is a
 model-dependent variance change, not a causal decomposition, and a low
 or negative value does not by itself automatically prove a true
-interaction (it can also reflect suppression, rescaling on the latent
-scale for non-Gaussian models, sample composition, or estimation
-uncertainty).</p>
+interaction: it can also reflect suppression, rescaling on the latent
+scale for non-Gaussian models <span class="citation">(Bauer 2009; Mood
+2010)</span>, sample composition, or estimation uncertainty.</p>
 <p>For publication-ready uncertainty, add <code>bootstrap = TRUE</code>
 (with <code>n_boot</code>) to attach parametric-bootstrap confidence
 intervals to the VPC and PCV. It refits the models many times, so it is
@@ -334,13 +335,14 @@ effect. See
 <h3 id="a-contextual-cross-classified-model">A contextual cross-classified model<a class="anchor" aria-label="anchor" href="#a-contextual-cross-classified-model"></a>
 </h3>
 <p>To model the strata <em>crossed with</em> a higher-level place or
-institution – the literature’s cross-classified MAIHDA (patients within
-strata and hospitals, students within strata and schools) – pass
-<code>context = "school"</code> to <code><a href="../reference/maihda.html">maihda()</a></code> or
-<code><a href="../reference/fit_maihda.html">fit_maihda()</a></code>. The summary then partitions the unexplained
-variance into between-stratum vs. between-context vs. residual, and the
-headline VPC/ICC becomes the between-stratum share conditional on the
-context random effect. Also covered in
+institution – the literature’s cross-classified MAIHDA <span class="citation">(patients within strata and hospitals, Rodriguez-Lopez
+et al. 2020; students within strata and schools, Prior and Leckie
+2025)</span> – pass <code>context = "school"</code> to
+<code><a href="../reference/maihda.html">maihda()</a></code> or <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code>. The summary then
+partitions the unexplained variance into between-stratum
+vs. between-context vs. residual, and the headline VPC/ICC becomes the
+between-stratum share conditional on the context random effect. Also
+covered in
 <code><a href="../articles/cross_classified.html">vignette("cross_classified", package = "MAIHDA")</a></code>.</p>
 </div>
 <div class="section level3">
@@ -350,9 +352,10 @@ context random effect. Also covered in
 column via <code>sampling_weights</code>. Survey weights are not lme4’s
 <code>weights=</code> (those are precision weights, which rescale the
 residual variance), so the fit routes through <code><a href="https://american-institutes-for-research.github.io/WeMix/reference/mix.html" class="external-link">WeMix::mix()</a></code>
-weighted pseudo-maximum-likelihood. The whole workflow (VPC/ICC, PCV,
-stratum summaries, prediction, plots, and the AUC for binary outcomes)
-is then design-weighted (see <code><a href="../reference/fit_maihda.html">?fit_maihda</a></code>):</p>
+weighted pseudo-maximum-likelihood <span class="citation">(Rabe-Hesketh
+and Skrondal 2006)</span>. The whole workflow (VPC/ICC, PCV, stratum
+summaries, prediction, plots, and the AUC for binary outcomes) is then
+design-weighted (see <code><a href="../reference/fit_maihda.html">?fit_maihda</a></code>):</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">weighted</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">gender</span><span class="op">:</span><span class="va">race</span><span class="op">:</span><span class="va">education</span><span class="op">)</span>,</span>
 <span>                   data <span class="op">=</span> <span class="va">survey_data</span>, sampling_weights <span class="op">=</span> <span class="st">"person_weight"</span><span class="op">)</span></span>
@@ -363,9 +366,10 @@ is then design-weighted (see <code><a href="../reference/fit_maihda.html">?fit_m
 (<code>context =</code>,
 <code>decomposition = "crossed-dimensions"</code>) and bootstrap
 intervals require lme4/brms. <code>engine = "brms"</code> also accepts
-<code>sampling_weights</code>, as likelihood weights (a pseudo-posterior
-whose point estimates target the population-weighted estimand, but with
-credible intervals that are not design-based).</p>
+<code>sampling_weights</code>, as likelihood weights: a pseudo-posterior
+<span class="citation">(Savitsky and Toth 2016)</span> whose point
+estimates target the population-weighted estimand, but with credible
+intervals that are not design-based.</p>
 </div>
 <div class="section level3">
 <h3 id="comparing-across-groups">Comparing across groups<a class="anchor" aria-label="anchor" href="#comparing-across-groups"></a>
@@ -473,7 +477,7 @@ prepared above):</p>
 <span><span class="co"><span style="color: #555555;">#&gt; </span><span style="font-weight: bold;">Between-stratum variance:</span></span></span>
 <span><span class="co">#&gt;   Model 1: 2.931928</span></span>
 <span><span class="co">#&gt;   Model 2: 2.687139</span></span>
-<span><span class="co">#&gt;   Change:  0.244790 (8.35%)</span></span>
+<span><span class="co">#&gt;   Change:  0.244789 (8.35%)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interpretation (PCV is the proportional change in between-stratum</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; variance between the models):</span></span></span>
@@ -529,9 +533,9 @@ PCV is a variable’s contribution <em>given the variables already
 entered</em>, so reordering <code>vars</code> changes the answer.
 <code><a href="../reference/pcv_importance.html">pcv_importance()</a></code> removes that dependence. It treats the PCV
 as a value function over variable subsets and averages each variable’s
-marginal PCV over all entry orders. Passing the stratum dimensions
-splits the <em>additive share</em> fairly across them – which dimension
-drives the additive between-stratum inequality:</p>
+marginal PCV over all entry orders, as the Shapley value does <span class="citation">(Shorrocks 2013; Grömping 2006)</span>. Passing the
+stratum dimensions splits the <em>additive share</em> fairly across them
+– which dimension drives the additive between-stratum inequality:</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">imp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pcv_importance.html">pcv_importance</a></span><span class="op">(</span></span>
 <span>  data    <span class="op">=</span> <span class="va">analysis</span><span class="op">$</span><span class="va">model</span><span class="op">$</span><span class="va">original_data</span>,</span>
@@ -566,9 +570,9 @@ drives the additive between-stratum inequality:</p>
 <p>The contributions are signed (a suppressor comes out negative,
 exactly as in the stepwise table) and always sum to the full-model Total
 PCV, so the attribution is exhaustive. <code>method = "dominance"</code>
-adds Budescu’s conditional/complete dominance detail, and for many
-variables <code>approx = "montecarlo"</code> replaces the exponential
-number of exact subset fits with permutation sampling
+adds the conditional/complete dominance detail of <span class="citation">Budescu (1993)</span>, and for many variables
+<code>approx = "montecarlo"</code> replaces the exponential number of
+exact subset fits with permutation sampling
 (<code><a href="../reference/pcv_importance.html">?pcv_importance</a></code> for the costs and the latent-scale caveat
 for binary outcomes). For the order-dependent sequential path use
 <code><a href="../reference/stepwise_pcv.html">stepwise_pcv()</a></code> (above).</p>
@@ -656,17 +660,112 @@ PCV tables and prediction plots.</p>
 <span><span class="fu"><a href="../reference/run_maihda_app.html">run_maihda_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+<h2 id="further-reading">Further reading<a class="anchor" aria-label="anchor" href="#further-reading"></a>
 </h2>
 <ul>
-<li><p>Evans, C. R., Williams, D. R., Onnela, J. P., &amp; Subramanian,
-S. V. (2018). A multilevel approach to modeling health inequalities at
-the intersection of multiple social identities. <em>Social Science &amp;
-Medicine</em>, 203, 64-73.</p></li>
-<li><p>Merlo, J. (2018). Multilevel analysis of individual heterogeneity
-and discriminatory accuracy (MAIHDA) within an intersectional framework.
-<em>Social Science &amp; Medicine</em>, 203, 74-80.</p></li>
+<li>
+<span class="citation">Evans et al. (2018)</span> and <span class="citation">Merlo (2018)</span> set out MAIHDA as an approach to
+intersectional inequalities in health.</li>
+<li>
+<span class="citation">Jones et al. (2016)</span> look for
+interactions with a multilevel model whose higher level is the cells of
+a cross-tabulation, an early form of the approach.</li>
+<li>
+<span class="citation">Evans, Leckie, et al. (2024)</span> walk
+through a MAIHDA analysis step by step.</li>
+<li>
+<span class="citation">Evans, Borrell, et al. (2024)</span> give a
+conceptual guide to the approach and reply to a critique of it.</li>
 </ul>
+</div>
+<div class="section level2 unnumbered">
+<h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+</h2>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-bauer2009" class="csl-entry">
+Bauer, Daniel J. 2009. <span>“A Note on Comparing the Estimates of
+Models for Cluster-Correlated or Longitudinal Data with Binary or
+Ordinal Outcomes.”</span> <em>Psychometrika</em> 74 (1): 97–105. <a href="https://doi.org/10.1007/s11336-008-9080-1" class="external-link">https://doi.org/10.1007/s11336-008-9080-1</a>.
+</div>
+<div id="ref-budescu1993" class="csl-entry">
+Budescu, David V. 1993. <span>“Dominance Analysis: A New Approach to the
+Problem of Relative Importance of Predictors in Multiple
+Regression.”</span> <em>Psychological Bulletin</em> 114 (3): 542–51. <a href="https://doi.org/10.1037/0033-2909.114.3.542" class="external-link">https://doi.org/10.1037/0033-2909.114.3.542</a>.
+</div>
+<div id="ref-evans2024clarifications" class="csl-entry">
+Evans, Clare R., Luisa N. Borrell, Andrew Bell, Daniel Holman, S. V.
+Subramanian, and George Leckie. 2024. <span>“Clarifications on the
+Intersectional <span>MAIHDA</span> Approach: A Conceptual Guide and
+Response to <span>Wilkes</span> and <span>Karimi</span> (2024).”</span>
+<em>Social Science &amp; Medicine</em> 350: 116898. <a href="https://doi.org/10.1016/j.socscimed.2024.116898" class="external-link">https://doi.org/10.1016/j.socscimed.2024.116898</a>.
+</div>
+<div id="ref-evans2024tutorial" class="csl-entry">
+Evans, Clare R., George Leckie, S. V. Subramanian, Andrew Bell, and Juan
+Merlo. 2024. <span>“A Tutorial for Conducting Intersectional Multilevel
+Analysis of Individual Heterogeneity and Discriminatory Accuracy
+(<span>MAIHDA</span>).”</span> <em><span>SSM</span> - Population
+Health</em> 26: 101664. <a href="https://doi.org/10.1016/j.ssmph.2024.101664" class="external-link">https://doi.org/10.1016/j.ssmph.2024.101664</a>.
+</div>
+<div id="ref-evans2018" class="csl-entry">
+Evans, Clare R., David R. Williams, Jukka-Pekka Onnela, and S. V.
+Subramanian. 2018. <span>“A Multilevel Approach to Modeling Health
+Inequalities at the Intersection of Multiple Social Identities.”</span>
+<em>Social Science &amp; Medicine</em> 203: 64–73. <a href="https://doi.org/10.1016/j.socscimed.2017.11.011" class="external-link">https://doi.org/10.1016/j.socscimed.2017.11.011</a>.
+</div>
+<div id="ref-gromping2006" class="csl-entry">
+Grömping, Ulrike. 2006. <span>“Relative Importance for Linear Regression
+in <span>R</span>: The Package <span class="nocase">relaimpo</span>.”</span> <em>Journal of Statistical
+Software</em> 17 (1): 1–27. <a href="https://doi.org/10.18637/jss.v017.i01" class="external-link">https://doi.org/10.18637/jss.v017.i01</a>.
+</div>
+<div id="ref-jones2016" class="csl-entry">
+Jones, Kelvyn, Ron Johnston, and David Manley. 2016. <span>“Uncovering
+Interactions in Multivariate Contingency Tables: A Multi-Level Modelling
+Exploratory Approach.”</span> <em>Methodological Innovations</em> 9. <a href="https://doi.org/10.1177/2059799116672874" class="external-link">https://doi.org/10.1177/2059799116672874</a>.
+</div>
+<div id="ref-merlo2018" class="csl-entry">
+Merlo, Juan. 2018. <span>“Multilevel Analysis of Individual
+Heterogeneity and Discriminatory Accuracy (<span>MAIHDA</span>) Within
+an Intersectional Framework.”</span> <em>Social Science &amp;
+Medicine</em> 203: 74–80. <a href="https://doi.org/10.1016/j.socscimed.2017.12.026" class="external-link">https://doi.org/10.1016/j.socscimed.2017.12.026</a>.
+</div>
+<div id="ref-mood2010" class="csl-entry">
+Mood, Carina. 2010. <span>“Logistic Regression: Why We Cannot Do What We
+Think We Can Do, and What We Can Do about It.”</span> <em>European
+Sociological Review</em> 26 (1): 67–82. <a href="https://doi.org/10.1093/esr/jcp006" class="external-link">https://doi.org/10.1093/esr/jcp006</a>.
+</div>
+<div id="ref-prior2025" class="csl-entry">
+Prior, Lucy, and George Leckie. 2025. <span>“Student Intersectional
+Sociodemographic and School Variation in <span>GCSE</span> Final Grades
+in <span>England</span> Following <span>Covid-19</span> Examination
+Cancellations.”</span> <em>Oxford Review of Education</em> 51 (5):
+763–84. <a href="https://doi.org/10.1080/03054985.2024.2407624" class="external-link">https://doi.org/10.1080/03054985.2024.2407624</a>.
+</div>
+<div id="ref-rabehesketh2006" class="csl-entry">
+Rabe-Hesketh, Sophia, and Anders Skrondal. 2006. <span>“Multilevel
+Modelling of Complex Survey Data.”</span> <em>Journal of the Royal
+Statistical Society: Series A (Statistics in Society)</em> 169 (4):
+805–27. <a href="https://doi.org/10.1111/j.1467-985X.2006.00426.x" class="external-link">https://doi.org/10.1111/j.1467-985X.2006.00426.x</a>.
+</div>
+<div id="ref-rodriguezlopez2020" class="csl-entry">
+Rodriguez-Lopez, Merida, Juan Merlo, Raquel Perez-Vicente, Peter Austin,
+and George Leckie. 2020. <span>“Cross-Classified Multilevel Analysis of
+Individual Heterogeneity and Discriminatory Accuracy
+(<span>MAIHDA</span>) to Evaluate Hospital Performance: The Case of
+Hospital Differences in Patient Survival After Acute Myocardial
+Infarction.”</span> <em><span>BMJ</span> Open</em> 10 (10): e036130. <a href="https://doi.org/10.1136/bmjopen-2019-036130" class="external-link">https://doi.org/10.1136/bmjopen-2019-036130</a>.
+</div>
+<div id="ref-savitsky2016" class="csl-entry">
+Savitsky, Terrance D., and Daniell Toth. 2016. <span>“Bayesian
+Estimation Under Informative Sampling.”</span> <em>Electronic Journal of
+Statistics</em> 10 (1): 1677–708. <a href="https://doi.org/10.1214/16-EJS1153" class="external-link">https://doi.org/10.1214/16-EJS1153</a>.
+</div>
+<div id="ref-shorrocks2013" class="csl-entry">
+Shorrocks, Anthony F. 2013. <span>“Decomposition Procedures for
+Distributional Analysis: A Unified Framework Based on the
+<span>Shapley</span> Value.”</span> <em>The Journal of Economic
+Inequality</em> 11 (1): 99–126. <a href="https://doi.org/10.1007/s10888-011-9214-z" class="external-link">https://doi.org/10.1007/s10888-011-9214-z</a>.
+</div>
+</div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

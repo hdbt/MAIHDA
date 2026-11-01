@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-10-29</h4>
+            <h4 data-toc-skip class="date">2026-11-01</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/planning_a_study.Rmd" class="external-link"><code>vignettes/planning_a_study.Rmd</code></a></small>
       <div class="d-none name"><code>planning_a_study.Rmd</code></div>
@@ -104,10 +104,10 @@ number of strata, and the analytic sample.</p>
 <div class="section level2">
 <h2 id="is-maihda-the-right-tool">Is MAIHDA the right tool?<a class="anchor" aria-label="anchor" href="#is-maihda-the-right-tool"></a>
 </h2>
-<p>MAIHDA is for questions of the form <em>“how much of the variation in
-an outcome lies between people’s intersectional social positions, and
-how much of that is more than the sum of its parts?”</em> It is well
-suited when:</p>
+<p>MAIHDA <span class="citation">(Evans et al. 2024)</span> is for
+questions of the form <em>“how much of the variation in an outcome lies
+between people’s intersectional social positions, and how much of that
+is more than the sum of its parts?”</em> It is well suited when:</p>
 <ul>
 <li>you have several <strong>categorical</strong> social dimensions
 (gender, race/ethnicity, education, class, …) whose
@@ -144,11 +144,13 @@ cells:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">s3</span><span class="op">$</span><span class="va">strata_info</span><span class="op">$</span><span class="va">n</span> <span class="op">&lt;</span> <span class="fl">10</span><span class="op">)</span>             <span class="co"># how many strata have &lt; 10 people</span></span>
 <span><span class="co">#&gt; [1] 5</span></span></code></pre></div>
 <p>Each extra dimension multiplies the number of strata and divides the
-people among them. Small cells are not fatal, (partial pooling shrinkage
-is exactly what protects MAIHDA against noisy small strata) but they
-have consequences (next section). A useful rule: choose the fewest
-dimensions that answer your question, and look at the cell-size
-distribution before committing.</p>
+people among them. Small cells are not fatal: partial pooling shrinks a
+small stratum’s estimate toward the model’s prediction for it, though
+less than it should when the fixed part of the model leaves out true
+main effects or interactions <span class="citation">(Bell et al.
+2019)</span>. They do have consequences (next section). A useful rule:
+choose the fewest dimensions that answer your question, and look at the
+cell-size distribution before committing.</p>
 </div>
 <div class="section level2">
 <h2 id="one-call-maihda_describe">One call: <code>maihda_describe()</code><a class="anchor" aria-label="anchor" href="#one-call-maihda_describe"></a>
@@ -329,8 +331,8 @@ modest AUC)</td>
 </table>
 <p>The PCV of a binary or Poisson count outcome fitted with
 <code>lme4</code> compares maximum-likelihood variances. With few or
-small strata these run low, the adjusted model’s most, so that PCV runs
-high. <code>maihda(estimation = "REML")</code> and
+small strata these run low, the adjusted model’s most <span class="citation">(Harville 1977)</span>, so that PCV runs high.
+<code>maihda(estimation = "REML")</code> and
 <code>calculate_pcv(estimation = "REML")</code> compare REML-type
 variances instead, which corrects this when strata are few but not small
 (see <code><a href="../reference/calculate_pcv.html">?calculate_pcv</a></code>).</p>
@@ -378,18 +380,30 @@ survey weights, and <a href="bayesian_sparse_maihda.html">Bayesian /
 sparse</a>.</li>
 </ol>
 </div>
-<div class="section level2">
-<h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+<div class="section level2 unnumbered">
+<h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
-<ul>
-<li>Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., &amp; Merlo,
-J. (2024). A tutorial for conducting intersectional multilevel analysis
-of individual heterogeneity and discriminatory accuracy (MAIHDA).
-<em>SSM - Population Health</em>, 26,
-<ol start="101664" style="list-style-type: decimal"><li>
-</li></ol>
-</li>
-</ul>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-bell2019" class="csl-entry">
+Bell, Andrew, Daniel Holman, and Kelvyn Jones. 2019. <span>“Using
+Shrinkage in Multilevel Models to Understand Intersectionality: A
+Simulation Study and a Guide for Best Practice.”</span>
+<em>Methodology</em> 15 (2): 88–96. <a href="https://doi.org/10.1027/1614-2241/a000167" class="external-link">https://doi.org/10.1027/1614-2241/a000167</a>.
+</div>
+<div id="ref-evans2024tutorial" class="csl-entry">
+Evans, Clare R., George Leckie, S. V. Subramanian, Andrew Bell, and Juan
+Merlo. 2024. <span>“A Tutorial for Conducting Intersectional Multilevel
+Analysis of Individual Heterogeneity and Discriminatory Accuracy
+(<span>MAIHDA</span>).”</span> <em><span>SSM</span> - Population
+Health</em> 26: 101664. <a href="https://doi.org/10.1016/j.ssmph.2024.101664" class="external-link">https://doi.org/10.1016/j.ssmph.2024.101664</a>.
+</div>
+<div id="ref-harville1977" class="csl-entry">
+Harville, David A. 1977. <span>“Maximum Likelihood Approaches to
+Variance Component Estimation and to Related Problems.”</span>
+<em>Journal of the American Statistical Association</em> 72 (358):
+320–38. <a href="https://doi.org/10.1080/01621459.1977.10480998" class="external-link">https://doi.org/10.1080/01621459.1977.10480998</a>.
+</div>
+</div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

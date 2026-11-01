@@ -2,8 +2,9 @@
 
 This case uses the 2024 Behavioral Risk Factor Surveillance System
 (BRFSS), a U.S. health survey released by the Centers for Disease
-Control and Prevention. The outcome is frequent mental distress: 14 or
-more of the past 30 days when mental health was not good.
+Control and Prevention (Centers for Disease Control and Prevention
+2024). The outcome is frequent mental distress: 14 or more of the past
+30 days when mental health was not good.
 
 The intersectional strata combine respondent sex, race/ethnicity, age,
 education, income, and disability. The question is whether mental
@@ -137,9 +138,10 @@ fewer than 50).
 
 ## Fit the MAIHDA
 
-The analysis is a single call, a binomial MAIHDA fitting a null model
-(strata only) and an adjusted model (the six dimensions additive main
-effects), on the full individual data:
+The analysis is a single call, a binomial MAIHDA (Evans et al. 2018,
+2024; Merlo 2018) fitting a null model (strata only) and an adjusted
+model (the six dimensions additive main effects), on the full individual
+data:
 
 ``` r
 
@@ -333,16 +335,34 @@ additivity.
 
 ## References
 
-- Centers for Disease Control and Prevention. Behavioral Risk Factor
-  Surveillance System: 2024 Survey Data and Documentation.
-- Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J.
-  (2024). A tutorial for conducting intersectional multilevel analysis
-  of individual heterogeneity and discriminatory accuracy (MAIHDA).
-  *SSM - Population Health*, 26, 101664.
-- Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V.
-  (2018). A multilevel approach to modeling health inequalities at the
-  intersection of multiple social identities. *Social Science &
-  Medicine*, 203, 64-73.
-- Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
-  discriminatory accuracy (MAIHDA) within an intersectional framework.
-  *Social Science & Medicine*, 203, 74-80. \`\`\`
+Centers for Disease Control and Prevention. 2024. *Behavioral Risk
+Factor Surveillance System Survey Data*. U.S. Department of Health and
+Human Services, Centers for Disease Control and Prevention.
+<https://www.cdc.gov/brfss/annual_data/annual_2024.html>.
+
+Evans, Clare R., George Leckie, S. V. Subramanian, Andrew Bell, and Juan
+Merlo. 2024. “A Tutorial for Conducting Intersectional Multilevel
+Analysis of Individual Heterogeneity and Discriminatory Accuracy
+(MAIHDA).” *SSM - Population Health* 26: 101664.
+<https://doi.org/10.1016/j.ssmph.2024.101664>.
+
+Evans, Clare R., David R. Williams, Jukka-Pekka Onnela, and S. V.
+Subramanian. 2018. “A Multilevel Approach to Modeling Health
+Inequalities at the Intersection of Multiple Social Identities.” *Social
+Science & Medicine* 203: 64–73.
+<https://doi.org/10.1016/j.socscimed.2017.11.011>.
+
+Kruschke, John K. 2018. “Rejecting or Accepting Parameter Values in
+Bayesian Estimation.” *Advances in Methods and Practices in
+Psychological Science* 1 (2): 270–80.
+<https://doi.org/10.1177/2515245918771304>.
+
+Merlo, Juan. 2018. “Multilevel Analysis of Individual Heterogeneity and
+Discriminatory Accuracy (MAIHDA) Within an Intersectional Framework.”
+*Social Science & Medicine* 203: 74–80.
+<https://doi.org/10.1016/j.socscimed.2017.12.026>.
+
+Schuirmann, Donald J. 1987. “A Comparison of the Two One-Sided Tests
+Procedure and the Power Approach for Assessing the Equivalence of
+Average Bioavailability.” *Journal of Pharmacokinetics and
+Biopharmaceutics* 15 (6): 657–80. <https://doi.org/10.1007/BF01068419>.

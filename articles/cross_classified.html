@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-10-29</h4>
+            <h4 data-toc-skip class="date">2026-11-01</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/cross_classified.Rmd" class="external-link"><code>vignettes/cross_classified.Rmd</code></a></small>
       <div class="d-none name"><code>cross_classified.Rmd</code></div>
@@ -106,9 +106,11 @@ single model.</p></li>
 individuals are cross-classified by their intersectional stratum and a
 higher-level place or institution, patients within strata and hospitals,
 students within strata and schools. This is what the literature usually
-means by “cross-classified MAIHDA” (e.g. hospital differences in patient
-survival, or schools crossed with sociodemographic strata in student
-achievement). It partitions the unexplained variance into
+means by “cross-classified MAIHDA” <span class="citation">(e.g. hospital
+differences in patient survival, Rodriguez-Lopez et al. 2020; counties
+in the discontinuation of medication, Khalaf et al. 2020; or schools
+crossed with sociodemographic strata in student achievement, Prior and
+Leckie 2025)</span>. It partitions the unexplained variance into
 between-stratum vs. between-context vs. residual.</p></li>
 </ol>
 <p>The two answer different questions, “how much of the intersectional
@@ -143,7 +145,10 @@ random-effect variance is treated as that dimension’s additive
 contribution, and the full intersection (<code>stratum</code>)
 random-effect variance is the residual interaction beyond additive. The
 additive and interaction shares are therefore model-implied shares of
-the between-strata variance from this one fit.</p>
+the between-strata variance from this one fit. The model is a multilevel
+analysis of variance <span class="citation">(Gelman 2005)</span>, with
+the dimensions as its factors and the intersection term holding all
+their interactions together.</p>
 </li>
 </ul>
 <p>It is fit with ordinary multilevel software, <code>lme4</code> for a
@@ -206,7 +211,7 @@ the intersection random intercept, and fits the single model:</p>
 <code class="sourceCode R"><span><span class="va">cc</span><span class="op">$</span><span class="va">formula</span></span>
 <span><span class="co">#&gt; BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | </span></span>
 <span><span class="co">#&gt;     stratum)</span></span>
-<span><span class="co">#&gt; &lt;environment: 0x559f42961aa8&gt;</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;environment: 0x561a3639fde0&gt;</span></span></code></pre></div>
 <p>The partition is on <code>cc$decomposition</code> (and printed
 above):</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
@@ -337,12 +342,12 @@ deviations (see the caveats below). A <code>brms</code> fit therefore
 also reports the <em>realised strata</em>: the VPC, the additive and
 interaction shares, the variances and, with a logit link, the median
 odds ratio of the effects of the strata and dimension levels in the data
-(finite-population summaries, Gelman 2005), which depend little on that
-prior when each stratum has enough data; with few observations per
-stratum they come out too high and move with the prior too.
-<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows them in a second block and
-<code>decomposition$realised</code> holds them; <code><a href="../reference/maihda.html">?maihda</a></code>
-defines each one.</p>
+<span class="citation">(finite-population summaries, Gelman
+2005)</span>, which depend little on that prior when each stratum has
+enough data; with few observations per stratum they come out too high
+and move with the prior too. <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows them in a second
+block and <code>decomposition$realised</code> holds them;
+<code><a href="../reference/maihda.html">?maihda</a></code> defines each one.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cc_b</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda.html">maihda</a></span><span class="op">(</span></span>
 <span>  <span class="va">BMI</span> <span class="op">~</span> <span class="va">Age</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Gender</span><span class="op">:</span><span class="va">Race</span><span class="op">:</span><span class="va">Education</span><span class="op">)</span>,</span>
@@ -368,21 +373,24 @@ treat one as a validation check for the other.</p></li>
 additive variance is estimated from its handful of levels. A binary
 dimension (e.g. a two-level sex variable) contributes a variance
 estimated from just two groups, so <code>lme4</code> may estimate one or
-more variance components at or near zero (a singular fit). This makes
-the additive and interaction shares unstable. Watch for the singular-fit
-note in the output. <code>engine = "brms"</code> does not repair this:
-the posterior of a few-level dimension’s variance depends on the prior
-on its standard deviation, with two levels roughly in proportion to that
-prior’s scale. Under the default prior the VPC and the additive share
-are overstated, most with two- to four-level dimensions, and with two-
-or three-level dimensions the additive share comes out high even where
-the dimensions have no additive effect. The output of a
-<code>brms</code> fit names the dimensions with fewer than 10 levels,
-and its realised-strata block, which depends little on the prior when
-each stratum has enough data, is the part of it to report with such
-dimensions. Otherwise prefer the two-model decomposition (for few strata
-see <code>estimation</code> in <code><a href="../reference/calculate_pcv.html">?calculate_pcv</a></code>), or pass a
-<code>prior</code> and report how the variance components change with it
+more variance components at or near zero (a singular fit), as maximum
+likelihood often does with few groups <span class="citation">(Chung et
+al. 2013)</span>. This makes the additive and interaction shares
+unstable. Watch for the singular-fit note in the output.
+<code>engine = "brms"</code> does not repair this: the posterior of a
+few-level dimension’s variance depends on the prior on its standard
+deviation <span class="citation">(Gelman 2006)</span>, with two levels
+roughly in proportion to that prior’s scale. Under the default prior the
+VPC and the additive share are overstated, most with two- to four-level
+dimensions, and with two- or three-level dimensions the additive share
+comes out high even where the dimensions have no additive effect. The
+output of a <code>brms</code> fit names the dimensions with fewer than
+10 levels, and its realised-strata block, which depends little on the
+prior when each stratum has enough data, is the part of it to report
+with such dimensions. Otherwise prefer the two-model decomposition (for
+few strata see <code>estimation</code> in <code><a href="../reference/calculate_pcv.html">?calculate_pcv</a></code>),
+or pass a <code>prior</code> and report how the variance components
+change with it
 (<code><a href="../articles/bayesian_sparse_maihda.html">vignette("bayesian_sparse_maihda", package = "MAIHDA")</a></code>
 shows a fit with one).</p></li>
 </ol>
@@ -406,7 +414,8 @@ crossed:</p>
 <li>between-stratum, the intersectional clustering net of the shared
 context (the headline VPC/ICC),</li>
 <li>between-context, the general contextual effect of the
-place/institution, and</li>
+place/institution <span class="citation">(Merlo et al. 2018)</span>,
+and</li>
 <li>residual, within-stratum, within-context individual
 heterogeneity.</li>
 </ul>
@@ -565,7 +574,7 @@ if you supply both.</p>
 <h3 id="notes">Notes<a class="anchor" aria-label="anchor" href="#notes"></a>
 </h3>
 <ul>
-<li>Few context levels identify the context variance weakly. The
+<li>Few context levels identify the context variance weakly <span class="citation">(Stegmueller 2013; Bryan and Jenkins 2016)</span>. The
 <code>maihda_country_data</code> example has only 6 countries, so its
 country variance and share are imprecise. <code>lme4</code> may estimate
 such a variance at zero (a singular fit), and
@@ -590,6 +599,71 @@ the same model, but is summarised generically as “Other random effects”.
 Only <code>context =</code> activates the labelled stratum-vs-context
 partition.</li>
 </ul>
+</div>
+</div>
+<div class="section level2 unnumbered">
+<h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+</h2>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-bryan2016" class="csl-entry">
+Bryan, Mark L., and Stephen P. Jenkins. 2016. <span>“Multilevel
+Modelling of Country Effects: A Cautionary Tale.”</span> <em>European
+Sociological Review</em> 32 (1): 3–22. <a href="https://doi.org/10.1093/esr/jcv059" class="external-link">https://doi.org/10.1093/esr/jcv059</a>.
+</div>
+<div id="ref-chung2013" class="csl-entry">
+Chung, Yeojin, Sophia Rabe-Hesketh, Vincent Dorie, Andrew Gelman, and
+Jingchen Liu. 2013. <span>“A Nondegenerate Penalized Likelihood
+Estimator for Variance Parameters in Multilevel Models.”</span>
+<em>Psychometrika</em> 78 (4): 685–709. <a href="https://doi.org/10.1007/s11336-013-9328-2" class="external-link">https://doi.org/10.1007/s11336-013-9328-2</a>.
+</div>
+<div id="ref-gelman2005" class="csl-entry">
+Gelman, Andrew. 2005. <span>“Analysis of Variance—Why It Is More
+Important Than Ever.”</span> <em>The Annals of Statistics</em> 33 (1):
+1–53. <a href="https://doi.org/10.1214/009053604000001048" class="external-link">https://doi.org/10.1214/009053604000001048</a>.
+</div>
+<div id="ref-gelman2006" class="csl-entry">
+Gelman, Andrew. 2006. <span>“Prior Distributions for Variance Parameters
+in Hierarchical Models (Comment on Article by <span>Browne</span> and
+<span>Draper</span>).”</span> <em>Bayesian Analysis</em> 1 (3): 515–34.
+<a href="https://doi.org/10.1214/06-BA117A" class="external-link">https://doi.org/10.1214/06-BA117A</a>.
+</div>
+<div id="ref-khalaf2020" class="csl-entry">
+Khalaf, Kani, Sten Axelsson Fisk, Ann Ekberg-Jansson, George Leckie,
+Raquel Perez-Vicente, and Juan Merlo. 2020. <span>“Geographical and
+Sociodemographic Differences in Discontinuation of Medication for
+Chronic Obstructive Pulmonary Disease – <span>A</span> Cross-Classified
+Multilevel Analysis of Individual Heterogeneity and Discriminatory
+Accuracy (<span>MAIHDA</span>).”</span> <em>Clinical Epidemiology</em>
+12: 783–96. <a href="https://doi.org/10.2147/CLEP.S247368" class="external-link">https://doi.org/10.2147/CLEP.S247368</a>.
+</div>
+<div id="ref-merlo2018gce" class="csl-entry">
+Merlo, Juan, Philippe Wagner, Peter C. Austin, S. V. Subramanian, and
+George Leckie. 2018. <span>“General and Specific Contextual Effects in
+Multilevel Regression Analyses and Their Paradoxical Relationship: A
+Conceptual Tutorial.”</span> <em><span>SSM</span> - Population
+Health</em> 5: 33–37. <a href="https://doi.org/10.1016/j.ssmph.2018.05.006" class="external-link">https://doi.org/10.1016/j.ssmph.2018.05.006</a>.
+</div>
+<div id="ref-prior2025" class="csl-entry">
+Prior, Lucy, and George Leckie. 2025. <span>“Student Intersectional
+Sociodemographic and School Variation in <span>GCSE</span> Final Grades
+in <span>England</span> Following <span>Covid-19</span> Examination
+Cancellations.”</span> <em>Oxford Review of Education</em> 51 (5):
+763–84. <a href="https://doi.org/10.1080/03054985.2024.2407624" class="external-link">https://doi.org/10.1080/03054985.2024.2407624</a>.
+</div>
+<div id="ref-rodriguezlopez2020" class="csl-entry">
+Rodriguez-Lopez, Merida, Juan Merlo, Raquel Perez-Vicente, Peter Austin,
+and George Leckie. 2020. <span>“Cross-Classified Multilevel Analysis of
+Individual Heterogeneity and Discriminatory Accuracy
+(<span>MAIHDA</span>) to Evaluate Hospital Performance: The Case of
+Hospital Differences in Patient Survival After Acute Myocardial
+Infarction.”</span> <em><span>BMJ</span> Open</em> 10 (10): e036130. <a href="https://doi.org/10.1136/bmjopen-2019-036130" class="external-link">https://doi.org/10.1136/bmjopen-2019-036130</a>.
+</div>
+<div id="ref-stegmueller2013" class="csl-entry">
+Stegmueller, Daniel. 2013. <span>“How Many Countries for Multilevel
+Modeling? <span>A</span> Comparison of Frequentist and
+<span>Bayesian</span> Approaches.”</span> <em>American Journal of
+Political Science</em> 57 (3): 748–61. <a href="https://doi.org/10.1111/ajps.12001" class="external-link">https://doi.org/10.1111/ajps.12001</a>.
+</div>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

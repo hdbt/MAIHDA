@@ -19,10 +19,11 @@ confuse:
     higher-level place or institution, patients within strata and
     hospitals, students within strata and schools. This is what the
     literature usually means by “cross-classified MAIHDA” (e.g. hospital
-    differences in patient survival, or schools crossed with
-    sociodemographic strata in student achievement). It partitions the
-    unexplained variance into between-stratum vs. between-context
-    vs. residual.
+    differences in patient survival, Rodriguez-Lopez et al. 2020;
+    counties in the discontinuation of medication, Khalaf et al. 2020;
+    or schools crossed with sociodemographic strata in student
+    achievement, Prior and Leckie 2025). It partitions the unexplained
+    variance into between-stratum vs. between-context vs. residual.
 
 The two answer different questions, “how much of the intersectional
 inequality is more than additive under this model?” vs. “how much of the
@@ -60,7 +61,9 @@ The package offers two estimators for that split, selected with the
   contribution, and the full intersection (`stratum`) random-effect
   variance is the residual interaction beyond additive. The additive and
   interaction shares are therefore model-implied shares of the
-  between-strata variance from this one fit.
+  between-strata variance from this one fit. The model is a multilevel
+  analysis of variance (Gelman 2005), with the dimensions as its factors
+  and the intersection term holding all their interactions together.
 
 It is fit with ordinary multilevel software, `lme4` for a frequentist
 fit or `brms` for a Bayesian one, so it does not require any special
@@ -127,7 +130,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x559f42961aa8>
+#> <environment: 0x561a3639fde0>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
@@ -309,20 +312,21 @@ cc_b$decomposition$realised$additive_share_ci
     variance is estimated from its handful of levels. A binary dimension
     (e.g. a two-level sex variable) contributes a variance estimated
     from just two groups, so `lme4` may estimate one or more variance
-    components at or near zero (a singular fit). This makes the additive
-    and interaction shares unstable. Watch for the singular-fit note in
-    the output. `engine = "brms"` does not repair this: the posterior of
-    a few-level dimension’s variance depends on the prior on its
-    standard deviation, with two levels roughly in proportion to that
-    prior’s scale. Under the default prior the VPC and the additive
-    share are overstated, most with two- to four-level dimensions, and
-    with two- or three-level dimensions the additive share comes out
-    high even where the dimensions have no additive effect. The output
-    of a `brms` fit names the dimensions with fewer than 10 levels, and
-    its realised-strata block, which depends little on the prior when
-    each stratum has enough data, is the part of it to report with such
-    dimensions. Otherwise prefer the two-model decomposition (for few
-    strata see `estimation` in
+    components at or near zero (a singular fit), as maximum likelihood
+    often does with few groups (Chung et al. 2013). This makes the
+    additive and interaction shares unstable. Watch for the singular-fit
+    note in the output. `engine = "brms"` does not repair this: the
+    posterior of a few-level dimension’s variance depends on the prior
+    on its standard deviation (Gelman 2006), with two levels roughly in
+    proportion to that prior’s scale. Under the default prior the VPC
+    and the additive share are overstated, most with two- to four-level
+    dimensions, and with two- or three-level dimensions the additive
+    share comes out high even where the dimensions have no additive
+    effect. The output of a `brms` fit names the dimensions with fewer
+    than 10 levels, and its realised-strata block, which depends little
+    on the prior when each stratum has enough data, is the part of it to
+    report with such dimensions. Otherwise prefer the two-model
+    decomposition (for few strata see `estimation` in
     [`?calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)),
     or pass a `prior` and report how the variance components change with
     it
@@ -348,7 +352,7 @@ and partitions the unexplained variance into
 - between-stratum, the intersectional clustering net of the shared
   context (the headline VPC/ICC),
 - between-context, the general contextual effect of the
-  place/institution, and
+  place/institution (Merlo et al. 2018), and
 - residual, within-stratum, within-context individual heterogeneity.
 
 Pass the context column(s) via `context =`; everything else is
@@ -491,20 +495,21 @@ if you supply both.
 
 ### Notes
 
-- Few context levels identify the context variance weakly. The
-  `maihda_country_data` example has only 6 countries, so its country
-  variance and share are imprecise. `lme4` may estimate such a variance
-  at zero (a singular fit), and `engine = "brms"` does not repair this:
-  the posterior of a few-level context’s variance depends on the prior
-  on its standard deviation and, under the default prior, comes out high
-  when the context effects are smaller than that prior’s scale (most
-  with two or three contexts), and the context share and the VPC depend
-  on it. [`print()`](https://rdrr.io/r/base/print.html) of a `brms`
-  analysis and of its [`summary()`](https://rdrr.io/r/base/summary.html)
-  names the contexts with fewer than 10 levels. A `brms` fit also
-  reports the realised partition, the variances and shares of the
-  effects of the strata and context levels in the data
-  (`summary()$context$realised`, defined in
+- Few context levels identify the context variance weakly (Stegmueller
+  2013; Bryan and Jenkins 2016). The `maihda_country_data` example has
+  only 6 countries, so its country variance and share are imprecise.
+  `lme4` may estimate such a variance at zero (a singular fit), and
+  `engine = "brms"` does not repair this: the posterior of a few-level
+  context’s variance depends on the prior on its standard deviation and,
+  under the default prior, comes out high when the context effects are
+  smaller than that prior’s scale (most with two or three contexts), and
+  the context share and the VPC depend on it.
+  [`print()`](https://rdrr.io/r/base/print.html) of a `brms` analysis
+  and of its [`summary()`](https://rdrr.io/r/base/summary.html) names
+  the contexts with fewer than 10 levels. A `brms` fit also reports the
+  realised partition, the variances and shares of the effects of the
+  strata and context levels in the data (`summary()$context$realised`,
+  defined in
   [`?maihda`](https://hdbt.github.io/MAIHDA/reference/maihda.md)), which
   depend little on that prior when each context and stratum has enough
   data. Prefer many-level contexts; with few, report the context share
@@ -514,3 +519,54 @@ if you supply both.
 - A manually written `+ (1 | school)` in the formula fits the same
   model, but is summarised generically as “Other random effects”. Only
   `context =` activates the labelled stratum-vs-context partition.
+
+## References
+
+Bryan, Mark L., and Stephen P. Jenkins. 2016. “Multilevel Modelling of
+Country Effects: A Cautionary Tale.” *European Sociological Review* 32
+(1): 3–22. <https://doi.org/10.1093/esr/jcv059>.
+
+Chung, Yeojin, Sophia Rabe-Hesketh, Vincent Dorie, Andrew Gelman, and
+Jingchen Liu. 2013. “A Nondegenerate Penalized Likelihood Estimator for
+Variance Parameters in Multilevel Models.” *Psychometrika* 78 (4):
+685–709. <https://doi.org/10.1007/s11336-013-9328-2>.
+
+Gelman, Andrew. 2005. “Analysis of Variance—Why It Is More Important
+Than Ever.” *The Annals of Statistics* 33 (1): 1–53.
+<https://doi.org/10.1214/009053604000001048>.
+
+Gelman, Andrew. 2006. “Prior Distributions for Variance Parameters in
+Hierarchical Models (Comment on Article by Browne and Draper).”
+*Bayesian Analysis* 1 (3): 515–34. <https://doi.org/10.1214/06-BA117A>.
+
+Khalaf, Kani, Sten Axelsson Fisk, Ann Ekberg-Jansson, George Leckie,
+Raquel Perez-Vicente, and Juan Merlo. 2020. “Geographical and
+Sociodemographic Differences in Discontinuation of Medication for
+Chronic Obstructive Pulmonary Disease – A Cross-Classified Multilevel
+Analysis of Individual Heterogeneity and Discriminatory Accuracy
+(MAIHDA).” *Clinical Epidemiology* 12: 783–96.
+<https://doi.org/10.2147/CLEP.S247368>.
+
+Merlo, Juan, Philippe Wagner, Peter C. Austin, S. V. Subramanian, and
+George Leckie. 2018. “General and Specific Contextual Effects in
+Multilevel Regression Analyses and Their Paradoxical Relationship: A
+Conceptual Tutorial.” *SSM - Population Health* 5: 33–37.
+<https://doi.org/10.1016/j.ssmph.2018.05.006>.
+
+Prior, Lucy, and George Leckie. 2025. “Student Intersectional
+Sociodemographic and School Variation in GCSE Final Grades in England
+Following Covid-19 Examination Cancellations.” *Oxford Review of
+Education* 51 (5): 763–84.
+<https://doi.org/10.1080/03054985.2024.2407624>.
+
+Rodriguez-Lopez, Merida, Juan Merlo, Raquel Perez-Vicente, Peter Austin,
+and George Leckie. 2020. “Cross-Classified Multilevel Analysis of
+Individual Heterogeneity and Discriminatory Accuracy (MAIHDA) to
+Evaluate Hospital Performance: The Case of Hospital Differences in
+Patient Survival After Acute Myocardial Infarction.” *BMJ Open* 10 (10):
+e036130. <https://doi.org/10.1136/bmjopen-2019-036130>.
+
+Stegmueller, Daniel. 2013. “How Many Countries for Multilevel Modeling?
+A Comparison of Frequentist and Bayesian Approaches.” *American Journal
+of Political Science* 57 (3): 748–61.
+<https://doi.org/10.1111/ajps.12001>.

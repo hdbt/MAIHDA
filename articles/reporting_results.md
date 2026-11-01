@@ -157,8 +157,8 @@ ggplot(strata_ord, aes(x = estimate, y = label)) +
 ## `maihda_table()` – the two canonical write-up tables
 
 [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
-assembles the two deliverables a MAIHDA paper reports (cf. Evans et
-al. 2024): a **model-results table** contrasting the null (Model 1) and
+assembles the two deliverables a MAIHDA paper reports (cf. Evans et al.
+2024): a **model-results table** contrasting the null (Model 1) and
 adjusted (Model 2) fits, and a **ranked-strata table** ordering the
 intersections by predicted outcome. The
 [`print()`](https://rdrr.io/r/base/print.html) method shows both in the
@@ -334,8 +334,8 @@ maihda_ic(a)
 
 ## References
 
-- Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J.
-  (2024). A tutorial for conducting intersectional multilevel analysis
-  of individual heterogeneity and discriminatory accuracy (MAIHDA).
-  *SSM - Population Health*, 26,
-  101664. 
+Evans, Clare R., George Leckie, S. V. Subramanian, Andrew Bell, and Juan
+Merlo. 2024. “A Tutorial for Conducting Intersectional Multilevel
+Analysis of Individual Heterogeneity and Discriminatory Accuracy
+(MAIHDA).” *SSM - Population Health* 26: 101664.
+<https://doi.org/10.1016/j.ssmph.2024.101664>.

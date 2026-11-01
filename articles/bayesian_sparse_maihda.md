@@ -96,10 +96,10 @@ so none of them has a gender effect.
 ## What brms adds: posterior uncertainty
 
 Refitting with `engine = "brms"` and a weakly-informative prior on the
-random-effect standard deviations changes the output in one important
-respect: the posterior yields a credible interval in place of a single
-number. No standard deviation is reported at zero, since each is a
-posterior median, which is above zero whatever the prior; the
+random-effect standard deviations (Gelman 2006) changes the output in
+one important respect: the posterior yields a credible interval in place
+of a single number. No standard deviation is reported at zero, since
+each is a posterior median, which is above zero whatever the prior; the
 `normal(0, 0.5)` prior has its mode at zero and pulls the standard
 deviations toward it. The call is shown but not evaluated here (`brms`
 requires Stan and several minutes; see the note on precomputation
@@ -205,15 +205,15 @@ error the singular fit invites.
 
 The per-stratum effects (the stratum random intercepts) are similar
 under the two engines as both apply partial pooling, shrinking
-thinly-estimated strata toward the additive prediction. What differs is
-the treatment of uncertainty. Maximum likelihood commits to a single
-variance decomposition and gives no interval for it unless one is
-bootstrapped from that decomposition. `brms` propagates the full
-posterior, so the interaction share is accompanied by an interval whose
-width reflects how little the sparse cells constrain it. Summarising the
-posterior by its point discards exactly the information that matters:
-the degree of uncertainty. When intersectional cells are sparse, a
-regularised Bayesian fit with an explicit interval is the more
+thinly-estimated strata toward the additive prediction (Bell et al.
+2019). What differs is the treatment of uncertainty. Maximum likelihood
+commits to a single variance decomposition and gives no interval for it
+unless one is bootstrapped from that decomposition. `brms` propagates
+the full posterior, so the interaction share is accompanied by an
+interval whose width reflects how little the sparse cells constrain it.
+Summarising the posterior by its point discards exactly the information
+that matters: the degree of uncertainty. When intersectional cells are
+sparse, a regularised Bayesian fit with an explicit interval is the more
 defensible summary, read with the priors it rests on.
 
 The two-model PCV is the exception. `maihda(engine = "brms")` with the
@@ -224,3 +224,14 @@ two models’ posterior-median between-stratum variances, and with few
 strata it is understated – the reverse of the maximum-likelihood PCV,
 which is overstated (see
 [`?calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)).
+
+## References
+
+Bell, Andrew, Daniel Holman, and Kelvyn Jones. 2019. “Using Shrinkage in
+Multilevel Models to Understand Intersectionality: A Simulation Study
+and a Guide for Best Practice.” *Methodology* 15 (2): 88–96.
+<https://doi.org/10.1027/1614-2241/a000167>.
+
+Gelman, Andrew. 2006. “Prior Distributions for Variance Parameters in
+Hierarchical Models (Comment on Article by Browne and Draper).”
+*Bayesian Analysis* 1 (3): 515–34. <https://doi.org/10.1214/06-BA117A>.

@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-10-29</h4>
+            <h4 data-toc-skip class="date">2026-11-01</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/finding_interactions.Rmd" class="external-link"><code>vignettes/finding_interactions.Rmd</code></a></small>
       <div class="d-none name"><code>finding_interactions.Rmd</code></div>
@@ -96,9 +96,10 @@ the additive expectation.</p>
 <p>For this exploratory diagnostic, <code><a href="../reference/maihda.html">maihda()</a></code> can compute
 the adjusted-model stratum random effects, intervals, and flags. When
 you use <code>interactions = "BH"</code>, the flags use the
-Benjamini-Hochberg adjustment. The diagnostic is stored in the analysis
-object and can be reused by the effect-decomposition and
-predicted-strata plots.</p>
+Benjamini-Hochberg adjustment <span class="citation">(Benjamini and
+Hochberg 1995)</span>. The diagnostic is stored in the analysis object
+and can be reused by the effect-decomposition and predicted-strata
+plots.</p>
 </div>
 <div class="section level2">
 <h2 id="run-a-standard-analysis-and-choose-the-multiplicity-rule">Run a standard analysis and choose the multiplicity rule<a class="anchor" aria-label="anchor" href="#run-a-standard-analysis-and-choose-the-multiplicity-rule"></a>
@@ -181,7 +182,7 @@ pass the adjustment rule directly:</p>
 <p>A flag asks whether an interaction differs from zero. Often the more
 useful question is whether it is <em>large enough to matter</em>. Pass a
 region of practical equivalence (<code>rope</code>, on the model scale)
-and each stratum is classified from its interval as
+and each stratum is classified from its interval <span class="citation">(Schuirmann 1987; Kruschke 2018)</span> as
 <code>relevant</code> (interval entirely outside the region),
 <code>negligible</code> (entirely inside it), or
 <code>inconclusive</code> (straddling a bound):</p>
@@ -221,22 +222,28 @@ intersections</a>, sparse cells and uncertainty in variance
 components.</li>
 </ul>
 </div>
-<div class="section level2">
-<h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+<div class="section level2 unnumbered">
+<h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
-<ul>
-<li><p>Evans, C. R., Williams, D. R., Onnela, J. P., &amp; Subramanian,
-S. V. (2018). A multilevel approach to modeling health inequalities at
-the intersection of multiple social identities. <em>Social Science &amp;
-Medicine</em>, 203, 64-73.</p></li>
-<li><p>Merlo, J. (2018). Multilevel analysis of individual heterogeneity
-and discriminatory accuracy (MAIHDA) within an intersectional framework.
-<em>Social Science &amp; Medicine</em>, 203, 74-80.</p></li>
-<li><p>Schuirmann, D. J. (1987). A comparison of the two one-sided tests
-procedure and the power approach for assessing the equivalence of
-average bioavailability. <em>Journal of Pharmacokinetics and
-Biopharmaceutics</em>, 15(6), 657-680.</p></li>
-</ul>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-benjamini1995" class="csl-entry">
+Benjamini, Yoav, and Yosef Hochberg. 1995. <span>“Controlling the False
+Discovery Rate: A Practical and Powerful Approach to Multiple
+Testing.”</span> <em>Journal of the Royal Statistical Society: Series B
+(Methodological)</em> 57 (1): 289–300. <a href="https://doi.org/10.1111/j.2517-6161.1995.tb02031.x" class="external-link">https://doi.org/10.1111/j.2517-6161.1995.tb02031.x</a>.
+</div>
+<div id="ref-kruschke2018" class="csl-entry">
+Kruschke, John K. 2018. <span>“Rejecting or Accepting Parameter Values
+in <span>Bayesian</span> Estimation.”</span> <em>Advances in Methods and
+Practices in Psychological Science</em> 1 (2): 270–80. <a href="https://doi.org/10.1177/2515245918771304" class="external-link">https://doi.org/10.1177/2515245918771304</a>.
+</div>
+<div id="ref-schuirmann1987" class="csl-entry">
+Schuirmann, Donald J. 1987. <span>“A Comparison of the Two One-Sided
+Tests Procedure and the Power Approach for Assessing the Equivalence of
+Average Bioavailability.”</span> <em>Journal of Pharmacokinetics and
+Biopharmaceutics</em> 15 (6): 657–80. <a href="https://doi.org/10.1007/BF01068419" class="external-link">https://doi.org/10.1007/BF01068419</a>.
+</div>
+</div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

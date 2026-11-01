@@ -4,9 +4,10 @@
 
 Many of the original MAIHDA applications target a **binary** health
 outcome – obese vs. not, hypertensive vs. not, screened vs. not. Merlo’s
-framing of *discriminatory accuracy* is, at heart, a question about a
-binary classifier: how well do the intersectional strata alone separate
-people who do and do not have the outcome?
+framing of *discriminatory accuracy* (Merlo et al. 2016; Merlo 2018) is,
+at heart, a question about a binary classifier: how well do the
+intersectional strata alone separate people who do and do not have the
+outcome?
 
 For a binary outcome the model is a multilevel **logistic** regression:
 
@@ -112,8 +113,8 @@ print(summary_null)
 #>   is a descriptive measure, not cross-validated out-of-sample discrimination.)
 #> 
 #> Fixed Effects (Wald z, 95% intervals):
-#>         term estimate      se statistic  p_value  lower   upper
-#>  (Intercept)   -0.616 0.09028    -6.823 8.91e-12 -0.793 -0.4391
+#>         term estimate      se statistic p_value  lower   upper
+#>  (Intercept)   -0.616 0.09028    -6.823 8.9e-12 -0.793 -0.4391
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id                           label random_effect     se
@@ -160,8 +161,8 @@ effects of the strata variables are in the model.
 For an interpretable **probability-scale** complement to the
 latent-scale VPC, the package provides
 [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md),
-which estimates the response-scale VPC by simulation (Goldstein, Browne
-& Rasbash 2002):
+which estimates the response-scale VPC by simulation (Goldstein et al.
+2002):
 
 ``` r
 
@@ -233,17 +234,17 @@ print(pcv)
 The same caveats as in the continuous case apply, with one extra
 wrinkle: for non-Gaussian models the latent residual variance is fixed
 by the link, so a change in the between-stratum variance is partly a
-**rescaling** of the latent scale, not only “variance explained”.
-Interpret the PCV as a model-dependent, descriptive change, not a causal
-decomposition.
+**rescaling** of the latent scale (Bauer 2009; Mood 2010), not only
+“variance explained”. Interpret the PCV as a model-dependent,
+descriptive change, not a causal decomposition.
 
 `glmer()` estimates these variances by maximum likelihood. With few or
-small strata they run low, and lower the more fixed effects a model has,
-so the PCV runs high – most of all when the second model adds the
-strata’s own main effects. `estimation = "REML"` compares REML-type
-variances instead, the counterpart of what the default does for a
-continuous outcome. It needs strata large enough for their own estimates
-to be precise (see
+small strata they run low, and lower the more fixed effects a model has
+(Harville 1977), so the PCV runs high – most of all when the second
+model adds the strata’s own main effects. `estimation = "REML"` compares
+REML-type variances instead, the counterpart of what the default does
+for a continuous outcome (Patterson and Thompson 1971). It needs strata
+large enough for their own estimates to be precise (see
 [`?calculate_pcv`](https://hdbt.github.io/MAIHDA/reference/calculate_pcv.md)):
 
 ``` r
@@ -300,7 +301,7 @@ model_int <- fit_maihda(
   data = health_complete, family = "binomial"
 )
 #> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.
-#> Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00300498 (tol = 0.002, component 1)
+#> Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00300493 (tol = 0.002, component 1)
 #>   See ?lme4::convergence and ?lme4::troubleshooting.
 
 maihda_interactions(model_int)
@@ -326,7 +327,7 @@ Read the numbers on the scale they were computed on. In the Gaussian
 case the stratum BLUP $`u_j`$ is the part of the stratum’s mean outcome
 attributable to interaction, in the outcome’s own units. Here it is a
 deviation in **log-odds** – so what is flagged is *multiplicative*,
-odds-scale interaction. Evans et al. (2024, sec. 2.5.1) say it plainly:
+odds-scale interaction. Evans et al. (2024, sec. 2.5.1) say it plainly:
 in a logistic MAIHDA you can “no longer directly interpret $`u_j`$ as
 the change in mean outcomes (i.e., shift in probabilities) attributable
 to interaction effects”. The printed output says so too, which is why
@@ -369,7 +370,7 @@ logistic curve, which is steeper in the middle than in the tails, not a
 finding about the world. So **“no strata flagged” supports “no credible
 multiplicative interaction”, not “no interaction”**: quantity 3 is
 generally non-zero regardless, and it is often the one a policy audience
-cares about.
+cares about (VanderWeele and Knol 2014).
 
 *Generally*, not always – worth knowing, because the exception is a
 perfectly ordinary design rather than a curiosity. The risk-difference
@@ -393,7 +394,7 @@ one configuration out of many, and nothing in the flags tells you which
 one you are in – which is the point: they are not evidence about
 quantity 3 in either direction.
 
-Quantity 2, then. Evans et al. (2024) define it as the gap between a
+Quantity 2, then. Evans et al. (2024) define it as the gap between a
 stratum’s total predicted probability and the probability implied by the
 additive main effects alone,
 
@@ -459,8 +460,8 @@ table(maihda_interactions(model_int, scale = "response", rope = 0.02)$decision)
 **If it is quantity 3 you want**, neither scale will give it to you –
 `scale = "response"` re-expresses the multiplicative interaction, it
 does not replace it with the risk-difference one. Fit a linear
-probability model instead: `family = "gaussian"` on the 0/1 outcome, the
-option
+probability model instead (as in Rodriguez-Lopez et al. 2023):
+`family = "gaussian"` on the 0/1 outcome, the option
 [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
 points at when it auto-detects a binary outcome. There the BLUP *is* the
 risk-difference interaction by construction, at the usual costs
@@ -478,12 +479,12 @@ headline [`print()`](https://rdrr.io/r/base/print.html). The explicit
 below is the same quantity on its own – it bundles the two
 individual-level summaries for a logistic MAIHDA model: the **AUC /
 C-statistic** (how well the predicted probabilities separate cases from
-non-cases) and the **Median Odds Ratio (MOR)** (the between-stratum
-heterogeneity expressed on the odds-ratio scale). The strata-only
-model’s AUC is the discriminatory accuracy of the intersectional strata
-*themselves* – Merlo’s central quantity. Comparing it with the adjusted
-model shows whether individual information beyond stratum membership
-sharpens classification:
+non-cases) and the **Median Odds Ratio (MOR)** of Larsen and Merlo
+(2005), the between-stratum heterogeneity expressed on the odds-ratio
+scale. The strata-only model’s AUC is the discriminatory accuracy of the
+intersectional strata *themselves* – the central quantity of Merlo
+(2018). Comparing it with the adjusted model shows whether individual
+information beyond stratum membership sharpens classification:
 
 ``` r
 
@@ -587,20 +588,19 @@ summary, PCV, and plotting helpers all behave as above.
 
 One thing to watch with counts: that latent-scale residual variance is
 an *approximation*, and which one you use matters when the outcome is
-rare. `fit_maihda(count_approximation = )` offers the three of Nakagawa,
-Johnson & Schielzeth (2017) – `"lognormal"` (the default), `"delta"` and
-`"trigamma"`. They agree above a mean count of about 2 and diverge
-sharply below it: at a mean count of 0.34 they give level-1 variances of
-1.37, 2.94 and 9.76, so the same model reports a VPC six times larger
-under one than another.
-[`summary()`](https://rdrr.io/r/base/summary.html) therefore names the
-approximation and the mean count it was evaluated at, and warns when
-that count is at or below 2. Report which one you used.
+rare. `fit_maihda(count_approximation = )` offers the three of Nakagawa
+et al. (2017) – `"lognormal"` (the default), `"delta"` and `"trigamma"`.
+They agree above a mean count of about 2 and diverge sharply below it:
+at a mean count of 0.34 they give level-1 variances of 1.37, 2.94 and
+9.76, so the same model reports a VPC six times larger under one than
+another. [`summary()`](https://rdrr.io/r/base/summary.html) therefore
+names the approximation and the mean count it was evaluated at, and
+warns when that count is at or below 2. Report which one you used.
 
 The VPC can also be computed on the count scale itself. For a Poisson or
 negative-binomial model
 [`maihda_vpc_response()`](https://hdbt.github.io/MAIHDA/reference/maihda_vpc_response.md)
-evaluates the exact expressions of Leckie et al. (2020): the share of
+evaluates the exact expressions of Leckie et al. (2020): the share of
 the variance of the observed counts that lies between strata, with no
 level-1 approximation to choose. `summary(response_vpc = TRUE)` prints
 it below the latent-scale VPC. The two answer different questions, so
@@ -608,26 +608,66 @@ say which one you report.
 
 ## References
 
-- Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
-  discriminatory accuracy (MAIHDA) within an intersectional framework.
-  *Social Science & Medicine*, 203, 74-80.
+Bauer, Daniel J. 2009. “A Note on Comparing the Estimates of Models for
+Cluster-Correlated or Longitudinal Data with Binary or Ordinal
+Outcomes.” *Psychometrika* 74 (1): 97–105.
+<https://doi.org/10.1007/s11336-008-9080-1>.
 
-- Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V.
-  (2018). A multilevel approach to modeling health inequalities at the
-  intersection of multiple social identities. *Social Science &
-  Medicine*, 203, 64-73.
+Evans, Clare R., George Leckie, S. V. Subramanian, Andrew Bell, and Juan
+Merlo. 2024. “A Tutorial for Conducting Intersectional Multilevel
+Analysis of Individual Heterogeneity and Discriminatory Accuracy
+(MAIHDA).” *SSM - Population Health* 26: 101664.
+<https://doi.org/10.1016/j.ssmph.2024.101664>.
 
-- Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J.
-  (2024). A tutorial for conducting intersectional multilevel analysis
-  of individual heterogeneity and discriminatory accuracy (MAIHDA).
-  *SSM - Population Health*, 26, 101664.
-  <doi:10.1016/j.ssmph.2024.101664>
+Goldstein, Harvey, William Browne, and Jon Rasbash. 2002. “Partitioning
+Variation in Multilevel Models.” *Understanding Statistics* 1 (4):
+223–31. <https://doi.org/10.1207/s15328031us0104_02>.
 
-- Merlo, J., Wagner, P., Ghith, N., & Leckie, G. (2016). An original
-  stepwise multilevel logistic regression analysis of discriminatory
-  accuracy: the case of neighbourhoods and health. *PLOS ONE*, 11(4),
-  e0153778.
+Harville, David A. 1977. “Maximum Likelihood Approaches to Variance
+Component Estimation and to Related Problems.” *Journal of the American
+Statistical Association* 72 (358): 320–38.
+<https://doi.org/10.1080/01621459.1977.10480998>.
 
-- Leckie, G., Browne, W. J., Goldstein, H., Merlo, J., & Austin, P. C.
-  (2020). Partitioning variation in multilevel models for count data.
-  *Psychological Methods*, 25(6), 787-801. <doi:10.1037/met0000265>
+Larsen, Klaus, and Juan Merlo. 2005. “Appropriate Assessment of
+Neighborhood Effects on Individual Health: Integrating Random and Fixed
+Effects in Multilevel Logistic Regression.” *American Journal of
+Epidemiology* 161 (1): 81–88. <https://doi.org/10.1093/aje/kwi017>.
+
+Leckie, George, William J. Browne, Harvey Goldstein, Juan Merlo, and
+Peter C. Austin. 2020. “Partitioning Variation in Multilevel Models for
+Count Data.” *Psychological Methods* 25 (6): 787–801.
+<https://doi.org/10.1037/met0000265>.
+
+Merlo, Juan. 2018. “Multilevel Analysis of Individual Heterogeneity and
+Discriminatory Accuracy (MAIHDA) Within an Intersectional Framework.”
+*Social Science & Medicine* 203: 74–80.
+<https://doi.org/10.1016/j.socscimed.2017.12.026>.
+
+Merlo, Juan, Philippe Wagner, Nermin Ghith, and George Leckie. 2016. “An
+Original Stepwise Multilevel Logistic Regression Analysis of
+Discriminatory Accuracy: The Case of Neighbourhoods and Health.” *PLOS
+ONE* 11 (4): e0153778. <https://doi.org/10.1371/journal.pone.0153778>.
+
+Mood, Carina. 2010. “Logistic Regression: Why We Cannot Do What We Think
+We Can Do, and What We Can Do about It.” *European Sociological Review*
+26 (1): 67–82. <https://doi.org/10.1093/esr/jcp006>.
+
+Nakagawa, Shinichi, Paul C. D. Johnson, and Holger Schielzeth. 2017.
+“The Coefficient of Determination $`R^2`$ and Intra-Class Correlation
+Coefficient from Generalized Linear Mixed-Effects Models Revisited and
+Expanded.” *Journal of the Royal Society Interface* 14 (134): 20170213.
+<https://doi.org/10.1098/rsif.2017.0213>.
+
+Patterson, H. D., and R. Thompson. 1971. “Recovery of Inter-Block
+Information When Block Sizes Are Unequal.” *Biometrika* 58 (3): 545–54.
+<https://doi.org/10.1093/biomet/58.3.545>.
+
+Rodriguez-Lopez, Merida, George Leckie, Jay S. Kaufman, and Juan Merlo.
+2023. “Multilevel Modelling for Measuring Interaction of Effects Between
+Multiple Categorical Variables: An Illustrative Application Using Risk
+Factors for Preeclampsia.” *Paediatric and Perinatal Epidemiology* 37
+(2): 154–64. <https://doi.org/10.1111/ppe.12932>.
+
+VanderWeele, Tyler J., and Mirjam J. Knol. 2014. “A Tutorial on
+Interaction.” *Epidemiologic Methods* 3 (1): 33–72.
+<https://doi.org/10.1515/em-2013-0005>.

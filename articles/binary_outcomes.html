@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-10-29</h4>
+            <h4 data-toc-skip class="date">2026-11-01</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/binary_outcomes.Rmd" class="external-link"><code>vignettes/binary_outcomes.Rmd</code></a></small>
       <div class="d-none name"><code>binary_outcomes.Rmd</code></div>
@@ -94,7 +94,8 @@ Bulut</h4>
 <p>Many of the original MAIHDA applications target a
 <strong>binary</strong> health outcome – obese vs. not, hypertensive
 vs. not, screened vs. not. Merlo’s framing of <em>discriminatory
-accuracy</em> is, at heart, a question about a binary classifier: how
+accuracy</em> <span class="citation">(Merlo et al. 2016; Merlo
+2018)</span> is, at heart, a question about a binary classifier: how
 well do the intersectional strata alone separate people who do and do
 not have the outcome?</p>
 <p>For a binary outcome the model is a multilevel
@@ -193,8 +194,8 @@ underlying latent scale, not on the probability scale.</p>
 <span><span class="co"><span style="color: #555555;">#&gt;   is a descriptive measure, not cross-validated out-of-sample discrimination.)</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Fixed Effects (Wald z, 95% intervals):</span></span></span>
-<span><span class="co">#&gt;         term estimate      se statistic  p_value  lower   upper</span></span>
-<span><span class="co">#&gt;  (Intercept)   -0.616 0.09028    -6.823 8.91e-12 -0.793 -0.4391</span></span>
+<span><span class="co">#&gt;         term estimate      se statistic p_value  lower   upper</span></span>
+<span><span class="co">#&gt;  (Intercept)   -0.616 0.09028    -6.823 8.9e-12 -0.793 -0.4391</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Stratum Estimates (first 10):</span></span>
 <span><span class="co">#&gt;  stratum stratum_id                           label random_effect     se</span></span>
@@ -237,7 +238,8 @@ pieces on their own.</p>
 <p>For an interpretable <strong>probability-scale</strong> complement to
 the latent-scale VPC, the package provides
 <code><a href="../reference/maihda_vpc_response.html">maihda_vpc_response()</a></code>, which estimates the response-scale
-VPC by simulation (Goldstein, Browne &amp; Rasbash 2002):</p>
+VPC by simulation <span class="citation">(Goldstein et al.
+2002)</span>:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/maihda_vpc_response.html">maihda_vpc_response</a></span><span class="op">(</span><span class="va">model_null</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Response-scale VPC (simulation method)</span></span></span>
@@ -301,16 +303,18 @@ sample:</p>
 <p>The same caveats as in the continuous case apply, with one extra
 wrinkle: for non-Gaussian models the latent residual variance is fixed
 by the link, so a change in the between-stratum variance is partly a
-<strong>rescaling</strong> of the latent scale, not only “variance
+<strong>rescaling</strong> of the latent scale <span class="citation">(Bauer 2009; Mood 2010)</span>, not only “variance
 explained”. Interpret the PCV as a model-dependent, descriptive change,
 not a causal decomposition.</p>
 <p><code>glmer()</code> estimates these variances by maximum likelihood.
 With few or small strata they run low, and lower the more fixed effects
-a model has, so the PCV runs high – most of all when the second model
-adds the strata’s own main effects. <code>estimation = "REML"</code>
-compares REML-type variances instead, the counterpart of what the
-default does for a continuous outcome. It needs strata large enough for
-their own estimates to be precise (see <code><a href="../reference/calculate_pcv.html">?calculate_pcv</a></code>):</p>
+a model has <span class="citation">(Harville 1977)</span>, so the PCV
+runs high – most of all when the second model adds the strata’s own main
+effects. <code>estimation = "REML"</code> compares REML-type variances
+instead, the counterpart of what the default does for a continuous
+outcome <span class="citation">(Patterson and Thompson 1971)</span>. It
+needs strata large enough for their own estimates to be precise (see
+<code><a href="../reference/calculate_pcv.html">?calculate_pcv</a></code>):</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/calculate_pcv.html">calculate_pcv</a></span><span class="op">(</span><span class="va">model_null2</span>, <span class="va">model_adj</span>, estimation <span class="op">=</span> <span class="st">"REML"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Proportional Change in Variance (PCV)</span></span></span>
@@ -360,7 +364,7 @@ credibly non-zero:</p>
 <span>  data <span class="op">=</span> <span class="va">health_complete</span>, family <span class="op">=</span> <span class="st">"binomial"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.</span></span>
-<span><span class="co">#&gt; Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00300498 (tol = 0.002, component 1)</span></span>
+<span><span class="co">#&gt; Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00300493 (tol = 0.002, component 1)</span></span>
 <span><span class="co">#&gt;   See ?lme4::convergence and ?lme4::troubleshooting.</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">model_int</span><span class="op">)</span></span>
@@ -386,9 +390,8 @@ case the stratum BLUP
 is the part of the stratum’s mean outcome attributable to interaction,
 in the outcome’s own units. Here it is a deviation in
 <strong>log-odds</strong> – so what is flagged is
-<em>multiplicative</em>, odds-scale interaction. Evans et al. (2024,
-sec. 2.5.1) say it plainly: in a logistic MAIHDA you can “no longer
-directly interpret
+<em>multiplicative</em>, odds-scale interaction. <span class="citation">Evans et al. (2024, sec. 2.5.1)</span> say it plainly:
+in a logistic MAIHDA you can “no longer directly interpret
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>u</mi><mi>j</mi></msub><annotation encoding="application/x-tex">u_j</annotation></semantics></math>
 as the change in mean outcomes (i.e., shift in probabilities)
 attributable to interaction effects”. The printed output says so too,
@@ -435,7 +438,8 @@ which is steeper in the middle than in the tails, not a finding about
 the world. So <strong>“no strata flagged” supports “no credible
 multiplicative interaction”, not “no interaction”</strong>: quantity 3
 is generally non-zero regardless, and it is often the one a policy
-audience cares about.</p>
+audience cares about <span class="citation">(VanderWeele and Knol
+2014)</span>.</p>
 <p><em>Generally</em>, not always – worth knowing, because the exception
 is a perfectly ordinary design rather than a curiosity. The
 risk-difference interaction is positive below the curve’s midpoint and
@@ -454,9 +458,9 @@ the two comparisons straddle the midpoint symmetrically:</p>
 the risks add exactly. That is one configuration out of many, and
 nothing in the flags tells you which one you are in – which is the
 point: they are not evidence about quantity 3 in either direction.</p>
-<p>Quantity 2, then. Evans et al. (2024) define it as the gap between a
-stratum’s total predicted probability and the probability implied by the
-additive main effects alone,</p>
+<p>Quantity 2, then. <span class="citation">Evans et al. (2024)</span>
+define it as the gap between a stratum’s total predicted probability and
+the probability implied by the additive main effects alone,</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>π</mi><mi>j</mi><mi>B</mi></msubsup><mo>=</mo><msub><mi>π</mi><mi>j</mi></msub><mo>−</mo><msubsup><mi>π</mi><mi>j</mi><mi>A</mi></msubsup><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>π</mi><mi>j</mi></msub><mo>=</mo><msup><mrow><mi mathvariant="normal">l</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">g</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">t</mi></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mo stretchy="false" form="prefix">(</mo><msubsup><mi>x</mi><mi>j</mi><mo>′</mo></msubsup><mi>β</mi><mo>+</mo><msub><mi>u</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="2.0em"></mspace><msubsup><mi>π</mi><mi>j</mi><mi>A</mi></msubsup><mo>=</mo><msup><mrow><mi mathvariant="normal">l</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">g</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">t</mi></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><mo stretchy="false" form="prefix">(</mo><msubsup><mi>x</mi><mi>j</mi><mo>′</mo></msubsup><mi>β</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo></mrow><annotation encoding="application/x-tex">
 \pi^{B}_{j} = \pi_j - \pi^{A}_{j}, \qquad
 \pi_j = \mathrm{logit}^{-1}(x_j'\beta + u_j), \qquad
@@ -518,7 +522,7 @@ question a reader can actually answer:</p>
 <p><strong>If it is quantity 3 you want</strong>, neither scale will
 give it to you – <code>scale = "response"</code> re-expresses the
 multiplicative interaction, it does not replace it with the
-risk-difference one. Fit a linear probability model instead:
+risk-difference one. Fit a linear probability model instead <span class="citation">(as in Rodriguez-Lopez et al. 2023)</span>:
 <code>family = "gaussian"</code> on the 0/1 outcome, the option
 <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> points at when it auto-detects a binary
 outcome. There the BLUP <em>is</em> the risk-difference interaction by
@@ -539,12 +543,12 @@ its summaries and headline <code><a href="https://rdrr.io/r/base/print.html" cla
 on its own – it bundles the two individual-level summaries for a
 logistic MAIHDA model: the <strong>AUC / C-statistic</strong> (how well
 the predicted probabilities separate cases from non-cases) and the
-<strong>Median Odds Ratio (MOR)</strong> (the between-stratum
-heterogeneity expressed on the odds-ratio scale). The strata-only
-model’s AUC is the discriminatory accuracy of the intersectional strata
-<em>themselves</em> – Merlo’s central quantity. Comparing it with the
-adjusted model shows whether individual information beyond stratum
-membership sharpens classification:</p>
+<strong>Median Odds Ratio (MOR)</strong> of <span class="citation">Larsen and Merlo (2005)</span>, the between-stratum
+heterogeneity expressed on the odds-ratio scale. The strata-only model’s
+AUC is the discriminatory accuracy of the intersectional strata
+<em>themselves</em> – the central quantity of <span class="citation">Merlo (2018)</span>. Comparing it with the adjusted
+model shows whether individual information beyond stratum membership
+sharpens classification:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">da_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></span><span class="op">(</span><span class="va">model_null2</span><span class="op">)</span></span>
 <span><span class="va">da_adj</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maihda_discriminatory_accuracy.html">maihda_discriminatory_accuracy</a></span><span class="op">(</span><span class="va">model_adj</span><span class="op">)</span></span>
@@ -627,7 +631,7 @@ PCV, and plotting helpers all behave as above.</p>
 <p>One thing to watch with counts: that latent-scale residual variance
 is an <em>approximation</em>, and which one you use matters when the
 outcome is rare. <code>fit_maihda(count_approximation = )</code> offers
-the three of Nakagawa, Johnson &amp; Schielzeth (2017) –
+the three of <span class="citation">Nakagawa et al. (2017)</span> –
 <code>"lognormal"</code> (the default), <code>"delta"</code> and
 <code>"trigamma"</code>. They agree above a mean count of about 2 and
 diverge sharply below it: at a mean count of 0.34 they give level-1
@@ -637,35 +641,94 @@ names the approximation and the mean count it was evaluated at, and
 warns when that count is at or below 2. Report which one you used.</p>
 <p>The VPC can also be computed on the count scale itself. For a Poisson
 or negative-binomial model <code><a href="../reference/maihda_vpc_response.html">maihda_vpc_response()</a></code> evaluates
-the exact expressions of Leckie et al. (2020): the share of the variance
-of the observed counts that lies between strata, with no level-1
-approximation to choose. <code>summary(response_vpc = TRUE)</code>
-prints it below the latent-scale VPC. The two answer different
-questions, so say which one you report.</p>
+the exact expressions of <span class="citation">Leckie et al.
+(2020)</span>: the share of the variance of the observed counts that
+lies between strata, with no level-1 approximation to choose.
+<code>summary(response_vpc = TRUE)</code> prints it below the
+latent-scale VPC. The two answer different questions, so say which one
+you report.</p>
 </div>
-<div class="section level2">
-<h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+<div class="section level2 unnumbered">
+<h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
-<ul>
-<li><p>Merlo, J. (2018). Multilevel analysis of individual heterogeneity
-and discriminatory accuracy (MAIHDA) within an intersectional framework.
-<em>Social Science &amp; Medicine</em>, 203, 74-80.</p></li>
-<li><p>Evans, C. R., Williams, D. R., Onnela, J. P., &amp; Subramanian,
-S. V. (2018). A multilevel approach to modeling health inequalities at
-the intersection of multiple social identities. <em>Social Science &amp;
-Medicine</em>, 203, 64-73.</p></li>
-<li><p>Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., &amp;
-Merlo, J. (2024). A tutorial for conducting intersectional multilevel
-analysis of individual heterogeneity and discriminatory accuracy
-(MAIHDA). <em>SSM - Population Health</em>, 26, 101664. <a href="doi:10.1016/j.ssmph.2024.101664" class="uri">doi:10.1016/j.ssmph.2024.101664</a></p></li>
-<li><p>Merlo, J., Wagner, P., Ghith, N., &amp; Leckie, G. (2016). An
-original stepwise multilevel logistic regression analysis of
-discriminatory accuracy: the case of neighbourhoods and health. <em>PLOS
-ONE</em>, 11(4), e0153778.</p></li>
-<li><p>Leckie, G., Browne, W. J., Goldstein, H., Merlo, J., &amp;
-Austin, P. C. (2020). Partitioning variation in multilevel models for
-count data. <em>Psychological Methods</em>, 25(6), 787-801. <a href="doi:10.1037/met0000265" class="uri">doi:10.1037/met0000265</a></p></li>
-</ul>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-bauer2009" class="csl-entry">
+Bauer, Daniel J. 2009. <span>“A Note on Comparing the Estimates of
+Models for Cluster-Correlated or Longitudinal Data with Binary or
+Ordinal Outcomes.”</span> <em>Psychometrika</em> 74 (1): 97–105. <a href="https://doi.org/10.1007/s11336-008-9080-1" class="external-link">https://doi.org/10.1007/s11336-008-9080-1</a>.
+</div>
+<div id="ref-evans2024tutorial" class="csl-entry">
+Evans, Clare R., George Leckie, S. V. Subramanian, Andrew Bell, and Juan
+Merlo. 2024. <span>“A Tutorial for Conducting Intersectional Multilevel
+Analysis of Individual Heterogeneity and Discriminatory Accuracy
+(<span>MAIHDA</span>).”</span> <em><span>SSM</span> - Population
+Health</em> 26: 101664. <a href="https://doi.org/10.1016/j.ssmph.2024.101664" class="external-link">https://doi.org/10.1016/j.ssmph.2024.101664</a>.
+</div>
+<div id="ref-goldstein2002" class="csl-entry">
+Goldstein, Harvey, William Browne, and Jon Rasbash. 2002.
+<span>“Partitioning Variation in Multilevel Models.”</span>
+<em>Understanding Statistics</em> 1 (4): 223–31. <a href="https://doi.org/10.1207/s15328031us0104_02" class="external-link">https://doi.org/10.1207/s15328031us0104_02</a>.
+</div>
+<div id="ref-harville1977" class="csl-entry">
+Harville, David A. 1977. <span>“Maximum Likelihood Approaches to
+Variance Component Estimation and to Related Problems.”</span>
+<em>Journal of the American Statistical Association</em> 72 (358):
+320–38. <a href="https://doi.org/10.1080/01621459.1977.10480998" class="external-link">https://doi.org/10.1080/01621459.1977.10480998</a>.
+</div>
+<div id="ref-larsen2005" class="csl-entry">
+Larsen, Klaus, and Juan Merlo. 2005. <span>“Appropriate Assessment of
+Neighborhood Effects on Individual Health: Integrating Random and Fixed
+Effects in Multilevel Logistic Regression.”</span> <em>American Journal
+of Epidemiology</em> 161 (1): 81–88. <a href="https://doi.org/10.1093/aje/kwi017" class="external-link">https://doi.org/10.1093/aje/kwi017</a>.
+</div>
+<div id="ref-leckie2020" class="csl-entry">
+Leckie, George, William J. Browne, Harvey Goldstein, Juan Merlo, and
+Peter C. Austin. 2020. <span>“Partitioning Variation in Multilevel
+Models for Count Data.”</span> <em>Psychological Methods</em> 25 (6):
+787–801. <a href="https://doi.org/10.1037/met0000265" class="external-link">https://doi.org/10.1037/met0000265</a>.
+</div>
+<div id="ref-merlo2018" class="csl-entry">
+Merlo, Juan. 2018. <span>“Multilevel Analysis of Individual
+Heterogeneity and Discriminatory Accuracy (<span>MAIHDA</span>) Within
+an Intersectional Framework.”</span> <em>Social Science &amp;
+Medicine</em> 203: 74–80. <a href="https://doi.org/10.1016/j.socscimed.2017.12.026" class="external-link">https://doi.org/10.1016/j.socscimed.2017.12.026</a>.
+</div>
+<div id="ref-merlo2016" class="csl-entry">
+Merlo, Juan, Philippe Wagner, Nermin Ghith, and George Leckie. 2016.
+<span>“An Original Stepwise Multilevel Logistic Regression Analysis of
+Discriminatory Accuracy: The Case of Neighbourhoods and Health.”</span>
+<em><span>PLOS ONE</span></em> 11 (4): e0153778. <a href="https://doi.org/10.1371/journal.pone.0153778" class="external-link">https://doi.org/10.1371/journal.pone.0153778</a>.
+</div>
+<div id="ref-mood2010" class="csl-entry">
+Mood, Carina. 2010. <span>“Logistic Regression: Why We Cannot Do What We
+Think We Can Do, and What We Can Do about It.”</span> <em>European
+Sociological Review</em> 26 (1): 67–82. <a href="https://doi.org/10.1093/esr/jcp006" class="external-link">https://doi.org/10.1093/esr/jcp006</a>.
+</div>
+<div id="ref-nakagawa2017" class="csl-entry">
+Nakagawa, Shinichi, Paul C. D. Johnson, and Holger Schielzeth. 2017.
+<span>“The Coefficient of Determination
+<span><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>R</mi><mn>2</mn></msup><annotation encoding="application/x-tex">R^2</annotation></semantics></math></span>
+and Intra-Class Correlation Coefficient from Generalized Linear
+Mixed-Effects Models Revisited and Expanded.”</span> <em>Journal of the
+Royal Society Interface</em> 14 (134): 20170213. <a href="https://doi.org/10.1098/rsif.2017.0213" class="external-link">https://doi.org/10.1098/rsif.2017.0213</a>.
+</div>
+<div id="ref-patterson1971" class="csl-entry">
+Patterson, H. D., and R. Thompson. 1971. <span>“Recovery of Inter-Block
+Information When Block Sizes Are Unequal.”</span> <em>Biometrika</em> 58
+(3): 545–54. <a href="https://doi.org/10.1093/biomet/58.3.545" class="external-link">https://doi.org/10.1093/biomet/58.3.545</a>.
+</div>
+<div id="ref-rodriguezlopez2023" class="csl-entry">
+Rodriguez-Lopez, Merida, George Leckie, Jay S. Kaufman, and Juan Merlo.
+2023. <span>“Multilevel Modelling for Measuring Interaction of Effects
+Between Multiple Categorical Variables: An Illustrative Application
+Using Risk Factors for Preeclampsia.”</span> <em>Paediatric and
+Perinatal Epidemiology</em> 37 (2): 154–64. <a href="https://doi.org/10.1111/ppe.12932" class="external-link">https://doi.org/10.1111/ppe.12932</a>.
+</div>
+<div id="ref-vanderweele2014" class="csl-entry">
+VanderWeele, Tyler J., and Mirjam J. Knol. 2014. <span>“A Tutorial on
+Interaction.”</span> <em>Epidemiologic Methods</em> 3 (1): 33–72. <a href="https://doi.org/10.1515/em-2013-0005" class="external-link">https://doi.org/10.1515/em-2013-0005</a>.
+</div>
+</div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

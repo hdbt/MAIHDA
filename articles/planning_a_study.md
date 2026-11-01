@@ -17,10 +17,10 @@ data("maihda_health_data")
 
 ## Is MAIHDA the right tool?
 
-MAIHDA is for questions of the form *“how much of the variation in an
-outcome lies between people’s intersectional social positions, and how
-much of that is more than the sum of its parts?”* It is well suited
-when:
+MAIHDA (Evans et al. 2024) is for questions of the form *“how much of
+the variation in an outcome lies between people’s intersectional social
+positions, and how much of that is more than the sum of its parts?”* It
+is well suited when:
 
 - you have several **categorical** social dimensions (gender,
   race/ethnicity, education, class, …) whose **joint** categories define
@@ -61,11 +61,13 @@ sum(s3$strata_info$n < 10)             # how many strata have < 10 people
 ```
 
 Each extra dimension multiplies the number of strata and divides the
-people among them. Small cells are not fatal, (partial pooling shrinkage
-is exactly what protects MAIHDA against noisy small strata) but they
-have consequences (next section). A useful rule: choose the fewest
-dimensions that answer your question, and look at the cell-size
-distribution before committing.
+people among them. Small cells are not fatal: partial pooling shrinks a
+small stratum’s estimate toward the model’s prediction for it, though
+less than it should when the fixed part of the model leaves out true
+main effects or interactions (Bell et al. 2019). They do have
+consequences (next section). A useful rule: choose the fewest dimensions
+that answer your question, and look at the cell-size distribution before
+committing.
 
 ## One call: `maihda_describe()`
 
@@ -238,7 +240,7 @@ one, and with few strata it is understated (see
 
 The PCV of a binary or Poisson count outcome fitted with `lme4` compares
 maximum-likelihood variances. With few or small strata these run low,
-the adjusted model’s most, so that PCV runs high.
+the adjusted model’s most (Harville 1977), so that PCV runs high.
 `maihda(estimation = "REML")` and `calculate_pcv(estimation = "REML")`
 compare REML-type variances instead, which corrects this when strata are
 few but not small (see
@@ -284,8 +286,18 @@ vignettes.
 
 ## References
 
-- Evans, C. R., Leckie, G., Subramanian, S. V., Bell, A., & Merlo, J.
-  (2024). A tutorial for conducting intersectional multilevel analysis
-  of individual heterogeneity and discriminatory accuracy (MAIHDA).
-  *SSM - Population Health*, 26,
-  101664. 
+Bell, Andrew, Daniel Holman, and Kelvyn Jones. 2019. “Using Shrinkage in
+Multilevel Models to Understand Intersectionality: A Simulation Study
+and a Guide for Best Practice.” *Methodology* 15 (2): 88–96.
+<https://doi.org/10.1027/1614-2241/a000167>.
+
+Evans, Clare R., George Leckie, S. V. Subramanian, Andrew Bell, and Juan
+Merlo. 2024. “A Tutorial for Conducting Intersectional Multilevel
+Analysis of Individual Heterogeneity and Discriminatory Accuracy
+(MAIHDA).” *SSM - Population Health* 26: 101664.
+<https://doi.org/10.1016/j.ssmph.2024.101664>.
+
+Harville, David A. 1977. “Maximum Likelihood Approaches to Variance
+Component Estimation and to Related Problems.” *Journal of the American
+Statistical Association* 72 (358): 320–38.
+<https://doi.org/10.1080/01621459.1977.10480998>.

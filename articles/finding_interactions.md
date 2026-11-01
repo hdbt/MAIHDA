@@ -9,8 +9,9 @@ For this exploratory diagnostic,
 [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md) can
 compute the adjusted-model stratum random effects, intervals, and flags.
 When you use `interactions = "BH"`, the flags use the Benjamini-Hochberg
-adjustment. The diagnostic is stored in the analysis object and can be
-reused by the effect-decomposition and predicted-strata plots.
+adjustment (Benjamini and Hochberg 1995). The diagnostic is stored in
+the analysis object and can be reused by the effect-decomposition and
+predicted-strata plots.
 
 ## Run a standard analysis and choose the multiplicity rule
 
@@ -104,9 +105,9 @@ plot(model, type = "effect_decomp", highlight_interactions = "BH")
 A flag asks whether an interaction differs from zero. Often the more
 useful question is whether it is *large enough to matter*. Pass a region
 of practical equivalence (`rope`, on the model scale) and each stratum
-is classified from its interval as `relevant` (interval entirely outside
-the region), `negligible` (entirely inside it), or `inconclusive`
-(straddling a bound):
+is classified from its interval (Schuirmann 1987; Kruschke 2018) as
+`relevant` (interval entirely outside the region), `negligible`
+(entirely inside it), or `inconclusive` (straddling a bound):
 
 ``` r
 
@@ -143,16 +144,17 @@ is a substantive choice, made on the model’s (link) scale.
 
 ## References
 
-- Evans, C. R., Williams, D. R., Onnela, J. P., & Subramanian, S. V.
-  (2018). A multilevel approach to modeling health inequalities at the
-  intersection of multiple social identities. *Social Science &
-  Medicine*, 203, 64-73.
+Benjamini, Yoav, and Yosef Hochberg. 1995. “Controlling the False
+Discovery Rate: A Practical and Powerful Approach to Multiple Testing.”
+*Journal of the Royal Statistical Society: Series B (Methodological)* 57
+(1): 289–300. <https://doi.org/10.1111/j.2517-6161.1995.tb02031.x>.
 
-- Merlo, J. (2018). Multilevel analysis of individual heterogeneity and
-  discriminatory accuracy (MAIHDA) within an intersectional framework.
-  *Social Science & Medicine*, 203, 74-80.
+Kruschke, John K. 2018. “Rejecting or Accepting Parameter Values in
+Bayesian Estimation.” *Advances in Methods and Practices in
+Psychological Science* 1 (2): 270–80.
+<https://doi.org/10.1177/2515245918771304>.
 
-- Schuirmann, D. J. (1987). A comparison of the two one-sided tests
-  procedure and the power approach for assessing the equivalence of
-  average bioavailability. *Journal of Pharmacokinetics and
-  Biopharmaceutics*, 15(6), 657-680.
+Schuirmann, Donald J. 1987. “A Comparison of the Two One-Sided Tests
+Procedure and the Power Approach for Assessing the Equivalence of
+Average Bioavailability.” *Journal of Pharmacokinetics and
+Biopharmaceutics* 15 (6): 657–80. <https://doi.org/10.1007/BF01068419>.
