@@ -360,6 +360,10 @@ test_that("the WeMix and ordinal engines report the same point estimates with NA
                                   "conf.low", "conf.high"), info = nm)
     expect_identical(tv$variance, s$variance_components$variance, info = nm)
     expect_true(all(is.na(tv$conf.low)) && all(is.na(tv$conf.high)), info = nm)
+    # maihda_table() says so rather than offer a bootstrap these engines do not run.
+    out <- paste(utils::capture.output(print(maihda_table(fits[[nm]]))), collapse = " ")
+    expect_match(out, sprintf("The %s engine gives the variance, SD and VPC rows no interval.",
+                              nm), fixed = TRUE, info = nm)
   }
 })
 
@@ -613,6 +617,15 @@ test_that("a brms summary gives each estimated variance its credible interval", 
                              out, fixed = TRUE)), 1L)
   s90 <- summary(m, conf_level = 0.9)
   expect_equal(s90$variance_components$lower[1], vci_q(vci_sd_s^2, 0.9)[1], tolerance = 1e-12)
+  # maihda_table() calls every interval it shows a credible interval, the intercept's too.
+  mt <- maihda_table(m)
+  expect_equal(unlist(mt$models[mt$models$statistic == "Between-stratum variance",
+                                c("estimate_lower", "estimate_upper")], use.names = FALSE),
+               vci_q(vci_sd_s^2), tolerance = 1e-12)
+  out <- paste(utils::capture.output(print(mt)), collapse = " ")
+  expect_match(out, "In the model results, every interval is a posterior credible interval.",
+               fixed = TRUE)
+  expect_false(grepl("Wald", out, fixed = TRUE))
 
   # A logit model: the level-1 row has no interval.
   mb <- vci_stub(data.frame(b_Intercept = 0, sd_stratum__Intercept = vci_sd_s),
@@ -727,7 +740,11 @@ test_that("a brms fit's intervals are the quantiles of its own variance draws", 
   expect_equal(c(vc$lower[1], vc$upper[1]), vci_q(v_s), tolerance = 1e-10)
   expect_equal(c(vc$lower[2], vc$upper[2]), vci_q(v_e), tolerance = 1e-10)
   expect_true(is.na(vc$lower[3]))
-  tab <- maihda_table(m)$models
+  mt <- maihda_table(m)
+  tab <- mt$models
   bv <- tab[tab$statistic == "Between-stratum variance", ]
   expect_equal(c(bv$estimate_lower, bv$estimate_upper), vci_q(v_s), tolerance = 1e-10)
+  expect_match(paste(utils::capture.output(print(mt)), collapse = " "),
+               "In the model results, every interval is a posterior credible interval.",
+               fixed = TRUE)
 })

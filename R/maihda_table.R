@@ -554,6 +554,49 @@ maihda_table_fmt <- function(est, lo = NA_real_, hi = NA_real_, digits = 3) {
   s
 }
 
+# The footer print() puts under the tables: which estimates carry an interval and of
+# what kind, read from the intervals the results table holds. Every brms interval is a
+# posterior credible interval. On the likelihood engines the intercept's is the Wald
+# interval summary() reports and the others come from the parametric bootstrap, which
+# only the lme4 engine runs. Returns the lines, wrapped to `width`.
+maihda_table_interval_note <- function(x, width = 76) {
+  m <- x$models
+  has_interval <- function(stats) {
+    i <- which(m$statistic %in% stats)
+    any(vapply(x$model_keys, function(k) {
+      any(!is.na(m[[paste0(k, "_lower")]][i]) & !is.na(m[[paste0(k, "_upper")]][i]))
+    }, logical(1)))
+  }
+  intercept_ci <- has_interval("Intercept")
+  other_ci <- has_interval(setdiff(m$statistic, "Intercept"))
+  variance_ci <- has_interval(c("Between-stratum variance", "Between-stratum SD", "VPC/ICC"))
+
+  txt <- "Estimates are point values unless a [low, high] interval is shown."
+  if (identical(x$engine, "brms")) {
+    if (intercept_ci || other_ci) {
+      txt <- c(txt, "In the model results, every interval is a posterior credible interval.")
+    }
+  } else {
+    wald <- "the intercept interval is the Wald one summary() reports"
+    boot <- "parametric bootstrap percentile intervals"
+    if (intercept_ci && other_ci) {
+      txt <- c(txt, sprintf("In the model results, %s and the others are %s.", wald, boot))
+    } else if (intercept_ci) {
+      txt <- c(txt, sprintf("In the model results, %s.", wald))
+    } else if (other_ci) {
+      txt <- c(txt, sprintf("In the model results, the intervals are %s.", boot))
+    }
+    if (!variance_ci) {
+      txt <- c(txt, if (identical(x$engine, "lme4")) {
+        sprintf("With bootstrap = TRUE the variance, SD and VPC rows get %s.", boot)
+      } else {
+        sprintf("The %s engine gives the variance, SD and VPC rows no interval.", x$engine)
+      })
+    }
+  }
+  strwrap(paste(txt, collapse = " "), width = width)
+}
+
 #' Print a MAIHDA results table
 #'
 #' @param x A \code{maihda_table} object from \code{\link{maihda_table}}.
@@ -631,8 +674,6 @@ print.maihda_table <- function(x, digits = x$digits, ...) {
     cat("\nRanked strata: ", x$strata_note, "\n", sep = "")
   }
 
-  cat("\nEstimates are point values unless a [low, high] interval is shown. The\n",
-      "intercept interval is the Wald one summary() reports; the variance and SD\n",
-      "rows carry no interval.\n", sep = "")
+  cat("\n", paste(maihda_table_interval_note(x), collapse = "\n"), "\n", sep = "")
   invisible(x)
 }
