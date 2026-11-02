@@ -181,8 +181,9 @@
 #' @param min_group_n Minimum group size for the per-group comparison, forwarded
 #'   to \code{\link{compare_maihda_groups}}. Default 30.
 #' @param bootstrap Logical; compute parametric-bootstrap VPC confidence intervals
-#'   (lme4 only) for both the overall summary and the per-group comparison.
-#'   Default FALSE.
+#'   (lme4 only) for both the overall summary and the per-group comparison, and
+#'   from the same refits the intervals of the variance components (see
+#'   \code{\link{summary.maihda_model}}). Default FALSE.
 #' @param n_boot Number of bootstrap samples when \code{bootstrap = TRUE}.
 #' @param conf_level Confidence level for bootstrap intervals. Default 0.95.
 #' @param response_vpc Logical; for a binomial (lme4) outcome, also attach the
@@ -360,7 +361,9 @@
 #'     each reporting time -- and, like the two-model \code{brms} PCV, the result is
 #'     understated on average when strata are few}
 #'   \item{decomposition}{the additive/interaction partition (additive and interaction
-#'     variances and shares, per-dimension variances and, for a \code{brms} fit, each
+#'     variances and shares, per-dimension variances, the interval of the
+#'     between-strata variance in \code{between_var_ci} when bootstrapped or for a
+#'     \code{brms} fit, and, for a \code{brms} fit, each
 #'     dimension's number of levels in \code{dim_levels} and the realised strata in
 #'     \code{realised}, described in the section Realised strata;
 #'     \code{"crossed-dimensions"} mode only, \code{NULL} otherwise)}

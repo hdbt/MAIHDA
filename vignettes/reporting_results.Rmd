@@ -79,6 +79,11 @@ The **variance components**:
 tidy(a, component = "variance")
 ```
 
+`conf.low` and `conf.high` are `NA` here because the analysis was not bootstrapped;
+with `maihda(bootstrap = TRUE)` they hold percentile intervals over the refits behind
+the VPC interval, and with `engine = "brms"` posterior credible intervals, for every
+row except the `Total` and a level-1 variance the model does not estimate.
+
 And the **fixed effects** (`component = "fixed"`). For a two-model analysis,
 `which = "adjusted"` reads the adjusted model instead of the default null:
 

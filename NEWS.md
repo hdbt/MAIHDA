@@ -1,5 +1,13 @@
 # MAIHDA (development version)
 
+## New features
+
+* `summary()` reports intervals for the variance components in `variance_components$lower` / `upper`: percentile intervals from the refits of `bootstrap = TRUE` on lme4 fits, credible intervals on brms fits. `tidy(component = "variance")`, `maihda_table()` and the Shiny app show them (#74).
+
+## API changes
+
+* `tidy(component = "variance")` gains `conf.low` and `conf.high`, `NA` where no interval applies; on a brms fit, `summary()` prints the intervals beside the variances and `maihda_table()` shows them on the between-stratum variance and SD rows.
+
 # MAIHDA 0.3.0
 
 ## New features

@@ -82,8 +82,10 @@ statistics are rows, models are columns, and each estimate has accompanying
 when one is available (the intercept's interval, the VPC bootstrap or posterior
 interval, and the bootstrap PCV interval) and \code{NA} otherwise. The intercept
 carries the same interval \code{summary()} reports for it -- a Wald interval
-for the likelihood engines, a credible interval for brms. The variance and SD
-rows are point estimates. The \code{print()} method renders the same table in the familiar
+for the likelihood engines, a credible interval for brms. The between-stratum
+variance carries the interval \code{summary()} reports for it -- a bootstrap
+percentile interval when bootstrapped, a credible interval for brms -- and the
+SD row the square roots of its bounds. The \code{print()} method renders the same table in the familiar
 \dQuote{estimate [low, high]} layout.
 
 For a \code{"crossed-dimensions"} analysis (one model, no null/adjusted pair) the

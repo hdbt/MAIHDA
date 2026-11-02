@@ -2387,6 +2387,12 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
   if (bootstrap) {
     boot <- matrix(NA_real_, nrow = n_boot, ncol = length(grid))
     ref_boot <- rep(NA_real_, n_boot)
+    # And of every entry of the components table (the two blocks and the level-1
+    # variance at the reference time), and of the between-stratum variance there.
+    comp_boot <- matrix(NA_real_, n_boot,
+                        length(maihda_lng_block_entries(Sigma_s)) +
+                          length(maihda_lng_block_entries(Sigma_i)) + 1L)
+    var_s_ref_boot <- rep(NA_real_, n_boot)
     sim <- maihda_simulate_lme4(model, nsim = n_boot)
     # Each draw is refitted as fit_maihda() fits the model (maihda_refit_growth_draw()).
     spec <- maihda_lme4_growth_spec(model, lng)
@@ -2407,6 +2413,9 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
                                                       approximation = count_approx,
                                                       scale = scale)
         ref_boot[i] <- rs / (rs + ri + vr_ref)
+        comp_boot[i, ] <- c(maihda_lng_block_entries(Ss), maihda_lng_block_entries(Si),
+                            vr_ref)
+        var_s_ref_boot[i] <- rs
         # Same helper as the point estimate below, so the replicates cannot drift
         # from the quantity the interval is meant to cover (and the 1x1 stratum
         # block keeps returning NA for the slope rather than 0).
@@ -2460,6 +2469,24 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
     c(NA_real_, NA_real_)
   }
 
+  # The components table, with the interval of each entry from the refits that formed
+  # the VPC interval.
+  variance_components <- maihda_longitudinal_components_table(
+    Sigma_s, Sigma_i, var_resid, lng$time, lng$id, center = center)
+  var_s_ref_ci <- c(NA_real_, NA_real_)
+  if (bootstrap) {
+    ok <- is.finite(ref_boot)
+    colnames(comp_boot) <- variance_components$component
+    variance_components <- maihda_add_variance_intervals(
+      variance_components,
+      maihda_component_draw_list(comp_boot[ok, , drop = FALSE],
+                                 maihda_level1_is_estimated(model)),
+      conf_level)
+    iv <- maihda_variance_draw_intervals(list(var_stratum_ref = var_s_ref_boot[ok]),
+                                         conf_level)
+    var_s_ref_ci <- c(iv$lower, iv$upper)
+  }
+
   longitudinal <- list(
     vpc_t = data.frame(time = grid, estimate = vpc_t_est,
                        lower = vpc_lower, upper = vpc_upper),
@@ -2469,6 +2496,7 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
     vpc_slope_ci = traj_slope_ci,
     trajectory_vpc_method = if (bootstrap) "bootstrap" else NA_character_,
     var_stratum_t = var_s_grid,
+    var_stratum_ref_ci = var_s_ref_ci,
     var_id_t = var_i_grid,
     var_resid = var_resid,
     var_resid_t = as.numeric(resid_grid),
@@ -2488,8 +2516,7 @@ maihda_longitudinal_summary_lme4 <- function(object, bootstrap = FALSE,
 
   list(
     vpc_result = vpc_result,
-    variance_components = maihda_longitudinal_components_table(
-      Sigma_s, Sigma_i, var_resid, lng$time, lng$id, center = center),
+    variance_components = variance_components,
     longitudinal = longitudinal
   )
 }
@@ -2634,6 +2661,24 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
     has_slope = stratum_deg >= 1L && lng$time_degree >= 1L,
     conf_level = conf_level)
 
+  # The components table, with the credible interval of each entry: per draw, the
+  # block entries in the table's order (maihda_lng_block_entries(): the variances, then
+  # the covariance) and the level-1 variance at the reference time.
+  variance_components <- maihda_longitudinal_components_table(
+    Sigma_s, Sigma_i, var_resid, lng$time, lng$id, center = center)
+  block_draws <- function(blk, Sigma) {
+    if (nrow(Sigma) >= 2L) list(blk$v0, blk$v1, blk$cov) else list(blk$v0)
+  }
+  comp_draws <- stats::setNames(
+    c(block_draws(sig_s, Sigma_s), block_draws(sig_i, Sigma_i), list(resid_ref_draws)),
+    variance_components$component)
+  variance_components <- maihda_add_variance_intervals(
+    variance_components,
+    maihda_component_draw_list(comp_draws, maihda_level1_is_estimated(model)),
+    conf_level)
+  iv <- maihda_variance_draw_intervals(list(var_stratum_ref = var_at(sig_s, ref_c)),
+                                       conf_level)
+
   longitudinal <- list(
     vpc_t = data.frame(time = grid, estimate = mat[1, ],
                        lower = mat[2, ], upper = mat[3, ]),
@@ -2643,6 +2688,7 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
     vpc_slope_ci = traj_vpc$vpc_slope_ci,
     trajectory_vpc_method = "posterior",
     var_stratum_t = maihda_var_at_time(Sigma_s, grid_c),
+    var_stratum_ref_ci = c(iv$lower, iv$upper),
     var_id_t = maihda_var_at_time(Sigma_i, grid_c),
     var_resid = var_resid,
     var_resid_t = resid_grid,
@@ -2661,8 +2707,7 @@ maihda_longitudinal_summary_brms <- function(object, conf_level = 0.95) {
 
   list(
     vpc_result = vpc_result,
-    variance_components = maihda_longitudinal_components_table(
-      Sigma_s, Sigma_i, var_resid, lng$time, lng$id, center = center),
+    variance_components = variance_components,
     longitudinal = longitudinal
   )
 }
@@ -2746,6 +2791,13 @@ maihda_longitudinal_components_table <- function(Sigma_s, Sigma_i, var_resid,
   )
   attr(tab, "kind") <- "longitudinal"
   tab
+}
+
+# The entries of a covariance block in the order maihda_longitudinal_components_table()
+# lists them: the variances, then the covariance of every pair i < j.
+maihda_lng_block_entries <- function(Sigma) {
+  c(diag(Sigma),
+    if (nrow(Sigma) >= 2L) Sigma[t(utils::combn(nrow(Sigma), 2L))])
 }
 
 # ---- proportional change in variance (additive vs multiplicative) -----------

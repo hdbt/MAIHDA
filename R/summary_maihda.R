@@ -146,7 +146,9 @@ maihda_tag_role <- function(s, role) {
 #'
 #' @param object A maihda_model object from \code{fit_maihda()}.
 #' @param bootstrap Logical indicating whether to compute parametric bootstrap
-#'   confidence intervals for VPC/ICC. Default is FALSE. Supported for lme4
+#'   confidence intervals for VPC/ICC and, from the same refits, for the variance
+#'   components (see the section Intervals for the variance components). Default is
+#'   FALSE. Supported for lme4
 #'   models only; \code{brms} models always return a posterior credible interval
 #'   (see Details), so \code{bootstrap = TRUE} is rejected for them.
 #'   Each simulated response is refitted from the fitted model's estimates
@@ -196,7 +198,12 @@ maihda_tag_role <- function(s, role) {
 #'     unexplained variance (net of the context)}
 #'   \item{variance_components}{Data frame of variance components. For a
 #'     contextual cross-classified fit (\code{fit_maihda(context = )}) each
-#'     context appears as its own \code{Context: <name>} row}
+#'     context appears as its own \code{Context: <name>} row. When an interval was
+#'     computed (\code{bootstrap = TRUE} for lme4, always for brms), the columns
+#'     \code{lower} and \code{upper} hold each variance's interval at
+#'     \code{conf_level}, \code{NA} for the \code{Total} row and for a level-1
+#'     variance the model does not estimate (see the section Intervals for the
+#'     variance components)}
 #'   \item{longitudinal}{For a longitudinal (growth-curve) fit, the time-varying
 #'     summary: \code{vpc_t} (the VPC over a reporting grid, with bootstrap or
 #'     posterior bands), the per-level variances over that grid, the stratum and
@@ -205,7 +212,9 @@ maihda_tag_role <- function(s, role) {
 #'     interval in \code{vpc_intercept_ci} / \code{vpc_slope_ci} (a posterior
 #'     credible interval for brms, a bootstrap interval for a bootstrapped lme4
 #'     fit, \code{NA} otherwise) and the basis in
-#'     \code{trajectory_vpc_method}. \code{NULL} for a cross-sectional fit}
+#'     \code{trajectory_vpc_method}, and the interval of the between-stratum
+#'     variance at the reference time in \code{var_stratum_ref_ci} (\code{NA} for an
+#'     lme4 fit without the bootstrap). \code{NULL} for a cross-sectional fit}
 #'   \item{context}{For a contextual cross-classified fit, the stratum vs.
 #'     context partition: per-context variances and shares, the contexts' total
 #'     share (\code{vpc_context_total}, with an interval when bootstrapped or for
@@ -278,7 +287,8 @@ maihda_tag_role <- function(s, role) {
 #' The variance-components table of a cross-sectional \code{brms} fit reports the
 #' posterior median of each variance component -- the between-stratum row is the
 #' variance the PCV and the Median Odds Ratio use, and its \code{sd} the posterior
-#' median SD -- with the total and the proportions computed from those rows. The
+#' median SD -- with the total and the proportions computed from those rows, and
+#' each component's credible interval in \code{lower} and \code{upper}. The
 #' stratum proportion therefore equals the headline VPC when the level-1 variance
 #' is fixed by the link and the stratum is the only random effect, and differs
 #' from it slightly otherwise, because the median of a ratio is not the ratio of
@@ -358,6 +368,29 @@ maihda_tag_role <- function(s, role) {
 #' \code{summary()} warns when the draws are too few for the requested level; the
 #' check is level-aware: 99, 199 and 999 are the smallest counts that put ten
 #' draws beyond the cut-off at the 10\%, 5\% and 1\% levels.
+#'
+#' @section Intervals for the variance components:
+#' With \code{bootstrap = TRUE} an \code{lme4} summary gives each estimated variance
+#' -- the between-stratum variance, any other random-effect, context or dimension
+#' variance, a growth model's covariances, and the residual variance of a Gaussian
+#' fit -- the percentile interval of its values over the refits that form the VPC
+#' interval, so both intervals come from the same draws and no further refit is made.
+#' A \code{brms} summary gives the equal-tailed credible interval of the posterior
+#' draws whose median (for a growth model, mean) the table reports. Both are at
+#' \code{conf_level}. A level-1 variance the model does not estimate has no interval:
+#' the latent \eqn{\pi^2/3}, 1 or \eqn{\pi^2/6} a binomial or ordinal link fixes, and
+#' a count model's approximation at the marginal expected count. Nor has the
+#' \code{Total} row, a sum of the components. The WeMix and ordinal engines report
+#' point estimates only.
+#'
+#' The percentile interval of a between-stratum variance behaves like the VPC
+#' interval. With few strata and a variance larger than the sampling variance of a
+#' stratum's mean (in a Gaussian model, the residual variance divided by the stratum
+#' size), it covers the true variance less often than its level says, and when it
+#' misses, it lies below it. With a variance well below that sampling variance, its
+#' lower bound is often zero and it covers the true value more often than its level
+#' says. The interval of a Gaussian residual variance is accurate when the
+#' observations far outnumber the strata.
 #'
 #' @section Two VPCs for a longitudinal fit:
 #' A longitudinal summary reports \strong{two different variance partitions}, and
@@ -530,11 +563,14 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
         var_random, var_other_random, var_residual
       )
 
-      # Bootstrap confidence intervals for VPC if requested
+      # Bootstrap confidence intervals for VPC if requested, and from the same
+      # refits the variance components' intervals.
       if (bootstrap) {
         vpc_ci <- bootstrap_vpc(model, object$data, object$formula, n_boot,
                                 conf_level,
                                 approximation = maihda_count_approximation(object))
+        variance_components <- maihda_add_variance_intervals(
+          variance_components, attr(vpc_ci, "component_draws"), conf_level)
         vpc_result <- list(
           estimate = vpc,
           ci_lower = vpc_ci[1],
@@ -739,10 +775,17 @@ summary.maihda_model <- function(object, bootstrap = FALSE, n_boot = 1000,
         model, conf_level = conf_level,
         approximation = maihda_count_approximation(object))
 
-      # Components table reports the posterior-median variance of each component.
+      # Components table reports the posterior-median variance of each component,
+      # with the credible interval of the same draws.
       variance_components <- maihda_variance_components_table(
         vpc_draws$var_stratum, vpc_draws$var_other_random, vpc_draws$var_residual
       )
+      variance_components <- maihda_add_variance_intervals(
+        variance_components,
+        maihda_standard_variance_draws(vpc_draws$draws$stratum, vpc_draws$draws$other,
+                                       vpc_draws$draws$residual,
+                                       maihda_level1_is_estimated(model)),
+        conf_level)
 
       vpc_result <- list(
         estimate = vpc_draws$vpc$estimate,
@@ -983,6 +1026,14 @@ maihda_cc_summary_lme4 <- function(object, cc, vc, bootstrap, n_boot, conf_level
     decomposition$additive_share_ci <- c(boot$additive_share[1], boot$additive_share[2])
     decomposition$interaction_share_ci <- c(boot$interaction_share[1],
                                             boot$interaction_share[2])
+    # The variance components' intervals, and the between-strata variance's (additive +
+    # interaction), from the same refits.
+    variance_components <- maihda_add_variance_intervals(
+      variance_components,
+      maihda_component_draw_list(boot$component_draws, maihda_level1_is_estimated(model)),
+      conf_level)
+    decomposition$between_var_ci <- maihda_cc_between_var_ci(boot$component_draws,
+                                                             conf_level)
     if (!is.null(context_summary)) {
       context_summary$bootstrap <- TRUE
       context_summary$conf_level <- conf_level
@@ -1101,6 +1152,15 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
 
   variance_components <- maihda_cc_components_table(per_dim_var, interaction_var,
                                                    within_var, per_context_var)
+  # Each row's credible interval, from the draws whose median it is.
+  comp_draws <- stats::setNames(
+    c(lapply(dim_re, function(g) gv[[g]]), list(interaction_draws),
+      lapply(ctx_vars, function(g) gv[[g]]), list(within_draws)),
+    maihda_cc_component_labels(names(cc$dim_groups), ctx_vars))
+  variance_components <- maihda_add_variance_intervals(
+    variance_components,
+    maihda_component_draw_list(comp_draws, maihda_level1_is_estimated(model)),
+    conf_level)
 
   vpc_result <- list(
     estimate = vpc_s$estimate,
@@ -1120,6 +1180,7 @@ maihda_cc_summary_brms <- function(object, cc, conf_level, point = c("median", "
     interaction_share = int_s$estimate,
     additive_share_ci = c(add_s$ci_lower, add_s$ci_upper),
     interaction_share_ci = c(int_s$ci_lower, int_s$ci_upper),
+    between_var_ci = maihda_cc_between_var_ci(comp_draws, conf_level),
     per_dim = per_dim_var,
     dim_levels = dim_levels,
     bootstrap = FALSE,
@@ -1572,7 +1633,9 @@ maihda_pair_median_draws <- function(Z, max_cells = 1e6) {
 #'   non-count family.
 #' @return A list with \code{vpc}, \code{additive_share}, \code{interaction_share}
 #'   (and \code{context_vpc} when \code{ctx_vars} is non-empty), each a length-2
-#'   interval carrying \code{n_ok}/\code{mc_se} attributes.
+#'   interval carrying \code{n_ok}/\code{mc_se} attributes, and
+#'   \code{component_draws}: for the refits that formed the VPC interval, each
+#'   variance of the components table, one column per row label.
 #' @keywords internal
 #' @importFrom lme4 refit
 bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0),
@@ -1581,6 +1644,9 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0),
   additive_boot <- rep(NA_real_, n_boot)
   interaction_boot <- rep(NA_real_, n_boot)
   context_boot <- rep(NA_real_, n_boot)
+  comp_names <- maihda_cc_component_labels(names(cc$dim_groups), ctx_vars)
+  comp_boot <- matrix(NA_real_, n_boot, length(comp_names),
+                      dimnames = list(NULL, comp_names))
   # Count contributing draws whose refit optimiser did not converge, so the reported
   # n_boot_ok does not silently imply convergence (see bootstrap_vpc()).
   n_nonconv <- 0L
@@ -1600,6 +1666,8 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0),
       additive_boot[i] <- part$additive_share
       interaction_boot[i] <- part$interaction_share
       context_boot[i] <- var_context / part$total
+      comp_boot[i, ] <- c(unname(split$per_dim), split$interaction,
+                          unname(var_named[ctx_vars]), var_within)
       if (maihda_lme4_optimizer_failed(boot_model)) n_nonconv <- n_nonconv + 1L
     }, error = function(e) NULL)
   }
@@ -1622,7 +1690,26 @@ bootstrap_cc <- function(model, cc, n_boot, conf_level, ctx_vars = character(0),
   }
   attr(out$vpc, "n_nonconverged") <- n_nonconv
   attr(out$vpc, "interval_reliable") <- reliable
+  out$component_draws <- comp_boot[is.finite(vpc_boot), , drop = FALSE]
   out
+}
+
+# Row labels of a crossed-dimensions components table (maihda_cc_components_table()):
+# one per dimension, the interaction, one per context, and the level-1 variance.
+maihda_cc_component_labels <- function(dim_names, ctx_vars = character(0)) {
+  c(sprintf("Additive: %s", dim_names), "Intersectional interaction",
+    if (length(ctx_vars) > 0) sprintf("Context: %s", ctx_vars),
+    "Within-stratum (residual)")
+}
+
+# The interval of a crossed-dimensions fit's between-strata variance, the sum of its
+# dimension and interaction variances per replicate, at conf_level.
+maihda_cc_between_var_ci <- function(component_draws, conf_level) {
+  draws <- maihda_component_draw_list(component_draws, FALSE)
+  parts <- draws[grepl("^Additive: ", names(draws)) |
+                   names(draws) == "Intersectional interaction"]
+  iv <- maihda_variance_draw_intervals(list(between = Reduce(`+`, parts)), conf_level)
+  c(iv$lower, iv$upper)
 }
 
 #' Contextual cross-classified variance summary (lme4)
@@ -1684,6 +1771,10 @@ maihda_context_summary_lme4 <- function(object, ctx, vc, bootstrap, n_boot,
   if (bootstrap) {
     boot <- bootstrap_context(model, ctx_vars, n_boot, conf_level,
                               approximation = maihda_count_approximation(object))
+    variance_components <- maihda_add_variance_intervals(
+      variance_components,
+      maihda_component_draw_list(boot$component_draws, maihda_level1_is_estimated(model)),
+      conf_level)
     vpc_result <- list(
       estimate = part$vpc_stratum,
       ci_lower = boot$vpc[1],
@@ -1778,6 +1869,16 @@ maihda_context_summary_brms <- function(object, ctx, conf_level,
   variance_components <- maihda_context_components_table(
     var_stratum, per_context_var, other_var, within_var
   )
+  # Each row's credible interval, from the draws whose median it is.
+  comp_draws <- stats::setNames(
+    c(list(stratum_draws), lapply(ctx_vars, function(g) gv[[g]]),
+      list(other_draws, within_draws)),
+    c("Between-stratum (random)", sprintf("Context: %s", ctx_vars),
+      "Other random effects", "Within-stratum (residual)"))
+  variance_components <- maihda_add_variance_intervals(
+    variance_components,
+    maihda_component_draw_list(comp_draws, maihda_level1_is_estimated(model)),
+    conf_level)
 
   vpc_result <- list(
     estimate = vpc_s$estimate,
@@ -1839,13 +1940,19 @@ maihda_context_summary_brms <- function(object, ctx, conf_level,
 #'   non-count family.
 #' @return A list with \code{vpc} (between-stratum share) and \code{context_vpc}
 #'   (contexts' total share), each a length-2 interval carrying
-#'   \code{n_ok}/\code{mc_se} attributes.
+#'   \code{n_ok}/\code{mc_se} attributes, and \code{component_draws}: for the refits
+#'   that formed the VPC interval, each variance of the components table, one column
+#'   per row label.
 #' @keywords internal
 #' @importFrom lme4 refit
 bootstrap_context <- function(model, ctx_vars, n_boot, conf_level,
                               approximation = "lognormal") {
   vpc_boot <- rep(NA_real_, n_boot)
   context_boot <- rep(NA_real_, n_boot)
+  comp_names <- c("Between-stratum (random)", sprintf("Context: %s", ctx_vars),
+                  "Other random effects", "Within-stratum (residual)")
+  comp_boot <- matrix(NA_real_, n_boot, length(comp_names),
+                      dimnames = list(NULL, comp_names))
   # Count contributing draws whose refit optimiser did not converge, so the reported
   # n_boot_ok does not silently imply convergence (see bootstrap_vpc()).
   n_nonconv <- 0L
@@ -1865,6 +1972,7 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level,
                                        var_within, var_other)
       vpc_boot[i] <- part$vpc_stratum
       context_boot[i] <- part$vpc_context_total
+      comp_boot[i, ] <- c(var_stratum, unname(per_context), var_other, var_within)
       if (maihda_lme4_optimizer_failed(boot_model)) n_nonconv <- n_nonconv + 1L
     }, error = function(e) NULL)
   }
@@ -1881,6 +1989,7 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level,
   )
   attr(out$vpc, "n_nonconverged") <- n_nonconv
   attr(out$vpc, "interval_reliable") <- reliable
+  out$component_draws <- comp_boot[is.finite(vpc_boot), , drop = FALSE]
   out
 }
 
@@ -1896,7 +2005,10 @@ bootstrap_context <- function(model, ctx_vars, n_boot, conf_level,
 #' @param approximation The count level-1 variance approximation of the fitted
 #'   model (\code{maihda_count_approximation()}); inert for every non-count family.
 #'
-#' @return A vector with lower and upper confidence bounds
+#' @return A vector with lower and upper confidence bounds. Its attribute
+#'   \code{component_draws} holds, for the refits that formed the interval, the
+#'   between-stratum and other random-effect variances and, for a Gaussian fit, the
+#'   residual variance, named by their rows of the variance-components table.
 #' @keywords internal
 #' @importFrom lme4 lmer glmer VarCorr
 bootstrap_vpc <- function(model, data, formula, n_boot, conf_level,
@@ -1906,6 +2018,8 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level,
   # The error handler runs in its own scope and cannot write back to this vector,
   # so the initial value is what survives a failure.
   vpc_boot <- rep(NA_real_, n_boot)
+  comp_boot <- matrix(NA_real_, n_boot, 3L,
+                      dimnames = list(NULL, c("stratum", "other", "residual")))
   # Count draws that contribute to the interval but whose refit optimiser did not
   # converge, so the reported n_boot_ok does not silently imply convergence.
   n_nonconv <- 0L
@@ -1924,6 +2038,7 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level,
         boot_model, vc, approximation = approximation)
 
       vpc_boot[i] <- var_random / (var_random + var_other_random + var_residual)
+      comp_boot[i, ] <- c(var_random, var_other_random, var_residual)
       if (maihda_lme4_optimizer_failed(boot_model)) {
         n_nonconv <- n_nonconv + 1L
       }
@@ -1938,6 +2053,10 @@ bootstrap_vpc <- function(model, data, formula, n_boot, conf_level,
   ci <- maihda_bootstrap_ci(vpc_boot, n_boot, conf_level, "VPC")
   attr(ci, "n_nonconverged") <- n_nonconv
   attr(ci, "interval_reliable") <- reliable
+  ok <- is.finite(vpc_boot)
+  attr(ci, "component_draws") <- maihda_standard_variance_draws(
+    comp_boot[ok, "stratum"], comp_boot[ok, "other"], comp_boot[ok, "residual"],
+    maihda_level1_is_estimated(model))
 
   return(ci)
 }
@@ -2990,6 +3109,10 @@ print.maihda_summary <- function(x, ...) {
 
   cat(pal$bold("Variance Components:"), "\n", sep = "")
   print(x$variance_components, row.names = FALSE, digits = 4)
+  vc_label <- maihda_variance_interval_label(x)
+  if (!is.null(vc_label)) {
+    cat("  ", pal$muted(vc_label), "\n", sep = "")
+  }
   cat("\n")
 
   if (is_lng) {

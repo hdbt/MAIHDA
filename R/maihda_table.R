@@ -31,8 +31,10 @@
 #' when one is available (the intercept's interval, the VPC bootstrap or posterior
 #' interval, and the bootstrap PCV interval) and \code{NA} otherwise. The intercept
 #' carries the same interval \code{summary()} reports for it -- a Wald interval
-#' for the likelihood engines, a credible interval for brms. The variance and SD
-#' rows are point estimates. The \code{print()} method renders the same table in the familiar
+#' for the likelihood engines, a credible interval for brms. The between-stratum
+#' variance carries the interval \code{summary()} reports for it -- a bootstrap
+#' percentile interval when bootstrapped, a credible interval for brms -- and the
+#' SD row the square roots of its bounds. The \code{print()} method renders the same table in the familiar
 #' \dQuote{estimate [low, high]} layout.
 #'
 #' For a \code{"crossed-dimensions"} analysis (one model, no null/adjusted pair) the
@@ -256,8 +258,10 @@ maihda_collect_model_stats <- function(s) {
   st[["Intercept"]] <- maihda_extract_intercept(s)
 
   bv <- maihda_between_stratum_variance(s)
-  st[["Between-stratum variance"]] <- triple(bv)
-  st[["Between-stratum SD"]] <- triple(if (is.finite(bv) && bv >= 0) sqrt(bv) else NA_real_)
+  bv_ci <- maihda_between_stratum_variance_ci(s)
+  root <- function(v) if (isTRUE(is.finite(v) && v >= 0)) sqrt(v) else NA_real_
+  st[["Between-stratum variance"]] <- triple(bv, bv_ci[1], bv_ci[2])
+  st[["Between-stratum SD"]] <- triple(root(bv), root(bv_ci[1]), root(bv_ci[2]))
 
   v <- s$vpc
   if (!is.null(v)) {
@@ -365,6 +369,28 @@ maihda_between_stratum_variance <- function(s) {
     if (length(row) >= 1) return(as.numeric(vc$variance[row[1]]))
   }
   NA_real_
+}
+
+# The interval of maihda_between_stratum_variance(s), c(lower, upper): the
+# decomposition's between_var_ci for a crossed-dimensions fit, the longitudinal
+# summary's var_stratum_ref_ci for a growth fit, and otherwise the
+# "Between-stratum (random)" row's lower / upper. NA when the summary has none.
+maihda_between_stratum_variance_ci <- function(s) {
+  pick <- function(ci) {
+    if (is.numeric(ci) && length(ci) == 2L) as.numeric(ci) else c(NA_real_, NA_real_)
+  }
+  if (!is.null(s$decomposition) && !is.null(s$decomposition$between_var)) {
+    return(pick(s$decomposition$between_var_ci))
+  }
+  if (!is.null(s$longitudinal)) {
+    return(pick(s$longitudinal$var_stratum_ref_ci))
+  }
+  vc <- s$variance_components
+  if (is.data.frame(vc) && all(c("component", "lower", "upper") %in% names(vc))) {
+    row <- which(vc$component == "Between-stratum (random)")
+    if (length(row) >= 1) return(c(vc$lower[row[1]], vc$upper[row[1]]))
+  }
+  c(NA_real_, NA_real_)
 }
 
 # Assemble the wide model-results data frame from per-model statistics. Columns:
