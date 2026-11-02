@@ -195,9 +195,10 @@ tab                 # printed: model-results table + top/bottom strata
 #>    10    female × Other  111 26.357 [25.202, 27.511] -2.444 [-3.598, -1.289]
 #>   Predicted intervals are conditional (random-effect) only; Stratum RE is the stratum BLUP.
 #> 
-#> Estimates are point values unless a [low, high] interval is shown. The
-#> intercept interval is the Wald one summary() reports; the variance and SD
-#> rows carry no interval.
+#> Estimates are point values unless a [low, high] interval is shown. In the
+#> model results, the intercept interval is the Wald one summary() reports.
+#> With bootstrap = TRUE the variance, SD and VPC rows get parametric
+#> bootstrap percentile intervals.
 tab$models          # the numeric, export-ready results table
 #>                  statistic        null null_lower null_upper    adjusted
 #> 1                Intercept 28.03406530   26.59021   29.47793 30.10251452

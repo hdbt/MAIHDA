@@ -89,8 +89,12 @@ FALSE. Supported for lme4
 models only; <code>brms</code> models always return a posterior credible interval
 (see Details), so <code>bootstrap = TRUE</code> is rejected for them.
 Each simulated response is refitted from the fitted model's estimates
-(<code><a href="https://rdrr.io/pkg/lme4/man/refit.html" class="external-link">lme4::refit()</a></code>); for a growth fit (<code>fit_maihda(id =, time =)</code>) it is
-then refitted as <code><a href="fit_maihda.html">fit_maihda()</a></code> fits the model, from the further starting
+(<code><a href="https://rdrr.io/pkg/lme4/man/refit.html" class="external-link">lme4::refit()</a></code>), except that under the <code>nloptwrap</code> (the <code>lmer</code>
+default) and <code>bobyqa</code> optimisers a random-effect standard deviation below 0.01
+(of the residual one for a Gaussian model) starts at zero, as their first step from
+just above zero is too small to leave it; for a growth fit
+(<code>fit_maihda(id =, time =)</code>) it is then refitted as <code><a href="fit_maihda.html">fit_maihda()</a></code> fits
+the model, from the further starting
 values and, for a <code>glmer</code> fit, across a variance bound (see
 <code><a href="fit_maihda.html">fit_maihda</a></code>, arguments <code>time</code> and <code>stratum_slope</code>), and
 the best fit is kept, at two to five times the time of one refit.

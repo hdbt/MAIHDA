@@ -302,9 +302,10 @@ high]” layout:</p>
 <span><span class="co">#&gt;   (30 strata between ranks 11 and 40 not shown; see $strata)</span></span>
 <span><span class="co">#&gt;   Predicted intervals are conditional (random-effect) only; Stratum RE is the stratum BLUP.</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Estimates are point values unless a [low, high] interval is shown. The</span></span>
-<span><span class="co">#&gt; intercept interval is the Wald one summary() reports; the variance and SD</span></span>
-<span><span class="co">#&gt; rows carry no interval.</span></span></code></pre></div>
+<span><span class="co">#&gt; Estimates are point values unless a [low, high] interval is shown. In the</span></span>
+<span><span class="co">#&gt; model results, the intercept interval is the Wald one summary() reports.</span></span>
+<span><span class="co">#&gt; With bootstrap = TRUE the variance, SD and VPC rows get parametric</span></span>
+<span><span class="co">#&gt; bootstrap percentile intervals.</span></span></code></pre></div>
 <p>The <code>$models</code> element is a <strong>numeric,
 export-ready</strong> data frame (statistics in rows, a column per model
 with <code>*_lower</code>/<code>*_upper</code> interval columns), so it

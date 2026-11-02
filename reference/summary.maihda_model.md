@@ -35,8 +35,12 @@ summary(
   return a posterior credible interval (see Details), so
   `bootstrap = TRUE` is rejected for them. Each simulated response is
   refitted from the fitted model's estimates
-  ([`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html)); for a
-  growth fit (`fit_maihda(id =, time =)`) it is then refitted as
+  ([`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html)), except
+  that under the `nloptwrap` (the `lmer` default) and `bobyqa`
+  optimisers a random-effect standard deviation below 0.01 (of the
+  residual one for a Gaussian model) starts at zero, as their first step
+  from just above zero is too small to leave it; for a growth fit
+  (`fit_maihda(id =, time =)`) it is then refitted as
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   fits the model, from the further starting values and, for a `glmer`
   fit, across a variance bound (see

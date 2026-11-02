@@ -244,9 +244,10 @@ table is returned in <code>$strata</code>; <code><a href="https://rdrr.io/r/base
 <span class="r-out co"><span class="r-pr">#&gt;</span>    10    female × Other  111 26.357 [25.202, 27.511] -2.444 [-3.598, -1.289]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Predicted intervals are conditional (random-effect) only; Stratum RE is the stratum BLUP.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Estimates are point values unless a [low, high] interval is shown. The</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> intercept interval is the Wald one summary() reports; the variance and SD</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> rows carry no interval.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Estimates are point values unless a [low, high] interval is shown. In the</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> model results, the intercept interval is the Wald one summary() reports.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> With bootstrap = TRUE the variance, SD and VPC rows get parametric</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> bootstrap percentile intervals.</span>
 <span class="r-in"><span><span class="va">tab</span><span class="op">$</span><span class="va">models</span>          <span class="co"># the numeric, export-ready results table</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                  statistic        null null_lower null_upper    adjusted</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1                Intercept 28.03406530   26.59021   29.47793 30.10251452</span>

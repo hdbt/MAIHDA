@@ -236,9 +236,10 @@ tab
 #>   (30 strata between ranks 11 and 40 not shown; see $strata)
 #>   Predicted intervals are conditional (random-effect) only; Stratum RE is the stratum BLUP.
 #> 
-#> Estimates are point values unless a [low, high] interval is shown. The
-#> intercept interval is the Wald one summary() reports; the variance and SD
-#> rows carry no interval.
+#> Estimates are point values unless a [low, high] interval is shown. In the
+#> model results, the intercept interval is the Wald one summary() reports.
+#> With bootstrap = TRUE the variance, SD and VPC rows get parametric
+#> bootstrap percentile intervals.
 ```
 
 The `$models` element is a **numeric, export-ready** data frame
