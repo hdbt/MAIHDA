@@ -45,4 +45,6 @@ bootstrap_context(
 
 A list with `vpc` (between-stratum share) and `context_vpc` (contexts'
 total share), each a length-2 interval carrying `n_ok`/`mc_se`
-attributes.
+attributes, and `component_draws`: for the refits that formed the VPC
+interval, each variance of the components table, one column per row
+label.

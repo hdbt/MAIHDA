@@ -125,7 +125,10 @@ interval, the VPC bootstrap or posterior interval, and the bootstrap PCV
 interval) and `NA` otherwise. The intercept carries the same interval
 [`summary()`](https://rdrr.io/r/base/summary.html) reports for it – a
 Wald interval for the likelihood engines, a credible interval for brms.
-The variance and SD rows are point estimates. The
+The between-stratum variance carries the interval
+[`summary()`](https://rdrr.io/r/base/summary.html) reports for it – a
+bootstrap percentile interval when bootstrapped, a credible interval for
+brms – and the SD row the square roots of its bounds. The
 [`print()`](https://rdrr.io/r/base/print.html) method renders the same
 table in the familiar “estimate \[low, high\]” layout.
 

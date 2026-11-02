@@ -181,8 +181,10 @@ statistics are rows, models are columns, and each estimate has accompanying
 when one is available (the intercept's interval, the VPC bootstrap or posterior
 interval, and the bootstrap PCV interval) and <code>NA</code> otherwise. The intercept
 carries the same interval <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports for it – a Wald interval
-for the likelihood engines, a credible interval for brms. The variance and SD
-rows are point estimates. The <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> method renders the same table in the familiar
+for the likelihood engines, a credible interval for brms. The between-stratum
+variance carries the interval <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports for it – a bootstrap
+percentile interval when bootstrapped, a credible interval for brms – and the
+SD row the square roots of its bounds. The <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> method renders the same table in the familiar
 “estimate [low, high]” layout.</p>
 <p>For a <code>"crossed-dimensions"</code> analysis (one model, no null/adjusted pair) the
 results table has a single estimate column and gains “Additive share” /

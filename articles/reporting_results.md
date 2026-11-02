@@ -91,13 +91,19 @@ The **variance components**:
 ``` r
 
 tidy(a, component = "variance")
-#> # A tibble: 3 × 4
-#>   component                 variance    sd proportion
-#>   <chr>                        <dbl> <dbl>      <dbl>
-#> 1 Between-stratum (random)      2.90  1.70     0.0627
-#> 2 Within-stratum (residual)    43.4   6.59     0.937 
-#> 3 Total                        46.3   6.80     1
+#> # A tibble: 3 × 6
+#>   component                 variance    sd proportion conf.low conf.high
+#>   <chr>                        <dbl> <dbl>      <dbl>    <dbl>     <dbl>
+#> 1 Between-stratum (random)      2.90  1.70     0.0627       NA        NA
+#> 2 Within-stratum (residual)    43.4   6.59     0.937        NA        NA
+#> 3 Total                        46.3   6.80     1            NA        NA
 ```
+
+`conf.low` and `conf.high` are `NA` here because the analysis was not
+bootstrapped; with `maihda(bootstrap = TRUE)` they hold percentile
+intervals over the refits behind the VPC interval, and with
+`engine = "brms"` posterior credible intervals, for every row except the
+`Total` and a level-1 variance the model does not estimate.
 
 And the **fixed effects** (`component = "fixed"`). For a two-model
 analysis, `which = "adjusted"` reads the adjusted model instead of the

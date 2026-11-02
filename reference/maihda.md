@@ -215,7 +215,9 @@ maihda(
 - bootstrap:
 
   Logical; compute parametric-bootstrap VPC confidence intervals (lme4
-  only) for both the overall summary and the per-group comparison.
+  only) for both the overall summary and the per-group comparison, and
+  from the same refits the intervals of the variance components (see
+  [`summary.maihda_model`](https://hdbt.github.io/MAIHDA/reference/summary.maihda_model.md)).
   Default FALSE.
 
 - n_boot:
@@ -370,10 +372,12 @@ An object of class `maihda_analysis`: a list with
 - decomposition:
 
   the additive/interaction partition (additive and interaction variances
-  and shares, per-dimension variances and, for a `brms` fit, each
-  dimension's number of levels in `dim_levels` and the realised strata
-  in `realised`, described in the section Realised strata;
-  `"crossed-dimensions"` mode only, `NULL` otherwise)
+  and shares, per-dimension variances, the interval of the
+  between-strata variance in `between_var_ci` when bootstrapped or for a
+  `brms` fit, and, for a `brms` fit, each dimension's number of levels
+  in `dim_levels` and the realised strata in `realised`, described in
+  the section Realised strata; `"crossed-dimensions"` mode only, `NULL`
+  otherwise)
 
 - groups:
 
@@ -652,10 +656,10 @@ a$pcv                          # proportional change in between-stratum variance
 #>   Between-stratum variance is 49.6% lower in Model 2 than in Model 1.
 a$formula                      # null:     BMI ~ Age + (1 | stratum)
 #> BMI ~ Age + (1 | stratum)
-#> <environment: 0x5569ab1d5498>
+#> <environment: 0x5587bdf74548>
 a$adjusted_formula             # adjusted: null + Gender + Race main effects
 #> BMI ~ Age + Gender + Race + (1 | stratum)
-#> <environment: 0x5569af8d0280>
+#> <environment: 0x5587c1fd6d18>
 
 # Omitting them is equivalent -- maihda() adds them to the adjusted model and
 # emits a message; the null and PCV are identical to the explicit form above.
@@ -711,7 +715,7 @@ cc$decomposition$additive_share       # crossed-dimensions analogue of the PCV
 #> [1] 0.6136712
 cc$formula                            # BMI ~ Age + (1|Gender) + (1|Race) + (1|stratum)
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | stratum)
-#> <environment: 0x55699f6649b8>
+#> <environment: 0x5587d20831d0>
 
 # Add a higher-level grouping variable to also compare across its levels.
 # maihda_country_data has a real country grouping (PISA achievement data):

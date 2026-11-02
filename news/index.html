@@ -52,6 +52,16 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="maihda-development-version">MAIHDA (development version)<a class="anchor" aria-label="anchor" href="#maihda-development-version"></a></h2>
+<div class="section level3">
+<h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
+<ul><li>
+<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports intervals for the variance components in <code>variance_components$lower</code> / <code>upper</code>: percentile intervals from the refits of <code>bootstrap = TRUE</code> on lme4 fits, credible intervals on brms fits. <code>tidy(component = "variance")</code>, <code><a href="../reference/maihda_table.html">maihda_table()</a></code> and the Shiny app show them (<a href="https://github.com/hdbt/MAIHDA/issues/74" class="external-link">#74</a>).</li>
+</ul></div>
+<div class="section level3">
+<h3 id="api-changes-development-version">API changes<a class="anchor" aria-label="anchor" href="#api-changes-development-version"></a></h3>
+<ul><li>
+<code>tidy(component = "variance")</code> gains <code>conf.low</code> and <code>conf.high</code>, <code>NA</code> where no interval applies; on a brms fit, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> prints the intervals beside the variances and <code><a href="../reference/maihda_table.html">maihda_table()</a></code> shows them on the between-stratum variance and SD rows.</li>
+</ul></div>
 </div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.3.0" id="maihda-030">MAIHDA 0.3.0<a class="anchor" aria-label="anchor" href="#maihda-030"></a></h2><p class="text-muted">CRAN release: 2026-10-28</p>

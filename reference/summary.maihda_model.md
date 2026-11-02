@@ -29,10 +29,12 @@ summary(
 - bootstrap:
 
   Logical indicating whether to compute parametric bootstrap confidence
-  intervals for VPC/ICC. Default is FALSE. Supported for lme4 models
-  only; `brms` models always return a posterior credible interval (see
-  Details), so `bootstrap = TRUE` is rejected for them. Each simulated
-  response is refitted from the fitted model's estimates
+  intervals for VPC/ICC and, from the same refits, for the variance
+  components (see the section Intervals for the variance components).
+  Default is FALSE. Supported for lme4 models only; `brms` models always
+  return a posterior credible interval (see Details), so
+  `bootstrap = TRUE` is rejected for them. Each simulated response is
+  refitted from the fitted model's estimates
   ([`lme4::refit()`](https://rdrr.io/pkg/lme4/man/refit.html)); for a
   growth fit (`fit_maihda(id =, time =)`) it is then refitted as
   [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
@@ -110,7 +112,11 @@ A maihda_summary object containing:
 
   Data frame of variance components. For a contextual cross-classified
   fit (`fit_maihda(context = )`) each context appears as its own
-  `Context: <name>` row
+  `Context: <name>` row. When an interval was computed
+  (`bootstrap = TRUE` for lme4, always for brms), the columns `lower`
+  and `upper` hold each variance's interval at `conf_level`, `NA` for
+  the `Total` row and for a level-1 variance the model does not estimate
+  (see the section Intervals for the variance components)
 
 - longitudinal:
 
@@ -121,8 +127,10 @@ A maihda_summary object containing:
   `vpc_intercept` and `vpc_slope` described below, each with an interval
   in `vpc_intercept_ci` / `vpc_slope_ci` (a posterior credible interval
   for brms, a bootstrap interval for a bootstrapped lme4 fit, `NA`
-  otherwise) and the basis in `trajectory_vpc_method`. `NULL` for a
-  cross-sectional fit
+  otherwise) and the basis in `trajectory_vpc_method`, and the interval
+  of the between-stratum variance at the reference time in
+  `var_stratum_ref_ci` (`NA` for an lme4 fit without the bootstrap).
+  `NULL` for a cross-sectional fit
 
 - context:
 
@@ -236,9 +244,10 @@ needed. The variance-components table of a cross-sectional `brms` fit
 reports the posterior median of each variance component – the
 between-stratum row is the variance the PCV and the Median Odds Ratio
 use, and its `sd` the posterior median SD – with the total and the
-proportions computed from those rows. The stratum proportion therefore
-equals the headline VPC when the level-1 variance is fixed by the link
-and the stratum is the only random effect, and differs from it slightly
+proportions computed from those rows, and each component's credible
+interval in `lower` and `upper`. The stratum proportion therefore equals
+the headline VPC when the level-1 variance is fixed by the link and the
+stratum is the only random effect, and differs from it slightly
 otherwise, because the median of a ratio is not the ratio of medians; in
 a crossed-dimensions fit, whose between-strata variance is the sum of
 several components, the share those rows add up to can differ markedly
@@ -365,6 +374,32 @@ second at \\n = 1000\\ and tens of seconds at \\n = 6000\\, so
 are too few for the requested level; the check is level-aware: 99, 199
 and 999 are the smallest counts that put ten draws beyond the cut-off at
 the 10%, 5% and 1% levels.
+
+## Intervals for the variance components
+
+With `bootstrap = TRUE` an `lme4` summary gives each estimated variance
+– the between-stratum variance, any other random-effect, context or
+dimension variance, a growth model's covariances, and the residual
+variance of a Gaussian fit – the percentile interval of its values over
+the refits that form the VPC interval, so both intervals come from the
+same draws and no further refit is made. A `brms` summary gives the
+equal-tailed credible interval of the posterior draws whose median (for
+a growth model, mean) the table reports. Both are at `conf_level`. A
+level-1 variance the model does not estimate has no interval: the latent
+\\\pi^2/3\\, 1 or \\\pi^2/6\\ a binomial or ordinal link fixes, and a
+count model's approximation at the marginal expected count. Nor has the
+`Total` row, a sum of the components. The WeMix and ordinal engines
+report point estimates only.
+
+The percentile interval of a between-stratum variance behaves like the
+VPC interval. With few strata and a variance larger than the sampling
+variance of a stratum's mean (in a Gaussian model, the residual variance
+divided by the stratum size), it covers the true variance less often
+than its level says, and when it misses, it lies below it. With a
+variance well below that sampling variance, its lower bound is often
+zero and it covers the true value more often than its level says. The
+interval of a Gaussian residual variance is accurate when the
+observations far outnumber the strata.
 
 ## Two VPCs for a longitudinal fit
 

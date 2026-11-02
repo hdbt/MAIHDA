@@ -80,7 +80,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-11-01</h4>
+            <h4 data-toc-skip class="date">2026-11-02</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/reporting_results.Rmd" class="external-link"><code>vignettes/reporting_results.Rmd</code></a></small>
       <div class="d-none name"><code>reporting_results.Rmd</code></div>
@@ -166,12 +166,19 @@ intersection, with the human-readable label:</p>
 <p>The <strong>variance components</strong>:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">a</span>, component <span class="op">=</span> <span class="st">"variance"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 4</span></span></span>
-<span><span class="co">#&gt;   component                 variance    sd proportion</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> Between-stratum (random)      2.90  1.70     0.062<span style="text-decoration: underline;">7</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> Within-stratum (residual)    43.4   6.59     0.937 </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> Total                        46.3   6.80     1</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 6</span></span></span>
+<span><span class="co">#&gt;   component                 variance    sd proportion conf.low conf.high</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> Between-stratum (random)      2.90  1.70     0.062<span style="text-decoration: underline;">7</span>       <span style="color: #BB0000;">NA</span>        <span style="color: #BB0000;">NA</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> Within-stratum (residual)    43.4   6.59     0.937        <span style="color: #BB0000;">NA</span>        <span style="color: #BB0000;">NA</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> Total                        46.3   6.80     1            <span style="color: #BB0000;">NA</span>        <span style="color: #BB0000;">NA</span></span></span></code></pre></div>
+<p><code>conf.low</code> and <code>conf.high</code> are <code>NA</code>
+here because the analysis was not bootstrapped; with
+<code>maihda(bootstrap = TRUE)</code> they hold percentile intervals
+over the refits behind the VPC interval, and with
+<code>engine = "brms"</code> posterior credible intervals, for every row
+except the <code>Total</code> and a level-1 variance the model does not
+estimate.</p>
 <p>And the <strong>fixed effects</strong>
 (<code>component = "fixed"</code>). For a two-model analysis,
 <code>which = "adjusted"</code> reads the adjusted model instead of the

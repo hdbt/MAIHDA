@@ -50,7 +50,15 @@ tidy(
 
   :   the variance-components table (between-stratum, any other random
       effects, residual, and total) with each component's variance, SD
-      and proportion.
+      and proportion, and the interval of the variance in
+      `conf.low`/`conf.high`: a parametric-bootstrap percentile interval
+      for an lme4 summary made with `bootstrap = TRUE`, a posterior
+      credible interval for brms, at the summary's `conf_level`. `NA`
+      without one (an lme4 summary without the bootstrap, the WeMix and
+      ordinal engines), for the total, and for a level-1 variance the
+      model does not estimate (the latent \\\pi^2/3\\ of a logit link, a
+      count model's approximation). Take square roots for an interval of
+      the SD.
 
   `"fixed"`
 
@@ -71,9 +79,10 @@ tidy(
 
 A `tibble`. For `component = "strata"`: columns `stratum`, `label`,
 `estimate`, `std.error`, `conf.low`, `conf.high`. For `"variance"`:
-`component`, `variance`, `sd`, `proportion`. For `"fixed"`: `term`,
-`estimate`, `std.error`, `statistic`, `df`, `p.value`, `conf.low`,
-`conf.high`.
+`component`, `variance`, `sd`, `proportion`, `conf.low`, `conf.high` (a
+longitudinal fit's table has no `proportion`: its variances change with
+time). For `"fixed"`: `term`, `estimate`, `std.error`, `statistic`,
+`df`, `p.value`, `conf.low`, `conf.high`.
 
 ## Fixed-effect statistics
 
@@ -118,12 +127,12 @@ tidy(m)                       # stratum estimates
 #> 10 10      female × Hispanic × High School  0.287       1.07   -1.81      2.38  
 #> # ℹ 40 more rows
 tidy(m, component = "variance")
-#> # A tibble: 3 × 4
-#>   component                 variance    sd proportion
-#>   <chr>                        <dbl> <dbl>      <dbl>
-#> 1 Between-stratum (random)      2.90  1.70     0.0627
-#> 2 Within-stratum (residual)    43.4   6.59     0.937 
-#> 3 Total                        46.3   6.80     1     
+#> # A tibble: 3 × 6
+#>   component                 variance    sd proportion conf.low conf.high
+#>   <chr>                        <dbl> <dbl>      <dbl>    <dbl>     <dbl>
+#> 1 Between-stratum (random)      2.90  1.70     0.0627       NA        NA
+#> 2 Within-stratum (residual)    43.4   6.59     0.937        NA        NA
+#> 3 Total                        46.3   6.80     1            NA        NA
 tidy(m, component = "fixed")
 #> # A tibble: 2 × 8
 #>   term        estimate std.error statistic    df  p.value  conf.low conf.high

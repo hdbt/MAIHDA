@@ -52,4 +52,6 @@ bootstrap_cc(
 
 A list with `vpc`, `additive_share`, `interaction_share` (and
 `context_vpc` when `ctx_vars` is non-empty), each a length-2 interval
-carrying `n_ok`/`mc_se` attributes.
+carrying `n_ok`/`mc_se` attributes, and `component_draws`: for the
+refits that formed the VPC interval, each variance of the components
+table, one column per row label.
