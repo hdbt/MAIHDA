@@ -8,6 +8,10 @@
 
 * `tidy(component = "variance")` gains `conf.low` and `conf.high`, `NA` where no interval applies; on a brms fit, `summary()` prints the intervals beside the variances and `maihda_table()` shows them on the between-stratum variance and SD rows.
 
+## Bug fixes
+
+* Bootstrap refits of an lme4 fit made with the `nloptwrap` (lmer's default) or `bobyqa` optimiser start a random-effect standard deviation below 0.01 (of the residual one for a Gaussian model) at zero: from the fit's value just above zero they stayed there, so the intervals of `summary(bootstrap = TRUE)`, `calculate_pcv()` and `pcv_importance()` collapsed and those of `df_method = "bootstrap"` ran wide.
+
 # MAIHDA 0.3.0
 
 ## New features

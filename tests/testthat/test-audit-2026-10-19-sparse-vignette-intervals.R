@@ -6,8 +6,11 @@
 #   parametric-bootstrap interval (bootstrap_cc()). On the vignette's fits, 1,000 draws
 #   after set.seed(1): Gaussian 23.4% [0.0%, 89.2%], binary 3.1% [0.0%, 100.0%] (brms
 #   under the vignette's priors: 13% [0.6%, 53%] and 5% [0.0%, 41%]). The draws are
-#   simulated from the fit, so none has a gender effect; every Gaussian refit puts
-#   gender's variance below 1e-4 (1,000 of 1,000), the binary refits in 74%. In 200 data
+#   simulated from the fit, so none has a gender effect; the binary refits put gender's
+#   variance below 1e-4 in 74%. (Since the 2026-11-02 refit-start pass a Gaussian refit
+#   starts gender's variance, just above zero in the fit, at zero, and finds one where a
+#   fresh fit of the draw does; the Gaussian interval is now [0.0%, 84.8%], 85% to 90% at
+#   seeds 1 to 5, where refits held at the fit's value gave 89% to 95%.) In 200 data
 #   sets from data-raw/maihda_sparse_data.R (200 draws each) the Gaussian interval
 #   covered the realised share (the mean-square split of the drawn strata) in all 200,
 #   median interval [0.000, 0.918], the 145 fits with a dimension's variance at zero
@@ -45,10 +48,10 @@ test_that("bootstrap = TRUE gives the sparse vignette's lme4 shares a wide inter
   skip_slow_test()
   # The vignette: from 0% to about 90% on the Gaussian outcome, over the whole range on
   # the binary one. Both are 1,000-draw intervals (the default n_boot): Gaussian upper
-  # ends 0.89 to 0.95 over seeds 1 to 5. The block uses fewer draws, so its bounds are
-  # looser. Gaussian, 200 draws: upper ends 0.88 to 0.92 over seeds 1 to 5, 0.905 to
-  # 0.925 for seed 1's draws refitted on permuted rows. Binary: about 4% of the draws
-  # have every dimension's variance at zero and the interaction's not, a share of 1,
+  # ends 0.85 to 0.90 over seeds 1 to 5. The block uses fewer draws, so its bounds are
+  # looser. Gaussian, 200 draws: upper ends 0.83 to 0.92 over seeds 1 to 5. Binary: about
+  # 4% of the draws have every dimension's variance at zero and the interaction's not, a
+  # share of 1,
   # which puts the upper end of a 1,000-draw interval at 1 or near it in 99% of runs;
   # with 100 draws the upper end falls below 0.8 for 5 to 9% of seeds (seed 1: 0.87,
   # and 0.87 to 0.95 on permuted rows).
@@ -63,15 +66,25 @@ test_that("bootstrap = TRUE gives the sparse vignette's lme4 shares a wide inter
   expect_gt(ci[2], 0.8)
   expect_lt(ci[2], 0.98)
 
-  # The draws are simulated from the fit, whose gender variance is at zero: no draw has
-  # a gender effect, and no refit finds one.
+  # The draws are simulated from the fit, whose gender variance is at zero, so no draw has
+  # a gender effect; a refit finds one where a fresh fit of the same draw does, by chance.
   expect_lt(dec$per_dim[["gender"]], 1e-4)
   model <- m_g$model$model
   sim <- maihda_simulate_lme4(model, nsim = 20)
-  refit_gender <- vapply(sim, function(y) {
-    maihda_random_variances_lme4(sparse_quiet(maihda_refit_draw(model, y)))[["gender"]]
-  }, numeric(1))
-  expect_true(all(refit_gender < 1e-4))
+  fresh <- function(y) {
+    mf <- stats::model.frame(model)
+    mf[[1]] <- y
+    sparse_quiet(lme4::lmer(stats::formula(model), data = mf, REML = lme4::isREML(model)))
+  }
+  reml <- function(f) as.numeric(f@devcomp$cmp[["REML"]])
+  pairs <- vapply(sim, function(y) {
+    r <- sparse_quiet(maihda_refit_draw(model, y))
+    f <- fresh(y)
+    c(maihda_random_variances_lme4(r)[["gender"]], maihda_random_variances_lme4(f)[["gender"]],
+      reml(r) - reml(f))
+  }, numeric(3))
+  expect_lt(max(abs(pairs[1, ] - pairs[2, ])), 1e-3)
+  expect_lt(max(abs(pairs[3, ])), 1e-3)
 
   set.seed(1)
   m_b <- sparse_fit("event", family = "binomial", bootstrap = TRUE, n_boot = 100)

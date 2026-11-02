@@ -5164,6 +5164,9 @@ maihda_simulate_lme4 <- function(model, nsim) {
 # matrix, which carries no na.action of its own. lme4 only ever tests is.null()
 # on the attribute and never reads its value. A fit that dropped no rows is
 # untouched, so those refits stay bit-identical.
+#
+# The refit starts from maihda_refit_start(model): the fit's own estimates, with a
+# variance parameter just above zero started at zero.
 maihda_refit_draw <- function(model, newresp) {
   # The premise above -- "a draw has one value per row of the MODEL FRAME" -- holds
   # for na.omit but NOT for na.exclude, where simulate() pads its draws back out to
@@ -5177,7 +5180,73 @@ maihda_refit_draw <- function(model, newresp) {
     na_act <- attr(tryCatch(model@frame, error = function(e) NULL), "na.action")
     if (!is.null(na_act)) attr(newresp, "na.action") <- na_act
   }
-  lme4::refit(model, newresp = newresp)
+  lme4::refit(maihda_refit_start(model), newresp = newresp)
+}
+
+# A variance parameter of an lme4 fit whose standard deviation is below this share of the
+# residual one starts a bootstrap refit at zero (maihda_refit_start()): a variance under
+# 1/10,000 of the residual variance. Beside larger variance parameters, one at 1.1e-4 to
+# 1.7e-3 left 9 to 37 of 100 refits of crossed-dimensions fits more than 1e-3 REML units
+# above fresh fits of the same draws; from zero, 0 to 2 of them (at most 0.0124).
+.maihda_refit_near_zero <- 0.01
+
+# The optimisers whose first step for a parameter just above its bound is a fraction of its
+# distance from the bound: NLopt's BOBYQA (lmer's default, nloptwrap: three quarters of the
+# distance) and minqa's bobyqa (glmer with nAGQ = 0, or a control naming it: a fifth of the
+# largest parameter).
+.maihda_refit_bound_steppers <- c("nloptwrap", "bobyqa")
+
+# `model` as lme4::refit() should start it: the fit's own estimates, except that a variance
+# parameter whose standard deviation is below .maihda_refit_near_zero of the residual one
+# starts at zero when the fit records one of .maihda_refit_bound_steppers. refit() starts
+# that optimiser at the fit's parameters, and its first step for one just above the bound of
+# zero is a fraction of that distance, on a REML or deviance criterion that is flat at the
+# bound, so the refit stops within a few evaluations at the fit's value: over 200 draws of a
+# fit at 8.3e-9 the stratum variance's 95% range was 6e-17 to 2e-16, where fresh fits of the
+# same draws gave 0 to 0.036, and beside larger variance parameters one at 1e-4 to 1e-3
+# stays where it is in a third of the draws (NLopt scales each parameter's steps by its
+# first one). On the bound NLopt's first step is 1. The other parameters start at the fit, as
+# fit_maihda()'s restarts left them. Other optimisers are left as they are: glmer's
+# Nelder-Mead refit takes first steps of 0.02 and is not held at the bound, and nlminb,
+# started on the bound where the criterion's slope is zero, stays there (on 100 draws of a
+# fit at 1.6e-5 it left 14 more than 1e-3 above fresh fits, none from the fit).
+#
+# lmer's theta is a standard deviation over sigma, the residual standard deviation of a row
+# of weight 1; with precision weights the residual variance the package reports is sigma^2
+# times the mean of 1 / w (maihda_gaussian_residual_variance_lme4()), and theta is measured
+# against that. glmer's theta is a standard deviation on the latent scale.
+#
+# The change is made in a copy of the fit's predictor, which lme4::refit() copies to start
+# from; the fit is not touched, and a fit without such a parameter is returned as it is, as
+# is a fit with a block whose optimiser parameters are not theta (cs(), ar1()).
+maihda_refit_start <- function(model) {
+  optimizer <- tryCatch(model@optinfo$optimizer, error = function(e) NULL)
+  if (!is.character(optimizer) || length(optimizer) != 1L ||
+      !optimizer %in% .maihda_refit_bound_steppers) {
+    return(model)
+  }
+  theta <- tryCatch(lme4::getME(model, "theta"), error = function(e) NULL)
+  lower <- tryCatch(lme4::getME(model, "lower"), error = function(e) NULL)
+  if (!is.numeric(theta) || !is.numeric(lower) || length(theta) != length(lower) ||
+      !isTRUE(all.equal(unname(maihda_lme4_parameters(model)), unname(theta),
+                        tolerance = 1e-6))) {
+    return(model)
+  }
+  sd_share <- theta
+  if (lme4::isLMM(model)) {
+    vc <- lme4::VarCorr(model)
+    resid_scale <- sqrt(maihda_gaussian_residual_variance_lme4(model, vc)) / attr(vc, "sc")
+    if (is.finite(resid_scale) && resid_scale > 0) sd_share <- theta / resid_scale
+  }
+  near <- lower == 0 & theta > 0 & sd_share < .maihda_refit_near_zero
+  if (!any(near)) {
+    return(model)
+  }
+  theta[near] <- 0
+  pp <- model@pp$copy()
+  pp$setTheta(unname(theta))
+  model@pp <- pp
+  model
 }
 
 # Prior (precision/frequency) weights of a RAW fitted model object (glmerMod /
