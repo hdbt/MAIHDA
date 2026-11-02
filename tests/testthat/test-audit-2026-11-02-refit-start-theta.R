@@ -187,11 +187,15 @@ test_that("only a variance parameter strictly between 0 and 0.01 starts at zero"
   d <- flat_strata(stratum_shift)
   m <- quiet(lme4::lmer(y ~ x + (1 + x | a:b:c) + (1 | a), data = d))
   lower <- lme4::getME(m, "lower")
-  base <- lme4::getME(m, "theta")
-  place <- function(theta) fit_at(m, theta)
   diag_i <- which(lower == 0)
   off_i <- which(lower != 0)
   expect_length(off_i, 1L)
+  base <- lme4::getME(m, "theta")
+  # lme4 stops the slope's diagonal entry and the `a` term where the REML criterion is flat at
+  # zero: on it on x86_64, 3.5e-5 above it on the arm64 macOS runner. Both are put on it, so that
+  # the entries placed below are the only ones strictly between 0 and 0.01.
+  base[diag_i[-1]] <- 0
+  place <- function(theta) fit_at(m, theta)
 
   # Below the cut-off, two of them: both started at zero; the other parameters as fitted, and
   # the fit not touched.
