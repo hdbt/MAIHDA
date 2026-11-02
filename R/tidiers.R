@@ -106,7 +106,14 @@ maihda_tidy_fixed <- function(fe) {
 #'       \code{label} when available.}
 #'     \item{\code{"variance"}}{the variance-components table (between-stratum, any
 #'       other random effects, residual, and total) with each component's variance,
-#'       SD and proportion.}
+#'       SD and proportion, and the interval of the variance in
+#'       \code{conf.low}/\code{conf.high}: a parametric-bootstrap percentile interval
+#'       for an \pkg{lme4} summary made with \code{bootstrap = TRUE}, a posterior
+#'       credible interval for \pkg{brms}, at the summary's \code{conf_level}.
+#'       \code{NA} without one (an \pkg{lme4} summary without the bootstrap, the
+#'       WeMix and ordinal engines), for the total, and for a level-1 variance the
+#'       model does not estimate (the latent \eqn{\pi^2/3} of a logit link, a count
+#'       model's approximation). Take square roots for an interval of the SD.}
 #'     \item{\code{"fixed"}}{the fixed-effect estimates in broom's
 #'       \code{term}/\code{estimate}/\code{std.error}/\code{statistic}/
 #'       \code{p.value}/\code{conf.low}/\code{conf.high} shape.}
@@ -118,7 +125,9 @@ maihda_tidy_fixed <- function(fe) {
 #' @return A \code{tibble}. For \code{component = "strata"}: columns
 #'   \code{stratum}, \code{label}, \code{estimate}, \code{std.error},
 #'   \code{conf.low}, \code{conf.high}. For \code{"variance"}: \code{component},
-#'   \code{variance}, \code{sd}, \code{proportion}. For \code{"fixed"}: \code{term},
+#'   \code{variance}, \code{sd}, \code{proportion}, \code{conf.low},
+#'   \code{conf.high} (a longitudinal fit's table has no \code{proportion}: its
+#'   variances change with time). For \code{"fixed"}: \code{term},
 #'   \code{estimate}, \code{std.error}, \code{statistic}, \code{df}, \code{p.value},
 #'   \code{conf.low}, \code{conf.high}.
 #'
@@ -153,8 +162,16 @@ tidy.maihda_summary <- function(x, component = c("strata", "variance", "fixed"),
   component <- match.arg(component)
 
   if (component == "variance") {
-    if (is.null(x$variance_components)) return(tibble::tibble())
-    return(tibble::as_tibble(x$variance_components))
+    vc <- x$variance_components
+    if (is.null(vc)) return(tibble::tibble())
+    # The interval columns are there only when summary() computed an interval; the
+    # tidy shape always carries them. `$<-` keeps the table's attributes (its kind).
+    none <- rep(NA_real_, nrow(vc))
+    vc$conf.low <- if ("lower" %in% names(vc)) as.numeric(vc$lower) else none
+    vc$conf.high <- if ("upper" %in% names(vc)) as.numeric(vc$upper) else none
+    vc$lower <- NULL
+    vc$upper <- NULL
+    return(tibble::as_tibble(vc))
   }
 
   if (component == "fixed") {

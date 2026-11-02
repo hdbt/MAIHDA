@@ -28,7 +28,9 @@ non-count family.}
 \value{
 A list with \code{vpc} (between-stratum share) and \code{context_vpc}
   (contexts' total share), each a length-2 interval carrying
-  \code{n_ok}/\code{mc_se} attributes.
+  \code{n_ok}/\code{mc_se} attributes, and \code{component_draws}: for the refits
+  that formed the VPC interval, each variance of the components table, one column
+  per row label.
 }
 \description{
 Parametric bootstrap (simulate from the fitted model, refit) of the

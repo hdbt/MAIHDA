@@ -35,7 +35,8 @@ test_that("tidy.maihda_model returns broom-shaped strata / variance / fixed tibb
   expect_true(is.numeric(st$estimate) && all(is.finite(st$estimate)))
 
   vc <- tidy(m, component = "variance")
-  expect_identical(names(vc), c("component", "variance", "sd", "proportion"))
+  expect_identical(names(vc), c("component", "variance", "sd", "proportion",
+                                "conf.low", "conf.high"))
   expect_true("Total" %in% vc$component)
   expect_equal(vc$proportion[vc$component == "Total"], 1)
 

@@ -4510,6 +4510,75 @@ maihda_variance_components_table <- function(var_stratum, var_other_random, var_
   )
 }
 
+# Central intervals of variance components from their replicates: the refits of a
+# parametric bootstrap, or a brms fit's posterior draws. `draws` is a named list with one
+# numeric vector per component, named by the row label of the variance-components table
+# it belongs to; a length-1 element is recycled. Only the replicates that are finite in
+# every element are used, which for a bootstrap are the refits that formed the VPC
+# interval. Returns a data frame with component, lower and upper (the alpha / 2 and
+# 1 - alpha / 2 quantiles, type 7, as for the VPC interval).
+maihda_variance_draw_intervals <- function(draws, conf_level) {
+  n <- max(lengths(draws))
+  m <- matrix(vapply(draws, function(v) {
+    v <- as.numeric(v)
+    if (length(v) == 1L) rep(v, n) else v
+  }, numeric(n)), nrow = n)
+  ok <- rowSums(!is.finite(m)) == 0L
+  a <- 1 - conf_level
+  q <- vapply(seq_len(ncol(m)), function(j) {
+    stats::quantile(m[ok, j], c(a / 2, 1 - a / 2), names = FALSE)
+  }, numeric(2))
+  data.frame(component = names(draws), lower = q[1, ], upper = q[2, ],
+             stringsAsFactors = FALSE)
+}
+
+# Add the interval columns `lower` and `upper` to a variance-components table. A row
+# named in `draws` (see maihda_variance_draw_intervals()) gets its interval at
+# conf_level; every other row is NA: the Total, and a level-1 variance the caller left
+# out because the link or the count approximation fixes it. The table keeps its
+# attributes.
+maihda_add_variance_intervals <- function(tab, draws, conf_level) {
+  iv <- maihda_variance_draw_intervals(draws, conf_level)
+  idx <- match(tab$component, iv$component)
+  tab$lower <- iv$lower[idx]
+  tab$upper <- iv$upper[idx]
+  tab
+}
+
+# TRUE when a fit's level-1 variance is a parameter the model estimates, the Gaussian
+# residual variance, and so has an interval. FALSE when the link fixes it (pi^2 / 3,
+# 1, pi^2 / 6, a cumulative model's) and for a count family, whose level-1 variance is
+# an approximation at the marginal expected count.
+maihda_level1_is_estimated <- function(model) {
+  fam <- tryCatch(maihda_family(model), error = function(e) NULL)
+  !is.null(fam) && identical(fam$family, "gaussian")
+}
+
+# The replicates of a single-stratum variance-components table, named by its rows:
+# the stratum, any other random effects, and the level-1 variance when the model
+# estimates it.
+maihda_standard_variance_draws <- function(stratum, other, residual, level1_estimated) {
+  c(list(`Between-stratum (random)` = stratum, `Other random effects` = other),
+    if (isTRUE(level1_estimated)) list(`Within-stratum (residual)` = residual))
+}
+
+# Component replicates -- a matrix with one column per row label of a
+# variance-components table, or such a named list -- as the named list
+# maihda_add_variance_intervals() takes, without the level-1 row (cross-sectional or
+# longitudinal label) when the model does not estimate that variance.
+maihda_component_draw_list <- function(component_draws, level1_estimated) {
+  if (is.matrix(component_draws)) {
+    component_draws <- stats::setNames(
+      lapply(seq_len(ncol(component_draws)), function(j) component_draws[, j]),
+      colnames(component_draws))
+  }
+  if (!isTRUE(level1_estimated)) {
+    component_draws <- component_draws[!names(component_draws) %in%
+                                         c("Within-stratum (residual)", "Within (residual)")]
+  }
+  component_draws
+}
+
 # ---- Cross-classified (group-aware) variance partition ---------------------
 # These generalise the single-"stratum" extractors above to a model with several
 # crossed intercept-only random effects, as fitted by the cross-classified MAIHDA
@@ -6050,7 +6119,8 @@ maihda_vpc_posterior_summary <- function(var_stratum, var_other_random,
 # from these rows: for a model whose level-1 variance is fixed by the link and whose
 # only random effect is the stratum, the stratum proportion is then the posterior
 # median of the per-draw VPC (up to the interpolation between the two middle draws when
-# their number is even), and otherwise close to it.
+# their number is even), and otherwise close to it. `draws` holds the per-draw
+# components themselves, for their credible intervals.
 maihda_vpc_draws_brms <- function(model, conf_level = 0.95, group = "stratum",
                                   point = c("median", "mean"),
                                   approximation = "lognormal") {
@@ -6075,7 +6145,8 @@ maihda_vpc_draws_brms <- function(model, conf_level = 0.95, group = "stratum",
     vpc = vpc,
     var_stratum = stats::median(rv$stratum),
     var_other_random = stats::median(rv$other),
-    var_residual = stats::median(var_residual)
+    var_residual = stats::median(var_residual),
+    draws = list(stratum = rv$stratum, other = rv$other, residual = var_residual)
   )
 }
 
@@ -6087,6 +6158,25 @@ maihda_vpc_has_interval <- function(vpc) {
     !is.null(vpc$ci_lower) && !is.null(vpc$ci_upper) &&
     length(vpc$ci_lower) == 1L && length(vpc$ci_upper) == 1L &&
     is.finite(vpc$ci_lower) && is.finite(vpc$ci_upper)
+}
+
+# The one-line note print() puts under a variance-components table that carries
+# intervals: their kind and level. Rows that are not variance parameters of the model
+# (the Total, a level-1 variance the model does not estimate) have none. NULL for a
+# table without intervals.
+maihda_variance_interval_label <- function(x) {
+  vc <- x$variance_components
+  if (!is.data.frame(vc) || !all(c("lower", "upper") %in% names(vc))) {
+    return(NULL)
+  }
+  level <- format(round(100 * (if (is.null(x$conf_level)) 0.95 else x$conf_level), 1),
+                  trim = TRUE)
+  what <- if (identical(x$vpc$method, "posterior")) {
+    "Posterior %s%% credible"
+  } else {
+    "Bootstrap %s%% percentile"
+  }
+  paste0("(", sprintf(what, level), " intervals of the model's variance parameters)")
 }
 
 # Human-readable label for the VPC interval, distinguishing the lme4 parametric

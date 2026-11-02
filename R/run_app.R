@@ -200,7 +200,8 @@ maihda_app_bootstrap_vpc_cis <- function(null_model, adjusted_model,
 
 # Merge a worker-computed VPC/ICC bootstrap interval into a maihda_summary's vpc
 # component so it carries the same fields summary.maihda_model(bootstrap = TRUE)
-# would set (and maihda_vpc_has_interval()/maihda_vpc_interval_label() recognise).
+# would set (and maihda_vpc_has_interval()/maihda_vpc_interval_label() recognise),
+# and the variance components' intervals from the same refits into its table.
 # Returns the summary unchanged when no usable interval is available.
 maihda_app_attach_vpc_ci <- function(summary_obj, vpc_ci, conf_level = 0.95) {
   if (is.null(summary_obj) || is.null(vpc_ci) || length(vpc_ci) < 2 ||
@@ -215,6 +216,11 @@ maihda_app_attach_vpc_ci <- function(summary_obj, vpc_ci, conf_level = 0.95) {
   summary_obj$vpc$method <- "bootstrap"
   summary_obj$vpc$n_boot_ok <- attr(vpc_ci, "n_ok")
   summary_obj$vpc$mc_se <- attr(vpc_ci, "mc_se")
+  draws <- attr(vpc_ci, "component_draws")
+  if (!is.null(draws) && is.data.frame(summary_obj$variance_components)) {
+    summary_obj$variance_components <- maihda_add_variance_intervals(
+      summary_obj$variance_components, draws, conf_level)
+  }
   summary_obj
 }
 
