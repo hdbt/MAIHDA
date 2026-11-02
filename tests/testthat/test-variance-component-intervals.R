@@ -4,7 +4,9 @@
 # carries an interval at conf_level in `lower` / `upper`:
 #   lme4, bootstrap = TRUE: the alpha / 2 and 1 - alpha / 2 quantiles (type 7) of the
 #     row's value over the parametric-bootstrap refits that form the VPC interval
-#     (stats::simulate() from the fit, lme4::refit() per draw), so no refit is added;
+#     (stats::simulate() from the fit, lme4::refit() per draw from the fit's estimates,
+#     under nloptwrap or bobyqa a standard deviation below 0.01 of the residual one from
+#     zero), so no refit is added;
 #   brms: the same quantiles of the posterior draws whose median (a growth model: mean)
 #     the row reports.
 # No interval for the Total row, nor for a level-1 variance the model does not estimate:
@@ -75,15 +77,39 @@ vci_refit_variances <- function(r) {
   stats::setNames(vc$vcov, vc$grp)
 }
 
+# The start the package refits each draw from, written out: the fit's estimates, with a
+# random-effect standard deviation below 0.01 of the residual one (a theta entry bounded at
+# zero; for lmer measured against sigma * sqrt(mean(1 / w))) at zero when the fit's
+# optimiser is nloptwrap or bobyqa.
+vci_refit_start <- function(fit) {
+  if (!fit@optinfo$optimizer %in% c("nloptwrap", "bobyqa")) return(fit)
+  theta <- lme4::getME(fit, "theta")
+  lower <- lme4::getME(fit, "lower")
+  share <- theta
+  if (lme4::isLMM(fit)) {
+    w <- stats::weights(fit)
+    share <- theta / sqrt(mean(1 / w[is.finite(w) & w > 0]))
+  }
+  near <- lower == 0 & theta > 0 & share < 0.01
+  if (!any(near)) return(fit)
+  theta[near] <- 0
+  pp <- fit@pp$copy()
+  pp$setTheta(unname(theta))
+  fit@pp <- pp
+  fit
+}
+
 # The package's draw sequence written out: stats::simulate() from the fit after
-# set.seed(seed), lme4::refit() per draw. One row of variances per refit.
+# set.seed(seed), lme4::refit() per draw from vci_refit_start(). One row of variances per
+# refit.
 vci_ref_refits <- function(fit, n_boot, seed) {
   nm <- names(vci_refit_variances(fit))
+  start <- vci_refit_start(fit)
   vci_with_seed(seed, {
     sims <- stats::simulate(fit, nsim = n_boot)
     v <- vapply(seq_len(n_boot), function(i) {
       unname(vci_refit_variances(suppressWarnings(suppressMessages(
-        lme4::refit(fit, sims[[i]])))))
+        lme4::refit(start, sims[[i]])))))
     }, numeric(length(nm)))
     matrix(v, nrow = n_boot, byrow = TRUE, dimnames = list(NULL, nm))
   })
@@ -256,7 +282,7 @@ test_that("a weighted lme4 fit's residual interval is that of mean(sigma^2 / w)"
     sd_i <- stats::sigma(fit) / sqrt(w)
     for (i in seq_len(ncol(sims))) sims[[i]] <- sims[[i]] + stats::rnorm(length(w), 0, sd_i)
     t(vapply(seq_len(40), function(i) {
-      r <- suppressWarnings(suppressMessages(lme4::refit(fit, sims[[i]])))
+      r <- suppressWarnings(suppressMessages(lme4::refit(vci_refit_start(fit), sims[[i]])))
       c(vci_refit_variances(r)[["stratum"]], mean(stats::sigma(r)^2 / w))
     }, numeric(2)))
   })

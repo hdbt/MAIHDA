@@ -152,8 +152,12 @@ maihda_tag_role <- function(s, role) {
 #'   models only; \code{brms} models always return a posterior credible interval
 #'   (see Details), so \code{bootstrap = TRUE} is rejected for them.
 #'   Each simulated response is refitted from the fitted model's estimates
-#'   (\code{lme4::refit()}); for a growth fit (\code{fit_maihda(id =, time =)}) it is
-#'   then refitted as \code{fit_maihda()} fits the model, from the further starting
+#'   (\code{lme4::refit()}), except that under the \code{nloptwrap} (the \code{lmer}
+#'   default) and \code{bobyqa} optimisers a random-effect standard deviation below 0.01
+#'   (of the residual one for a Gaussian model) starts at zero, as their first step from
+#'   just above zero is too small to leave it; for a growth fit
+#'   (\code{fit_maihda(id =, time =)}) it is then refitted as \code{fit_maihda()} fits
+#'   the model, from the further starting
 #'   values and, for a \code{glmer} fit, across a variance bound (see
 #'   \code{\link{fit_maihda}}, arguments \code{time} and \code{stratum_slope}), and
 #'   the best fit is kept, at two to five times the time of one refit.
