@@ -1303,8 +1303,8 @@ compare_maihda_groups <- function(formula, data, group, engine = "lme4",
             } else {
               pcv_err
             }
-            # The erroring call tells a one-level factor; the strata the group's null
-            # fit populated tell which dimension it is.
+            # maihda_one_level_factor_error() tells a one-level factor; the strata the
+            # group's null fit populated tell which dimension it is.
             if (pcv_one_level) {
               pcv_single_level_dims[[g]] <- maihda_single_level_dims(fit_obj$model)
             }
@@ -1679,8 +1679,13 @@ maihda_first_line <- function(msg) {
 
 # TRUE when `e` is the error a design matrix stops with for a factor that has a single
 # level among the rows being fitted. Every engine builds its fixed-effect design with
-# model.matrix(), which sets a factor's contrasts through `contrasts<-`, so the erroring
-# CALL identifies the case; its message is translated and is not read.
+# model.matrix(), and the function that raises this error depends on the R version.
+# In R 4.6 and earlier it is `contrasts<-`, called to set the factor's contrasts: the
+# erroring CALL identifies the case, and its message, which is translated, is not read.
+# Later versions stop in model.matrix.default() itself, with a message that names the
+# variable and ends with the sentence `contrasts<-` gives. model.matrix.default() has
+# other errors, so there the sentence is read as well, in the words R has for it now:
+# gettext() in the stats message domain, since several locales translate it.
 maihda_one_level_factor_error <- function(e) {
   cl <- conditionCall(e)
   if (!is.call(cl)) {
@@ -1692,7 +1697,16 @@ maihda_one_level_factor_error <- function(e) {
       (identical(fn[[1L]], as.name("::")) || identical(fn[[1L]], as.name(":::")))) {
     fn <- fn[[3L]]
   }
-  identical(fn, as.name("contrasts<-"))
+  if (identical(fn, as.name("contrasts<-"))) {
+    return(TRUE)
+  }
+  if (!identical(fn, as.name("model.matrix.default"))) {
+    return(FALSE)
+  }
+  msg <- conditionMessage(e)
+  one_level <- gettext("contrasts can be applied only to factors with 2 or more levels",
+                       domain = "R-stats")
+  is.character(msg) && length(msg) == 1L && isTRUE(endsWith(msg, one_level))
 }
 
 # The stratum dimensions that take a single value among the rows a model was fitted to,

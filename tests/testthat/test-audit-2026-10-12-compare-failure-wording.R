@@ -24,6 +24,8 @@
 # builds its design with model.matrix(), which stops in `contrasts<-`; the text is
 # translated ("Kontraste koennen nur auf Faktoren ...", with an o-umlaut, on a German
 # system). Which dimension it is comes from the strata the group's null fit populated.
+# That holds in R 4.6 and earlier; the error later versions raise in
+# model.matrix.default() itself is in test-audit-2026-11-15-rdevel-one-level-factor.R.
 #
 # No block draws a random number: the fixtures are built from fixed sequences.
 
@@ -138,7 +140,7 @@ test_that("a one-level factor is told by its erroring call, not its text", {
 
   # The same words from anywhere else are not it, nor is an error without a call.
   expect_false(maihda_one_level_factor_error(
-    simpleError(words, quote(model.matrix.default(mt, mf)))))
+    simpleError(words, quote(model.frame.default(formula = mt, data = d)))))
   expect_false(maihda_one_level_factor_error(simpleError(words, quote(contrasts(x)))))
   expect_false(maihda_one_level_factor_error(simpleError(words)))
 
