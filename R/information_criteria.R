@@ -87,6 +87,13 @@
 #' densities, so WAIC/LOOIC are likewise reported as \code{NA} (the
 #' \code{estimator} column reads \code{"Bayesian (weighted pseudo-posterior)"}).
 #'
+#' \strong{Criteria that brms cannot compute.} \code{brms::waic()} and
+#' \code{brms::loo()} need the \code{digest} package, which \code{brms} suggests
+#' and does not require, so a library can hold \code{brms} without it. When
+#' \code{brms} stops on a criterion, for that or any other reason, the criterion is
+#' \code{NA} for that model and \code{maihda_ic()} issues one warning that names
+#' the criteria and the models concerned and quotes the error.
+#'
 #' @param ... One or more \code{maihda_model} objects (from \code{\link{fit_maihda}})
 #'   or \code{maihda_analysis} objects (from \code{\link{maihda}}). A
 #'   \code{maihda_analysis} contributes its null model and, when present, its
@@ -165,11 +172,17 @@ maihda_ic <- function(..., model_names = NULL) {
   # with ML (see Details) before reading AIC/BIC.
   ml <- length(named_models) > 1L
 
-  rows <- lapply(named_models, function(nm) {
-    one <- maihda_ic_one(nm$model, ml = ml)
-    data.frame(model = nm$name, one, stringsAsFactors = FALSE)
+  ones <- lapply(named_models, function(nm) maihda_ic_one(nm$model, ml = ml))
+  rows <- lapply(seq_along(ones), function(i) {
+    data.frame(model = named_models[[i]]$name, ones[[i]], stringsAsFactors = FALSE)
   })
   out <- do.call(rbind, rows)
+
+  # A criterion brms stopped on is missing from the table: say so once, with the
+  # models it is missing for and the error.
+  maihda_ic_warn_unavailable(ones, vapply(named_models, function(nm) {
+    as.character(nm$name)
+  }, character(1)), "maihda_ic")
 
   # Primary criterion for the delta column: AIC where the likelihood engines are
   # used, otherwise the Bayesian LOOIC (then WAIC). Only meaningful with >1 row.
@@ -277,7 +290,8 @@ maihda_ic_quiet_but_warn <- function(expr, what) {
 #'   models that may differ in fixed effects).
 #' @return A one-row data frame with \code{n}, \code{estimator}, \code{df},
 #'   \code{logLik}, \code{AIC}, \code{BIC}, \code{WAIC}, \code{LOOIC} (NA where not
-#'   applicable to the engine).
+#'   applicable to the engine). A criterion that \code{brms} stopped on is NA, and
+#'   the row's \code{"ic_unavailable"} attribute holds the error, named by criterion.
 #' @keywords internal
 maihda_ic_one <- function(model, ml = FALSE) {
   if (!inherits(model, "maihda_model")) {
@@ -285,6 +299,8 @@ maihda_ic_one <- function(model, ml = FALSE) {
   }
   fm <- model$model
   na_real <- NA_real_
+  # The error of each criterion brms stopped on, named by criterion.
+  stopped <- character(0)
   row <- list(
     n = NA_integer_, estimator = NA_character_, df = na_real,
     logLik = na_real, AIC = na_real, BIC = na_real,
@@ -403,17 +419,25 @@ maihda_ic_one <- function(model, ml = FALSE) {
       # progress messages (kept quiet) alongside genuine reliability warnings (high
       # Pareto-k, low ESS); the latter are surfaced via maihda_ic_quiet_but_warn
       # rather than suppressed, so a criterion is never reported as if reliable when
-      # its own diagnostics say otherwise.
+      # its own diagnostics say otherwise. A criterion brms stops on stays NA, and
+      # its error is kept for the one warning the caller raises
+      # (maihda_ic_warn_unavailable()).
       row$estimator <- "Bayesian"
       if (requireNamespace("brms", quietly = TRUE)) {
+        stopped_on <- function(criterion) {
+          function(e) {
+            stopped[[criterion]] <<- paste(conditionMessage(e), collapse = " ")
+            na_real
+          }
+        }
         row$WAIC <- tryCatch({
           w <- maihda_ic_quiet_but_warn(brms::waic(fm), "WAIC")
           as.numeric(w$estimates["waic", "Estimate"])
-        }, error = function(e) na_real)
+        }, error = stopped_on("WAIC"))
         row$LOOIC <- tryCatch({
           l <- maihda_ic_quiet_but_warn(brms::loo(fm), "PSIS-LOO")
           as.numeric(l$estimates["looic", "Estimate"])
-        }, error = function(e) na_real)
+        }, error = stopped_on("LOOIC"))
       }
     }
 
@@ -423,7 +447,51 @@ maihda_ic_one <- function(model, ml = FALSE) {
     row$estimator <- "pseudo-ML (weighted)"
   }
 
-  as.data.frame(row, stringsAsFactors = FALSE)
+  out <- as.data.frame(row, stringsAsFactors = FALSE)
+  if (length(stopped) > 0L) {
+    attr(out, "ic_unavailable") <- stopped
+  }
+  out
+}
+
+# One warning for the criteria brms could not compute. `rows` are the one-row frames
+# of maihda_ic_one(), in the order of `model_names`: a row whose criteria brms
+# stopped on carries the errors in its "ic_unavailable" attribute, named by
+# criterion. Models stopped on the same criteria by the same error are listed
+# together, so a cause every model shares -- a package brms needs and does not find
+# -- reads as one sentence. `caller` is the function that reports. Returns,
+# invisibly, whether it warned.
+maihda_ic_warn_unavailable <- function(rows, model_names, caller) {
+  stopped <- lapply(rows, function(row) attr(row, "ic_unavailable", exact = TRUE))
+  what <- character(0)
+  why <- character(0)
+  who <- list()
+  for (i in which(lengths(stopped) > 0L)) {
+    errors <- gsub("\\s+", " ", trimws(stopped[[i]]))
+    errors[!nzchar(errors)] <- "an error without a message"
+    for (error in unique(errors)) {
+      criteria <- maihda_and_list(names(stopped[[i]])[errors == error])
+      at <- which(what == criteria & why == error)
+      if (length(at) == 0L) {
+        what <- c(what, criteria)
+        why <- c(why, error)
+        who[[length(what)]] <- model_names[i]
+      } else {
+        who[[at]] <- c(who[[at]], model_names[i])
+      }
+    }
+  }
+  if (length(what) == 0L) {
+    return(invisible(FALSE))
+  }
+  models <- vapply(who, function(m) maihda_and_list(sprintf("'%s'", m)), character(1))
+  one_error <- length(unique(why)) == 1L
+  warning(caller, "(): brms could not compute ",
+          paste(sprintf("%s for %s", what, models), collapse = "; "),
+          " (missing from the table). ",
+          if (one_error) "The error was: " else "The errors were, in that order: ",
+          paste(if (one_error) why[1] else why, collapse = " | "), call. = FALSE)
+  invisible(TRUE)
 }
 
 # TRUE for a glmer fit of a family with a scale parameter -- a Gaussian with a

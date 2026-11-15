@@ -102,6 +102,13 @@ treated the same way: its sampling weights enter as likelihood weights, giving a
 pseudo-posterior whose weighted pointwise log-likelihoods are not log predictive
 densities, so WAIC/LOOIC are likewise reported as \code{NA} (the
 \code{estimator} column reads \code{"Bayesian (weighted pseudo-posterior)"}).
+
+\strong{Criteria that brms cannot compute.} \code{brms::waic()} and
+\code{brms::loo()} need the \code{digest} package, which \code{brms} suggests
+and does not require, so a library can hold \code{brms} without it. When
+\code{brms} stops on a criterion, for that or any other reason, the criterion is
+\code{NA} for that model and \code{maihda_ic()} issues one warning that names
+the criteria and the models concerned and quotes the error.
 }
 \examples{
 \donttest{

@@ -17,8 +17,9 @@
 #'   comparing model \emph{structures}: \code{AIC}/\code{BIC} for the likelihood
 #'   engines (lme4, ordinal) and \code{WAIC}/\code{LOOIC} for brms (see
 #'   \code{\link{maihda_ic}}). Default TRUE. REML \code{lmer} fits are refitted with
-#'   ML so AIC/BIC are comparable across different fixed effects. Set FALSE for the
-#'   lean VPC-only table.
+#'   ML so AIC/BIC are comparable across different fixed effects. A criterion that
+#'   brms cannot compute, for instance without the \code{digest} package, is left
+#'   out with a warning. Set FALSE for the lean VPC-only table.
 #'
 #' @return A \code{maihda_comparison} data frame of VPC/ICC by model. Interval
 #'   columns (\code{ci_lower}/\code{ci_upper}) are included when any model supplies
@@ -255,11 +256,16 @@ compare_maihda <- function(..., model_names = NULL, bootstrap = FALSE,
     stop("'ic' must be TRUE or FALSE.", call. = FALSE)
   }
   if (isTRUE(ic)) {
+    ic_rows <- NULL
     ic_cols <- tryCatch({
       ic_rows <- lapply(models, function(m) maihda_ic_one(m, ml = TRUE))
       ic_df <- do.call(rbind, ic_rows)
       ic_df[, c("AIC", "BIC", "WAIC", "LOOIC"), drop = FALSE]
     }, error = function(e) NULL)
+    # A criterion brms stopped on is missing from the table: say so once, with the
+    # models it is missing for and the error. Raised outside the guard above, which
+    # would swallow it under options(warn = 2).
+    maihda_ic_warn_unavailable(ic_rows, model_names, "compare_maihda")
     if (!is.null(ic_cols)) {
       ic_cols <- ic_cols[, vapply(ic_cols, function(col) !all(is.na(col)),
                                   logical(1)), drop = FALSE]

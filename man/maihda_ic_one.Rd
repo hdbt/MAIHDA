@@ -16,7 +16,8 @@ models that may differ in fixed effects).}
 \value{
 A one-row data frame with \code{n}, \code{estimator}, \code{df},
   \code{logLik}, \code{AIC}, \code{BIC}, \code{WAIC}, \code{LOOIC} (NA where not
-  applicable to the engine).
+  applicable to the engine). A criterion that \code{brms} stopped on is NA, and
+  the row's \code{"ic_unavailable"} attribute holds the error, named by criterion.
 }
 \description{
 Internal worker for \code{\link{maihda_ic}}: returns a one-row data frame of the
