@@ -343,29 +343,38 @@ test_that("crossed-dimensions brms summary returns posterior shares with interva
   skip_if_not_installed("brms")
 
   d <- make_cc_data(seed = 7100, n = 900)
-  # At the old chains = 2, iter = 500 the chains had not mixed. Four variance
-  # components (three dimensions plus the interaction) need iter = 2000 and
-  # adapt_delta = 0.99 -- at 0.95 a single divergent transition survives, which
-  # the package's bar (max Rhat <= 1.01 AND zero divergences) rightly rejects.
-  # adapt_delta = 0.99 roughly doubles the per-iteration cost (838s here against
-  # 505s at 0.95); the block is gated behind MAIHDA_TEST_BRMS and skip_on_cran,
-  # so correctness wins over wall clock.
-  # set.seed() rather than seed =: maihda()'s 'seed' formal is the response-scale
-  # VPC simulation seed and never reaches brms::brm(), so it does not pin the
-  # sampler (maihda() now warns when the two are combined). brms draws its seed
-  # from R's RNG, so this does pin it.
-  set.seed(20260831)
-  cc <- suppressWarnings(suppressMessages(
-    maihda(y ~ x + (1 | a:b:cc), data = d, engine = "brms",
-           decomposition = "crossed-dimensions",
-           chains = 2, iter = 2000, warmup = 1000, refresh = 0,
-           control = list(adapt_delta = 0.99))))
+  # Sampler settings are load-bearing, and this is the one fixture with no
+  # comfortable setting. Four variance components (three dimensions of three
+  # levels each, plus the interaction) put most draws at the sampler's tree-depth
+  # limit, so the chains mix slowly. Longer chains bring the largest Rhat under
+  # 1.01, but every further draw is one more chance of a divergent transition,
+  # which the package's bar (max Rhat <= 1.01 AND zero divergences) rightly
+  # rejects. Over seeds 1 to 20 on GitHub's ubuntu-26.04 runner (2026-11-15), 2
+  # chains of 1000 draws at adapt_delta = 0.99 miss the bar for 4 seeds, 4 chains
+  # of 1000 draws for 2, and 2 chains of 3000 draws at 0.999 for 2; 0.9999, a
+  # dense metric and a tree depth of 12 all do worse (5 to 20 seeds). So 2 chains
+  # of 3000 draws at 0.999 it is, with three seeds: about nine minutes a fit on
+  # that runner. The block is gated behind MAIHDA_TEST_BRMS and skip_on_cran, so
+  # correctness wins over wall clock.
+  #
+  # The seed reaches the sampler through R's stream, not through seed =: maihda()'s
+  # 'seed' formal is the response-scale VPC simulation seed and never reaches
+  # brms::brm(), so it does not pin the sampler (maihda() now warns when the two
+  # are combined). brms draws its seed from R's RNG, and stan_fixture() sets that
+  # from the seed before each fit, so this does pin it.
+  #
   # Fixture guard -- see the note in test-ordinal-engine.R. NOTE: the
   # crossed-dimensions path returns a single fitted model; cc$model_adjusted is
   # NULL here (unlike the longitudinal decomposition, which carries both), so
   # cc$model is the only object with diagnostics to assert on.
+  cc <- stan_fixture("crossed-dimensions", function(seed) suppressWarnings(suppressMessages(
+    maihda(y ~ x + (1 | a:b:cc), data = d, engine = "brms",
+           decomposition = "crossed-dimensions",
+           chains = 2, iter = 4000, warmup = 1000, refresh = 0,
+           control = list(adapt_delta = 0.999)))),
+    seeds = c(1, 2, 3),
+    diagnostics = function(x) x$model$diagnostics)
   expect_null(cc$model_adjusted)
-  expect_true(isTRUE(cc$model$diagnostics$converged))
 
   dcmp <- cc$decomposition
   expect_identical(dcmp$method, "posterior")

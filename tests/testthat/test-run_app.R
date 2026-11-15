@@ -477,6 +477,7 @@ test_that("Model-comparison module renders the nested null-vs-adjusted compariso
 
 test_that("compare tab shows the crossed-dimensions empty state before a comparison", {
   skip_on_cran()
+  for (pkg in MAIHDA:::maihda_app_required_packages()) skip_if_not_installed(pkg)
   shiny::testServer(
     MAIHDA:::mod_compare_server,
     args = list(

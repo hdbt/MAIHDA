@@ -652,20 +652,26 @@ test_that("brms cumulative summary returns a draws-based latent VPC", {
   # iter = 500 this fit reached max Rhat 1.08 with a bulk ESS of 26 on the
   # thresholds -- brms warned "some Rhats are > 1.05" out of the summary() call
   # below, and every assertion still passed, so the block proved only that the
-  # code ran. iter = 2000 (1000 warmup) converges; keep the seed so the chains
-  # are reproducible and the convergence assertion cannot flake.
-  m <- suppressWarnings(suppressMessages(
-    fit_maihda(y ~ x + (1 | gender:race:edu), data = d, family = "ordinal",
-               engine = "brms", chains = 2, iter = 2000, warmup = 1000,
-               refresh = 0, seed = 1)))
+  # code ran. Over seeds 1 to 20 on GitHub's ubuntu-26.04 runner (2026-11-15), 2
+  # chains of 1000 draws still leave a largest Rhat above 1.01 for 2 seeds; 2
+  # chains of 3000 draws for none (largest 1.004), with no divergent transition at
+  # the default adapt_delta. The seeds keep the chains reproducible on one
+  # platform.
+  #
   # Guard the fixture: if a future brms/Stan release degrades the mixing, this
   # fails loudly instead of letting the weak assertions below pass on noise.
-  # Also exercises maihda_fit_diagnostics()'s brms branch on a real Stan fit; the
-  # verdict's direction and its 1.01 cut are pinned deterministically against mock
-  # fits in test-audit-2026-07-26.R and test-audit-2026-08-31.R, which is what
-  # keeps this guard from being vacuous. isTRUE() so a dropped or NULL
+  # stan_fixture() (helper-stan-tests.R) keeps the first of up to three seeds whose
+  # fit meets the package's bar and fails when none does, since another platform
+  # draws other numbers from the same seed. Also exercises
+  # maihda_fit_diagnostics()'s brms branch on a real Stan fit; the verdict's
+  # direction and its 1.01 cut are pinned deterministically against mock fits in
+  # test-audit-2026-07-26.R and test-audit-2026-08-31.R, which is what keeps this
+  # guard from being vacuous. Only a verdict of TRUE passes, so a dropped or NULL
   # $diagnostics fails here rather than passing quietly.
-  expect_true(isTRUE(m$diagnostics$converged))
+  m <- stan_fixture("ordinal", function(seed) suppressWarnings(suppressMessages(
+    fit_maihda(y ~ x + (1 | gender:race:edu), data = d, family = "ordinal",
+               engine = "brms", chains = 2, iter = 4000, warmup = 1000,
+               refresh = 0, seed = seed))), seeds = c(1, 2, 3))
 
   s <- summary(m)
   expect_true(s$vpc$estimate > 0 && s$vpc$estimate < 1)

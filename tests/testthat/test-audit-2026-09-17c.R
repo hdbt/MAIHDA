@@ -214,6 +214,9 @@ test_that("several arguments, two spellings of one, and a look-alike name", {
   expect_identical(obs$msg, both)
   expect_length(obs$warns, 0)
 
+  # Spellings are resolved against brms::brm(), so the rest needs brms installed.
+  skip_if_not_installed("brms")
+
   # Renaming must not merge two spellings of one argument silently: both are named.
   dup <- c17_compare(list(f = c17_gaussian, extra = list(engine = "brms"),
                           dots = list(subset = d$keep, subs = d$keep)), d)

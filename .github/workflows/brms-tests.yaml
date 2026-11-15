@@ -57,9 +57,15 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           # Keep the dependency surface lean and reliable: hard deps only, plus
-          # brms + a Stan backend (rstan, the brms default) and the test runner.
-          # Listing brms/rstan as required means the job fails fast if they cannot
-          # be installed, rather than letting the tests silently skip.
+          # brms + a Stan backend (rstan, the brms default), digest and the test
+          # runner. Listing brms/rstan as required means the job fails fast if they
+          # cannot be installed, rather than letting the tests silently skip.
+          # brms::waic() and brms::loo() need digest, which brms only suggests.
+          #
+          # The other optional packages (WeMix, ordinal, the Shiny app's packages,
+          # ...) are left out on purpose: this is the one job that runs the suite
+          # without them, so a test that uses one of them without a skip fails
+          # here. R-CMD-check installs them and runs their tests on every push.
           #
           # rstan's Stan-model compilation #includes Boost/Eigen/Stan headers from
           # its LinkingTo packages (BH, StanHeaders, RcppEigen, RcppParallel, Rcpp).
@@ -78,8 +84,18 @@ jobs:
             any::RcppEigen
             any::RcppParallel
             any::Rcpp
+            any::digest
             any::testthat
             any::pkgload
+          # A cache of its own. The action's cache key is the runner's OS, the R
+          # version, the architecture, cache-version and a hash of the resolved
+          # packages; when that key is not found it restores the newest cache
+          # that shares the part before the hash. Under the default cache-version
+          # that part is shared with the workflows that install every Suggests
+          # package, and this job would restore their whole library. The value
+          # must not start with another workflow's cache-version and a hyphen
+          # ("1-"), or their restore would match this job's key in turn.
+          cache-version: brms-tests-1
 
       - name: Report environment and Stan backend
         run: |
@@ -87,6 +103,16 @@ jobs:
           cat("NOT_CRAN=", Sys.getenv("NOT_CRAN"), "\n", sep = "")
           cat("brms ", as.character(packageVersion("brms")), "\n", sep = "")
           cat("rstan ", as.character(packageVersion("rstan")), "\n", sep = "")
+          cat("digest ", as.character(packageVersion("digest")), "\n", sep = "")
+          # Which of the package's Suggests this library holds. Expected: brms and
+          # what it brings in itself (future), digest, the test runner, and MASS,
+          # which comes with R; none of the others.
+          sug <- gsub("\\s*\\([^)]*\\)", "", read.dcf("DESCRIPTION", fields = "Suggests")[1, 1])
+          sug <- trimws(strsplit(sug, ",")[[1]])
+          here <- vapply(sug, function(p) nzchar(system.file(package = p)), logical(1))
+          cat("Suggests installed here: ", paste(sug[here], collapse = ", "), "\n", sep = "")
+          cat("Suggests not installed here: ", paste(sug[!here], collapse = ", "), "\n", sep = "")
+          cat("Packages in the library: ", nrow(installed.packages()), "\n", sep = "")
           # The Stan-compilation headers. A missing BH include dir is the exact
           # condition behind "Boost not found"; surface it (and fail loudly) before
           # the slow Stan compiles rather than mid-suite.
@@ -107,60 +133,119 @@ jobs:
           # contextual, interactions, longitudinal, negbinomial, ordinal-engine and
           # tidiers -- and a name/path filter silently excluded those Stan paths,
           # letting them regress green. Running everything exercises every gated
-          # path; non-brms optional tests (WeMix, ordinal, ...) skip cleanly when
-          # their package is absent.
+          # path; a test of an optional package this job does not install (WeMix,
+          # ordinal, the Shiny app, ...) skips, and a test that uses one without a
+          # skip errors.
+          #
+          # The Stan fixtures (tests/testthat/helper-stan-tests.R) write one line
+          # per fit to this file.
+          fixture_log <- tempfile("stan-fixtures-")
+          Sys.setenv(MAIHDA_STAN_FIXTURE_LOG = fixture_log)
           res <- testthat::test_local(
             ".",
             reporter = "summary",
             stop_on_failure = FALSE
           )
           df <- as.data.frame(res)
+          # Every check below reports before the step fails on any of them.
+          problems <- character(0)
+
+          # What skipped, by reason: the tests of the optional packages this job
+          # does not install, and nothing gated on MAIHDA_TEST_BRMS (check 2).
+          reasons <- unlist(lapply(res, function(el) {
+            vapply(Filter(function(r) inherits(r, "expectation_skip"), el$results),
+                   conditionMessage, character(1))
+          }))
+          reasons <- sort(table(sub("^Reason: ", "", reasons)), decreasing = TRUE)
+          cat("\nSkipped test blocks by reason:\n")
+          if (length(reasons) > 0) {
+            cat(sprintf("  %4d  %s\n", as.integer(reasons), names(reasons)), sep = "")
+          } else {
+            cat("  none\n")
+          }
+
+          # Which seed each Stan fixture kept. A fixture that needed more than its
+          # first seed still passes, so it is said here: the next change of
+          # platform may use up the seeds that are left.
+          cat("\nStan fixtures, one line per fit:\n")
+          if (file.exists(fixture_log)) {
+            fx <- utils::read.delim(
+              fixture_log, header = FALSE, quote = "",
+              col.names = c("fixture", "seed", "converged", "seconds", "reason"),
+              colClasses = c("character", "character", "logical", "numeric", "character"))
+            print(fx, row.names = FALSE, right = FALSE)
+            for (f in unique(fx$fixture[!fx$converged])) {
+              one <- fx[fx$fixture == f, , drop = FALSE]
+              cat(sprintf(
+                "::warning::Stan fixture '%s': seed %s did not meet the convergence bar; %s.\n",
+                f, paste(one$seed[!one$converged], collapse = ", "),
+                if (any(one$converged)) {
+                  paste("seed", one$seed[one$converged][1], "was kept")
+                } else {
+                  "no seed did"
+                }))
+            }
+          } else {
+            cat("  none recorded\n")
+          }
 
           # 1) No failures or errors anywhere in the suite.
           if (sum(df$failed) > 0 || any(df$error)) {
-            stop(sprintf("Test failures detected (failed=%d, errors=%d).",
-                         sum(df$failed), sum(df$error)))
+            problems <- c(problems, sprintf(
+              "Test failures detected (failed=%d, errors=%d).",
+              sum(df$failed), sum(df$error)))
           }
 
-          # 2) Dynamic tripwire: with the brms gate open, NO test gated on
-          #    MAIHDA_TEST_BRMS may skip. Walk every expectation and flag any skip
-          #    whose reason mentions the opt-in -- that means a Stan path went
-          #    unexercised (a new gated file, a drifted gate, a misconfigured env).
+          # 2) Tripwire: with the brms gate open, every test block gated on
+          #    MAIHDA_TEST_BRMS must have run. stan_gated_not_run() reads the gated
+          #    blocks from the test sources and lists each one that skipped,
+          #    whatever the reason, or that is missing from the results: a gated
+          #    block that also needs a package this job does not install skips
+          #    with that package's reason, which does not mention the gate. Any
+          #    such block means a Stan path went unexercised (a new gated file, a
+          #    drifted gate, a misconfigured env, a package to add to this job).
           #    This adapts automatically as gated tests are added, with no list to
           #    maintain.
-          brms_skips <- character(0)
-          for (el in res) {
-            for (r in el$results) {
-              if (inherits(r, "expectation_skip") &&
-                  grepl("MAIHDA_TEST_BRMS", conditionMessage(r), fixed = TRUE)) {
-                brms_skips <- c(brms_skips, sprintf("%s :: %s", el$file, el$test))
-              }
-            }
+          source("tests/testthat/helper-stan-tests.R")
+          gated <- stan_gated_blocks("tests/testthat")
+          not_run <- stan_gated_not_run(res, "tests/testthat")
+          cat(sprintf("\nTest blocks gated on MAIHDA_TEST_BRMS: %d in the test sources, %d did not run.\n",
+                      nrow(gated), nrow(not_run)))
+          if (nrow(gated) == 0) {
+            problems <- c(problems, paste(
+              "No test block gated on MAIHDA_TEST_BRMS was found in tests/testthat,",
+              "so the tripwire checked nothing."))
           }
-          if (length(brms_skips) > 0) {
-            stop("Stan-backed (brms) test(s) skipped despite MAIHDA_TEST_BRMS=true:\n  ",
-                 paste(unique(brms_skips), collapse = "\n  "))
+          if (nrow(not_run) > 0) {
+            problems <- c(problems, paste0(
+              "Stan-backed (brms) test(s) did not run despite MAIHDA_TEST_BRMS=true:\n  ",
+              paste(sprintf("%s :: %s (%s)", not_run$file, not_run$test, not_run$why),
+                    collapse = "\n  ")))
           }
 
           # 3) Flagship sanity check: the two canonical brms tests must be present
           #    and passed, so a suite that somehow ran zero Stan tests cannot go
           #    green on the skip-tripwire alone.
-          gated <- c(
+          canonical <- c(
             "fit_maihda fits a binary outcome with brms via bernoulli()",
             "brms summary returns a posterior credible interval for the VPC/ICC"
           )
-          status <- vapply(gated, function(nm) {
+          status <- vapply(canonical, function(nm) {
             row <- df[df$test == nm, , drop = FALSE]
             if (nrow(row) == 0) return("missing")
             if (isTRUE(row$skipped[1])) return("skipped")
             if (row$failed[1] > 0 || isTRUE(row$error[1])) return("failed")
             "passed"
           }, character(1))
-          print(data.frame(test = gated, status = status, row.names = NULL))
+          print(data.frame(test = canonical, status = status, row.names = NULL))
           if (any(status != "passed")) {
-            stop("Canonical Stan-backed brms test(s) did not run and pass: ",
-                 paste(sprintf("%s = %s", gated, status), collapse = "; "))
+            problems <- c(problems, paste0(
+              "Canonical Stan-backed brms test(s) did not run and pass: ",
+              paste(sprintf("%s = %s", canonical, status), collapse = "; ")))
           }
 
+          if (length(problems) > 0) {
+            stop(paste(problems, collapse = "\n\n"))
+          }
           cat("\nStan-backed brms tests ran and passed.\n")
         shell: Rscript {0}

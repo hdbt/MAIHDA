@@ -681,16 +681,19 @@ test_that("contextual brms summary returns posterior shares with intervals", {
   skip_if_not_installed("brms")
 
   d <- make_context_data(seed = 8200, n = 900, n_sites = 20)
-  # At the old chains = 2, iter = 500 this fit had not mixed. Two variance
-  # components over 6 strata and 20 sites make the intercept/sd funnel tight
-  # enough that iter = 2000 (1000 warmup) is not sufficient on its own: at
-  # adapt_delta = 0.95 one divergent transition survives, so 0.99 it is.
-  m <- suppressWarnings(suppressMessages(
-    fit_maihda(y ~ x + (1 | g1:g2), data = d, engine = "brms", context = "site",
-               chains = 2, iter = 2000, warmup = 1000, refresh = 0, seed = 1,
-               control = list(adapt_delta = 0.99))))
+  # Sampler settings are load-bearing. Two variance components over 6 strata and
+  # 20 sites make the intercept/sd funnel tight enough that adapt_delta = 0.95
+  # leaves a divergent transition, so 0.99 it is; and they mix slowly, so the
+  # chains have to be long for the largest Rhat to stay under 1.01. Over seeds 1
+  # to 20 on GitHub's ubuntu-26.04 runner (2026-11-15), 2 chains of 1000 draws
+  # miss the package's bar for 11 seeds and 4 chains of 1000 draws for 8, always
+  # on Rhat and never on a divergent transition; 4 chains of 2000 draws for none
+  # (largest Rhat 1.009).
   # Fixture guard -- see the note in test-ordinal-engine.R.
-  expect_true(isTRUE(m$diagnostics$converged))
+  m <- stan_fixture("contextual", function(seed) suppressWarnings(suppressMessages(
+    fit_maihda(y ~ x + (1 | g1:g2), data = d, engine = "brms", context = "site",
+               chains = 4, iter = 3000, warmup = 1000, refresh = 0, seed = seed,
+               control = list(adapt_delta = 0.99)))), seeds = c(1, 2, 3))
 
   s <- summary(m)
   expect_identical(s$vpc$method, "posterior")
