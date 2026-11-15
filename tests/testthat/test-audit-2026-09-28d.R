@@ -278,6 +278,8 @@ test_that("real brms fits: different trials are refused end to end (opt-in Stan)
   skip_if(Sys.getenv("MAIHDA_TEST_BRMS") != "true",
           "brms Stan tests are opt-in; set MAIHDA_TEST_BRMS=true to run them")
   skip_if_not_installed("brms")
+  # brms::waic() and brms::loo(), behind maihda_ic(), need digest.
+  skip_if_not_installed("digest")
   d <- a28d_data()
   dB <- d
   dB$n <- 24L

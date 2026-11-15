@@ -44,6 +44,7 @@ Suggests:
     shinyjs,
     shinycssloaders,
     brms (>= 2.15.0),
+    digest,
     WeMix (>= 4.0.0),
     ordinal,
     pbkrtest,

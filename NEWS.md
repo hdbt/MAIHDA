@@ -13,6 +13,7 @@
 * Bootstrap refits of an lme4 fit made with the `nloptwrap` (lmer's default) or `bobyqa` optimiser start a random-effect standard deviation below 0.01 (of the residual one for a Gaussian model) at zero: from the fit's value just above zero they stayed there, so the intervals of `summary(bootstrap = TRUE)`, `calculate_pcv()` and `pcv_importance()` collapsed and those of `df_method = "bootstrap"` ran wide.
 * `print()` on a `maihda_table()` now names the intervals the table shows: posterior credible intervals on a brms fit, where it called the intercept's a Wald interval, and parametric bootstrap percentile intervals on a bootstrapped lme4 fit.
 * `compare_maihda_groups()` again names a stratum dimension with a single level as the cause of a failed PCV decomposition under R-devel, where `model.matrix()` raises that error itself.
+* `maihda_ic()` and `compare_maihda()` warn, quoting the error, when brms cannot compute WAIC or LOOIC, as it cannot without the digest package (now in Suggests); they returned the table without those criteria and said nothing.
 
 # MAIHDA 0.3.0
 

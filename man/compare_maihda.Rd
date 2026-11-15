@@ -33,8 +33,9 @@ brms credible interval). Default is 0.95.}
 comparing model \emph{structures}: \code{AIC}/\code{BIC} for the likelihood
 engines (lme4, ordinal) and \code{WAIC}/\code{LOOIC} for brms (see
 \code{\link{maihda_ic}}). Default TRUE. REML \code{lmer} fits are refitted with
-ML so AIC/BIC are comparable across different fixed effects. Set FALSE for the
-lean VPC-only table.}
+ML so AIC/BIC are comparable across different fixed effects. A criterion that
+brms cannot compute, for instance without the \code{digest} package, is left
+out with a warning. Set FALSE for the lean VPC-only table.}
 }
 \value{
 A \code{maihda_comparison} data frame of VPC/ICC by model. Interval
