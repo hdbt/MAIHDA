@@ -59,25 +59,29 @@ test_that("auto-bin cut-points ignore rows the fit drops (finding 2)", {
   expect_equal(nobs(fa$model), nobs(fc$model))
   expect_equal(brk(fa), brk(fc))
 
-  # (b) rows excluded by an INVALID (zero) SAMPLING WEIGHT
+  # The weight column and the dropped rows of (b) and (c), drawn in this order.
   d2 <- d
   d2$w <- runif(n, 0.5, 2)
   badw <- data.frame(income = bad_income, sex = "M", x = rnorm(8),
                      y = rnorm(8), w = 0)
-  fb <- suppressWarnings(suppressMessages(
-    fit_maihda(y ~ x + (1 | income:sex), rbind(d2, badw), sampling_weights = "w")))
-  fbc <- suppressWarnings(suppressMessages(
-    fit_maihda(y ~ x + (1 | income:sex), d2, sampling_weights = "w")))
-  expect_equal(brk(fb), brk(fbc))
-
-  # (c) rows excluded by a MISSING PRECISION WEIGHT
   badpw <- data.frame(income = bad_income, sex = "M", x = rnorm(8),
                       y = rnorm(8), w = NA_real_)
+
+  # (c) rows excluded by a MISSING PRECISION WEIGHT
   fp <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ x + (1 | income:sex), rbind(d2, badpw), weights = w)))
   fpc <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ x + (1 | income:sex), d2, weights = w)))
   expect_equal(brk(fp), brk(fpc))
+
+  # (b) rows excluded by an INVALID (zero) SAMPLING WEIGHT. Sampling weights are
+  # fitted by WeMix, so this part comes last: (a) and (c) run without it.
+  skip_if_not_installed("WeMix")
+  fb <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ x + (1 | income:sex), rbind(d2, badw), sampling_weights = "w")))
+  fbc <- suppressWarnings(suppressMessages(
+    fit_maihda(y ~ x + (1 | income:sex), d2, sampling_weights = "w")))
+  expect_equal(brk(fb), brk(fbc))
 })
 
 test_that("longitudinal id/stratum validation uses the analytic sample (finding 3)", {

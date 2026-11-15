@@ -197,11 +197,11 @@ test_that("a missing level only narrows the caller's re_formula (no Stan)", {
   expect_identical(sc(re_formula = "nonsense")$dots[[1]]$re_formula, "nonsense")
 })
 
-test_that("lme4, WeMix and ordinal predict a missing dimension at a zero effect", {
-  # The behaviour brms is brought into line with: on the likelihood engines a row
-  # missing its stratum dimension takes the fixed-effects-only value, while a seen
-  # row in the same newdata keeps its stratum effect.
-  skip_on_cran()
+# The behaviour brms is brought into line with: on the likelihood engines a row
+# missing its stratum dimension takes the fixed-effects-only value, while a seen
+# row in the same newdata keeps its stratum effect. One block per engine, each on
+# the same data, so that each runs wherever its own package is installed.
+na05_engine_data <- function() {
   set.seed(1)
   J <- 20; n_per <- 15
   a <- rep(LETTERS[1:J], each = n_per)
@@ -212,7 +212,13 @@ test_that("lme4, WeMix and ordinal predict a missing dimension at a zero effect"
                   stringsAsFactors = FALSE)
   d$yo <- cut(d$y, stats::quantile(d$y, 0:4 / 4), include.lowest = TRUE,
               labels = c("lo", "mid", "hi", "top"), ordered_result = TRUE)
-  nd <- data.frame(x = 1, a = c(NA, "A"), stringsAsFactors = FALSE)
+  list(d = d, nd = data.frame(x = 1, a = c(NA, "A"), stringsAsFactors = FALSE))
+}
+
+test_that("lme4 predicts a missing dimension at a zero effect", {
+  skip_on_cran()
+  fx <- na05_engine_data()
+  d <- fx$d; nd <- fx$nd
 
   m <- fit_maihda(y ~ x + (1 | a), data = d)
   p <- predict_maihda(m, newdata = nd, scale = "link", allow_new_levels = TRUE)
@@ -220,6 +226,13 @@ test_that("lme4, WeMix and ordinal predict a missing dimension at a zero effect"
   re <- lme4::ranef(m$model)$stratum
   s_a <- m$strata_info$stratum[m$strata_info$a == "A"]
   expect_equal(unname(p), unname(sum(fe) + c(0, re[s_a, 1])), tolerance = 1e-10)
+})
+
+test_that("WeMix predicts a missing dimension at a zero effect", {
+  skip_on_cran()
+  skip_if_not_installed("WeMix")
+  fx <- na05_engine_data()
+  d <- fx$d; nd <- fx$nd
 
   mw <- suppressWarnings(suppressMessages(
     fit_maihda(y ~ x + (1 | a), data = d, sampling_weights = "w")))
@@ -228,6 +241,13 @@ test_that("lme4, WeMix and ordinal predict a missing dimension at a zero effect"
   fixed_w <- MAIHDA:::maihda_wemix_linpred(mw, newdata = prep_w, include_re = FALSE)
   expect_equal(unname(pw[1]), unname(fixed_w[1]), tolerance = 1e-10)
   expect_gt(abs(pw[2] - fixed_w[2]), 0.1)
+})
+
+test_that("ordinal predicts a missing dimension at a zero effect", {
+  skip_on_cran()
+  skip_if_not_installed("ordinal")
+  fx <- na05_engine_data()
+  d <- fx$d; nd <- fx$nd
 
   mo <- suppressWarnings(suppressMessages(
     fit_maihda(yo ~ x + (1 | a), data = d, engine = "ordinal")))
