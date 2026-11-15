@@ -27,4 +27,6 @@ maihda_ic_one(model, ml = FALSE)
 ## Value
 
 A one-row data frame with `n`, `estimator`, `df`, `logLik`, `AIC`,
-`BIC`, `WAIC`, `LOOIC` (NA where not applicable to the engine).
+`BIC`, `WAIC`, `LOOIC` (NA where not applicable to the engine). A
+criterion that `brms` stopped on is NA, and the row's `"ic_unavailable"`
+attribute holds the error, named by criterion.

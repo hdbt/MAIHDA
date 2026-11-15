@@ -37,6 +37,17 @@
   now names the intervals the table shows: posterior credible intervals
   on a brms fit, where it called the intercept’s a Wald interval, and
   parametric bootstrap percentile intervals on a bootstrapped lme4 fit.
+- [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  again names a stratum dimension with a single level as the cause of a
+  failed PCV decomposition under R-devel, where
+  [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html) raises
+  that error itself.
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  and
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  warn, quoting the error, when brms cannot compute WAIC or LOOIC, as it
+  cannot without the digest package (now in Suggests); they returned the
+  table without those criteria and said nothing.
 
 ## MAIHDA 0.3.0
 

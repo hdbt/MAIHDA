@@ -120,6 +120,15 @@ log-likelihoods are not log predictive densities, so WAIC/LOOIC are
 likewise reported as `NA` (the `estimator` column reads
 `"Bayesian (weighted pseudo-posterior)"`).
 
+**Criteria that brms cannot compute.**
+[`brms::waic()`](https://mc-stan.org/loo/reference/waic.html) and
+[`brms::loo()`](https://mc-stan.org/loo/reference/loo.html) need the
+`digest` package, which `brms` suggests and does not require, so a
+library can hold `brms` without it. When `brms` stops on a criterion,
+for that or any other reason, the criterion is `NA` for that model and
+`maihda_ic()` issues one warning that names the criteria and the models
+concerned and quotes the error.
+
 ## See also
 
 [`compare_maihda`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md),

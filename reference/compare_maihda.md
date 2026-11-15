@@ -50,8 +50,9 @@ compare_maihda(
   (lme4, ordinal) and `WAIC`/`LOOIC` for brms (see
   [`maihda_ic`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)).
   Default TRUE. REML `lmer` fits are refitted with ML so AIC/BIC are
-  comparable across different fixed effects. Set FALSE for the lean
-  VPC-only table.
+  comparable across different fixed effects. A criterion that brms
+  cannot compute, for instance without the `digest` package, is left out
+  with a warning. Set FALSE for the lean VPC-only table.
 
 ## Value
 
