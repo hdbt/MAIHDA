@@ -174,11 +174,22 @@ test_that("a variance at zero where the criterion falls off zero is moved to the
   maihda_lmer_zero_column_start(placed(c(stuck_unc_11[1], 5e-4 / rms), d, uncorrelated),
                                 optimiser = stand_in)
   expect_true(isTRUE(handed[2] > 1e-3))
-  # lmer refitted from that start, as maihda_fit_lmer_slopes() refits it, reaches the optimum.
+  # The start lies off the zero and below the fit there, and lmer refitted from it, as
+  # maihda_fit_lmer_slopes() refits it, ends lower than that fit by more than the tolerance a
+  # refit is kept at. From the start lmer follows a ridge on which the intercept's variance gives
+  # way to the slope's, 0.029 in all, and where on it the optimiser stops depends on how lme4 was
+  # compiled: 2e-7 above the optimum where the compiler does not fuse a multiplication and an
+  # addition into one operation (Windows, the Linux binaries of Posit's package manager), 0.0035
+  # above it where it does (a gcc that targets x86-64-v3, as on GitHub's ubuntu-26.04 runners).
+  # fit_maihda() reaches this design's optimum on both, through the standardised start.
   start <- maihda_lmer_zero_column_start(stuck)
   expect_length(start, 1L)
+  expect_gt(start[[1]][2], 0)
+  expect_lt(dev(start[[1]]), dev(stuck_unc_11))
   refit <- quiet(lme4::lmer(uncorrelated, data = d, start = start[[1]]))
-  expect_lt(abs(lme4::REMLcrit(refit) - optimum_unc_11), 1e-5)
+  expect_lt(lme4::REMLcrit(refit), lme4::REMLcrit(stuck) - 1e-4)
+  m <- quiet(fit_maihda(uncorrelated, data = d))
+  expect_lt(abs(lme4::REMLcrit(m$model) - optimum_unc_11), 1e-4)
   # With a context slope the start itself comes within 0.01 of it, from lmer's own fit 12.8 above
   # with the variances of the stratum slope (after the intercept) and of the context's at zero.
   # Where the minimisation from there stops on the flat ridge depends on the platform: 3e-8

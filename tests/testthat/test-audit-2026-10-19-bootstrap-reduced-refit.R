@@ -57,6 +57,19 @@ fit_quadratic <- function(seed, formula = adjusted_quadratic, ...) {
                    time_degree = 2, ...))
 }
 
+# fit_quadratic() with the lowest of the restarts kept in place of the lowest of all the fits,
+# so that the call of the fit kept carries a restart's numeric start. Whether a restart is the
+# lowest by itself depends on where lmer's optimiser stops, and that on how lme4 was compiled:
+# on seed 1 lmer's own fit stops 0.54 above the restart's criterion where the compiler does not
+# fuse a multiplication and an addition into one operation (Windows, the Linux binaries of
+# Posit's package manager), and at the optimum where it does (a gcc that targets x86-64-v3, as
+# on GitHub's ubuntu-26.04 runners, which build every package of the R-devel job).
+restart_kept <- function(seed, ...) {
+  with_mocked_bindings(
+    fit_quadratic(seed, ...),
+    maihda_pick_lowest = function(crit, tol = 1e-4) 1L + which.min(crit[-1L]))
+}
+
 # The null-restricted fit maihda_bootstrap_fixef() builds for the one-column term `term` of
 # the fit_maihda() object `fit`, given its longitudinal tag.
 reduced_fit <- function(fit, term) {
@@ -104,7 +117,7 @@ test_that("a growth fit's structure is read off the tag fit_maihda() put on it",
                          time_degree = 2))
   expect_identical(spec_of(cq)$time, ".maihda_ctime")
   # A restart's numeric start in the call does not hide the structure.
-  r1 <- fit_quadratic(1)
+  r1 <- restart_kept(1)
   expect_true(is.numeric(stats::getCall(r1$model)$start))
   expect_identical(spec_of(r1)$time_degree, 2L)
   # Not a growth fit, or fitted from the user's own start: NULL.
@@ -130,8 +143,8 @@ test_that("a growth fit's structure is read off the tag fit_maihda() put on it",
 
 test_that("a growth fit's null refits go through fit_maihda()'s fitter, from lme4's start", {
   skip_on_cran()
-  # Seed 1: the adjusted fit kept is a restart, so its call carries a numeric start.
-  m <- fit_quadratic(1)
+  # The adjusted fit kept is a restart, so its call carries a numeric start.
+  m <- restart_kept(1)
   expect_true(is.numeric(stats::getCall(m$model)$start))
   seen <- list()
   real <- maihda_fit_lmer_growth
@@ -194,9 +207,9 @@ test_that("a growth fit's null refits go through fit_maihda()'s fitter, from lme
 
 test_that("the former refit is kept when it is the lower", {
   skip_on_cran()
-  # Seed 1's kept fit is a restart, so the formula route also refits from its start. A
+  # The kept fit is a restart, so the formula route also refits from its start. A
   # stand-in growth fitter that stops at lme4's starting values loses to it.
-  m <- fit_quadratic(1)
+  m <- restart_kept(1)
   local_mocked_bindings(maihda_fit_lmer_growth = function(fit_call, fit_env, id, ...) {
     fit_call$control <- lme4::lmerControl(optimizer = NULL)
     eval(fit_call, fit_env)
@@ -217,6 +230,19 @@ test_that("a glmer null refit does not keep the control of glmer's refit across 
   # control and from lme4's start, the null for B1 stopped 80 log-likelihood units on the
   # -2 scale above the lowest found, 999.9206 (bobyqa, Nelder_Mead and nlminb from lme4's
   # start and a polish from the refit's estimates).
+  #
+  # Whether fit_maihda() keeps such a refit of this fit depends on where glmer's optimisers
+  # stop, and that on how minqa was compiled: it keeps one where the compiler does not fuse a
+  # multiplication and an addition into one operation, and glmer's own fit where it does (a
+  # gcc that targets x86-64-v3). So what the call of a kept refit gives is written into the
+  # call: the last pass's control, and starting values of the form the pass is given (here the
+  # fit's own estimates).
+  as_kept_refit <- function(fit) {
+    fit$model@call$control <- quote(lme4::glmerControl(nAGQ0initStep = FALSE))
+    fit$model@call$start <- list(theta = unname(lme4::getME(fit$model, "theta")),
+                                 fixef = lme4::fixef(fit$model))
+    fit
+  }
   d <- with_seed(791, {
     g <- expand.grid(A = 0:1, B = 0:1, C = 0:1)
     add0 <- as.vector(as.matrix(g) %*% c(0.3, 0.05, -0.2))
@@ -233,9 +259,9 @@ test_that("a glmer null refit does not keep the control of glmer's refit across 
                cnt = stats::rpois(length(id), exp(0.3 + 0.35 * (eta - mean(eta)) / stats::sd(eta) + 0.05 * t)),
                y = y)
   })
-  m <- quiet(fit_maihda(cnt ~ wave + A + B + C + B:wave + (1 | A:B:C), data = d, id = "id",
-                        time = "wave", time_degree = 2, family = "poisson"))
-  expect_identical(stats::getCall(m$model)$control, quote(lme4::glmerControl(nAGQ0initStep = FALSE)))
+  m <- as_kept_refit(quiet(fit_maihda(cnt ~ wave + A + B + C + B:wave + (1 | A:B:C), data = d,
+                                      id = "id", time = "wave", time_degree = 2,
+                                      family = "poisson")))
   controls <- list()
   real <- maihda_fit_glmer_growth
   local_mocked_bindings(maihda_fit_glmer_growth = function(fit_call, fit_env, id, ...) {
@@ -249,10 +275,9 @@ test_that("a glmer null refit does not keep the control of glmer's refit across 
   expect_null(controls[[1]]$start)
   expect_lt(-2 * as.numeric(stats::logLik(red)) - 999.9206, 0.05)
   # With a control of the user's own, the null is refitted with that control.
-  mu <- quiet(fit_maihda(cnt ~ wave + A + B + C + B:wave + (1 | A:B:C), data = d, id = "id",
-                         time = "wave", time_degree = 2, family = "poisson",
-                         control = lme4::glmerControl()))
-  expect_identical(stats::getCall(mu$model)$control, quote(lme4::glmerControl(nAGQ0initStep = FALSE)))
+  mu <- as_kept_refit(quiet(fit_maihda(cnt ~ wave + A + B + C + B:wave + (1 | A:B:C), data = d,
+                                       id = "id", time = "wave", time_degree = 2,
+                                       family = "poisson", control = lme4::glmerControl())))
   controls <- list()
   red <- maihda_refit_reduced(mu$model, stats::update(stats::formula(mu$model), ". ~ . - B"),
                               mu$longitudinal_info)

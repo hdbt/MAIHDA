@@ -27,7 +27,12 @@
 #' refits any REML \code{lmer} model with maximum likelihood
 #' (\code{\link[lme4]{refitML}}) before computing AIC/BIC, matching the behaviour of
 #' \code{anova()} on \code{lme4} models; the \code{estimator} column records when
-#' this happened. For a single model the criterion is reported as fitted (the
+#' this happened. Where \code{lme4}'s optimiser ends that refit with an exit code,
+#' as it can at a between-stratum variance of zero while standing at the maximum,
+#' the model is refitted once more by \code{lmer}'s default optimiser, and that
+#' refit is used when its deviance is lower by more than 1e-4; \code{lme4}'s
+#' warning is passed on only when the second refit ends with a code as well or
+#' fails. For a single model the criterion is reported as fitted (the
 #' \code{estimator} column then reads \code{"REML"}).
 #'
 #' \strong{Comparability.} Like the VPC, information criteria are only comparable
@@ -317,7 +322,7 @@ maihda_ic_one <- function(model, ml = FALSE) {
     reml <- tryCatch(isTRUE(lme4::isREML(fm)), error = function(e) FALSE)
     fit_for_ic <- fm
     if (isTRUE(ml) && reml) {
-      fit_for_ic <- tryCatch(lme4::refitML(fm), error = function(e) fm)
+      fit_for_ic <- tryCatch(maihda_ic_refit_ml(fm), error = function(e) fm)
       ml_used <- !identical(fit_for_ic, fm)
     }
     row$estimator <- if (ml_used) "ML (refit from REML)" else if (reml) "REML" else "ML"
@@ -452,6 +457,71 @@ maihda_ic_one <- function(model, ml = FALSE) {
     attr(out, "ic_unavailable") <- stopped
   }
   out
+}
+
+# The maximum-likelihood refit of the REML lmer fit `fit` that AIC and BIC are read from.
+# lme4::refitML() refits by minqa's bobyqa from the REML estimates, and at a variance of zero
+# or near it that optimiser can stop at the maximum with an exit code ("a trust region step
+# failed to reduce q"): in 2 to 6% of fits with a zero or small between-stratum variance, and
+# each of 56 such refits was within 5e-13 of the maximum-likelihood deviance, on builds of
+# lme4 and minqa with and without fused multiply-adds. A refit whose optimiser reports a code
+# (maihda_lme4_optimizer_failed()) is therefore made once more by lmer()'s default optimiser,
+# lme4::nloptwrap(), from the same estimates, and the refit with the lower deviance is
+# returned: the first unless the second is lower by more than `tol` (maihda_pick_lowest()).
+# The warnings and messages of the refit returned are signalled, without an optimiser's exit
+# code when the second refit ended without one. An error of the first refit passes through,
+# after what the refit had raised until then; a second refit that fails leaves the first as
+# lme4 returned it.
+#
+# Only an exit code is checked. A refit without one is returned as lme4 makes it, and neither
+# optimiser is the better one throughout: with a random slope on a standard-normal covariate
+# nloptwrap alone stopped up to 0.031 above the maximum that bobyqa reached, and with random
+# slopes on an age and a birth year bobyqa stops without a code more than 100 above the
+# maximum that nloptwrap comes within 0.25 of.
+maihda_ic_refit_ml <- function(fit, tol = 1e-4) {
+  held <- list()
+  hold <- function(restart) {
+    function(cnd) {
+      held[[length(held) + 1L]] <<- cnd
+      invokeRestart(restart)
+    }
+  }
+  refit <- withCallingHandlers(
+    lme4::refitML(fit),
+    warning = hold("muffleWarning"),
+    message = hold("muffleMessage"),
+    error = function(e) maihda_signal_conditions(held))
+  first <- list(value = refit, conditions = held)
+  if (!maihda_lme4_optimizer_failed(first$value)) {
+    maihda_signal_conditions(first$conditions)
+    return(first$value)
+  }
+  second <- tryCatch(
+    maihda_eval_holding_conditions(quote(lme4::refitML(fit, optimizer = "nloptwrap")),
+                                   environment()),
+    error = function(e) NULL)
+  if (is.null(second)) {
+    maihda_signal_conditions(first$conditions)
+    return(first$value)
+  }
+  refits <- list(first, second)
+  deviances <- vapply(refits, function(refit) {
+    tryCatch(maihda_lmer_criterion(refit$value), error = function(e) NA_real_)
+  }, numeric(1))
+  kept <- refits[[maihda_pick_lowest(deviances, tol)]]
+  conditions <- kept$conditions
+  if (!maihda_lme4_optimizer_failed(second$value)) {
+    conditions <- Filter(Negate(maihda_is_optimiser_code_warning), conditions)
+  }
+  maihda_signal_conditions(conditions)
+  kept$value
+}
+
+# Whether the condition `cnd` is the warning lme4 raises for an optimiser's exit code:
+# "convergence code <code> from <optimiser>", with the optimiser's own message after it.
+maihda_is_optimiser_code_warning <- function(cnd) {
+  inherits(cnd, "warning") &&
+    grepl("^convergence code -?[0-9]+ from ", conditionMessage(cnd))
 }
 
 # One warning for the criteria brms could not compute. `rows` are the one-row frames
