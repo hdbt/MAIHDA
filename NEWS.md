@@ -14,6 +14,7 @@
 * `print()` on a `maihda_table()` now names the intervals the table shows: posterior credible intervals on a brms fit, where it called the intercept's a Wald interval, and parametric bootstrap percentile intervals on a bootstrapped lme4 fit.
 * `compare_maihda_groups()` again names a stratum dimension with a single level as the cause of a failed PCV decomposition under R-devel, where `model.matrix()` raises that error itself.
 * `maihda_ic()` and `compare_maihda()` warn, quoting the error, when brms cannot compute WAIC or LOOIC, as it cannot without the digest package (now in Suggests); they returned the table without those criteria and said nothing.
+* `maihda_ic()` and `compare_maihda()` no longer pass on lme4's `convergence code 3 from bobyqa` warning for a maximum-likelihood refit that stands at its optimum, as it did in 2 to 6% of fits with a zero or small between-stratum variance: a flagged refit is checked by a second one from lmer's default optimiser, which replaces it when its deviance is lower by more than 1e-4, and the warning is passed on only when the second refit is flagged too or fails.
 
 # MAIHDA 0.3.0
 

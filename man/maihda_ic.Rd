@@ -43,7 +43,12 @@ comparison. When more than one model is supplied, \code{maihda_ic()} therefore
 refits any REML \code{lmer} model with maximum likelihood
 (\code{\link[lme4]{refitML}}) before computing AIC/BIC, matching the behaviour of
 \code{anova()} on \code{lme4} models; the \code{estimator} column records when
-this happened. For a single model the criterion is reported as fitted (the
+this happened. Where \code{lme4}'s optimiser ends that refit with an exit code,
+as it can at a between-stratum variance of zero while standing at the maximum,
+the model is refitted once more by \code{lmer}'s default optimiser, and that
+refit is used when its deviance is lower by more than 1e-4; \code{lme4}'s
+warning is passed on only when the second refit ends with a code as well or
+fails. For a single model the criterion is reported as fitted (the
 \code{estimator} column then reads \code{"REML"}).
 
 \strong{Comparability.} Like the VPC, information criteria are only comparable
