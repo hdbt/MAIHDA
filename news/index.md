@@ -48,6 +48,16 @@
   warn, quoting the error, when brms cannot compute WAIC or LOOIC, as it
   cannot without the digest package (now in Suggests); they returned the
   table without those criteria and said nothing.
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  and
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  no longer pass on lme4’s `convergence code 3 from bobyqa` warning for
+  a maximum-likelihood refit that stands at its optimum, as it did in 2
+  to 6% of fits with a zero or small between-stratum variance: a flagged
+  refit is checked by a second one from lmer’s default optimiser, which
+  replaces it when its deviance is lower by more than 1e-4, and the
+  warning is passed on only when the second refit is flagged too or
+  fails.
 
 ## MAIHDA 0.3.0
 

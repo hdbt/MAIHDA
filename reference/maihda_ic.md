@@ -52,9 +52,14 @@ null-vs-adjusted comparison. When more than one model is supplied,
 likelihood ([`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html))
 before computing AIC/BIC, matching the behaviour of
 [`anova()`](https://rdrr.io/r/stats/anova.html) on `lme4` models; the
-`estimator` column records when this happened. For a single model the
-criterion is reported as fitted (the `estimator` column then reads
-`"REML"`).
+`estimator` column records when this happened. Where `lme4`'s optimiser
+ends that refit with an exit code, as it can at a between-stratum
+variance of zero while standing at the maximum, the model is refitted
+once more by `lmer`'s default optimiser, and that refit is used when its
+deviance is lower by more than 1e-4; `lme4`'s warning is passed on only
+when the second refit ends with a code as well or fails. For a single
+model the criterion is reported as fitted (the `estimator` column then
+reads `"REML"`).
 
 **Comparability.** Like the VPC, information criteria are only
 comparable across models fitted to the *same* analytic sample (same rows
