@@ -11,10 +11,12 @@
 # fuses a multiplication and an addition into one operation, with the seed it passes on
 # elsewhere; on Windows another seed of the same design gives the same two warnings.
 #
-# FIX: maihda_ic_one() makes the refit through maihda_ic_refit_ml(). A refit whose optimiser
+# FIX: maihda_ic_one() makes the refit through maihda_lmer_refit_ml(). A refit whose optimiser
 # reports a code is made once more by lmer()'s default optimiser, which replaces it when its
 # deviance is lower by more than 1e-4, and lme4's warning is passed on only when the second
-# refit reports a code as well or fails. A refit without a code is used as lme4 makes it.
+# refit reports a code as well or fails. A refit without a code of a model without a random
+# slope, as every model of this file is, is used as lme4 makes it
+# (test-audit-2026-11-16-ml-refit-optimum.R has the models with one).
 #
 # Random numbers are drawn only inside ic16_keep_seed(), which puts the suite's stream back.
 
@@ -102,7 +104,7 @@ test_that("a refit flagged at its maximum is checked by a second refit and retur
     refit <- real(x, optimizer = optimizer, ...)
     if (identical(optimizer, "bobyqa")) ic16_flagged(refit, optimizer) else refit
   }, .package = "lme4")
-  h <- ic16_heard(maihda_ic_refit_ml(fm))
+  h <- ic16_heard(maihda_lmer_refit_ml(fm))
   # lme4's refit, then lmer's default optimiser from the same estimates.
   expect_identical(calls, c("bobyqa", "nloptwrap"))
   expect_identical(h$warnings, character(0))
@@ -129,7 +131,7 @@ test_that("the first refit stays unless the second is lower by more than the tol
         real(x, optimizer = optimizer, ...)
       }
     }, .package = "lme4")
-    ic16_heard(maihda_ic_refit_ml(fm))
+    ic16_heard(maihda_lmer_refit_ml(fm))
   }
   # The premise: after 7 evaluations it is 3.6e-5 above the second refit's deviance, within
   # the tolerance; after 6, 2.1e-4 above, beyond it.
@@ -155,7 +157,7 @@ test_that("the first refit stays unless the second is lower by more than the tol
   expect_identical(h$warnings, character(0))
   expect_identical(h$messages, character(0))
   # The tolerance is the one ?maihda_ic gives.
-  expect_identical(formals(maihda_ic_refit_ml)$tol, 1e-4)
+  expect_identical(formals(maihda_lmer_refit_ml)$tol, 1e-4)
 })
 
 test_that("a flagged refit short of its maximum gives way to the second refit", {
@@ -179,7 +181,7 @@ test_that("a flagged refit short of its maximum gives way to the second refit", 
       real(x, optimizer = optimizer, ...)
     }
   }, .package = "lme4")
-  h <- ic16_heard(maihda_ic_refit_ml(fm))
+  h <- ic16_heard(maihda_lmer_refit_ml(fm))
   # The second refit is the lower by more than the tolerance and ended without a code: it is
   # returned, and nothing of the first refit is signalled.
   expect_identical(h$value@optinfo$optimizer, "nloptwrap")
@@ -203,7 +205,7 @@ test_that("lme4's warning is passed on when the second refit is flagged too or f
   testthat::local_mocked_bindings(refitML = function(x, optimizer = "bobyqa", ...) {
     ic16_flagged(real(x, optimizer = optimizer, ...), optimizer)
   }, .package = "lme4")
-  h <- ic16_heard(maihda_ic_refit_ml(fm))
+  h <- ic16_heard(maihda_lmer_refit_ml(fm))
   expect_identical(h$warnings, code_warning)
   expect_identical(h$value@optinfo$optimizer, "bobyqa")
   # The second refit fails: the first as lme4 returned it.
@@ -211,7 +213,7 @@ test_that("lme4's warning is passed on when the second refit is flagged too or f
     if (!identical(optimizer, "bobyqa")) stop("the second refit fails")
     ic16_flagged(real(x, optimizer = optimizer, ...), optimizer)
   }, .package = "lme4")
-  h <- ic16_heard(maihda_ic_refit_ml(fm))
+  h <- ic16_heard(maihda_lmer_refit_ml(fm))
   expect_identical(h$warnings, code_warning)
   expect_identical(h$value@optinfo$optimizer, "bobyqa")
   # Both flagged and the second the lower: the second is returned, with its own warning.
@@ -222,7 +224,7 @@ test_that("lme4's warning is passed on when the second refit is flagged too or f
       ic16_flagged(real(x, optimizer = optimizer, ...), optimizer, code = 5L)
     }
   }, .package = "lme4")
-  h <- ic16_heard(maihda_ic_refit_ml(fm))
+  h <- ic16_heard(maihda_lmer_refit_ml(fm))
   expect_identical(h$value@optinfo$optimizer, "nloptwrap")
   expect_identical(
     h$warnings,
@@ -230,7 +232,7 @@ test_that("lme4's warning is passed on when the second refit is flagged too or f
   # An error of the first refit passes through, and maihda_ic_one() keeps the REML fit.
   testthat::local_mocked_bindings(refitML = function(x, ...) stop("the refit fails"),
                                   .package = "lme4")
-  expect_error(maihda_ic_refit_ml(fm), "the refit fails", fixed = TRUE)
+  expect_error(maihda_lmer_refit_ml(fm), "the refit fails", fixed = TRUE)
   model <- ic16_quiet(fit_maihda(y ~ x + (1 | stratum), data = d))
   expect_identical(maihda_ic_one(model, ml = TRUE)$estimator, "REML")
   # What a refit raised before it stopped with an error is passed on with the error.
@@ -239,7 +241,7 @@ test_that("lme4's warning is passed on when the second refit is flagged too or f
     message("a message before the refit fails")
     stop("the refit fails")
   }, .package = "lme4")
-  h <- ic16_heard(tryCatch(maihda_ic_refit_ml(fm), error = function(e) conditionMessage(e)))
+  h <- ic16_heard(tryCatch(maihda_lmer_refit_ml(fm), error = function(e) conditionMessage(e)))
   expect_identical(h$value, "the refit fails")
   expect_identical(h$warnings, "a warning before the refit fails")
   expect_identical(h$messages, "a message before the refit fails\n")
@@ -257,7 +259,7 @@ test_that("a refit without a code is returned as lme4 returns it, and only the e
     message("a message of the refit")
     real(x, optimizer = optimizer, ...)
   }, .package = "lme4")
-  h <- ic16_heard(maihda_ic_refit_ml(fm))
+  h <- ic16_heard(maihda_lmer_refit_ml(fm))
   # No code: no second refit, and what the refit said is passed on.
   expect_identical(calls, "bobyqa")
   expect_identical(h$warnings, "a warning of the refit")
@@ -272,7 +274,7 @@ test_that("a refit without a code is returned as lme4 returns it, and only the e
     message("a message of the refit")
     ic16_flagged(refit, optimizer)
   }, .package = "lme4")
-  h <- ic16_heard(maihda_ic_refit_ml(fm))
+  h <- ic16_heard(maihda_lmer_refit_ml(fm))
   expect_identical(h$warnings, "a warning of the refit")
   expect_identical(h$messages, "a message of the refit\n")
   # The warning that is dropped is lme4's for an optimiser's exit code, and nothing else.

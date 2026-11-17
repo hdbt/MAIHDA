@@ -2804,7 +2804,8 @@ maihda_lng_block_entries <- function(Sigma) {
 
 # estimation = "ML" for the growth pair. maihda_pcv_refit_ml() (calculate_pcv.R)
 # deliberately skips growth fits; this applies its rule to them: refit a REML lmer
-# growth fit with ML (lme4::refitML) before maihda_longitudinal_pcv() reads its
+# growth fit with ML (maihda_lmer_refit_ml(): the lower of lme4::refitML() and the
+# model's own call fitted by ML) before maihda_longitudinal_pcv() reads its
 # stratum covariance block. ML shrinks the adjusted block by more than the null one
 # and so overstates both PCVs with few strata (see ?calculate_pcv), which is why it
 # is not the default. glmer (GLMM) fits and the brms engine are already on the ML /
@@ -2826,7 +2827,9 @@ maihda_longitudinal_refit_ml <- function(model) {
   # off the boundary. Mirrors maihda_pcv_refit_ml()'s boundary guard. If
   # refitML() itself fails, the tryCatch below keeps the original (REML) fit.
   if (maihda_stratum_growth_at_boundary_lme4(model$model)) return(model)
-  refit <- tryCatch(lme4::refitML(model$model), error = function(e) NULL)
+  refit <- tryCatch(
+    maihda_lmer_refit_ml(model$model, longitudinal = model$longitudinal_info),
+    error = function(e) NULL)
   if (!is.null(refit)) {
     model$model <- refit
   } else {
@@ -2930,7 +2933,9 @@ maihda_longitudinal_pcv_variances <- function(object, Sigma, ref_c, t_c, has_slo
 #' variance-estimation basis. With \code{estimation = "fitted"} (the default) each
 #' fit's own REML covariance block is used, matching the single-model summaries. With
 #' \code{estimation = "ML"}, REML \code{lmer} growth fits are refitted with maximum
-#' likelihood (\code{\link[lme4]{refitML}}) before the comparison, which overstates
+#' likelihood before the comparison (by \code{\link[lme4]{refitML}} and from the
+#' model's own call, the fit with the lower deviance being used; see
+#' \code{\link{maihda_ic}}), which overstates
 #' both PCVs when strata are few. The stored models (and the single-model summaries
 #' computed from them, e.g. the time-varying VPC) always keep their REML fit;
 #' \code{ml_refit} on the result records

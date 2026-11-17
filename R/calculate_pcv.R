@@ -722,7 +722,8 @@ maihda_minimise_nonneg <- function(crit, upper = 2, gain = 1e-8, widen = 3L) {
 }
 
 # Invoked only when the ML estimation basis is requested (estimation = "ML"; see
-# maihda_pcv_apply_estimation()), this refits a REML lmer fit with ML (lme4::refitML).
+# maihda_pcv_apply_estimation()), this refits a REML lmer fit with ML
+# (maihda_lmer_refit_ml(): lme4::refitML(), checked when its optimiser reports a code).
 # ML shrinks the adjusted model's variance by more than the null's and so overstates
 # the PCV with few strata (see ?calculate_pcv), which is why it is not the default.
 # Non-REML fits (glmer / the GLMM families) and the brms/wemix/ordinal engines are
@@ -753,12 +754,12 @@ maihda_pcv_refit_ml <- function(model) {
     # caller can report an HONEST basis: under estimation = "ML" a model kept on its
     # REML fit here makes the cross-model comparison partly REML -- a "mixed" basis,
     # not the pure ML comparison the "ML" label would otherwise
-    # claim. (Forcing the refit instead is worse: refitML() of a boundary fit emits a
-    # bobyqa non-convergence warning and still returns the same ~0 variance.)
+    # claim. (Forcing the refit instead is worse: refitML() of a boundary fit can end with
+    # a bobyqa exit code and still returns the same ~0 variance.)
     model$ml_refit_skipped_boundary <- TRUE
     return(model)
   }
-  refit <- tryCatch(lme4::refitML(model$model), error = function(e) NULL)
+  refit <- tryCatch(maihda_lmer_refit_ml(model$model), error = function(e) NULL)
   if (!is.null(refit)) {
     model$model <- refit
   } else {
