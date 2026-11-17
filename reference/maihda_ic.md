@@ -57,9 +57,16 @@ ends that refit with an exit code, as it can at a between-stratum
 variance of zero while standing at the maximum, the model is refitted
 once more by `lmer`'s default optimiser, and that refit is used when its
 deviance is lower by more than 1e-4; `lme4`'s warning is passed on only
-when the second refit ends with a code as well or fails. For a single
-model the criterion is reported as fitted (the `estimator` column then
-reads `"REML"`).
+when the second refit ends with a code as well or fails. A model with a
+random slope, a longitudinal model included, is also fitted by maximum
+likelihood from its own call, as
+[`fit_maihda`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+fits it, and that fit is used when its deviance is lower than the
+refit's by more than 1e-4: with a slope on a covariate far from zero or
+in large units, such as an age, a calendar year or an income, `lme4`'s
+refit can end far above the maximum without a warning. This takes about
+as long as fitting the model did. For a single model the criterion is
+reported as fitted (the `estimator` column then reads `"REML"`).
 
 **Comparability.** Like the VPC, information criteria are only
 comparable across models fitted to the *same* analytic sample (same rows

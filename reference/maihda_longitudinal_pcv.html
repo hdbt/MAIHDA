@@ -124,7 +124,9 @@ null model's reporting grid.</p></dd>
 variance-estimation basis. With <code>estimation = "fitted"</code> (the default) each
 fit's own REML covariance block is used, matching the single-model summaries. With
 <code>estimation = "ML"</code>, REML <code>lmer</code> growth fits are refitted with maximum
-likelihood (<code><a href="https://rdrr.io/pkg/lme4/man/refitML.html" class="external-link">refitML</a></code>) before the comparison, which overstates
+likelihood before the comparison (by <code><a href="https://rdrr.io/pkg/lme4/man/refitML.html" class="external-link">refitML</a></code> and from the
+model's own call, the fit with the lower deviance being used; see
+<code><a href="maihda_ic.html">maihda_ic</a></code>), which overstates
 both PCVs when strata are few. The stored models (and the single-model summaries
 computed from them, e.g. the time-varying VPC) always keep their REML fit;
 <code>ml_refit</code> on the result records

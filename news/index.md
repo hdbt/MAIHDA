@@ -14,6 +14,22 @@
 
 ### API changes
 
+- [`maihda_ic()`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)
+  and
+  [`compare_maihda()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda.md)
+  read the AIC and BIC of a REML `lmer` fit with a random slope, growth
+  models included, from the lower of lme4’s maximum-likelihood refit and
+  the model fitted by maximum likelihood as
+  [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  fits it: for a slope on a covariate far from zero or in large units
+  (an age, a calendar year, an income) lme4’s refit alone ended up to
+  165 deviance units above the maximum without a warning, and the
+  criteria could prefer the other model. Criteria of models without a
+  random slope are unchanged.
+- `maihda(decomposition = "longitudinal", estimation = "ML")` compares
+  the variances of those maximum-likelihood fits: lme4’s refit alone
+  could leave the adjusted model’s between-stratum variance at zero, a
+  PCV of 100%. The default `estimation = "fitted"` is unchanged.
 - `tidy(component = "variance")` gains `conf.low` and `conf.high`, `NA`
   where no interval applies; on a brms fit,
   [`summary()`](https://rdrr.io/r/base/summary.html) prints the
@@ -23,6 +39,15 @@
 
 ### Bug fixes
 
+- `calculate_pcv(estimation = "ML")`, and
+  [`maihda()`](https://hdbt.github.io/MAIHDA/reference/maihda.md),
+  [`stepwise_pcv()`](https://hdbt.github.io/MAIHDA/reference/stepwise_pcv.md),
+  [`pcv_importance()`](https://hdbt.github.io/MAIHDA/reference/pcv_importance.md)
+  and
+  [`compare_maihda_groups()`](https://hdbt.github.io/MAIHDA/reference/compare_maihda_groups.md)
+  with it, no longer pass on lme4’s `convergence code 3 from bobyqa`
+  warning for a maximum-likelihood refit that stands at its optimum; the
+  PCVs are unchanged.
 - Bootstrap refits of an lme4 fit made with the `nloptwrap` (lmer’s
   default) or `bobyqa` optimiser start a random-effect standard
   deviation below 0.01 (of the residual one for a Gaussian model) at

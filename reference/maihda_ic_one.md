@@ -20,9 +20,9 @@ maihda_ic_one(model, ml = FALSE)
 
 - ml:
 
-  Logical; for a REML `lmer` fit, refit with ML via
-  [`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html) before reading
-  AIC/BIC (used when comparing models that may differ in fixed effects).
+  Logical; for a REML `lmer` fit, read AIC/BIC from its
+  maximum-likelihood fit (`maihda_lmer_refit_ml()`; used when comparing
+  models that may differ in fixed effects).
 
 ## Value
 

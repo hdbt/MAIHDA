@@ -57,16 +57,19 @@ the `estimation` argument selects the variance-estimation basis. With
 `estimation = "fitted"` (the default) each fit's own REML covariance
 block is used, matching the single-model summaries. With
 `estimation = "ML"`, REML `lmer` growth fits are refitted with maximum
-likelihood ([`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html))
-before the comparison, which overstates both PCVs when strata are few.
-The stored models (and the single-model summaries computed from them,
-e.g. the time-varying VPC) always keep their REML fit; `ml_refit` on the
-result records whether an ML refit fully applied, and `estimation_used`
-records the basis ACTUALLY used – `"fitted"`, `"ML"`, or `"mixed"` when
-an ML refit was requested but a model kept its REML fit (a boundary skip
-or a failed refit), so a mixed REML/ML comparison is not mistaken for a
-clean one. glmer (GLMM) and brms fits are already on the ML / posterior
-scale, so the choice does not affect them.
+likelihood before the comparison (by
+[`refitML`](https://rdrr.io/pkg/lme4/man/refitML.html) and from the
+model's own call, the fit with the lower deviance being used; see
+[`maihda_ic`](https://hdbt.github.io/MAIHDA/reference/maihda_ic.md)),
+which overstates both PCVs when strata are few. The stored models (and
+the single-model summaries computed from them, e.g. the time-varying
+VPC) always keep their REML fit; `ml_refit` on the result records
+whether an ML refit fully applied, and `estimation_used` records the
+basis ACTUALLY used – `"fitted"`, `"ML"`, or `"mixed"` when an ML refit
+was requested but a model kept its REML fit (a boundary skip or a failed
+refit), so a mixed REML/ML comparison is not mistaken for a clean one.
+glmer (GLMM) and brms fits are already on the ML / posterior scale, so
+the choice does not affect them.
 
 A variance estimate cannot fall below zero. When the strata differ
 little after adjustment next to the precision of one stratum's own
