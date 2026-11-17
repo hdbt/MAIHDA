@@ -297,7 +297,10 @@ test_that("an lmer growth draw on the wrong side of the stratum block's bound re
   new <- quiet(maihda_refit_growth_draw(m$model, sim[[98]], spec))
   expect_lt(abs(lme4::REMLcrit(new) - 1195.1589), 1e-3)
   expect_gt(lme4::getME(new, "theta")[["stratum.(Intercept)"]], 0.01)
-  # A draw at its optimum keeps its refit, bit for bit.
+  # A draw at its optimum keeps its refit, bit for bit, when lme4's convergence check accepts
+  # the refit; on which machines it does differs, so its verdict is set here (a refit it
+  # flags gives way to a restart it accepts, maihda_pick_accepted()).
+  local_mocked_bindings(maihda_lme4_check_flagged = function(model) FALSE)
   old <- quiet(maihda_refit_draw(m$model, sim[[1]]))
   new <- quiet(maihda_refit_growth_draw(m$model, sim[[1]], spec))
   expect_identical(lme4::getME(new, "theta"), lme4::getME(old, "theta"))

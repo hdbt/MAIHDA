@@ -322,7 +322,12 @@ variance and the residual, so this is a time-constant between-stratum
 from lme4's starting values and again from more starts, and a refit replaces lmer's
 fit when its REML criterion (deviance for a maximum-likelihood fit) is lower by more
 than 1e-4: lme4's default optimiser can stop at a boundary of a random-effect block
-away from the optimum. With linear growth the starts are scaled by the person-level
+away from the optimum. When lme4's convergence check flags the fit that would be kept
+and accepts another of these fits whose criterion is within 1e-4 of it, that one is
+kept: the check's tolerance lies within the range in which the optimiser stops, so that
+the same optimum is flagged from one start and not from another, and on one processor
+and not on another. A singular fit, which lme4 does not check, does not take a flagged
+fit's place. With linear growth the starts are scaled by the person-level
 block, with a positive and a negative stratum intercept-slope correlation; with
 quadratic or higher growth one start is lmer's fit of the same model on time
 centred at the middle of its range, and, when that refit and lmer's fit differ by
