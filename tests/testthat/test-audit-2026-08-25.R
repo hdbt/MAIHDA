@@ -382,6 +382,11 @@ test_that("stratum_slope is validated and its refusal messages stay truthful", {
 test_that("a longitudinal fit_maihda matches the hand-coded lmer exactly", {
   skip_on_cran()
   data(maihda_long_data, envir = environment())
+  # The fit compared is lmer's own: it is kept here whatever lme4's convergence check says of
+  # it on this machine, where a restart at the same optimum would take a flagged fit's place
+  # (maihda_pick_accepted()).
+  local_mocked_bindings(
+    maihda_pick_accepted = function(crit, flagged, accepted, kept, tol = 1e-4) kept)
   m <- suppressMessages(suppressWarnings(
     fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
                data = maihda_long_data, id = "id", time = "wave")))

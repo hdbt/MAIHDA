@@ -7,6 +7,7 @@
 ## API changes
 
 * `tidy(component = "variance")` gains `conf.low` and `conf.high`, `NA` where no interval applies; on a brms fit, `summary()` prints the intervals beside the variances and `maihda_table()` shows them on the between-stratum variance and SD rows.
+* Gaussian growth models fitted by lme4 no longer keep a fit that lme4's convergence check flags when the check accepts one of the fits made from further starts within 1e-4 of its criterion: that one is kept, and lme4's `Model failed to converge with max|grad|` warning is not raised. It was a false alarm on the bundled `maihda_long_data`, 3e-6 to 6e-6 above the REML optimum, on processors with a 48 KB L1 data cache and on Apple Silicon. Estimates of such fits move in the third or fourth decimal. A singular fit, which lme4 does not check, does not take a flagged fit's place.
 
 ## Bug fixes
 

@@ -913,6 +913,57 @@ maihda_pick_lowest <- function(crit, tol = 1e-4) {
   if (length(better)) better[which.min(crit[better])] else 1L
 }
 
+# Whether lme4's convergence checks flagged the fit `model`: its record holds a message of
+# the gradient or Hessian check, the note of a singular fit apart. FALSE for anything that is
+# not an lme4 fit.
+maihda_lme4_check_flagged <- function(model) {
+  if (!inherits(model, "merMod")) {
+    return(FALSE)
+  }
+  msgs <- tryCatch(as.character(unlist(model@optinfo$conv$lme4$messages)),
+                   error = function(e) character(0))
+  any(nzchar(msgs) & !grepl("boundary (singular)", msgs, fixed = TRUE))
+}
+
+# Whether lme4 checked the fit `model` and accepted it: its convergence checks ran and left
+# no message, its optimiser reported no failure (maihda_lme4_optimizer_failed()) and lme4 does
+# not call the fit singular. lme4 runs no gradient or Hessian check on a singular fit, nor, by
+# default, on a fit of 10,000 rows or of 10 variance parameters on; such a fit is not flagged
+# and not accepted. FALSE for anything that is not an lme4 fit.
+maihda_lme4_check_accepted <- function(model) {
+  if (!inherits(model, "merMod")) {
+    return(FALSE)
+  }
+  checks <- tryCatch(model@optinfo$conv$lme4, error = function(e) NULL)
+  is.list(checks) && length(unlist(checks$messages)) == 0L &&
+    !maihda_lme4_optimizer_failed(model) &&
+    isFALSE(tryCatch(lme4::isSingular(model), error = function(e) NA))
+}
+
+# Which of several fits to keep when lme4's convergence checks flagged the one chosen: `kept`,
+# the choice of maihda_pick_lowest() from the criteria `crit`, unless lme4 flagged it
+# (`flagged`, one logical per fit) and checked and accepted another (`accepted`) whose
+# criterion is within `tol` of its own; then the lowest of those. Fits within `tol` of each
+# other are the same optimum reached by another path, and lme4's gradient check tells such
+# fits apart: on the bundled panel maihda_long_data its tolerance of 0.002 is a criterion
+# about 2e-6 above the optimum, and lmer's default optimiser stops between 1e-8 and 2e-4
+# above it, 15 to 26% of the fits in four sets of 150 copies of the panel changed in the 12th
+# or 13th digit above lme4's line. On which side of the line a fit ends follows the last bits
+# of the criterion, and those differ between processors: Eigen, lme4's linear algebra, sizes
+# the blocks of its products by the L1 data cache. lme4 flags lmer's own fit of the panel on
+# processors with a 48 KB L1 data cache, 3e-6 above the optimum, and on Apple Silicon, 6e-6
+# above it, and not, 1e-6 above it, on those with 32 KB. A restart within 1e-4 that lme4
+# accepts was there for each of the 6 flagged fits seen on five combinations of build and
+# processor, and for 48 of 49 flagged fits of such copies. A singular restart does not take
+# a flagged fit's place: lme4 has not checked it, and with it the fit changes in kind.
+maihda_pick_accepted <- function(crit, flagged, accepted, kept, tol = 1e-4) {
+  if (!isTRUE(flagged[kept])) {
+    return(kept)
+  }
+  equal <- which(is.finite(crit) & crit <= crit[kept] + tol & accepted)
+  if (length(equal)) equal[which.min(crit[equal])] else kept
+}
+
 # Evaluate a fitting call while holding back its warnings and messages, so that only the
 # fit that is kept speaks. Errors pass through.
 maihda_eval_holding_conditions <- function(call, env) {
@@ -942,7 +993,9 @@ maihda_signal_conditions <- function(conditions) {
 }
 
 # Fit an lmer growth model (`fit_call`, evaluated in `fit_env`), refit it from more starts
-# and return the fit with the lowest criterion, signalling that fit's warnings and messages
+# and return the fit with the lowest criterion (maihda_pick_lowest()), or, when lme4's
+# convergence checks flag that fit and accept another within `tol` of it, the lowest of those
+# (maihda_pick_accepted()), signalling the returned fit's warnings and messages
 # only. A linear model is refitted from the starts of maihda_growth_restart_starts(); a
 # model whose time polynomial (in the model's time variable `time`) has degree 2 or more
 # from the start of maihda_growth_centred_start() and, when that refit and lmer's fit
@@ -990,7 +1043,9 @@ maihda_fit_lmer_growth <- function(fit_call, fit_env, id, tol = 1e-4, time = NUL
     }
   }
   crit <- vapply(fits, criterion, numeric(1))
-  kept <- fits[[maihda_pick_lowest(crit, tol)]]
+  flagged <- vapply(fits, function(f) maihda_lme4_check_flagged(f$value), logical(1))
+  accepted <- vapply(fits, function(f) maihda_lme4_check_accepted(f$value), logical(1))
+  kept <- fits[[maihda_pick_accepted(crit, flagged, accepted, maihda_pick_lowest(crit, tol), tol)]]
   maihda_signal_conditions(kept$conditions)
   kept$value
 }
