@@ -46,7 +46,9 @@ As in \code{\link{calculate_pcv}}, the \code{estimation} argument selects the
 variance-estimation basis. With \code{estimation = "fitted"} (the default) each
 fit's own REML covariance block is used, matching the single-model summaries. With
 \code{estimation = "ML"}, REML \code{lmer} growth fits are refitted with maximum
-likelihood (\code{\link[lme4]{refitML}}) before the comparison, which overstates
+likelihood before the comparison (by \code{\link[lme4]{refitML}} and from the
+model's own call, the fit with the lower deviance being used; see
+\code{\link{maihda_ic}}), which overstates
 both PCVs when strata are few. The stored models (and the single-model summaries
 computed from them, e.g. the time-varying VPC) always keep their REML fit;
 \code{ml_refit} on the result records

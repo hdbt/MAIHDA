@@ -6,10 +6,13 @@
 
 ## API changes
 
+* `maihda_ic()` and `compare_maihda()` read the AIC and BIC of a REML `lmer` fit with a random slope, growth models included, from the lower of lme4's maximum-likelihood refit and the model fitted by maximum likelihood as `fit_maihda()` fits it: for a slope on a covariate far from zero or in large units (an age, a calendar year, an income) lme4's refit alone ended up to 165 deviance units above the maximum without a warning, and the criteria could prefer the other model. Criteria of models without a random slope are unchanged.
+* `maihda(decomposition = "longitudinal", estimation = "ML")` compares the variances of those maximum-likelihood fits: lme4's refit alone could leave the adjusted model's between-stratum variance at zero, a PCV of 100%. The default `estimation = "fitted"` is unchanged.
 * `tidy(component = "variance")` gains `conf.low` and `conf.high`, `NA` where no interval applies; on a brms fit, `summary()` prints the intervals beside the variances and `maihda_table()` shows them on the between-stratum variance and SD rows.
 
 ## Bug fixes
 
+* `calculate_pcv(estimation = "ML")`, and `maihda()`, `stepwise_pcv()`, `pcv_importance()` and `compare_maihda_groups()` with it, no longer pass on lme4's `convergence code 3 from bobyqa` warning for a maximum-likelihood refit that stands at its optimum; the PCVs are unchanged.
 * Bootstrap refits of an lme4 fit made with the `nloptwrap` (lmer's default) or `bobyqa` optimiser start a random-effect standard deviation below 0.01 (of the residual one for a Gaussian model) at zero: from the fit's value just above zero they stayed there, so the intervals of `summary(bootstrap = TRUE)`, `calculate_pcv()` and `pcv_importance()` collapsed and those of `df_method = "bootstrap"` ran wide.
 * `print()` on a `maihda_table()` now names the intervals the table shows: posterior credible intervals on a brms fit, where it called the intercept's a Wald interval, and parametric bootstrap percentile intervals on a bootstrapped lme4 fit.
 * `compare_maihda_groups()` again names a stratum dimension with a single level as the cause of a failed PCV decomposition under R-devel, where `model.matrix()` raises that error itself.

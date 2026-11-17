@@ -32,7 +32,13 @@
 #' the model is refitted once more by \code{lmer}'s default optimiser, and that
 #' refit is used when its deviance is lower by more than 1e-4; \code{lme4}'s
 #' warning is passed on only when the second refit ends with a code as well or
-#' fails. For a single model the criterion is reported as fitted (the
+#' fails. A model with a random slope, a longitudinal model included, is also
+#' fitted by maximum likelihood from its own call, as \code{\link{fit_maihda}}
+#' fits it, and that fit is used when its deviance is lower than the refit's by
+#' more than 1e-4: with a slope on a covariate far from zero or in large units,
+#' such as an age, a calendar year or an income, \code{lme4}'s refit can end far
+#' above the maximum without a warning. This takes about as long as fitting the
+#' model did. For a single model the criterion is reported as fitted (the
 #' \code{estimator} column then reads \code{"REML"}).
 #'
 #' \strong{Comparability.} Like the VPC, information criteria are only comparable
@@ -290,8 +296,8 @@ maihda_ic_quiet_but_warn <- function(expr, what) {
 #' (mirroring \code{maihda_fit_diagnostics}).
 #'
 #' @param model A \code{maihda_model}.
-#' @param ml Logical; for a REML \code{lmer} fit, refit with ML via
-#'   \code{\link[lme4]{refitML}} before reading AIC/BIC (used when comparing
+#' @param ml Logical; for a REML \code{lmer} fit, read AIC/BIC from its
+#'   maximum-likelihood fit (\code{maihda_lmer_refit_ml()}; used when comparing
 #'   models that may differ in fixed effects).
 #' @return A one-row data frame with \code{n}, \code{estimator}, \code{df},
 #'   \code{logLik}, \code{AIC}, \code{BIC}, \code{WAIC}, \code{LOOIC} (NA where not
@@ -322,7 +328,9 @@ maihda_ic_one <- function(model, ml = FALSE) {
     reml <- tryCatch(isTRUE(lme4::isREML(fm)), error = function(e) FALSE)
     fit_for_ic <- fm
     if (isTRUE(ml) && reml) {
-      fit_for_ic <- tryCatch(maihda_ic_refit_ml(fm), error = function(e) fm)
+      fit_for_ic <- tryCatch(
+        maihda_lmer_refit_ml(fm, longitudinal = model$longitudinal_info),
+        error = function(e) fm)
       ml_used <- !identical(fit_for_ic, fm)
     }
     row$estimator <- if (ml_used) "ML (refit from REML)" else if (reml) "REML" else "ML"
@@ -459,26 +467,82 @@ maihda_ic_one <- function(model, ml = FALSE) {
   out
 }
 
-# The maximum-likelihood refit of the REML lmer fit `fit` that AIC and BIC are read from.
+# The maximum-likelihood fit of the REML lmer fit `fit` that AIC and BIC (maihda_ic_one()) and
+# the PCVs of estimation = "ML" (maihda_pcv_refit_ml(), maihda_longitudinal_refit_ml()) are
+# read from: lme4's refit (maihda_lmer_checked_refit()), or, for a fit with a random-effect
+# term other than an intercept (maihda_lme4_has_slope()), the model fitted by maximum
+# likelihood from its own call (maihda_lmer_ml_from_call(); `longitudinal` is the object's
+# $longitudinal_info) when that is a fit of the same model (maihda_lmer_same_model()) whose
+# deviance is lower by more than `tol` (maihda_pick_lowest()).
+#
+# lme4::refitML() refits by minqa's bobyqa from the REML estimates. bobyqa takes one first
+# step for all parameters, min(0.95, 0.2 * max|theta|), and before it starts it moves every
+# parameter that lies closer to its bound than that step up to the step. With a random slope
+# on a covariate far from zero or in large units (an age, a birth or calendar year, an income)
+# the intercept's entry of theta is large and the slopes' are 1e-4 to 1e-2, so the refit
+# starts with the slope variances at 0.95, hundreds of deviance units above the REML estimates
+# it was given, and ends with "Normal exit" and no warning: above those estimates in 57 of 60
+# fits with slopes on an age and a birth year, up to 165 above the maximum, where AIC or BIC
+# then preferred the other model in 15 of 30 pairs. Its last step, 1e-6 of the first, is
+# coarse for such entries as well: 159 of 160 fits with a slope on a birth year, a calendar
+# year or an income ended 1e-4 to 1.5 above the maximum. Growth models, fitted on a time of
+# span 1 to 10, are rarely affected (8 of 224 fits, by up to 0.40), but there the refit can
+# leave the adjusted model's stratum intercept variance at zero, which is a PCV of exactly 1
+# (5 of 72 pairs; the maximum-likelihood fits gave 0.9997 to -0.18). Of 786 fits without such
+# a slope (intercepts only, a context, crossed dimensions, a slope on a covariate on a scale
+# of about 1, a slope block without an intercept) none ended more than 1e-4 above the maximum.
+#
+# The model's own call, fitted through the fitter fit_maihda() used, comes far closer: the
+# lower of the two was within 1e-4 of the maximum in all of those 1,290 fits. It is as good as
+# that fitter: on a design with slope SDs of 0.005 on an age and a birth year, where most fits
+# are singular, it was within 1e-4 in 82 of 90 fits; 7 of 30 null models without the
+# covariates' fixed slopes (theta's intercept entry near 400) stayed 0.0002 to 0.028 above the
+# maximum and 1 of 60 other fits 0.0006, where lme4's refit was 0.02 to 177 above in all 90.
+# Neither is the lower one throughout (two growth fits made from the call ended 0.0003 and
+# 0.025 above lme4's refit), and a refit within `tol` of the model's own fit is returned as
+# lme4 made it. The model's own fit goes through lme4's convergence and singularity checks,
+# which lme4::refitML() does not run, and lme4 raises for it what it raised for the REML fit
+# when that was made; of this only an optimiser's exit code is signalled.
+maihda_lmer_refit_ml <- function(fit, tol = 1e-4, longitudinal = NULL) {
+  kept <- maihda_lmer_checked_refit(fit, tol)
+  own <- if (isTRUE(tryCatch(maihda_lme4_has_slope(fit), error = function(e) FALSE))) {
+    tryCatch(
+      maihda_eval_holding_conditions(quote(maihda_lmer_ml_from_call(fit, longitudinal)),
+                                     environment()),
+      error = function(e) NULL)
+  }
+  if (!is.null(own) && maihda_lmer_same_model(own$value, kept$value)) {
+    deviances <- vapply(list(kept, own), function(made) {
+      tryCatch(maihda_lmer_criterion(made$value), error = function(e) NA_real_)
+    }, numeric(1))
+    if (maihda_pick_lowest(deviances, tol) == 2L) {
+      kept <- list(value = own$value,
+                   conditions = Filter(maihda_is_optimiser_code_warning, own$conditions))
+    }
+  }
+  maihda_signal_conditions(kept$conditions)
+  kept$value
+}
+
+# lme4::refitML() of the REML lmer fit `fit`, checked when its optimiser reports a code: a
+# list of the refit kept (`value`) and of the warnings and messages to signal for it
+# (`conditions`), which the caller signals.
 # lme4::refitML() refits by minqa's bobyqa from the REML estimates, and at a variance of zero
 # or near it that optimiser can stop at the maximum with an exit code ("a trust region step
 # failed to reduce q"): in 2 to 6% of fits with a zero or small between-stratum variance, and
 # each of 56 such refits was within 5e-13 of the maximum-likelihood deviance, on builds of
 # lme4 and minqa with and without fused multiply-adds. A refit whose optimiser reports a code
 # (maihda_lme4_optimizer_failed()) is therefore made once more by lmer()'s default optimiser,
-# lme4::nloptwrap(), from the same estimates, and the refit with the lower deviance is
-# returned: the first unless the second is lower by more than `tol` (maihda_pick_lowest()).
-# The warnings and messages of the refit returned are signalled, without an optimiser's exit
-# code when the second refit ended without one. An error of the first refit passes through,
-# after what the refit had raised until then; a second refit that fails leaves the first as
-# lme4 returned it.
-#
-# Only an exit code is checked. A refit without one is returned as lme4 makes it, and neither
-# optimiser is the better one throughout: with a random slope on a standard-normal covariate
-# nloptwrap alone stopped up to 0.031 above the maximum that bobyqa reached, and with random
-# slopes on an age and a birth year bobyqa stops without a code more than 100 above the
-# maximum that nloptwrap comes within 0.25 of.
-maihda_ic_refit_ml <- function(fit, tol = 1e-4) {
+# lme4::nloptwrap(), from the same estimates, and the refit with the lower deviance is kept:
+# the first unless the second is lower by more than `tol` (maihda_pick_lowest()). Its
+# conditions are those it raised, without an optimiser's exit code when the second refit ended
+# without one. An error of the first refit passes through, after what the refit had raised
+# until then; a second refit that fails leaves the first as lme4 returned it. Neither
+# optimiser is the better one throughout: nloptwrap alone does not move from a variance just
+# above zero (0.06 and 0.22 above the maximum on a model with a context and on one with
+# crossed dimensions, both of which bobyqa fits to 1e-10), and with a slope on a birth year it
+# ended up to 1.04 above it.
+maihda_lmer_checked_refit <- function(fit, tol = 1e-4) {
   held <- list()
   hold <- function(restart) {
     function(cnd) {
@@ -493,16 +557,14 @@ maihda_ic_refit_ml <- function(fit, tol = 1e-4) {
     error = function(e) maihda_signal_conditions(held))
   first <- list(value = refit, conditions = held)
   if (!maihda_lme4_optimizer_failed(first$value)) {
-    maihda_signal_conditions(first$conditions)
-    return(first$value)
+    return(first)
   }
   second <- tryCatch(
     maihda_eval_holding_conditions(quote(lme4::refitML(fit, optimizer = "nloptwrap")),
                                    environment()),
     error = function(e) NULL)
   if (is.null(second)) {
-    maihda_signal_conditions(first$conditions)
-    return(first$value)
+    return(first)
   }
   refits <- list(first, second)
   deviances <- vapply(refits, function(refit) {
@@ -513,8 +575,56 @@ maihda_ic_refit_ml <- function(fit, tol = 1e-4) {
   if (!maihda_lme4_optimizer_failed(second$value)) {
     conditions <- Filter(Negate(maihda_is_optimiser_code_warning), conditions)
   }
-  maihda_signal_conditions(conditions)
-  kept$value
+  list(value = kept$value, conditions = conditions)
+}
+
+# The model of the REML lmer fit `fit` fitted by maximum likelihood from the fit's own call,
+# in the environment fit_maihda() evaluated it in and through the fitter fit_maihda() used: a
+# growth model (`longitudinal`, the object's $longitudinal_info) from lme4's starting values
+# with the restarts that apply to it (maihda_refit_growth_call()), any other model with the
+# refits of maihda_fit_lmer_slopes(). A numeric start in the call is that of the refit
+# fit_maihda() kept and is dropped; a model fitted from starting values of the user's own (a
+# name in the call), which fit_maihda() does not refit, is fitted from them alone. The fit's
+# warnings and messages are signalled as its fitter signals them, and its errors pass through.
+maihda_lmer_ml_from_call <- function(fit, longitudinal = NULL) {
+  call <- stats::getCall(fit)
+  env <- environment(stats::formula(fit))
+  call$REML <- FALSE
+  spec <- maihda_lme4_growth_spec(fit, longitudinal)
+  if (!is.null(spec)) {
+    return(maihda_refit_growth_call(fit, maihda_growth_fresh_call(call, env), env, spec))
+  }
+  if (is.numeric(call$start)) {
+    call$start <- NULL
+  }
+  if (is.null(longitudinal) && is.null(call$start)) {
+    maihda_fit_lmer_slopes(call, env)
+  } else {
+    eval(call, env)
+  }
+}
+
+# Whether `own`, a fit made from a call, is a maximum-likelihood lmer fit of the model of
+# `refit`: the same response, offset and prior weights, and the same fixed-effect and
+# random-effect design matrices. A call is evaluated on what it names at the time: when a
+# vector outside the data that an offset() term reads has changed since the model was fitted,
+# the call gives another model under the same formula, with a deviance of its own, while
+# lme4's refit carries the fit's own response, weights, offset and designs.
+maihda_lmer_same_model <- function(own, refit) {
+  same <- function(a, b) {
+    identical(dim(a), dim(b)) && length(a) == length(b) && isTRUE(all(a == b))
+  }
+  same_part <- function(what) same(lme4::getME(own, what), lme4::getME(refit, what))
+  # The rows, columns and positions of the non-zero entries of a sparse matrix.
+  pattern <- function(m) list(dim(m), m@i, m@p)
+  isTRUE(tryCatch({
+    Zt_own <- lme4::getME(own, "Zt")
+    Zt_refit <- lme4::getME(refit, "Zt")
+    inherits(own, "lmerMod") && !lme4::isREML(own) &&
+      same_part("y") && same_part("offset") &&
+      same(stats::weights(own), stats::weights(refit)) && same_part("X") &&
+      identical(pattern(Zt_own), pattern(Zt_refit)) && same(Zt_own@x, Zt_refit@x)
+  }, error = function(e) FALSE))
 }
 
 # Whether the condition `cnd` is the warning lme4 raises for an optimiser's exit code:

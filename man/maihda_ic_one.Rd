@@ -9,8 +9,8 @@ maihda_ic_one(model, ml = FALSE)
 \arguments{
 \item{model}{A \code{maihda_model}.}
 
-\item{ml}{Logical; for a REML \code{lmer} fit, refit with ML via
-\code{\link[lme4]{refitML}} before reading AIC/BIC (used when comparing
+\item{ml}{Logical; for a REML \code{lmer} fit, read AIC/BIC from its
+maximum-likelihood fit (\code{maihda_lmer_refit_ml()}; used when comparing
 models that may differ in fixed effects).}
 }
 \value{
