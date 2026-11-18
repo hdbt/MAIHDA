@@ -441,6 +441,17 @@ A maihda_model object containing:
     centred and scaled (a slope in a \code{diag()} block only scaled); the distance is
     \code{stationary_distance}, and lme4's
     messages are kept in \code{lme4_overruled} when the fit converged by it.
+    lme4's warnings are then not passed on: \code{print()} and \code{summary()} say
+    what lme4 warned of and how far the fit is. A fit that does not count as converged
+    keeps its warnings. lme4's gradient tolerance also lies inside the range in which
+    its optimisers stop, so it flags fits a few millionths of a deviance unit above
+    their optimum. A fit that lme4's checks flag is therefore first fitted once more
+    from its estimates, and that fit is returned when lme4 checks and accepts it and
+    its criterion is not higher by more than 1e-4: an \code{lmer()} fit with a tighter
+    stop of its optimiser (\code{xtol_rel = 1e-5}, \code{ftol_abs = 1e-10}) unless you
+    pass a \code{control}, a \code{glmer()} fit by its second stage with the control
+    of its call. A fit from your own \code{start} and a \code{glmer.nb()} fit are not
+    fitted again.
     lme4's singular-fit test, a diagonal entry of a random-effect block's relative
     Cholesky factor below 1e-4, is taken in the same units and can fire on a block
     with a slope on such a covariate that is not at the boundary: in an lmer fit, or a

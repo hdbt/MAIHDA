@@ -167,15 +167,18 @@ calculate_pcv(model_null2, model_adj, estimation = "REML")
 > **A note on adjusting for the strata's own categories.** If instead you add the
 > *categorical* main effects that define the strata (e.g.
 > `Obese ~ Gender + Race + Education + ...`) to recover the additive-vs-interaction
-> split shown in the [introduction](introduction.html), `glmer()` may warn that the
-> model "failed to converge" or "is nearly unidentifiable", most often when the model
-> also has a covariate far from zero or in large units, such as `Age` in years. lme4
-> takes its checks in the units of the covariates and with a tight tolerance, so they
-> can fire at the maximum itself. `fit_maihda()` then measures the fit with the fixed
-> effects centred and scaled, counts it as converged within a tenth of a standard
-> error of the maximum, and `print()` says what lme4 warned of and how far the fit is
-> from the maximum. Centring and scaling the covariate, together with
-> `control = lme4::glmerControl(optimizer = "bobyqa")`, usually avoids the warning.
+> split shown in the [introduction](introduction.html), lme4's convergence checks may
+> find that the model "failed to converge" or "is nearly unidentifiable", most often
+> when the model also has a covariate far from zero or in large units, such as `Age` in
+> years. lme4 takes its checks in the units of the covariates and with a tight
+> tolerance, so they can fire at the maximum itself. `fit_maihda()` fits such a model
+> once more from its estimates and returns that fit when lme4 accepts it. Otherwise it
+> measures the fit with the fixed effects centred and scaled, counts it as converged
+> within a tenth of a standard error of the maximum, and does not pass lme4's warning
+> on: `print()` says what lme4 warned of and how far the fit is from the maximum.
+> Centring and scaling the covariate, together with
+> `control = lme4::glmerControl(optimizer = "bobyqa")`, usually keeps lme4's checks
+> from firing.
 
 ## What "interaction" means on the logit scale
 

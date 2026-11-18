@@ -1749,8 +1749,10 @@ maihda_glmer_rise <- function(to, from) {
 # 0.1% of each estimate, and 1e-6 for an estimate below 1e-3 in size. The pass's pair unless it
 # ends higher than the fit by more than `tol` (maihda_glmer_rise()); NULL when the fit records
 # that optimiser already, when the control names a function, or when the pass fails or its
-# optimiser reports a failure.
-maihda_glmer_finish <- function(kept, fit_call, fit_env, tol = 1e-4) {
+# optimiser reports a failure. With `again`, a fit that records that optimiser already is
+# refitted by it once more: the refit of a fit that lme4's convergence checks flag
+# (maihda_lme4_flagged_refit()).
+maihda_glmer_finish <- function(kept, fit_call, fit_env, tol = 1e-4, again = FALSE) {
   model <- kept$value
   control <- if (is.null(fit_call$control)) {
     lme4::glmerControl()
@@ -1758,7 +1760,7 @@ maihda_glmer_finish <- function(kept, fit_call, fit_env, tol = 1e-4) {
     eval(fit_call$control, fit_env)
   }
   own <- control$optimizer[[length(control$optimizer)]]
-  if (!is.character(own) || identical(model@optinfo$optimizer, own)) {
+  if (!is.character(own) || (!isTRUE(again) && identical(model@optinfo$optimizer, own))) {
     return(NULL)
   }
   control$nAGQ0initStep <- FALSE
