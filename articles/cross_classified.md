@@ -130,7 +130,7 @@ intersection random intercept, and fits the single model:
 cc$formula
 #> BMI ~ Age + (1 | Gender) + (1 | Race) + (1 | Education) + (1 | 
 #>     stratum)
-#> <environment: 0x55fb22abf4a0>
+#> <environment: 0x55894a5ed738>
 ```
 
 The partition is on `cc$decomposition` (and printed above):
