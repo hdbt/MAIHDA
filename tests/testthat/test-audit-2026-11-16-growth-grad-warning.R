@@ -25,6 +25,11 @@
 # returns flagged, and with its warning, is in test-audit-2026-11-17-grad-warning-no-restarts.R.
 #
 # This file draws no random numbers.
+#
+# A singular fit that stands at an optimum takes the place of any fit that is not singular
+# before the rule above acts (maihda_pick_singular(),
+# test-audit-2026-11-17-flagged-beside-singular.R). The restarts "noted singular" below carry
+# lme4's note on a fit it does not call singular, so that rule leaves them alone.
 
 gg16_quiet <- function(expr) suppressWarnings(suppressMessages(expr))
 
@@ -259,7 +264,7 @@ test_that("the growth fitter keeps a restart lme4 accepted in place of a flagged
   expect_identical(h$value$k, 3L)
   expect_identical(h$seen, "message: fit 3\n")
   # No restart accepted: lmer's own fit, with lme4's warning. So too when the restarts are not
-  # flagged but were not checked either, as singular fits are.
+  # flagged but were not checked either, as fits too large for lme4's checks are.
   h <- kept(c(10, 10 - 2e-5, 10 + 3e-5), c(TRUE, TRUE, TRUE))
   expect_identical(h$value$k, 1L)
   expect_identical(h$seen, c("warning: lme4 flags fit 1", "message: fit 1\n"))

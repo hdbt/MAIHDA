@@ -378,12 +378,17 @@ test_that("lmer's own quadratic fit is returned unless a restart is lower by mor
   m <- fit()
   # lmer's own fit, through the same call without the restarts. Here lmer reaches the
   # optimum itself and its fit comes back unchanged; an optimiser that stops a little short
-  # of it is replaced by a fit lower by more than 1e-4.
+  # of it is replaced by a fit lower by more than 1e-4, or, where it stopped short of a
+  # variance bound, by a fit at the optimum that is on more bounds, within 1e-4 of it
+  # (test-audit-2026-11-17-flagged-beside-singular.R).
   local_mocked_bindings(maihda_growth_restarts_apply = function(...) FALSE)
   own <- fit()
   if (is.null(m$model@call$start)) {
     expect_identical(lme4::getME(m$model, "theta"), lme4::getME(own$model, "theta"))
     expect_identical(lme4::REMLcrit(m$model), lme4::REMLcrit(own$model))
+  } else if (sum(maihda_lme4_bounds_reached(m$model)) >
+             sum(maihda_lme4_bounds_reached(own$model))) {
+    expect_lt(lme4::REMLcrit(m$model), lme4::REMLcrit(own$model) + 1e-4)
   } else {
     expect_lt(lme4::REMLcrit(m$model), lme4::REMLcrit(own$model) - 1e-4)
   }
