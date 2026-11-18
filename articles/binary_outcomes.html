@@ -79,7 +79,7 @@
                         <h4 data-toc-skip class="author">Hamid
 Bulut</h4>
             
-            <h4 data-toc-skip class="date">2026-11-17</h4>
+            <h4 data-toc-skip class="date">2026-11-18</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/hdbt/MAIHDA/blob/main/vignettes/binary_outcomes.Rmd" class="external-link"><code>vignettes/binary_outcomes.Rmd</code></a></small>
       <div class="d-none name"><code>binary_outcomes.Rmd</code></div>
@@ -193,8 +193,8 @@ underlying latent scale, not on the probability scale.</p>
 <span><span class="co"><span style="color: #555555;">#&gt;   is a descriptive measure, not cross-validated out-of-sample discrimination.)</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="co">#&gt; <span style="font-weight: bold;">Fixed Effects (Wald z, 95% intervals):</span></span></span>
-<span><span class="co">#&gt;         term estimate      se statistic p_value  lower   upper</span></span>
-<span><span class="co">#&gt;  (Intercept)   -0.616 0.09028    -6.823 8.9e-12 -0.793 -0.4391</span></span>
+<span><span class="co">#&gt;         term estimate      se statistic  p_value  lower   upper</span></span>
+<span><span class="co">#&gt;  (Intercept)   -0.616 0.09028    -6.823 8.91e-12 -0.793 -0.4391</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Stratum Estimates (first 10):</span></span>
 <span><span class="co">#&gt;  stratum stratum_id                           label random_effect     se</span></span>
@@ -336,18 +336,20 @@ needs strata large enough for their own estimates to be precise (see
 <p><strong>A note on adjusting for the strata’s own categories.</strong>
 If instead you add the <em>categorical</em> main effects that define the
 strata (e.g. <code>Obese ~ Gender + Race + Education + ...</code>) to
-recover the additive-vs-interaction split shown in the <a href="introduction.html">introduction</a>, <code>glmer()</code> may warn
-that the model “failed to converge” or “is nearly unidentifiable”, most
-often when the model also has a covariate far from zero or in large
+recover the additive-vs-interaction split shown in the <a href="introduction.html">introduction</a>, lme4’s convergence checks may
+find that the model “failed to converge” or “is nearly unidentifiable”,
+most often when the model also has a covariate far from zero or in large
 units, such as <code>Age</code> in years. lme4 takes its checks in the
 units of the covariates and with a tight tolerance, so they can fire at
-the maximum itself. <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> then measures the fit with
-the fixed effects centred and scaled, counts it as converged within a
-tenth of a standard error of the maximum, and <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> says
+the maximum itself. <code><a href="../reference/fit_maihda.html">fit_maihda()</a></code> fits such a model once
+more from its estimates and returns that fit when lme4 accepts it.
+Otherwise it measures the fit with the fixed effects centred and scaled,
+counts it as converged within a tenth of a standard error of the
+maximum, and does not pass lme4’s warning on: <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> says
 what lme4 warned of and how far the fit is from the maximum. Centring
 and scaling the covariate, together with
 <code>control = lme4::glmerControl(optimizer = "bobyqa")</code>, usually
-avoids the warning.</p>
+keeps lme4’s checks from firing.</p>
 </blockquote>
 </div>
 <div class="section level2">
@@ -363,8 +365,6 @@ credibly non-zero:</p>
 <span>  data <span class="op">=</span> <span class="va">health_complete</span>, family <span class="op">=</span> <span class="st">"binomial"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.</span></span>
-<span><span class="co">#&gt; Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00300493 (tol = 0.002, component 1)</span></span>
-<span><span class="co">#&gt;   See ?lme4::convergence and ?lme4::troubleshooting.</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/maihda_interactions.html">maihda_interactions</a></span><span class="op">(</span><span class="va">model_int</span><span class="op">)</span></span>
 <span><span class="co">#&gt; ── <span style="font-weight: bold;">Intersectional interactions</span> ─────────────────────────────────────────────────</span></span>
@@ -376,9 +376,9 @@ credibly non-zero:</p>
 <span><span class="co"><span style="color: #555555;">#&gt;   scale = "response" returns it with its interval.</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
 <span><span class="co">#&gt;  stratum                       label   n interaction prob_diff     se  lower</span></span>
-<span><span class="co">#&gt;        8 male × White × Some College 328      0.3713   0.08962 0.0993 0.1767</span></span>
-<span><span class="co">#&gt;  upper   p_value p_adjusted flagged direction</span></span>
-<span><span class="co">#&gt;  0.566 0.0001844   0.009222    TRUE     above</span></span>
+<span><span class="co">#&gt;        8 male × White × Some College 328      0.3713    0.0896 0.0993 0.1766</span></span>
+<span><span class="co">#&gt;   upper   p_value p_adjusted flagged direction</span></span>
+<span><span class="co">#&gt;  0.5659 0.0001849   0.009245    TRUE     above</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   exploratory. See ?maihda_interactions.</span></span></span>
@@ -479,10 +479,10 @@ Ask for it with <code>scale = "response"</code>:</p>
 <span><span class="co"><span style="color: #555555;">#&gt;   interaction carried onto the outcome scale; flags match the</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   log-odds scale.</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; </span></span></span>
-<span><span class="co">#&gt;  stratum                       label   n interaction  lower  upper   p_value</span></span>
-<span><span class="co">#&gt;        8 male × White × Some College 328     0.08962 0.0419 0.1382 0.0001844</span></span>
+<span><span class="co">#&gt;  stratum                       label   n interaction   lower  upper   p_value</span></span>
+<span><span class="co">#&gt;        8 male × White × Some College 328      0.0896 0.04188 0.1381 0.0001849</span></span>
 <span><span class="co">#&gt;  p_adjusted flagged direction</span></span>
-<span><span class="co">#&gt;    0.009222    TRUE     above</span></span>
+<span><span class="co">#&gt;    0.009245    TRUE     above</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co"><span style="color: #555555;">#&gt; Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as</span></span></span>
 <span><span class="co"><span style="color: #555555;">#&gt;   exploratory. See ?maihda_interactions.</span></span></span>

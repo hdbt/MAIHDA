@@ -113,8 +113,8 @@ print(summary_null)
 #>   is a descriptive measure, not cross-validated out-of-sample discrimination.)
 #> 
 #> Fixed Effects (Wald z, 95% intervals):
-#>         term estimate      se statistic p_value  lower   upper
-#>  (Intercept)   -0.616 0.09028    -6.823 8.9e-12 -0.793 -0.4391
+#>         term estimate      se statistic  p_value  lower   upper
+#>  (Intercept)   -0.616 0.09028    -6.823 8.91e-12 -0.793 -0.4391
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id                           label random_effect     se
@@ -273,19 +273,21 @@ calculate_pcv(model_null2, model_adj, estimation = "REML")
 > `Obese ~ Gender + Race + Education + ...`) to recover the
 > additive-vs-interaction split shown in the
 > [introduction](https://hdbt.github.io/MAIHDA/articles/introduction.md),
-> `glmer()` may warn that the model “failed to converge” or “is nearly
-> unidentifiable”, most often when the model also has a covariate far
-> from zero or in large units, such as `Age` in years. lme4 takes its
-> checks in the units of the covariates and with a tight tolerance, so
-> they can fire at the maximum itself.
+> lme4’s convergence checks may find that the model “failed to converge”
+> or “is nearly unidentifiable”, most often when the model also has a
+> covariate far from zero or in large units, such as `Age` in years.
+> lme4 takes its checks in the units of the covariates and with a tight
+> tolerance, so they can fire at the maximum itself.
 > [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
-> then measures the fit with the fixed effects centred and scaled,
-> counts it as converged within a tenth of a standard error of the
-> maximum, and [`print()`](https://rdrr.io/r/base/print.html) says what
-> lme4 warned of and how far the fit is from the maximum. Centring and
-> scaling the covariate, together with
-> `control = lme4::glmerControl(optimizer = "bobyqa")`, usually avoids
-> the warning.
+> fits such a model once more from its estimates and returns that fit
+> when lme4 accepts it. Otherwise it measures the fit with the fixed
+> effects centred and scaled, counts it as converged within a tenth of a
+> standard error of the maximum, and does not pass lme4’s warning on:
+> [`print()`](https://rdrr.io/r/base/print.html) says what lme4 warned
+> of and how far the fit is from the maximum. Centring and scaling the
+> covariate, together with
+> `control = lme4::glmerControl(optimizer = "bobyqa")`, usually keeps
+> lme4’s checks from firing.
 
 ## What “interaction” means on the logit scale
 
@@ -301,8 +303,6 @@ model_int <- fit_maihda(
   data = health_complete, family = "binomial"
 )
 #> Binary outcome 'Obese' recoded to 0/1: 'No' = 0 (reference), 'Yes' = 1 (modeled event). Set the factor levels (or supply a 0/1 outcome) to control which level is the event.
-#> Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model failed to converge with max|grad| = 0.00300493 (tol = 0.002, component 1)
-#>   See ?lme4::convergence and ?lme4::troubleshooting.
 
 maihda_interactions(model_int)
 #> ── Intersectional interactions ─────────────────────────────────────────────────
@@ -314,9 +314,9 @@ maihda_interactions(model_int)
 #>   scale = "response" returns it with its interval.
 #> 
 #>  stratum                       label   n interaction prob_diff     se  lower
-#>        8 male × White × Some College 328      0.3713   0.08962 0.0993 0.1767
-#>  upper   p_value p_adjusted flagged direction
-#>  0.566 0.0001844   0.009222    TRUE     above
+#>        8 male × White × Some College 328      0.3713    0.0896 0.0993 0.1766
+#>   upper   p_value p_adjusted flagged direction
+#>  0.5659 0.0001849   0.009245    TRUE     above
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.
@@ -417,10 +417,10 @@ maihda_interactions(model_int, scale = "response")
 #>   interaction carried onto the outcome scale; flags match the
 #>   log-odds scale.
 #> 
-#>  stratum                       label   n interaction  lower  upper   p_value
-#>        8 male × White × Some College 328     0.08962 0.0419 0.1382 0.0001844
+#>  stratum                       label   n interaction   lower  upper   p_value
+#>        8 male × White × Some College 328      0.0896 0.04188 0.1381 0.0001849
 #>  p_adjusted flagged direction
-#>    0.009222    TRUE     above
+#>    0.009245    TRUE     above
 #> 
 #> Interaction BLUPs are shrunken (partially pooled) estimates; treat flags as
 #>   exploratory. See ?maihda_interactions.

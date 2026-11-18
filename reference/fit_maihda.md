@@ -390,7 +390,13 @@ fit_maihda(
   replaces lmer's fit when its REML criterion (deviance for a
   maximum-likelihood fit) is lower by more than 1e-4: lme4's default
   optimiser can stop at a boundary of a random-effect block away from
-  the optimum. With linear growth the starts are scaled by the
+  the optimum. When lme4's convergence check flags the fit that would be
+  kept and accepts another of these fits whose criterion is within 1e-4
+  of it, that one is kept: the check's tolerance lies within the range
+  in which the optimiser stops, so that the same optimum is flagged from
+  one start and not from another, and on one processor and not on
+  another. A singular fit, which lme4 does not check, does not take a
+  flagged fit's place. With linear growth the starts are scaled by the
   person-level block, with a positive and a negative stratum
   intercept-slope correlation; with quadratic or higher growth one start
   is lmer's fit of the same model on time centred at the middle of its
@@ -556,42 +562,56 @@ A maihda_model object containing:
   scaled (a slope in a [`diag()`](https://rdrr.io/r/base/diag.html)
   block only scaled); the distance is `stationary_distance`, and lme4's
   messages are kept in `lme4_overruled` when the fit converged by it.
-  lme4's singular-fit test, a diagonal entry of a random-effect block's
-  relative Cholesky factor below 1e-4, is taken in the same units and
-  can fire on a block with a slope on such a covariate that is not at
-  the boundary: in an lmer fit, or a glmer fit with `nAGQ` of 1 or more,
-  outside a longitudinal model, a block with a slope is at the boundary
-  when a diagonal entry of its factor with the terms centred and scaled
-  (in a block without an intercept, divided by their root mean square)
-  is below 0.01, and lme4's own verdict is `lme4_singular` where the two
-  differ. A fit with a [`diag()`](https://rdrr.io/r/base/diag.html),
-  `cs()` or `ar1()` block keeps lme4's test. A glmer fit (`nAGQ` of 1 or
-  more), or an lmer fit outside a longitudinal model, with the variance
-  of a random-effect block's first term, usually its intercept, at zero
-  (or, in a block of three or more terms, what is left of a later term's
-  variance after the terms before it, such as a quadratic growth block's
-  slope perfectly correlated with its intercept), where the likelihood
-  still rises as the block's variances and covariances move, or as that
-  variance and the term's covariances with the later terms move off
-  zero, has stopped at a bound of lme4's parametrisation and counts as
-  not converged; those blocks are in `boundary_traps`. A slope's entry
-  can lie within lme4's 1e-4 of that bound at its natural size when its
-  covariate is in large units, as a covariate in thousands is; such a
-  column is not at a bound (`at_bound` is `FALSE`), and the fit counts
-  as not converged when the likelihood still rises as the block's
-  variances and covariances move. An lmer fit outside a longitudinal
-  model that lme4 calls singular, which lme4 does not check further, or
-  one with a random slope that lme4 does not check because of its size
-  (by default one of 10,000 rows or more, or with 10 or more variance
-  parameters), counts as not converged when a search of the same model,
-  from lme4's starting values with each random-effect block's terms
-  centred and scaled and from a variance at zero moved off it, reaches a
-  REML criterion (deviance for a maximum-likelihood fit) 0.01 or more
-  below the fit's; that amount is `search_gain`. A fit refitted as
-  described under `formula` has been through those searches already, so
-  this concerns a fit made from your own `start` or a singular one
-  without a random slope. A glmer fit with `nAGQ` of 1 or more and a
-  random slope, outside a longitudinal model and with no
+  lme4's warnings are then not passed on:
+  [`print()`](https://rdrr.io/r/base/print.html) and
+  [`summary()`](https://rdrr.io/r/base/summary.html) say what lme4
+  warned of and how far the fit is. A fit that does not count as
+  converged keeps its warnings. lme4's gradient tolerance also lies
+  inside the range in which its optimisers stop, so it flags fits a few
+  millionths of a deviance unit above their optimum. A fit that lme4's
+  checks flag is therefore first fitted once more from its estimates,
+  and that fit is returned when lme4 checks and accepts it and its
+  criterion is not higher by more than 1e-4: an `lmer()` fit with a
+  tighter stop of its optimiser (`xtol_rel = 1e-5`, `ftol_abs = 1e-10`)
+  unless you pass a `control`, a `glmer()` fit by its second stage with
+  the control of its call. A fit from your own `start` and a
+  `glmer.nb()` fit are not fitted again. lme4's singular-fit test, a
+  diagonal entry of a random-effect block's relative Cholesky factor
+  below 1e-4, is taken in the same units and can fire on a block with a
+  slope on such a covariate that is not at the boundary: in an lmer fit,
+  or a glmer fit with `nAGQ` of 1 or more, outside a longitudinal model,
+  a block with a slope is at the boundary when a diagonal entry of its
+  factor with the terms centred and scaled (in a block without an
+  intercept, divided by their root mean square) is below 0.01, and
+  lme4's own verdict is `lme4_singular` where the two differ. A fit with
+  a [`diag()`](https://rdrr.io/r/base/diag.html), `cs()` or `ar1()`
+  block keeps lme4's test. A glmer fit (`nAGQ` of 1 or more), or an lmer
+  fit outside a longitudinal model, with the variance of a random-effect
+  block's first term, usually its intercept, at zero (or, in a block of
+  three or more terms, what is left of a later term's variance after the
+  terms before it, such as a quadratic growth block's slope perfectly
+  correlated with its intercept), where the likelihood still rises as
+  the block's variances and covariances move, or as that variance and
+  the term's covariances with the later terms move off zero, has stopped
+  at a bound of lme4's parametrisation and counts as not converged;
+  those blocks are in `boundary_traps`. A slope's entry can lie within
+  lme4's 1e-4 of that bound at its natural size when its covariate is in
+  large units, as a covariate in thousands is; such a column is not at a
+  bound (`at_bound` is `FALSE`), and the fit counts as not converged
+  when the likelihood still rises as the block's variances and
+  covariances move. An lmer fit outside a longitudinal model that lme4
+  calls singular, which lme4 does not check further, or one with a
+  random slope that lme4 does not check because of its size (by default
+  one of 10,000 rows or more, or with 10 or more variance parameters),
+  counts as not converged when a search of the same model, from lme4's
+  starting values with each random-effect block's terms centred and
+  scaled and from a variance at zero moved off it, reaches a REML
+  criterion (deviance for a maximum-likelihood fit) 0.01 or more below
+  the fit's; that amount is `search_gain`. A fit refitted as described
+  under `formula` has been through those searches already, so this
+  concerns a fit made from your own `start` or a singular one without a
+  random slope. A glmer fit with `nAGQ` of 1 or more and a random slope,
+  outside a longitudinal model and with no
   [`diag()`](https://rdrr.io/r/base/diag.html), `cs()` or `ar1()` block,
   that lme4 calls singular is searched from the fit with its
   random-effect terms and fixed effects centred and scaled, and counts

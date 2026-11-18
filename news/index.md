@@ -36,6 +36,31 @@
   intervals beside the variances and
   [`maihda_table()`](https://hdbt.github.io/MAIHDA/reference/maihda_table.md)
   shows them on the between-stratum variance and SD rows.
+- Gaussian growth models fitted by lme4 no longer keep a fit that lme4’s
+  convergence check flags when the check accepts one of the fits made
+  from further starts within 1e-4 of its criterion: that one is kept,
+  and lme4’s `Model failed to converge with max|grad|` warning is not
+  raised. It was a false alarm on the bundled `maihda_long_data`, 3e-6
+  to 6e-6 above the REML optimum, on processors with a 48 KB L1 data
+  cache and on Apple Silicon. Estimates of such fits move in the third
+  or fourth decimal. A singular fit, which lme4 does not check, does not
+  take a flagged fit’s place.
+- [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
+  fits an lme4 model that lme4’s convergence checks flag once more from
+  its estimates, an `lmer` fit with a tighter stop of its optimiser
+  (`xtol_rel = 1e-5`, `ftol_abs = 1e-10`) unless a `control` is passed,
+  a `glmer` fit by its second stage, and returns that fit when lme4
+  accepts it. Linear growth models without a stratum slope were flagged
+  in 2 to 12% of fits, 2e-6 to 2e-5 above the REML optimum, and so was
+  the logistic model with the strata’s main effects on
+  `maihda_health_data` under lme4 2.1-0.
+- lme4’s convergence warnings are no longer passed on for a fit that
+  counts as converged in `diagnostics` (within a tenth of a standard
+  error of a stationary point, measured in centred and scaled units);
+  `diagnostics$lme4_overruled`,
+  [`print()`](https://rdrr.io/r/base/print.html) and
+  [`summary()`](https://rdrr.io/r/base/summary.html) keep them. A fit
+  that does not count as converged keeps its warnings.
 
 ### Bug fixes
 

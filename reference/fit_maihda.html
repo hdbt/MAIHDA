@@ -404,7 +404,12 @@ variance and the residual, so this is a time-constant between-stratum
 from lme4's starting values and again from more starts, and a refit replaces lmer's
 fit when its REML criterion (deviance for a maximum-likelihood fit) is lower by more
 than 1e-4: lme4's default optimiser can stop at a boundary of a random-effect block
-away from the optimum. With linear growth the starts are scaled by the person-level
+away from the optimum. When lme4's convergence check flags the fit that would be kept
+and accepts another of these fits whose criterion is within 1e-4 of it, that one is
+kept: the check's tolerance lies within the range in which the optimiser stops, so that
+the same optimum is flagged from one start and not from another, and on one processor
+and not on another. A singular fit, which lme4 does not check, does not take a flagged
+fit's place. With linear growth the starts are scaled by the person-level
 block, with a positive and a negative stratum intercept-slope correlation; with
 quadratic or higher growth one start is lmer's fit of the same model on time
 centred at the middle of its range, and, when that refit and lmer's fit differ by
@@ -547,6 +552,17 @@ with the chains run in parallel (<code>cores &gt; 1</code>) as well.</p></dd>
     centred and scaled (a slope in a <code><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag()</a></code> block only scaled); the distance is
     <code>stationary_distance</code>, and lme4's
     messages are kept in <code>lme4_overruled</code> when the fit converged by it.
+    lme4's warnings are then not passed on: <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> and <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> say
+    what lme4 warned of and how far the fit is. A fit that does not count as converged
+    keeps its warnings. lme4's gradient tolerance also lies inside the range in which
+    its optimisers stop, so it flags fits a few millionths of a deviance unit above
+    their optimum. A fit that lme4's checks flag is therefore first fitted once more
+    from its estimates, and that fit is returned when lme4 checks and accepts it and
+    its criterion is not higher by more than 1e-4: an <code>lmer()</code> fit with a tighter
+    stop of its optimiser (<code>xtol_rel = 1e-5</code>, <code>ftol_abs = 1e-10</code>) unless you
+    pass a <code>control</code>, a <code>glmer()</code> fit by its second stage with the control
+    of its call. A fit from your own <code>start</code> and a <code>glmer.nb()</code> fit are not
+    fitted again.
     lme4's singular-fit test, a diagonal entry of a random-effect block's relative
     Cholesky factor below 1e-4, is taken in the same units and can fire on a block
     with a slope on such a covariate that is not at the boundary: in an lmer fit, or a
