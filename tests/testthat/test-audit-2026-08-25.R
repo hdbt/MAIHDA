@@ -1,8 +1,9 @@
 # Audit pass 2026-08-25: longitudinal fit-quality reporting (external report --
 # singular fits and "puzzling" slope PCVs on irregular, unevenly-spaced data).
 #
-# The estimation was never at fault: fit_maihda(id=, time=) reproduces a hand-coded
-# lmer of the same formula to the last digit. Four REPORTING defects were confirmed:
+# The estimation was never at fault: lmer's fit of the model fit_maihda(id=, time=)
+# builds is a hand-coded lmer of the same formula to the last digit. Four REPORTING
+# defects were confirmed:
 #
 #   1 lme4 files "boundary (singular) fit" in optinfo$conv$lme4$messages, and
 #     maihda_fit_diagnostics() read that list as the convergence verdict -- so a fit
@@ -382,14 +383,19 @@ test_that("stratum_slope is validated and its refusal messages stay truthful", {
 test_that("a longitudinal fit_maihda matches the hand-coded lmer exactly", {
   skip_on_cran()
   data(maihda_long_data, envir = environment())
-  # The fit compared is lmer's own: it is kept here whatever lme4's convergence check says of
-  # it on this machine, where a restart at the same optimum would take a flagged fit's place
-  # (maihda_pick_accepted()).
-  local_mocked_bindings(
-    maihda_pick_accepted = function(crit, flagged, accepted, kept, tol = 1e-4) kept)
+  # The fit compared is lmer's own. lme4's convergence check counts as passed here, whatever
+  # it says of that fit on this machine: a fit it flags gives way to a restart it accepts
+  # (maihda_pick_accepted()) or to its refit from its estimates
+  # (maihda_lme4_accepted_refit()), which is the same optimum reached by another path and
+  # not lmer's fit. Where lme4 flags lmer's fit of this panel (Apple Silicon, processors
+  # with a 48 KB L1 data cache) the refit's variance parameters differ from lmer's by up to
+  # 3.3e-4.
+  local_mocked_bindings(maihda_lme4_check_flagged = function(model) FALSE)
   m <- suppressMessages(suppressWarnings(
     fit_maihda(wellbeing ~ wave + (1 | gender:ethnicity:education),
                data = maihda_long_data, id = "id", time = "wave")))
+  # lmer's own fit starts where lme4 starts it; a restart or a refit carries its start.
+  expect_null(m$model@call$start)
   hand_data <- m$data           # carries the resolved 'stratum' column
   hand <- suppressMessages(suppressWarnings(lme4::lmer(
     wellbeing ~ wave + (wave | id) + (wave | stratum), data = hand_data)))
