@@ -410,6 +410,17 @@
 #'     centred and scaled (a slope in a \code{diag()} block only scaled); the distance is
 #'     \code{stationary_distance}, and lme4's
 #'     messages are kept in \code{lme4_overruled} when the fit converged by it.
+#'     lme4's warnings are then not passed on: \code{print()} and \code{summary()} say
+#'     what lme4 warned of and how far the fit is. A fit that does not count as converged
+#'     keeps its warnings. lme4's gradient tolerance also lies inside the range in which
+#'     its optimisers stop, so it flags fits a few millionths of a deviance unit above
+#'     their optimum. A fit that lme4's checks flag is therefore first fitted once more
+#'     from its estimates, and that fit is returned when lme4 checks and accepts it and
+#'     its criterion is not higher by more than 1e-4: an \code{lmer()} fit with a tighter
+#'     stop of its optimiser (\code{xtol_rel = 1e-5}, \code{ftol_abs = 1e-10}) unless you
+#'     pass a \code{control}, a \code{glmer()} fit by its second stage with the control
+#'     of its call. A fit from your own \code{start} and a \code{glmer.nb()} fit are not
+#'     fitted again.
 #'     lme4's singular-fit test, a diagonal entry of a random-effect block's relative
 #'     Cholesky factor below 1e-4, is taken in the same units and can fire on a block
 #'     with a slope on such a covariate that is not at the boundary: in an lmer fit, or a
@@ -1103,6 +1114,8 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # random slope, has made the fit from its searches, which maihda_fit_diagnostics()
   # otherwise runs on such a fit when lme4 calls it singular.
   searched <- FALSE
+  # The warnings and messages an lme4 fit raised, held until its record is made.
+  fit_conditions <- NULL
   if (engine == "wemix") {
     # Design-weighted pseudo-ML fit. The guard above bans data-masked engine
     # arguments (weights/subset/offset) for wemix, so the remaining dots are plain
@@ -1282,14 +1295,14 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # more, is refitted from more starting points and the fit with the lowest criterion is
   # kept: lmer's default optimiser can stop at a boundary of a random-effect block away
   # from the optimum (see maihda_fit_lmer_growth()).
-  model <- if (maihda_growth_restarts_apply(fit_fun, longitudinal_info, dot_vals)) {
-    maihda_fit_lmer_growth(fit_call, fit_env, longitudinal_info$id,
-                           time = maihda_lng_time_term(longitudinal_info),
-                           time_degree = longitudinal_info$time_degree)
-  } else {
-    # A glmer growth model is refitted from more starts and across a bound its first fit
-    # can stop at (see maihda_fit_glmer_growth()).
-    if (maihda_glmer_growth_applies(fit_fun, longitudinal_info, dot_vals)) {
+  fit_model <- function() {
+    if (maihda_growth_restarts_apply(fit_fun, longitudinal_info, dot_vals)) {
+      maihda_fit_lmer_growth(fit_call, fit_env, longitudinal_info$id,
+                             time = maihda_lng_time_term(longitudinal_info),
+                             time_degree = longitudinal_info$time_degree)
+    } else if (maihda_glmer_growth_applies(fit_fun, longitudinal_info, dot_vals)) {
+      # A glmer growth model is refitted from more starts and across a bound its first fit
+      # can stop at (see maihda_fit_glmer_growth()).
       maihda_fit_glmer_growth(fit_call, fit_env, longitudinal_info$id)
     } else if (maihda_glmer_bound_applies(fit_fun, longitudinal_info, dot_vals)) {
       # Any other glmer fit is refitted once from across such a bound, which only a
@@ -1297,22 +1310,38 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
       # with its random effects and fixed effects re-expressed (see
       # maihda_fit_glmer_bound()).
       bound_fit <- maihda_fit_glmer_bound(fit_call, fit_env)
-      searched <- isTRUE(tryCatch(maihda_lme4_has_slope(bound_fit), error = function(e) FALSE))
+      searched <<- isTRUE(tryCatch(maihda_lme4_has_slope(bound_fit), error = function(e) FALSE))
       bound_fit
     } else if (maihda_lmer_slopes_apply(fit_fun, longitudinal_info, dot_vals, formula)) {
       # An lmer fit with a random slope is refitted from across such a bound, from a start
       # carried back from its random-effect blocks' terms centred and scaled, and from a
       # variance at zero where the criterion falls off zero (see maihda_fit_lmer_slopes()).
-      searched <- TRUE
+      searched <<- TRUE
       maihda_fit_lmer_slopes(fit_call, fit_env)
     } else {
       eval(fit_call, fit_env)
     }
   }
   if (engine == "lme4") {
+    # What the fit raises is held until its record is made (below), and a fit that lme4's
+    # convergence checks flag is refitted once from its estimates, the refit returned when
+    # lme4 accepts it (see maihda_lme4_accepted_refit()); a fit from starting values of the
+    # user's own is left as it is.
+    fitted <- maihda_hold_fit_conditions(fit_model())
+    lmm <- identical(fit_fun, quote(lme4::lmer))
+    own_start <- "start" %in% names(maihda_resolve_dot_names(
+      dot_vals, if (lmm) lme4::lmer else lme4::glmer,
+      if (lmm) c("formula", "data") else c("formula", "data", "family"), watch = "start"))
+    if (!own_start) {
+      fitted <- maihda_lme4_accepted_refit(fitted, fit_call, fit_env)
+    }
+    model <- fitted$value
+    fit_conditions <- fitted$conditions
     # The call names its control by a binding of `fit_env`, where lme4::bootMer() and
     # confint(method = "boot") do not look (see maihda_lme4_call_control()).
     model@call$control <- maihda_lme4_call_control(model@call$control, fit_env)
+  } else {
+    model <- fit_model()
   }
 
   }
@@ -1322,6 +1351,9 @@ fit_maihda <- function(formula, data, engine = "lme4", family = "gaussian",
   # convergence warnings only once at fit time. longitudinal_info (id / time) lets the
   # adequacy pass compute within-unit residual autocorrelation.
   diagnostics <- maihda_fit_diagnostics(model, longitudinal_info, searched = searched)
+  # What an lme4 fit raised is passed on now, without the warnings of lme4's convergence
+  # checks when the record calls the fit converged (maihda_lme4_conditions_passed_on()).
+  maihda_signal_conditions(maihda_lme4_conditions_passed_on(fit_conditions, diagnostics))
 
   # Store the actual analytic model frame so downstream calculations use the
   # same rows as lme4/brms after their NA handling. The wemix and ordinal paths
@@ -1495,6 +1527,138 @@ maihda_lme4_call_control <- function(control, env) {
   } else {
     control
   }
+}
+
+# ---- a fit that lme4's convergence checks flag ------------------------------------------
+
+# The value of `expr`, a fit, with the warnings and messages it raised held back, in the order
+# raised: a value / conditions pair as maihda_eval_holding_conditions() returns. When the fit
+# stops with an error, what it had raised until then is signalled before the error passes.
+maihda_hold_fit_conditions <- function(expr) {
+  held <- list()
+  hold <- function(restart) {
+    function(cnd) {
+      held[[length(held) + 1L]] <<- cnd
+      invokeRestart(restart)
+    }
+  }
+  value <- withCallingHandlers(
+    expr,
+    warning = hold("muffleWarning"),
+    message = hold("muffleMessage"),
+    error = function(e) maihda_signal_conditions(held))
+  list(value = value, conditions = held)
+}
+
+# The control of the refit of an lmer fit that lme4's convergence checks flag
+# (maihda_lme4_flagged_refit()), as written into that refit's call. lmer's default optimiser
+# (lme4::nloptwrap(), NLopt's BOBYQA) stops on nloptr's default xtol_rel of 1e-4, which sets
+# its last trust-region radius, or on lme4's own ftol_abs of 1e-8 (10 and 3 of 13 flagged
+# linear growth fits without a stratum slope on 576 rows; a smaller xtol_abs changed none of
+# 73 fits), and so 1e-8 to 1e-4 above the optimum, while lme4's gradient check, 0.002 on a
+# scaled gradient, asks for about 2e-6 or less. With xtol_rel at 1e-5 and ftol_abs at 1e-10 a
+# refit from the estimates ended 1e-10 to 6e-10 above the optimum (medians of four designs),
+# in about half the fit's evaluations.
+.maihda_flagged_refit_control <- quote(
+  lme4::lmerControl(optCtrl = list(xtol_rel = 1e-5, ftol_abs = 1e-10)))
+
+# The refit of the lme4 fit `model`, which `fit_call` (evaluated in `fit_env`) made and lme4's
+# convergence checks flag: a value / conditions pair, or NULL when there is none to offer. An
+# lmer fit is fitted again from its variance parameters, with the stop of
+# `.maihda_flagged_refit_control` when the call gives lmer() no control, under any spelling
+# lmer() binds to `control`, and with the call's own otherwise; NULL when the refit ends more
+# than `tol` above the fit in its criterion. A glmer fit is fitted again from its estimates by
+# glmer's second stage with the call's own control (maihda_glmer_finish()). A glmer.nb fit is
+# not refitted: its dispersion would be searched again.
+maihda_lme4_flagged_refit <- function(model, fit_call, fit_env, tol = 1e-4) {
+  if (identical(fit_call[[1L]], quote(lme4::lmer))) {
+    refit_call <- fit_call
+    refit_call$start <- unname(lme4::getME(model, "theta"))
+    bound <- tryCatch(names(as.list(match.call(lme4::lmer, fit_call))),
+                      error = function(e) names(fit_call))
+    if (!"control" %in% bound) {
+      refit_call$control <- .maihda_flagged_refit_control
+    }
+    refit <- maihda_eval_holding_conditions(refit_call, fit_env)
+    rise <- maihda_lmer_criterion(refit$value) - maihda_lmer_criterion(model)
+    if (isTRUE(rise <= tol)) refit else NULL
+  } else if (identical(fit_call[[1L]], quote(lme4::glmer))) {
+    maihda_glmer_finish(list(value = model, conditions = list()), fit_call, fit_env, tol,
+                        again = TRUE)
+  } else {
+    NULL
+  }
+}
+
+# The fit fit_maihda() returns for `fitted`, the value / conditions pair of an lme4 fit made
+# by `fit_call` in `fit_env`: `fitted` itself unless lme4's convergence checks flag it
+# (maihda_lme4_check_flagged()) and lme4 checks and accepts its refit
+# (maihda_lme4_flagged_refit(), maihda_lme4_check_accepted()); then that refit, with what it
+# raised. A refit that fails, that lme4 flags too, that it did not check (a singular one) or
+# whose optimiser reports a failure leaves `fitted` as it is, with lme4's warning, and leaves
+# `fit_env` as it found it: the refit of a glmer fit binds its control there under a name the
+# fit's own call may carry already (`.maihda_arg_finish_control`, maihda_glmer_finish()).
+#
+# lme4 flags fits that lie at their optimum for every purpose: its gradient tolerance lies
+# inside the range in which its optimisers stop. Linear growth fits without a stratum slope,
+# which are fitted once, were flagged in 13 of 600 on 576 rows, in 28 of 300 numerically
+# equivalent copies of the bundled panel maihda_long_data, in 23 of 200 on 3,000 rows and in 7
+# of 60 on 8,000, each 1.9e-6 to 2.0e-5 above the REML optimum (an SD within 1% of the
+# optimum's, or within 0.008 residual SDs of a variance of zero there; the baseline VPC within
+# 2.3e-4), and the refit was accepted for 70 of those 71 and for all 12 flagged fits of the
+# logistic model with the strata's main effects on the bundled maihda_health_data (5e-6 to
+# 1.2e-4 above the maximum). Quadratic growth fits without a stratum slope, whose candidates
+# lme4 often flags from every start, were returned flagged by their fitter in 40 of 120 and 41
+# of 90 when it chose by maihda_pick_accepted() alone; the refit was accepted for 22 and 27 of
+# them and ended singular, where the optimum is singular, for 14 and 10. lme4's checks also
+# fire at the optimum itself where a covariate is far from zero or in large units (19 of 22
+# flagged fits with a random slope on an age in years); there no refit is accepted, and the
+# record's own measure decides (maihda_lme4_conditions_passed_on()).
+maihda_lme4_accepted_refit <- function(fitted, fit_call, fit_env, tol = 1e-4) {
+  if (!maihda_lme4_check_flagged(fitted$value)) {
+    return(fitted)
+  }
+  bound <- ".maihda_arg_finish_control"
+  had <- exists(bound, envir = fit_env, inherits = FALSE)
+  before <- if (had) get(bound, envir = fit_env, inherits = FALSE)
+  refit <- tryCatch(maihda_lme4_flagged_refit(fitted$value, fit_call, fit_env, tol),
+                    error = function(e) NULL)
+  if (is.null(refit) || !maihda_lme4_check_accepted(refit$value)) {
+    if (had) {
+      assign(bound, before, envir = fit_env)
+    } else if (exists(bound, envir = fit_env, inherits = FALSE)) {
+      rm(list = bound, envir = fit_env)
+    }
+    return(fitted)
+  }
+  refit
+}
+
+# `conditions`, the warnings and messages an lme4 fit raised, as fit_maihda() passes them on
+# once the fit's record `diagnostics` (maihda_fit_diagnostics()) is made: without the
+# warnings of lme4's convergence checks when the record calls the fit converged and holds
+# lme4's messages in `lme4_overruled`, where print() and summary() report them. lme4 words
+# such a warning as the messages it leaves in the fit (model@optinfo$conv$lme4$messages): its
+# gradient check raises a warning for each of its messages, and its Hessian check, which a
+# glmer fit gets for its fixed effects and again for all its parameters, one warning for all
+# the messages of a pass, joined by ";" (a very large eigenvalue and a large eigenvalue ratio
+# come as one). The warnings dropped are therefore those whose text is one of the overruled
+# messages or several that follow each other, joined so, each time it was raised: glmer.nb()
+# raises the same text for fits it makes on its way to the one it returns. A fit the record
+# does not call converged keeps every warning, and so does one whose optimiser reported a
+# failure, which the record never overrules.
+maihda_lme4_conditions_passed_on <- function(conditions, diagnostics) {
+  overruled <- trimws(as.character(unlist(diagnostics$lme4_overruled)))
+  if (!length(conditions) || !isTRUE(diagnostics$converged) || !length(overruled)) {
+    return(conditions)
+  }
+  n <- length(overruled)
+  texts <- unlist(lapply(seq_len(n), function(i) {
+    vapply(i:n, function(j) paste(overruled[i:j], collapse = ";"), character(1))
+  }))
+  Filter(function(cnd) {
+    !(inherits(cnd, "warning") && trimws(conditionMessage(cnd)) %in% texts)
+  }, conditions)
 }
 
 # Resolve the intersectional-strata shorthand in a MAIHDA formula. Automatic

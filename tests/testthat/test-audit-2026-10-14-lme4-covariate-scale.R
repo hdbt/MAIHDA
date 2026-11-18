@@ -376,9 +376,17 @@ test_that("compare_maihda_groups() does not name groups whose fits are at their 
              cbind(country = "B", lc14_strata(shift = c(0.6, -0.5, 0.1, 0.9, -0.7, 0.3))))
   obs <- lc14_observe(compare_maihda_groups(yb ~ birth + (1 | gender:ses), data = d,
                                             group = "country", family = "binomial"))
-  # lme4 warns about every group's fit, as before ...
-  expect_true(any(grepl("failed to converge", obs$warns, fixed = TRUE)))
-  # ... but no group is named as not converged.
+  # lme4's checks flag every group's fit (the premise, on one group) ...
+  one <- suppressMessages(suppressWarnings(fit_maihda(yb ~ birth + (1 | gender:ses),
+                                                      data = d[d$country == "A", ],
+                                                      family = "binomial")))
+  said <- unlist(one$model@optinfo$conv$lme4$messages)
+  expect_gt(length(said), 0L)
+  expect_true(one$diagnostics$converged)
+  expect_length(one$diagnostics$lme4_overruled, length(said))
+  # ... but each record calls its fit converged, so lme4's warnings are not passed on, and no
+  # group is named as not converged.
+  expect_false(any(grepl("failed to converge|unidentifiable", obs$warns)))
   expect_false(any(grepl("did not converge", obs$warns, fixed = TRUE)))
   expect_identical(obs$res$status, c("ok", "ok"))
 })

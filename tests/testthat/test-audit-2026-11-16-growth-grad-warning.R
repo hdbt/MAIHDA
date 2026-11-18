@@ -19,9 +19,10 @@
 # convergence checks flag the chosen fit (maihda_lme4_check_flagged()) and lme4 checked and
 # accepted another whose criterion is within 1e-4 of it (maihda_lme4_check_accepted()), keeps
 # the lowest of those (maihda_pick_accepted()). A chosen fit that lme4 does not flag stays, and
-# so does a flagged one without such a neighbour, with its warning. A fit lme4 has not checked
-# (a singular one, one too large for its checks) or whose optimiser reports a failure takes no
-# flagged fit's place.
+# so does a flagged one without such a neighbour, which the fitter returns with lme4's warning.
+# A fit lme4 has not checked (a singular one, one too large for its checks) or whose optimiser
+# reports a failure takes no flagged fit's place. What fit_maihda() does with a fit the fitter
+# returns flagged, and with its warning, is in test-audit-2026-11-17-grad-warning-no-restarts.R.
 #
 # This file draws no random numbers.
 
@@ -332,13 +333,15 @@ test_that("fit_maihda() returns a restart lme4 accepted when lme4 flags lmer's o
   expect_false(grepl("lme4 warned|failed to converge", gg16_printed(m)))
 })
 
-# The blocks below pin what the remedy leaves alone; they pass without it too.
+# The blocks below pin what the growth fitter leaves alone. Each later fit of the call, the one
+# fit_maihda() makes from a flagged fit's estimates included, is written as its restarts are.
 
-test_that("a growth fit flagged from every start keeps lmer's own fit, lme4's warning and its record", {
+test_that("a growth fit flagged from every start keeps lmer's own fit and its record", {
   skip_on_cran()
   h <- gg16_fit_with(first = TRUE, restarts = "flagged")
   m <- h$value
-  expect_identical(h$seen, paste("warning:", gg16_message))
+  # The record calls the fit converged, so lme4's warning is not passed on.
+  expect_identical(h$seen, character(0))
   expect_true(gg16_gradient_flag(m$model))
   expect_null(stats::getCall(m$model)$start)
   # The record measures the fit and overrules lme4, and print() says so.
@@ -354,9 +357,10 @@ test_that("restarts lme4 did not check, or whose optimiser failed, take no flagg
   skip_on_cran()
   for (left in c("unchecked", "noted singular", "failed")) {
     h <- gg16_fit_with(first = TRUE, restarts = left)
-    expect_identical(h$seen, paste("warning:", gg16_message))
+    expect_identical(h$seen, character(0))
     expect_true(gg16_gradient_flag(h$value$model))
     expect_null(stats::getCall(h$value$model)$start)
+    expect_identical(h$value$diagnostics$lme4_overruled, gg16_message)
   }
 })
 
