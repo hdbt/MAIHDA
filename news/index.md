@@ -43,8 +43,22 @@
   raised. It was a false alarm on the bundled `maihda_long_data`, 3e-6
   to 6e-6 above the REML optimum, on processors with a 48 KB L1 data
   cache and on Apple Silicon. Estimates of such fits move in the third
-  or fourth decimal. A singular fit, which lme4 does not check, does not
-  take a flagged fit’s place.
+  or fourth decimal.
+- Gaussian growth models fitted by lme4 keep, in place of the fit with
+  the lowest criterion, a fit within 1e-4 of it that stands at an
+  optimum on every variance bound that fit is on and on at least one
+  more, whether or not lme4 flagged the fit. Where the optimum lies on a
+  variance bound, lmer’s own fit can stop just short of it (4.8% of
+  linear growth fits with a stratum slope and 18.1% of quadratic ones
+  without, in simulated designs): the variance that is zero at the
+  optimum was then a small number, reported without the singular-fit
+  caveat where the fit was on no other bound, often with lme4’s
+  `Model failed to converge with max|grad|` warning, and divided by in a
+  PCV (a `PCV_intercept` of 0.94 or of -15,600,000 where the fit on the
+  bound gives `NA`). VPC(t) moves by at most 0.002; a PCV between two
+  small variances can move by much more. lme4 does not check a singular
+  fit: the package measures its distance from a stationary point of the
+  criterion, and a fit not within 1e-4 of one takes no fit’s place.
 - [`fit_maihda()`](https://hdbt.github.io/MAIHDA/reference/fit_maihda.md)
   fits an lme4 model that lme4’s convergence checks flag once more from
   its estimates, an `lmer` fit with a tighter stop of its optimiser
