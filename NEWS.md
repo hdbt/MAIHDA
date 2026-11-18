@@ -1,4 +1,4 @@
-# MAIHDA (development version)
+# MAIHDA 0.3.1
 
 ## New features
 
