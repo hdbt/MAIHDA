@@ -113,8 +113,8 @@ print(summary_null)
 #>   is a descriptive measure, not cross-validated out-of-sample discrimination.)
 #> 
 #> Fixed Effects (Wald z, 95% intervals):
-#>         term estimate      se statistic  p_value  lower   upper
-#>  (Intercept)   -0.616 0.09028    -6.823 8.91e-12 -0.793 -0.4391
+#>         term estimate      se statistic p_value  lower   upper
+#>  (Intercept)   -0.616 0.09028    -6.823 8.9e-12 -0.793 -0.4391
 #> 
 #> Stratum Estimates (first 10):
 #>  stratum stratum_id                           label random_effect     se

@@ -74,14 +74,14 @@ summary(m)
 #>   Estimate: 0.3985
 #> 
 #> Variance Components:
-#>                                            component variance     sd
-#>                Between-stratum: intercept (time = 0)  0.40774 0.6385
-#>                        Between-stratum: slope (wave)  0.04284 0.2070
-#>          Between-stratum: intercept-slope covariance  0.08848     NA
-#>        Between-individual (id): intercept (time = 0)  0.25558 0.5055
-#>                Between-individual (id): slope (wave)  0.01936 0.1391
-#>  Between-individual (id): intercept-slope covariance -0.00110     NA
-#>                                    Within (residual)  0.35982 0.5999
+#>                                            component  variance     sd
+#>                Between-stratum: intercept (time = 0)  0.407740 0.6385
+#>                        Between-stratum: slope (wave)  0.042841 0.2070
+#>          Between-stratum: intercept-slope covariance  0.088475     NA
+#>        Between-individual (id): intercept (time = 0)  0.255604 0.5056
+#>                Between-individual (id): slope (wave)  0.019360 0.1391
+#>  Between-individual (id): intercept-slope covariance -0.001105     NA
+#>                                    Within (residual)  0.359817 0.5998
 #> 
 #> Time-varying VPC/ICC (between-stratum share over wave):
 #>   range 0.3985 to 0.6628 across wave in [0, 4].
@@ -98,22 +98,22 @@ summary(m)
 #> 
 #> Fixed Effects (Wald t, 95% intervals):
 #>         term  estimate     se statistic df  p_value   lower  upper
-#>  (Intercept)  4.986465 0.1870   26.6719 10 1.27e-10  4.5699 5.4030
+#>  (Intercept)  4.986466 0.1870   26.6721 10 1.27e-10  4.5699 5.4030
 #>         wave -0.006306 0.0607   -0.1039 10    0.919 -0.1415 0.1289
 #>   df: containment (between-within).
 #> 
 #> Stratum baseline (intercept) deviations (first 10):
 #>  stratum stratum_id               label random_effect      se lower_95 upper_95
-#>        1          1    Men × EthB × Low      -0.63793 0.08953 -0.81340  -0.4625
+#>        1          1    Men × EthB × Low      -0.63794 0.08953 -0.81341  -0.4625
 #>        2          2  Women × EthB × Low      -0.06461 0.08594 -0.23306   0.1038
 #>        3          3   Men × EthA × High       0.86073 0.07782  0.70820   1.0133
-#>        4          4   Men × EthB × High       0.09123 0.10259 -0.10985   0.2923
+#>        4          4   Men × EthB × High       0.09123 0.10259 -0.10986   0.2923
 #>        5          5 Women × EthA × High       0.93600 0.08804  0.76344   1.1086
-#>        6          6 Women × EthC × High       0.35847 0.13544  0.09300   0.6239
-#>        7          7   Men × EthC × High      -0.11459 0.13286 -0.37500   0.1458
-#>        8          8    Men × EthA × Low      -0.32848 0.07050 -0.46665  -0.1903
+#>        6          6 Women × EthC × High       0.35847 0.13545  0.09299   0.6239
+#>        7          7   Men × EthC × High      -0.11459 0.13287 -0.37501   0.1458
+#>        8          8    Men × EthA × Low      -0.32848 0.07050 -0.46666  -0.1903
 #>        9          9  Women × EthA × Low       0.15991 0.07326  0.01633   0.3035
-#>       10         10    Men × EthC × Low      -0.82706 0.13286 -1.08747  -0.5667
+#>       10         10    Men × EthC × Low      -0.82707 0.13287 -1.08748  -0.5667
 #>   ... and 2 more strata
 #>   (random slope not shown; use predict(type = "strata") for the per-stratum intercept and slope, or plot(type = "trajectories")).
 ```
@@ -176,7 +176,7 @@ equation (5):
 s <- summary(m)
 c(intercept = s$longitudinal$vpc_intercept, slope = s$longitudinal$vpc_slope)
 #> intercept     slope 
-#> 0.6146997 0.6887613
+#> 0.6146735 0.6887533
 ```
 
 These ask how intersectionally patterned people’s *trajectories* are –
